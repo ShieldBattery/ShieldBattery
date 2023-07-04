@@ -4,7 +4,6 @@ import {
   MatchmakingMapPool,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapPoolState {
@@ -43,7 +42,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.byType.set(meta.type, fromMatchmakingMapPoolJson(payload.pool))
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

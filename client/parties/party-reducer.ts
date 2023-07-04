@@ -3,7 +3,6 @@ import { Immutable } from 'immer'
 import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { SbMessage, TextMessageRecord } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import {
@@ -333,7 +332,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     )
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

@@ -2,7 +2,6 @@ import { NydusClient } from 'nydus-client'
 import { batch } from 'react-redux'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
-import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
@@ -27,15 +26,15 @@ function networkStatusHandler({
   // TODO(tec27): we could probably pass through reconnecting status as well
   siteSocket
     .on('connect', () => {
-      dispatch({ type: NETWORK_SITE_CONNECTED } as any)
       logger.verbose('site socket connected')
+      dispatch({ type: '@network/connect' })
       if (ipcRenderer) {
         ipcRenderer.send('networkSiteConnected')
       }
     })
     .on('disconnect', () => {
-      dispatch({ type: NETWORK_SITE_DISCONNECTED } as any)
       logger.verbose('site socket disconnected')
+      dispatch({ type: '@network/disconnect' })
     })
 }
 

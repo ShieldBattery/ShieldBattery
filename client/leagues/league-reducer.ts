@@ -1,7 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
 import { SbUserId } from '../../common/users/sb-user'
-import { NETWORK_SITE_DISCONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LeagueState {
@@ -70,7 +69,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.leaderboardUsers.set(league.id, new Map(leagueUsers.map(l => [l.userId, l])))
   },
 
-  [NETWORK_SITE_DISCONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

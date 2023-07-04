@@ -6,7 +6,6 @@ import {
   UserRelationshipKind,
 } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface RelationshipState {
@@ -101,7 +100,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.friendActivityStatus.set(userId, status)
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

@@ -4,7 +4,6 @@ import {
   MatchmakingStatus,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MatchmakingStatusState {
@@ -22,7 +21,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  [NETWORK_SITE_CONNECTED as any](state: any, action: any) {
+  ['@network/connect'](state: any, action: any) {
     return DEFAULT_STATE
   },
 })

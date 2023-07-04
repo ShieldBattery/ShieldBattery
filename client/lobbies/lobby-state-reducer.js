@@ -1,5 +1,5 @@
 import { Map, Record } from 'immutable'
-import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN, NETWORK_SITE_CONNECTED } from '../actions'
+import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const LobbyState = Record({
@@ -36,7 +36,7 @@ export default keyedReducer(new Map(), {
     )
   },
 
-  [NETWORK_SITE_CONNECTED](state, action) {
+  ['@network/connect'](state, action) {
     return new Map()
   },
 })

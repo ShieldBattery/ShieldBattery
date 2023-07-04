@@ -13,7 +13,7 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
-import { LOBBY_UPDATE_CHAT_MESSAGE, NETWORK_SITE_CONNECTED } from '../actions'
+import { LOBBY_UPDATE_CHAT_MESSAGE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -514,7 +514,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateChannelInfos(state, action.payload.channelMentions)
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_CHAT_STATE
   },
 })

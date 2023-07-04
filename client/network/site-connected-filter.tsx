@@ -30,7 +30,7 @@ interface SiteConnectedFilterProps {
 
 export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
   const { t } = useTranslation()
-  const isConnected = useAppSelector(state => state.network.site.isConnected)
+  const isConnected = useAppSelector(state => state.network.isConnected)
 
   useEffect(() => {
     siteSocket.connect()

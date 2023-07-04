@@ -25,7 +25,6 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_SLOT_DELETED,
-  NETWORK_SITE_CONNECTED,
 } from '../actions'
 import { TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
@@ -144,7 +143,7 @@ const infoReducer = keyedReducer(undefined, {
     return new LobbyInfo()
   },
 
-  [NETWORK_SITE_CONNECTED](state, action) {
+  ['@network/connect'](state, action) {
     return new LobbyInfo()
   },
 

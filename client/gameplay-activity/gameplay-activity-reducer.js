@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { LOBBY_UPDATE_STATUS, NETWORK_SITE_CONNECTED } from '../actions'
+import { LOBBY_UPDATE_STATUS } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 const BaseGameplayActivity = Record({
@@ -24,7 +24,7 @@ export default keyedReducer(new GameplayActivity(), {
     return state.set('gameplayActivity', matchmaking ? 'matchmaking' : null)
   },
 
-  [NETWORK_SITE_CONNECTED](state, action) {
+  ['@network/connect'](state, action) {
     return new GameplayActivity()
   },
 })

@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import { SbUserId } from '../../common/users/sb-user'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { TextMessageRecord } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -154,7 +153,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.activated = false
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

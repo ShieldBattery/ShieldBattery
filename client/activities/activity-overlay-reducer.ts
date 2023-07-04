@@ -1,5 +1,4 @@
 import { Immutable } from 'immer'
-import { NETWORK_SITE_DISCONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { ActivityOverlayPayload, ActivityOverlayType } from './activity-overlay-type'
 
@@ -31,7 +30,7 @@ export default immerKeyedReducer(DEFAULT_ACTIVITY_OVERLAY_STATE, {
     state.history.pop()
   },
 
-  [NETWORK_SITE_DISCONNECTED as any]() {
+  ['@network/disconnect']() {
     return DEFAULT_ACTIVITY_OVERLAY_STATE
   },
 })

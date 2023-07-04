@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import { findLastIndex } from '../../common/data-structures/arrays'
-import { NETWORK_SITE_DISCONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { DialogPayload, DialogType } from './dialog-type'
 
@@ -50,7 +49,7 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
     state.history = state.history.slice(0, dialogIndex)
   },
 
-  [NETWORK_SITE_DISCONNECTED as any]() {
+  ['@network/disconnect']() {
     return DEFAULT_DIALOG_HISTORY_STATE
   },
 })

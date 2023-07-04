@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { AUDIO_MANAGER_INITIALIZED, NETWORK_SITE_DISCONNECTED } from '../actions'
+import { AUDIO_MANAGER_INITIALIZED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LoadingState {
@@ -39,7 +39,7 @@ export default immerKeyedReducer(DEFAULT_LOADING_STATE, {
     state.whispers = false
   },
 
-  [NETWORK_SITE_DISCONNECTED as any](state: LoadingState) {
+  ['@network/disconnect'](state: LoadingState) {
     // Reset the loading state of the stuff that gets initialized through sockets
     state.chat = true
     state.clientSubscriptions = true

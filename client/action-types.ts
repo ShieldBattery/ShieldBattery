@@ -9,6 +9,7 @@ import { LeaguesActions } from './leagues/actions'
 import { LoadingActions } from './loading/actions'
 import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
+import { NetworkActions } from './network/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
 import { SettingsActions } from './settings/actions'
@@ -27,6 +28,7 @@ type AllActions =
   | LoadingActions
   | MapsActions
   | MatchmakingActions
+  | NetworkActions
   | NotificationActions
   | PartyActions
   | SettingsActions

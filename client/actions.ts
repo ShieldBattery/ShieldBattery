@@ -145,9 +145,6 @@ export const LOBBY_PREFERENCES_UPDATE_BEGIN = 'LOBBY_PREFERENCES_UPDATE_BEGIN'
 // The server has responded with success/failure to us updating the lobby preferences
 export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
 
-export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
-export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
-
 // We have started the process of launching the game with the selected replay in it
 export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 

@@ -1,7 +1,6 @@
 import { Immutable } from 'immer'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // NOTE(tec27): This feels like a dumb thing to make a reducer for, but it doesn't really fit
@@ -24,7 +23,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.currentSeason = currentSeason
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

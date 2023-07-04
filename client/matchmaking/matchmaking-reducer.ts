@@ -6,7 +6,6 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { NETWORK_SITE_CONNECTED } from '../actions'
 import { isFetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -183,7 +182,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     return state
   },
 
-  [NETWORK_SITE_CONNECTED as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 })

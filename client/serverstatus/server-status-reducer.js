@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { LOBBIES_COUNT_UPDATE, NETWORK_SITE_CONNECTED, SERVER_STATUS } from '../actions'
+import { LOBBIES_COUNT_UPDATE, SERVER_STATUS } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 const ServerStatus = Record({
@@ -10,5 +10,5 @@ const ServerStatus = Record({
 export default keyedReducer(ServerStatus(), {
   [LOBBIES_COUNT_UPDATE]: (state, action) => state.set('lobbyCount', action.payload.count),
   [SERVER_STATUS]: (state, action) => state.set('activeUsers', action.payload.users),
-  [NETWORK_SITE_CONNECTED]: () => ServerStatus(),
+  ['@network/connect']: () => ServerStatus(),
 })
