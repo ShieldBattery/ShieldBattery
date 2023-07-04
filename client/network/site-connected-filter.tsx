@@ -30,7 +30,7 @@ interface SiteConnectedFilterProps {
 
 export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
   const { t } = useTranslation()
-  const { siteNetwork } = useAppSelector(state => ({ siteNetwork: state.network.site }))
+  const isConnected = useAppSelector(state => state.network.site.isConnected)
 
   useEffect(() => {
     siteSocket.connect()
@@ -42,7 +42,7 @@ export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
 
   // TODO(tec27): just render an overlay if we were previously connected? (This would help avoid
   // losing transient state, like the state of inputs, if we get disconnected briefly)
-  if (siteNetwork.isConnected) {
+  if (isConnected) {
     return <>{React.Children.only(props.children)}</>
   } else {
     return (
