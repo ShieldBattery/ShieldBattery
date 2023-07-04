@@ -5,7 +5,6 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   ChatEvent,
-  ChatInitEvent,
   ChatReadyEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
@@ -115,7 +114,7 @@ export default class ChatService {
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  private updateUserAfterJoining(
+  private async updateUserAfterJoining(
     userInfo: SbUser,
     channelId: SbChannelId,
     userChannelEntry: UserChannelEntry,
@@ -143,7 +142,28 @@ export default class ChatService {
     // is allowed in some cases (e.g. during account creation)
     const userSockets = this.userSocketsManager.getById(userInfo.id)
     if (userSockets) {
-      this.subscribeUserToChannel(userSockets, channelId)
+      userSockets.subscribe(getChannelPath(channelId))
+      userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
+
+      try {
+        const [channelInfo, userChannelEntry] = await Promise.all([
+          getChannelInfo(channelId),
+          getUserChannelEntryForUser(userSockets.userId, channelId),
+        ])
+
+        if (channelInfo && userChannelEntry) {
+          this.publisher.publish(getChannelPath(channelId), {
+            action: 'init3',
+            channelInfo: toBasicChannelInfo(channelInfo),
+            detailedChannelInfo: toDetailedChannelInfo(channelInfo),
+            joinedChannelInfo: toJoinedChannelInfo(channelInfo),
+            activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
+            selfPermissions: userChannelEntry.channelPermissions,
+          })
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error retrieving the initial channel data for the user')
+      }
     }
   }
 
@@ -886,36 +906,6 @@ export default class ChatService {
     }
 
     return userSockets
-  }
-
-  private subscribeUserToChannel(userSockets: UserSocketsGroup, channelId: SbChannelId) {
-    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelId), async () => {
-      try {
-        const [channelInfo, userChannelEntry] = await Promise.all([
-          getChannelInfo(channelId),
-          getUserChannelEntryForUser(userSockets.userId, channelId),
-        ])
-        if (!channelInfo) {
-          return undefined
-        }
-        if (!userChannelEntry) {
-          return undefined
-        }
-
-        return {
-          action: 'init3',
-          channelInfo: toBasicChannelInfo(channelInfo),
-          detailedChannelInfo: toDetailedChannelInfo(channelInfo),
-          joinedChannelInfo: toJoinedChannelInfo(channelInfo),
-          activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
-          selfPermissions: userChannelEntry.channelPermissions,
-        }
-      } catch (err) {
-        logger.error({ err }, 'Error retrieving the initial channel data for the user')
-        return undefined
-      }
-    })
-    userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
   }
 
   unsubscribeUserFromChannel(user: UserSocketsGroup, channelId: SbChannelId) {
