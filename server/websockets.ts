@@ -90,22 +90,6 @@ export class WebsocketServer {
         handler(this.nydus, this.userSockets, this.clientSockets)
       }
     }
-
-    this.userSockets
-      .on('newUser', () => this.connectedUsers++)
-      .on('userQuit', () => this.connectedUsers--)
-
-    this.nydus.on('connection', socket => {
-      this.nydus.subscribeClient(socket, '/status', { users: this.connectedUsers })
-    })
-
-    let lastConnectedUsers = 0
-    setInterval(() => {
-      if (this.connectedUsers !== lastConnectedUsers) {
-        lastConnectedUsers = this.connectedUsers
-        this.nydus.publish('/status', { users: lastConnectedUsers })
-      }
-    }, 1 * 60 * 1000)
   }
 
   async onAuthorization(

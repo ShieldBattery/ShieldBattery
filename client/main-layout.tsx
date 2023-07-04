@@ -148,7 +148,7 @@ export function MainLayout() {
   const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
   const isEmailVerified = useAppSelector(s => s.auth.user.emailVerified)
   const isMatchmakingSearching = useAppSelector(s => !!s.matchmaking.searchInfo)
-  const lobbyCount = useAppSelector(s => s.serverStatus.lobbyCount)
+  const lobbyCount = useAppSelector(s => s.lobbyList.count)
   const starcraft = useAppSelector(s => s.starcraft)
 
   const [searchingMatchOverlayOpen, openSearchingMatchOverlay, closeSearchingMatchOverlay] =

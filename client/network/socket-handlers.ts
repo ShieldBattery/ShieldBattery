@@ -9,7 +9,6 @@ import games from '../games/socket-handlers'
 import loading from '../loading/socket-handlers'
 import logger from '../logging/logger'
 import notifications from '../notifications/socket-handlers'
-import serverStatus from '../serverstatus/server-status-checker'
 import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
 import { clientId } from './client-id'
@@ -103,7 +102,6 @@ const handlers = [
   loading,
   networkStatusHandler,
   notifications,
-  serverStatus,
   users,
   whispers,
 ].concat(envSpecificHandlers)

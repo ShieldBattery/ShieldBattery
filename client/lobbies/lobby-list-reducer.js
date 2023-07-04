@@ -1,5 +1,5 @@
 import { List, Map, Record } from 'immutable'
-import { LOBBIES_LIST_UPDATE } from '../actions'
+import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
 
 export const HostRecord = Record({
   name: null,
@@ -16,6 +16,7 @@ export const LobbySummary = Record({
 export const LobbyList = Record({
   list: List(),
   byName: new Map(),
+  count: 0,
 })
 
 function createSummary(lobbyData) {
@@ -36,7 +37,7 @@ function handleFull(state, data) {
     .keySeq()
     .sort((a, b) => a.localeCompare(b))
     .toList()
-  return new LobbyList({ list, byName })
+  return new LobbyList({ list, byName, count: state.count })
 }
 
 function handleAdd(state, data) {
@@ -64,6 +65,12 @@ function handleDelete(state, data) {
 }
 
 export default function lobbyListReducer(state = new LobbyList(), action) {
+  if (action.type === LOBBIES_COUNT_UPDATE) {
+    return state.set('count', action.payload.count)
+  } else if (action.type === '@network/connect') {
+    return new LobbyList()
+  }
+
   if (action.type !== LOBBIES_LIST_UPDATE) return state
 
   const { message, data } = action.payload
