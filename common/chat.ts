@@ -33,6 +33,7 @@ export enum ChatServiceErrorCode {
   ChannelNotFound = 'ChannelNotFound',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
+  NoInitialChannelData = 'NoChannelData',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
@@ -293,11 +294,9 @@ export interface ChatUserOfflineEvent {
 }
 
 /**
- * Events that are sent to all clients in a particular chat channel (except the "init" event which
- * is sent only to the client that initially subscribes to these events).
+ * Events that are sent to all clients in a particular chat channel.
  */
 export type ChatEvent =
-  | ChatInitEvent
   | ChatJoinEvent
   | ChatLeaveEvent
   | ChatKickEvent
@@ -315,7 +314,7 @@ export interface ChatPermissionsChangedEvent {
 }
 
 /** Events that are sent to a particular user in a particular chat channel. */
-export type ChatUserEvent = ChatPermissionsChangedEvent
+export type ChatUserEvent = ChatInitEvent | ChatPermissionsChangedEvent
 
 /**
  * The response returned when joining a specific chat channel.

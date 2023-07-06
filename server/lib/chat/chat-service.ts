@@ -145,24 +145,20 @@ export default class ChatService {
       userSockets.subscribe(getChannelPath(channelId))
       userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
 
-      try {
-        const [channelInfo, userChannelEntry] = await Promise.all([
-          getChannelInfo(channelId),
-          getUserChannelEntryForUser(userSockets.userId, channelId),
-        ])
+      const [channelInfo, userChannelEntry] = await Promise.all([
+        getChannelInfo(channelId),
+        getUserChannelEntryForUser(userSockets.userId, channelId),
+      ])
 
-        if (channelInfo && userChannelEntry) {
-          this.publisher.publish(getChannelPath(channelId), {
-            action: 'init3',
-            channelInfo: toBasicChannelInfo(channelInfo),
-            detailedChannelInfo: toDetailedChannelInfo(channelInfo),
-            joinedChannelInfo: toJoinedChannelInfo(channelInfo),
-            activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
-            selfPermissions: userChannelEntry.channelPermissions,
-          })
-        }
-      } catch (err) {
-        logger.error({ err }, 'Error retrieving the initial channel data for the user')
+      if (channelInfo && userChannelEntry) {
+        this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
+          action: 'init3',
+          channelInfo: toBasicChannelInfo(channelInfo),
+          detailedChannelInfo: toDetailedChannelInfo(channelInfo),
+          joinedChannelInfo: toJoinedChannelInfo(channelInfo),
+          activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
+          selfPermissions: userChannelEntry.channelPermissions,
+        })
       }
     }
   }
@@ -214,7 +210,11 @@ export default class ChatService {
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
     transactionCompleted.then(() =>
-      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message),
+      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message).catch(
+        err => {
+          logger.error({ err }, 'Error retrieving the initial channel data for the user')
+        },
+      ),
     )
   }
 
@@ -360,7 +360,14 @@ export default class ChatService {
     channel = channel!
 
     if (!isUserInChannel) {
-      this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
+      try {
+        await this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
+      } catch (err) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.NoInitialChannelData,
+          'Error retrieving the initial channel data for the user',
+        )
+      }
     }
 
     return {

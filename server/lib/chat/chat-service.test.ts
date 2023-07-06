@@ -539,14 +539,17 @@ describe('chat/chat-service', () => {
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
         undefined,
       )
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-        action: 'init3',
-        channelInfo: shieldBatteryBasicInfo,
-        detailedChannelInfo: shieldBatteryDetailedInfo,
-        joinedChannelInfo: shieldBatteryJoinedInfo,
-        activeUserIds: [user2.id, user1.id],
-        selfPermissions: channelPermissions,
-      })
+      expect(client1.publish).toHaveBeenCalledWith(
+        getChannelUserPath(shieldBatteryChannel.id, user1.id),
+        {
+          action: 'init3',
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          activeUserIds: [user2.id, user1.id],
+          selfPermissions: channelPermissions,
+        },
+      )
     })
   })
 
@@ -657,14 +660,17 @@ describe('chat/chat-service', () => {
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
         undefined,
       )
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-        action: 'init3',
-        channelInfo: shieldBatteryBasicInfo,
-        detailedChannelInfo: shieldBatteryDetailedInfo,
-        joinedChannelInfo: shieldBatteryJoinedInfo,
-        activeUserIds: [user2.id, user1.id],
-        selfPermissions: channelPermissions,
-      })
+      expect(client1.publish).toHaveBeenCalledWith(
+        getChannelUserPath(shieldBatteryChannel.id, user1.id),
+        {
+          action: 'init3',
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          activeUserIds: [user2.id, user1.id],
+          selfPermissions: channelPermissions,
+        },
+      )
     })
 
     test("creates a new channel when it doesn't exist", async () => {
@@ -702,7 +708,7 @@ describe('chat/chat-service', () => {
         getChannelUserPath(testChannel.id, user1.id),
         undefined,
       )
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+      expect(client1.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
         action: 'init3',
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
