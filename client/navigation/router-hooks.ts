@@ -1,29 +1,6 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useLocationProperty } from 'wouter/use-location'
 import { useStableCallback } from '../state-hooks'
 import { replace } from './routing'
-
-const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
-function subscribe(callback: () => void) {
-  for (const event of events) {
-    window.addEventListener(event, callback)
-  }
-  return () => {
-    for (const event of events) {
-      window.removeEventListener(event, callback)
-    }
-  }
-}
-
-/**
- * A hook which utilizes `useSyncExternalStore` hook to subscribe to the location changes, and
- * returns a memoized URL of the current location. Unlike wouter's `useLocation` hook, which returns
- * just a location pathname without the search params, this hook returns the whole `URL` object
- * including the search params.
- */
-export function useUrl(): URL {
-  const location = useSyncExternalStore(subscribe, () => window.location)
-  return useMemo(() => new URL(location.href), [location.href])
-}
 
 /**
  * A hook that reads a search param with a given name from `window.location`, and allows changing
@@ -45,20 +22,19 @@ export const useLocationSearchParam = (
   name: string,
   transitionFn = replace,
 ): [value: string, setValue: (value: string) => void] => {
-  const url = useUrl()
-  const searchParams = url.searchParams
-  const searchValue = searchParams.get(name) ?? ''
+  const searchValue =
+    useLocationProperty(() => new URLSearchParams(window.location.search).get(name)) ?? ''
 
   const setLocationSearch = useStableCallback((value: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()))
+    const searchParams = new URLSearchParams(window.location.search)
     if (value) {
-      params.set(name, value)
+      searchParams.set(name, value)
     } else {
-      params.delete(name)
+      searchParams.delete(name)
     }
 
-    const searchString = params.toString()
-    transitionFn(url.pathname + (searchString ? `?${searchString}` : ''))
+    const searchString = searchParams.toString()
+    transitionFn(window.location.pathname + (searchString ? `?${searchString}` : ''))
   })
 
   return [searchValue, setLocationSearch]
