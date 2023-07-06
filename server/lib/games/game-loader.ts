@@ -57,11 +57,7 @@ interface GameLoadErrorTypeToData {
 export class GameLoaderError<T extends GameLoadErrorType> extends CodedError<
   T,
   GameLoadErrorTypeToData[T]
-> {
-  constructor(code: T, message: string, data: GameLoadErrorTypeToData[T]) {
-    super(code, message, data)
-  }
-}
+> {}
 
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
@@ -279,7 +275,7 @@ export class GameLoader {
     return this.maybeCancelLoadingFromSystem(
       gameId,
       new GameLoaderError(GameLoadErrorType.PlayerFailed, `${playerName} failed to load`, {
-        userId: loadingPlayer.userId,
+        data: { userId: loadingPlayer.userId },
       }),
     )
   }

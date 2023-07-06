@@ -17,14 +17,6 @@ type EventToChatActionMap = {
 }
 
 const eventToChatAction: EventToChatActionMap = {
-  init3(channelId, event) {
-    return {
-      type: '@chat/initChannel',
-      payload: event,
-      meta: { channelId },
-    }
-  },
-
   join2(channelId, event) {
     return {
       type: '@chat/updateJoin',
@@ -177,6 +169,13 @@ type EventToChatUserActionMap = {
 }
 
 const eventToChatUserAction: EventToChatUserActionMap = {
+  init3(channelId, event) {
+    return {
+      type: '@chat/initChannel',
+      payload: event,
+      meta: { channelId },
+    }
+  },
   permissionsChanged(channelId, event) {
     return {
       type: '@chat/permissionsChanged',

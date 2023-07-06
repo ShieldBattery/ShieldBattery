@@ -529,18 +529,26 @@ describe('chat/chat-service', () => {
       // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
       // promises are complete?
       await new Promise(resolve => setTimeout(resolve, 20))
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-        action: 'init3',
-        channelInfo: shieldBatteryBasicInfo,
-        detailedChannelInfo: shieldBatteryDetailedInfo,
-        joinedChannelInfo: shieldBatteryJoinedInfo,
-        activeUserIds: [user2.id, user1.id],
-        selfPermissions: channelPermissions,
-      })
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client1,
+        getChannelPath(shieldBatteryChannel.id),
+        undefined,
+      )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
         undefined,
+      )
+      expect(client1.publish).toHaveBeenCalledWith(
+        getChannelUserPath(shieldBatteryChannel.id, user1.id),
+        {
+          action: 'init3',
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          activeUserIds: [user2.id, user1.id],
+          selfPermissions: channelPermissions,
+        },
       )
     })
   })
@@ -642,18 +650,26 @@ describe('chat/chat-service', () => {
       // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
       // promises are complete?
       await new Promise(resolve => setTimeout(resolve, 20))
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-        action: 'init3',
-        channelInfo: shieldBatteryBasicInfo,
-        detailedChannelInfo: shieldBatteryDetailedInfo,
-        joinedChannelInfo: shieldBatteryJoinedInfo,
-        activeUserIds: [user2.id, user1.id],
-        selfPermissions: channelPermissions,
-      })
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client1,
+        getChannelPath(shieldBatteryChannel.id),
+        undefined,
+      )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
         undefined,
+      )
+      expect(client1.publish).toHaveBeenCalledWith(
+        getChannelUserPath(shieldBatteryChannel.id, user1.id),
+        {
+          action: 'init3',
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          activeUserIds: [user2.id, user1.id],
+          selfPermissions: channelPermissions,
+        },
       )
     })
 
@@ -682,7 +698,17 @@ describe('chat/chat-service', () => {
       // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
       // promises are complete?
       await new Promise(resolve => setTimeout(resolve, 20))
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client1,
+        getChannelPath(testChannel.id),
+        undefined,
+      )
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client1,
+        getChannelUserPath(testChannel.id, user1.id),
+        undefined,
+      )
+      expect(client1.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
         action: 'init3',
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
@@ -690,11 +716,6 @@ describe('chat/chat-service', () => {
         activeUserIds: [user1.id],
         selfPermissions: channelPermissions,
       })
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(
-        client1,
-        getChannelUserPath(testChannel.id, user1.id),
-        undefined,
-      )
     })
   })
 
