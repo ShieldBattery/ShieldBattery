@@ -366,6 +366,7 @@ export default class ChatService {
         throw new ChatServiceError(
           ChatServiceErrorCode.NoInitialChannelData,
           'Error retrieving the initial channel data for the user',
+          { cause: err },
         )
       }
     }
