@@ -1,5 +1,6 @@
 import { injectable } from 'tsyringe'
 import { Promisable } from 'type-fest'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { Clock, TimeoutId } from '../time/clock'
 
 /**
@@ -118,5 +119,6 @@ export class LazyScheduler {
           this.timeoutId = undefined
         }
       })
+      .catch(swallowNonBuiltins)
   }
 }

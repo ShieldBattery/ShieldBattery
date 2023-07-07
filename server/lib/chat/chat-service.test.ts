@@ -768,7 +768,7 @@ describe('chat/chat-service', () => {
           newOwnerId: undefined,
         })
 
-        expectMessageWasNotReceived(user2, shieldBatteryChannel, client1)
+        await expectMessageWasNotReceived(user2, shieldBatteryChannel, client1)
         expect(client1.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user1.id),
         )
@@ -798,7 +798,7 @@ describe('chat/chat-service', () => {
         newOwnerId: undefined,
       })
 
-      expectMessageWasNotReceived(user2, testChannel, client1)
+      await expectMessageWasNotReceived(user2, testChannel, client1)
       expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
   })
@@ -916,7 +916,7 @@ describe('chat/chat-service', () => {
           newOwnerId: undefined,
         })
 
-        expectMessageWasNotReceived(user1, shieldBatteryChannel, client2)
+        await expectMessageWasNotReceived(user1, shieldBatteryChannel, client2)
         expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user2.id),
         )
@@ -924,7 +924,7 @@ describe('chat/chat-service', () => {
     })
 
     describe('when moderating non-ShieldBattery channel', () => {
-      const expectItWorks = () => {
+      const expectItWorks = async () => {
         expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, testChannel.id)
         expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
           action: ChannelModerationAction.Kick,
@@ -933,7 +933,7 @@ describe('chat/chat-service', () => {
           newOwnerId: undefined,
         })
 
-        expectMessageWasNotReceived(user1, testChannel, client2)
+        await expectMessageWasNotReceived(user1, testChannel, client2)
         expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(testChannel.id, user2.id),
         )
@@ -1066,7 +1066,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
 
         test('works when target is channel moderator', async () => {
@@ -1091,7 +1091,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
 
         test('works when target is regular user', async () => {
@@ -1113,7 +1113,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
       })
 
@@ -1148,7 +1148,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
 
         test('works when target is regular user', async () => {
@@ -1170,7 +1170,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
       })
 
@@ -1199,7 +1199,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           )
 
-          expectItWorks()
+          await expectItWorks()
         })
       })
 

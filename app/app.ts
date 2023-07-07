@@ -257,7 +257,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       updateState = 'updaterNewVersionFound'
       if (!downloadingUpdate) {
         downloadingUpdate = true
-        autoUpdater.downloadUpdate()
+        autoUpdater.downloadUpdate().catch(err => {
+          logger.error(`Error downloading update: ${err?.stack ?? err}`)
+        })
       }
       sendUpdateState()
     })
@@ -304,7 +306,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   if (!isDev) {
     ipcMain.on('networkSiteConnected', () => {
-      autoUpdater.checkForUpdates()
+      autoUpdater.checkForUpdates().catch(err => {
+        logger.error(`Error checking for updates: ${err?.stack ?? err}`)
+      })
     })
   }
 
@@ -694,7 +698,9 @@ async function createWindow() {
       // Whitelist safe protocols to prevent someone from e.g. linking to a local file and causing
       // users to launch it
       if (protocol === 'http:' || protocol === 'https:') {
-        shell.openExternal(url)
+        shell.openExternal(url).catch(err => {
+          logger.error('Error opening external URL: ' + err)
+        })
       }
     } catch (err) {
       logger.error('Error while parsing window.open URL: ' + err)
@@ -710,7 +716,9 @@ async function createWindow() {
       mainWindow!.show()
       if (!isDev) {
         ipcMain.on('networkSiteConnected', () => {
-          autoUpdater.checkForUpdates()
+          autoUpdater.checkForUpdates().catch(err => {
+            logger.error(`Error checking for updates: ${err?.stack ?? err}`)
+          })
         })
       }
     })
@@ -732,7 +740,9 @@ app.on('ready', async () => {
   Menu.setApplicationMenu(null)
 
   if (!isDev) {
-    autoUpdater.checkForUpdates()
+    autoUpdater.checkForUpdates().catch(err => {
+      logger.error(`Error checking for updates: ${err?.stack ?? err}`)
+    })
   }
 
   try {
@@ -792,6 +802,14 @@ app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (!mainWindow) {
-    createWindow()
+    createWindow().catch(err => {
+      logger.error('Error creating window: ' + (err.stack ?? err))
+      console.error(err)
+      dialog.showErrorBox(
+        'ShieldBattery Error',
+        `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
+      )
+      app.quit()
+    })
   }
 })

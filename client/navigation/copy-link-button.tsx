@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import i18n from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { makeServerUrl } from '../network/server-url'
@@ -45,7 +46,9 @@ export function CopyLinkButton({
       clearTimeout(timeoutRef.current)
     }
 
-    navigator.clipboard.writeText(getCurrentUrl())
+    navigator.clipboard
+      .writeText(getCurrentUrl())
+      .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
     setText(copiedText)
 
     timeoutRef.current = setTimeout(() => {

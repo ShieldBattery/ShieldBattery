@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -178,7 +179,9 @@ export function FileBrowser({
   // Focus *something* when file browser is opened, because if we don't, whatever was focused before
   // the file browser was opened will still have focus and will mess with our keyboard events.
   const focusBrowser = useCallback((elem: HTMLDivElement | null) => {
-    Promise.resolve().then(() => elem?.focus())
+    Promise.resolve()
+      .then(() => elem?.focus())
+      .catch(swallowNonBuiltins)
   }, [])
 
   const entries = useMemo(() => {
@@ -268,7 +271,7 @@ export function FileBrowser({
   })
 
   useEffect(() => {
-    getFiles()
+    getFiles().catch(swallowNonBuiltins)
   }, [fileBrowserPath, getFiles])
 
   useEffect(() => {

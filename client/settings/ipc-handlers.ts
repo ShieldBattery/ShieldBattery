@@ -1,3 +1,4 @@
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
 import { SHIELDBATTERY_FILES_VALIDITY } from '../actions'
@@ -21,10 +22,13 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
 
     lastPath = settings.starcraftPath ?? ''
     lastPathWasValid = false
-    ipcRenderer.invoke('settingsCheckStarcraftPath', lastPath)?.then(result => {
-      lastPathWasValid = result.path && result.version
-      dispatch(handleCheckStarcraftPathResult(result))
-    })
+    ipcRenderer
+      .invoke('settingsCheckStarcraftPath', lastPath)
+      ?.then(result => {
+        lastPathWasValid = result.path && result.version
+        dispatch(handleCheckStarcraftPathResult(result))
+      })
+      .catch(swallowNonBuiltins)
   }
 
   ipcRenderer
@@ -44,25 +48,34 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     })
 
   // Trigger an initial update for the settings
-  ipcRenderer.invoke('settingsLocalGet')?.then(settings => {
-    dispatch({
-      type: '@settings/updateLocalSettings',
-      payload: settings,
-    })
+  ipcRenderer
+    .invoke('settingsLocalGet')
+    ?.then(settings => {
+      dispatch({
+        type: '@settings/updateLocalSettings',
+        payload: settings,
+      })
 
-    afterLocalSettingsChange(settings)
-  })
-  ipcRenderer.invoke('settingsScrGet')?.then(settings => {
-    dispatch({
-      type: '@settings/updateScrSettings',
-      payload: settings,
+      afterLocalSettingsChange(settings)
     })
-  })
+    .catch(swallowNonBuiltins)
+  ipcRenderer
+    .invoke('settingsScrGet')
+    ?.then(settings => {
+      dispatch({
+        type: '@settings/updateScrSettings',
+        payload: settings,
+      })
+    })
+    .catch(swallowNonBuiltins)
 
-  ipcRenderer.invoke('shieldbatteryCheckFiles')?.then(fileResults => {
-    dispatch({
-      type: SHIELDBATTERY_FILES_VALIDITY,
-      payload: fileResults,
-    } as any)
-  })
+  ipcRenderer
+    .invoke('shieldbatteryCheckFiles')
+    ?.then(fileResults => {
+      dispatch({
+        type: SHIELDBATTERY_FILES_VALIDITY,
+        payload: fileResults,
+      } as any)
+    })
+    .catch(swallowNonBuiltins)
 }

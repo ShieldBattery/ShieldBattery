@@ -4,6 +4,7 @@ import { Map } from 'immutable'
 import debounce from 'lodash/debounce'
 import { ConditionalKeys } from 'type-fest'
 import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
+import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
 import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
@@ -49,9 +50,11 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
     this.initialized = initializeFunc.apply(this).catch(err => {
       log.error(`Error initializing the ${this.settingsName} settings file: ${err.stack ?? err}`)
     })
-    this.initialized.then(() => {
-      this.emitChange()
-    })
+    this.initialized
+      .then(() => {
+        this.emitChange()
+      })
+      .catch(swallowNonBuiltins)
   }
 
   untilInitialized(): Promise<void> {

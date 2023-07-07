@@ -1,6 +1,7 @@
 import { Record as ImmutableRecord, Map, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
   ChannelModerationAction,
   ChannelPermissions,
@@ -209,13 +210,15 @@ export default class ChatService {
     // NOTE(tec27): We don't/can't await this because it would be a recursive async dependency
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
-    transactionCompleted.then(() =>
-      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message).catch(
-        err => {
-          logger.error({ err }, 'Error retrieving the initial channel data for the user')
-        },
-      ),
-    )
+    transactionCompleted
+      .then(() =>
+        this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message).catch(
+          err => {
+            logger.error({ err }, 'Error retrieving the initial channel data for the user')
+          },
+        ),
+      )
+      .catch(swallowNonBuiltins)
   }
 
   private async banUserFromChannelIfNeeded(

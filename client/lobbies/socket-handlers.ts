@@ -1,4 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { BasicChannelInfo } from '../../common/chat'
 import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -452,13 +453,13 @@ const eventToAction: EventToActionMap = {
   setRoutes: (name, event) => dispatch => {
     const { routes, gameId } = event
 
-    ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)
+    ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
   },
 
   startWhenReady: (name, event) => {
     const { gameId } = event
 
-    ipcRenderer.invoke('activeGameStartWhenReady', gameId)
+    ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {

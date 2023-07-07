@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'
 import { ActivityBackButton } from '../activities/activity-back-button'
@@ -40,7 +41,9 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
   const [documentsPath, setDocumentsPath] = useState<string>('')
 
   useEffect(() => {
-    getDocumentsMapsPath().then(path => setDocumentsPath(path))
+    getDocumentsMapsPath()
+      .then(path => setDocumentsPath(path))
+      .catch(swallowNonBuiltins)
   }, [])
 
   useEffect(() => {

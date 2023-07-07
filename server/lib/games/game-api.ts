@@ -268,7 +268,9 @@ export class GameApi {
 
     // If it was successful, record this user's IP for that account, since the normal middleware
     // to do so won't have run
-    this.upsertUserIp(userId, ctx.ip)
+    this.upsertUserIp(userId, ctx.ip).catch(err => {
+      logger.error({ err }, 'error upserting user IP')
+    })
 
     ctx.status = 204
   }

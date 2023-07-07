@@ -143,7 +143,7 @@ export class PartyApi {
       }),
     })
 
-    this.partyService.decline(partyId, ctx.session!.userId)
+    await this.partyService.decline(partyId, ctx.session!.userId)
 
     ctx.status = 204
   }
@@ -251,7 +251,7 @@ export class PartyApi {
       throw new Error("current user couldn't be found")
     }
 
-    this.partyService.sendChatMessage(partyId, user, message)
+    await this.partyService.sendChatMessage(partyId, user, message)
 
     ctx.status = 204
   }

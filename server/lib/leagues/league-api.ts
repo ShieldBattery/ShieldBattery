@@ -304,20 +304,28 @@ export class LeagueAdminApi {
         client,
       )
 
+      const filePromises: Array<Promise<unknown>> = []
+
       if (image && imagePath) {
         const buffer = await image.toBuffer()
-        writeFile(imagePath, buffer, {
-          acl: 'public-read',
-          type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
-        })
+        filePromises.push(
+          writeFile(imagePath, buffer, {
+            acl: 'public-read',
+            type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+          }),
+        )
       }
       if (badge && badgePath) {
         const buffer = await badge.toBuffer()
-        writeFile(badgePath, buffer, {
-          acl: 'public-read',
-          type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
-        })
+        filePromises.push(
+          writeFile(badgePath, buffer, {
+            acl: 'public-read',
+            type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+          }),
+        )
       }
+
+      await Promise.all(filePromises)
 
       return {
         league: toLeagueJson(league),
@@ -430,20 +438,28 @@ export class LeagueAdminApi {
 
       const league = await updateLeague(leagueId, updatedLeague, client)
 
+      const filePromises: Array<Promise<unknown>> = []
+
       if (image && imagePath) {
         const buffer = await image.toBuffer()
-        writeFile(imagePath, buffer, {
-          acl: 'public-read',
-          type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
-        })
+        filePromises.push(
+          writeFile(imagePath, buffer, {
+            acl: 'public-read',
+            type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+          }),
+        )
       }
       if (badge && badgePath) {
         const buffer = await badge.toBuffer()
-        writeFile(badgePath, buffer, {
-          acl: 'public-read',
-          type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
-        })
+        filePromises.push(
+          writeFile(badgePath, buffer, {
+            acl: 'public-read',
+            type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+          }),
+        )
       }
+
+      await Promise.all(filePromises)
 
       return {
         league: toLeagueJson(league),

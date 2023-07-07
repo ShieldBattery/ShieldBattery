@@ -29,6 +29,16 @@
 
   "overrides": [
     {
+      "files": ["**/*.ts", "**/*.tsx"],
+      "parserOptions": {
+        "project": true
+      },
+      "rules": {
+        "@typescript-eslint/no-floating-promises": "error",
+        "@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }]
+      }
+    },
+    {
       "files": ["client/**/*"],
       "env": {
         "browser": true,

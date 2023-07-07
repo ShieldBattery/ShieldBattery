@@ -1,3 +1,4 @@
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { stringToStatus } from '../../common/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
@@ -34,7 +35,7 @@ export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
               )
               // TODO(tec27): This feels kinda dangerous because this request might not have been
               // for the current game even... We should probably rework this API a bit.
-              ipcRenderer.invoke('activeGameSetConfig', {})
+              ipcRenderer.invoke('activeGameSetConfig', {})?.catch(swallowNonBuiltins)
             }
           }
         })

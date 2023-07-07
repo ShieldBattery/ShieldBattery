@@ -116,7 +116,9 @@ export class GameServer {
           toMerge.gameWinHeight = h
         }
 
-        this.localSettings.merge(toMerge)
+        this.localSettings.merge(toMerge).catch(err => {
+          log.error(`Error saving game window position: ${err.stack ?? err}`)
+        })
         break
       default:
         log.error(`Received an unknown command '${command}' from ${gameId}`)

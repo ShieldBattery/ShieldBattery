@@ -9,6 +9,7 @@ import {
   TranslationLanguage,
   TranslationNamespace,
 } from '../../../common/i18n'
+import logger from '../logging/logger'
 import { validateRequest } from '../validation/joi-validator'
 
 function orderedStringify(obj: Record<string, string>) {
@@ -20,18 +21,24 @@ function orderedStringify(obj: Record<string, string>) {
   return JSON.stringify(obj, Array.from(allKeys).sort(), 2) + '\n'
 }
 
-i18next.use(FsBackend).init<FsBackendOptions>({
-  backend: {
-    loadPath: './server/public/locales/{{lng}}/{{ns}}.json',
-    addPath: './server/public/locales/{{lng}}/{{ns}}.json',
-    stringify: orderedStringify,
-  },
+i18next
+  .use(FsBackend)
+  .init<FsBackendOptions>({
+    backend: {
+      loadPath: './server/public/locales/{{lng}}/{{ns}}.json',
+      addPath: './server/public/locales/{{lng}}/{{ns}}.json',
+      stringify: orderedStringify,
+    },
 
-  // NOTE(2Pac): We're only using i18next on backend to save the missing keys, so technically we're
-  // not even using these options, but we still have to define them for the library to work properly
-  lng: TranslationLanguage.English,
-  ns: TranslationNamespace.Global,
-})
+    // NOTE(2Pac): We're only using i18next on backend to save the missing keys, so technically
+    // we're not even using these options, but we still have to define them for the library to work
+    // properly
+    lng: TranslationLanguage.English,
+    ns: TranslationNamespace.Global,
+  })
+  .catch(err => {
+    logger.error({ err }, 'error initializing i18next')
+  })
 
 export function handleMissingTranslationKeys(ctx: RouterContext, next: Next) {
   const {

@@ -6,6 +6,7 @@ import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import { TranslationNamespace } from '../../common/i18n'
 import shallowEquals from '../../common/shallow-equals'
+import logger from '../logging/logger'
 
 function getDisplayName(WrappedComponent: React.ComponentType<any>): string {
   return (WrappedComponent as any).displayName || (WrappedComponent as any).name || 'Component'
@@ -258,19 +259,23 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
             ),
           )
           this.validationPromises[name] = resultPromise
-          resultPromise.then(errorMsg => {
-            if (this.validationPromises[name] === resultPromise) {
-              if (this.state.validationErrors[name] !== errorMsg) {
-                this.setState({
-                  validationErrors: {
-                    ...this.state.validationErrors,
-                    [name]: errorMsg,
-                  },
-                })
+          resultPromise
+            .then(errorMsg => {
+              if (this.validationPromises[name] === resultPromise) {
+                if (this.state.validationErrors[name] !== errorMsg) {
+                  this.setState({
+                    validationErrors: {
+                      ...this.state.validationErrors,
+                      [name]: errorMsg,
+                    },
+                  })
+                }
+                this.validationPromises[name] = undefined
               }
-              this.validationPromises[name] = undefined
-            }
-          })
+            })
+            .catch(err => {
+              logger.error(`Validator threw an error: ${err?.stack ?? err}`)
+            })
 
           // Wake up all the things waiting for validations to complete to tell them there is a new
           // validation promise

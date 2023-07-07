@@ -16,13 +16,16 @@
     "skipLibCheck": true
   },
 
-  "exclude": [
-    "dist",
-    "node_modules",
-    "server/public",
-    "app/dist",
-    "app/node_modules",
-    "game",
-    "download-fonts.ts"
-  ]
+  "include": [
+    "app/**/*",
+    "client/**/*",
+    "common/**/*",
+    "email/**/*",
+    "integration/**/*",
+    "server/**/*",
+    "typings/**/*",
+    "*.ts"
+  ],
+
+  "exclude": ["server/public", "app/dist", "app/node_modules"]
 }

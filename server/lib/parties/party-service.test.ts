@@ -564,7 +564,7 @@ describe('parties/party-service', () => {
     beforeEach(async () => {
       leader = user1
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
     test('should throw if the party is not found', () => {
@@ -633,7 +633,7 @@ describe('parties/party-service', () => {
     beforeEach(async () => {
       leader = user1
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
     test('should throw if the party is not found', async () => {
@@ -721,8 +721,8 @@ describe('parties/party-service', () => {
       leader = user1
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
-      partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
     })
 
     test('should throw if the party is not found', () => {
@@ -786,8 +786,8 @@ describe('parties/party-service', () => {
       leader = user1
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
-      partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
     })
 
     test('should throw if the party is not found', () => {
@@ -855,7 +855,7 @@ describe('parties/party-service', () => {
 
       party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
       await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
     test('should throw if the party is not found', async () => {

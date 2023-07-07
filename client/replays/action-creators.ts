@@ -1,4 +1,5 @@
 import cuid from 'cuid'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -46,8 +47,8 @@ async function setGameConfig(replay: { name: string; path: string }, user: SelfU
 }
 
 function setGameRoutes(gameId: string) {
-  ipcRenderer.invoke('activeGameSetRoutes', gameId, [])
-  ipcRenderer.invoke('activeGameStartWhenReady', gameId)
+  ipcRenderer.invoke('activeGameSetRoutes', gameId, [])?.catch(swallowNonBuiltins)
+  ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
 }
 
 export function startReplay(replay: FileBrowserFileEntry): ThunkAction {

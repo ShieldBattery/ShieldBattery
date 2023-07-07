@@ -2,6 +2,7 @@ import { ReplayHeader, ReplayPlayer } from 'jssuh'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
@@ -318,7 +319,9 @@ export function BrowseLocalReplays() {
   const [replayFolderPath, setReplayFolderPath] = useState<string>('')
 
   useEffect(() => {
-    getReplayFolderPath().then(path => setReplayFolderPath(path))
+    getReplayFolderPath()
+      .then(path => setReplayFolderPath(path))
+      .catch(swallowNonBuiltins)
   }, [])
 
   const onStartReplay = useCallback(

@@ -25,7 +25,7 @@ export class NotificationApi {
     })
 
     const timestamp = body.timestamp ?? Date.now()
-    this.notificationService.clearBefore(ctx.session!.userId, new Date(timestamp))
+    await this.notificationService.clearBefore(ctx.session!.userId, new Date(timestamp))
 
     return {
       timestamp,
@@ -40,7 +40,7 @@ export class NotificationApi {
       }),
     })
 
-    this.notificationService.markRead(ctx.session!.userId, body.notificationIds)
+    await this.notificationService.markRead(ctx.session!.userId, body.notificationIds)
 
     ctx.status = 204
   }

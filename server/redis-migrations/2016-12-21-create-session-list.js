@@ -15,14 +15,14 @@ async function migrate() {
     const session = JSON.parse(await redis.get(sessionId))
     if (session.userId !== undefined) {
       const userSessionsKey = 'user_sessions:' + session.userId
-      redis.sadd(userSessionsKey, sessionId)
-      redis.expire(userSessionsKey, Number(process.env.SB_SESSION_TTL))
+      await redis.sadd(userSessionsKey, sessionId)
+      await redis.expire(userSessionsKey, Number(process.env.SB_SESSION_TTL))
     }
   }
 
   await redis.set(`migrations:${MIGRATION_NAME}`, 1)
 
-  redis.quit()
+  await redis.quit()
 }
 
 migrate()

@@ -95,7 +95,7 @@ export default class GameResultService {
         for (const gameId of toReconcile) {
           try {
             const gameRecord = await this.retrieveGame(gameId)
-            this.maybeReconcileResults(gameRecord, true /* force */)
+            await this.maybeReconcileResults(gameRecord, true /* force */)
           } catch (err: unknown) {
             if (
               err instanceof SyntaxError ||
