@@ -95,6 +95,27 @@ GROUP BY user_name
 ORDER BY games_played DESC;
 ```
 
+## Count the number of matchmaking games in a given time period
+
+By default, the query shows the number of 1v1 matchmaking games in the past 30 days. Includes the
+dates with 0 games played (so the output can be easily fed into a line chart).
+
+```sql
+WITH g AS (
+  SELECT date_trunc('day', start_time)::date AS date, COUNT(*) AS games_count
+  FROM games
+  WHERE
+    config->>'gameSource' = 'MATCHMAKING' AND
+    config->'gameSourceExtra'->>'type' = '1v1'
+  GROUP BY date
+)
+SELECT date_trunc('day', days)::date AS date, COALESCE(g.games_count, 0) AS games_count
+FROM generate_series(NOW() - INTERVAL '30 day', NOW(), INTERVAL '1 day') days
+LEFT JOIN g ON date_trunc('day', days)::date = g.date
+GROUP BY days, games_count
+ORDER BY days;
+```
+
 ## Calculate the matchup stats for each map in a given league
 
 This query assumes a 1v1 league. Calculating stats for 2v2 leagues is left as an exercise to the
