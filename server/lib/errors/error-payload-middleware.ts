@@ -24,7 +24,8 @@ export function errorPayloadMiddleware() {
             if (err.payload) {
               ctx.body = err.payload
             } else {
-              ctx.body = { error: err.message, originalError: err }
+              const { cause: _cause, ...errWithoutCause } = err
+              ctx.body = { error: err.message, originalError: errWithoutCause }
             }
           } else if (isDev) {
             ctx.body = { error: err.message, originalError: err }

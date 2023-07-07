@@ -9,8 +9,13 @@ export class HttpErrorWithPayload<T = unknown> extends Error {
   status: number
   expose = true
 
-  constructor(public statusCode: number, message: string, public payload: T) {
-    super(message)
+  constructor(
+    public statusCode: number,
+    message: string,
+    public payload: T,
+    options?: ErrorOptions,
+  ) {
+    super(message, options)
     this.status = statusCode
 
     Object.defineProperty(this, 'name', {
@@ -30,5 +35,10 @@ export class HttpErrorWithPayload<T = unknown> extends Error {
  *  that will be included in the payload
  */
 export function asHttpError(statusCode: number, error: Error & { code: string; data?: any }) {
-  return new HttpErrorWithPayload(statusCode, error.message, { code: error.code, ...error.data })
+  return new HttpErrorWithPayload(
+    statusCode,
+    error.message,
+    { code: error.code, ...error.data },
+    error.cause ? { cause: error.cause } : undefined,
+  )
 }
