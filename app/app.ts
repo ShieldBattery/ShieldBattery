@@ -431,7 +431,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
 
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const parser = new ReplayParser()
       let headerData: ReplayHeader
       parser.on('replayHeader', header => {
@@ -454,9 +454,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       })
 
       const promise = pipeline(fs.createReadStream(replayPath), parser)
+      promise.catch(err => reject(err))
 
       parser.resume()
-      await promise
     })
   })
 
@@ -731,7 +731,7 @@ async function createWindow() {
   await mainWindow.loadURL('shieldbattery://app')
 }
 
-app.on('ready', async () => {
+app.on('ready', () => {
   const localSettingsPromise = createLocalSettings()
   const scrSettingsPromise = createScrSettings()
 
@@ -745,50 +745,52 @@ app.on('ready', async () => {
     })
   }
 
-  try {
-    const [localSettings, scrSettings] = await Promise.all([
-      localSettingsPromise,
-      scrSettingsPromise,
-    ])
+  Promise.resolve()
+    .then(async () => {
+      const [localSettings, scrSettings] = await Promise.all([
+        localSettingsPromise,
+        scrSettingsPromise,
+      ])
 
-    container.register(LocalSettingsManager, { useValue: localSettings })
-    container.register(ScrSettingsManager, { useValue: scrSettings })
+      container.register(LocalSettingsManager, { useValue: localSettings })
+      container.register(ScrSettingsManager, { useValue: scrSettings })
 
-    const mapDirPath = path.join(app.getPath('userData'), 'maps')
-    const mapStore = new MapStore(mapDirPath)
-    container.register(MapStore, { useValue: mapStore })
+      const mapDirPath = path.join(app.getPath('userData'), 'maps')
+      const mapStore = new MapStore(mapDirPath)
+      container.register(MapStore, { useValue: mapStore })
 
-    setupIpc(localSettings, scrSettings)
-    setupCspProtocol(currentSession())
-    setupAnalytics(currentSession())
-    gameServer = createGameServer(localSettings)
-    await createWindow()
-    systemTray = new SystemTray(mainWindow, () => app.quit())
+      setupIpc(localSettings, scrSettings)
+      setupCspProtocol(currentSession())
+      setupAnalytics(currentSession())
+      gameServer = createGameServer(localSettings)
+      await createWindow()
+      systemTray = new SystemTray(mainWindow, () => app.quit())
 
-    mainWindow?.webContents.on('did-finish-load', () => {
-      TypedIpcSender.from(mainWindow?.webContents).send(
-        'windowMaximizedState',
-        mainWindow?.isMaximized() ?? false,
-      )
-      TypedIpcSender.from(mainWindow?.webContents).send(
-        'windowFocusChanged',
-        mainWindow?.isFocused() ?? false,
-      )
+      mainWindow?.webContents.on('did-finish-load', () => {
+        TypedIpcSender.from(mainWindow?.webContents).send(
+          'windowMaximizedState',
+          mainWindow?.isMaximized() ?? false,
+        )
+        TypedIpcSender.from(mainWindow?.webContents).send(
+          'windowFocusChanged',
+          mainWindow?.isFocused() ?? false,
+        )
+      })
+
+      app.on('will-quit', () => {
+        localSettings.saveSettingsToDiskSync()
+        scrSettings.saveSettingsToDiskSync()
+      })
     })
-
-    app.on('will-quit', () => {
-      localSettings.saveSettingsToDiskSync()
-      scrSettings.saveSettingsToDiskSync()
+    .catch(err => {
+      logger.error('Error initializing: ' + err)
+      console.error(err)
+      dialog.showErrorBox(
+        'ShieldBattery Error',
+        `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
+      )
+      app.quit()
     })
-  } catch (err: any) {
-    logger.error('Error initializing: ' + err)
-    console.error(err)
-    dialog.showErrorBox(
-      'ShieldBattery Error',
-      `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
-    )
-    app.quit()
-  }
 })
 app.on('window-all-closed', () => {
   // On OS X it is common for applications and their menu bar

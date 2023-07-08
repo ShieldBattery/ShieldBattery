@@ -107,11 +107,11 @@ export default class ChatService {
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
-      .on('newUser', userSockets =>
+      .on('newUser', userSockets => {
         this.handleNewUser(userSockets).catch(err =>
           logger.error({ err }, 'Error handling new user in chat service'),
-        ),
-      )
+        )
+      })
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 

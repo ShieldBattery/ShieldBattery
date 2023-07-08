@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
+import logger from '../../logging/logger'
 import { RaisedButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
@@ -83,16 +84,22 @@ export function StarcraftSettings() {
     { onValidatedChange },
   )
 
-  const onBrowseClick = useStableCallback(async () => {
-    const currentPath = getInputValue('starcraftPath') || ''
+  const onBrowseClick = useStableCallback(() => {
+    Promise.resolve()
+      .then(async () => {
+        const currentPath = getInputValue('starcraftPath') || ''
 
-    const selection = await ipcRenderer.invoke('settingsBrowseForStarcraft', currentPath)!
-    const selectedPath = selection.filePaths[0]
-    browseButtonRef.current?.blur()
+        const selection = await ipcRenderer.invoke('settingsBrowseForStarcraft', currentPath)!
+        const selectedPath = selection.filePaths[0]
+        browseButtonRef.current?.blur()
 
-    if (selection.canceled || currentPath.toLowerCase() === selectedPath.toLowerCase()) return
+        if (selection.canceled || currentPath.toLowerCase() === selectedPath.toLowerCase()) return
 
-    setInputValue('starcraftPath', normalizePath(selectedPath))
+        setInputValue('starcraftPath', normalizePath(selectedPath))
+      })
+      .catch(err => {
+        logger.error(`Failed to browse for StarCraft folder: ${err?.stack ?? err}`)
+      })
   })
 
   return (

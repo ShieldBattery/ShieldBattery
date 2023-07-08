@@ -152,7 +152,14 @@ app
   .use(userIpsMiddleware())
   .use(userSessionsMiddleware())
 
-const mainServer = http.createServer(app.callback())
+const serverCallback = app.callback()
+const mainServer = http.createServer((req, res) => {
+  // We want our unhandledRejection handler to be useful, so we don't want to deal with promises
+  // at this root level. If a rejection were caught here, it'd indicate a problem at a deeper level
+  // anyway.
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  serverCallback(req, res)
+})
 container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddleware })
 container.register<http.Server>(http.Server, { useValue: mainServer })
 

@@ -64,7 +64,12 @@ router
 
 app.use(router.routes()).use(router.allowedMethods())
 
-const server = http.createServer(app.callback())
+const serverCallback = app.callback()
+const server = http.createServer((req, res) => {
+  serverCallback(req, res).catch(err => {
+    console.error(err)
+  })
+})
 new Promise((resolve, reject) => {
   server.once('error', reject)
 

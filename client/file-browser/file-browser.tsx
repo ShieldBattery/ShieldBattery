@@ -232,7 +232,7 @@ export function FileBrowser({
     }
   }, [prevIsLoadingFiles, isLoadingFiles, entries, focusedIndex])
 
-  const getFiles = useStableCallback(async () => {
+  const getFiles = useStableCallback(() => {
     if (!fileBrowserPath) {
       return
     }
@@ -240,38 +240,42 @@ export function FileBrowser({
     setIsLoadingFiles(true)
     setLoadFilesError(undefined)
 
-    try {
-      const result = await readFolder(fileBrowserPath)
+    Promise.resolve()
+      .then(async () => {
+        try {
+          const result = await readFolder(fileBrowserPath)
 
-      const isRootFolder = fileBrowserPath === rootFolder.path
-      let upOneDir: FileBrowserUpEntry | undefined
-      if (!isRootFolder) {
-        upOneDir = {
-          type: FileBrowserEntryType.Up,
-          name: t('fileBrowser.upOneDirectory', 'Up one directory'),
-          path: `${fileBrowserPath}\\..`,
+          const isRootFolder = fileBrowserPath === rootFolder.path
+          let upOneDir: FileBrowserUpEntry | undefined
+          if (!isRootFolder) {
+            upOneDir = {
+              type: FileBrowserEntryType.Up,
+              name: t('fileBrowser.upOneDirectory', 'Up one directory'),
+              path: `${fileBrowserPath}\\..`,
+            }
+          }
+
+          const folders: FileBrowserFolderEntry[] = result
+            .filter((e): e is FileBrowserFolderEntry => e.type === FileBrowserEntryType.Folder)
+            .sort(sortFunc)
+          const files: FileBrowserFileEntry[] = result
+            .filter((e): e is FileBrowserFileEntry => e.type === FileBrowserEntryType.File)
+            .sort(sortFunc)
+
+          setUpOneDir(upOneDir)
+          setFolders(folders)
+          setFiles(files)
+        } catch (err) {
+          setLoadFilesError(err as Error)
+        } finally {
+          setIsLoadingFiles(false)
         }
-      }
-
-      const folders: FileBrowserFolderEntry[] = result
-        .filter((e): e is FileBrowserFolderEntry => e.type === FileBrowserEntryType.Folder)
-        .sort(sortFunc)
-      const files: FileBrowserFileEntry[] = result
-        .filter((e): e is FileBrowserFileEntry => e.type === FileBrowserEntryType.File)
-        .sort(sortFunc)
-
-      setUpOneDir(upOneDir)
-      setFolders(folders)
-      setFiles(files)
-    } catch (err) {
-      setLoadFilesError(err as Error)
-    } finally {
-      setIsLoadingFiles(false)
-    }
+      })
+      .catch(swallowNonBuiltins)
   })
 
   useEffect(() => {
-    getFiles().catch(swallowNonBuiltins)
+    getFiles()
   }, [fileBrowserPath, getFiles])
 
   useEffect(() => {

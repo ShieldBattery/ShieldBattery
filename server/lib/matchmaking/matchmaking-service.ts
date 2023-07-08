@@ -99,7 +99,7 @@ interface GameLoaderCallbacks {
     resultCodes: ReadonlyMap<SbUserId, string>
     chosenMap: MapInfoJson
     cancelToken: CancelToken
-  }) => void
+  }) => void | Promise<void>
   onRoutesSet: (
     clients: ReadonlyArray<ClientSocketsGroup>,
     playerName: string,

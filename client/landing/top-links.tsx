@@ -111,13 +111,12 @@ export function TopLinks({ className }: { className?: string }) {
   const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
 
-  const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
+  const onChangeLanguage = useStableCallback((language: TranslationLanguage) => {
     closeLanguageMenu()
     detectedLocale.setValue(language)
 
-    try {
-      await i18n.changeLanguage(language)
-    } catch (error) {
+    i18n.changeLanguage(language).catch(error => {
+      logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
       dispatch(
         openSnackbar({
           message: t(
@@ -126,8 +125,7 @@ export function TopLinks({ className }: { className?: string }) {
           ),
         }),
       )
-      logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
-    }
+    })
   })
 
   return (

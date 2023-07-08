@@ -68,11 +68,11 @@ export class WebsocketServer {
     readonly clientSockets: ClientSocketsManager,
     readonly userSockets: UserSocketsManager,
   ) {
-    ;(this.nydus as AuthorizingNydusServer).setAllowRequestHandler((req, cb) =>
+    ;(this.nydus as AuthorizingNydusServer).setAllowRequestHandler((req, cb) => {
       this.onAuthorization(req, cb).catch(err => {
         log.error({ err }, 'Error during socket authorization')
-      }),
-    )
+      })
+    })
 
     this.nydus
       .on('error', err => {

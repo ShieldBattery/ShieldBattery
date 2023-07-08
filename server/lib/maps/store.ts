@@ -172,7 +172,7 @@ function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<Ch
       clearTimeout(childTimeout)
     }
   }
-  const result = new Promise<ChildProcessResult>(async (resolve, reject) => {
+  const result = new Promise<ChildProcessResult>((resolve, reject) => {
     const child = childProcess.fork(path, args, {
       stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe', 'pipe', 'ipc'],
     })
@@ -240,13 +240,20 @@ function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<Ch
       console.assert(msg === 'init')
       inited = true
     })
-    while (!inited && !error) {
+
+    const sendInit = () => {
+      if (inited || error) {
+        return
+      }
+
       child.send('init')
-      await new Promise(resolve => setTimeout(resolve, 10))
+      setTimeout(sendInit, 10)
     }
+
+    sendInit()
   })
 
-  result.then(cleanup, cleanup)
+  result.finally(cleanup)
 
   return result
 }

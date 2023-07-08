@@ -121,7 +121,7 @@ export type OnGameSetupFunc = (
   gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate; userLatency?: BwUserLatency },
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
-) => void
+) => void | Promise<void>
 
 export type OnRoutesSetFunc = (playerName: string, routes: GameRoute[], gameId: string) => void
 

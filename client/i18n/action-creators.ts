@@ -10,7 +10,7 @@ import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
-  return async dispatch => {
+  return dispatch => {
     if (!locale || locale === i18n.language || !i18n.isInitialized) {
       return
     }
@@ -19,9 +19,8 @@ export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
       return
     }
 
-    try {
-      await i18n.changeLanguage(detectedLanguage)
-    } catch (error: any) {
+    i18n.changeLanguage(detectedLanguage).catch(error => {
+      logger.error(`There was an error changing the language: ${error?.stack ?? error}`)
       dispatch(
         openSimpleDialog(
           i18n.t('auth.language.changeErrorHeader', 'Error changing the language'),
@@ -32,8 +31,7 @@ export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
           true,
         ),
       )
-      logger.error(`There was an error changing the language: ${error?.stack ?? error}`)
-    }
+    })
   }
 }
 
