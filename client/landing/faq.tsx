@@ -307,7 +307,6 @@ export function Faq() {
               number of ways to contribute:
             </p>
           </Trans>
-          ,
           <ul key='u1'>
             <li>
               <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
@@ -325,7 +324,6 @@ export function Faq() {
               </a>
             </li>
           </ul>
-          ,
         </>
       ),
     },
