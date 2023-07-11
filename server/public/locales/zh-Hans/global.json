@@ -2,8 +2,6 @@
     "common": {
         "validators": {
             "required": "必需的",
-            "maxLength_one": "最多输入 {{count}} 个字符",
-            "minLength_one": "至少输入 {{count}} 个字符",
             "maxLength_other": "最多输入 {{count}} 个字符",
             "minLength_other": "输入至少 {{count}} 个字符"
         },
@@ -610,7 +608,6 @@
             "moreActions": "更多操作",
             "noDescription": "这个频道没有描述。",
             "private": "此频道是私人频道，需要邀请才能加入。",
-            "userCount_one": "{{count}} 成员",
             "userCount_other": "{{count}} 成员"
         },
         "messageLayout": {
@@ -672,7 +669,6 @@
     },
     "lobbies": {
         "joinLobby": {
-            "openSlotCount_one": "{{count}} 插槽打开",
             "openSlotCount_other": "{{count}} 插槽打开",
             "disabledInPartyText": "目前正在开发以派对形式加入游说团的功能。离开你的聚会继续。",
             "disabledInPartyTitle": "聚会时禁用",
