@@ -3,10 +3,10 @@
         "validators": {
             "required": "Requerido",
             "maxLength_one": "Ingrese como máximo el carácter {{count}}",
-            "maxLength_many": "",
+            "maxLength_many": "Ingrese como máximo {{count}} de caracteres",
             "maxLength_other": "Ingrese como máximo {{count}} caracteres",
             "minLength_one": "Ingrese al menos el carácter {{count}}",
-            "minLength_many": "",
+            "minLength_many": "Ingrese al menos {{count}} de caracteres",
             "minLength_other": "Ingrese al menos {{count}} caracteres"
         },
         "actions": {
@@ -552,7 +552,7 @@
             "noDescription": "Este canal no tiene descripción.",
             "private": "Este canal es privado y requiere una invitación para unirse.",
             "userCount_one": "{{count}} miembro",
-            "userCount_many": "",
+            "userCount_many": "{{count}} miembros",
             "userCount_other": "{{count}} miembros"
         },
         "channelList": {
@@ -1126,7 +1126,7 @@
             "title": "Unirse al vestíbulo",
             "noActiveLobbies": "No hay grupos de presión activos.",
             "openSlotCount_one": "{{count}} ranura abierta",
-            "openSlotCount_many": "",
+            "openSlotCount_many": "{{count}} de ranuras abiertas",
             "openSlotCount_other": "{{count}} ranuras abiertas"
         },
         "loading": {
