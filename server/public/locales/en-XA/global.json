@@ -1222,5 +1222,6 @@
         "reloadApp": "$🗡Reload app🗡!",
         "title": "$🗡Something went wrong :(🗡!",
         "contents": "$🗡Please report this issue to us in our <2>Discord</2>.🗡!"
-    }
+    },
+    "text": "$🗡<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>🗡!"
 }
