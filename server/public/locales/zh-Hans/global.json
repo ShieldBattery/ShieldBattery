@@ -196,7 +196,6 @@
             "title": "经常问的问题",
             "hotkeyCustomizationAnswer": "是的，我们支持自定义热键，但我们目前没有热键编辑器。如果您想使用自定义热键，请先通过暴雪启动器启动《星际争霸：重制版》并在那里自定义它们。完成此操作后，将来通过 ShieldBattery 进行的启动将使用这些热键。",
             "hotkeyCustomizationQuestion": "是否允许或提供热键定制？",
-            "isShieldBatteryFreeAnswer": "<0>ShieldBattery 完全免费使用！</0><1>但是，它确实花费了我们时间和金钱来托管和开发 ShieldBattery。如果您愿意帮助我们支付这些费用，我们将不胜感激。我们设置了多种贡献方式：</1>",
             "isShieldBatteryFreeQuestion": "ShieldBattery 需要付费吗？我如何支持该项目？",
             "linuxSupportQuestion": "ShieldBattery 可以在 Linux 或 OS X 上运行吗？",
             "officialSupportQuestion": "ShieldBattery是在暴雪的支持下开发的吗？"

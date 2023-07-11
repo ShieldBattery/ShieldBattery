@@ -299,7 +299,6 @@
             "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있습니까?",
             "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery를 통한 향후 출시에서 해당 핫키를 사용합니다.",
             "hotkeyCustomizationQuestion": "단축키 사용자 정의가 허용되거나 제공됩니까?",
-            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 기여 방법을 마련했습니다.</1>",
             "linuxSupportAnswer": "<0>현재 공식적으로 지원하는 기능은 아닙니다.</0><1>그러나 ShieldBattery와 Wine의 커뮤니티 기여 통합이 있습니다. Wine에서 ShieldBattery를 실행하는 방법을 알아보려면 <2>Discord</2>를 확인하세요.</1>",
             "linuxSupportQuestion": "ShieldBattery는 Linux 또는 OS X에서 작동합니까?",
             "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 구성원이 개발한 프로젝트이며 Blizzard의 공식적인 지원이나 승인을 받지 않았습니다.",

@@ -372,7 +372,6 @@
             "header": "$🗡FAQ🗡!",
             "hotkeyCustomizationAnswer": "$🗡Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.🗡!",
             "hotkeyCustomizationQuestion": "$🗡Is hotkey customization allowed or provided?🗡!",
-            "isShieldBatteryFreeAnswer": "$🗡<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>🗡!",
             "isShieldBatteryFreeQuestion": "$🗡Does ShieldBattery cost anything? How can I support the project?🗡!",
             "linuxSupportAnswer": "$🗡<0>This is not currently something that we have official support for.</0><1>However, there's a community-contributed integration of ShieldBattery with Wine. Check out our <2>Discord</2> to learn how to run ShieldBattery on Wine.</1>🗡!",
             "linuxSupportQuestion": "$🗡Does ShieldBattery work on Linux or OS X?🗡!",

@@ -298,7 +298,6 @@
         "faq": {
             "hotkeyCustomizationAnswer": "Sí, admitimos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas de acceso rápido. Si desea utilizar teclas de acceso rápido personalizadas, inicie StarCraft: Remastered a través del lanzador de Blizzard y personalícelas allí primero. Después de hacerlo, los lanzamientos futuros a través de ShieldBattery usarán esas teclas de acceso rápido.",
             "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
-            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>",
             "isShieldBatteryFreeQuestion": "¿ShieldBattery cuesta algo? ¿Cómo puedo apoyar el proyecto?",
             "linuxSupportAnswer": "<0>Actualmente, esto no es algo para lo que tengamos soporte oficial.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine aportada por la comunidad. Consulta nuestro <2>Discord</2> para aprender a ejecutar ShieldBattery en Wine.</1>",
             "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por apasionados miembros de la comunidad y no cuenta con el apoyo o reconocimiento oficial de Blizzard.",
