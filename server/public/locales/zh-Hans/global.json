@@ -71,7 +71,7 @@
                 },
                 "showBonusSkins": "显示奖励皮肤",
                 "skinsInfo": "皮肤（必须从暴雪购买）",
-                "title": "玩法",
+                "title": "游戏玩法",
                 "unitPortraits": {
                     "animated": "动画",
                     "disabled": "残疾人",
@@ -343,7 +343,7 @@
             "accountBanned": "该帐户已被禁止。<1><0>原因：</0><1>{{banReason}}</1></1><2>禁令将于{{expireTime}}到期。</2>",
             "banWithoutReason": "没有说明原因",
             "defaultError": "发生错误：{{status}} {{statusText}}",
-            "genericError": "发生错误：{{errorMessage}}",
+            "genericError": "发生错误：{{statusText}}",
             "invalidCredentials": "用户名或密码错误",
             "machineBanned": "该机器被禁止创建新帐户。",
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接，然后重试。",
@@ -390,19 +390,19 @@
     },
     "clientDownload": {
         "andMore": "和更多！",
-        "blurb": "将 ShieldBattery 客户端下载到：",
+        "blurb": "下载 ShieldBattery 客户端至：",
         "downloadClient": "下载客户端",
         "exploreMaps": "探索地图",
         "playGames": "玩游戏",
-        "supportProjectText": "想要支持该项目？",
+        "supportProjectText": "想支持该项目吗？",
         "watchReplays": "观看重播"
     },
     "clientUpdate": {
         "overlay": {
             "errorBody": "下载更新时出错。请重新启动并重试，或访问<2>我们的网站</2>下载最新版本。",
             "errorTitle": "下载更新时出错",
-            "newUpdateDownloading": "正在下载新的更新。请等待下载完成以便继续。",
-            "newUpdateReady": "已下载新更新并准备安装。请重新启动应用程序以继续。",
+            "newUpdateDownloading": "正在下载新的更新。请等待下载完成才能继续。",
+            "newUpdateReady": "新的更新已下载并准备安装。请重新启动应用程序以继续。",
             "noErrorTitle": "可用更新",
             "restartNow": "现在重启",
             "progress": "{{transferred}} / {{total}} 在 {{perSecond}}/秒"
@@ -425,11 +425,11 @@
             "unrated": "未评级"
         },
         "errorRetrievingRankings": "检索当前排名时出错。",
-        "lastPlayedHeader": "最后播放",
-        "mmrHeader": "麻疹死亡率",
+        "lastPlayedHeader": "最后玩过",
+        "mmrHeader": "MMR",
         "noMatchingPlayers": "没有匹配的玩家。",
         "pageHeadline": "梯子",
-        "playerHeader": "播放器",
+        "playerHeader": "玩家",
         "pointsHeader": "积分",
         "rankHeader": "秩",
         "updatedText": "更新：{{timestamp}}",
@@ -440,12 +440,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜 {{level}}",
+            "bronze": "青铜{{level}}",
             "champion": "冠军",
-            "diamond": "钻石 {{level}}",
+            "diamond": "钻石{{level}}",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金 {{level}}",
-            "silver": "银色 {{level}}",
+            "platinum": "白金{{level}}",
+            "silver": "银色{{level}}",
             "unrated": "未评级"
         },
         "acceptMatch": {
@@ -1013,7 +1013,7 @@
     "gameDetails": {
         "statusLive": "居住",
         "summary": {
-            "mmr": "麻疹死亡率",
+            "mmr": "MMR",
             "rp": "RP",
             "pointsBase": "根据",
             "pointsBonus": "奖金"
@@ -1030,7 +1030,7 @@
         "infoDuration": "期间",
         "infoGameType": "类型",
         "statusFinal": "最终的",
-        "tabBuildOrders": "构建订单",
+        "tabBuildOrders": "建造订单",
         "tabStats": "统计数据",
         "tabSummary": "概括"
     },
@@ -1130,7 +1130,7 @@
             "username": "用户名",
             "usernamePattern": "用户名包含无效字符",
             "usernameRequired": "输入用户名",
-            "error": "错误：{{errorMessage}}"
+            "error": "错误：{{error}}"
         },
         "errors": {
             "cantWhisperYourself": "你不能自言自语。",
@@ -1187,8 +1187,8 @@
             "leaderboard": "排行榜",
             "leaderboardError": "检索排行榜时出现问题：{{errorMessage}}",
             "leaderBoardHeader": {
-                "lastPlayed": "最后播放",
-                "player": "播放器",
+                "lastPlayed": "最后玩过",
+                "player": "玩家",
                 "points": "积分",
                 "rank": "秩",
                 "winLoss": "赢/输"
@@ -1222,5 +1222,6 @@
     "fileBrowser": {
         "rootFolder": "根文件夹",
         "upOneDirectory": "上一级目录"
-    }
+    },
+    "text": "<0>ShieldBattery 完全免费使用！</0><1>但是，它确实花费了我们时间和金钱来托管和开发 ShieldBattery。如果您愿意帮助我们支付这些费用，我们将不胜感激。我们设置了多种贡献方式：</1>"
 }
