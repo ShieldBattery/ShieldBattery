@@ -297,33 +297,37 @@ export function Faq() {
         'landing.faq.isShieldBatteryFreeQuestion',
         'Does ShieldBattery cost anything? How can I support the project?',
       ),
-      answer: [
-        <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer' key='text'>
-          <p key='p1'>ShieldBattery is totally free to use!</p>
-          <p key='p2'>
-            It does, however, cost us time and money to host and develop ShieldBattery. If you would
-            like to help us cover those costs, we'd greatly appreciate it. We have set up a number
-            of ways to contribute:
-          </p>
-        </Trans>,
-        <ul key='u1'>
-          <li>
-            <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
-              Github Sponsors
-            </a>
-          </li>
-          <li>
-            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-              Ko-fi
-            </a>
-          </li>
-          <li>
-            <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-              Patreon
-            </a>
-          </li>
-        </ul>,
-      ],
+      answer: (
+        <>
+          <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer'>
+            <p key='p1'>ShieldBattery is totally free to use!</p>
+            <p key='p2'>
+              It does, however, cost us time and money to host and develop ShieldBattery. If you
+              would like to help us cover those costs, we'd greatly appreciate it. We have set up a
+              number of ways to contribute:
+            </p>
+          </Trans>
+          ,
+          <ul key='u1'>
+            <li>
+              <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
+                Github Sponsors
+              </a>
+            </li>
+            <li>
+              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
+                Ko-fi
+              </a>
+            </li>
+            <li>
+              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+                Patreon
+              </a>
+            </li>
+          </ul>
+          ,
+        </>
+      ),
     },
     {
       question: t('landing.faq.reportIssuesQuestion', 'How can I report bugs or issues?'),
