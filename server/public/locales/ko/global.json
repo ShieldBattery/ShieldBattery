@@ -2,9 +2,7 @@
     "common": {
         "validators": {
             "required": "필수의",
-            "maxLength_one": "최대 {{count}}자까지 입력하십시오.",
             "maxLength_other": "최대 {{count}}자까지 입력하세요.",
-            "minLength_one": "{{count}}자 이상 입력하세요.",
             "minLength_other": "{{count}}자 이상 입력하세요."
         },
         "actions": {
@@ -611,7 +609,6 @@
             "selfJoin": "<1>{{lobby}}</1>에 가입하셨습니다. 호스트는 <4><0></0></4>입니다."
         },
         "joinLobby": {
-            "openSlotCount_one": "{{count}} 슬롯 열림",
             "openSlotCount_other": "{{count}} 슬롯 열림",
             "title": "로비 참가",
             "disabledInPartyText": "파티로 로비에 참여하는 기능은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
@@ -683,7 +680,6 @@
             "moreActions": "더 많은 행동",
             "noDescription": "이 채널은 설명이 없습니다.",
             "private": "이 채널은 비공개이며 참여하려면 초대가 필요합니다.",
-            "userCount_one": "{{count}} 멤버",
             "userCount_other": "{{count}} 멤버"
         },
         "channelList": {
