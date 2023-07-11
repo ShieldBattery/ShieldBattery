@@ -267,7 +267,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
               }),
             )
           }
-          logger.error(`Error joining league: ${err.stack ?? err}`)
+          logger.error(`Error joining league: ${String(err.stack ?? err)}`)
         },
       }),
     )
@@ -294,7 +294,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
         onError(err) {
           setIsFetching(false)
           setError(err)
-          logger.error(`Error loading league details: ${err.stack ?? err}`)
+          logger.error(`Error loading league details: ${String(err.stack ?? err)}`)
         },
       }),
     )
@@ -641,7 +641,7 @@ function Leaderboard({
         },
         onError(err) {
           setError(err)
-          logger.error(`Error loading leaderboard: ${err.stack ?? err}`)
+          logger.error(`Error loading leaderboard: ${String(err.stack ?? err)}`)
         },
       }),
     )

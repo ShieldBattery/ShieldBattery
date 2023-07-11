@@ -89,14 +89,18 @@ const StyledPatreonIcon = styled(PatreonIcon)`
 `
 
 const APP_MENU_LINKS: Array<[text?: string, icon?: React.ReactNode, url?: string]> = [
-  ['Discord', <DiscordIcon />, 'https://discord.gg/S8dfMx94a4'],
-  ['Twitter', <StyledTwitterIcon />, 'https://twitter.com/ShieldBatteryBW'],
-  ['GitHub', <GitHubIcon />, 'https://github.com/ShieldBattery/ShieldBattery'],
+  ['Discord', <DiscordIcon key='discord' />, 'https://discord.gg/S8dfMx94a4'],
+  ['Twitter', <StyledTwitterIcon key='twitter' />, 'https://twitter.com/ShieldBatteryBW'],
+  ['GitHub', <GitHubIcon key='github' />, 'https://github.com/ShieldBattery/ShieldBattery'],
   [],
   ['Support the project'],
-  ['Patreon', <StyledPatreonIcon />, 'https://patreon.com/tec27'],
-  ['GitHub Sponsors', <GitHubIcon />, 'https://github.com/sponsors/ShieldBattery'],
-  ['Ko-fi', <KofiColorIcon />, 'https://ko-fi.com/tec27'],
+  ['Patreon', <StyledPatreonIcon key='patreon' />, 'https://patreon.com/tec27'],
+  [
+    'GitHub Sponsors',
+    <GitHubIcon key='githubsponsors' />,
+    'https://github.com/sponsors/ShieldBattery',
+  ],
+  ['Ko-fi', <KofiColorIcon key='kofi' />, 'https://ko-fi.com/tec27'],
 ]
 
 const MENU_TRANSITION: UseTransitionProps<boolean> = {

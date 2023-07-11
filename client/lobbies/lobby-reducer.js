@@ -295,7 +295,7 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
   if (!lobbyInfo.name) {
     return EMPTY_CHAT
   }
-  return chatHandlers.hasOwnProperty(action.type)
+  return Object.hasOwn(chatHandlers, action.type)
     ? prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action))
     : state
 }

@@ -342,13 +342,15 @@ export function findMatchAsParty(
             )
             break
           case PartyServiceErrorCode.AlreadyInGameplayActivity:
-            dialogMessage = i18n.t(
-              'parties.errors.findMatchAsParty.alreadyInGameplayActivity',
-              'The party is already searching for a different matchmaking type',
-            )
-            const body = err.body as any
-            if (body.users && Array.isArray(body.users)) {
-              dialogMessage = <AlreadySearchingErrorContent users={body.users as SbUserId[]} />
+            {
+              dialogMessage = i18n.t(
+                'parties.errors.findMatchAsParty.alreadyInGameplayActivity',
+                'The party is already searching for a different matchmaking type',
+              )
+              const body = err.body as any
+              if (body.users && Array.isArray(body.users)) {
+                dialogMessage = <AlreadySearchingErrorContent users={body.users as SbUserId[]} />
+              }
             }
             break
           case PartyServiceErrorCode.InvalidAction:

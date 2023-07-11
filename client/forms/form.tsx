@@ -249,7 +249,7 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
       }
 
       validate(name: keyof ModelType) {
-        if (validations.hasOwnProperty(name)) {
+        if (Object.hasOwn(validations, name)) {
           const resultPromise = Promise.resolve(
             validations[name]!(
               this.state.model[name],

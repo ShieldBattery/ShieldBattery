@@ -82,7 +82,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         onChange={onInputChange}
         onFocus={onInputFocus}
         onBlur={onInputBlur}
-        leadingIcons={[<MaterialIcon icon='search' />]}
+        leadingIcons={[<MaterialIcon icon='search' key='search' />]}
         hasClearButton={true}
       />
     )

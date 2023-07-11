@@ -383,13 +383,14 @@ export function FileBrowser({
           }
           return true
         }
-        case SPACE:
+        case SPACE: {
           const focusedFileEntry = files.find(f => f.path === focusedPath)
           if (focusedFileEntry && fileEntryConfig.ExpansionPanelComponent) {
             onFileClick(focusedFileEntry)
             return true
           }
           return true
+        }
         case UP:
           moveFocusedIndexBy(-1)
           return true
@@ -397,7 +398,7 @@ export function FileBrowser({
           moveFocusedIndexBy(1)
           return true
         case PAGEUP:
-        case PAGEDOWN:
+        case PAGEDOWN: {
           if (!containerRect) {
             return true
           }
@@ -407,8 +408,9 @@ export function FileBrowser({
           const delta = event.code === PAGEUP ? -ENTRIES_SHOWN + 1 : ENTRIES_SHOWN - 1
           moveFocusedIndexBy(delta)
           return true
+        }
         case HOME:
-        case END:
+        case END: {
           const newFocusedEntry = event.code === HOME ? entries[0] : entries[entries.length - 1]
           if (!newFocusedEntry || newFocusedEntry.path === focusedPath) {
             return true
@@ -421,12 +423,14 @@ export function FileBrowser({
             listRef.current?.scrollToIndex({ index: entries.length, align: 'start' })
           }
           return true
-        case BACKSPACE:
+        }
+        case BACKSPACE: {
           const isRootFolder = fileBrowserPath === rootFolder.path
           if (!isRootFolder) {
             onUpLevelClick()
           }
           return true
+        }
       }
 
       return false

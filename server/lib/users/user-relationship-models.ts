@@ -226,6 +226,7 @@ export async function getRelationshipSummaryForUser(
               createdAt: row.highCreatedAt!,
             })
           }
+          break
 
         case MutualKind.BlockBoth:
         case MutualKind.BlockLowToHigh:

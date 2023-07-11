@@ -20,7 +20,7 @@ function getErrorClass(code: string): string {
 }
 
 function isDatabaseError(error: unknown): error is DatabaseError {
-  return error instanceof Error && error.hasOwnProperty('code') && error.hasOwnProperty('position')
+  return error instanceof Error && 'code' in error && 'position' in error
 }
 
 function handlePgSyntaxError(queryText: string, error: DatabaseError): Error {

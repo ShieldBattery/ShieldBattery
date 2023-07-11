@@ -160,7 +160,7 @@ export function useForm<ModelType>(
 
   const validate = useCallback(
     (name: keyof ModelType) => {
-      if (!validations.hasOwnProperty(name)) {
+      if (!Object.hasOwn(validations, name)) {
         return
       }
 

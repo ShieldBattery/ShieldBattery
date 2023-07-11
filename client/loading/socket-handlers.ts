@@ -48,7 +48,7 @@ const eventToAction: LoadingEventToActionMap = {
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   const loadingHandler = (route: RouteInfo, event: LoadingEvent) => {
-    if (!eventToAction.hasOwnProperty(event.type)) return
+    if (!Object.hasOwn(eventToAction, event.type)) return
 
     const action = eventToAction[event.type](event as any)
     if (action) dispatch(action)

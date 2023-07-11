@@ -28,7 +28,7 @@ function UserError({ error }: { error: FetchError }) {
           {t('auth.userErrorDisplay.invalidCredentials', 'Incorrect username or password')}
         </span>
       )
-    case UserErrorCode.AccountBanned:
+    case UserErrorCode.AccountBanned: {
       const banReason = error.body
         ? { error: (error.body as any).reason }
         : t('auth.userErrorDisplay.banWithoutReason', 'No reason specified')
@@ -52,6 +52,7 @@ function UserError({ error }: { error: FetchError }) {
           </Trans>
         </div>
       )
+    }
     case UserErrorCode.SessionExpired:
       return <span>{t('auth.userErrorDisplay.sessionExpired', 'Session expired')}</span>
     case UserErrorCode.SuspiciousActivity:

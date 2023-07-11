@@ -194,7 +194,7 @@ export function getTeamNames(
         t ? t('game.teamName.bottom', 'Bottom') : 'Bottom',
       ]
     case GameType.TeamMelee:
-    case GameType.TeamFreeForAll:
+    case GameType.TeamFreeForAll: {
       const teamNames = []
       const amount = numTeams(gameType, gameSubType, umsForces)
       for (let i = 1; i <= amount; i++) {
@@ -208,6 +208,7 @@ export function getTeamNames(
         )
       }
       return teamNames
+    }
     case GameType.UseMapSettings:
       return umsForces.map(f => f.name)
     default:

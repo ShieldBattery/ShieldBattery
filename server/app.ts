@@ -243,7 +243,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
   try {
     await rallyPointInitPromise
 
-    const stats: any | undefined = await compilePromise
+    const stats: any = await compilePromise
 
     if (stats) {
       if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {

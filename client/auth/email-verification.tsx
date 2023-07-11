@@ -78,7 +78,7 @@ export function EmailVerificationUi() {
         onError: err => {
           setResending(false)
           setResendError(err)
-          logger.error(`Resending verification email failed: ${err?.stack ?? err}`)
+          logger.error(`Resending verification email failed: ${String(err?.stack ?? err)}`)
         },
       }),
     )

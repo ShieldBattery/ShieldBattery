@@ -1,7 +1,7 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource } from '../../../common/games/configuration'
+import { GameSource, GameType } from '../../../common/games/configuration'
 import {
   GameRecord,
   GameRecordUpdate,
@@ -499,7 +499,7 @@ export default class GameResultService {
       // as when a user has an unknown result?
 
       const statsUpdatePromises: Array<Promise<UserStats>> = []
-      if (gameRecord.config.gameType !== 'ums' && !reconciled.disputed) {
+      if (gameRecord.config.gameType !== GameType.UseMapSettings && !reconciled.disputed) {
         for (const [userId, result] of reconciled.results.entries()) {
           if (result.result !== 'win' && result.result !== 'loss') {
             continue

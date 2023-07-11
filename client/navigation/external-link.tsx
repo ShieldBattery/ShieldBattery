@@ -63,7 +63,7 @@ export function ExternalLink({ href, children, className, forceNewWindow }: Exte
   } else if (forceNewWindow) {
     const newWindowUrl = makeServerUrl(url.pathname + url.search + url.hash)
     return (
-      <a className={className} href={newWindowUrl} target='_blank'>
+      <a className={className} href={newWindowUrl} target='_blank' rel='noopener'>
         {children}
       </a>
     )

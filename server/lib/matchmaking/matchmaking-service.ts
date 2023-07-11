@@ -18,7 +18,7 @@ import {
   GameType,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
-import { createHuman, Slot } from '../../../common/lobbies/slot'
+import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -983,7 +983,7 @@ export class MatchmakingService {
         slots.map(s => ({
           id: s.userId,
           race: s.race,
-          isComputer: s.type === 'computer' || s.type === 'umsComputer',
+          isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
         })),
       ]
     } else {
@@ -998,7 +998,7 @@ export class MatchmakingService {
         t.map(s => ({
           id: s.userId,
           race: s.race,
-          isComputer: s.type === 'computer' || s.type === 'umsComputer',
+          isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
         })),
       )
     }

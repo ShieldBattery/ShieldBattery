@@ -30,7 +30,7 @@ interface PathBreadcrumbsProps {
 
 export const PathBreadcrumbs = React.memo<PathBreadcrumbsProps>(
   ({ className, onNavigate, path }) => {
-    const pieces = path.split(/[\\\/]/g)
+    const pieces = path.split(/[\\/]/g)
     if (pieces[pieces.length - 1] === '') {
       // Remove the last entry if it's empty (due to a trailing slash)
       pieces.pop()

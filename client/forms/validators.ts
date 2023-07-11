@@ -62,7 +62,7 @@ export function required(msg: string | ((t: TFunction) => string)): Validator<an
 
 export function minLength(length: number): Validator<any, any> {
   return (value, _model, _dirty, t) => {
-    if (value === undefined || value === null || ('' + value).length >= length) {
+    if (value === undefined || value === null || String(value).length >= length) {
       return undefined
     }
 
@@ -75,7 +75,7 @@ export function minLength(length: number): Validator<any, any> {
 
 export function maxLength(length: number): Validator<any, any> {
   return (value, _model, _dirty, t) => {
-    if (value === undefined || value === null || ('' + value).length <= length) {
+    if (value === undefined || value === null || String(value).length <= length) {
       return undefined
     }
 
@@ -91,7 +91,7 @@ export function regex(
   msg: string | ((t: TFunction) => string),
 ): Validator<any, any> {
   return (val, _model, _dirty, t) => {
-    if (val === undefined || val === null || regex.test('' + val)) {
+    if (val === undefined || val === null || regex.test(String(val))) {
       return undefined
     }
 

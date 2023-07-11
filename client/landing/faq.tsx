@@ -298,7 +298,7 @@ export function Faq() {
         'Does ShieldBattery cost anything? How can I support the project?',
       ),
       answer: [
-        <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer'>
+        <Trans t={t} i18nKey='landing.faq.isShieldBatteryFreeAnswer' key='text'>
           <p key='p1'>ShieldBattery is totally free to use!</p>
           <p key='p2'>
             It does, however, cost us time and money to host and develop ShieldBattery. If you would

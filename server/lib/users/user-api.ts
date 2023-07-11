@@ -1072,13 +1072,9 @@ export class AdminUserApi {
   async findUser(ctx: RouterContext): Promise<SbUser[]> {
     const searchTerm = ctx.params.searchTerm
 
-    try {
-      // TODO(tec27): Admins probably want more info than just this, maybe we should merge some of
-      // this functionality with the profile page
-      const user = await findUserByName(searchTerm)
-      return user ? [user] : []
-    } catch (err) {
-      throw err
-    }
+    // TODO(tec27): Admins probably want more info than just this, maybe we should merge some of
+    // this functionality with the profile page
+    const user = await findUserByName(searchTerm)
+    return user ? [user] : []
   }
 }

@@ -229,7 +229,7 @@ export function createLobby(
   allowObservers: boolean,
 ) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
-  if (gameType === 'melee' && allowObservers) {
+  if (gameType === GameType.Melee && allowObservers) {
     const observerCount = Math.min(
       8 - teams.reduce((sum, team) => sum + team.slots.size, 0),
       MAX_OBSERVERS,

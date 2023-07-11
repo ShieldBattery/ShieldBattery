@@ -126,7 +126,10 @@ export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStatePr
   }, [refreshToken, startObserving])
 
   const [topNode, bottomNode] = useMemo(() => {
-    return [<ScrollObserved ref={topElemRef} />, <ScrollObserved ref={bottomElemRef} />]
+    return [
+      <ScrollObserved ref={topElemRef} key='top' />,
+      <ScrollObserved ref={bottomElemRef} key='bottom' />,
+    ]
   }, [])
 
   return [isAtTop, isAtBottom, topNode, bottomNode]

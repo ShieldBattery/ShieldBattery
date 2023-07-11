@@ -93,12 +93,9 @@ const COMPONENTS: Components = {
 export function Markdown({ source, className }: MarkdownProps) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
-      <StyledMarkdown
-        className={className}
-        children={source}
-        skipHtml={true}
-        components={COMPONENTS}
-      />
+      <StyledMarkdown className={className} skipHtml={true} components={COMPONENTS}>
+        {source}
+      </StyledMarkdown>
     </Suspense>
   )
 }

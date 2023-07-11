@@ -22,7 +22,7 @@ interface ApiMethodRegistration {
   middleware: Array<string | RouteHandler>
 }
 type ApiMethodsMap = Map<string, ApiMethodRegistration>
-type ApiClassPrototype = unknown & {
+type ApiClassPrototype = {
   [MOUNT_PATH]: string | undefined
   [API_METHODS]: ApiMethodsMap | undefined
 }

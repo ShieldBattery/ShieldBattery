@@ -68,7 +68,7 @@ export class RootErrorBoundary extends React.Component<
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error(`RootErrorBoundary caught an error: ${error.stack ?? error}`)
+    logger.error(`RootErrorBoundary caught an error: ${String(error.stack ?? error)}`)
     logger.error(`React stack:\n${errorInfo.componentStack}`)
   }
 

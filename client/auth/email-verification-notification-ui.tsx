@@ -48,7 +48,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
             )
           },
           onError: err => {
-            logger.error(`Resending verification email failed: ${err?.stack ?? err}`)
+            logger.error(`Resending verification email failed: ${String(err?.stack ?? err)}`)
             dispatch(
               openSnackbar({
                 message: t(

@@ -104,11 +104,13 @@ class NameForm extends React.Component {
         icon={<MaterialIcon icon='check' />}
         title={t('common.actions.save', 'Save')}
         onClick={onSubmit}
+        key='save'
       />,
       <IconButton
         icon={<MaterialIcon icon='close' />}
         title={t('common.actions.cancel', 'Cancel')}
         onClick={onCancel}
+        key='cancel'
       />,
     ]
 
@@ -147,11 +149,13 @@ class DescriptionForm extends React.Component {
         icon={<MaterialIcon icon='check' />}
         title={t('common.actions.save', 'Save')}
         onClick={onSubmit}
+        key='save'
       />,
       <IconButton
         icon={<MaterialIcon icon='close' />}
         title={t('common.actions.cancel', 'Cancel')}
         onClick={onCancel}
+        key='cancel'
       />,
     ]
 

@@ -234,7 +234,7 @@ export default class LobbyView extends React.Component {
             <LoadingIndicator />
           </LoadingArea>
         ) : null,
-        <p>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</p>,
+        <p key='text'>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</p>,
       ]
     }
 

@@ -51,7 +51,9 @@ export class JobScheduler {
 
     const currentTimeout = setTimeout(() => this.runJob(jobId), firstTimeout)
     this.jobs.set(jobId, { jobId, startTime, runEveryMs, jobFn, currentTimeout })
-    logger.info(`Scheduled ${jobId} to run every ${runEveryMs}ms starting at ${startTime}`)
+    logger.info(
+      `Scheduled ${jobId} to run every ${runEveryMs}ms starting at ${startTime.toISOString()}`,
+    )
   }
 
   /**

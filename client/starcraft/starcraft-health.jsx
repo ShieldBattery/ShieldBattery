@@ -52,7 +52,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
           </a>
           . If you do not have the game installed, it can be easily downloaded from{' '}
           <span>
-            <a href={STARCRAFT_DOWNLOAD_URL} target='_blank'>
+            <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='noreferrer noopener'>
               Blizzard's website
             </a>
           </span>
@@ -74,7 +74,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
             Your StarCraft installation is out of date. ShieldBattery supports installations of
             version 1.16.1 or the latest Remastered version. Please install the{' '}
             <span>
-              <a href={STARCRAFT_DOWNLOAD_URL} target='_blank'>
+              <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='noreferrer noopener'>
                 latest version
               </a>
             </span>{' '}

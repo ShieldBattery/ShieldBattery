@@ -1,7 +1,7 @@
 import { List, Record } from 'immutable'
 import { GameType, isTeamType } from '../games/configuration'
 import { MapInfo } from '../maps'
-import { Slot } from './slot'
+import { Slot, SlotType } from './slot'
 
 /**
  * The maximum number of observers allowed in a game, regardless of how many slots can be
@@ -56,13 +56,18 @@ export function getLobbySlots(lobby: Lobby): List<Slot> {
  */
 export function getPlayerSlots(lobby: Lobby): List<Slot> {
   return getLobbySlots(lobby).filter(
-    slot => slot.type === 'human' || slot.type === 'computer' || slot.type === 'umsComputer',
+    slot =>
+      slot.type === SlotType.Human ||
+      slot.type === SlotType.Computer ||
+      slot.type === SlotType.UmsComputer,
   )
 }
 
 /** Gets all the human slots in a lobby. This includes both the players and the observers. */
 export function getHumanSlots(lobby: Lobby): List<Slot> {
-  return getLobbySlots(lobby).filter(slot => slot.type === 'human' || slot.type === 'observer')
+  return getLobbySlots(lobby).filter(
+    slot => slot.type === SlotType.Human || slot.type === SlotType.Observer,
+  )
 }
 
 type SlotWithIndexes = [teamIndex: number, slotIndex: number, slot: Slot]
@@ -98,7 +103,8 @@ export function getIngameLobbySlotsWithIndexes(lobby: Lobby): List<SlotWithIndex
  */
 export function findSlotByName(lobby: Lobby, name: string): SlotWithIndexes | [] {
   const slot = getLobbySlotsWithIndexes(lobby).find(
-    ([, , slot]) => (slot.type === 'human' || slot.type === 'observer') && slot.name === name,
+    ([, , slot]) =>
+      (slot.type === SlotType.Human || slot.type === SlotType.Observer) && slot.name === name,
   )
   return slot ? slot : []
 }
@@ -129,7 +135,8 @@ export function slotCount(lobby: Lobby): number {
 export function humanSlotCount(lobby: Lobby): number {
   return lobby.teams.reduce(
     (humanSlots, team) =>
-      humanSlots + team.slots.count(slot => slot.type === 'human' || slot.type === 'observer'),
+      humanSlots +
+      team.slots.count(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer),
     0,
   )
 }
@@ -142,7 +149,10 @@ export function humanSlotCount(lobby: Lobby): number {
  */
 export function teamPlayerSlotCount(team: Team): number {
   return team.slots.count(
-    slot => slot.type === 'human' || slot.type === 'computer' || slot.type === 'umsComputer',
+    slot =>
+      slot.type === SlotType.Human ||
+      slot.type === SlotType.Computer ||
+      slot.type === SlotType.UmsComputer,
   )
 }
 
@@ -161,7 +171,9 @@ export function takenSlotCount(lobby: Lobby): number {
  * or `controlledOpen`.
  */
 export function teamTakenSlotCount(team: Team): number {
-  return team.slots.count(slot => slot.type !== 'open' && slot.type !== 'controlledOpen')
+  return team.slots.count(
+    slot => slot.type !== SlotType.Open && slot.type !== SlotType.ControlledOpen,
+  )
 }
 
 /**
@@ -172,7 +184,10 @@ export function teamTakenSlotCount(team: Team): number {
 export function openSlotCount(lobby: Lobby): number {
   return lobby.teams.reduce(
     (openSlots, team) =>
-      openSlots + team.slots.count(slot => slot.type === 'open' || slot.type === 'controlledOpen'),
+      openSlots +
+      team.slots.count(
+        slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
+      ),
     0,
   )
 }

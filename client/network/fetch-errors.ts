@@ -12,7 +12,7 @@ export class FetchError extends Error {
     this.url = res.url
   }
 
-  get body(): unknown | undefined {
+  get body(): unknown {
     if (this._parsedBody) {
       return this._parsedBody
     }

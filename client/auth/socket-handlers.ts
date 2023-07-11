@@ -32,7 +32,7 @@ const eventToAction: Readonly<EventToActionMap> = {
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute('/userProfiles/:userId', (route: RouteInfo, event: AuthEvent) => {
-    if (!eventToAction.hasOwnProperty(event.action)) return
+    if (!Object.hasOwn(eventToAction, event.action)) return
 
     const action = eventToAction[event.action](event as any)
     if (action) dispatch(action)

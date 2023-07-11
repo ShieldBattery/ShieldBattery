@@ -39,7 +39,7 @@ const eventToAction: EventToActionMap = {
     if (!IS_ELECTRON && ELECTRON_ONLY_NOTIFICATION_TYPES.has(notification.type)) {
       return
     }
-    if (NOTIFICATION_SOUNDS.hasOwnProperty(notification.type)) {
+    if (Object.hasOwn(NOTIFICATION_SOUNDS, notification.type)) {
       audioManager.playSound(NOTIFICATION_SOUNDS[notification.type]!)
     }
 

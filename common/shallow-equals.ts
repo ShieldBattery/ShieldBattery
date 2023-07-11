@@ -20,9 +20,8 @@ export default function shallowEquals<T extends Record<string, any>>(objA: T, ob
     return false
   }
 
-  const hasOwn = Object.prototype.hasOwnProperty
   for (let i = 0; i < keysA.length; i++) {
-    if (!hasOwn.call(objB, keysA[i]) || objA[keysA[i]] !== objB[keysA[i]]) {
+    if (!Object.hasOwn(objB, keysA[i]) || objA[keysA[i]] !== objB[keysA[i]]) {
       return false
     }
   }

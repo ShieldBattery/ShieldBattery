@@ -90,7 +90,7 @@ export function CreateChannel() {
         logger.error(`Unhandled code when creating the channel: ${error.code}`)
       }
     } else {
-      logger.error(`Error when creating the channel: ${error.stack ?? error}`)
+      logger.error(`Error when creating the channel: ${String(error.stack ?? error)}`)
     }
   }
 

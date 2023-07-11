@@ -128,7 +128,9 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         this.setStatus(GameStatus.Error)
         this.activeGame = null
 
-        log.error(`Slots and routes don't match:\nslots: ${slotIds}\nroutes: ${routesIds}`)
+        log.error(
+          `Slots and routes don't match:\nslots: ${String(slotIds)}\nroutes: ${String(routesIds)}`,
+        )
         throw new Error("Slots and routes don't match")
       }
     }
@@ -369,7 +371,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   }
 
   handleGameExitWaitError(id: string, err: Error) {
-    log.error(`Error while waiting for game ${id} to exit: ${err}`)
+    log.error(`Error while waiting for game ${id} to exit: ${String(err.stack ?? err)}`)
   }
 
   private setStatus(state: GameStatus, extra: any = null) {

@@ -248,7 +248,7 @@ export class MapPoolEditor extends React.Component {
             label='Find a map'
             value={searchQuery}
             allowErrors={false}
-            leadingIcons={[<MaterialIcon icon='search' />]}
+            leadingIcons={[<MaterialIcon icon='search' key='search' />]}
             onChange={this.onSearchChange}
             onFocus={this.onSearchFocus}
             onBlur={this.onSearchBlur}

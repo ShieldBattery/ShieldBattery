@@ -120,7 +120,7 @@ function LeagueList() {
         onError(err) {
           setIsLoading(false)
           setError(err)
-          logger.error(`Error loading leagues list: ${err.stack ?? err}`)
+          logger.error(`Error loading leagues list: ${String(err.stack ?? err)}`)
         },
       }),
     )

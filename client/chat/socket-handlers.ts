@@ -189,7 +189,7 @@ const CHANNEL_PATH = '/chat3/:channelId'
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute(CHANNEL_PATH, (route: RouteInfo, event: ChatEvent) => {
-    if (!eventToChatAction.hasOwnProperty(event.action)) return
+    if (!Object.hasOwn(eventToChatAction, event.action)) return
 
     const action = eventToChatAction[event.action](
       makeSbChannelId(Number(route.params.channelId)),
@@ -201,7 +201,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute(
     `${CHANNEL_PATH}/users/:userId`,
     (route: RouteInfo, event: ChatUserEvent) => {
-      if (!eventToChatUserAction.hasOwnProperty(event.action)) return
+      if (!Object.hasOwn(eventToChatUserAction, event.action)) return
 
       const action = eventToChatUserAction[event.action](
         makeSbChannelId(Number(route.params.channelId)),

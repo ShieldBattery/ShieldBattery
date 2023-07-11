@@ -124,7 +124,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={true}
             dense={this.state.dense}
             label='With leading icon'
-            leadingIcons={[<MaterialIcon icon='view_list' />]}
+            leadingIcons={[<MaterialIcon icon='view_list' key='view' />]}
             onChange={this.onChange}
           />
           <TextField
@@ -140,11 +140,13 @@ export default class TextFieldTest extends React.Component {
                       icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 1'
                       onClick={this.onActionClick}
+                      key='1'
                     />,
                     <DenseIconButton
                       icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 2'
                       onClick={this.onActionClick}
+                      key='2'
                     />,
                   ]
                 : [
@@ -152,11 +154,13 @@ export default class TextFieldTest extends React.Component {
                       icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 1'
                       onClick={this.onActionClick}
+                      key='1'
                     />,
                     <IconButton
                       icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 2'
                       onClick={this.onActionClick}
+                      key='2'
                     />,
                   ]
             }
@@ -168,7 +172,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={true}
             dense={this.state.dense}
             label='With trailing icon'
-            trailingIcons={[<MaterialIcon icon='local_pizza' />]}
+            trailingIcons={[<MaterialIcon icon='local_pizza' key='pizza' />]}
             onChange={this.onChange}
           />
           <TextField
@@ -184,11 +188,13 @@ export default class TextFieldTest extends React.Component {
                       icon={<MaterialIcon icon='local_pizza' />}
                       title='Trailing action 1'
                       onClick={this.onActionClick}
+                      key='1'
                     />,
                     <DenseIconButton
                       icon={<MaterialIcon icon='magic_button' />}
                       title='Trailing action 2'
                       onClick={this.onActionClick}
+                      key='2'
                     />,
                   ]
                 : [
@@ -196,11 +202,13 @@ export default class TextFieldTest extends React.Component {
                       icon={<MaterialIcon icon='local_pizza' />}
                       title='Trailing action 1'
                       onClick={this.onActionClick}
+                      key='1'
                     />,
                     <IconButton
                       icon={<MaterialIcon icon='magic_button' />}
                       title='Trailing action 2'
                       onClick={this.onActionClick}
+                      key='2'
                     />,
                   ]
             }

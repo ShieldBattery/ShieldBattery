@@ -28,7 +28,7 @@ type ReducerMap<S> = {
  */
 export function keyedReducer<S>(defaultState: S, reducerObject: ReducerMap<S>) {
   return (state = defaultState, action: { type: string }) => {
-    if (reducerObject.hasOwnProperty(action.type)) {
+    if (Object.hasOwn(reducerObject, action.type)) {
       const mapping = reducerObject as Record<string, ReducerFunc<ReduxAction, S>>
       return mapping[action.type](state, action as any)
     } else {
@@ -82,7 +82,7 @@ type ImmerReducerMap<S> = {
  */
 export function immerKeyedReducer<S>(defaultState: S, reducerObject: ImmerReducerMap<S>) {
   return (state = defaultState, action: { type: string }) => {
-    if (reducerObject.hasOwnProperty(action.type)) {
+    if (Object.hasOwn(reducerObject, action.type)) {
       const mapping = reducerObject as Record<string, ImmerReducerFunc<ReduxAction, S>>
 
       return produce(state, draft => {
