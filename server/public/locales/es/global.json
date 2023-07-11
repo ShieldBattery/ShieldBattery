@@ -1222,6 +1222,5 @@
         "reloadApp": "recargar aplicación",
         "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
         "title": "Algo salió mal :("
-    },
-    "text": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
+    }
 }
