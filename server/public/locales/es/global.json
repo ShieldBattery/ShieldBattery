@@ -312,7 +312,8 @@
             "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
             "title": "Preguntas frecuentes",
             "header": "Preguntas más frecuentes",
-            "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?"
+            "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?",
+            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
         },
         "splash": {
             "benefits": {
