@@ -385,7 +385,8 @@
             "supportedStarcraftVersionQuestion": "$🗡What version of StarCraft does ShieldBattery support?🗡!",
             "systemRequirementsQuestion": "$🗡What are the system requirements to play on ShieldBattery?🗡!",
             "title": "$🗡Frequently Asked Questions🗡!",
-            "systemRequirementsAnswer": "$🗡<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>🗡!"
+            "systemRequirementsAnswer": "$🗡<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>🗡!",
+            "isShieldBatteryFreeAnswer": "$🗡<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>🗡!"
         }
     },
     "clientDownload": {
