@@ -312,7 +312,8 @@
             "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></ 1>",
             "systemRequirementsQuestion": "ShieldBattery에서 플레이하기 위한 시스템 요구 사항은 무엇입니까?",
             "title": "자주 묻는 질문",
-            "header": "자주하는 질문"
+            "header": "자주하는 질문",
+            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 기여 방법을 마련했습니다.</1>"
         },
         "bottomLinks": {
             "acceptableUsePolicy": "허용되는 사용 정책",
