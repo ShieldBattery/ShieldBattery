@@ -3,9 +3,9 @@
         "validators": {
             "required": "Requerido",
             "maxLength_one": "Ingrese como máximo el carácter {{count}}",
-            "maxLength_other": "Ingrese como máximo {{count}} caracteres",
+            "maxLength_other": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength_one": "Ingrese al menos el carácter {{count}}",
-            "minLength_other": "Ingrese al menos {{count}} caracteres"
+            "minLength_other": "Ingrese al menos {{minLength}} caracteres"
         },
         "actions": {
             "back": "Atrás",
@@ -539,7 +539,7 @@
     "chat": {
         "channelInfo": {
             "notFound": "No se pudo encontrar este canal. Es posible que no exista o que otra persona lo haya recreado.",
-            "defaultError": "Ocurrió un error: {{statusText}}",
+            "defaultError": "Ocurrió un error: {{errorMessage}}",
             "genericError": "Error al obtener la información del canal para #{{channelName}}: {{errorMessage}}"
         },
         "channelInfoCard": {
@@ -575,7 +575,7 @@
             "channelName": "Nombre del Canal",
             "createAction": "Crear canal",
             "defaultError": "Ocurrió un error al crear el canal.",
-            "maximumOwnedError": "Ha alcanzado el límite de canales creados. Debe abandonar un canal que creó antes de poder crear otro.",
+            "maximumOwnedError": "Ha alcanzado el límite de canales creados. Debe abandonar un canal que haya creado antes de poder crear otro.",
             "title": "Crear canal"
         },
         "events": {
@@ -602,7 +602,7 @@
             "successMessage": "{{user}} fue prohibido"
         },
         "banUserErrorDisplay": {
-            "defaultError": "Ocurrió un error: {{statusText}}",
+            "defaultError": "Ocurrió un error: {{errorMessage}}",
             "genericError": "Error al prohibir {{user}}: {{errorMessage}}",
             "moderateChannelModerator": "No puedes banear a otro moderador",
             "moderateChannelOwner": "No puedes banear al dueño del canal",
@@ -903,7 +903,7 @@
     },
     "whispers": {
         "createWhisper": {
-            "error": "Error: {{errorMessage}}",
+            "error": "Error: {{error}}",
             "title": "Enviar un mensaje",
             "username": "Nombre de usuario",
             "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
@@ -1222,5 +1222,6 @@
         "reloadApp": "recargar aplicación",
         "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
         "title": "Algo salió mal :("
-    }
+    },
+    "text": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
 }
