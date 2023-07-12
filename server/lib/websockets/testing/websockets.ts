@@ -118,7 +118,10 @@ export function createFakeNydusServer(): NydusServer {
 export class NydusConnector {
   private fakeNydus: FakeNydusServer
 
-  constructor(readonly nydus: NydusServer, readonly sessionLookup: RequestSessionLookup) {
+  constructor(
+    readonly nydus: NydusServer,
+    readonly sessionLookup: RequestSessionLookup,
+  ) {
     if (!(nydus instanceof FakeNydusServer)) {
       throw new Error('Must use a FakeNydusServer')
     }

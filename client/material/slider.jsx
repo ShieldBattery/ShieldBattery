@@ -222,7 +222,10 @@ const Balloon = styled.div`
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
-  transition: transform 150ms ${fastOutSlowIn}, background-color 200ms linear, color 200ms linear;
+  transition:
+    transform 150ms ${fastOutSlowIn},
+    background-color 200ms linear,
+    color 200ms linear;
   will-change: transform, background-color, color;
 
   &::before {

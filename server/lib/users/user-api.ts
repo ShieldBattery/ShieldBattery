@@ -878,7 +878,10 @@ export class UserApi {
 @httpApi('/admin/users')
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
-  constructor(private publisher: TypedPublisher<AuthEvent>, private banEnacter: BanEnacter) {}
+  constructor(
+    private publisher: TypedPublisher<AuthEvent>,
+    private banEnacter: BanEnacter,
+  ) {}
 
   @httpGet('/:id/permissions')
   @httpBefore(checkAllPermissions('editPermissions'))

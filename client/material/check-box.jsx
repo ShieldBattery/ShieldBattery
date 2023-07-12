@@ -83,7 +83,9 @@ const IconContainer = styled.div`
     }};
     border-radius: 50%;
     content: '';
-    transition: all 200ms ${fastOutSlowIn}, background-color 150ms linear;
+    transition:
+      all 200ms ${fastOutSlowIn},
+      background-color 150ms linear;
   }
 
   &::after {
@@ -105,7 +107,10 @@ const CheckIcon = styled.div`
   height: ${BOX_HEIGHT}px;
   border: 2px solid;
   border-radius: 2px;
-  transition: border-color 200ms linear, background-color 200ms linear, opacity 150ms linear;
+  transition:
+    border-color 200ms linear,
+    background-color 200ms linear,
+    opacity 150ms linear;
 
   background-color: ${props => {
     if (props.checked && props.disabled) return colorTextPrimary
@@ -142,7 +147,9 @@ const CheckIcon = styled.div`
     border-left: 0;
     content: '';
     transform: ${props => (props.checked ? 'rotate(45deg)' : 'rotate(-135deg)')};
-    transition: border-color 150ms linear, transform 200ms ${fastOutSlowIn};
+    transition:
+      border-color 150ms linear,
+      transform 200ms ${fastOutSlowIn};
   }
 `
 

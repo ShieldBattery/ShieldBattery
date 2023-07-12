@@ -21,7 +21,10 @@ export class ExponentialSmoothValue {
    *     changes based on recent values (e.g. less smoothing)
    * @param initialValue the value to start from, defaults to 1
    */
-  constructor(readonly alpha: number, initialValue = 0) {
+  constructor(
+    readonly alpha: number,
+    initialValue = 0,
+  ) {
     this.curValue = initialValue
   }
 

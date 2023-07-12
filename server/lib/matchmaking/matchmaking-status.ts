@@ -16,7 +16,10 @@ export default class MatchmakingStatusService {
   private statusByType = new Map<MatchmakingType, MatchmakingStatus>()
   private timerByType = new Map<MatchmakingType, ReturnType<typeof setTimeout>>()
 
-  constructor(private nydus: NydusServer, private clientSockets: ClientSocketsManager) {
+  constructor(
+    private nydus: NydusServer,
+    private clientSockets: ClientSocketsManager,
+  ) {
     clientSockets.on('newClient', client => {
       if (client.clientType === 'electron') {
         client.subscribe<MatchmakingStatusUpdateEvent>('/matchmakingStatus', () => {

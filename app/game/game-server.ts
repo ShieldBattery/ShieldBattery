@@ -34,7 +34,10 @@ export class GameServer {
   private idToSocket = Map<string, WebSocket>()
   private activeGameManager = container.resolve(ActiveGameManager)
 
-  constructor(private server: WebSocketServer, private localSettings: LocalSettingsManager) {
+  constructor(
+    private server: WebSocketServer,
+    private localSettings: LocalSettingsManager,
+  ) {
     this.activeGameManager.on('gameCommand', (id, command, payload) => {
       log.verbose(`Sending game command to ${id}: ${command}`)
       const socket = this.idToSocket.get(id)

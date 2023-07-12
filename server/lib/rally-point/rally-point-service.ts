@@ -37,7 +37,10 @@ export class RallyPointService {
   private readonly pingDeferreds = new Map<ClientSocketsGroup, Deferred<void>>()
   private routeCreator: RallyPointCreator | undefined
 
-  constructor(private nydus: NydusServer, private clientSocketsManager: ClientSocketsManager) {
+  constructor(
+    private nydus: NydusServer,
+    private clientSocketsManager: ClientSocketsManager,
+  ) {
     this.clientSocketsManager.on('newClient', c => {
       if (c.clientType === 'electron') {
         c.subscribe(SERVER_UPDATE_PATH, () => {

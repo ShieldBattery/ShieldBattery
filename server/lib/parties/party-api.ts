@@ -87,7 +87,10 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
 @httpApi('/parties')
 @httpBeforeAll(ensureLoggedIn, convertPartyServiceErrors)
 export class PartyApi {
-  constructor(private partyService: PartyService, private userIdManager: UserIdentifierManager) {}
+  constructor(
+    private partyService: PartyService,
+    private userIdManager: UserIdentifierManager,
+  ) {}
 
   @httpPost('/invites')
   @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))

@@ -21,7 +21,8 @@ export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertCo
   width: ${props => props.$size}px;
   height: ${props => props.$size}px;
 
-  font-variation-settings: 'FILL' ${props => (props.$filled ? 1 : 0)},
+  font-variation-settings:
+    'FILL' ${props => (props.$filled ? 1 : 0)},
     'opsz' ${props => Math.min(48, Math.max(20, props.$size))},
     'GRAD' ${props => (props.$invertColor ? 0 : -25)};
 

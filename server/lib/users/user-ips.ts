@@ -76,12 +76,15 @@ export async function retrieveRelatedUsersForIps(
       AND user_id != ${excludeUser}
       ORDER BY ip_address, last_used DESC
     `)
-    const grouped = res.rows.reduce((acc, r) => {
-      const info = toUserIpInfo(r)
-      const ip = info.ipAddress
-      acc.get(ip)!.push(info)
-      return acc
-    }, new Map<string, UserIpInfo[]>(ips.map(ip => [ip, []])))
+    const grouped = res.rows.reduce(
+      (acc, r) => {
+        const info = toUserIpInfo(r)
+        const ip = info.ipAddress
+        acc.get(ip)!.push(info)
+        return acc
+      },
+      new Map<string, UserIpInfo[]>(ips.map(ip => [ip, []])),
+    )
     return grouped
   } finally {
     done()

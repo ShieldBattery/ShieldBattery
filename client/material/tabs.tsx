@@ -57,7 +57,9 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
   border: 1px solid ${props => (props.$isActiveTab ? rgba(amberA400, 0.24) : colorDividers)};
   border-radius: 4px;
   color: ${props => (props.$isActiveTab ? amberA400 : colorTextSecondary)};
-  transition: background-color 15ms linear, color 15ms linear;
+  transition:
+    background-color 15ms linear,
+    color 15ms linear;
 
   &:disabled {
     color: ${colorTextFaint};

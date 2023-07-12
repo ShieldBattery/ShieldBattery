@@ -92,7 +92,9 @@ const RippleRoot = styled.div<{
     height: 200%;
 
     transform: scale(var(--sb-ripple-fg-scale, 1));
-    transition: opacity 15ms linear, background-color 15ms linear;
+    transition:
+      opacity 15ms linear,
+      background-color 15ms linear;
     z-index: 1;
 
     transition-duration: ${props => (props.$focused ? '75ms' : '15ms')};

@@ -32,7 +32,10 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
   sockets = Set<NydusClient>()
   subscriptions = Map<string, Readonly<SubscriptionInfo<this>>>()
 
-  constructor(private nydus: NydusServer, readonly session: SessionInfo) {
+  constructor(
+    private nydus: NydusServer,
+    readonly session: SessionInfo,
+  ) {
     super()
     this.name = session.userName
     this.userId = session.userId
@@ -249,7 +252,10 @@ interface ClientSocketsManagerEvents extends EventMap {
 export class ClientSocketsManager extends TypedEventEmitter<ClientSocketsManagerEvents> {
   clients = Map<string, ClientSocketsGroup>()
 
-  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+  constructor(
+    private nydus: NydusServer,
+    private sessionLookup: RequestSessionLookup,
+  ) {
     super()
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.fromSocket(socket)

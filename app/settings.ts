@@ -327,15 +327,18 @@ export function fromBlizzardToSb(blizzardSettings: Record<string, any>): Partial
 }
 
 export function fromSbToBlizzard(sbSettings: Partial<ScrSettings>): Record<string, any> {
-  return Object.entries(sbSettings).reduce((acc, [name, value]) => {
-    const scrKeyName = sbToScrMapping.get(name)
+  return Object.entries(sbSettings).reduce(
+    (acc, [name, value]) => {
+      const scrKeyName = sbToScrMapping.get(name)
 
-    if (scrKeyName) {
-      acc[scrKeyName] = value
-    }
+      if (scrKeyName) {
+        acc[scrKeyName] = value
+      }
 
-    return acc
-  }, {} as Record<string, any>)
+      return acc
+    },
+    {} as Record<string, any>,
+  )
 }
 
 export class ScrSettingsManager extends SettingsManager<ScrSettings> {
@@ -352,7 +355,11 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
    * @param gameFilepath the path to the file that the game should load instead of the normal
    *   settings file, which we write out during game launches.
    */
-  constructor(filepath: string, blizzardFilepath: string, readonly gameFilepath: string) {
+  constructor(
+    filepath: string,
+    blizzardFilepath: string,
+    readonly gameFilepath: string,
+  ) {
     const initializeFunc = async function (this: ScrSettingsManager) {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))

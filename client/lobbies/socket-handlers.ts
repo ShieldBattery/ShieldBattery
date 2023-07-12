@@ -281,7 +281,7 @@ const eventToAction: EventToActionMap = {
     ({
       type: LOBBY_UPDATE_RACE_CHANGE,
       payload: event,
-    } as any),
+    }) as any,
 
   leave: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
@@ -351,19 +351,19 @@ const eventToAction: EventToActionMap = {
     ({
       type: LOBBY_UPDATE_HOST_CHANGE,
       payload: event.host,
-    } as any),
+    }) as any,
 
   slotChange: (name, event) =>
     ({
       type: LOBBY_UPDATE_SLOT_CHANGE,
       payload: event,
-    } as any),
+    }) as any,
 
   slotDeleted: (name, event) =>
     ({
       type: LOBBY_UPDATE_SLOT_DELETED,
       payload: event,
-    } as any),
+    }) as any,
 
   startCountdown: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
@@ -535,7 +535,7 @@ const eventToAction: EventToActionMap = {
     ({
       type: LOBBY_UPDATE_STATUS,
       payload: event,
-    } as any),
+    }) as any,
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {

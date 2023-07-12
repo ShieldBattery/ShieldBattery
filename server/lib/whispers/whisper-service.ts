@@ -30,7 +30,10 @@ import {
 } from './whisper-models'
 
 export class WhisperServiceError extends Error {
-  constructor(readonly code: WhisperServiceErrorCode, message: string) {
+  constructor(
+    readonly code: WhisperServiceErrorCode,
+    message: string,
+  ) {
     super(message)
   }
 }

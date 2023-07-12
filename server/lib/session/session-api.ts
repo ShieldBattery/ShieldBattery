@@ -44,7 +44,10 @@ interface LogInRequestBody {
 @httpApi('/sessions')
 @httpBeforeAll(convertUserApiErrors)
 export class SessionApi {
-  constructor(private userIdentifierManager: UserIdentifierManager, private redis: Redis) {}
+  constructor(
+    private userIdentifierManager: UserIdentifierManager,
+    private redis: Redis,
+  ) {}
 
   @httpGet('/')
   async getCurrentSession(ctx: RouterContext): Promise<ClientSessionInfo> {

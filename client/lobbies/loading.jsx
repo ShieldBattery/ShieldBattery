@@ -209,10 +209,13 @@ class LoadingMessage extends React.Component {
   }
 
   _resetTimer() {
-    this._timer = setTimeout(() => {
-      this.setState({ messageIndex: this._pickMessageIndex() })
-      this._resetTimer()
-    }, Math.floor(Math.random() * (MESSAGE_TIME_MAX - MESSAGE_TIME_MIN)) + MESSAGE_TIME_MIN)
+    this._timer = setTimeout(
+      () => {
+        this.setState({ messageIndex: this._pickMessageIndex() })
+        this._resetTimer()
+      },
+      Math.floor(Math.random() * (MESSAGE_TIME_MAX - MESSAGE_TIME_MIN)) + MESSAGE_TIME_MIN,
+    )
   }
 
   componentDidMount() {

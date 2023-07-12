@@ -81,10 +81,13 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
       matchGen.push([first, rest])
     }
   }
-  const needRoutes = matchGen.reduce((result, [p1, players]) => {
-    players.forEach(p2 => result.push([p1, p2]))
-    return result
-  }, [] as Array<[Slot, Slot]>)
+  const needRoutes = matchGen.reduce(
+    (result, [p1, players]) => {
+      players.forEach(p2 => result.push([p1, p2]))
+      return result
+    },
+    [] as Array<[Slot, Slot]>,
+  )
 
   const rallyPointService = container.resolve(RallyPointService)
   const activityRegistry = container.resolve(GameplayActivityRegistry)
