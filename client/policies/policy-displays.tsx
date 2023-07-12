@@ -78,7 +78,9 @@ export function AcceptableUseDialog(props: CommonDialogProps) {
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
-      <AcceptableUseContent />
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <AcceptableUseContent />
+      </React.Suspense>
     </Dialog>
   )
 }
@@ -105,7 +107,9 @@ export function PrivacyPolicyDialog(props: CommonDialogProps) {
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
-      <PrivacyPolicyContent />
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <PrivacyPolicyContent />
+      </React.Suspense>
     </Dialog>
   )
 }
@@ -132,7 +136,9 @@ export function TermsOfServiceDialog(props: CommonDialogProps) {
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
-      <TermsOfServiceContent />
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <TermsOfServiceContent />
+      </React.Suspense>
     </Dialog>
   )
 }
