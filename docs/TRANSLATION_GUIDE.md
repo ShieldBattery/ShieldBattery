@@ -1,10 +1,23 @@
 # Translation Guide
 
-Helping with translation in ShieldBattery is easy! We recommend joining our [Discord](https://discord.gg/g5mmNVfZzm) so that you can stay up-to-date with translation changes and easily ask questions.
+Translation in ShieldBattery is driven by volunteers! We recommend joining our [Discord](https://discord.gg/g5mmNVfZzm) so that you can stay up-to-date with translation changes and easily ask questions.
 
-First, go to our Weblate portal at https://translation.shieldbattery.net/projects/shieldbattery/app/
+## Basic Process
+
+We've tried to make this process as easy as possible so that you can contribute even if you don't have technical expertise. There is some initial setup (instructions below), followed by an easier process to help out.
+
+After you've gotten things set up, the basic process is:
+
+1) Find unfinished strings or strings needing editing in a language of your choice
+2) Figure out a good translation for the provided string and submit it as a suggestion
+3) A ShieldBattery developer will accept or decline your suggestion. If there are issues with it, the developer will try to reach out over Discord to fix them.
+4) The new translation will be pulled into the application, and make it into the next update. Congratulations, you've saved Brood War!
+
+If that sounds good to you, please follow the steps below to get started:
 
 ## Dashboard Setup
+
+First, go to our Weblate portal at https://translation.shieldbattery.net/projects/shieldbattery/app/
 
 Create an account by clicking "Register" in the upper right corner. Once your account is created, log in. Then, enter your Settings menu, found here:
 
@@ -16,8 +29,8 @@ The first tab is the "Languages" tab, seen here:
 
 This tab is split into three sections:
 - "Interface Language" changes the entire Weblate UI. If you want to read the entire website in a particular language, this is what you modify.
-- "Translated Languages" contains all of the supported languages. Simply tap the ones that match your proficiency to move them from the "Available" column to the "Chosen" column.
-- Choosing "Secondary Languages" will show you translations of a given string in other languages you select.
+- "Translated Languages" contains all of the languages ShieldBattery is translated into. Click the ones you would like to help translate, which will move them from the "Available" column to the "Chosen" column.
+- Any choices in "Secondary Languages" will show you translations of a given string in those languages during the translation process, which may be helpful for understanding context if you are able to translate for multiple languages.
 
 Click "Save" when finished.
 
