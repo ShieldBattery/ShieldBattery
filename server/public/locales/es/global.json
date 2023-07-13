@@ -730,7 +730,8 @@
         },
         "activity": {
             "title": "repeticiones"
-        }
+        },
+        "fileDropText": "Deja repeticiones aquí para verlas con ShieldBattery."
     },
     "user": {
         "miniMatchHistory": {
