@@ -11,6 +11,7 @@ import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
 import { DownloadPage } from './download/download-page'
 import { UpdateOverlay } from './download/update-overlay'
+import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { Faq } from './landing/faq'
 import { Splash } from './landing/splash'
@@ -96,29 +97,31 @@ export default function App() {
         <LoadableSystemBar />
         <KeyListenerBoundary>
           <RootErrorBoundary>
-            <React.Suspense fallback={<LoadingDotsArea />}>
-              <Switch>
-                <Route path='/splash' component={Splash} />
-                <Route path='/faq' component={Faq} />
-                <Route path='/download' component={DownloadPage} />
-                <Route path='/acceptable-use' component={AcceptableUsePage} />
-                <Route path='/privacy' component={PrivacyPolicyPage} />
-                <Route path='/terms-of-service' component={TermsOfServicePage} />
-                <LoginRoute path='/forgot-password' component={ForgotPassword} />
-                <LoginRoute path='/forgot-user' component={ForgotUser} />
-                <LoginRoute path='/login' component={Login} />
-                <LoginRoute path='/reset-password' component={ResetPassword} />
-                <LoginRoute path='/signup' component={Signup} />
-                <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-                {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-                <Route>
-                  <MainContent />
-                </Route>
-              </Switch>
-              <ConnectedSettings />
-              <ConnectedSnackbar />
-              <ConnectedDialogOverlay />
-            </React.Suspense>
+            <FileDropZoneProvider>
+              <React.Suspense fallback={<LoadingDotsArea />}>
+                <Switch>
+                  <Route path='/splash' component={Splash} />
+                  <Route path='/faq' component={Faq} />
+                  <Route path='/download' component={DownloadPage} />
+                  <Route path='/acceptable-use' component={AcceptableUsePage} />
+                  <Route path='/privacy' component={PrivacyPolicyPage} />
+                  <Route path='/terms-of-service' component={TermsOfServicePage} />
+                  <LoginRoute path='/forgot-password' component={ForgotPassword} />
+                  <LoginRoute path='/forgot-user' component={ForgotUser} />
+                  <LoginRoute path='/login' component={Login} />
+                  <LoginRoute path='/reset-password' component={ResetPassword} />
+                  <LoginRoute path='/signup' component={Signup} />
+                  <LoginRoute path='/verify-email' component={EmailVerificationUi} />
+                  {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+                  <Route>
+                    <MainContent />
+                  </Route>
+                </Switch>
+                <ConnectedSettings />
+                <ConnectedSnackbar />
+                <ConnectedDialogOverlay />
+              </React.Suspense>
+            </FileDropZoneProvider>
           </RootErrorBoundary>
           <UpdateOverlay />
         </KeyListenerBoundary>
