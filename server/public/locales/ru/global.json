@@ -2,12 +2,12 @@
     "common": {
         "validators": {
             "required": "Необходимый",
-            "maxLength_one": "Введите не более {{count}} символов",
-            "maxLength_few": "",
-            "maxLength_many": "",
+            "maxLength_one": "Введите не более {{count}} символа",
+            "maxLength_few": "Введите не более {{count}} символов",
+            "maxLength_many": "Введите не более {{count}} символов",
             "minLength_one": "Введите не менее {{count}} символа",
-            "minLength_few": "",
-            "minLength_many": ""
+            "minLength_few": "Введите не менее {{count}} символов",
+            "minLength_many": "Введите не менее {{count}} символов"
         },
         "actions": {
             "cancel": "Отмена",
@@ -609,8 +609,8 @@
             "noOpenLobbies": "Нет открытых лобби",
             "title": "Присоединиться к лобби",
             "openSlotCount_one": "{{count}} слот открыт",
-            "openSlotCount_few": "",
-            "openSlotCount_many": ""
+            "openSlotCount_few": "{{count}} слота открыты",
+            "openSlotCount_many": "{{count}} слотов открыто"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> на </1><2>{{mapName}}</2>"
@@ -885,8 +885,8 @@
             "noDescription": "У этого канала нет описания.",
             "private": "Этот канал является частным и требует приглашения для присоединения.",
             "userCount_one": "{{count}} участник",
-            "userCount_few": "",
-            "userCount_many": "",
+            "userCount_few": "{{count}} участника",
+            "userCount_many": "{{count}} участников",
             "adminView": "Вид администратора"
         },
         "channelList": {
