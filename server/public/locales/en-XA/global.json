@@ -728,7 +728,13 @@
         "activity": {
             "title": "$🗡Replays🗡!"
         },
-        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!"
+        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!",
+        "loading": {
+            "dialogTitle": "$🗡Loading replay…🗡!",
+            "errorGeneric": "$🗡Something went wrong while loading the replay.🗡!",
+            "initFailureTitle": "$🗡Error loading replay🗡!",
+            "initFailureBody": "$🗡The selected replay could not be loaded. It may either be corrupt, or was created by a version of StarCraft newer than is currently supported.🗡!"
+        }
     },
     "user": {
         "miniMatchHistory": {
