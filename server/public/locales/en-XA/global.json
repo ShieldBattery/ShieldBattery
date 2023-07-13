@@ -3,9 +3,9 @@
         "validators": {
             "required": "$🗡Required🗡!",
             "maxLength_one": "$🗡Enter at most {{count}} character🗡!",
+            "maxLength_other": "$🗡Enter at most {{count}} characters🗡!",
             "minLength_one": "$🗡Enter at least {{count}} character🗡!",
-            "minLength_other": "$🗡Enter at least {{count}} characters🗡!",
-            "maxLength_other": "$🗡Enter at most {{count}} characters🗡!"
+            "minLength_other": "$🗡Enter at least {{count}} characters🗡!"
         },
         "actions": {
             "back": "$🗡Back🗡!",
@@ -727,7 +727,8 @@
         },
         "activity": {
             "title": "$🗡Replays🗡!"
-        }
+        },
+        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!"
     },
     "user": {
         "miniMatchHistory": {
