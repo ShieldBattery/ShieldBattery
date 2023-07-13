@@ -984,7 +984,13 @@
             "title": "本地重播",
             "watchReplay": "看回放"
         },
-        "fileDropText": "将重播放到此处即可使用 ShieldBattery 观看。"
+        "fileDropText": "将重播放到此处即可使用 ShieldBattery 观看。",
+        "loading": {
+            "dialogTitle": "正在加载重播…",
+            "errorGeneric": "加载重播时出现问题。",
+            "initFailureBody": "无法加载所选重播。它可能已损坏，或者是由比当前支持的版本更新的星际争霸版本创建的。",
+            "initFailureTitle": "加载重播时出错"
+        }
     },
     "rootErrorBoundary": {
         "contents": "请在我们的 <2>Discord</2> 中向我们报告此问题。",
