@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import keycode from 'keycode'
+import { rgba } from 'polished'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -19,6 +20,7 @@ import { ChannelRouteComponent } from './chat/route'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
+import { FileDropZone } from './file-browser/file-drop-zone'
 import { GamesRouteComponent } from './games/route'
 import { MaterialIcon } from './icons/material/material-icon'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
@@ -33,7 +35,9 @@ import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton, useButtonHotkey } from './material/button'
+import Card from './material/card'
 import { usePopoverController } from './material/popover'
+import { shadowDef8dp } from './material/shadow-constants'
 import { Tooltip } from './material/tooltip'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
 import Index from './navigation/index'
@@ -49,10 +53,14 @@ import {
 } from './policies/action-creators'
 import LoadingIndicator from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
+import { startReplayFromPath } from './replays/action-creators'
 import { openSettings } from './settings/action-creators'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
+import { useStableCallback } from './state-hooks'
+import { amberA400, colorTextSecondary, dialogScrim } from './styles/colors'
 import { FlexSpacer } from './styles/flex-spacer'
+import { Subtitle1 } from './styles/typography'
 import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
@@ -138,6 +146,70 @@ function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dispatch, starcraft, callback, ...deps],
+  )
+}
+
+const StyledFileDropZone = styled(FileDropZone)`
+  position: absolute;
+  inset: 0;
+`
+
+const FileDropContents = styled.div`
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: ${rgba(dialogScrim, 0.42)};
+  pointer-events: none;
+`
+
+const FileDropCard = styled(Card)`
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  padding-bottom: 32px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+
+  border: 4px dashed ${rgba(amberA400, 0.7)};
+  border-radius: 16px;
+  box-shadow: ${shadowDef8dp};
+  contain: paint;
+
+  color: ${colorTextSecondary};
+  text-align: center;
+`
+
+function GlobalDropZone() {
+  const dispatch = useAppDispatch()
+  const { t } = useTranslation()
+
+  const onFilesDropped = useStableCallback((files: File[]) => {
+    // TODO(tec27): Support multiple replay files being dropped at once: create a playlist/watch
+    // them in succession
+    const file = files[0]
+    // TODO(tec27): Show a preview dialog for the replay instead of launching it immediately
+    dispatch(startReplayFromPath(file.path))
+  })
+
+  return (
+    <StyledFileDropZone extensions={['rep']} onFilesDropped={onFilesDropped}>
+      <FileDropContents>
+        <FileDropCard>
+          <MaterialIcon icon='file_open' size={80} />
+          <Subtitle1>
+            {t('replays.fileDropText', 'Drop replays here to watch them with ShieldBattery.')}
+          </Subtitle1>
+        </FileDropCard>
+      </FileDropContents>
+    </StyledFileDropZone>
   )
 }
 
@@ -424,6 +496,7 @@ export function MainLayout() {
       ) : null}
       <ActivityOverlay />
       <NotificationPopups />
+      {IS_ELECTRON ? <GlobalDropZone /> : null}
     </Container>
   )
 }

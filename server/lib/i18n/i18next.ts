@@ -12,13 +12,45 @@ import {
 import logger from '../logging/logger'
 import { validateRequest } from '../validation/joi-validator'
 
+// NOTE(tec27): This sorting code matches what's in i18next-parser, it'd be nice if they exported it
+// but alas...
+const PLURAL_SEPARATOR = '_'
+const pluralSuffixes = ['zero', 'one', 'two', 'few', 'many', 'other']
+
+function getSingularForm(key: string, pluralSeparator: string) {
+  const pluralRegex = new RegExp(`(\\${pluralSeparator}(?:zero|one|two|few|many|other))$`)
+
+  return key.replace(pluralRegex, '')
+}
+
+function getPluralSuffixPosition(key: string) {
+  for (let i = 0, len = pluralSuffixes.length; i < len; i++) {
+    if (key.endsWith(pluralSuffixes[i])) return i
+  }
+
+  return -1
+}
+
+function defaultSort(key1: string, key2: string): number {
+  const singularKey1 = getSingularForm(key1, PLURAL_SEPARATOR)
+  const singularKey2 = getSingularForm(key2, PLURAL_SEPARATOR)
+
+  if (singularKey1 === singularKey2) {
+    return getPluralSuffixPosition(key1) - getPluralSuffixPosition(key2)
+  }
+
+  // NOTE(tec27): localeCompare is bad to use here but this is what i18next-parser does so match
+  // it. Hopefully they will fix this one day
+  return singularKey1.localeCompare(singularKey2)
+}
+
 function orderedStringify(obj: Record<string, string>) {
   const allKeys = new Set<string>()
   JSON.stringify(obj, (key, value) => {
     allKeys.add(key)
     return value
   })
-  return JSON.stringify(obj, Array.from(allKeys).sort(), 2) + '\n'
+  return JSON.stringify(obj, Array.from(allKeys).sort(defaultSort), 2) + '\n'
 }
 
 i18next

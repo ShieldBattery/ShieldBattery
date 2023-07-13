@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { MutableRefObject, useEffect, useRef } from 'react'
 import { useValueAsRef } from '../state-hooks'
 
 /**
@@ -9,7 +9,10 @@ import { useValueAsRef } from '../state-hooks'
  *   and attached to the document.
  */
 export function useExternalElementRef(createCb?: (elem: HTMLDivElement) => void) {
-  const elemRef = useRef(document.createElement('div'))
+  const elemRef = useRef<HTMLDivElement>() as MutableRefObject<HTMLDivElement>
+  if (!elemRef.current) {
+    elemRef.current = document.createElement('div')
+  }
   const createCbRef = useValueAsRef(createCb)
   useEffect(() => {
     const elem = elemRef.current

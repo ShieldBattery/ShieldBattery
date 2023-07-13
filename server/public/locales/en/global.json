@@ -940,6 +940,7 @@
     "activity": {
       "title": "Replays"
     },
+    "fileDropText": "Drop replays here to watch them with ShieldBattery.",
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
