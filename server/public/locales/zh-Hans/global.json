@@ -983,7 +983,8 @@
             "rootFolderName": "重播",
             "title": "本地重播",
             "watchReplay": "看回放"
-        }
+        },
+        "fileDropText": "将重播放到此处即可使用 ShieldBattery 观看。"
     },
     "rootErrorBoundary": {
         "contents": "请在我们的 <2>Discord</2> 中向我们报告此问题。",
