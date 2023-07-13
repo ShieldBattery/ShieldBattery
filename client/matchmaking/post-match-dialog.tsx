@@ -28,7 +28,7 @@ import { GradientScrollDivider, useScrollIndicatorState } from '../material/scro
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { startReplayFromPath } from '../replays/action-creators'
+import { startReplay } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import {
@@ -157,7 +157,7 @@ export function PostMatchDialog({
   })
   const onWatchReplay = useStableCallback(() => {
     if (replayPath) {
-      dispatch(startReplayFromPath(replayPath))
+      dispatch(startReplay({ path: replayPath }))
     }
   })
   const canSearchMatchmaking = useAppSelector(s => {

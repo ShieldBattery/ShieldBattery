@@ -941,6 +941,12 @@
       "title": "Replays"
     },
     "fileDropText": "Drop replays here to watch them with ShieldBattery.",
+    "loading": {
+      "dialogTitle": "Loading replay…",
+      "errorGeneric": "Something went wrong while loading the replay.",
+      "initFailureBody": "The selected replay could not be loaded. It may either be corrupt, or was created by a version of StarCraft newer than is currently supported.",
+      "initFailureTitle": "Error loading replay"
+    },
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
