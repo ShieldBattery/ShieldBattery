@@ -3,9 +3,11 @@
         "validators": {
             "required": "Необходимый",
             "maxLength_one": "Введите не более {{count}} символов",
-            "maxLength_other": "Введите не более {{count}} символов",
+            "maxLength_few": "",
+            "maxLength_many": "",
             "minLength_one": "Введите не менее {{count}} символа",
-            "minLength_other": "Введите не менее {{count}} символов"
+            "minLength_few": "",
+            "minLength_many": ""
         },
         "actions": {
             "cancel": "Отмена",
@@ -607,7 +609,8 @@
             "noOpenLobbies": "Нет открытых лобби",
             "title": "Присоединиться к лобби",
             "openSlotCount_one": "{{count}} слот открыт",
-            "openSlotCount_other": "{{count}} слоты открыты"
+            "openSlotCount_few": "",
+            "openSlotCount_many": ""
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> на </1><2>{{mapName}}</2>"
@@ -849,7 +852,8 @@
         },
         "activity": {
             "title": "Повторы"
-        }
+        },
+        "fileDropText": "Перетащите сюда повторы, чтобы посмотреть их с помощью ShieldBattery."
     },
     "chat": {
         "banUser": {
@@ -881,7 +885,8 @@
             "noDescription": "У этого канала нет описания.",
             "private": "Этот канал является частным и требует приглашения для присоединения.",
             "userCount_one": "{{count}} участник",
-            "userCount_other": "{{count}} участники",
+            "userCount_few": "",
+            "userCount_many": "",
             "adminView": "Вид администратора"
         },
         "channelList": {
