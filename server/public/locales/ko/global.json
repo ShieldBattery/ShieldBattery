@@ -858,7 +858,8 @@
         },
         "activity": {
             "title": "리플레이"
-        }
+        },
+        "fileDropText": "ShieldBattery로 시청하려면 여기에 리플레이를 드롭하세요."
     },
     "parties": {
         "errors": {
