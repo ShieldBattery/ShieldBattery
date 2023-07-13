@@ -731,7 +731,13 @@
         "activity": {
             "title": "repeticiones"
         },
-        "fileDropText": "Deja repeticiones aquí para verlas con ShieldBattery."
+        "fileDropText": "Deja repeticiones aquí para verlas con ShieldBattery.",
+        "loading": {
+            "dialogTitle": "Cargando repetición…",
+            "errorGeneric": "Algo salió mal al cargar la repetición.",
+            "initFailureBody": "No se pudo cargar la repetición seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
+            "initFailureTitle": "Error al cargar la reproducción"
+        }
     },
     "user": {
         "miniMatchHistory": {
