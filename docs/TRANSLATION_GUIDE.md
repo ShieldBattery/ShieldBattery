@@ -4,11 +4,40 @@ Helping with translation in ShieldBattery is easy! We recommend joining our [Dis
 
 First, go to our Weblate portal at https://translation.shieldbattery.net/projects/shieldbattery/app/
 
-You'll see a list of supported languages, along with their respective translation status. It looks like this:
+## Dashboard Setup
 
-![Main Weblate Screen](images/weblate-main-screen.png)
+Create an account by clicking "Register" in the upper right corner. Once your account is created, log in. Then, enter your Settings menu, found here:
+
+![Dashboard View](https://github.com/ShieldBattery/ShieldBattery/assets/93808824/b6cf3b66-f9d3-4d0b-b7db-732e5fac585e)
+
+The first tab is the "Languages" tab, seen here: 
+
+![Weblate Settings Languages Tab](https://github.com/ShieldBattery/ShieldBattery/assets/93808824/3b757bcb-5ab2-4e44-a5ca-37af9f57f4e9)
+
+This tab is split into three sections:
+- "Interface Language" changes the entire Weblate UI. If you want to read the entire website in a particular language, this is what you modify.
+- "Translated Languages" contains all of the supported languages. Simply tap the ones that match your proficiency to move them from the "Available" column to the "Chosen" column.
+- Choosing "Secondary Languages" will show you translations of a given string in other languages you select.
+
+Click "Save" when finished.
+
+Next, switch to the "Notifications" tab, seen here:
+
+![Weblate Settings Notifs Tab](https://github.com/ShieldBattery/ShieldBattery/assets/93808824/d684c26a-164a-4321-b2dc-da37396d1b5f)
+
+Under "Watched Projects", select "ShieldBattery" to move it from the "Available" column to the "Chosen" column.
+
+Click "Save" when finished.
+
+Upon returning to the Dashboard, you should now see a full list of chosen languages (from "Translated Languages") in the "Watched Translations" tab. The more orange a bar is, the more translations are needed!
+
+![Weblate Populated Dashboard](https://github.com/ShieldBattery/ShieldBattery/assets/93808824/d3715564-1c80-453f-958e-385018ca6bd1)
 
 ## Starting Out
+
+At https://translation.shieldbattery.net/projects/shieldbattery/app/ you'll see a list of supported languages, along with their respective translation status. It looks like this:
+
+![Main Weblate Screen](images/weblate-main-screen.png)
 
 To begin, click on the pencil icon next to the language you want to translate (in the image above, a red background has been added for emphasis).
 
