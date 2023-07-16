@@ -865,6 +865,10 @@
             "errorGeneric": "리플레이를 로드하는 중에 문제가 발생했습니다.",
             "initFailureBody": "선택한 다시보기를 로드할 수 없습니다. 손상되었거나 현재 지원되는 것보다 최신 버전의 StarCraft에서 생성되었을 수 있습니다.",
             "initFailureTitle": "리플레이 로드 중 오류 발생"
+        },
+        "replayInfoDialog": {
+            "title": "다시보기 정보",
+            "watch": "보다"
         }
     },
     "parties": {
