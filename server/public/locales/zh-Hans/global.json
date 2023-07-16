@@ -990,6 +990,10 @@
             "errorGeneric": "加载重播时出现问题。",
             "initFailureBody": "无法加载所选重播。它可能已损坏，或者是由比当前支持的版本更新的星际争霸版本创建的。",
             "initFailureTitle": "加载重播时出错"
+        },
+        "replayInfoDialog": {
+            "title": "重播信息",
+            "watch": "手表"
         }
     },
     "rootErrorBoundary": {
