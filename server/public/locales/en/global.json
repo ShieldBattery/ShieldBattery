@@ -954,6 +954,10 @@
       "rootFolderName": "Replays",
       "title": "Local Replays",
       "watchReplay": "Watch replay"
+    },
+    "replayInfoDialog": {
+      "title": "Replay info",
+      "watch": "Watch"
     }
   },
   "rootErrorBoundary": {

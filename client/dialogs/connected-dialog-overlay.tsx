@@ -30,6 +30,7 @@ import {
   TermsOfServiceDialog,
 } from '../policies/policy-displays'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { ReplayInfoDialog } from '../replays/replay-info-display'
 import { ReplayLoadDialog } from '../replays/replay-load-dialog'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
@@ -90,6 +91,8 @@ function getDialog(dialogType: DialogType): {
       return { component: PostMatchDialog, modal: false }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
+    case DialogType.ReplayInfo:
+      return { component: ReplayInfoDialog, modal: false }
     case DialogType.ReplayLoad:
       return { component: ReplayLoadDialog, modal: true }
     case DialogType.Simple:

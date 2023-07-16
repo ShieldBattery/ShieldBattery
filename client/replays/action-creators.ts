@@ -88,3 +88,7 @@ export function startReplay({
     )
   }
 }
+
+export function showReplayInfo(filePath: string) {
+  return openDialog({ type: DialogType.ReplayInfo, initData: { filePath } })
+}

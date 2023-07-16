@@ -19,6 +19,7 @@ export enum DialogType {
   PartyInvite = 'partyInvite',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
+  ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
@@ -76,6 +77,12 @@ export type PostMatchDialogPayload = BaseDialogPayload<
   }
 >
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
+type ReplayInfoDialogPayload = BaseDialogPayload<
+  typeof DialogType.ReplayInfo,
+  {
+    filePath: string
+  }
+>
 type ReplayLoadDialogPayload = BaseDialogPayload<
   typeof DialogType.ReplayLoad,
   {
@@ -110,6 +117,7 @@ export type DialogPayload =
   | PartyInviteDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
+  | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload

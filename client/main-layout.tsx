@@ -53,7 +53,7 @@ import {
 } from './policies/action-creators'
 import LoadingIndicator from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
-import { startReplay } from './replays/action-creators'
+import { showReplayInfo } from './replays/action-creators'
 import { openSettings } from './settings/action-creators'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
@@ -195,8 +195,7 @@ function GlobalDropZone() {
     // TODO(tec27): Support multiple replay files being dropped at once: create a playlist/watch
     // them in succession
     const file = files[0]
-    // TODO(tec27): Show a preview dialog for the replay instead of launching it immediately
-    dispatch(startReplay({ path: file.path }))
+    dispatch(showReplayInfo(file.path))
   })
 
   return (
