@@ -737,6 +737,10 @@
             "errorGeneric": "Algo salió mal al cargar la repetición.",
             "initFailureBody": "No se pudo cargar la repetición seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
             "initFailureTitle": "Error al cargar la reproducción"
+        },
+        "replayInfoDialog": {
+            "title": "Información de reproducción",
+            "watch": "Mirar"
         }
     },
     "user": {
