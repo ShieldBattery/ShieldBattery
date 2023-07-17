@@ -716,13 +716,16 @@ async function createWindow() {
   if (!process.argv.includes('--hidden')) {
     mainWindow.once('ready-to-show', () => {
       mainWindow!.show()
-      if (!isDev) {
-        ipcMain.on('networkSiteConnected', () => {
-          autoUpdater.checkForUpdates().catch(err => {
-            logger.error(`Error checking for updates: ${err?.stack ?? err}`)
-          })
+    })
+  }
+
+  if (!isDev) {
+    mainWindow.once('ready-to-show', () => {
+      ipcMain.on('networkSiteConnected', () => {
+        autoUpdater.checkForUpdates().catch(err => {
+          logger.error(`Error checking for updates: ${err?.stack ?? err}`)
         })
-      }
+      })
     })
   }
 
