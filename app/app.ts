@@ -629,8 +629,13 @@ async function createWindow() {
     },
   })
 
+  let needsMaximize = false
+
   if (winMaximized) {
-    mainWindow.maximize()
+    // BrowserWindow#maximize() causes the window to show, and our content might not be ready yet
+    // (or we might be set to start minimized), so we don't want to show things yet. Instead we just
+    // mark this as needing to happen, and handle doing it in the `show` event.
+    needsMaximize = true
   }
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -683,6 +688,10 @@ async function createWindow() {
     .on('show', () => {
       if (systemTray) {
         systemTray.clearUnreadIcon()
+      }
+      if (needsMaximize && mainWindow) {
+        mainWindow.maximize()
+        needsMaximize = false
       }
     })
 
