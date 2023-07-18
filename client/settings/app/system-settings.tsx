@@ -7,7 +7,7 @@ import CheckBox from '../../material/check-box'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+import { FormContainer, SectionOverline } from '../settings-content'
 
 const IndentedCheckbox = styled(CheckBox)`
   margin-left: 28px;
@@ -52,6 +52,7 @@ export function AppSystemSettings() {
       <SubmitOnEnter />
       <FormContainer>
         <div>
+          <SectionOverline>{t('settings.app.system.startupOverline', 'Startup')}</SectionOverline>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
             label={t('settings.app.system.runOnStartup', 'Run ShieldBattery on system startup')}

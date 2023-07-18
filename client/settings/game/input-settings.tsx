@@ -7,7 +7,7 @@ import Slider from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer, Spacer } from '../settings-content'
+import { FormContainer } from '../settings-content'
 
 interface GameInputSettingsModel {
   keyboardScrollSpeed: number
@@ -71,7 +71,6 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
-          <Spacer />
         </div>
         <div>
           <CheckBox
@@ -89,7 +88,8 @@ export function GameInputSettings() {
             disabled={!getInputValue('mouseSensitivityOn')}
             showTicks={false}
           />
-          <Spacer />
+        </div>
+        <div>
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
             label={t('settings.game.input.mouseScaling', 'Use mouse scaling')}

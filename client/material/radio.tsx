@@ -20,7 +20,7 @@ const RadioOverline = styled.div`
   ${overline};
   color: ${colorTextSecondary};
 
-  padding: 8px 0;
+  padding: 4px 0;
 `
 
 export interface RadioGroupProps<T> {

@@ -17,7 +17,7 @@ import { useStableCallback } from '../../state-hooks'
 import { colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer, Spacer } from '../settings-content'
+import { FormContainer } from '../settings-content'
 
 const AnnouncerOverline = styled.div`
   ${overline};
@@ -96,7 +96,8 @@ export function GameSoundSettings() {
             disabled={!getInputValue('musicOn')}
             showTicks={false}
           />
-          <Spacer />
+        </div>
+        <div>
           <CheckBox
             {...bindCheckable('soundOn')}
             label={t('settings.game.sound.gameSounds', 'Game sounds')}
@@ -112,14 +113,15 @@ export function GameSoundSettings() {
             disabled={!getInputValue('soundOn')}
             showTicks={false}
           />
-          <Spacer />
-
+        </div>
+        <div>
           <AnnouncerOverline>
             {t('settings.game.sound.announcer.info', 'Packs (must be purchased from Blizzard)')}
           </AnnouncerOverline>
           <Select
             {...bindCustom('selectedAnnouncer')}
             label={t('settings.game.sound.announcer.title', 'Announcer')}
+            allowErrors={false}
             tabIndex={0}>
             {ALL_ANNOUNCERS.map(announcer => (
               <SelectOption

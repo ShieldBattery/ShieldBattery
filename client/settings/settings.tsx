@@ -307,7 +307,7 @@ const Content = styled.div`
 
 const TitleBar = styled.div`
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 
   display: flex;
   flex-direction: row;

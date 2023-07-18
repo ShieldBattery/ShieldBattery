@@ -18,15 +18,8 @@ import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { colorTextSecondary } from '../../styles/colors'
-import { overline } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, Spacer } from '../settings-content'
-
-const SectionOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
-`
+import { FormContainer, SectionOverline } from '../settings-content'
 
 const BonusSkinsCheckBox = styled(CheckBox)`
   margin-bottom: 8px;
@@ -149,6 +142,8 @@ export function GameplaySettings() {
               text={t('settings.game.gameplay.minimapPosition.standard', 'Standard')}
             />
           </Select>
+        </div>
+        <div>
           <SectionOverline>
             {t('settings.game.gameplay.skinsInfo', 'Skins (must be purchased from Blizzard)')}
           </SectionOverline>
@@ -178,7 +173,6 @@ export function GameplaySettings() {
               <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin, t)} />
             ))}
           </Select>
-          <Spacer />
         </div>
         <div>
           <CheckBox
@@ -201,7 +195,8 @@ export function GameplaySettings() {
             label={t('settings.game.gameplay.apmDisplay', 'APM display')}
             inputProps={{ tabIndex: 0 }}
           />
-          <Spacer />
+        </div>
+        <div>
           <CheckBox
             {...bindCheckable('apmAlertOn')}
             label={t('settings.game.gameplay.apmAlert', 'Alert when APM falls below')}
@@ -230,7 +225,6 @@ export function GameplaySettings() {
         </div>
         {DEV_INDICATOR ? (
           <div>
-            <Spacer />
             <SectionOverline>
               {t('settings.game.gameplay.devOnlySettings', 'Dev-only settings')}
             </SectionOverline>

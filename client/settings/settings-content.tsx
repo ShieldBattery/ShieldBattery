@@ -1,13 +1,16 @@
 import styled from 'styled-components'
+import { colorTextSecondary } from '../styles/colors'
+import { overline } from '../styles/typography'
 
 export const FormContainer = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  column-gap: 40px;
   width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 `
 
-export const Spacer = styled.div`
-  width: 100%;
-  height: 32px;
+export const SectionOverline = styled.div`
+  ${overline};
+  color: ${colorTextSecondary};
 `
