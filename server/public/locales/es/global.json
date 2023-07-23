@@ -154,7 +154,8 @@
             "system": {
                 "title": "Sistema",
                 "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
-                "startMinimized": "Iniciar minimizado"
+                "startMinimized": "Iniciar minimizado",
+                "startupOverline": "Puesta en marcha"
             },
             "title": "aplicación",
             "sound": {
