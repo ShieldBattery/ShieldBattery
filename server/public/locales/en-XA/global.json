@@ -156,7 +156,8 @@
             "system": {
                 "runOnStartup": "$🗡Run ShieldBattery on system startup🗡!",
                 "startMinimized": "$🗡Start minimized🗡!",
-                "title": "$🗡System🗡!"
+                "title": "$🗡System🗡!",
+                "startupOverline": "$🗡Startup🗡!"
             },
             "title": "$🗡App🗡!"
         },
