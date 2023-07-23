@@ -164,7 +164,8 @@
             "system": {
                 "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
                 "startMinimized": "최소화 시작",
-                "title": "체계"
+                "title": "체계",
+                "startupOverline": "시작"
             },
             "title": "앱"
         },
