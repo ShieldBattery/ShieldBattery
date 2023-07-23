@@ -161,7 +161,8 @@
             "system": {
                 "runOnStartup": "Запускайте ShieldBattery при запуске системы",
                 "startMinimized": "Начать в свернутом виде",
-                "title": "Система"
+                "title": "Система",
+                "startupOverline": "Запускать"
             },
             "title": "Приложение"
         },
