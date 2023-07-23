@@ -157,7 +157,8 @@
             "system": {
                 "runOnStartup": "在系统启动时运行 ShieldBattery",
                 "startMinimized": "最小化启动",
-                "title": "系统"
+                "title": "系统",
+                "startupOverline": "启动"
             },
             "title": "应用程序"
         },
