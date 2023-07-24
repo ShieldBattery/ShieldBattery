@@ -227,7 +227,11 @@ export function useForm<ModelType>(
           notifyValidationRef.current.push(interrupt)
           Promise.race(
             Array.from<Promise<any>>(validationPromisesRef.current.values()).concat(interrupt),
-          ).finally(checkValidations)
+          )
+            .catch(() => {
+              /* not our job to deal with these errors */
+            })
+            .finally(checkValidations)
         }
       }
 
@@ -281,7 +285,11 @@ export function useForm<ModelType>(
             notifyValidationRef.current.push(interrupt)
             Promise.race(
               Array.from<Promise<any>>(validationPromisesRef.current.values()).concat(interrupt),
-            ).finally(checkValidations)
+            )
+              .catch(() => {
+                /* not our job to deal with these errors */
+              })
+              .finally(checkValidations)
           }
         }
 

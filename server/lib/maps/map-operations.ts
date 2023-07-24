@@ -55,11 +55,15 @@ export async function reparseMapsAsNeeded(
       ])
 
       parseInProgress.set(mapInfo.hash, promise)
-      promise.finally(() => {
-        if (parseInProgress.get(mapInfo.hash) === promise) {
-          parseInProgress.delete(mapInfo.hash)
-        }
-      })
+      promise
+        .finally(() => {
+          if (parseInProgress.get(mapInfo.hash) === promise) {
+            parseInProgress.delete(mapInfo.hash)
+          }
+        })
+        .catch(() => {
+          /* This will be thrown by the await below anyway */
+        })
 
       return await promise
     } else {

@@ -253,7 +253,9 @@ function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<Ch
     sendInit()
   })
 
-  result.finally(cleanup)
+  result.finally(cleanup).catch(() => {
+    /* We return this promise so the error will be handled by whatever called this */
+  })
 
   return result
 }
