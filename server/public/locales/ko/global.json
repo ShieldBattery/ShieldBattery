@@ -165,7 +165,9 @@
                 "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
                 "startMinimized": "최소화 시작",
                 "title": "체계",
-                "startupOverline": "시작"
+                "startupOverline": "시작",
+                "filesOverline": "파일",
+                "replayQuickOpen": "미리보기 없이 즉시 ShieldBattery로 열린 리플레이 실행"
             },
             "title": "앱"
         },
