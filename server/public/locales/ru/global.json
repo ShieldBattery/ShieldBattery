@@ -162,7 +162,9 @@
                 "runOnStartup": "Запускайте ShieldBattery при запуске системы",
                 "startMinimized": "Начать в свернутом виде",
                 "title": "Система",
-                "startupOverline": "Запускать"
+                "startupOverline": "Запускать",
+                "filesOverline": "Файлы",
+                "replayQuickOpen": "Запускать повторы, открытые с помощью ShieldBattery, сразу без предварительного просмотра."
             },
             "title": "Приложение"
         },
