@@ -28,7 +28,7 @@ import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-repl
 import './security/client'
 import { collect } from './security/client'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
-import { NewInstanceNotification } from './single-instance'
+import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 
