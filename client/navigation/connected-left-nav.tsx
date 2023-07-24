@@ -502,7 +502,7 @@ export function ConnectedLeftNav() {
           position='right'>
           <ClickableSubheader
             ref={joinChannelButtonRef}
-            to={urlPath`/chat/list`}
+            href={urlPath`/chat/list`}
             icon={<MaterialIcon icon='add' />}>
             {t('navigation.leftNav.chatChannels', 'Chat channels')}
           </ClickableSubheader>

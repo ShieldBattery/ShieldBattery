@@ -1,9 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
-import { Link } from 'wouter'
 import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
 import { overline, singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
+import { LinkButton } from '../link-button'
 import { Ripple } from '../ripple'
 import SubheaderButton from './subheader-button'
 
@@ -20,7 +20,7 @@ const Container = styled.div`
   }
 `
 
-const StyledLink = styled(Link)`
+const StyledLink = styled(LinkButton)`
   width: 100%;
   height: 100%;
   padding: 0 4px 0 16px;
@@ -28,14 +28,6 @@ const StyledLink = styled(Link)`
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  &:link,
-  &:visited,
-  &:hover,
-  &:active {
-    color: currentColor;
-    text-decoration: none;
-  }
 `
 
 const Title = styled.div`
@@ -46,8 +38,8 @@ const Title = styled.div`
   line-height: 36px;
 `
 
-interface SubheaderProps {
-  to: string
+export interface SubheaderProps {
+  href: string
   icon?: React.ReactNode
   children: React.ReactNode
   className?: string
@@ -55,14 +47,14 @@ interface SubheaderProps {
 
 export const ClickableSubheader = React.forwardRef(
   (
-    { to, icon, children, className }: SubheaderProps,
+    { href: to, icon, children, className }: SubheaderProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({})
 
     return (
       <Container className={className} {...buttonProps}>
-        <StyledLink to={to}>
+        <StyledLink href={to}>
           <Title>{children}</Title>
           {icon ? <SubheaderButton ref={ref} icon={icon} /> : null}
         </StyledLink>

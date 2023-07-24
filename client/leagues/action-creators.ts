@@ -27,6 +27,16 @@ export function navigateToLeaguesList(transitionFn = push) {
   transitionFn(urlPath`/leagues/`)
 }
 
+export function urlForLeague(
+  leagueId: LeagueId,
+  leagueData?: ReadonlyDeep<LeagueJson>,
+  subPage?: DetailsSubPage,
+) {
+  return urlPath`/leagues/${toRouteLeagueId(leagueId)}/${
+    leagueData ? slug(leagueData.name) : '_'
+  }/${subPage ?? ''}`
+}
+
 /**
  * Navigates to a particular league. If the league data is available/provided, this URL will
  * include a slug (otherwise there will be a redirect once the data has loaded).
@@ -37,11 +47,7 @@ export function navigateToLeague(
   subPage?: DetailsSubPage,
   transitionFn = push,
 ) {
-  transitionFn(
-    urlPath`/leagues/${toRouteLeagueId(leagueId)}/${leagueData ? slug(leagueData.name) : '_'}/${
-      subPage ?? ''
-    }`,
-  )
+  transitionFn(urlForLeague(leagueId, leagueData, subPage))
 }
 
 export function correctSlugForLeague(id: LeagueId, name: string, subPage?: DetailsSubPage) {

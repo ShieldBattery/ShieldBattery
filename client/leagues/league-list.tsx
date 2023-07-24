@@ -14,16 +14,16 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { TextButton, useButtonState } from '../material/button'
 import Card from '../material/card'
+import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline4, headline6, subtitle1 } from '../styles/typography'
-import { getLeaguesList, navigateToLeague } from './action-creators'
+import { getLeaguesList, urlForLeague } from './action-creators'
 import { LeagueBadge } from './league-badge'
 import { LeagueDetailsPage } from './league-details'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
@@ -213,8 +213,6 @@ function LeagueSection({
   const { t } = useTranslation()
   const curDate = Date.now()
 
-  const onViewInfo = useStableCallback((league: LeagueJson) => navigateToLeague(league.id, league))
-
   return (
     <SectionRoot>
       <SectionLabel>{label}</SectionLabel>
@@ -228,7 +226,7 @@ function LeagueSection({
               curDate={curDate}
               joined={joinedLeagues.has(l.id)}
               actionText={t('leagues.list.viewInfo', 'View info')}
-              onClick={onViewInfo}
+              href={urlForLeague(l.id, l)}
             />
           ))
         ) : (
@@ -321,17 +319,17 @@ export function LeagueCard({
   curDate,
   joined,
   actionText,
-  onClick,
+  href,
 }: {
   league: ReadonlyDeep<LeagueJson>
   type: LeagueSectionType
   curDate: number
   joined: boolean
   actionText: string
-  onClick: (league: ReadonlyDeep<LeagueJson>) => void
+  href: string
 }) {
   const { t } = useTranslation()
-  const [buttonProps, rippleRef] = useButtonState({ onClick: () => onClick(league) })
+  const [buttonProps, rippleRef] = useButtonState({})
 
   let dateText: string
   let dateTooltip: string
@@ -361,38 +359,40 @@ export function LeagueCard({
   }
 
   return (
-    <LeagueCardRoot {...buttonProps} tabIndex={0}>
-      <LeagueImageAndBadge>
-        {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
-        <LeagueCardBadge>
-          <LeagueBadge league={league} />
-        </LeagueCardBadge>
-      </LeagueImageAndBadge>
-      <LeagueName>{league.name}</LeagueName>
-      <LeagueFormatAndDate>
-        {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
-        <DateTooltip text={dateTooltip} position={'right'}>
-          {dateText}
-        </DateTooltip>
-      </LeagueFormatAndDate>
-      <LeagueDescription>{league.description}</LeagueDescription>
-      <FlexSpacer />
-      <LeagueActions>
-        {joined ? (
-          <JoinedIndicator>
-            <MaterialIcon icon='check' />
-            <span>{t('leagues.list.joined', 'Joined')}</span>
-          </JoinedIndicator>
-        ) : (
-          <div />
-        )}
-        {/*
+    <LinkButton href={href} tabIndex={0}>
+      <LeagueCardRoot {...buttonProps}>
+        <LeagueImageAndBadge>
+          {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+          <LeagueCardBadge>
+            <LeagueBadge league={league} />
+          </LeagueCardBadge>
+        </LeagueImageAndBadge>
+        <LeagueName>{league.name}</LeagueName>
+        <LeagueFormatAndDate>
+          {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
+          <DateTooltip text={dateTooltip} position={'right'}>
+            {dateText}
+          </DateTooltip>
+        </LeagueFormatAndDate>
+        <LeagueDescription>{league.description}</LeagueDescription>
+        <FlexSpacer />
+        <LeagueActions>
+          {joined ? (
+            <JoinedIndicator>
+              <MaterialIcon icon='check' />
+              <span>{t('leagues.list.joined', 'Joined')}</span>
+            </JoinedIndicator>
+          ) : (
+            <div />
+          )}
+          {/*
           NOTE(tec27): This intentionally doesn't have an onClick handler as it is handled by the
           card and having both would cause 2 navigations to occur.
         */}
-        <TextButton label={actionText} color='accent' />
-      </LeagueActions>
-      <Ripple ref={rippleRef} />
-    </LeagueCardRoot>
+          <TextButton label={actionText} color='accent' />
+        </LeagueActions>
+        <Ripple ref={rippleRef} />
+      </LeagueCardRoot>
+    </LinkButton>
   )
 }

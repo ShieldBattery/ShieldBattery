@@ -16,6 +16,7 @@ import {
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
+import { urlPath } from '../../common/urls'
 import FileInput from '../forms/file-input'
 import { FormHook, useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
@@ -129,8 +130,8 @@ export function LeagueAdmin() {
                     type={LeagueSectionType.Current}
                     joined={false}
                     curDate={curDate}
-                    onClick={league => push(`/leagues/admin/${toRouteLeagueId(league.id)}`)}
                     actionText={'Edit'}
+                    href={urlPath`/leagues/admin/${toRouteLeagueId(l.id)}`}
                   />
                 ))}
               </CardList>
