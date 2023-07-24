@@ -17,6 +17,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinY: -1,
   gameWinWidth: -1,
   gameWinHeight: -1,
+  quickOpenReplays: false,
   visualizeNetworkStalls: false,
 }
 

@@ -1,17 +1,4 @@
-import Registry from 'winreg'
-
-function readRegValue(hive, key, value) {
-  return new Promise((resolve, reject) => {
-    const reg = new Registry({ hive, key })
-    reg.get(value, (err, result) => {
-      if (err) {
-        reject(err)
-      } else {
-        resolve(result.value)
-      }
-    })
-  })
-}
+import { HKCU, HKLM, readRegistryValue } from './registry'
 
 // Attempts to find the StarCraft install path from the registry, using a combination of possible
 // locations for the information. The possible locations are:
@@ -26,15 +13,15 @@ export async function findInstallPath() {
   const regValueName = 'InstallPath'
 
   const attempts = [
-    [Registry.HKCU, normalRegPath],
-    [Registry.HKCU, _6432RegPath],
-    [Registry.HKLM, normalRegPath],
-    [Registry.HKLM, _6432RegPath],
+    [HKCU, normalRegPath],
+    [HKCU, _6432RegPath],
+    [HKLM, normalRegPath],
+    [HKLM, _6432RegPath],
   ]
 
   for (const [hive, path] of attempts) {
     try {
-      const result = await readRegValue(hive, path, regValueName)
+      const result = await readRegistryValue(hive, path, regValueName)
       if (result) {
         return result
       }
@@ -43,15 +30,15 @@ export async function findInstallPath() {
     }
   }
 
-  let recentMaps
+  let recentMaps: string | undefined
   try {
-    recentMaps = await readRegValue(Registry.HKCU, normalRegPath, 'Recent Maps')
+    recentMaps = await readRegistryValue(HKCU, normalRegPath, 'Recent Maps')
   } catch (err) {
     // Intentionally empty
   }
   if (!recentMaps) {
     try {
-      recentMaps = await readRegValue(Registry.HKCU, _6432RegPath, 'Recent Maps')
+      recentMaps = await readRegistryValue(HKCU, _6432RegPath, 'Recent Maps')
     } catch (err) {
       // Intentionally empty
     }

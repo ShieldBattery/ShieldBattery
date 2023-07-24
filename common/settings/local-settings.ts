@@ -22,6 +22,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinY: number
   gameWinWidth: number
   gameWinHeight: number
+  quickOpenReplays: boolean
+
   visualizeNetworkStalls?: boolean
 }
 

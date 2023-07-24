@@ -975,6 +975,8 @@
         "title": "Sound"
       },
       "system": {
+        "filesOverline": "Files",
+        "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
         "startMinimized": "Start minimized",
         "startupOverline": "Startup",

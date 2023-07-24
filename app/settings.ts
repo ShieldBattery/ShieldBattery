@@ -10,7 +10,7 @@ import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 10
+const VERSION = 11
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -250,6 +250,10 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (settings.version === 9) {
       log.verbose('Found settings version 9, migrating to version 10')
       delete (newSettings as any).trustedDomains
+    }
+
+    if (!settings.version || settings.version < 11) {
+      newSettings.quickOpenReplays = false
     }
 
     newSettings.version = VERSION

@@ -14,8 +14,10 @@ import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { ReplayShieldBatteryData } from '../common/replays'
+import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
+import { registerCurrentProgram } from './file-association'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
@@ -26,6 +28,7 @@ import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-repl
 import './security/client'
 import { collect } from './security/client'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
+import { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 
@@ -78,6 +81,7 @@ switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
     updateUrl = 'https://cdn.shieldbattery.net/app/'
     break
 }
+setAppId(modelId)
 app.setAppUserModelId(modelId)
 
 autoUpdater.logger = logger
@@ -117,7 +121,31 @@ let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
 
-export const getMainWindow = () => mainWindow
+export function notifyNewInstance(data: NewInstanceNotification) {
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) {
+      mainWindow.show()
+    } else {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
+      mainWindow.focus()
+    }
+  }
+
+  if (data.args.length > 1) {
+    handleLaunchArgs(data.args.slice(1))
+  }
+}
+
+function handleLaunchArgs(args: string[]) {
+  logger.info(`Handling launch args: ${JSON.stringify(args)}`)
+
+  const replays = args.filter(arg => !arg.startsWith('--') && arg.endsWith('.rep'))
+  if (replays.length) {
+    TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
+  }
+}
 
 let cachedIds: [number, string][] = []
 let cachedIdPath: string | undefined
@@ -748,6 +776,7 @@ async function createWindow() {
 app.on('ready', () => {
   const localSettingsPromise = createLocalSettings()
   const scrSettingsPromise = createScrSettings()
+  const programRegistrationPromise = registerCurrentProgram()
 
   // We don't display this anyway, and it registers shortcuts for things that we don't want (e.g.
   // Ctrl+W to close, Ctrl+R to refresh [which we don't want outside of dev])
@@ -764,6 +793,7 @@ app.on('ready', () => {
       const [localSettings, scrSettings] = await Promise.all([
         localSettingsPromise,
         scrSettingsPromise,
+        programRegistrationPromise,
       ])
 
       container.register(LocalSettingsManager, { useValue: localSettings })
@@ -789,6 +819,10 @@ app.on('ready', () => {
           'windowFocusChanged',
           mainWindow?.isFocused() ?? false,
         )
+
+        if (!isDev && process.argv.length > 1) {
+          handleLaunchArgs(process.argv.slice(1))
+        }
       })
 
       app.on('will-quit', () => {

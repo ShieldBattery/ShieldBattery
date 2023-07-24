@@ -132,6 +132,8 @@ interface IpcMainSendables {
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 
+  replaysOpen: (replayPaths: string[]) => void
+
   settingsLocalChanged: (settings: Readonly<Partial<LocalSettings>>) => void
   settingsScrChanged: (settings: Readonly<Partial<ScrSettings>>) => void
 
