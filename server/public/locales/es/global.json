@@ -155,7 +155,9 @@
                 "title": "Sistema",
                 "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
                 "startMinimized": "Iniciar minimizado",
-                "startupOverline": "Puesta en marcha"
+                "startupOverline": "Puesta en marcha",
+                "filesOverline": "archivos",
+                "replayQuickOpen": "Inicie las repeticiones abiertas con ShieldBattery inmediatamente sin vista previa"
             },
             "title": "aplicación",
             "sound": {
