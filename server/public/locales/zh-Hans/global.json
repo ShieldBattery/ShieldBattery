@@ -158,7 +158,9 @@
                 "runOnStartup": "在系统启动时运行 ShieldBattery",
                 "startMinimized": "最小化启动",
                 "title": "系统",
-                "startupOverline": "启动"
+                "startupOverline": "启动",
+                "filesOverline": "文件",
+                "replayQuickOpen": "立即启动使用 ShieldBattery 打开的重播，无需预览"
             },
             "title": "应用程序"
         },
