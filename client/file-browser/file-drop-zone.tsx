@@ -92,7 +92,7 @@ export function FileDropZone(props: FileDropZoneProps) {
     onDragEnd()
 
     const files = Array.from(e.dataTransfer.files).filter(f => {
-      const parts = f.name.split('.')
+      const parts = f.name.toLowerCase().split('.')
       const extension = parts.length > 1 ? parts[parts.length - 1] : ''
       return props.extensions.includes(extension)
     })

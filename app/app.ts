@@ -141,7 +141,7 @@ export function notifyNewInstance(data: NewInstanceNotification) {
 function handleLaunchArgs(args: string[]) {
   logger.info(`Handling launch args: ${JSON.stringify(args)}`)
 
-  const replays = args.filter(arg => !arg.startsWith('--') && arg.endsWith('.rep'))
+  const replays = args.filter(arg => !arg.startsWith('--') && arg.toLowerCase().endsWith('.rep'))
   if (replays.length) {
     TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
   }
