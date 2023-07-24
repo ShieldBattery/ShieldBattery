@@ -5,7 +5,6 @@ import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { TranslationNamespace } from '../../common/i18n'
 import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
 import { openOverlay } from '../activities/action-creators'
 import { ActivityBackButton } from '../activities/activity-back-button'
@@ -181,7 +180,7 @@ class MapList extends React.PureComponent {
   }
 }
 
-@withTranslation(TranslationNamespace.Global, { withRef: true })
+@withTranslation('global', { withRef: true })
 @connect(state => ({ auth: state.auth, maps: state.maps, mapPreferences: state.mapPreferences }))
 export default class Maps extends React.Component {
   static propTypes = {

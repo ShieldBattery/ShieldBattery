@@ -2,7 +2,6 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { TranslationNamespace } from '../../common/i18n'
 import WindowListener from '../dom/window-listener'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, Label } from '../material/button'
@@ -57,7 +56,7 @@ const CarouselButton = styled(IconButton)`
   }
 `
 
-@withTranslation(TranslationNamespace.Global, { withRef: true })
+@withTranslation('global', { withRef: true })
 export default class Carousel extends React.Component {
   static propTypes = {
     isLoading: PropTypes.bool,
