@@ -719,6 +719,7 @@ async function createWindow() {
       }
       if (needsMaximize && mainWindow) {
         mainWindow.maximize()
+        TypedIpcSender.from(mainWindow.webContents).send('windowMaximizedState', true)
         needsMaximize = false
       }
     })
