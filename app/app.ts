@@ -548,15 +548,15 @@ function setupCspProtocol(curSession: Session) {
           .replace(/%ANALYTICS_ID%/g, analyticsId)
           .replace(
             /%REACT_DEV%/g,
-            hasReactDevTools ? '<script src="http://localhost:8097"></script>' : '',
+            hasReactDevTools
+              ? `<script src="http://localhost:8097" nonce="${nonce}"></script>`
+              : '',
           )
 
         const dataStream = new Readable()
         dataStream.push(result)
         dataStream.push(null)
 
-        // Allow loading things from the remote React devtools if they're enabled
-        const reactDevPolicy = hasReactDevTools ? 'http://localhost:8097' : ''
         // Allow loading extra chunks from the dev server in non-production
         const chunkPolicy = isHot ? 'http://localhost:5566' : ''
         // If hot-reloading is on, we have to allow eval so it can work
@@ -567,7 +567,7 @@ function setupCspProtocol(curSession: Session) {
           headers: {
             'content-type': 'text/html',
             'content-security-policy':
-              `script-src 'self' 'nonce-${nonce}' ${reactDevPolicy} ${chunkPolicy} ` +
+              `script-src 'self' 'nonce-${nonce}' ${chunkPolicy} ` +
               `${scriptEvalPolicy};` +
               `style-src 'self' 'nonce-${nonce}';` +
               "font-src 'self';" +
