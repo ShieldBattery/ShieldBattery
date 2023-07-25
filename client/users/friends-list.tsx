@@ -6,7 +6,7 @@ import styled, { css } from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/state-hooks'
+import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -77,7 +77,7 @@ const PopoverContents = styled.div`
 function useRelationshipsLoader() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const userId = useAppSelector(s => s.auth.user.id)
+  const userId = useAppSelector(s => s.auth.self?.user.id)
 
   useEffect(() => {
     const controller = new AbortController()

@@ -184,12 +184,12 @@ export default class EditAccount extends React.Component {
   renderDialogContents(passwordError) {
     const { auth } = this.props
     const formModel = {
-      email: auth.user.email,
+      email: auth.self.user.email,
     }
 
     return (
       <AccountContainer>
-        <StyledAvatar user={auth.user.name} />
+        <StyledAvatar user={auth.self.user.name} />
         <InfoContainer>
           <AccountForm
             ref={this._form}
@@ -267,7 +267,7 @@ export default class EditAccount extends React.Component {
   }
 
   onSubmit = () => {
-    const oldValues = this.props.auth.user
+    const oldValues = this.props.auth.self.user
     const values = this._form.current.getModel()
     const userProps = {
       currentPassword: values.currentPassword,
@@ -283,7 +283,7 @@ export default class EditAccount extends React.Component {
       userProps.newEmail = values.email
     }
 
-    const { id, action } = updateAccount(this.props.auth.user.id, userProps)
+    const { id, action } = updateAccount(this.props.auth.self.user.id, userProps)
     this.setState({ reqId: id })
     this.props.dispatch(action)
   }

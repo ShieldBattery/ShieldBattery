@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/state-hooks'
+import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
@@ -47,7 +47,7 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
   const whisperSession = useAppSelector(s => s.whispers.byId.get(userId))
 
   useEffect(() => {
-    if (selfUser && selfUser.id === userId) {
+    if (selfUser.id === userId) {
       dispatch(
         openSnackbar({
           message: t('whispers.errors.cantWhisperYourself', "You can't whisper with yourself."),

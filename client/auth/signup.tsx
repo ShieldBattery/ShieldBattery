@@ -1,5 +1,5 @@
 import queryString from 'query-string'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -47,7 +47,7 @@ import {
   FieldRow,
   LoadingArea,
 } from './auth-content'
-import { redirectIfLoggedIn } from './auth-utils'
+import { useRedirectAfterLogin } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
 const SignupBottomAction = styled(AuthBottomAction)`
@@ -162,9 +162,7 @@ export function Signup() {
   const [isLoading, setIsLoading] = useState(false)
   const [lastError, setLastError] = useState<Error>()
 
-  useEffect(() => {
-    redirectIfLoggedIn({ auth })
-  }, [auth])
+  useRedirectAfterLogin()
 
   const [usernameAvailable] = useState(() => usernameAvailableValidator())
 

@@ -295,10 +295,10 @@ export function findMatchAsParty(
 ): ThunkAction {
   return (dispatch, getState) => {
     const {
-      auth: { user },
+      auth: { self },
       mapPools: { byType: mapPoolByType },
     } = getState()
-    const selfId = user.id
+    const selfId = self!.user.id
 
     const prefs =
       !!preferences && 'race' in preferences
@@ -399,10 +399,10 @@ export function acceptFindMatchAsParty(
 
     dispatch((_, getState) => {
       const {
-        auth: {
-          user: { id: selfId },
-        },
+        auth: { self },
       } = getState()
+
+      const selfId = self!.user.id
 
       const newPreferences: PartialMatchmakingPreferences = {
         userId: selfId,

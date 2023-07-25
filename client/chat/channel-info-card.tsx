@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
-import { hasAnyPermission } from '../admin/admin-permissions'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, RaisedButton } from '../material/button'
 import Card from '../material/card'
@@ -153,7 +153,7 @@ export function ConnectedChannelInfoCard({
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
-  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'moderateChatChannels'))
+  const isAdmin = useHasAnyPermission('moderateChatChannels')
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'top')

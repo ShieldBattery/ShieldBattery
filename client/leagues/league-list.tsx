@@ -6,7 +6,7 @@ import { Link, Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
-import { hasAnyPermission } from '../admin/admin-permissions'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
@@ -33,7 +33,7 @@ const LoadableLeagueAdmin = React.lazy(async () => ({
 }))
 
 export function LeagueRoot(props: { params: any }) {
-  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'manageLeagues'))
+  const isAdmin = useHasAnyPermission('manageLeagues')
 
   return (
     <Suspense fallback={<LoadingDotsArea />}>
@@ -79,7 +79,7 @@ export enum LeagueSectionType {
 function LeagueList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'manageLeagues'))
+  const isAdmin = useHasAnyPermission('manageLeagues')
   const { past, current, future, byId, selfLeagues } = useAppSelector(s => s.leagues)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error>()

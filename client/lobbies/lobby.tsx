@@ -3,6 +3,7 @@ import { List } from 'immutable'
 import React from 'react'
 import { WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
 import {
@@ -16,7 +17,7 @@ import {
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import { RaceChar } from '../../common/races'
-import { SelfUserRecord } from '../auth/auth-records'
+import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import Card from '../material/card'
@@ -158,7 +159,7 @@ function renderChatMessage(msg: SbMessage) {
 interface LobbyProps {
   lobby: LobbyInfo
   chat: List<SbMessage>
-  user: SelfUserRecord
+  user: ReadonlyDeep<SelfUser>
   isFavoritingMap: boolean
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void

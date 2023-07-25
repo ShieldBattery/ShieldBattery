@@ -163,7 +163,7 @@ export function PostMatchDialog({
   const canSearchMatchmaking = useAppSelector(s => {
     const currentParty = s.party.current
     const isSearching = !!s.matchmaking.searchInfo
-    return !isSearching && (!currentParty || currentParty.leader === s.auth.user.id)
+    return !isSearching && (!currentParty || currentParty.leader === s.auth.self?.user.id)
   })
 
   const leagueValues = useMemo(() => {

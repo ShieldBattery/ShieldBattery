@@ -10,8 +10,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
-import { redirectToLogin } from '../auth/auth-utils'
-import { useSelfUser } from '../auth/state-hooks'
+import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import logger from '../logging/logger'
@@ -225,7 +224,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const isLoggedIn = !!useSelfUser()
+  const isLoggedIn = useIsLoggedIn()
   const league = useAppSelector(s => s.leagues.byId.get(id))
   const selfLeagueUser = useAppSelector(s => s.leagues.selfLeagues.get(id))
 

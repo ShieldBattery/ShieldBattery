@@ -42,15 +42,17 @@ export function changeUserLanguage(
   return abortableThunk(spec, async (dispatch, getState) => {
     try {
       const {
-        auth: {
-          user: { id },
-        },
+        auth: { self },
       } = getState()
-      const result = await fetchJson<ChangeLanguagesResponse>(apiUrl`users/${id}/language`, {
-        method: 'POST',
-        body: encodeBodyAsParams<ChangeLanguageRequest>({ language }),
-        signal: spec.signal,
-      })
+
+      const result = await fetchJson<ChangeLanguagesResponse>(
+        apiUrl`users/${self!.user.id}/language`,
+        {
+          method: 'POST',
+          body: encodeBodyAsParams<ChangeLanguageRequest>({ language }),
+          signal: spec.signal,
+        },
+      )
 
       dispatch({
         type: '@auth/changeLanguage',

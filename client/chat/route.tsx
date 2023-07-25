@@ -1,11 +1,10 @@
 import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
 import { SbChannelId, makeSbChannelId } from '../../common/chat'
-import { hasAnyPermission } from '../admin/admin-permissions'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppSelector } from '../redux-hooks'
 import { ConnectedChatChannel } from './channel'
 import { ChannelList } from './channel-list'
 import { CreateChannel } from './create-channel'
@@ -40,7 +39,7 @@ export function ChannelRoute({
 }
 
 export function ChannelRouteComponent(props: { params: any }) {
-  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'moderateChatChannels'))
+  const isAdmin = useHasAnyPermission('moderateChatChannels')
 
   return (
     <Suspense fallback={<LoadingDotsArea />}>

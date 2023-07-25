@@ -1,7 +1,7 @@
 import React, { useLayoutEffect } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Route, Switch, useRoute } from 'wouter'
-import { isLoggedIn } from './auth/auth-utils'
+import { useIsLoggedIn } from './auth/auth-utils'
 import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
 import { LoggedInFilter } from './auth/logged-in-filter'
@@ -26,7 +26,6 @@ import {
   TermsOfServicePage,
 } from './policies/policy-displays'
 import { LoadingDotsArea } from './progress/dots'
-import { useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
 import { ConnectedSettings } from './settings/settings'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
@@ -57,12 +56,9 @@ const LoadableSystemBar = IS_ELECTRON
 
 function MainContent() {
   const [matchesRoot] = useRoute('/')
-  const user = useAppSelector(s => s.auth.user)
-  const loggedIn = isLoggedIn({ user })
+  const loggedIn = useIsLoggedIn()
 
   if (matchesRoot) {
-    // TODO(tec27): Make a function that lets us pass just the one value (or put this computed value
-    // on the state?)
     if (!IS_ELECTRON && !loggedIn) {
       return <Splash />
     }

@@ -8,7 +8,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { amberA400 } from '../styles/colors'
 import { sendVerificationEmail } from './action-creators'
-import { useSelfUser } from './state-hooks'
+import { useSelfUser } from './auth-utils'
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;

@@ -39,10 +39,10 @@ const policyBatchRequester = new MicrotaskBatchRequester<
 export function addPrivacyPolicyNotificationIfNeeded(): ThunkAction {
   return (dispatch, getState) => {
     const {
-      auth: {
-        user: { id, acceptedPrivacyVersion },
-      },
+      auth: { self },
     } = getState()
+
+    const { id, acceptedPrivacyVersion } = self!.user
 
     if (acceptedPrivacyVersion < PRIVACY_POLICY_VERSION) {
       dispatch(
@@ -61,10 +61,9 @@ export function addPrivacyPolicyNotificationIfNeeded(): ThunkAction {
 export function addTermsOfServiceNotificationIfNeeded(): ThunkAction {
   return (dispatch, getState) => {
     const {
-      auth: {
-        user: { id, acceptedTermsVersion },
-      },
+      auth: { self },
     } = getState()
+    const { id, acceptedTermsVersion } = self!.user
 
     if (acceptedTermsVersion < TERMS_OF_SERVICE_VERSION) {
       dispatch(
@@ -87,10 +86,10 @@ export function addTermsOfServiceNotificationIfNeeded(): ThunkAction {
 export function addAcceptableUseNotificationIfNeeded(): ThunkAction {
   return (dispatch, getState) => {
     const {
-      auth: {
-        user: { id, acceptedUsePolicyVersion },
-      },
+      auth: { self },
     } = getState()
+
+    const { id, acceptedUsePolicyVersion } = self!.user
 
     if (acceptedUsePolicyVersion < ACCEPTABLE_USE_VERSION) {
       dispatch(

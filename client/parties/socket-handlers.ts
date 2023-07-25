@@ -22,7 +22,7 @@ type EventToActionMap = {
 const eventToAction: EventToActionMap = {
   init: (partyId, event) => (dispatch, getState) => {
     const { party, time, userInfos } = event
-    const selfUser = getState().auth.user
+    const selfUser = getState().auth.self!.user
 
     dispatch({
       type: '@parties/init',
@@ -80,7 +80,7 @@ const eventToAction: EventToActionMap = {
 
   leave: (partyId, event) => (dispatch, getState) => {
     const { user, time } = event
-    const selfUser = getState().auth.user
+    const selfUser = getState().auth.self!.user
     if (selfUser.id === user) {
       // It was us who left the party
       dispatch({
@@ -126,7 +126,7 @@ const eventToAction: EventToActionMap = {
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
-          urgent: event.mentions.some(m => m.id === auth.user.id),
+          urgent: event.mentions.some(m => m.id === auth.self!.user.id),
         })
       }
 
@@ -144,7 +144,7 @@ const eventToAction: EventToActionMap = {
 
   kick: (partyId, event) => (dispatch, getState) => {
     const { target, time } = event
-    const selfUser = getState().auth.user
+    const selfUser = getState().auth.self!.user
     if (selfUser.id === target) {
       // It was us who has been kicked from the party
       dispatch(
@@ -173,12 +173,12 @@ const eventToAction: EventToActionMap = {
 
   queue: (partyId, event) => (dispatch, getState) => {
     const {
-      auth: { user },
+      auth: { self },
       party,
     } = getState()
     const showRaceDialog =
       party.current?.id === partyId &&
-      event.unaccepted.includes(user.id) &&
+      event.unaccepted.includes(self!.user.id) &&
       event.id !== party.current.queueState?.id
 
     dispatch({

@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
 import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../common/users/sb-user'
-import { useSelfPermissions, useSelfUser } from '../auth/state-hooks'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
@@ -62,11 +62,11 @@ export function AdminUserPage({ user }: { user: SbUser }) {
   const selfPermissions = useSelfPermissions()
   return (
     <AdminUserPageRoot>
-      {selfPermissions.editPermissions ? (
+      {selfPermissions?.editPermissions ? (
         <PermissionsEditor user={user} selfUser={selfUser} />
       ) : null}
-      {selfPermissions.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
-      {selfPermissions.banUsers ? <UserIpHistory user={user} /> : null}
+      {selfPermissions?.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
+      {selfPermissions?.banUsers ? <UserIpHistory user={user} /> : null}
     </AdminUserPageRoot>
   )
 }

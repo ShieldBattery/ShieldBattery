@@ -59,16 +59,16 @@ function rallyPointHandler({
   ipcRenderer.on('rallyPointPingResult', (event, server, ping) => {
     dispatch((_, getState) => {
       const {
-        auth: { user },
+        auth: { self },
       } = getState()
-      if (!user) {
+      if (!self) {
         return
       }
 
       const reqBody = {
         ping,
       }
-      fetchJson(apiUrl`rally-point/pings/${user.id}/${clientId}/${server.id}`, {
+      fetchJson(apiUrl`rally-point/pings/${self.user.id}/${clientId}/${server.id}`, {
         method: 'put',
         body: JSON.stringify(reqBody),
       }).catch(err => {

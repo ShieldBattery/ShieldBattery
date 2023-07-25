@@ -1,38 +1,34 @@
 import { useMemo } from 'react'
+import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
-import { AuthState, PermissionsRecord } from '../auth/auth-records'
-import { useAppSelector } from '../redux-hooks'
+import { useSelfPermissions } from '../auth/auth-utils'
 
-export function isAdmin(authState: AuthState) {
-  return isAdminFromPermissions(authState.permissions)
-}
-
-function isAdminFromPermissions(permissions: PermissionsRecord) {
-  return permissions.toSeq().some(perm => perm)
-}
-
-export function hasAllPermissions(
-  authState: AuthState,
-  ...permissionsToCheck: Array<keyof SbPermissions>
-) {
-  const perms = authState.permissions
-  return permissionsToCheck.every(p => perms[p])
-}
-
-export function hasAnyPermission(
-  authState: AuthState,
-  ...permissionsToCheck: Array<keyof SbPermissions>
-) {
-  const perms = authState.permissions
-  return permissionsToCheck.some(p => perms[p])
+function isAdminFromPermissions(permissions?: ReadonlyDeep<SbPermissions>) {
+  return permissions && Object.values(permissions).some(p => p === true)
 }
 
 /**
  * A React hook that returns whether or not the current user has any admin powers.
  */
 export function useIsAdmin() {
-  const permissions = useAppSelector(s => s.auth.permissions)
+  const permissions = useSelfPermissions()
   const isAdmin = useMemo(() => isAdminFromPermissions(permissions), [permissions])
 
   return isAdmin
+}
+
+/** A React hook that returns whether the current user has any of the specified permissions. */
+export function useHasAnyPermission(...permissionsToCheck: Array<keyof SbPermissions>): boolean {
+  const permissions = useSelfPermissions()
+  const hasPermission = useMemo(() => {
+    if (!permissions && permissionsToCheck.length > 0) {
+      return false
+    } else if (!permissions) {
+      return true
+    }
+
+    return permissionsToCheck.some(p => permissions[p])
+  }, [permissions, permissionsToCheck])
+
+  return hasPermission
 }

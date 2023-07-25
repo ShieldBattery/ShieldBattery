@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, Redirect, Route, Switch } from 'wouter'
-import { PermissionsRecord } from '../auth/auth-records'
-import { useAppSelector } from '../redux-hooks'
+import { SbPermissions } from '../../common/users/permissions'
+import { useSelfPermissions } from '../auth/auth-utils'
 
 const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
 const LoadableMapPools = React.lazy(() => import('./map-pools'))
@@ -14,34 +14,34 @@ const LoadableRallyPoint = React.lazy(async () => ({
 }))
 
 interface AdminDashboardProps {
-  permissions: PermissionsRecord
+  permissions?: SbPermissions
 }
 
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
   const mapsLink =
-    (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
+    (perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
       <li>
         <Link href='/admin/map-manager'>Manage maps</Link>
       </li>
     ) : null
-  const mapPoolsLink = perms.manageMapPools ? (
+  const mapPoolsLink = perms?.manageMapPools ? (
     <li>
       <Link href='/admin/map-pools'>Manage matchmaking map pools</Link>
     </li>
   ) : null
-  const matchmakingSeasonsLink = perms.manageMatchmakingSeasons ? (
+  const matchmakingSeasonsLink = perms?.manageMatchmakingSeasons ? (
     <li>
       <Link href='/admin/matchmaking-seasons'>Manage matchmaking seasons</Link>
     </li>
   ) : null
-  const matchmakingTimesLink = perms.manageMatchmakingTimes ? (
+  const matchmakingTimesLink = perms?.manageMatchmakingTimes ? (
     <li>
       <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
     </li>
   ) : null
-  const rallyPointLink = perms.manageRallyPointServers ? (
+  const rallyPointLink = perms?.manageRallyPointServers ? (
     <li>
       <Link href='/admin/rally-point'>Manage rally-point servers</Link>
     </li>
@@ -59,28 +59,28 @@ function AdminDashboard(props: AdminDashboardProps) {
 }
 
 export default function AdminPanel() {
-  const perms = useAppSelector(s => s.auth.permissions)
+  const perms = useSelfPermissions()
 
   return (
     <Switch>
       <Route path='/admin/map-manager/:rest*'>
-        {(perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
+        {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
           <LoadableMapManager />
         ) : (
           <Redirect to='/' />
         )}
       </Route>
       <Route path='/admin/map-pools/:rest*'>
-        {perms.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
+        {perms?.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
       </Route>
       <Route path='/admin/matchmaking-seasons/:rest*'>
-        {perms.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
+        {perms?.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
       </Route>
       <Route path='/admin/matchmaking-times/:rest*'>
-        {perms.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
+        {perms?.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
       </Route>
       <Route path='/admin/rally-point/:rest*'>
-        {perms.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
+        {perms?.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
       </Route>
 
       <Route path='/admin/:rest*'>

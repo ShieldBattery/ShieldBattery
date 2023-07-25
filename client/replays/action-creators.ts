@@ -4,7 +4,7 @@ import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
-import { SelfUserRecord } from '../auth/auth-records'
+import { SelfUser } from '../../common/users/sb-user'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
@@ -14,7 +14,7 @@ import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-async function setGameConfig(replay: { name: string; path: string }, user: SelfUserRecord) {
+async function setGameConfig(replay: { name: string; path: string }, user: SelfUser) {
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,
@@ -60,12 +60,12 @@ export function startReplay({
 }): ThunkAction {
   return (dispatch, getState) => {
     const {
-      auth: { user },
+      auth: { self },
     } = getState()
 
     // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
     // to other people (like their friends) when a user is watching a replay.
-    setGameConfig({ path, name }, user).then(
+    setGameConfig({ path, name }, self!.user).then(
       gameId => {
         if (gameId) {
           dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))

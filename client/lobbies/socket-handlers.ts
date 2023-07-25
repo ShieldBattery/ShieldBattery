@@ -286,7 +286,7 @@ const eventToAction: EventToActionMap = {
   leave: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.user.name
+    const user = auth.self!.user.name
     if (user === event.player.name) {
       // The leaver was me all along!!!
       clearCountdownTimer()
@@ -304,7 +304,7 @@ const eventToAction: EventToActionMap = {
   kick: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.user.name
+    const user = auth.self!.user.name
     if (user === event.player.name) {
       // We have been kicked from a lobby
       clearCountdownTimer()
@@ -327,7 +327,7 @@ const eventToAction: EventToActionMap = {
   ban: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.user.name
+    const user = auth.self!.user.name
     if (user === event.player.name) {
       // It was us who have been banned from a lobby (shame on us!)
       clearCountdownTimer()
@@ -405,7 +405,7 @@ const eventToAction: EventToActionMap = {
   setupGame: (name, event) => (dispatch, getState) => {
     const {
       lobby,
-      auth: { user },
+      auth: { self },
     } = getState()
 
     const {
@@ -427,7 +427,7 @@ const eventToAction: EventToActionMap = {
     const hostInfo = playerInfos.find(s => s.id === host.id)!
 
     const config: GameLaunchConfig = {
-      localUser: { id: user.id, name: user.name },
+      localUser: { id: self!.user.id, name: self!.user.name },
       setup: {
         gameId: event.setup.gameId,
         name: lobbyName,
@@ -516,7 +516,7 @@ const eventToAction: EventToActionMap = {
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
-          urgent: event.mentions.some(m => m.id === auth.user.id),
+          urgent: event.mentions.some(m => m.id === auth.self!.user.id),
         })
       }
 

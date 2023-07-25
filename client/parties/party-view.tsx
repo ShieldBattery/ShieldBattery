@@ -1,12 +1,12 @@
-import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { MAX_PARTY_SIZE } from '../../common/parties'
 import { range } from '../../common/range'
 import { urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
-import { SelfUserRecord } from '../auth/auth-records'
+import { SbUserId, SelfUser } from '../../common/users/sb-user'
+import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -134,8 +134,8 @@ export function UserList({
   onKickPlayer,
   onChangeLeader,
 }: {
-  party: Immutable<CurrentPartyState>
-  selfUser: SelfUserRecord
+  party: ReadonlyDeep<CurrentPartyState>
+  selfUser: ReadonlyDeep<SelfUser>
   onKickPlayer: (userId: SbUserId) => void
   onChangeLeader: (userId: SbUserId) => void
 }) {
@@ -234,7 +234,7 @@ interface PartyViewProps {
 export function PartyView(props: PartyViewProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const selfUser = useAppSelector(s => s.auth.user)
+  const selfUser = useSelfUser()!
   const party = useAppSelector(s => s.party.current)
   const partyId = party?.id
   const routePartyId = decodeURIComponent(props.params.partyId)

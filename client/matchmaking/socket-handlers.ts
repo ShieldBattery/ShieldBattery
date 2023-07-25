@@ -176,7 +176,7 @@ const eventToAction: EventToActionMap = {
     push('/matchmaking/countdown')
 
     const {
-      auth: { user },
+      auth: { self },
     } = getState()
 
     const {
@@ -213,8 +213,8 @@ const eventToAction: EventToActionMap = {
 
     const config: GameLaunchConfig = {
       localUser: {
-        id: user.id,
-        name: user.name,
+        id: self!.user.id,
+        name: self!.user.name,
       },
       setup: {
         gameId: event.setup.gameId,

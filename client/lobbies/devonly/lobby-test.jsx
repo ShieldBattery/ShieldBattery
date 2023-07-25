@@ -2,7 +2,6 @@ import { List, Range } from 'immutable'
 import React from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
-import { SelfUserRecord } from '../../auth/auth-records'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import Lobby from '../lobby'
 import { LobbyInfo } from '../lobby-reducer.js'
@@ -33,7 +32,7 @@ const LOBBIES = Range(2, 9).map(numSlots => {
   })
 })
 
-const USER = new SelfUserRecord({ id: 27, name: 'tec27' })
+const USER = { id: 27, name: 'tec27' }
 
 export default class LobbyTest extends React.Component {
   renderLobby(lobby) {

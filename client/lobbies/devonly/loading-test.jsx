@@ -2,7 +2,6 @@ import { List } from 'immutable'
 import React from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
-import { SelfUserRecord } from '../../auth/auth-records'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LoadingScreen from '../loading'
 import { LobbyInfo } from '../lobby-reducer'
@@ -66,10 +65,10 @@ export default class LoadingTest extends React.Component {
       host: 'a',
     })
     const gameStatus = STATUSES[this.state.statusIndex]
-    const user = new SelfUserRecord({
+    const user = {
       id: 1,
       name: 'tec27',
-    })
+    }
 
     const containerStyle = {
       padding: 16,

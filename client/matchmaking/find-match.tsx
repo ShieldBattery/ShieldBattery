@@ -15,7 +15,7 @@ import {
 } from '../../common/matchmaking'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
-import { useSelfUser } from '../auth/state-hooks'
+import { useSelfUser } from '../auth/auth-utils'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'

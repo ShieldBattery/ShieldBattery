@@ -14,7 +14,7 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
-import { hasAnyPermission } from '../admin/admin-permissions'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -91,7 +91,7 @@ export function ConnectedUserProfilePage({
   const user = useAppSelector(s => s.users.byId.get(userId))
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
   const matchHistory = useAppSelector(s => s.users.idToMatchHistory.get(userId)) ?? []
-  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'editPermissions', 'banUsers'))
+  const isAdmin = useHasAnyPermission('editPermissions', 'banUsers')
 
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {

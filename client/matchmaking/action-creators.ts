@@ -37,10 +37,10 @@ export function findMatch<M extends MatchmakingType>(
     ipcRenderer.send('rallyPointRefreshPings')
 
     const {
-      auth: { user },
+      auth: { self },
       mapPools: { byType: mapPoolByType },
     } = getState()
-    const selfId = user.id
+    const selfId = self!.user.id
 
     const prefs =
       !!preferences && 'race' in preferences

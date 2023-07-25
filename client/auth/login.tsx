@@ -1,5 +1,5 @@
 import queryString from 'query-string'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'wouter'
 import {
@@ -34,7 +34,7 @@ import {
   RowEdge,
   Spacer,
 } from './auth-content'
-import { redirectIfLoggedIn } from './auth-utils'
+import { useRedirectAfterLogin } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
 interface LoginModel {
@@ -51,9 +51,7 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [lastError, setLastError] = useState<Error>()
 
-  useEffect(() => {
-    redirectIfLoggedIn({ auth })
-  }, [auth])
+  useRedirectAfterLogin()
 
   const abortControllerRef = useRef<AbortController>()
 

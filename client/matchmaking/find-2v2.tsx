@@ -8,7 +8,7 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/state-hooks'
+import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'

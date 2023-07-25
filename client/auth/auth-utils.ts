@@ -1,22 +1,21 @@
 import queryString from 'query-string'
+import { useEffect } from 'react'
+import { ReadonlyDeep } from 'type-fest'
+import { SbPermissions } from '../../common/users/permissions'
+import { SelfUser } from '../../common/users/sb-user'
 import { makePathString, replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 
-export function isLoggedIn(authState: { user?: { name?: string } }) {
-  return authState.user && authState.user.name
-}
-
-export function redirectIfLoggedIn({ auth }: { auth: { user?: { name?: string } } }) {
-  if (isLoggedIn(auth)) {
-    // We're logged in now, hooray!
-    // Go wherever the user was intending to go before being directed here (or home)
-    const nextPath =
-      location && location.search ? queryString.parse(location.search).nextPath ?? '/' : '/'
-    replace(Array.isArray(nextPath) ? nextPath[0] ?? '/' : nextPath)
-    return true
-  }
-
-  return false
+/** Redirects to the current `nextPath` query string parameter once the client has logged in. */
+export function useRedirectAfterLogin() {
+  const isLoggedIn = useIsLoggedIn()
+  useEffect(() => {
+    if (isLoggedIn) {
+      const nextPath =
+        location && location.search ? queryString.parse(location.search).nextPath ?? '/' : '/'
+      replace(Array.isArray(nextPath) ? nextPath[0] ?? '/' : nextPath)
+    }
+  }, [isLoggedIn])
 }
 
 export function createNextPath(location: Location) {
@@ -38,9 +37,18 @@ export function redirectToLogin(navigateFn = replace) {
 }
 
 /**
- * A React hook that returns whether or not the current user is logged in.
+ * A React hook that returns whether or not the client is logged in.
  */
-export function useIsLoggedIn() {
-  const user = useAppSelector(s => s.auth.user)
-  return Boolean(user && user.name)
+export function useIsLoggedIn(): boolean {
+  return useAppSelector(s => Boolean(s.auth.self))
+}
+
+/** A hook that returns the user that is currently logged in to this client. */
+export function useSelfUser(): ReadonlyDeep<SelfUser> | undefined {
+  return useAppSelector(s => s.auth.self?.user)
+}
+
+/** A hook that returns the permissions of the currently logged in user. */
+export function useSelfPermissions(): ReadonlyDeep<SbPermissions> | undefined {
+  return useAppSelector(s => s.auth.self?.permissions)
 }

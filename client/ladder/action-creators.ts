@@ -83,7 +83,7 @@ export function searchRankings(
 export function getInstantaneousSelfRank(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async (dispatch, getState) => {
     const { auth } = getState()
-    const selfId = auth.user.id
+    const selfId = auth.self!.user.id
 
     const result = await fetchJson<GetRankForUserResponse>(apiUrl`ladder/users/${selfId}`, {
       signal: spec.signal,

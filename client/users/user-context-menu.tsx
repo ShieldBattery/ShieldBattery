@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
+import { useSelfUser } from '../auth/auth-utils'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -93,7 +94,7 @@ function ConnectedUserContextMenuContents({
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const selfUser = useAppSelector(s => s.auth.user)
+  const selfUser = useSelfUser()
   const user = useAppSelector(s => s.users.byId.get(userId))
 
   const partyId = useAppSelector(s => s.party.current?.id)
@@ -157,7 +158,7 @@ function ConnectedUserContextMenuContents({
       />,
     )
 
-    if (user.id !== selfUser.id) {
+    if (user.id !== selfUser?.id) {
       if (relationshipKind !== UserRelationshipKind.Block) {
         appendToMultimap(
           items,
@@ -417,7 +418,7 @@ function ConnectedUserContextMenuContents({
               onClick={onInviteToPartyClick}
             />,
           )
-        } else if (partyLeader === selfUser.id) {
+        } else if (partyLeader === selfUser?.id) {
           const isAlreadyInParty = !!partyMembers?.includes(user.id)
           const hasInvite = !!partyInvites?.includes(user.id)
           if (isAlreadyInParty) {

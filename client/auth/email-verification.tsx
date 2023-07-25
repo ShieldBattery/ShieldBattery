@@ -17,15 +17,19 @@ import {
   ErrorsContainer,
   SuccessContainer,
 } from './auth-content'
-import { createNextPath, isLoggedIn } from './auth-utils'
+import { createNextPath, useIsLoggedIn, useSelfUser } from './auth-utils'
 
 export function EmailVerificationUi() {
   const { t } = useTranslation()
 
   const dispatch = useAppDispatch()
-  const auth = useAppSelector(s => s.auth)
-  const loggedIn = !!auth.user?.name
-  const curUserId = auth.user?.id
+
+  const isLoggedIn = useIsLoggedIn()
+  const selfUser = useSelfUser()
+  const curUserId = selfUser?.id
+  const authChangeInProgress = useAppSelector(s => s.auth.authChangeInProgress)
+  const lastFailure = useAppSelector(s => s.auth.lastFailure)
+
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<Error>()
   const [emailResent, setEmailResent] = useState(false)
@@ -45,7 +49,7 @@ export function EmailVerificationUi() {
   const forUserId = urlParams.has('userId') ? Number(urlParams.get('userId')) : undefined
   const forUsername = urlParams.get('username')
 
-  const emailVerified = curUserId === forUserId && auth.user?.emailVerified
+  const emailVerified = curUserId === forUserId && selfUser?.emailVerified
 
   const onLogInClick = useCallback(() => {
     const search =
@@ -70,7 +74,7 @@ export function EmailVerificationUi() {
     setResendError(undefined)
     setResending(true)
     dispatch(
-      sendVerificationEmail(curUserId, {
+      sendVerificationEmail(curUserId!, {
         onSuccess: () => {
           setResending(false)
           setEmailResent(true)
@@ -89,18 +93,16 @@ export function EmailVerificationUi() {
   }, [])
 
   useEffect(() => {
-    if (loggedIn && curUserId === forUserId && !emailVerified) {
-      const { id, action } = verifyEmail(curUserId, String(token))
+    if (isLoggedIn && curUserId === forUserId && !emailVerified) {
+      const { id, action } = verifyEmail(curUserId!, String(token))
       reqIdRef.current = id
       dispatch(action)
     }
-  }, [emailVerified, token, forUserId, loggedIn, curUserId, dispatch])
-
-  const { authChangeInProgress, lastFailure } = auth
+  }, [emailVerified, token, forUserId, isLoggedIn, curUserId, dispatch])
 
   let contents: React.ReactNode | undefined
   let bottomActionButton: React.ReactNode | undefined
-  if (!isLoggedIn(auth)) {
+  if (isLoggedIn) {
     contents = (
       <ErrorsContainer data-test='not-logged-in-error'>
         <Trans t={t} i18nKey='auth.emailVerification.loggedOutError'>

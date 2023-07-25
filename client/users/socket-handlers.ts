@@ -14,14 +14,14 @@ type EventToActionMap = {
 const eventToAction: EventToActionMap = {
   upsert: event => (dispatch, getState) => {
     const {
-      auth: { user },
+      auth: { self },
     } = getState()
     dispatch({
       type: '@users/upsertRelationship',
       payload: {
         relationship: event.relationship,
       },
-      meta: { selfId: user.id },
+      meta: { selfId: self!.user.id },
     })
   },
 
