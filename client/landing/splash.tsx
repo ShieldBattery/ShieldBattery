@@ -16,7 +16,7 @@ import { Label, RaisedButton } from '../material/button'
 import Card from '../material/card'
 import { linearOutSlowIn } from '../material/curve-constants'
 import { push } from '../navigation/routing'
-import { makePublicAssetUrl } from '../network/server-url'
+import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
 import { useAppDispatch } from '../redux-hooks'
 import {
   amberA400,
@@ -393,7 +393,7 @@ function GameCount(props: { className?: string }) {
   const [gameCount, setGameCount] = useState(0)
 
   useEffect(() => {
-    const eventSource = new EventSource(apiUrl`games`)
+    const eventSource = new EventSource(IS_ELECTRON ? makeServerUrl(apiUrl`games`) : apiUrl`games`)
 
     eventSource.addEventListener('gameCount', event => {
       setGameCount((event as any).data)

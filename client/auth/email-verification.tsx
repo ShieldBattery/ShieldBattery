@@ -102,7 +102,7 @@ export function EmailVerificationUi() {
 
   let contents: React.ReactNode | undefined
   let bottomActionButton: React.ReactNode | undefined
-  if (isLoggedIn) {
+  if (!isLoggedIn) {
     contents = (
       <ErrorsContainer data-test='not-logged-in-error'>
         <Trans t={t} i18nKey='auth.emailVerification.loggedOutError'>
