@@ -1,3 +1,17 @@
+#### 9.1.0 (July 25, 2023)
+
+- **Open replay files.** ShieldBattery can now be registered to open replay (.rep) files for faster
+  replay viewing. Replay files can also be dragged into the client for easy access.
+- **Updated translations.** Thank you to our contributors! If you'd like to help, please check out our
+  <a href="https://github.com/ShieldBattery/ShieldBattery/blob/master/docs/TRANSLATION_GUIDE.md" target="_blank" rel="nofollow noreferrer noopener">translation guide</a>.
+- **Various bug fixes:**
+  - Fixed race displayed on game results when a player chose random
+  - Fixed an issue with the language selector not displaying an initial selection
+  - The player search on the ladder page now works again
+  - Fixed an issue with chat channels sometimes ending up in the wrong order
+  - The "start minimized" option when launching the app on startup will now work properly
+  - Fixed Korean language selection not working if it was manually chosen.
+
 #### 9.0.0 (June 30, 2023)
 
 - **Multi-language support.** We've added an initial version of supporting multiple languages within
