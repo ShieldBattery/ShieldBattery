@@ -34,3 +34,7 @@ export interface UpdateRallyPointServerResponse {
 export interface UpdateRallyPointClientPingRequest {
   ping: number
 }
+
+export interface UpdateRallyPointClientPingBatchRequest {
+  pings: [id: number, ping: number][]
+}

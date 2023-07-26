@@ -5,6 +5,7 @@ import {
   AddRallyPointServerRequest,
   AddRallyPointServerResponse,
   GetRallyPointServersResponse,
+  UpdateRallyPointClientPingBatchRequest,
   UpdateRallyPointClientPingRequest,
   UpdateRallyPointServerRequest,
   UpdateRallyPointServerResponse,
@@ -25,6 +26,11 @@ interface UpdateClientPingParams {
   serverId: number
 }
 
+interface UpdateClientPingBatchParams {
+  userId: SbUserId
+  clientId: string
+}
+
 @httpApi('/rally-point/')
 @httpBeforeAll(ensureLoggedIn)
 export class RallyPointPingApi {
@@ -33,6 +39,39 @@ export class RallyPointPingApi {
     private clientSocketsManager: ClientSocketsManager,
   ) {}
 
+  @httpPut('/pings/:userId/:clientId/batch')
+  async updateClientPingBatch(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<UpdateClientPingBatchParams>({
+        userId: Joi.allow(ctx.session!.userId).required(),
+        clientId: Joi.string().required(),
+      }),
+
+      body: Joi.object<UpdateRallyPointClientPingBatchRequest>({
+        pings: Joi.array()
+          .items(
+            Joi.array()
+              .ordered(Joi.number().integer().min(1).required(), Joi.number().min(0).required())
+              .required(),
+          )
+          .required(),
+      }),
+    })
+
+    const client = this.clientSocketsManager.getById(params.userId, params.clientId)
+
+    if (!client) {
+      throw new NotFound(`could not find a client with id ${params.clientId}`)
+    }
+
+    for (const [serverId, ping] of body.pings) {
+      this.rallyPointService.updatePing(client, serverId, ping)
+    }
+
+    ctx.status = 204
+  }
+
+  // TODO(tec27): Delete this after a version with the batch route has gone live
   @httpPut('/pings/:userId/:clientId/:serverId')
   async updateClientPing(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {

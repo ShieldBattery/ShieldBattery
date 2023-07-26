@@ -6,7 +6,7 @@ import logger from '../logger'
 import { monotonicNow } from '../time/monotonic-now'
 
 // Time until pings are considered "old" and recalculated when requested
-const OUTDATED_PING_TIME = 5 * 60 * 1000
+const OUTDATED_PING_TIME = 30 * 60 * 1000
 const PING_RETRIES = 3
 
 interface OutstandingPing {
