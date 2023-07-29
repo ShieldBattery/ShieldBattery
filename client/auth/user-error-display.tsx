@@ -30,7 +30,7 @@ function UserError({ error }: { error: FetchError }) {
       )
     case UserErrorCode.AccountBanned: {
       const banReason = error.body
-        ? { error: (error.body as any).reason }
+        ? (error.body as any).reason
         : t('auth.userErrorDisplay.banWithoutReason', 'No reason specified')
       return (
         <div>
