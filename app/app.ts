@@ -811,7 +811,7 @@ app.on('ready', () => {
       setupCspProtocol(currentSession())
       setupAnalytics(currentSession())
       gameServer = createGameServer(localSettings)
-      const windowPromise = await createWindow()
+      await createWindow()
       systemTray = new SystemTray(mainWindow, () => app.quit())
 
       TypedIpcSender.from(mainWindow?.webContents).send(
@@ -823,7 +823,6 @@ app.on('ready', () => {
         mainWindow?.isFocused() ?? false,
       )
 
-      logger.info(`isDev: ${isDev} argv: ${JSON.stringify(process.argv)}`)
       if (!isDev && process.argv.length > 1) {
         handleLaunchArgs(process.argv.slice(1))
       }
