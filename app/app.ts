@@ -141,9 +141,12 @@ export function notifyNewInstance(data: NewInstanceNotification) {
 function handleLaunchArgs(args: string[]) {
   logger.info(`Handling launch args: ${JSON.stringify(args)}`)
 
-  const replays = args.filter(arg => !arg.startsWith('--') && arg.toLowerCase().endsWith('.rep'))
+  const replays = args
+    .filter(arg => !arg.startsWith('--') && arg.toLowerCase().endsWith('.rep'))
+    .map(p => path.resolve('.', p))
   if (replays.length) {
     TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
+    mainWindow?.show()
   }
 }
 
@@ -771,7 +774,7 @@ async function createWindow() {
     mainWindow = null
   })
 
-  await mainWindow.loadURL('shieldbattery://app')
+  return mainWindow.loadURL('shieldbattery://app')
 }
 
 app.on('ready', () => {
@@ -808,23 +811,22 @@ app.on('ready', () => {
       setupCspProtocol(currentSession())
       setupAnalytics(currentSession())
       gameServer = createGameServer(localSettings)
-      await createWindow()
+      const windowPromise = await createWindow()
       systemTray = new SystemTray(mainWindow, () => app.quit())
 
-      mainWindow?.webContents.on('did-finish-load', () => {
-        TypedIpcSender.from(mainWindow?.webContents).send(
-          'windowMaximizedState',
-          mainWindow?.isMaximized() ?? false,
-        )
-        TypedIpcSender.from(mainWindow?.webContents).send(
-          'windowFocusChanged',
-          mainWindow?.isFocused() ?? false,
-        )
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'windowMaximizedState',
+        mainWindow?.isMaximized() ?? false,
+      )
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'windowFocusChanged',
+        mainWindow?.isFocused() ?? false,
+      )
 
-        if (!isDev && process.argv.length > 1) {
-          handleLaunchArgs(process.argv.slice(1))
-        }
-      })
+      logger.info(`isDev: ${isDev} argv: ${JSON.stringify(process.argv)}`)
+      if (!isDev && process.argv.length > 1) {
+        handleLaunchArgs(process.argv.slice(1))
+      }
 
       app.on('will-quit', () => {
         localSettings.saveSettingsToDiskSync()
