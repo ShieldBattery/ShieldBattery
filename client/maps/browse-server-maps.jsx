@@ -301,8 +301,8 @@ export default class Maps extends React.Component {
           $padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           <MapList
             maps={maps}
-            user={auth.user}
-            canManageMaps={auth.permissions.manageMaps}
+            user={auth.self.user}
+            canManageMaps={auth.self.permissions.manageMaps}
             thumbnailSize={thumbnailSize}
             favoriteStatusRequests={favoriteStatusRequests}
             onMapSelect={onMapSelect}

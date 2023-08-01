@@ -246,9 +246,9 @@ export default class MapDetails extends React.Component {
 
     let canEdit = false
     if (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) {
-      canEdit = auth.permissions.manageMaps
+      canEdit = auth.self.permissions.manageMaps
     } else if (map.visibility === MapVisibility.Private) {
-      canEdit = map.uploadedBy.id === auth.user.id
+      canEdit = map.uploadedBy.id === auth.self.user.id
     }
 
     return (

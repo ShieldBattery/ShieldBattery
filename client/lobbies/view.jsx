@@ -31,7 +31,7 @@ import Lobby from './lobby'
 
 const mapStateToProps = state => {
   return {
-    user: state.auth.user,
+    user: state.auth.self.user,
     lobbyState: state.lobbyState,
     lobby: state.lobby,
     gameClient: state.gameClient,
