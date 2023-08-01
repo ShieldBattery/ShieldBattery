@@ -33,7 +33,7 @@ function UserError({ error }: { error: FetchError }) {
         ? (error.body as any).reason
         : t('auth.userErrorDisplay.banWithoutReason', 'No reason specified')
       return (
-        <div>
+        <div data-test='user-banned-text'>
           <Trans t={t} i18nKey='auth.userErrorDisplay.accountBanned'>
             This account has been banned.
             <BanReason>

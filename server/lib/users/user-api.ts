@@ -106,6 +106,9 @@ import { UserRelationshipService } from './user-relationship-service'
 import { getUserStats } from './user-stats-model'
 import { joiUserId } from './user-validators'
 
+// Env var that lets us turn throttling off for testing
+const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
+
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
   burst: 4,
@@ -207,25 +210,27 @@ export class UserApi {
 
     const { username, password, email, clientIds, locale } = body
 
-    if (!isElectronClient(ctx)) {
-      const [suspicious, signupAllowed] = await Promise.all([
-        this.suspiciousIps.isIpSuspicious(ctx.ip),
-        this.userIdManager.isSignupAllowed(true, clientIds),
-      ])
+    if (!THROTTLING_DISABLED) {
+      if (!isElectronClient(ctx)) {
+        const [suspicious, signupAllowed] = await Promise.all([
+          this.suspiciousIps.isIpSuspicious(ctx.ip),
+          this.userIdManager.isSignupAllowed(true, clientIds),
+        ])
 
-      if (suspicious || !signupAllowed) {
-        throw new UserApiError(
-          UserErrorCode.SuspiciousActivity,
-          'Suspicious activity detected, creating accounts on the web is disabled',
-        )
-      }
-    } else {
-      const signupAllowed = await this.userIdManager.isSignupAllowed(false, clientIds)
-      if (!signupAllowed) {
-        throw new UserApiError(
-          UserErrorCode.MachineBanned,
-          'This machine is banned from creating new accounts',
-        )
+        if (suspicious || !signupAllowed) {
+          throw new UserApiError(
+            UserErrorCode.SuspiciousActivity,
+            'Suspicious activity detected, creating accounts on the web is disabled',
+          )
+        }
+      } else {
+        const signupAllowed = await this.userIdManager.isSignupAllowed(false, clientIds)
+        if (!signupAllowed) {
+          throw new UserApiError(
+            UserErrorCode.MachineBanned,
+            'This machine is banned from creating new accounts',
+          )
+        }
       }
     }
 
