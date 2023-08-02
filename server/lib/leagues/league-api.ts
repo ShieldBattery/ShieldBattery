@@ -1,10 +1,8 @@
 import { RouterContext } from '@koa/router'
-import cuid from 'cuid'
-import formidable from 'formidable'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import sharp from 'sharp'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -57,8 +55,6 @@ import {
   joinLeagueForUser,
   updateLeague,
 } from './league-models'
-
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 
@@ -217,30 +213,6 @@ export class LeagueAdminApi {
     return { league: toLeagueJson(league) }
   }
 
-  private async handleImage(
-    file: formidable.File,
-    width: number,
-    height: number,
-  ): Promise<[image: sharp.Sharp, imageExtension: string]> {
-    const image = sharp(file.filepath)
-    const metadata = await image.metadata()
-
-    let imageExtension: string
-    if (metadata.format !== 'jpg' && metadata.format !== 'jpeg' && metadata.format !== 'png') {
-      image.toFormat('png')
-      imageExtension = 'png'
-    } else {
-      imageExtension = metadata.format
-    }
-
-    image.resize(width, height, {
-      fit: sharp.fit.cover,
-      withoutEnlargement: true,
-    })
-
-    return [image, imageExtension]
-  }
-
   @httpPost('/')
   @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
   async addLeague(ctx: RouterContext): Promise<AdminAddLeagueResponse> {
@@ -271,28 +243,20 @@ export class LeagueAdminApi {
       throw new httpErrors.BadRequest('only one image/badge file can be uploaded')
     }
     const [image, imageExtension] = imageFile
-      ? await this.handleImage(imageFile, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
+      ? await resizeImage(imageFile.filepath, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
       : [undefined, undefined]
     const [badge, badgeExtension] = badgeFile
-      ? await this.handleImage(badgeFile, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
+      ? await resizeImage(badgeFile.filepath, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
       : [undefined, undefined]
 
     return await transact(async client => {
       let imagePath: string | undefined
       if (image) {
-        const imageId = cuid()
-        // Note that cuid ID's are less random at the start so we use the end instead
-        const firstChars = imageId.slice(-4, -2)
-        const secondChars = imageId.slice(-2)
-        imagePath = `league-images/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
+        imagePath = createImagePath('league-images', imageExtension)
       }
       let badgePath: string | undefined
       if (badge) {
-        const imageId = cuid()
-        // Note that cuid ID's are less random at the start so we use the end instead
-        const firstChars = imageId.slice(-4, -2)
-        const secondChars = imageId.slice(-2)
-        badgePath = `league-images/${firstChars}/${secondChars}/${imageId}.${badgeExtension}`
+        badgePath = createImagePath('league-images', badgeExtension)
       }
 
       const league = await createLeague(
@@ -393,28 +357,20 @@ export class LeagueAdminApi {
       throw new httpErrors.BadRequest('only one image/badge file can be uploaded')
     }
     const [image, imageExtension] = imageFile
-      ? await this.handleImage(imageFile, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
+      ? await resizeImage(imageFile.filepath, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
       : [undefined, undefined]
     const [badge, badgeExtension] = badgeFile
-      ? await this.handleImage(badgeFile, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
+      ? await resizeImage(badgeFile.filepath, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
       : [undefined, undefined]
 
     return await transact(async client => {
       let imagePath: string | undefined
       if (image) {
-        const imageId = cuid()
-        // Note that cuid ID's are less random at the start so we use the end instead
-        const firstChars = imageId.slice(-4, -2)
-        const secondChars = imageId.slice(-2)
-        imagePath = `league-images/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
+        imagePath = createImagePath('league-images', imageExtension)
       }
       let badgePath: string | undefined
       if (badge) {
-        const imageId = cuid()
-        // Note that cuid ID's are less random at the start so we use the end instead
-        const firstChars = imageId.slice(-4, -2)
-        const secondChars = imageId.slice(-2)
-        badgePath = `league-images/${firstChars}/${secondChars}/${imageId}.${badgeExtension}`
+        badgePath = createImagePath('league-images', badgeExtension)
       }
 
       const updatedLeague: Patch<Omit<League, 'id'>> = {

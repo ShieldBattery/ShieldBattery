@@ -3,15 +3,19 @@ import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
+import { InputError } from '../material/input-error'
 
 // TODO(tec27): Make a Material file upload component and move this into the material/ folder
 
 const Container = styled.div`
+  height: 48px;
+`
+
+const InputContainer = styled.div`
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  height: 48px;
 `
 
 const ClearButton = styled(IconButton)`
@@ -36,16 +40,22 @@ class FileInput extends React.Component {
 
     const hasFiles = this.props.value && (!this.multiple || this.props.value.length)
     return (
-      <Container>
-        <input ref={this._setInput} {...internalInputProps} />
-        {hasFiles ? (
-          <ClearButton
-            icon={<MaterialIcon icon='close' />}
-            title={t('forms.fileInput.clearFiles', 'Clear files')}
-            onClick={this.onClearClick}
-          />
-        ) : null}
-      </Container>
+      <>
+        <Container>
+          <InputContainer>
+            <input ref={this._setInput} {...internalInputProps} />
+            {hasFiles ? (
+              <ClearButton
+                icon={<MaterialIcon icon='close' />}
+                title={t('forms.fileInput.clearFiles', 'Clear files')}
+                onClick={this.onClearClick}
+              />
+            ) : null}
+          </InputContainer>
+
+          {this.props.errorText ? <InputError error={this.props.errorText} /> : null}
+        </Container>
+      </>
     )
   }
 
