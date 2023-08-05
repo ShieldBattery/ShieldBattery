@@ -248,7 +248,9 @@ impl<'e> Analysis<'e> {
             .ok()
             .filter(|&offset| offset != 0)?;
         let tls_address = base + tls_offset;
-        let tls_ptr = binary.read_u32(tls_address + 2 * VirtualAddress::SIZE).ok()?;
+        let tls_ptr = binary
+            .read_u32(tls_address + 2 * VirtualAddress::SIZE)
+            .ok()?;
         Some(tls_ptr as *mut u32)
     }
 

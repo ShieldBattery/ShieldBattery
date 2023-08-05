@@ -1,12 +1,12 @@
 use std::ptr;
 
-use bw_dat::{UpgradeId, UnitId, Unit, TechId};
+use bw_dat::{TechId, Unit, UnitId, UpgradeId};
 use egui::{Align, Align2, Color32, Layout, Rect, Sense, TextureId, Vec2};
 use hashbrown::HashMap;
 
 use crate::bw;
 
-use super::{BwVars, OverlayState, ReplayUiValues, Texture, replay_players_by_team};
+use super::{replay_players_by_team, BwVars, OverlayState, ReplayUiValues, Texture};
 
 pub struct ProductionState {
     per_player: [PlayerProduction; 8],
@@ -97,26 +97,25 @@ impl PlayerProduction {
     fn add_production(&mut self, unit: Unit, production: Production, progress: Progress) {
         let next_sort_order = self.sort_order.len() as u32;
         let entry = self.sort_order.entry(production);
-        entry.or_insert_with(|| {
-            match production {
-                Production::Tech(..) | Production::Upgrade(..) => next_sort_order,
-                Production::Unit(..) => 0x1_0000 | next_sort_order,
-            }
+        entry.or_insert_with(|| match production {
+            Production::Tech(..) | Production::Upgrade(..) => next_sort_order,
+            Production::Unit(..) => 0x1_0000 | next_sort_order,
         });
         self.list.push((production, unit, progress));
     }
 
     fn finish_frame(&mut self) {
-        self.list.sort_by_cached_key(|&(ref prod, unit, ref progress)| {
-            let sort_order = match self.sort_order.get(prod) {
-                Some(&s) => s,
-                // ???
-                None => u32::MAX,
-            };
-            // Have unit ptr value as tiebreaker if two units have same
-            // time left, so that cycling through them won't break.
-            (sort_order, progress.remaining(), *unit as usize)
-        });
+        self.list
+            .sort_by_cached_key(|&(ref prod, unit, ref progress)| {
+                let sort_order = match self.sort_order.get(prod) {
+                    Some(&s) => s,
+                    // ???
+                    None => u32::MAX,
+                };
+                // Have unit ptr value as tiebreaker if two units have same
+                // time left, so that cycling through them won't break.
+                (sort_order, progress.remaining(), *unit as usize)
+            });
     }
 }
 
@@ -152,10 +151,10 @@ impl OverlayState {
                 ui.style_mut().spacing.item_spacing.y = 0.0;
                 let is_team_game = crate::game_thread::is_team_game();
                 for (_team, player_id) in replay_players_by_team(bw) {
-                    if is_team_game {
-                        if unsafe { !(**bw.game).team_game_main_player.contains(&player_id) } {
-                            continue;
-                        }
+                    if is_team_game
+                        && unsafe { !(**bw.game).team_game_main_player.contains(&player_id) }
+                    {
+                        continue;
                     }
                     egui::Frame::popup(ui.style())
                         .inner_margin(egui::Margin::same(2.0))
@@ -180,14 +179,20 @@ impl OverlayState {
             None => return,
         };
         // If last clicked unit is part of this production set, cycle
-        let next_idx = self.production.last_clicked
+        let next_idx = self
+            .production
+            .last_clicked
             .and_then(|last| {
-                let clicked_idx = first + player_production.list[first..].iter()
-                    .take_while(|x| x.0 == clicked)
-                    .position(|x| x.1 == last)?;
+                let clicked_idx = first
+                    + player_production.list[first..]
+                        .iter()
+                        .take_while(|x| x.0 == clicked)
+                        .position(|x| x.1 == last)?;
                 // If clicked_idx + 1 is still of same production type, go to it,
                 // otherwise go to index 0
-                let next_idx = if player_production.list.get(clicked_idx + 1)
+                let next_idx = if player_production
+                    .list
+                    .get(clicked_idx + 1)
                     .filter(|x| x.0 == clicked)
                     .is_some()
                 {
@@ -299,11 +304,8 @@ impl OverlayState {
                 // Amount text
                 // Show only number for units since for research it is always 1 anyway
                 if matches!(production, Production::Unit(..)) {
-                    let galley = painter.layout_no_wrap(
-                        format!("{}", amount),
-                        font.clone(),
-                        Color32::WHITE,
-                    );
+                    let galley =
+                        painter.layout_no_wrap(format!("{}", amount), font.clone(), Color32::WHITE);
                     let rounding = egui::Rounding::same(1.0);
                     let text_pos = rect.left_bottom() - Vec2::from((0.0, galley.rect.height()));
                     let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
@@ -350,17 +352,26 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
             return Some((Production::Unit(id), unit_completion(unit)));
         }
         if let Some(tech) = unit.tech_in_progress() {
-            return Some((Production::Tech(tech), research_completion(unit, tech.time())));
+            return Some((
+                Production::Tech(tech),
+                research_completion(unit, tech.time()),
+            ));
         }
         if let Some(upgrade) = unit.upgrade_in_progress() {
             let time = upgrade_time(unit, upgrade);
-            return Some((Production::Upgrade(upgrade), research_completion(unit, time)));
+            return Some((
+                Production::Upgrade(upgrade),
+                research_completion(unit, time),
+            ));
         }
         if let Some(child) = unit.first_queued_unit() {
             return Some((Production::Unit(child), currently_building_completion(unit)));
         }
     }
-    if matches!(id, bw_dat::unit::EGG | bw_dat::unit::LURKER_EGG | bw_dat::unit::COCOON) {
+    if matches!(
+        id,
+        bw_dat::unit::EGG | bw_dat::unit::LURKER_EGG | bw_dat::unit::COCOON
+    ) {
         let child_id = unit.first_queued_unit().unwrap_or(id);
         return Some((Production::Unit(child_id), unit_completion(unit)));
     }
@@ -398,15 +409,15 @@ fn upgrade_time(unit: Unit, upgrade: UpgradeId) -> u32 {
         let building = ptr::addr_of_mut!((**unit).unit_specific.building);
         let level = (*building).next_upgrade_level as u32;
         upgrade.time().saturating_add(
-            upgrade.time_factor().saturating_mul(level.saturating_sub(1))
+            upgrade
+                .time_factor()
+                .saturating_mul(level.saturating_sub(1)),
         )
     }
 }
 
 fn research_completion(unit: Unit, time: u32) -> Progress {
-    let remaining = unsafe {
-        (**unit).unit_specific.building.research_time_remaining as u32
-    };
+    let remaining = unsafe { (**unit).unit_specific.building.research_time_remaining as u32 };
     Progress {
         pos: time.saturating_sub(remaining),
         end: time,

@@ -274,7 +274,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
 
 #[no_mangle]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::missing_safety_doc)]
 pub unsafe extern "system" fn DllMain(
     instance: usize,
     ul_reason_for_call: u32,
@@ -300,7 +300,7 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
                 .map(|path| path.join("sb_init.dll"))
         })
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
-    let dll = windows::load_library(&dll_path)?;
+    let dll = windows::load_library(dll_path)?;
     let address = dll.proc_address("sb_init")?;
     // Leak the DLL as it should be kept alive for entire process
     mem::forget(dll);

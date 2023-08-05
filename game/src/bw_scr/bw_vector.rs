@@ -4,7 +4,7 @@ use std::ptr;
 use libc::c_void;
 
 use super::scr;
-use super::{bw_malloc, bw_free};
+use super::{bw_free, bw_malloc};
 
 /// NOTE: Call only if `T` has no copy / move operators.
 pub unsafe fn bw_vector_push<T>(vec: *mut scr::BwVector, value: T) {

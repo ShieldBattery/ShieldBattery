@@ -5,19 +5,19 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Instant;
 
+use egui::style::TextStyle;
 use egui::{
-    Align, Align2, Color32, Event, Id, Label, Layout, Key, PointerButton, Pos2, Rect, Response,
+    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
     Sense, Slider, TextureId, Vec2, Widget,
 };
-use egui::style::{TextStyle};
 use winapi::shared::windef::{HWND, POINT};
 
-use bw_dat::{Unit, Race};
+use bw_dat::{Race, Unit};
 
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 
-use self::production::{ProductionState};
+use self::production::ProductionState;
 
 pub struct OverlayState {
     ctx: egui::Context,
@@ -56,7 +56,7 @@ struct ReplayUiValues {
 /// during child functions of step()
 struct OutState {
     replay_visions: u8,
-    select_unit: Option<Unit>
+    select_unit: Option<Unit>,
 }
 
 pub struct StepOutput {
@@ -78,6 +78,7 @@ pub struct BwVars {
     pub active_units: bw::unit::UnitIterator,
 }
 
+#[derive(Copy, Clone)]
 pub enum Texture {
     StatRes(u16),
     CmdIcon(u16),
@@ -100,10 +101,10 @@ impl Texture {
 
     pub fn from_egui_user_id(val: u64) -> Option<Texture> {
         Some(match val {
-            TEXTURE_FIRST_STATRES ..= TEXTURE_LAST_STATRES => {
+            TEXTURE_FIRST_STATRES..=TEXTURE_LAST_STATRES => {
                 Texture::StatRes((val - TEXTURE_FIRST_STATRES) as u16)
             }
-            TEXTURE_FIRST_CMDICON ..= TEXTURE_LAST_CMDICON => {
+            TEXTURE_FIRST_CMDICON..=TEXTURE_LAST_CMDICON => {
                 Texture::CmdIcon((val - TEXTURE_FIRST_CMDICON) as u16)
             }
             _ => return None,
@@ -118,7 +119,9 @@ trait UiExt {
 
 impl UiExt for egui::Ui {
     fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32) {
-        self.with_fixed_width(width, |ui| { ui.add(widget); })
+        self.with_fixed_width(width, |ui| {
+            ui.add(widget);
+        })
     }
 
     fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F) {
@@ -171,7 +174,7 @@ impl OverlayState {
             mouse_down: [false; 2],
             window_size: (100, 100),
             screen_size: (100, 100),
-            last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0}),
+            last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0 }),
             replay_ui_values: ReplayUiValues {
                 name_width: 140.0,
                 resource_width: 80.0,
@@ -219,12 +222,10 @@ impl OverlayState {
             // but resolution floats are fine..
             if (rounded as u32) & 1 == 0 {
                 rounded
+            } else if input < rounded {
+                rounded - 1.0
             } else {
-                if input < rounded {
-                    rounded - 1.0
-                } else {
-                    rounded + 1.0
-                }
+                rounded + 1.0
             }
         }
 
@@ -307,31 +308,27 @@ impl OverlayState {
                     ] {
                         ui.add(Slider::new(var, 0.0..=200.0).text(text));
                     }
-                    for (var, text) in [
-                        (&mut v.production_max, "Production max"),
-                    ] {
+                    for (var, text) in [(&mut v.production_max, "Production max")] {
                         ui.add(Slider::new(var, 0u32..=50).text(text));
                     }
                 });
-                let msg = format!("Windows mouse {}, {},\n    egui {}, {}",
-                    self.last_mouse_pos.0.0,
-                    self.last_mouse_pos.0.1,
+                let msg = format!(
+                    "Windows mouse {}, {},\n    egui {}, {}",
+                    self.last_mouse_pos.0 .0,
+                    self.last_mouse_pos.0 .1,
                     self.last_mouse_pos.1.x,
                     self.last_mouse_pos.1.y,
                 );
                 ui.label(egui::RichText::new(msg).size(18.0));
-                let msg = format!("Windows size {}, {}, egui size {}, {}",
-                    self.window_size.0,
-                    self.window_size.1,
-                    self.screen_size.0,
-                    self.screen_size.1,
+                let msg = format!(
+                    "Windows size {}, {}, egui size {}, {}",
+                    self.window_size.0, self.window_size.1, self.screen_size.0, self.screen_size.1,
                 );
                 ui.label(egui::RichText::new(msg).size(18.0));
                 let modifiers = current_egui_modifiers();
-                let msg = format!("Ctrl {}, Alt {}, shift {}",
-                    modifiers.ctrl,
-                    modifiers.alt,
-                    modifiers.shift,
+                let msg = format!(
+                    "Ctrl {}, Alt {}, shift {}",
+                    modifiers.ctrl, modifiers.alt, modifiers.shift,
                 );
                 ui.label(egui::RichText::new(msg).size(18.0));
             });
@@ -363,11 +360,8 @@ impl OverlayState {
                         ui.scope(|ui| {
                             // Separators seem hard to see with 1.0 default
                             // stroke width.
-                            let stroke = &mut ui.style_mut()
-                                .visuals
-                                .widgets
-                                .noninteractive
-                                .bg_stroke;
+                            let stroke =
+                                &mut ui.style_mut().visuals.widgets.noninteractive.bg_stroke;
                             stroke.width = 2.0;
                             ui.separator();
                         });
@@ -438,7 +432,9 @@ impl OverlayState {
             // TODO Could add other races if player has supply for them?
             // But then each PlayerInfo render should agree on how many race supplies are drawn
             // to keep things on a grid.
-            let (current, max) = info.supplies.get(info.race as usize)
+            let (current, max) = info
+                .supplies
+                .get(info.race as usize)
                 .copied()
                 .unwrap_or((0, 0));
             let supply_text = format!("{} / {}", current, max);
@@ -450,7 +446,8 @@ impl OverlayState {
             let label = egui::Label::new(info.apm.to_string());
             ui.add_fixed_width(label, apm_width);
             ui.interact(ui.min_rect(), id, Sense::click())
-        }).inner
+        })
+        .inner
     }
 
     fn add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
@@ -470,9 +467,10 @@ impl OverlayState {
             return None;
         }
         // Otherwise if the cursor is on the overlays, return 0 for regular pointer.
-        let mouse_on_ui = self.ui_rects.iter().any(|rect| {
-            rect.contains(self.last_mouse_pos.1)
-        });
+        let mouse_on_ui = self
+            .ui_rects
+            .iter()
+            .any(|rect| rect.contains(self.last_mouse_pos.1));
         if mouse_on_ui {
             return Some(0);
         }
@@ -539,7 +537,7 @@ impl OverlayState {
                         shift: wparam & MK_SHIFT != 0,
                         mac_cmd: false,
                         command: wparam & MK_CONTROL != 0,
-                    }
+                    },
                 });
                 Some(0)
             }
@@ -643,23 +641,22 @@ impl OverlayState {
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> {
     // Teams are 1-based, but team 0 is used on games without teams.
     let players = bw.players;
-    (0u8..5)
-        .flat_map(move |team| {
-            (0..8).filter_map(move |player_id| {
-                unsafe {
-                    let player = players.add(player_id as usize);
-                    if (*player).team != team {
-                        return None;
-                    }
-                    // Show only human / computer player types
-                    let is_active = matches!((*player).player_type, 1 | 2);
-                    if !is_active {
-                        return None;
-                    }
-                    Some((team, player_id))
+    (0u8..5).flat_map(move |team| {
+        (0..8).filter_map(move |player_id| {
+            unsafe {
+                let player = players.add(player_id as usize);
+                if (*player).team != team {
+                    return None;
                 }
-            })
+                // Show only human / computer player types
+                let is_active = matches!((*player).player_type, 1 | 2);
+                if !is_active {
+                    return None;
+                }
+                Some((team, player_id))
+            }
         })
+    })
 }
 
 struct PlayerInfo {
@@ -675,13 +672,7 @@ struct PlayerInfo {
 }
 
 impl PlayerInfo {
-    fn add_icon_text(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Texture,
-        text: &str,
-        width: f32,
-    ) {
+    fn add_icon_text(&self, ui: &mut egui::Ui, icon: Texture, text: &str, width: f32) {
         self.add_icon_text_color(ui, icon, text, width, Color32::WHITE)
     }
 
@@ -693,8 +684,7 @@ impl PlayerInfo {
         width: f32,
         color: Color32,
     ) {
-        let image = egui::Image::new(TextureId::User(icon.to_egui_id()), (24.0, 24.0))
-            .tint(color);
+        let image = egui::Image::new(TextureId::User(icon.to_egui_id()), (24.0, 24.0)).tint(color);
         ui.add(image);
         let label = egui::Label::new(text);
         ui.add_fixed_width(label, width);
@@ -710,15 +700,21 @@ unsafe fn player_resources_info(
     let game = bw.game;
     let get_supplies = |race| {
         let used = game.supply_used(player_id, race);
-        let available = game.supply_provided(player_id, race)
+        let available = game
+            .supply_provided(player_id, race)
             .min(game.supply_max(player_id, race));
         // Supply is internally twice the shown value (as zergling / scourge
         // takes 0.5 supply per unit), used supply has to be rounded up
         // when displayed.
         (used.wrapping_add(1) / 2, available / 2)
     };
-    let color =
-        bw::player_color(game, bw.main_palette, bw.use_rgb_colors, bw.rgb_colors, player_id);
+    let color = bw::player_color(
+        game,
+        bw.main_palette,
+        bw.use_rgb_colors,
+        bw.rgb_colors,
+        player_id,
+    );
     let supplies = [
         get_supplies(Race::Zerg),
         get_supplies(Race::Terran),
@@ -765,10 +761,8 @@ unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 {
     let default_value = 1u8 << player_id;
     let mask = (**bw.game).visions[player_id as usize] as u8;
     for i in 0..8 {
-        if mask & (1 << i) != 0 {
-            if (**bw.game).visions[i] != mask as u32 {
-                return default_value;
-            }
+        if mask & (1 << i) != 0 && (**bw.game).visions[i] != mask as u32 {
+            return default_value;
         }
     }
     mask

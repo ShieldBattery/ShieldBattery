@@ -101,7 +101,11 @@ macro_rules! hook_winapi_exports {
 pub unsafe fn unprotect_memory_for_hook<'a>(
     active_patcher: &'a mut whack::Patcher,
     proc_address: usize,
-) -> (whack::ModulePatcher<'a>, usize, Option<windows::MemoryProtectionGuard>) {
+) -> (
+    whack::ModulePatcher<'a>,
+    usize,
+    Option<windows::MemoryProtectionGuard>,
+) {
     // Windows has always 4k pages
     let start = proc_address & !0xfff;
     let end = ((proc_address + 0x10) | 0xfff) + 1;
@@ -109,7 +113,10 @@ pub unsafe fn unprotect_memory_for_hook<'a>(
     // If the unprotection for some reason fails, just keep going and hope the memory
     // can be written.
     let start = start as *mut c_void;
-    debug!("Unprotecting memory for hook {:x} @ {:x}~{:x}", proc_address, start as usize, len);
+    debug!(
+        "Unprotecting memory for hook {:x} @ {:x}~{:x}",
+        proc_address, start as usize, len
+    );
     let guard = windows::unprotect_memory(start, len).ok();
     let patcher = active_patcher.patch_memory(start, start, !0);
     (patcher, proc_address - start as usize, guard)

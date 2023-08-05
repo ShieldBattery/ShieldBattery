@@ -10,6 +10,7 @@ use anyhow::{Context, Error};
 
 use compile_shaders::{ShaderModel, ShaderType};
 
+#[allow(clippy::type_complexity)]
 static SOURCES: &[(&str, &str, &[(&str, &str)])] = &[("mask", "mask.hlsl", &[])];
 
 static PROTOS: &[&str] = &["src/proto/messages.proto"];
@@ -25,7 +26,7 @@ fn main() {
     }
     let mut prost_build = prost_build::Config::new();
     // Use Bytes for bytes fields instead of a Vec<u8>
-    prost_build.bytes(&["."]);
+    prost_build.bytes(["."]);
     prost_build.compile_protos(PROTOS, &["src/proto/"]).unwrap();
 
     let out_path = std::env::var("OUT_DIR").unwrap();
@@ -97,7 +98,7 @@ fn compile_prism_shader(
     }
     let shader_bytes = result.shader;
     let wrapped = compile_shaders::wrap_prism_shader(&shader_bytes);
-    fs::write(&out_path, &wrapped)
+    fs::write(out_path, wrapped)
         .with_context(|| format!("Failed to write {}", out_path.display()))?;
     disasm_shader(&shader_bytes, disasm_path).context("Failed to disassemble the result")?;
     Ok(())
@@ -107,7 +108,7 @@ fn compile_prism_shader(
 /// Not necessary for actually building.
 fn disasm_shader(shader_bytes: &[u8], out_path: &Path) -> Result<(), Error> {
     let disasm = compile_shaders::disassemble(shader_bytes)?;
-    fs::write(&out_path, &disasm)
+    fs::write(out_path, disasm)
         .with_context(|| format!("Failed to write {}", out_path.display()))?;
     Ok(())
 }

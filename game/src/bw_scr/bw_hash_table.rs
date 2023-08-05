@@ -31,20 +31,20 @@ pub trait BwMove {
 
 impl BwHash for scr::BwString {
     fn hash(&self) -> usize {
-        let slice = unsafe {
-            std::slice::from_raw_parts(self.pointer, self.length)
-        };
+        let slice = unsafe { std::slice::from_raw_parts(self.pointer, self.length) };
         let mut result = 0u32;
         for chunk in slice.chunks(4) {
             let mut val = 0u32;
             for &byte in chunk.iter().rev() {
                 val = (val << 8) | (byte as u32);
             }
-            result ^= val.wrapping_mul(0xcc9e2d51)
+            result ^= val
+                .wrapping_mul(0xcc9e2d51)
                 .rotate_left(0xf)
                 .wrapping_mul(0x1b873593);
             if chunk.len() == 4 {
-                result = result.rotate_left(0xd)
+                result = result
+                    .rotate_left(0xd)
                     .wrapping_add(0xfaddaf14)
                     .wrapping_mul(5);
             }

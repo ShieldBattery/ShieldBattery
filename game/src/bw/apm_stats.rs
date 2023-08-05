@@ -44,7 +44,7 @@ impl ApmStats {
         self.shared.total_frames = self.shared.total_frames.saturating_add(1);
         if self.shared.total_frames % RECENT_ACTIONS_BLOCK_SIZE as u32 == 0 {
             self.shared.recent_actions_pos += 1;
-            if self.shared.recent_actions_pos >= RECENT_ACTIONS_BLOCKS + 1 {
+            if self.shared.recent_actions_pos > RECENT_ACTIONS_BLOCKS {
                 self.shared.recent_actions_pos = 0;
             }
             let pos = self.shared.recent_actions_pos;
@@ -57,12 +57,19 @@ impl ApmStats {
     pub fn action(&mut self, player: u8, bytes: &[u8]) {
         // TODO maybe make this to commands::is_game_action(bytes) ?
         // But this currently doesn't ignore lobby commands (Assuming they don't get sent here?)
-        let process = bytes.get(0).copied()
-            .filter(|&id| match id {
-                commands::id::NOP | commands::id::SYNC | commands::id::SET_TURN_RATE |
-                    commands::id::SET_NETWORK_SPEED | commands::id::SET_LATENCY |
-                    commands::id::CHAT => false,
-                _ => true,
+        let process = bytes
+            .first()
+            .copied()
+            .filter(|&id| {
+                !matches!(
+                    id,
+                    commands::id::NOP
+                        | commands::id::SYNC
+                        | commands::id::SET_TURN_RATE
+                        | commands::id::SET_NETWORK_SPEED
+                        | commands::id::SET_LATENCY
+                        | commands::id::CHAT
+                )
             })
             .is_some();
         if !process {

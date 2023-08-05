@@ -1,10 +1,10 @@
-use std::time::{Duration};
+use std::time::Duration;
 
 use futures::prelude::*;
 use quick_error::{quick_error, ResultExt};
 use serde::{Deserialize, Serialize};
-use tokio::select;
 use tokio::net::TcpStream;
+use tokio::select;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::tungstenite::handshake::client::Response as HandshakeResponse;
@@ -27,12 +27,16 @@ async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungst
     info!("Connecting to {} ...", url);
     // Have tungstenite build base request for our url, which includes necessary headers
     // like sec-websocket-key, then add our own headers.
-    let mut request = url.into_client_request()
+    let mut request = url
+        .into_client_request()
         .expect("Couldn't build HTTP request for app connection");
     let headers = request.headers_mut();
     headers.reserve(2);
     headers.insert("Origin", HeaderValue::from_static("BROODWARS"));
-    headers.insert("x-game-id", HeaderValue::from_str(&args.game_id).expect("Invalid game id"));
+    headers.insert(
+        "x-game-id",
+        HeaderValue::from_str(&args.game_id).expect("Invalid game id"),
+    );
     tokio_tungstenite::connect_async(request).await
 }
 
@@ -167,9 +171,7 @@ fn handle_app_message<'a>(text: String) -> Result<MessageResult, HandleMessageEr
             let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
-        "startWhenReady" => {
-            Ok(MessageResult::Game(GameStateMessage::StartWhenReady))
-        }
+        "startWhenReady" => Ok(MessageResult::Game(GameStateMessage::StartWhenReady)),
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         _ => Err(HandleMessageError::UnknownCommand(message.command)),

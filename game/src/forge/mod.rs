@@ -11,7 +11,7 @@ use winapi::shared::windef::{HMENU, HWND};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
-use crate::bw::{Bw, get_bw};
+use crate::bw::{get_bw, Bw};
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 
 mod scr_hooks {
@@ -438,7 +438,12 @@ fn create_window_w(
     }
 }
 
-fn set_window_long_w(window: HWND, index: i32, new_long: u32, orig: unsafe extern "C" fn(HWND, i32, u32) -> u32) -> u32 {
+fn set_window_long_w(
+    window: HWND,
+    index: i32,
+    new_long: u32,
+    orig: unsafe extern "C" fn(HWND, i32, u32) -> u32,
+) -> u32 {
     // SC:R uses GetWindowLongW(GWL_STYLE) and stores the result. It may then update
     // that Starcraft-side copy of the style and call SetWindowLongW() to update
     // it at Windows side. However, GWL_STYLE also contains a flag that controls

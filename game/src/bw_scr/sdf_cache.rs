@@ -10,25 +10,21 @@
 
 use std::collections::hash_map;
 use std::mem::ManuallyDrop;
-use std::sync::Arc;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use byteorder::{ByteOrder, LittleEndian, WriteBytesExt};
-use tokio::fs;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 use fxhash::FxHashMap;
 use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
+use tokio::fs;
+use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
-use super::{BwScr, scr, hooks};
+use super::{hooks, scr, BwScr};
 
 // 2M
 const MAX_CACHE_SIZE_BYTES: usize = 2 * 1024 * 1024;
 
-pub fn apply_sdf_cache_hooks<'e>(
-    scr: &BwScr,
-    exe: &mut whack::ModulePatcher<'_>,
-    base: usize,
-) {
+pub fn apply_sdf_cache_hooks<'e>(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>, base: usize) {
     let font_cache_render_ascii = scr.font_cache_render_ascii;
     let ttf_render_sdf = scr.ttf_render_sdf;
     let ttf_malloc = scr.ttf_malloc;
@@ -39,34 +35,44 @@ pub fn apply_sdf_cache_hooks<'e>(
     unsafe {
         let fonts = fonts.resolve();
         let relative = font_cache_render_ascii.0 as usize - base;
-        exe.hook_closure_address(hooks::FontCacheRenderAscii, move |this, orig| {
-            orig(this);
-            // Moving this to process exit instead could be better,
-            // now it won't write anything that is cached after initialization.
-            // Also now it writes the cache 4 times if starting from empty,
-            // as FontCacheRenderAscii is called for 4 different fonts.
-            if cache2.lock().is_dirty() {
-                let async_handle = crate::async_handle();
-                let mut cache_locked = cache2.clone().lock_owned();
-                async_handle.spawn(async move {
-                    let cache = cache_locked.as_mut().unwrap();
-                    if let Err(e) = cache.write_to_disk().await {
-                        warn!("Writing SDF cache failed: {}", e);
-                    }
-                });
-            }
-        }, relative);
+        exe.hook_closure_address(
+            hooks::FontCacheRenderAscii,
+            move |this, orig| {
+                orig(this);
+                // Moving this to process exit instead could be better,
+                // now it won't write anything that is cached after initialization.
+                // Also now it writes the cache 4 times if starting from empty,
+                // as FontCacheRenderAscii is called for 4 different fonts.
+                if cache2.lock().is_dirty() {
+                    let async_handle = crate::async_handle();
+                    let mut cache_locked = cache2.clone().lock_owned();
+                    async_handle.spawn(async move {
+                        let cache = cache_locked.as_mut().unwrap();
+                        if let Err(e) = cache.write_to_disk().await {
+                            warn!("Writing SDF cache failed: {}", e);
+                        }
+                    });
+                }
+            },
+            relative,
+        );
         let relative = ttf_render_sdf.0 as usize - base;
-        exe.hook_closure_address(hooks::Ttf_RenderSdf, move |a, b, c, d, e, f, g, h, i, j, orig| {
-            render_sdf(&cache, fonts, ttf_malloc, a, b, c, d, e, f, g, h, i, j, orig)
-        }, relative);
+        exe.hook_closure_address(
+            hooks::Ttf_RenderSdf,
+            move |a, b, c, d, e, f, g, h, i, j, orig| {
+                render_sdf(
+                    &cache, fonts, ttf_malloc, a, b, c, d, e, f, g, h, i, j, orig,
+                )
+            },
+            relative,
+        );
     }
 }
 
 unsafe fn render_sdf(
     cache: &Arc<InitSdfCache>,
     fonts: *mut *mut scr::Font,
-    ttf_malloc: unsafe extern fn(usize) -> *mut u8,
+    ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     font: *mut scr::TtfFont,
     a2: f32,
     glyph: u32,
@@ -77,7 +83,7 @@ unsafe fn render_sdf(
     out_h: *mut u32,
     out_x: *mut u32,
     out_y: *mut u32,
-    orig: unsafe extern fn(
+    orig: unsafe extern "C" fn(
         *mut scr::TtfFont,
         f32,
         u32,
@@ -113,7 +119,16 @@ unsafe fn render_sdf(
         }
         SdfCacheResult::Missing(entry) => {
             let result = orig(
-                font, a2, glyph, border, edge_value, stroke_width, out_w, out_h, out_x, out_y,
+                font,
+                a2,
+                glyph,
+                border,
+                edge_value,
+                stroke_width,
+                out_w,
+                out_h,
+                out_x,
+                out_y,
             );
             if result.is_null() {
                 return result;
@@ -205,9 +220,10 @@ impl InitSdfCache {
         unsafe {
             let guard = self.cache.lock();
             OwnedMutexGuard {
-                guard: ManuallyDrop::new(
-                    std::mem::transmute::<MutexGuard<'_, _>, MutexGuard<'static, _>>(guard)
-                ),
+                guard: ManuallyDrop::new(std::mem::transmute::<
+                    MutexGuard<'_, _>,
+                    MutexGuard<'static, _>,
+                >(guard)),
                 object: ManuallyDrop::new(self),
             }
         }
@@ -215,7 +231,9 @@ impl InitSdfCache {
 
     pub fn lock(&self) -> MappedMutexGuard<SdfCache> {
         let guard = self.cache.lock();
-        MutexGuard::map(guard, |x| x.as_mut().expect("SDF Cache wasn't initialized?"))
+        MutexGuard::map(guard, |x| {
+            x.as_mut().expect("SDF Cache wasn't initialized?")
+        })
     }
 }
 
@@ -345,7 +363,10 @@ impl SdfCache {
         for sdf in glyph_data.chunks_exact(25) {
             let hash = LittleEndian::read_u64(&sdf[..]);
             let scale = LittleEndian::read_u32(&sdf[8..]);
-            let key = (FontId(hash, scale, sdf[12]), LittleEndian::read_u32(&sdf[13..]));
+            let key = (
+                FontId(hash, scale, sdf[12]),
+                LittleEndian::read_u32(&sdf[13..]),
+            );
             let value = SdfBuffer {
                 width: LittleEndian::read_u16(&sdf[17..]),
                 height: LittleEndian::read_u16(&sdf[19..]),
@@ -370,13 +391,11 @@ impl SdfCache {
 
     fn get<'a>(&'a mut self, font_id: FontId, glyph: u32) -> SdfCacheResult<'a> {
         match self.glyphs.entry((font_id, glyph)) {
-            hash_map::Entry::Vacant(entry) => {
-                SdfCacheResult::Missing(VacantSdfEntry {
-                    entry,
-                    data: &mut self.data,
-                    dirty: &mut self.dirty,
-                })
-            }
+            hash_map::Entry::Vacant(entry) => SdfCacheResult::Missing(VacantSdfEntry {
+                entry,
+                data: &mut self.data,
+                dirty: &mut self.dirty,
+            }),
             hash_map::Entry::Occupied(entry) => {
                 let value = entry.get();
                 let length = value.width as usize * value.height as usize;

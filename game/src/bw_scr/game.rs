@@ -60,10 +60,7 @@ pub unsafe fn prepare_issue_order(
         (*new_order).order_id = order.0;
         (*new_order).unit_id = fow_unit_id;
         (*new_order).target = bw::PointAndUnit {
-            pos: bw::Point {
-                x,
-                y,
-            },
+            pos: bw::Point { x, y },
             unit: target.map(|x| *x).unwrap_or(null_mut()),
         };
         alloc.append_to(&queue);

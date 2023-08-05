@@ -52,26 +52,25 @@ pub fn open_file_hook(
                 };
                 memory_buffer_to_bw_file_handle(skins, out);
                 return out;
-            } else {
-                if bw.is_carbot.load(Ordering::Relaxed) && bw.show_skins.load(Ordering::Relaxed) {
-                    // Similarly to skins.json check, don't load all regular HD sprites
-                    // if the user has selected carbot
-                    // Carbot doesn't have variant for every single sprite,
-                    // most notably selection circles but also some (semi-unused?) doodads.
-                    // So those anim files still have to be loaded.
-                    if path.starts_with(b"anim/main_") && path.ends_with(b".anim") {
-                        let load_anim = path
-                            .get(b"anim/main_".len()..)
-                            .and_then(|x| {
-                                let num_str = std::str::from_utf8(x.get(..3)?).ok()?;
-                                let num = num_str.parse::<u32>().ok()?;
-                                MISSING_CARBOT_SPRITES_LOOKUP.get(num as usize).copied()
-                            })
-                            .unwrap_or(false);
-                        if !load_anim {
-                            memory_buffer_to_bw_file_handle(DUMMY_ANIM, out);
-                            return out;
-                        }
+            } else if bw.is_carbot.load(Ordering::Relaxed) && bw.show_skins.load(Ordering::Relaxed)
+            {
+                // Similarly to skins.json check, don't load all regular HD sprites
+                // if the user has selected carbot
+                // Carbot doesn't have variant for every single sprite,
+                // most notably selection circles but also some (semi-unused?) doodads.
+                // So those anim files still have to be loaded.
+                if path.starts_with(b"anim/main_") && path.ends_with(b".anim") {
+                    let load_anim = path
+                        .get(b"anim/main_".len()..)
+                        .and_then(|x| {
+                            let num_str = std::str::from_utf8(x.get(..3)?).ok()?;
+                            let num = num_str.parse::<u32>().ok()?;
+                            MISSING_CARBOT_SPRITES_LOOKUP.get(num as usize).copied()
+                        })
+                        .unwrap_or(false);
+                    if !load_anim {
+                        memory_buffer_to_bw_file_handle(DUMMY_ANIM, out);
+                        return out;
                     }
                 }
             }
@@ -138,11 +137,11 @@ fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
 /// Why it is done like that, I have no idea.
 ///
 /// This function also normalizes to ascii lowercase and replaces any '\\' with '/'
-unsafe fn real_path<'a>(
+unsafe fn real_path(
     path: *const u8,
     params: *const scr::OpenParams,
-    buffer: &'a mut ArrayVec<u8, 256>,
-) -> Option<&'a [u8]> {
+    buffer: &mut ArrayVec<u8, 256>,
+) -> Option<&[u8]> {
     // Doing this 256-byte array lookup to normalize instead of a simpler match may be
     // an unnecessary micro-optimization, but the older code was quite excessively
     // verbose and SCR opens ~2000 files during startup so I'd say this is worth it.
@@ -182,11 +181,14 @@ unsafe fn real_path<'a>(
         },
         false => c_path,
     };
-    if let Err(_) = buffer.try_extend_from_slice(c_path_for_switched_extension) {
+    if buffer
+        .try_extend_from_slice(c_path_for_switched_extension)
+        .is_err()
+    {
         return None;
     }
     if let Some(ext) = alt_extension {
-        if let Err(_) = buffer.try_extend_from_slice(ext.to_bytes()) {
+        if buffer.try_extend_from_slice(ext.to_bytes()).is_err() {
             return None;
         }
     }
@@ -406,7 +408,7 @@ impl FileState {
     pub fn read(&mut self, out: &mut [u8]) -> u32 {
         let buffer = &self.buffer[self.pos as usize..];
         let read_len = out.len().min(buffer.len());
-        (&mut out[..read_len]).copy_from_slice(&buffer[..read_len]);
+        (out[..read_len]).copy_from_slice(&buffer[..read_len]);
         self.pos += read_len as u32;
         read_len as u32
     }

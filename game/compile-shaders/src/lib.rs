@@ -29,7 +29,7 @@ pub fn wrap_prism_shader(bytes: &[u8]) -> Vec<u8> {
     out[0x10] = 0x3;
     out[0x20] = 0x3;
     out[0x28] = 0x1;
-    (&mut out[0x30..0x34]).copy_from_slice(&(bytes.len() as u32).to_le_bytes());
+    (out[0x30..0x34]).copy_from_slice(&(bytes.len() as u32).to_le_bytes());
     out[0x34] = 0x4;
     out.extend_from_slice(bytes);
     out
@@ -47,7 +47,7 @@ pub fn disassemble(bytes: &[u8]) -> io::Result<Vec<u8>> {
             &mut blob,
         );
         if error != 0 {
-            return Err(io::Error::from_raw_os_error(error).into());
+            return Err(io::Error::from_raw_os_error(error));
         }
         scopeguard::defer! {
             (*blob).Release();
@@ -135,7 +135,7 @@ pub fn compile(
             }
             return Err(io::Error::from_raw_os_error(error));
         }
-        let include_files = std::mem::replace(&mut (*include.0).opened_files, Vec::new());
+        let include_files = std::mem::take(&mut (*include.0).opened_files);
         Ok(CompileResults {
             shader: blob_to_bytes(code),
             include_files,
@@ -178,6 +178,7 @@ impl Drop for IncludeHandlerHandle {
 /// Resolves shader includes to a filesystem file relative from the path passed to the
 /// constructor.
 impl IncludeHandler {
+    #[allow(clippy::new_ret_no_self)]
     fn new(path: PathBuf) -> IncludeHandlerHandle {
         let ptr = Box::into_raw(Box::new(IncludeHandler {
             interface: ID3DInclude {

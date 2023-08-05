@@ -12,16 +12,15 @@ use crate::game_thread;
 use crate::windows;
 
 static REPLAY_MAGIC: &[u8] = &[
-    0xc2, 0x19, 0xc2, 0x93, 0x01, 0x00, 0x00, 0x00,
-    0x04, 0x00, 0x00, 0x00, 0x73, 0x65, 0x52, 0x53,
+    0xc2, 0x19, 0xc2, 0x93, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x73, 0x65, 0x52, 0x53,
 ];
 
 pub const SECTION_ID: u32 = 0x74616253; // Sbat
-// Change added by each version
-// 1: Replay uses order queue limit fixes
-// 2: Replay has UMS user selectable slots saved correctly
-//      Was broken in SB replays before that; we don't currently do anything that
-//      would need to know this, but going to make it easy to tell if we do in future.
+                                        // Change added by each version
+                                        // 1: Replay uses order queue limit fixes
+                                        // 2: Replay has UMS user selectable slots saved correctly
+                                        //      Was broken in SB replays before that; we don't currently do anything that
+                                        //      would need to know this, but going to make it easy to tell if we do in future.
 pub const GAME_LOGIC_VERSION: u16 = 0x2;
 
 pub struct SbatReplayData {
@@ -137,7 +136,8 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
             in_pos += 1;
         }
         for byte in (&id[in_pos..]).chunks_exact(2).take(bytes) {
-            buffer[out_pos] = match std::str::from_utf8(byte).ok()
+            buffer[out_pos] = match std::str::from_utf8(byte)
+                .ok()
                 .and_then(|x| u8::from_str_radix(x, 16).ok())
             {
                 Some(s) => s,
@@ -154,9 +154,12 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
 fn test_write_uuid() {
     let mut buf = vec![];
     write_uuid(&mut buf, "12345678-9abc-def0-1234-56789abcdef0").unwrap();
-    assert_eq!(&buf,
-        &[0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-          0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0],
+    assert_eq!(
+        &buf,
+        &[
+            0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
+            0xde, 0xf0
+        ],
     );
 }
 

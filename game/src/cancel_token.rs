@@ -61,10 +61,7 @@ impl CancelToken {
     where
         F: Future<Output = I> + Unpin,
     {
-        future::select(
-            self.0.then(|_| future::err(())),
-            future.map(Ok),
-        ).map(|x| x.factor_first().0)
+        future::select(self.0.then(|_| future::err(())), future.map(Ok)).map(|x| x.factor_first().0)
     }
 }
 
@@ -96,7 +93,8 @@ impl<A> CancelableSender<A> {
                 let _ = sender.send(result);
                 future::ready(())
             }),
-        ).map(|_| ())
+        )
+        .map(|_| ())
     }
 }
 

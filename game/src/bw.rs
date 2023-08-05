@@ -8,7 +8,7 @@ use bw_dat::UnitId;
 use libc::{c_void, sockaddr};
 use once_cell::sync::OnceCell;
 use quick_error::quick_error;
-use winapi::shared::windef::{HWND};
+use winapi::shared::windef::HWND;
 
 use crate::app_messages::{MapInfo, Settings};
 use crate::bw_scr::BwScr;
@@ -457,7 +457,11 @@ impl Iterator for FowSpriteIterator {
 }
 
 pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
-    let name_length = (*player).name.iter().position(|&x| x == 0).unwrap_or((*player).name.len());
+    let name_length = (*player)
+        .name
+        .iter()
+        .position(|&x| x == 0)
+        .unwrap_or((*player).name.len());
     let name = &(*player).name[..name_length];
     String::from_utf8_lossy(name)
 }
@@ -470,14 +474,21 @@ pub unsafe fn player_color(
     player_id: u8,
 ) -> [u8; 3] {
     let color = if use_rgb_colors == 0 {
-        (**game).player_minimap_color.get(player_id as usize)
+        (**game)
+            .player_minimap_color
+            .get(player_id as usize)
             .map(|&s| {
                 let color = main_palette.add(4 * s as usize);
                 [*color, *color.add(1), *color.add(2)]
             })
     } else {
-        (*rgb_colors).get(player_id as usize)
-            .map(|x| [(x[0] * 255.0) as u8, (x[1] * 255.0) as u8, (x[2] * 255.0) as u8])
+        (*rgb_colors).get(player_id as usize).map(|x| {
+            [
+                (x[0] * 255.0) as u8,
+                (x[1] * 255.0) as u8,
+                (x[2] * 255.0) as u8,
+            ]
+        })
     };
     color.unwrap_or([0xff, 0xff, 0xff])
 }
