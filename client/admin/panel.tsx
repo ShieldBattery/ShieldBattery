@@ -3,9 +3,6 @@ import { Link, Redirect, Route, Switch } from 'wouter'
 import { SbPermissions } from '../../common/users/permissions'
 import { useSelfPermissions } from '../auth/auth-utils'
 
-const LoadableChannelContent = React.lazy(async () => ({
-  default: (await import('./channel-content')).AdminChannelContent,
-}))
 const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
 const LoadableMapPools = React.lazy(() => import('./map-pools'))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
@@ -23,11 +20,6 @@ interface AdminDashboardProps {
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
-  const channelContentLink = perms?.manageChannelContent ? (
-    <li>
-      <Link href='/admin/channel-content'>Manage channel content</Link>
-    </li>
-  ) : null
   const mapsLink =
     (perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
       <li>
@@ -57,7 +49,6 @@ function AdminDashboard(props: AdminDashboardProps) {
 
   return (
     <ul>
-      {channelContentLink}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingSeasonsLink}
@@ -72,9 +63,6 @@ export default function AdminPanel() {
 
   return (
     <Switch>
-      <Route path='/admin/channel-content/:rest*'>
-        {perms?.manageChannelContent ? <LoadableChannelContent /> : <Redirect to='/' />}
-      </Route>
       <Route path='/admin/map-manager/:rest*'>
         {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
           <LoadableMapManager />

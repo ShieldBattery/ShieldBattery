@@ -2,6 +2,7 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
+import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelPermissions,
@@ -34,16 +35,16 @@ import {
 } from '../../../common/chat-channels/channel-banners'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
-import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../../../common/images'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import transact from '../db/transaction'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../file-upload'
 import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
+import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/images'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
+import { Patch } from '../http/patch-type'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
-import { Patch } from '../leagues/league-models'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -484,11 +485,7 @@ export class AdminChatApi {
       )
     }
 
-    const channelIds = new Set<SbChannelId>()
-    for (let j = 0; j < channelBanner.availableIn.length; j++) {
-      channelIds.add(channelBanner.availableIn[j])
-    }
-    const channelInfos = await getChannelInfos(Array.from(channelIds))
+    const channelInfos = await getChannelInfos(channelBanner.availableIn)
 
     return {
       channelBanner: toChannelBannerJson(channelBanner),
@@ -538,11 +535,15 @@ export class AdminChatApi {
       imageFile.filepath,
       CHANNEL_BANNER_WIDTH,
       CHANNEL_BANNER_HEIGHT,
+      { fallbackType: 'jpg' },
     )
 
     return await transact(async client => {
+      // NOTE(2Pac): We dedupe the received channels by adding their lower-cased version to a Set.
       const channelInfos =
-        availableIn && availableIn.length > 0 ? await findChannelsByName(availableIn) : []
+        availableIn && availableIn.length > 0
+          ? await findChannelsByName(Array.from(new Set(availableIn.map(c => c.toLowerCase()))))
+          : []
       const imagePath = createImagePath('channel-banner-images', imageExtension)
 
       const channelBanner = await adminAddChannelBanner(
@@ -558,7 +559,7 @@ export class AdminChatApi {
       const buffer = await image.toBuffer()
       await writeFile(imagePath, buffer, {
         acl: 'public-read',
-        type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+        type: mime.getType(imageExtension),
       })
 
       return {
@@ -602,7 +603,9 @@ export class AdminChatApi {
       throw new httpErrors.BadRequest('only one channel banner file can be uploaded')
     }
     const [image, imageExtension] = imageFile
-      ? await resizeImage(imageFile.filepath, CHANNEL_BANNER_WIDTH, CHANNEL_BANNER_HEIGHT)
+      ? await resizeImage(imageFile.filepath, CHANNEL_BANNER_WIDTH, CHANNEL_BANNER_HEIGHT, {
+          fallbackType: 'jpg',
+        })
       : [undefined, undefined]
 
     return await transact(async client => {
@@ -612,7 +615,11 @@ export class AdminChatApi {
         updatedChannelBanner.name = name
       }
       if (availableIn) {
-        const channelInfos = availableIn.length > 0 ? await findChannelsByName(availableIn) : []
+        // NOTE(2Pac): We dedupe the received channels by adding their lower-cased version to a Set.
+        const channelInfos =
+          availableIn && availableIn.length > 0
+            ? await findChannelsByName(Array.from(new Set(availableIn.map(c => c.toLowerCase()))))
+            : []
         updatedChannelBanner.limited = channelInfos.length > 0
         updatedChannelBanner.availableIn = channelInfos.map(c => c.id)
       }
@@ -626,13 +633,20 @@ export class AdminChatApi {
         updatedChannelBanner.imagePath = imagePath
       }
 
+      // If there's nothing to update, we just return the original channel banner.
+      if (Object.keys(updatedChannelBanner).length === 0) {
+        return {
+          channelBanner: toChannelBannerJson(originalChannelBanner),
+        }
+      }
+
       const channelBanner = await adminUpdateChannelBanner(bannerId, updatedChannelBanner, client)
 
       if (image && imagePath) {
         const buffer = await image.toBuffer()
         await writeFile(imagePath, buffer, {
           acl: 'public-read',
-          type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+          type: mime.getType(imageExtension),
         })
       }
 

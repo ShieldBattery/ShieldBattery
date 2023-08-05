@@ -144,6 +144,7 @@
     },
     "channelList": {
       "createChannel": "Create channel",
+      "manageChannelContent": "Manage channel content",
       "noMatchingChannels": "No matching chat channels.",
       "pageHeadline": "Chat channels",
       "retrievingError": "There was an error retrieving the chat channels."

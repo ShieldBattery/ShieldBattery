@@ -2,45 +2,41 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Route, RouteComponentProps, Switch } from 'wouter'
-import { BasicChannelInfo, SbChannelId } from '../../common/chat'
+import { BasicChannelInfo, SbChannelId } from '../../../common/chat'
 import {
   AdminEditChannelBannerRequest,
   CHANNEL_BANNER_HEIGHT,
   CHANNEL_BANNER_WIDTH,
   ChannelBannerJson,
   makeChannelBannerId,
-} from '../../common/chat-channels/channel-banners'
-import { urlPath } from '../../common/urls'
+} from '../../../common/chat-channels/channel-banners'
+import { CHANNEL_ALLOWED_CHARACTERS } from '../../../common/constants'
+import { urlPath } from '../../../common/urls'
+import { FileInput } from '../../forms/file-input'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import { required } from '../../forms/validators'
+import { MaterialIcon } from '../../icons/material/material-icon'
+import { IconButton, RaisedButton } from '../../material/button'
+import Card from '../../material/card'
+import { TextField } from '../../material/text-field'
+import { push } from '../../navigation/routing'
+import { useRefreshToken } from '../../network/refresh-token'
+import { LoadingDotsArea } from '../../progress/dots'
+import { useAppDispatch } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { colorError, colorTextFaint, colorTextSecondary } from '../../styles/colors'
+import { FlexSpacer } from '../../styles/flex-spacer'
+import { body1, headline4, headline6, subtitle1 } from '../../styles/typography'
 import {
   adminGetChannelBanner,
   adminGetChannelBanners,
   adminUpdateChannelBanner,
   adminUploadChannelBanner,
-} from '../chat/action-creators'
-import { ChannelBanner } from '../chat/channel-banner'
-import FileInput from '../forms/file-input'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import { required } from '../forms/validators'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton } from '../material/button'
-import Card from '../material/card'
-import { TextField } from '../material/text-field'
-import { push } from '../navigation/routing'
-import { useRefreshToken } from '../network/refresh-token'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { FlexSpacer } from '../styles/flex-spacer'
-import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
+} from '../action-creators'
+import { ChannelBanner } from '../channel-banner'
 
-// This is not an ideal regex for this, but it's simple enough for the admin usage, I think. It just
-// splits the list of channel names by the whitespace (since that's one of the rare characters we
-// don't allow in channel names :d). One of the quirks of this regex is that when splitting an empty
-// string it returns an array with an empty string element, so we filter out those values to make
-// sure the server does not receive garbage.
-const AVAILABLE_IN_REGEX = /\s+/
+const AVAILABLE_IN_REGEX = new RegExp(CHANNEL_ALLOWED_CHARACTERS, 'gi')
 
 const Root = styled.div`
   padding: 12px 24px;
@@ -73,8 +69,10 @@ const ChannelContentContext = React.createContext<{ triggerRefresh: () => void }
 
 export function AdminChannelContent() {
   const dispatch = useAppDispatch()
-  const [channelBanners, setChannelBanners] = useState<ChannelBannerJson[]>([])
-  const [channelInfos, setChannelInfos] = useState<Map<SbChannelId, BasicChannelInfo>>(new Map())
+  const [channelBanners, setChannelBanners] = useState<ReadonlyDeep<ChannelBannerJson[]>>([])
+  const [channelInfos, setChannelInfos] = useState<
+    ReadonlyDeep<Map<SbChannelId, BasicChannelInfo>>
+  >(new Map())
   const [error, setError] = useState<Error>()
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
@@ -107,8 +105,8 @@ export function AdminChannelContent() {
     <Root>
       <ChannelContentContext.Provider value={contextValue}>
         <Switch>
-          <Route path='/admin/channel-content/banners/upload' component={UploadBanner} />
-          <Route path='/admin/channel-content/banners/:id' component={EditBanner} />
+          <Route path='/chat/admin/channel-content/banners/upload' component={UploadBanner} />
+          <Route path='/chat/admin/channel-content/banners/:id' component={EditBanner} />
           <Route>
             <ListRoot>
               <Title>Channel content</Title>
@@ -116,7 +114,7 @@ export function AdminChannelContent() {
                 <RaisedButton
                   label='Upload banner'
                   iconStart={<MaterialIcon icon='add' />}
-                  onClick={() => push('/admin/channel-content/banners/upload')}
+                  onClick={() => push('/chat/admin/channel-content/banners/upload')}
                 />
               </div>
               {error ? <ErrorText>{error.message}</ErrorText> : null}
@@ -238,7 +236,7 @@ function ChannelBannerCard({
           )}
           <RaisedButton
             label='Edit'
-            onClick={() => push(urlPath`/admin/channel-content/banners/${banner.id}`)}
+            onClick={() => push(urlPath`/chat/admin/channel-content/banners/${banner.id}`)}
           />
         </ChannelActions>
       </ChannelCardContents>
@@ -276,7 +274,7 @@ const ErrorText = styled.div`
 interface ChannelBannerModel {
   name: string
   availableIn?: string
-  image?: File
+  image?: File | File[]
 }
 
 function UploadBanner() {
@@ -294,8 +292,8 @@ function UploadBanner() {
         {
           name: model.name,
           availableIn:
-            model.availableIn?.split(AVAILABLE_IN_REGEX).filter(c => c.trim().length > 0) ?? [],
-          image: model.image,
+            model.availableIn?.match(AVAILABLE_IN_REGEX)?.filter(c => c.trim().length > 0) ?? [],
+          image: model.image as File,
         },
         {
           onSuccess: () => {
@@ -333,7 +331,11 @@ function UploadBanner() {
           <DescriptionText>
             Banner image ({CHANNEL_BANNER_WIDTH}x{CHANNEL_BANNER_HEIGHT}px recommended)
           </DescriptionText>
-          <FileInput {...bindCustom('image')} accept='image/*' multiple={false} />
+          <FileInput
+            {...bindCustom('image')}
+            allowErrors={true}
+            inputProps={{ accept: 'image/*', multiple: false }}
+          />
         </div>
 
         <div>
@@ -372,7 +374,9 @@ function EditBanner({ params: { id: routeId } }: RouteComponentProps<{ id: strin
 
   const dispatch = useAppDispatch()
   const [originalChannelBanner, setOriginalChannelBanner] = useState<ChannelBannerJson>()
-  const [channelInfos, setChannelInfos] = useState<Map<SbChannelId, BasicChannelInfo>>(new Map())
+  const [channelInfos, setChannelInfos] = useState<
+    ReadonlyDeep<Map<SbChannelId, BasicChannelInfo>>
+  >(new Map())
   const [error, setError] = useState<Error>()
 
   useEffect(() => {
@@ -398,7 +402,7 @@ function EditBanner({ params: { id: routeId } }: RouteComponentProps<{ id: strin
 
   const onFormSubmit = useStableCallback((model: ChannelBannerModel) => {
     const availableInArray =
-      model.availableIn?.split(AVAILABLE_IN_REGEX).filter(c => c.trim().length > 0) ?? []
+      model.availableIn?.match(AVAILABLE_IN_REGEX)?.filter(c => c.trim().length > 0) ?? []
     const originalAvailableInSet = new Set(
       originalChannelBanner?.availableIn.map(id => channelInfos.get(id)?.name),
     )
@@ -409,7 +413,7 @@ function EditBanner({ params: { id: routeId } }: RouteComponentProps<{ id: strin
     const patch: AdminEditChannelBannerRequest & { image?: Blob } = {
       name: model.name !== originalChannelBanner?.name ? model.name : undefined,
       availableIn: !isAvailableInSame ? availableInArray : undefined,
-      image: model.image,
+      image: model.image as File,
     }
 
     dispatch(
@@ -449,7 +453,7 @@ function EditBannerForm({
   onSubmit: onFormSubmit,
 }: {
   originalChannelBanner: ChannelBannerJson
-  channelInfos: Map<SbChannelId, BasicChannelInfo>
+  channelInfos: ReadonlyDeep<Map<SbChannelId, BasicChannelInfo>>
   onSubmit?: (model: Readonly<ChannelBannerModel>) => void
 }) {
   const { onSubmit, bindCustom, bindInput } = useForm<ChannelBannerModel>(
@@ -474,7 +478,7 @@ function EditBannerForm({
           Banner image ({CHANNEL_BANNER_WIDTH}x{CHANNEL_BANNER_HEIGHT}px recommended). NOTE: Leaving
           this empty will keep the same image.
         </DescriptionText>
-        <FileInput {...bindCustom('image')} accept='image/*' multiple={false} />
+        <FileInput {...bindCustom('image')} inputProps={{ accept: 'image/*', multiple: false }} />
       </div>
 
       <div>

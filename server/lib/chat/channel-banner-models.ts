@@ -4,7 +4,7 @@ import { ChannelBanner, ChannelBannerId } from '../../../common/chat-channels/ch
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 import { getUrl } from '../file-upload'
-import { Patch } from '../leagues/league-models'
+import { Patch } from '../http/patch-type'
 
 type DbChannelBanner = Dbify<ChannelBanner>
 

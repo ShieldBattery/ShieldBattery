@@ -12,6 +12,13 @@ exports.up = async function (db) {
       PRIMARY KEY (id)
     );
   `)
+
+  // The first index here is mostly used for sorting in the admin panel, and the second index is
+  // mostly used for the regular users.
+  await db.runSql(`
+    CREATE INDEX ON channel_banners(uploaded_at DESC);
+    CREATE INDEX ON channel_banners(name DESC);
+  `)
 }
 
 exports.down = async function (db) {

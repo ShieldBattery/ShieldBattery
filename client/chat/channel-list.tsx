@@ -2,8 +2,10 @@ import { debounce } from 'lodash-es'
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { Link } from 'wouter'
 import { BasicChannelInfo } from '../../common/chat'
 import { urlPath } from '../../common/urls'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -16,6 +18,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
+import { FlexSpacer } from '../styles/flex-spacer'
 import { headline4, subtitle1 } from '../styles/typography'
 import { searchChannels } from './action-creators'
 
@@ -28,9 +31,8 @@ const Container = styled.div`
 
 const TitleBar = styled.div`
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: 16px;
   margin-bottom: 16px;
 `
 
@@ -64,6 +66,7 @@ const ErrorText = styled.div`
 export function ChannelList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const isAdmin = useHasAnyPermission('manageChannelContent')
   const autoFocusRef = useAutoFocusRef<SearchInputHandle>()
 
   const [channels, setChannels] = useState<BasicChannelInfo[]>()
@@ -166,6 +169,12 @@ export function ChannelList() {
     <Container>
       <TitleBar>
         <PageHeadline>{t('chat.channelList.pageHeadline', 'Chat channels')}</PageHeadline>
+        {isAdmin ? (
+          <Link href='/chat/admin/channel-content'>
+            {t('chat.channelList.manageChannelContent', 'Manage channel content')}
+          </Link>
+        ) : null}
+        <FlexSpacer />
         <RaisedButton
           label={t('chat.channelList.createChannel', 'Create channel')}
           iconStart={<MaterialIcon icon='add' />}

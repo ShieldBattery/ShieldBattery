@@ -17,7 +17,7 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
-import FileInput from '../forms/file-input'
+import { FileInput } from '../forms/file-input'
 import { FormHook, useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
@@ -228,8 +228,8 @@ interface LeagueModel {
   endAt: string
   rulesAndInfo?: string
   link?: string
-  image?: File
-  badge?: File
+  image?: File | File[]
+  badge?: File | File[]
 }
 
 function CreateLeague() {
@@ -254,8 +254,8 @@ function CreateLeague() {
           endAt: Date.parse(model.endAt),
           rulesAndInfo: model.rulesAndInfo,
           link: model.link,
-          image: model.image,
-          badge: model.badge,
+          image: model.image as File,
+          badge: model.badge as File,
         },
         {
           onSuccess: () => {
@@ -340,9 +340,7 @@ function CreateLeague() {
             </FieldLabel>
             <FileInput
               {...bindCustom('image')}
-              id={`${baseId}-image`}
-              accept='image/*'
-              multiple={false}
+              inputProps={{ id: `${baseId}-image`, accept: 'image/*', multiple: false }}
             />
           </div>
           <div>
@@ -351,9 +349,7 @@ function CreateLeague() {
             </FieldLabel>
             <FileInput
               {...bindCustom('badge')}
-              id={`${baseId}-badge`}
-              accept='image/*'
-              multiple={false}
+              inputProps={{ id: `${baseId}-badge`, accept: 'image/*', multiple: false }}
             />
           </div>
 
@@ -479,9 +475,9 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
       rulesAndInfo:
         model.rulesAndInfo !== originalLeague?.rulesAndInfo ? model.rulesAndInfo : undefined,
       link: model.link !== originalLeague?.link ? model.link : undefined,
-      image: model.deleteImage ? undefined : model.image,
+      image: model.deleteImage ? undefined : (model.image as File),
       deleteImage: model.deleteImage ? true : undefined,
-      badge: model.deleteBadge ? undefined : model.badge,
+      badge: model.deleteBadge ? undefined : (model.badge as File),
       deleteBadge: model.deleteBadge ? true : undefined,
     }
 
@@ -630,9 +626,7 @@ function EditLeagueForm({
         </FieldLabel>
         <FileInput
           {...bindCustom('image')}
-          id={`${baseId}-image`}
-          accept='image/*'
-          multiple={false}
+          inputProps={{ id: `${baseId}-image`, accept: 'image/*', multiple: false }}
         />
       </div>
       <div>
@@ -641,9 +635,7 @@ function EditLeagueForm({
         </FieldLabel>
         <FileInput
           {...bindCustom('badge')}
-          id={`${baseId}-badge`}
-          accept='image/*'
-          multiple={false}
+          inputProps={{ id: `${baseId}-badge`, accept: 'image/*', multiple: false }}
         />
       </div>
 

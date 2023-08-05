@@ -1,8 +1,8 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -31,7 +31,9 @@ import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../file-upload'
 import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
+import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
+import { Patch } from '../http/patch-type'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis'
@@ -41,7 +43,6 @@ import { validateRequest } from '../validation/joi-validator'
 import { getLeaderboard } from './leaderboard'
 import {
   LeagueUser,
-  Patch,
   adminGetAllLeagues,
   adminGetLeague,
   createLeague,
@@ -275,7 +276,7 @@ export class LeagueAdminApi {
         filePromises.push(
           writeFile(imagePath, buffer, {
             acl: 'public-read',
-            type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+            type: mime.getType(imageExtension),
           }),
         )
       }
@@ -284,7 +285,7 @@ export class LeagueAdminApi {
         filePromises.push(
           writeFile(badgePath, buffer, {
             acl: 'public-read',
-            type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+            type: mime.getType(badgeExtension),
           }),
         )
       }
@@ -401,7 +402,7 @@ export class LeagueAdminApi {
         filePromises.push(
           writeFile(imagePath, buffer, {
             acl: 'public-read',
-            type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+            type: mime.getType(imageExtension),
           }),
         )
       }
@@ -410,7 +411,7 @@ export class LeagueAdminApi {
         filePromises.push(
           writeFile(badgePath, buffer, {
             acl: 'public-read',
-            type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+            type: mime.getType(badgeExtension),
           }),
         )
       }
