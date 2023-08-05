@@ -148,9 +148,9 @@ rootElemPromise
       let locale
       store.dispatch((_, getState) => {
         const {
-          auth: { user },
+          auth: { self },
         } = getState()
-        locale = user?.locale
+        locale = self?.user?.locale
       })
 
       if (locale) {
