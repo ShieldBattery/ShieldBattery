@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { JsonLocalStorageValue } from '../local-storage'
@@ -149,7 +148,6 @@ export function FileBrowser({
   sortFunc = sortByName,
 }: FileBrowserProps) {
   const { t } = useTranslation()
-  const [scrollerRef] = useVirtuosoScrollFix()
 
   const [fileBrowserPath, setFileBrowserPath] = useState('')
   const [upOneDir, setUpOneDir] = useState<FileBrowserUpEntry>()
@@ -522,7 +520,6 @@ export function FileBrowser({
         {entries.length > 0 ? (
           <Virtuoso
             ref={listRef}
-            scrollerRef={scrollerRef}
             components={{ Header: VertPadding, Footer: VertPadding }}
             data={entries}
             itemContent={renderRow}
