@@ -251,12 +251,14 @@ mod tests {
 
     #[test]
     fn check_game_message_overhead() {
-        let mut message: GameMessage = GameMessage::default();
         // Set numbers that max out our sequence numbers to ensure we have calculated the max
         // byte overhead
-        message.packet_num = 0x7FFF_FFFF_FFFF_FFFF;
-        message.ack = 0x7FFF_FFFF_FFFF_FFFF;
-        message.ack_bits = 0xFFFF_FFFF;
+        let message = GameMessage {
+            packet_num: 0x7FFF_FFFF_FFFF_FFFF,
+            ack: 0x7FFF_FFFF_FFFF_FFFF,
+            ack_bits: 0xFFFF_FFFF,
+            ..Default::default()
+        };
 
         assert_eq!(message.encoded_len() as u32, MAX_GAME_MESSAGE_OVERHEAD)
     }
@@ -415,9 +417,11 @@ mod tests {
     }
 
     fn make_fake_incoming(packet_num: u64, ack: u64, acked_in_bits: &[u64]) -> GameMessage {
-        let mut message: GameMessage = GameMessage::default();
-        message.packet_num = packet_num;
-        message.ack = ack;
+        let mut message = GameMessage {
+            packet_num,
+            ack,
+            ..Default::default()
+        };
         let mut ack_bits = 0;
         for &ack_id in acked_in_bits {
             if ack_id >= ack || ack_id < (ack.max(32) - 32) {
