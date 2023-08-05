@@ -135,7 +135,7 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
             }
             in_pos += 1;
         }
-        for byte in (&id[in_pos..]).chunks_exact(2).take(bytes) {
+        for byte in (id[in_pos..]).chunks_exact(2).take(bytes) {
             buffer[out_pos] = match std::str::from_utf8(byte)
                 .ok()
                 .and_then(|x| u8::from_str_radix(x, 16).ok())
@@ -170,12 +170,11 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
     let starting_races = data.get(0x1a..)?.get(..0xc)?;
-    let game_logic_version;
-    if format == 1 {
-        game_logic_version = data.get(0x56..)?.read_u16::<LE>().ok()?;
+    let game_logic_version = if format == 1 {
+        data.get(0x56..)?.read_u16::<LE>().ok()?
     } else {
-        game_logic_version = 0;
-    }
+        0
+    };
     Some(SbatReplayData {
         team_game_main_players: team_game_main_players.try_into().ok()?,
         starting_races: starting_races.try_into().ok()?,

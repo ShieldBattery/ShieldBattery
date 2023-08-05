@@ -14,6 +14,7 @@ use winapi::um::winuser::*;
 use crate::bw::{get_bw, Bw};
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 
+#[allow(clippy::ptr_offset_with_cast)] // TODO(tec27): Could probably fix this in the library
 mod scr_hooks {
     use super::{c_void, ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW};
 
@@ -149,7 +150,7 @@ unsafe fn msg_game_started(window: HWND) {
 }
 
 unsafe fn msg_timer(window: HWND, timer_id: i32) {
-    if timer_id as i32 == FOREGROUND_HOTKEY_ID {
+    if timer_id == FOREGROUND_HOTKEY_ID {
         // remove hotkey and timer
         UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
         KillTimer(window, FOREGROUND_HOTKEY_ID as usize);

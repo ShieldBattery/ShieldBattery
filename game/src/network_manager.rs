@@ -249,8 +249,8 @@ impl State {
         input: &app_messages::RallyPointServer,
     ) -> impl Future<Output = Result<RallyPointServer>> {
         let key = match (&input.address6, &input.address4) {
-            (&Some(ref a), _) => (a.clone(), input.port),
-            (_, &Some(ref a)) => (a.clone(), input.port),
+            (Some(a), _) => (a.clone(), input.port),
+            (_, Some(a)) => (a.clone(), input.port),
             (&None, &None) => return future::err(NetworkError::NoServerAddress).boxed(),
         };
         if let Some(server) = self.pings.results.get(&key) {
@@ -869,8 +869,7 @@ impl NetworkManager {
                 .send(NetworkManagerMessage::WaitNetworkReady(send))
                 .await
                 .map_err(|_| NetworkError::NotActive)?;
-            let result = recv.await.map_err(|_| NetworkError::NotActive)?;
-            result
+            recv.await.map_err(|_| NetworkError::NotActive)?
         }
     }
 

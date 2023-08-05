@@ -53,7 +53,7 @@ features = [
     "combaseapi", "dsound", "debugapi", "d3d11", "dxgi", "errhandlingapi", "handleapi",
     "knownfolders", "libloaderapi", "memoryapi", "processthreadsapi", "shlobj", "stringapiset",
     "synchapi", "sysinfoapi", "unknwnbase", "winuser", "wingdi", "winsock2", "winver", "ws2def",
-    "ws2ipdef", "windef",
+    "ws2ipdef", "windef", "fileapi",
 ]
 
 # Function hooking

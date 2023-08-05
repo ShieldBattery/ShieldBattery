@@ -20,6 +20,8 @@ use crate::windows;
 /// Initializes our own crash handler and patches over
 /// SetUnhandledExceptionFilter so that nobody can override it.
 pub unsafe fn init_crash_handler() {
+    use self::hooks::SetUnhandledExceptionFilterDecl;
+
     SetUnhandledExceptionFilter(Some(exception_handler));
     let kernel32 = windows::load_library("kernel32").unwrap();
     let address = kernel32
@@ -34,9 +36,12 @@ pub unsafe fn init_crash_handler() {
     );
 }
 
-system_hooks!(
-    !0 => SetUnhandledExceptionFilterDecl(*mut c_void) -> *mut c_void;
-);
+#[allow(clippy::ptr_offset_with_cast)] // TODO(tec27): Could probably fix this in the library
+mod hooks {
+    system_hooks!(
+        !0 => SetUnhandledExceptionFilterDecl(*mut libc::c_void) -> *mut libc::c_void;
+    );
+}
 
 unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {
     crash_dump_and_exit(exception);

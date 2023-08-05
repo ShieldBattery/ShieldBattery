@@ -111,7 +111,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
                 }
                 Err(e) => Err(e),
             };
-            if let Err(_) = send_result.send(result) {
+            if send_result.send(result).is_err() {
                 break;
             }
         }
@@ -128,7 +128,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
     std::thread::spawn(move || {
         let mut buf = vec![0; 2048];
         loop {
-            if closed2.load(Ordering::Relaxed) == true {
+            if closed2.load(Ordering::Relaxed) {
                 break;
             }
             let result = match socket2.recv_from(&mut buf) {
@@ -138,7 +138,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
                 }
                 Err(e) => Err(e),
             };
-            if let Err(_) = send.send(result) {
+            if send.send(result).is_err() {
                 break;
             }
         }

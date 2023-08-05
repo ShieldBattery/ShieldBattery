@@ -83,7 +83,7 @@ impl BwMove for scr::GameInfoValueOld {
             // String
             let self_string = self.data.var1.as_mut_ptr() as *mut scr::BwString;
             let dest_string = (*dest).data.var1.as_mut_ptr() as *mut scr::BwString;
-            (&mut *self_string).move_construct(dest_string);
+            (*self_string).move_construct(dest_string);
             self.variant = 0;
         }
     }
@@ -96,7 +96,7 @@ impl BwMove for scr::GameInfoValue {
             // String
             let self_string = self.data.var1.as_mut_ptr() as *mut scr::BwString;
             let dest_string = (*dest).data.var1.as_mut_ptr() as *mut scr::BwString;
-            (&mut *self_string).move_construct(dest_string);
+            (*self_string).move_construct(dest_string);
             self.variant = 0;
         }
     }
@@ -130,9 +130,9 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
 
     pub fn insert(&mut self, key: &mut Key, value: &mut Value) {
         unsafe {
-            let bucket_index = key.hash() & (self.bw_table.bucket_count as usize - 1);
+            let bucket_index = key.hash() & (self.bw_table.bucket_count - 1);
             let mut bucket = self.bw_table.buckets.add(bucket_index);
-            while (*bucket).is_null() == false {
+            while !(*bucket).is_null() {
                 let entry = *bucket;
                 let entry_key = self.key_from_entry(entry);
                 if key.compare(&*entry_key) {
@@ -185,9 +185,9 @@ impl<Key: BwHash + BwMove, Value: BwMove> Drop for HashTable<Key, Value> {
     fn drop(&mut self) {
         unsafe {
             for i in 0..self.bw_table.bucket_count {
-                let mut entry = *self.bw_table.buckets.add(i as usize);
+                let mut entry = *self.bw_table.buckets.add(i);
                 let layout = self.alloc_layout();
-                while entry.is_null() == false {
+                while !entry.is_null() {
                     let next_entry = (*entry).next;
                     self.key_from_entry(entry).drop_in_place();
                     self.value_from_entry(entry).drop_in_place();
@@ -198,8 +198,8 @@ impl<Key: BwHash + BwMove, Value: BwMove> Drop for HashTable<Key, Value> {
             // Drops bucket array
             Vec::from_raw_parts(
                 self.bw_table.buckets,
-                self.bw_table.bucket_count as usize,
-                self.bw_table.bucket_count as usize,
+                self.bw_table.bucket_count,
+                self.bw_table.bucket_count,
             );
         }
     }

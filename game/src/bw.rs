@@ -25,7 +25,7 @@ static BW_IMPL: OnceCell<&'static BwScr> = OnceCell::new();
 
 /// Gets access to the object that is used for actually manipulating Broodwar state.
 pub fn get_bw() -> &'static BwScr {
-    *BW_IMPL.get().unwrap()
+    BW_IMPL.get().unwrap()
 }
 
 pub fn set_bw_impl(bw: &'static BwScr) {

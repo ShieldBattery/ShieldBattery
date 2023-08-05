@@ -150,9 +150,9 @@ enum MessageResult {
     Stop,
 }
 
-fn handle_app_message<'a>(text: String) -> Result<MessageResult, HandleMessageError> {
+fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError> {
     let message: Message = serde_json::from_str(&text).context(("Invalid message", &*text))?;
-    let payload = message.payload.unwrap_or_else(|| serde_json::Value::Null);
+    let payload = message.payload.unwrap_or(serde_json::Value::Null);
     debug!("Received message: '{}':\n'{}'", message.command, payload);
     match &*message.command {
         "settings" => {

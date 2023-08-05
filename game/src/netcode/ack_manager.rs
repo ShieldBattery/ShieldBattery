@@ -95,8 +95,8 @@ impl AckManager {
 
         let mut result: u32 = 0;
         let mut mask: u32 = 1;
-        for i in 1..=32 {
-            if most_recent_seq < i as u64 {
+        for i in 1u64..=32 {
+            if most_recent_seq < i {
                 // Haven't seen enough packets to build the full ack bits yet
                 break;
             }
@@ -130,8 +130,8 @@ impl AckManager {
             self.on_packet_acked(ack);
 
             let mut ack_bits = incoming.ack_bits;
-            for i in 1..=32 {
-                if ack < i as u64 {
+            for i in 1u64..=32 {
+                if ack < i {
                     break;
                 }
                 if ack_bits & 1 == 1 {

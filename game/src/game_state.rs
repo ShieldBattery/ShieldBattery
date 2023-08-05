@@ -1541,13 +1541,14 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
                 x.team == team
                     && x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER
                     && x.race == bw::RACE_RANDOM
-            }) {
-                if players
-                    .iter()
-                    .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
-                {
-                    panic!("Computer team {} has both random and non-random slots, which is not allowed", i);
-                }
+            }) && players
+                .iter()
+                .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
+            {
+                panic!(
+                    "Computer team {} has both random and non-random slots, which is not allowed",
+                    i
+                );
             }
         }
     }

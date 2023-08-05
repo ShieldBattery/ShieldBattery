@@ -22,8 +22,8 @@ pub struct SequenceBuffer<T: Clone + Default> {
 impl<T: Clone + Default> SequenceBuffer<T> {
     pub fn with_capacity(size: usize) -> Self {
         Self {
-            entries: vec![T::default(); size as usize].into_boxed_slice(),
-            entry_sequences: vec![-1; size as usize].into_boxed_slice(),
+            entries: vec![T::default(); size].into_boxed_slice(),
+            entry_sequences: vec![-1; size].into_boxed_slice(),
             sequence: 0,
         }
     }

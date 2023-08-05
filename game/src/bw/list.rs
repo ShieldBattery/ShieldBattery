@@ -13,7 +13,7 @@ impl<T> Clone for LinkedList<T> {
         *self
     }
 }
-impl<T> Copy for LinkedList<T> { }
+impl<T> Copy for LinkedList<T> {}
 
 impl<T: BwListEntry> LinkedList<T> {
     /// Prepends `value` to start of `self`
@@ -70,10 +70,7 @@ impl<T: BwListEntry> LinkedList<T> {
             None
         } else {
             self.remove(value);
-            Some(Allocation {
-                value,
-                list: *self,
-            })
+            Some(Allocation { value, list: *self })
         }
     }
 
@@ -103,7 +100,7 @@ impl<T: BwListEntry> LinkedList<T> {
 /// list it was allocated from.
 pub struct Allocation<T: BwListEntry> {
     value: *mut T,
-    list: LinkedList<T>
+    list: LinkedList<T>,
 }
 
 impl<T: BwListEntry> Allocation<T> {

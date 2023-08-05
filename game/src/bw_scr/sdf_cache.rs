@@ -24,7 +24,7 @@ use super::{hooks, scr, BwScr};
 // 2M
 const MAX_CACHE_SIZE_BYTES: usize = 2 * 1024 * 1024;
 
-pub fn apply_sdf_cache_hooks<'e>(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>, base: usize) {
+pub fn apply_sdf_cache_hooks(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>, base: usize) {
     let font_cache_render_ascii = scr.font_cache_render_ascii;
     let ttf_render_sdf = scr.ttf_render_sdf;
     let ttf_malloc = scr.ttf_malloc;
@@ -69,6 +69,7 @@ pub fn apply_sdf_cache_hooks<'e>(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 unsafe fn render_sdf(
     cache: &Arc<InitSdfCache>,
     fonts: *mut *mut scr::Font,
@@ -190,13 +191,13 @@ pub struct OwnedMutexGuard<O, T: 'static> {
 impl<O, T: 'static> std::ops::Deref for OwnedMutexGuard<O, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        &*self.guard
+        &self.guard
     }
 }
 
 impl<O, T: 'static> std::ops::DerefMut for OwnedMutexGuard<O, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.guard
+        &mut self.guard
     }
 }
 
@@ -361,7 +362,7 @@ impl SdfCache {
         drop(file);
         let mut glyphs = FxHashMap::with_capacity_and_hasher(sdf_count, Default::default());
         for sdf in glyph_data.chunks_exact(25) {
-            let hash = LittleEndian::read_u64(&sdf[..]);
+            let hash = LittleEndian::read_u64(sdf);
             let scale = LittleEndian::read_u32(&sdf[8..]);
             let key = (
                 FontId(hash, scale, sdf[12]),
@@ -389,7 +390,7 @@ impl SdfCache {
         })
     }
 
-    fn get<'a>(&'a mut self, font_id: FontId, glyph: u32) -> SdfCacheResult<'a> {
+    fn get(&mut self, font_id: FontId, glyph: u32) -> SdfCacheResult {
         match self.glyphs.entry((font_id, glyph)) {
             hash_map::Entry::Vacant(entry) => SdfCacheResult::Missing(VacantSdfEntry {
                 entry,

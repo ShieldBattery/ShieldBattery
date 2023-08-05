@@ -52,7 +52,7 @@ pub unsafe fn get_section(
                 Some(BinarySection {
                     name: *name,
                     virtual_address: address,
-                    virtual_size: size as u32,
+                    virtual_size: size,
                     data: section.into(),
                 })
             } else {
@@ -68,7 +68,7 @@ pub unsafe fn get_section(
 /// recompilation of game gives exact same section sizes.
 pub unsafe fn hash_pe_header(base: *const u8) -> u32 {
     let (sections, section_count) = sections_ptr(base);
-    let section_headers = std::slice::from_raw_parts(sections, section_count as usize * 0x28);
+    let section_headers = std::slice::from_raw_parts(sections, section_count * 0x28);
     fxhash::hash32(section_headers)
 }
 

@@ -247,7 +247,7 @@ impl<T: ExternCFn> Thiscall<T> {
             for _ in 0..(T::Args::N - 1) {
                 // Push args arg_max ..= 2
                 // push [esp + 4 * (args - 1)]
-                (&mut slice[..4]).copy_from_slice(&[0xff, 0x74, 0xe4, (T::Args::N - 1) * 4]);
+                slice[..4].copy_from_slice(&[0xff, 0x74, 0xe4, (T::Args::N - 1) * 4]);
                 slice = &mut slice[4..];
             }
             // push ecx
@@ -260,9 +260,9 @@ impl<T: ExternCFn> Thiscall<T> {
             slice[0] = 0xff;
             slice[1] = 0xd0;
             // add esp, args * 4
-            (&mut slice[2..5]).copy_from_slice(&[0x83, 0xc4, T::Args::N * 4]);
+            slice[2..5].copy_from_slice(&[0x83, 0xc4, T::Args::N * 4]);
             // ret (args - 1) * 4
-            (&mut slice[5..8]).copy_from_slice(&[0xc2, (T::Args::N - 1) * 4, 0x00]);
+            slice[5..8].copy_from_slice(&[0xc2, (T::Args::N - 1) * 4, 0x00]);
             Thiscall(ptr as usize, PhantomData)
         }
     }
@@ -318,6 +318,7 @@ impl<T: ExternCFn<Args = ArgCount6>> Thiscall<T> {
 }
 
 impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn call8(
         self,
         a1: T::A1,
@@ -329,6 +330,7 @@ impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
         a7: T::A7,
         a8: T::A8,
     ) -> T::Ret {
+        #[allow(clippy::type_complexity)]
         let fnptr: unsafe extern "C" fn(
             usize,
             T::A1,
@@ -345,6 +347,7 @@ impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
 }
 
 impl<T: ExternCFn<Args = ArgCount11>> Thiscall<T> {
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn call11(
         self,
         a1: T::A1,
@@ -359,6 +362,7 @@ impl<T: ExternCFn<Args = ArgCount11>> Thiscall<T> {
         a10: T::A10,
         a11: T::A11,
     ) -> T::Ret {
+        #[allow(clippy::type_complexity)]
         let fnptr: unsafe extern "C" fn(
             usize,
             T::A1,

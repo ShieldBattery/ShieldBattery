@@ -98,11 +98,11 @@ macro_rules! hook_winapi_exports {
 }
 
 /// Helper for hook_winapi_exports! macro.
-pub unsafe fn unprotect_memory_for_hook<'a>(
-    active_patcher: &'a mut whack::Patcher,
+pub unsafe fn unprotect_memory_for_hook(
+    active_patcher: &mut whack::Patcher,
     proc_address: usize,
 ) -> (
-    whack::ModulePatcher<'a>,
+    whack::ModulePatcher,
     usize,
     Option<windows::MemoryProtectionGuard>,
 ) {

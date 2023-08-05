@@ -276,7 +276,7 @@ unsafe fn draw_egui_mesh(
         TextureId::Managed(_) => state.textures.get(&mesh.texture_id).map(|x| x.bw()),
         TextureId::User(id) => draw_overlay_texture_ptr(bw, id),
     }
-    .ok_or_else(|| DrawError::InvalidTexture(mesh.texture_id))?;
+    .ok_or(DrawError::InvalidTexture(mesh.texture_id))?;
     if mesh.vertices.len() < 0x10000 {
         draw_egui_mesh_main(
             layer,
@@ -641,6 +641,7 @@ impl Drop for OwnedBwTexture {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 unsafe fn update_texture(
     renderer: *mut scr::Renderer,
     texture: *mut scr::RendererTexture,

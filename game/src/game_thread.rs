@@ -185,15 +185,15 @@ unsafe fn game_results() -> GameThreadResults {
         victory_state: (*game).victory_state,
         race: {
             let mut arr = [bw::RACE_ZERG; 8];
-            for i in 0..8 {
-                arr[i] = (*players.add(i as usize)).race;
+            for (i, race) in arr.iter_mut().enumerate() {
+                *race = (*players.add(i)).race;
             }
             arr
         },
         player_was_dropped: {
             let mut arr = [false; 8];
-            for i in 0..8 {
-                arr[i] = (*game).player_was_dropped[i] != 0;
+            for (i, was_dropped) in arr.iter_mut().enumerate() {
+                *was_dropped = (*game).player_was_dropped[i] != 0;
             }
             arr
         },
@@ -211,8 +211,8 @@ unsafe fn game_results() -> GameThreadResults {
         },
         alliances: {
             let mut arr = [[0; 8]; 8];
-            for i in 0..8 {
-                arr[i].clone_from_slice(&(*game).alliances[i][0..8]);
+            for (i, alliances) in arr.iter_mut().enumerate() {
+                alliances.clone_from_slice(&(*game).alliances[i][0..8]);
             }
             arr
         },
@@ -309,7 +309,7 @@ pub fn is_replay() -> bool {
 }
 
 pub fn setup_info() -> &'static GameSetupInfo {
-    &*SETUP_INFO.get().unwrap()
+    SETUP_INFO.get().unwrap()
 }
 
 /// Returns map name (Title, or something else the uploader has renamed it to in SB),
@@ -433,7 +433,7 @@ struct ReplayFrame<'a> {
     commands: &'a [u8],
 }
 
-fn replay_next_frame<'a>(input: &'a [u8]) -> Option<(ReplayFrame<'a>, &'a [u8])> {
+fn replay_next_frame(input: &[u8]) -> Option<(ReplayFrame, &[u8])> {
     let &commands_len = input.get(4)?;
     let frame = LittleEndian::read_u32(input.get(..4)?);
     let rest = input.get(5..)?;
@@ -444,7 +444,7 @@ fn replay_next_frame<'a>(input: &'a [u8]) -> Option<(ReplayFrame<'a>, &'a [u8])>
 
 impl<'a> ReplayFrame<'a> {
     pub fn next_command(&mut self, command_lengths: &[u32]) -> Option<(StormPlayerId, &'a [u8])> {
-        let player = StormPlayerId(*self.commands.get(0)?);
+        let player = StormPlayerId(*self.commands.first()?);
         let data = self.commands.get(1..)?;
         let length = bw::commands::command_length(data, command_lengths)?;
         let command = data.get(..length)?;
@@ -508,8 +508,8 @@ pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
                     race_counts[race as usize] += 1;
                     pos += 1;
                 }
-                for race in 0..3 {
-                    let count = race_counts[race].max(1);
+                for (race, &count) in race_counts.iter().enumerate() {
+                    let count = count.max(1);
                     // This value is twice the displayed, so 200 max supply for each
                     // player in team. (Or 200 if none)
                     (*game).supplies[race].max[main_player] = count * 400;
@@ -543,10 +543,8 @@ pub unsafe fn after_status_screen_update(bw: &dyn Bw, status_screen: Dialog, uni
         // If we have such structure in future for some other code it should be used
         // here too though.
         for other in bw.active_units() {
-            if normalize_id(other.id()) == id {
-                if other.collision_rect().contains_point(&pos) {
-                    count += 1;
-                }
+            if normalize_id(other.id()) == id && other.collision_rect().contains_point(&pos) {
+                count += 1;
             }
         }
         if count > 1 {
@@ -556,7 +554,7 @@ pub unsafe fn after_status_screen_update(bw: &dyn Bw, status_screen: Dialog, uni
                 let existing_text = rank_status.string();
                 if rank_status.is_hidden()
                     || existing_text.starts_with("Stacked")
-                    || existing_text == ""
+                    || existing_text.is_empty()
                 {
                     use std::io::Write;
 

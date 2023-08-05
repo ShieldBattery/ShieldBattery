@@ -210,7 +210,7 @@ impl PlayerInfo {
     }
 
     pub fn bw_race(&self) -> u8 {
-        match self.race.as_ref().map(|x| &**x) {
+        match self.race.as_deref() {
             Some("z") => bw::RACE_ZERG,
             Some("t") => bw::RACE_TERRAN,
             Some("p") => bw::RACE_PROTOSS,

@@ -377,7 +377,7 @@ pub mod scr {
             unsafe {
                 let text_slice =
                     std::slice::from_raw_parts_mut(self.pointer, self.get_capacity() + 1);
-                (&mut text_slice[..replace_with.len()]).copy_from_slice(replace_with.as_bytes());
+                text_slice[..replace_with.len()].copy_from_slice(replace_with.as_bytes());
                 text_slice[replace_with.len()] = 0;
                 self.length = replace_with.len();
             }
@@ -1033,10 +1033,11 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
             let (base, offset) = mem.address();
             let addr = resolve_operand(base, custom).wrapping_add(offset as usize);
             if addr < 0x80 {
-                let val = read_fs_gs(addr as usize);
+                let val = read_fs_gs(addr);
                 match mem.size {
                     MemAccessSize::Mem8 => val & 0xff,
                     MemAccessSize::Mem16 => val & 0xffff,
+                    #[allow(clippy::identity_op)] // only identity_op on x86
                     MemAccessSize::Mem32 => val & 0xffff_ffff,
                     MemAccessSize::Mem64 => val,
                 }
@@ -1719,7 +1720,7 @@ impl BwScr {
             ProcessLobbyCommands,
             move |data, len, player, orig| {
                 let slice = std::slice::from_raw_parts(data, len);
-                if let Some(&byte) = slice.get(0) {
+                if let Some(&byte) = slice.first() {
                     if byte == 0x48 && player == 0 {
                         self.lobby_game_init_command_seen
                             .store(true, Ordering::Relaxed);
@@ -1824,11 +1825,8 @@ impl BwScr {
                         (old_x as i32).checked_sub(diff / 2)
                     })();
                     if let Some(new_x) = new_x {
-                        let max_x = self
-                            .map_width_pixels
-                            .resolve()
-                            .checked_sub(new_width)
-                            .unwrap_or(0) as i32;
+                        let max_x =
+                            self.map_width_pixels.resolve().saturating_sub(new_width) as i32;
                         let new_x = new_x.clamp(0, max_x) as u32;
                         let y = self.screen_y.resolve();
                         (self.move_screen)(new_x, y);
@@ -1873,7 +1871,7 @@ impl BwScr {
                     let race_char = match (*game).player_race {
                         0 => b'z',
                         1 => b't',
-                        2 | _ => b'p',
+                        _ => b'p',
                     };
                     self.load_consoles.call1(ui_consoles);
                     self.init_consoles.call2(ui_consoles, race_char as u32);
@@ -2161,7 +2159,7 @@ impl BwScr {
                     let apm = apm_guard.as_deref();
                     let size = ((*render_target.bw).width, (*render_target.bw).height);
                     let overlay_out = render_state.overlay.step(
-                        &mut draw_overlay::BwVars {
+                        &draw_overlay::BwVars {
                             is_replay_or_obs,
                             game,
                             players,
@@ -2559,7 +2557,7 @@ impl BwScr {
             let mut value = T::from_u32(value);
             params.insert(&mut string, &mut value);
         };
-        add_param(b"save_game_id", input_game_info.save_checksum as u32);
+        add_param(b"save_game_id", input_game_info.save_checksum);
         add_param(b"is_replay", input_game_info.is_replay as u32);
         // Can lie for most of these player counts
         add_param(b"players_current", 1);
@@ -2682,7 +2680,7 @@ impl bw::Bw for BwScr {
             // Replay seeking exits game loop and sets a bool for it to restart,
             // we don't have access to that bool but we hook the replay seek
             // command and set our own
-            if self.is_replay_seeking.load(Ordering::Relaxed) == false {
+            if !self.is_replay_seeking.load(Ordering::Relaxed) {
                 break;
             }
             self.is_replay_seeking.store(false, Ordering::Relaxed);
@@ -3027,7 +3025,9 @@ impl bw::Bw for BwScr {
         // SCR has longer player names after the bw::Player array,
         // which are ones that it (mostly?) uses.
         let players = self.players();
-        (&mut (*players.add(id as usize)).name).copy_from_slice(&buffer[..25]);
+        (*players.add(id as usize))
+            .name
+            .copy_from_slice(&buffer[..25]);
         let player_names = players.add(0x10) as *mut u8;
         let long_name = player_names.add(id as usize * 0x60);
         let long_name = std::slice::from_raw_parts_mut(long_name, 0x60);
@@ -3057,8 +3057,8 @@ impl bw::Bw for BwScr {
     unsafe fn client_selection(&self) -> [Option<Unit>; 12] {
         let selection = self.client_selection.resolve();
         let mut out = [None; 12];
-        for i in 0..12 {
-            out[i] = Unit::from_ptr(*selection.add(i));
+        for (i, item) in out.iter_mut().enumerate() {
+            *item = Unit::from_ptr(*selection.add(i));
         }
         out
     }
@@ -3076,7 +3076,7 @@ impl bw::Bw for BwScr {
                 protocol_version: player.protocol_version,
                 name: {
                     let mut name = [0; 0x19];
-                    (&mut name[..0x18]).copy_from_slice(&player.name[..0x18]);
+                    name[..0x18].copy_from_slice(&player.name[..0x18]);
                     name
                 },
                 padding: 0,
@@ -3334,10 +3334,10 @@ fn check_filename(filename: &[u16], compare: &[u8]) -> bool {
     let ending =
         Some(()).and_then(|()| filename.get(filename.len().checked_sub(compare.len() + 1)?..));
     if let Some(ending) = ending {
-        if ending[0] == b'\\' as u16 || ending[0] == b'/' as u16 {
-            if ascii_compare_u16_u8_casei(&ending[1..], compare) {
-                return true;
-            }
+        if (ending[0] == b'\\' as u16 || ending[0] == b'/' as u16)
+            && ascii_compare_u16_u8_casei(&ending[1..], compare)
+        {
+            return true;
         }
     }
     false
@@ -3431,7 +3431,7 @@ fn ascii_compare_u16_u8_casei(a: &[u16], b: &[u8]) -> bool {
         return false;
     }
     for i in 0..a.len() {
-        if a[i] >= 0x80 || (a[i] as u8).eq_ignore_ascii_case(&b[i]) == false {
+        if a[i] >= 0x80 || !(a[i] as u8).eq_ignore_ascii_case(&b[i]) {
             return false;
         }
     }
@@ -3542,7 +3542,7 @@ unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFu
     1
 }
 
-#[allow(bad_style)]
+#[allow(bad_style, clippy::ptr_offset_with_cast, clippy::unused_unit)]
 mod hooks {
     use libc::c_void;
 
@@ -3657,7 +3657,7 @@ unsafe fn read_fs_gs(offset: usize) -> usize {
 /// if value doens't fit inline.
 unsafe fn init_bw_string(out: &mut scr::BwString, value: &[u8]) {
     if value.len() < 16 {
-        (&mut out.inline_buffer[..value.len()]).copy_from_slice(value);
+        out.inline_buffer[..value.len()].copy_from_slice(value);
         out.inline_buffer[value.len()] = 0;
         out.pointer = out.inline_buffer.as_mut_ptr();
         out.length = value.len();

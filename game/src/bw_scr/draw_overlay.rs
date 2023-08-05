@@ -242,7 +242,7 @@ impl OverlayState {
             },
         };
         let time = self.start_time.elapsed().as_secs_f64();
-        let events = mem::replace(&mut self.events, Vec::new());
+        let events = mem::take(&mut self.events);
         let has_focus = true;
         let input = egui::RawInput {
             screen_rect: Some(screen_rect),
@@ -308,6 +308,7 @@ impl OverlayState {
                     ] {
                         ui.add(Slider::new(var, 0.0..=200.0).text(text));
                     }
+                    #[allow(clippy::single_element_loop)]
                     for (var, text) in [(&mut v.production_max, "Production max")] {
                         ui.add(Slider::new(var, 0u32..=50).text(text));
                     }
@@ -347,6 +348,7 @@ impl OverlayState {
                 let mut players_shown = 0;
                 let mut team_players_shown = 0;
                 let mut prev_team = 0;
+                #[allow(clippy::explicit_counter_loop)]
                 for (team, player_id) in replay_players_by_team(bw) {
                     if team != prev_team {
                         prev_team = team;
@@ -419,7 +421,7 @@ impl OverlayState {
             let worker_icon = Texture::CmdIcon(match info.race {
                 0 => bw_dat::unit::DRONE.0,
                 1 => bw_dat::unit::SCV.0,
-                2 | _ => bw_dat::unit::PROBE.0,
+                _ => bw_dat::unit::PROBE.0,
             });
             info.add_icon_text_color(
                 ui,
@@ -627,7 +629,7 @@ impl OverlayState {
             }
         } else {
             let ratio = screen_window_ratio.recip();
-            let y_offset = window_h as f32 * (1.0 - ratio) * 0.5;
+            let y_offset = window_h * (1.0 - ratio) * 0.5;
             let y_div = window_h * ratio;
             Pos2 {
                 x: x as f32 / window_w * screen_w,

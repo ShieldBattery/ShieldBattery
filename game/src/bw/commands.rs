@@ -16,7 +16,7 @@ pub mod id {
 }
 
 pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
-    match *data.get(0)? {
+    match *data.first()? {
         0x6 | 0x7 => {
             // Save/Load commands have a 0-terminated string starting at offset 5
             // as their last field
@@ -90,7 +90,7 @@ pub fn filter_invalid_commands<'a>(
     let mut buffer = Vec::new();
     for command in iter_commands(input, command_lengths) {
         let ok = match command {
-            [id::REPLAY_SEEK, ..] => from_replay == false,
+            [id::REPLAY_SEEK, ..] => !from_replay,
             [id::REPLAY_SPEED, rest @ ..] => {
                 if from_replay || rest.len() != 9 {
                     false
@@ -106,12 +106,10 @@ pub fn filter_invalid_commands<'a>(
                     // Filter out almost all observer commands.
                     // Network speed commands are allowed as storm player with id 0 (host)
                     // is expected to send them.
-                    match command {
-                        [id::SET_NETWORK_SPEED, ..] | [id::SET_TURN_RATE, ..] | [id::NOP, ..] => {
-                            true
-                        }
-                        _ => false,
-                    }
+                    matches!(
+                        command,
+                        [id::SET_NETWORK_SPEED, ..] | [id::SET_TURN_RATE, ..] | [id::NOP, ..]
+                    )
                 } else {
                     true
                 }

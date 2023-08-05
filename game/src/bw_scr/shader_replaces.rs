@@ -38,6 +38,7 @@ static PATCHED_SHADERS: &[(u8, &[scr::PrismShader], &str)] = &[(0x1c, MASK, "mas
 
 #[cfg(debug_assertions)]
 pub struct ShaderReplaces {
+    #[allow(clippy::type_complexity)]
     shaders: Mutex<
         Vec<(
             u8,
@@ -62,7 +63,7 @@ impl ShaderReplaces {
             .map(|&(id, default_source, name)| {
                 let path = shaders_root.join(format!("{}.hlsl", name));
                 if let Some((shader, timestamp)) = compile_shader_retry_on_err(&path) {
-                    (id, shader, Some((path.into(), timestamp)))
+                    (id, shader, Some((path, timestamp)))
                 } else {
                     (id, default_source, None)
                 }
@@ -82,7 +83,7 @@ impl ShaderReplaces {
                 if let Some((ref path, ref mut time)) = *path_time {
                     if let Some(new_time) = file_changed_time(path) {
                         if new_time != *time {
-                            if let Some((shader, new_time)) = compile_shader_retry_on_err(&path) {
+                            if let Some((shader, new_time)) = compile_shader_retry_on_err(path) {
                                 debug!("Recompiled shader {}", path.display());
                                 *data = shader;
                                 *time = new_time;
@@ -111,7 +112,7 @@ impl ShaderReplaces {
             .iter()
             .filter_map(|x| x.2.as_ref())
             .any(|(path, time)| {
-                if let Some(new_time) = file_changed_time(&path) {
+                if let Some(new_time) = file_changed_time(path) {
                     new_time != *time
                 } else {
                     false
@@ -172,7 +173,7 @@ fn compile_shader_retry_on_err(path: &Path) -> Option<(&'static [scr::PrismShade
 
 #[cfg(debug_assertions)]
 fn file_changed_time(path: &Path) -> Option<SystemTime> {
-    std::fs::metadata(&path).and_then(|x| x.modified()).ok()
+    std::fs::metadata(path).and_then(|x| x.modified()).ok()
 }
 
 #[cfg(not(debug_assertions))]
