@@ -157,7 +157,9 @@ export default class MapManager extends React.Component {
 
   renderUploadMaps() {
     const {
-      auth: { permissions: perms },
+      auth: {
+        self: { permissions: perms },
+      },
     } = this.props
 
     if (!perms.manageMaps) return null
@@ -192,7 +194,9 @@ export default class MapManager extends React.Component {
 
   renderDeleteMaps() {
     const {
-      auth: { permissions: perms },
+      auth: {
+        self: { permissions: perms },
+      },
     } = this.props
 
     if (!perms.massDeleteMaps) return null
