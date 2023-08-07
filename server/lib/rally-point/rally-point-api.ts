@@ -51,7 +51,7 @@ export class RallyPointPingApi {
         pings: Joi.array()
           .items(
             Joi.array()
-              .ordered(Joi.number().integer().min(1).required(), Joi.number().min(0).required())
+              .ordered(Joi.number().integer().min(0).required(), Joi.number().min(0).required())
               .required(),
           )
           .required(),
