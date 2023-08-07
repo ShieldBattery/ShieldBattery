@@ -20,6 +20,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -53,9 +54,11 @@ function convertPartyServiceError(err: unknown) {
   }
 
   switch (err.code) {
+    case PartyServiceErrorCode.ExceededVetoCount:
     case PartyServiceErrorCode.NotFoundOrNotInvited:
     case PartyServiceErrorCode.NotFoundOrNotInParty:
     case PartyServiceErrorCode.InvalidAction:
+    case PartyServiceErrorCode.InvalidMapPool:
     case PartyServiceErrorCode.AlreadyMember:
     case PartyServiceErrorCode.InvalidSelfAction:
     case PartyServiceErrorCode.AlreadyInGameplayActivity:
@@ -299,6 +302,14 @@ export class PartyApi {
         identifiers: joiClientIdentifiers().required(),
       }),
     })
+
+    const currentMapPool = await getCurrentMapPool(preferences.matchmakingType)
+    if (!currentMapPool) {
+      throw new PartyServiceError(PartyServiceErrorCode.InvalidMapPool, "Map pool doesn't exist")
+    }
+    if (preferences.mapSelections.length > currentMapPool.maxVetoCount) {
+      throw new PartyServiceError(PartyServiceErrorCode.ExceededVetoCount, 'Exceeded veto count')
+    }
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {

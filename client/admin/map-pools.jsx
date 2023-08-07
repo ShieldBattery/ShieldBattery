@@ -12,6 +12,7 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, RaisedButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
+import { NumberTextField } from '../material/number-text-field'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
@@ -164,6 +165,7 @@ export class MapPoolEditor extends React.Component {
     maps: new OrderedMap(),
     startDate: '',
     searchQuery: '',
+    maxVetoCount: 3,
     invalidDate: false,
     searchFocused: false,
     currentSearchPage: 0,
@@ -263,6 +265,12 @@ export class MapPoolEditor extends React.Component {
         ) : (
           <p>Use the search above to find maps and select them to be used in the map pool</p>
         )}
+        <SectionTitle>Maximum veto count</SectionTitle>
+        <NumberTextField
+          dense={true}
+          value={this.state.maxVetoCount}
+          onChange={this.onMaxVetoCountChange}
+        />
         <SectionTitle>Start date</SectionTitle>
         <p>Choose a date and time (in your local timezone) when the map pool will start</p>
         <DateInputContainer>
@@ -303,6 +311,10 @@ export class MapPoolEditor extends React.Component {
     }
   }
 
+  onMaxVetoCountChange = value => {
+    this.setState({ maxVetoCount: value })
+  }
+
   onSearchChange = event => {
     this.setState({ searchQuery: event.target.value })
   }
@@ -341,7 +353,11 @@ export class MapPoolEditor extends React.Component {
   }
 
   onCreate = () => {
-    this.props.onCreate(this.state.maps.keySeq().toArray(), Date.parse(this.state.startDate))
+    this.props.onCreate(
+      this.state.maps.keySeq().toArray(),
+      this.state.maxVetoCount,
+      Date.parse(this.state.startDate),
+    )
     this.setState({ maps: new OrderedMap(), startDate: '' })
   }
 }
@@ -542,8 +558,8 @@ export default class MapPools extends React.Component {
     this.props.dispatch(searchMaps(MapVisibility.Official, SEARCH_MAPS_LIMIT, page, searchQuery))
   }
 
-  onCreateNewMapPool = (maps, startDate) => {
-    this.props.dispatch(createMapPool(this.state.activeTab, maps, startDate))
+  onCreateNewMapPool = (maps, maxVetoCount, startDate) => {
+    this.props.dispatch(createMapPool(this.state.activeTab, maps, maxVetoCount, startDate))
   }
 
   onUseAsTemplate = id => {

@@ -479,6 +479,7 @@ export interface MatchmakingMapPool {
   type: MatchmakingType
   startDate: Date
   maps: string[]
+  maxVetoCount: number
 }
 
 export type MatchmakingMapPoolJson = Jsonify<MatchmakingMapPool>
@@ -489,6 +490,7 @@ export function fromMatchmakingMapPoolJson(pool: MatchmakingMapPoolJson): Matchm
     type: pool.type,
     startDate: new Date(pool.startDate),
     maps: pool.maps,
+    maxVetoCount: pool.maxVetoCount,
   }
 }
 
@@ -758,6 +760,7 @@ export interface MatchmakingCompletion {
 
 export enum MatchmakingServiceErrorCode {
   ClientDisconnected = 'clientDisconnected',
+  ExceededVetoCount = 'exceededVetoCount',
   GameplayConflict = 'gameplayConflict',
   InParty = 'inParty',
   InvalidClient = 'invalidClient',

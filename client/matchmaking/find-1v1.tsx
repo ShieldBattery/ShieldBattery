@@ -98,24 +98,31 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
             />
           </>
         ) : null}
-        <MapSelectionsHeader>
-          <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
-          {mapPoolOutdated ? (
-            <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
-          ) : null}
-        </MapSelectionsHeader>
-        <DescriptionText>
-          {t(
-            'matchmaking.findMatch.veto1v1',
-            'Veto up to 3 maps. Vetoed maps will never be selected for play.',
-          )}
-        </DescriptionText>
-        <MapVetoesControl
-          {...bindCustom('mapSelections')}
-          mapPool={mapPool}
-          maxVetoes={3}
-          disabled={disabled}
-        />
+        {mapPool ? (
+          <>
+            <MapSelectionsHeader>
+              <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
+              {mapPoolOutdated ? (
+                <OutdatedIndicator>
+                  {t('matchmaking.findMatch.updated', 'Updated')}
+                </OutdatedIndicator>
+              ) : null}
+            </MapSelectionsHeader>
+
+            <DescriptionText>
+              {t('matchmaking.findMatch.veto1v1', {
+                defaultValue:
+                  'Veto up to {{maxVetoCount}} maps. Vetoed maps will never be selected for play.',
+                maxVetoCount: mapPool.maxVetoCount,
+              })}
+            </DescriptionText>
+            <MapVetoesControl
+              {...bindCustom('mapSelections')}
+              mapPool={mapPool}
+              disabled={disabled}
+            />
+          </>
+        ) : null}
       </form>
     )
   },

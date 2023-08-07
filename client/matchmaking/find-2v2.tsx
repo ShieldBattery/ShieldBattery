@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences2v2,
@@ -59,25 +59,30 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
           size={RacePickerSize.Large}
           allowInteraction={!disabled}
         />
-        <MapSelectionsHeader>
-          <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
-          {mapPoolOutdated ? (
-            <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
-          ) : null}
-        </MapSelectionsHeader>
-        <DescriptionText>
-          {t(
-            'matchmaking.findMatch.veto2v2',
-            'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other ' +
-              'maps.',
-          )}
-        </DescriptionText>
-        <MapVetoesControl
-          {...bindCustom('mapSelections')}
-          mapPool={mapPool}
-          maxVetoes={3}
-          disabled={disabled}
-        />
+        {mapPool ? (
+          <>
+            <MapSelectionsHeader>
+              <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
+              {mapPoolOutdated ? (
+                <OutdatedIndicator>
+                  {t('matchmaking.findMatch.updated', 'Updated')}
+                </OutdatedIndicator>
+              ) : null}
+            </MapSelectionsHeader>
+
+            <DescriptionText>
+              <Trans t={t} i18nKey='matchmaking.findMatch.veto2v2'>
+                Veto up to {{ maxVetoCount: mapPool.maxVetoCount }} maps. Vetoed maps will be chosen
+                significantly less often than other maps.
+              </Trans>
+            </DescriptionText>
+            <MapVetoesControl
+              {...bindCustom('mapSelections')}
+              mapPool={mapPool}
+              disabled={disabled}
+            />
+          </>
+        ) : null}
       </form>
     )
   },

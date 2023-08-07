@@ -15,6 +15,7 @@ export const MapPool = Record({
   type: '',
   startDate: null,
   maps: List(),
+  maxVetoCount: -1,
 })
 export const MapPoolHistory = Record({
   mapPools: List(),

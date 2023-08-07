@@ -17,6 +17,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
@@ -44,6 +45,7 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
   switch (err.code) {
     case MatchmakingServiceErrorCode.UserOffline:
       throw asHttpError(404, err)
+    case MatchmakingServiceErrorCode.ExceededVetoCount:
     case MatchmakingServiceErrorCode.InvalidMapPool:
     case MatchmakingServiceErrorCode.InvalidMaps:
     case MatchmakingServiceErrorCode.ClientDisconnected:
@@ -105,6 +107,20 @@ export class MatchmakingApi {
       }),
     })
     const { clientId, preferences, identifiers } = body
+
+    const currentMapPool = await getCurrentMapPool(preferences.matchmakingType)
+    if (!currentMapPool) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.InvalidMapPool,
+        "Map pool doesn't exist",
+      )
+    }
+    if (preferences.mapSelections.length > currentMapPool.maxVetoCount) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.ExceededVetoCount,
+        'Exceeded veto count',
+      )
+    }
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
 

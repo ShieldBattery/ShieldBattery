@@ -8,6 +8,7 @@ interface DbMapPool {
   matchmaking_type: MatchmakingType
   start_date: Date
   maps: string[]
+  max_veto_count: number
   /* eslint-enable camelcase */
 }
 
@@ -16,6 +17,7 @@ export interface MapPool {
   type: MatchmakingType
   startDate: Date
   maps: string[]
+  maxVetoCount: number
 }
 
 function convertFromDb(dbMapPool: DbMapPool): MapPool {
@@ -25,6 +27,7 @@ function convertFromDb(dbMapPool: DbMapPool): MapPool {
     type: dbMapPool.matchmaking_type,
     startDate: dbMapPool.start_date,
     maps: dbMapPool.maps,
+    maxVetoCount: dbMapPool.max_veto_count,
   }
   /* eslint-enable camelcase */
 }
@@ -75,11 +78,12 @@ export async function getMapPoolHistory(
 export async function addMapPool(
   matchmakingType: MatchmakingType,
   mapIds: string[],
+  maxVetoCount: number,
   startDate: Date,
 ): Promise<MapPool> {
   const query = sql`
-    INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
-    VALUES (${matchmakingType}, ${startDate}, ${mapIds})
+    INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps, max_veto_count)
+    VALUES (${matchmakingType}, ${startDate}, ${mapIds}, ${maxVetoCount})
     RETURNING *;
   `
 

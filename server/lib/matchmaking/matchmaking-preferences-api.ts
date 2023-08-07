@@ -39,6 +39,10 @@ export class MatchmakingPreferencesApi {
       throw new httpErrors.BadRequest('invalid matchmaking type')
     }
 
+    if (body.mapSelections && body.mapSelections.length > currentMapPool.maxVetoCount) {
+      throw new httpErrors.BadRequest('Exceeded veto count')
+    }
+
     if (body.matchmakingType === MatchmakingType.Match1v1 && body.data) {
       const {
         race,
