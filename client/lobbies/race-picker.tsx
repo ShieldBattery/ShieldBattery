@@ -160,6 +160,7 @@ export const RacePicker = React.forwardRef(
           ) : (
             <RaceButton
               key={r}
+              type='button'
               $size={size}
               $race={r}
               $active={r === race}
