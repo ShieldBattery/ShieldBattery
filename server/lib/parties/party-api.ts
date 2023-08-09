@@ -54,7 +54,6 @@ function convertPartyServiceError(err: unknown) {
   }
 
   switch (err.code) {
-    case PartyServiceErrorCode.ExceededVetoCount:
     case PartyServiceErrorCode.NotFoundOrNotInvited:
     case PartyServiceErrorCode.NotFoundOrNotInParty:
     case PartyServiceErrorCode.InvalidAction:
@@ -307,16 +306,20 @@ export class PartyApi {
     if (!currentMapPool) {
       throw new PartyServiceError(PartyServiceErrorCode.InvalidMapPool, "Map pool doesn't exist")
     }
-    if (preferences.mapSelections.length > currentMapPool.maxVetoCount) {
-      throw new PartyServiceError(PartyServiceErrorCode.ExceededVetoCount, 'Exceeded veto count')
-    }
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    await this.partyService.findMatch(partyId, ctx.session!.userId, identifiers, preferences)
+    const truncatedMapSelections = preferences.mapSelections
+      .filter(m => currentMapPool.maps.includes(m))
+      .slice(0, currentMapPool.maxVetoCount)
+
+    await this.partyService.findMatch(partyId, ctx.session!.userId, identifiers, {
+      ...preferences,
+      mapSelections: truncatedMapSelections,
+    })
   }
 
   @httpPost('/:partyId/find-match/:queueId')

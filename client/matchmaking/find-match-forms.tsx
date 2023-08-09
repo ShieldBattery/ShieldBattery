@@ -225,3 +225,34 @@ export function MapVetoesControl({
     </div>
   )
 }
+
+/**
+ * A component which checks if the map pool can be theoretically exhausted by having all maps in it
+ * vetoed and then displays a differently worded message based on that.
+ */
+export function VetoDescriptionText({
+  maxVetoCount,
+  mapPoolSize,
+  numberOfPlayers,
+}: {
+  maxVetoCount: number
+  mapPoolSize: number
+  numberOfPlayers: number
+}) {
+  const { t } = useTranslation()
+
+  return mapPoolSize >= maxVetoCount * numberOfPlayers ? (
+    <DescriptionText>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescription1'>
+        Veto up to {{ maxVetoCount }} maps. Vetoed maps will never be selected for play.
+      </Trans>
+    </DescriptionText>
+  ) : (
+    <DescriptionText>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescription2'>
+        Veto up to {{ maxVetoCount }} maps. Vetoed maps will be chosen significantly less often than
+        other maps.
+      </Trans>
+    </DescriptionText>
+  )
+}

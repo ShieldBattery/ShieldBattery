@@ -45,7 +45,6 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
   switch (err.code) {
     case MatchmakingServiceErrorCode.UserOffline:
       throw asHttpError(404, err)
-    case MatchmakingServiceErrorCode.ExceededVetoCount:
     case MatchmakingServiceErrorCode.InvalidMapPool:
     case MatchmakingServiceErrorCode.InvalidMaps:
     case MatchmakingServiceErrorCode.ClientDisconnected:
@@ -115,12 +114,6 @@ export class MatchmakingApi {
         "Map pool doesn't exist",
       )
     }
-    if (preferences.mapSelections.length > currentMapPool.maxVetoCount) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.ExceededVetoCount,
-        'Exceeded veto count',
-      )
-    }
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
 
@@ -128,7 +121,14 @@ export class MatchmakingApi {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, preferences)
+    const truncatedMapSelections = preferences.mapSelections
+      .filter(m => currentMapPool.maps.includes(m))
+      .slice(0, currentMapPool.maxVetoCount)
+
+    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, {
+      ...preferences,
+      mapSelections: truncatedMapSelections,
+    })
 
     // Save the last queued matchmaking type on the user's session
     await updateAllSessionsForCurrentUser(ctx, {

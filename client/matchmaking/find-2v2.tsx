@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences2v2,
@@ -11,10 +11,10 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { updateMatchmakingPreferences } from './action-creators'
 import {
-  DescriptionText,
   FindMatchContentsProps,
   FindMatchFormRef,
   MapSelectionsHeader,
@@ -22,6 +22,7 @@ import {
   OutdatedIndicator,
   SectionTitle,
   StyledRaceSelect,
+  VetoDescriptionText,
 } from './find-match-forms'
 
 interface Model2v2 {
@@ -70,19 +71,20 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
               ) : null}
             </MapSelectionsHeader>
 
-            <DescriptionText>
-              <Trans t={t} i18nKey='matchmaking.findMatch.veto2v2'>
-                Veto up to {{ maxVetoCount: mapPool.maxVetoCount }} maps. Vetoed maps will be chosen
-                significantly less often than other maps.
-              </Trans>
-            </DescriptionText>
+            <VetoDescriptionText
+              maxVetoCount={mapPool.maxVetoCount}
+              mapPoolSize={mapPool.maps.length}
+              numberOfPlayers={4}
+            />
             <MapVetoesControl
               {...bindCustom('mapSelections')}
               mapPool={mapPool}
               disabled={disabled}
             />
           </>
-        ) : null}
+        ) : (
+          <LoadingDotsArea />
+        )}
       </form>
     )
   },

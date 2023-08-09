@@ -20,7 +20,6 @@ export function matchmakingPreferencesValidator<
     matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
     race: maybeOptional(allowPartial, Joi.string().valid('p', 't', 'z', 'r')),
     mapPoolId: maybeOptional(allowPartial, Joi.number().min(1)),
-    // NOTE(2Pac): `max` can be dynamic so it's checked outside this validator
     mapSelections: maybeOptional(allowPartial, Joi.array().items(Joi.string()).min(0)),
     data: maybeOptional(
       allowPartial,

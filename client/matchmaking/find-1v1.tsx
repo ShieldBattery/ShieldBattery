@@ -12,6 +12,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
 import CheckBox from '../material/check-box'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { updateMatchmakingPreferences } from './action-creators'
 import {
@@ -23,6 +24,7 @@ import {
   OutdatedIndicator,
   SectionTitle,
   StyledRaceSelect,
+  VetoDescriptionText,
 } from './find-match-forms'
 
 interface Model1v1 {
@@ -109,20 +111,20 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
               ) : null}
             </MapSelectionsHeader>
 
-            <DescriptionText>
-              {t('matchmaking.findMatch.veto1v1', {
-                defaultValue:
-                  'Veto up to {{maxVetoCount}} maps. Vetoed maps will never be selected for play.',
-                maxVetoCount: mapPool.maxVetoCount,
-              })}
-            </DescriptionText>
+            <VetoDescriptionText
+              maxVetoCount={mapPool.maxVetoCount}
+              mapPoolSize={mapPool.maps.length}
+              numberOfPlayers={2}
+            />
             <MapVetoesControl
               {...bindCustom('mapSelections')}
               mapPool={mapPool}
               disabled={disabled}
             />
           </>
-        ) : null}
+        ) : (
+          <LoadingDotsArea />
+        )}
       </form>
     )
   },

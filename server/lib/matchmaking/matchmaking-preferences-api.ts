@@ -39,10 +39,6 @@ export class MatchmakingPreferencesApi {
       throw new httpErrors.BadRequest('invalid matchmaking type')
     }
 
-    if (body.mapSelections && body.mapSelections.length > currentMapPool.maxVetoCount) {
-      throw new httpErrors.BadRequest('Exceeded veto count')
-    }
-
     if (body.matchmakingType === MatchmakingType.Match1v1 && body.data) {
       const {
         race,
@@ -53,14 +49,16 @@ export class MatchmakingPreferencesApi {
       }
     }
 
-    body.mapSelections = body.mapSelections?.filter(m => currentMapPool.maps.includes(m))
+    const truncatedMapSelections = body.mapSelections
+      ?.filter(m => currentMapPool.maps.includes(m))
+      .slice(0, currentMapPool.maxVetoCount)
 
     const preferences = await this.matchmakingPreferencesService.upsertPreferences({
       userId: ctx.session!.userId,
       matchmakingType: body.matchmakingType as any,
       race: body.race,
       mapPoolId: currentMapPool.id,
-      mapSelections: body.mapSelections,
+      mapSelections: truncatedMapSelections,
       data: body.data,
     })
 
