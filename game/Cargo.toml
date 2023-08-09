@@ -14,7 +14,6 @@ panic = "abort"
 [profile.release]
 debug = 1
 panic = "abort"
-overflow-checks = true # Only our crates; gets reverted back to true for dependencies below
 lto = true
 
 [dependencies]
@@ -83,12 +82,6 @@ path = "./compile-shaders"
 [build-dependencies.compile-shaders]
 path = "./compile-shaders"
 
-# Applies to dependencies, not main / local workspace crates
-[profile.release.package."*"]
-# Enough dependencies have inline-heavy "fast" code that ends up being
-# somewhat unideal if overflow checks are enabled and bloat things
-overflow-checks = false
-
 [profile.dev.package.scr-analysis]
 # Optimize scr-analysis subcrate as its code takes quite a lot of time to run
 # if not optimized (That is also the main reason for it being a separate crate)
@@ -127,4 +120,3 @@ overflow-checks = false
 [profile.release.build-override]
 opt-level = 0
 debug = 0
-overflow-checks = false
