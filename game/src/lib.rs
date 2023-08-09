@@ -112,39 +112,7 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     static ALREADY_PANICKING: AtomicBool = AtomicBool::new(false);
 
     fn backtrace() -> String {
-        let mut backtrace = String::new();
-        backtrace::trace(|frame| {
-            let ip = frame.ip();
-            let symbol_address = frame.symbol_address();
-
-            backtrace::resolve(ip, |symbol| {
-                let mut line = format!("    {:p}", symbol_address);
-                if symbol_address != ip {
-                    write!(line, " ({:p})", symbol_address).unwrap();
-                }
-                let module = windows::module_from_address(symbol_address as *mut _);
-                if let Some((name, base)) = module {
-                    if let Some(fname) = Path::new(&name).file_name() {
-                        write!(line, " {:?} {:p}", fname, base).unwrap();
-                    } else {
-                        write!(line, " {:?} {:p}", name, base).unwrap();
-                    }
-                }
-                if let Some(name) = symbol.name() {
-                    write!(line, " -- {}", name).unwrap();
-                }
-                if let Some(filename) = symbol.filename() {
-                    if let Some(lineno) = symbol.lineno() {
-                        write!(line, " -- {}:{}", filename.display(), lineno).unwrap();
-                    } else {
-                        write!(line, " -- {}:???", filename.display()).unwrap();
-                    }
-                }
-                writeln!(backtrace, "{}", line).unwrap();
-            });
-            true // keep going to the next frame
-        });
-        backtrace
+        std::backtrace::Backtrace::force_capture().to_string()
     }
 
     let already_panicking = ALREADY_PANICKING.swap(true, Ordering::Relaxed);

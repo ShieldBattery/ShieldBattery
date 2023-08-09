@@ -2098,7 +2098,7 @@ impl BwScr {
         let base = GetModuleHandleW(null()) as usize;
         let sdf_cache = self.sdf_cache.clone();
         let async_handle = crate::async_handle();
-        let mut sdf_cache = sdf_cache.clone().lock_owned();
+        let mut sdf_cache = sdf_cache.lock_owned();
         async_handle.spawn(async move {
             let exe_hash = pe_image::hash_pe_header(base as *const u8);
             *sdf_cache = Some(SdfCache::init(exe_hash).await);
