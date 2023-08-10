@@ -14,7 +14,7 @@ export function prometheusMiddleware() {
     ctx.prometheus = promClient
     if (ctx.path === '/metrics') {
       if (ctx.method.toLowerCase() === 'get') {
-        if (Object.keys(ctx.headers).includes('X-Forwarded-For')) {
+        if (Object.keys(ctx.headers).includes('x-forwarded-for')) {
           // We only allow metrics retrieval through tailscale (direct access, not nginx forward)
           ctx.throw(403, 'Forbidden')
         } else {
