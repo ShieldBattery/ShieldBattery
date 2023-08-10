@@ -26,6 +26,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
+import { filterVetoedMaps } from './map-vetoes'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -121,13 +122,9 @@ export class MatchmakingApi {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    const truncatedMapSelections = preferences.mapSelections
-      .filter(m => currentMapPool.maps.includes(m))
-      .slice(0, currentMapPool.maxVetoCount)
-
     await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, {
       ...preferences,
-      mapSelections: truncatedMapSelections,
+      mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
     })
 
     // Save the last queued matchmaking type on the user's session

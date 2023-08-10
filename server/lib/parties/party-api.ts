@@ -19,6 +19,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
+import { filterVetoedMaps } from '../matchmaking/map-vetoes'
 import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -312,13 +313,9 @@ export class PartyApi {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    const truncatedMapSelections = preferences.mapSelections
-      .filter(m => currentMapPool.maps.includes(m))
-      .slice(0, currentMapPool.maxVetoCount)
-
     await this.partyService.findMatch(partyId, ctx.session!.userId, identifiers, {
       ...preferences,
-      mapSelections: truncatedMapSelections,
+      mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
     })
   }
 
