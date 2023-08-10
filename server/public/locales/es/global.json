@@ -498,8 +498,12 @@
             "useAlternateRace": "Usa una carrera alternativa para evitar enfrentamientos espejo",
             "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
             "race": "Carrera",
-            "vetoDescriptionNoOverlap": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
-            "vetoDescriptionWithOverlap": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas."
+            "vetoDescriptionNoOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "vetoDescriptionWithOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+            "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+            "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas."
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar.",
