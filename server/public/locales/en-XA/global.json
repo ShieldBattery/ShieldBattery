@@ -499,11 +499,9 @@
             "remainingPlacements": "$🗡{{lifetimeGames}} / {{numPlacementMatches}} placements🗡!",
             "title": "$🗡Find match🗡!",
             "updated": "$🗡Updated🗡!",
-            "veto1v1": "$🗡Veto up to 3 maps. Vetoed maps will never be selected for play.🗡!",
             "vetoesLeft": "$🗡<0>Vetoes left: </0><1>{{vetoesLeft}}</1>🗡!",
             "description": "$🗡Select a race to be used whenever your opponent has selected the same primary race.🗡!",
-            "useAlternateRace": "$🗡Use alternate race to avoid mirror matchups🗡!",
-            "veto2v2": "$🗡Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.🗡!"
+            "useAlternateRace": "$🗡Use alternate race to avoid mirror matchups🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",

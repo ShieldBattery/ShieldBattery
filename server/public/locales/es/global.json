@@ -496,7 +496,6 @@
             "title": "Encontrar pareja",
             "updated": "Actualizado",
             "useAlternateRace": "Usa una carrera alternativa para evitar enfrentamientos espejo",
-            "veto1v1": "Veto hasta 3 mapas. Los mapas vetados nunca se seleccionarán para jugar.",
             "veto2v2": "Veto hasta 3 mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
             "race": "Carrera"
