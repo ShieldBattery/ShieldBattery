@@ -1,3 +1,20 @@
+#### 9.2.0 (Aug 10, 2023)
+
+- **Improved ping estimation**. Ping estimation used for game server selection and ingame latency
+  selection should now be more accurate. This means you're more likely to get a good server for you
+  and every opponent, and will see less lag ingame.
+- **Added support for more vetoes in map pools**. We now support veto counts other than 3, which
+  means we can have larger (or smaller!) map pools. Stay tuned for map pools making use of this
+  feature.
+- **Bug fixes.**
+  - Opening a replay in Explorer with ShieldBattery now works correctly if the app was not already
+    running.
+  - It is now possible to open a replay with ShieldBattery while logged out.
+  - The app will now be brought into focus when a replay is opened.
+  - The app controls should properly reflect the maximized state on launch now.
+  - Fixed ban reasons not showing to users properly.
+  - Fixed an issue causing race selection to immediately queue for matchmaking.
+
 #### 9.1.0 (July 25, 2023)
 
 - **Open replay files.** ShieldBattery can now be registered to open replay (.rep) files for faster
