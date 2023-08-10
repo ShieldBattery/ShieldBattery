@@ -245,13 +245,13 @@ export function VetoDescriptionText({
 
   return mapPoolSize > maxVetoCount * numberOfPlayers ? (
     <DescriptionText>
-      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionNoOverlap'>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionNoOverlap' count={count}>
         Veto up to {{ count }} maps. Vetoed maps will never be selected for play.
       </Trans>
     </DescriptionText>
   ) : (
     <DescriptionText>
-      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionWithOverlap'>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionWithOverlap' count={count}>
         Veto up to {{ count }} maps. Vetoed maps will be chosen significantly less often than other
         maps.
       </Trans>
