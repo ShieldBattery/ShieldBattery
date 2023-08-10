@@ -241,17 +241,19 @@ export function VetoDescriptionText({
 }) {
   const { t } = useTranslation()
 
-  return mapPoolSize >= maxVetoCount * numberOfPlayers ? (
+  const count = maxVetoCount
+
+  return mapPoolSize > maxVetoCount * numberOfPlayers ? (
     <DescriptionText>
-      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescription1'>
-        Veto up to {{ maxVetoCount }} maps. Vetoed maps will never be selected for play.
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionNoOverlap'>
+        Veto up to {{ count }} maps. Vetoed maps will never be selected for play.
       </Trans>
     </DescriptionText>
   ) : (
     <DescriptionText>
-      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescription2'>
-        Veto up to {{ maxVetoCount }} maps. Vetoed maps will be chosen significantly less often than
-        other maps.
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionWithOverlap'>
+        Veto up to {{ count }} maps. Vetoed maps will be chosen significantly less often than other
+        maps.
       </Trans>
     </DescriptionText>
   )
