@@ -496,9 +496,10 @@
             "title": "Encontrar pareja",
             "updated": "Actualizado",
             "useAlternateRace": "Usa una carrera alternativa para evitar enfrentamientos espejo",
-            "veto2v2": "Veto hasta 3 mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
-            "race": "Carrera"
+            "race": "Carrera",
+            "vetoDescriptionNoOverlap": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "vetoDescriptionWithOverlap": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas."
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar.",
