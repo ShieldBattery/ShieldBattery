@@ -17,6 +17,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
@@ -25,6 +26,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
+import { filterVetoedMaps } from './map-vetoes'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -106,13 +108,24 @@ export class MatchmakingApi {
     })
     const { clientId, preferences, identifiers } = body
 
+    const currentMapPool = await getCurrentMapPool(preferences.matchmakingType)
+    if (!currentMapPool) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.InvalidMapPool,
+        "Map pool doesn't exist",
+      )
+    }
+
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
 
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, preferences)
+    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, {
+      ...preferences,
+      mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
+    })
 
     // Save the last queued matchmaking type on the user's session
     await updateAllSessionsForCurrentUser(ctx, {

@@ -476,9 +476,10 @@ export interface AddMatchmakingTimeBody {
  */
 export interface MatchmakingMapPool {
   id: number
-  type: MatchmakingType
+  matchmakingType: MatchmakingType
   startDate: Date
   maps: string[]
+  maxVetoCount: number
 }
 
 export type MatchmakingMapPoolJson = Jsonify<MatchmakingMapPool>
@@ -486,9 +487,10 @@ export type MatchmakingMapPoolJson = Jsonify<MatchmakingMapPool>
 export function fromMatchmakingMapPoolJson(pool: MatchmakingMapPoolJson): MatchmakingMapPool {
   return {
     id: pool.id,
-    type: pool.type,
+    matchmakingType: pool.matchmakingType,
     startDate: new Date(pool.startDate),
     maps: pool.maps,
+    maxVetoCount: pool.maxVetoCount,
   }
 }
 

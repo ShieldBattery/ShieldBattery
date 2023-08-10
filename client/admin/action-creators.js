@@ -64,14 +64,14 @@ export function getMapPoolHistory(type, limit, page) {
   }
 }
 
-export function createMapPool(type, maps, startDate = Date.now()) {
+export function createMapPool(type, maps, maxVetoCount, startDate = Date.now()) {
   return dispatch => {
     dispatch({
       type: ADMIN_MAP_POOL_CREATE_BEGIN,
       meta: { type },
     })
 
-    const params = { method: 'post', body: JSON.stringify({ maps, startDate }) }
+    const params = { method: 'post', body: JSON.stringify({ maps, maxVetoCount, startDate }) }
     dispatch({
       type: ADMIN_MAP_POOL_CREATE,
       payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(type)}`, params).then(

@@ -165,8 +165,7 @@ function ConnectedSelectableMap({
 export interface MapVetoesControlProps {
   onChange: (vetoedMaps: string[]) => void
   value: string[] | null
-  mapPool?: Immutable<MatchmakingMapPool>
-  maxVetoes: number
+  mapPool: Immutable<MatchmakingMapPool>
   disabled: boolean
   className?: string
 }
@@ -175,7 +174,6 @@ export function MapVetoesControl({
   onChange,
   value,
   mapPool,
-  maxVetoes,
   disabled,
   className,
 }: MapVetoesControlProps) {
@@ -194,15 +192,15 @@ export function MapVetoesControl({
       }
 
       // value wasn't in the list, add it if there's space
-      if (newValue.length < maxVetoes) {
+      if (newValue.length < mapPool.maxVetoCount) {
         newValue.push(id)
         onChangeRef.current(newValue)
       }
     },
-    [maxVetoes, onChangeRef, valueRef],
+    [mapPool.maxVetoCount, onChangeRef, valueRef],
   )
 
-  const vetoesLeft = maxVetoes - (value?.length ?? 0)
+  const vetoesLeft = mapPool.maxVetoCount - (value?.length ?? 0)
   return (
     <div className={className}>
       <MapSelections>
@@ -225,5 +223,38 @@ export function MapVetoesControl({
         </Trans>
       </VetoStatus>
     </div>
+  )
+}
+
+/**
+ * A component which checks if the map pool can be theoretically exhausted by having all maps in it
+ * vetoed and then displays a differently worded message based on that.
+ */
+export function VetoDescriptionText({
+  maxVetoCount,
+  mapPoolSize,
+  numberOfPlayers,
+}: {
+  maxVetoCount: number
+  mapPoolSize: number
+  numberOfPlayers: number
+}) {
+  const { t } = useTranslation()
+
+  const count = maxVetoCount
+
+  return mapPoolSize > maxVetoCount * numberOfPlayers ? (
+    <DescriptionText>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionNoOverlap'>
+        Veto up to {{ count }} maps. Vetoed maps will never be selected for play.
+      </Trans>
+    </DescriptionText>
+  ) : (
+    <DescriptionText>
+      <Trans t={t} i18nKey='matchmaking.findMatch.vetoDescriptionWithOverlap'>
+        Veto up to {{ count }} maps. Vetoed maps will be chosen significantly less often than other
+        maps.
+      </Trans>
+    </DescriptionText>
   )
 }

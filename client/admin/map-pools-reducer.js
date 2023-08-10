@@ -12,9 +12,10 @@ import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapPool = Record({
   id: null,
-  type: '',
+  matchmakingType: '',
   startDate: null,
   maps: List(),
+  maxVetoCount: -1,
 })
 export const MapPoolHistory = Record({
   mapPools: List(),

@@ -11,10 +11,10 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { updateMatchmakingPreferences } from './action-creators'
 import {
-  DescriptionText,
   FindMatchContentsProps,
   FindMatchFormRef,
   MapSelectionsHeader,
@@ -22,6 +22,7 @@ import {
   OutdatedIndicator,
   SectionTitle,
   StyledRaceSelect,
+  VetoDescriptionText,
 } from './find-match-forms'
 
 interface Model2v2 {
@@ -59,25 +60,31 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
           size={RacePickerSize.Large}
           allowInteraction={!disabled}
         />
-        <MapSelectionsHeader>
-          <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
-          {mapPoolOutdated ? (
-            <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
-          ) : null}
-        </MapSelectionsHeader>
-        <DescriptionText>
-          {t(
-            'matchmaking.findMatch.veto2v2',
-            'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other ' +
-              'maps.',
-          )}
-        </DescriptionText>
-        <MapVetoesControl
-          {...bindCustom('mapSelections')}
-          mapPool={mapPool}
-          maxVetoes={3}
-          disabled={disabled}
-        />
+        {mapPool ? (
+          <>
+            <MapSelectionsHeader>
+              <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
+              {mapPoolOutdated ? (
+                <OutdatedIndicator>
+                  {t('matchmaking.findMatch.updated', 'Updated')}
+                </OutdatedIndicator>
+              ) : null}
+            </MapSelectionsHeader>
+
+            <VetoDescriptionText
+              maxVetoCount={mapPool.maxVetoCount}
+              mapPoolSize={mapPool.maps.length}
+              numberOfPlayers={4}
+            />
+            <MapVetoesControl
+              {...bindCustom('mapSelections')}
+              mapPool={mapPool}
+              disabled={disabled}
+            />
+          </>
+        ) : (
+          <LoadingDotsArea />
+        )}
       </form>
     )
   },

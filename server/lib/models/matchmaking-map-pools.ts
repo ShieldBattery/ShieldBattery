@@ -1,32 +1,18 @@
 import sql from 'sql-template-strings'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingMapPool, MatchmakingType } from '../../../common/matchmaking'
 import db from '../db'
+import { Dbify } from '../db/types'
 
-interface DbMapPool {
-  /* eslint-disable camelcase */
-  id: number
-  matchmaking_type: MatchmakingType
-  start_date: Date
-  maps: string[]
-  /* eslint-enable camelcase */
-}
+type DbMatchmakingMapPool = Dbify<MatchmakingMapPool>
 
-export interface MapPool {
-  id: number
-  type: MatchmakingType
-  startDate: Date
-  maps: string[]
-}
-
-function convertFromDb(dbMapPool: DbMapPool): MapPool {
-  /* eslint-disable camelcase */
+function convertFromDb(dbMapPool: DbMatchmakingMapPool): MatchmakingMapPool {
   return {
     id: dbMapPool.id,
-    type: dbMapPool.matchmaking_type,
+    matchmakingType: dbMapPool.matchmaking_type,
     startDate: dbMapPool.start_date,
     maps: dbMapPool.maps,
+    maxVetoCount: dbMapPool.max_veto_count,
   }
-  /* eslint-enable camelcase */
 }
 
 async function getMapPoolsCount(type: MatchmakingType): Promise<number> {
@@ -49,7 +35,7 @@ export async function getMapPoolHistory(
   matchmakingType: MatchmakingType,
   limit: number,
   pageNumber: number,
-): Promise<{ mapPools: MapPool[]; total: number }> {
+): Promise<{ mapPools: MatchmakingMapPool[]; total: number }> {
   const query = sql`
     SELECT *
     FROM matchmaking_map_pools
@@ -75,24 +61,27 @@ export async function getMapPoolHistory(
 export async function addMapPool(
   matchmakingType: MatchmakingType,
   mapIds: string[],
+  maxVetoCount: number,
   startDate: Date,
-): Promise<MapPool> {
+): Promise<MatchmakingMapPool> {
   const query = sql`
-    INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
-    VALUES (${matchmakingType}, ${startDate}, ${mapIds})
+    INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps, max_veto_count)
+    VALUES (${matchmakingType}, ${startDate}, ${mapIds}, ${maxVetoCount})
     RETURNING *;
   `
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbMatchmakingMapPool>(query)
     return convertFromDb(result.rows[0])
   } finally {
     done()
   }
 }
 
-export async function getCurrentMapPool(matchmakingType: MatchmakingType): Promise<MapPool | null> {
+export async function getCurrentMapPool(
+  matchmakingType: MatchmakingType,
+): Promise<MatchmakingMapPool | null> {
   const query = sql`
     SELECT *
     FROM matchmaking_map_pools
@@ -103,14 +92,14 @@ export async function getCurrentMapPool(matchmakingType: MatchmakingType): Promi
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbMatchmakingMapPool>(query)
     return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()
   }
 }
 
-export async function getMapPoolById(mapPoolId: number): Promise<MapPool | null> {
+export async function getMapPoolById(mapPoolId: number): Promise<MatchmakingMapPool | null> {
   const query = sql`
     SELECT *
     FROM matchmaking_map_pools
@@ -119,7 +108,7 @@ export async function getMapPoolById(mapPoolId: number): Promise<MapPool | null>
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbMatchmakingMapPool>(query)
     return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()

@@ -22,12 +22,14 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 
+// TODO(2Pac): Fix this type so the map infos are returned separately from the matchmaking pools
 interface GetMapPoolsHistoryResponse {
   pools: Array<{
     id: number
-    type: MatchmakingType
+    matchmakingType: MatchmakingType
     startDate: number
     maps: MapInfoJson[]
+    maxVetoCount: number
   }>
   page: number
   limit: number
@@ -105,19 +107,20 @@ export class MatchmakingMapPoolsApi {
   async createNewMapPool(ctx: RouterContext) {
     const { params, body } = validateRequest(ctx, {
       params: MATCHMAKING_TYPE_PARAMS,
-      body: Joi.object<{ maps: string[]; startDate: Date }>({
+      body: Joi.object<{ maps: string[]; maxVetoCount: number; startDate: Date }>({
         maps: Joi.array().items(Joi.string()).required(),
+        maxVetoCount: Joi.number().min(0).required(),
         startDate: Joi.date().timestamp().min(Date.now()),
       }),
     })
 
     const { matchmakingType } = params
-    const { maps, startDate } = body
+    const { maps, startDate, maxVetoCount } = body
 
     // TODO(2Pac): Validate maps based on matchmaking type (e.g. so a 2-player map can't be used in
     // a 2v2 map pool)
 
-    const mapPool = await addMapPool(matchmakingType, maps, new Date(startDate))
+    const mapPool = await addMapPool(matchmakingType, maps, maxVetoCount, new Date(startDate))
     return {
       ...mapPool,
       startDate: Number(mapPool.startDate),

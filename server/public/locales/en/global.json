@@ -744,8 +744,8 @@
       "title": "Find match",
       "updated": "Updated",
       "useAlternateRace": "Use alternate race to avoid mirror matchups",
-      "veto1v1": "Veto up to 3 maps. Vetoed maps will never be selected for play.",
-      "veto2v2": "Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.",
+      "vetoDescriptionNoOverlap": "Veto up to {{count}} maps. Vetoed maps will never be selected for play.",
+      "vetoDescriptionWithOverlap": "Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.",
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {

@@ -17,6 +17,7 @@ export enum PartyServiceErrorCode {
   Blocked = 'Blocked',
   InsufficientPermissions = 'InsufficientPermissions',
   InvalidAction = 'InvalidAction',
+  InvalidMapPool = 'InvalidMapPool',
   InvalidSelfAction = 'InvalidSelfAction',
   NotFoundOrNotInvited = 'NotFoundOrNotInvited',
   NotFoundOrNotInParty = 'NotFoundOrNotInParty',
