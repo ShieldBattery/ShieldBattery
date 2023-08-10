@@ -744,9 +744,9 @@
       "title": "Find match",
       "updated": "Updated",
       "useAlternateRace": "Use alternate race to avoid mirror matchups",
-      "vetoDescriptionNoOverlap_one": "Veto up to {{count}} maps. Vetoed maps will never be selected for play.",
+      "vetoDescriptionNoOverlap_one": "Veto up to {{count}} map. Vetoed maps will never be selected for play.",
       "vetoDescriptionNoOverlap_other": "Veto up to {{count}} maps. Vetoed maps will never be selected for play.",
-      "vetoDescriptionWithOverlap_one": "Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.",
+      "vetoDescriptionWithOverlap_one": "Veto up to {{count}} map. Vetoed maps will be chosen significantly less often than other maps.",
       "vetoDescriptionWithOverlap_other": "Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.",
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
