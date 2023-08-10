@@ -501,7 +501,9 @@
             "updated": "$🗡Updated🗡!",
             "vetoesLeft": "$🗡<0>Vetoes left: </0><1>{{vetoesLeft}}</1>🗡!",
             "description": "$🗡Select a race to be used whenever your opponent has selected the same primary race.🗡!",
-            "useAlternateRace": "$🗡Use alternate race to avoid mirror matchups🗡!"
+            "useAlternateRace": "$🗡Use alternate race to avoid mirror matchups🗡!",
+            "vetoDescriptionWithOverlap": "$🗡Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.🗡!",
+            "vetoDescriptionNoOverlap": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
