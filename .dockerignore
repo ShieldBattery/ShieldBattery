@@ -1,4 +1,7 @@
 .git/
+*/.idea/
+.react-email/
+*/.vscode/
 app/
 assets/
 dist/
@@ -12,5 +15,8 @@ server/logs/
 server/node_modules/
 server/uploaded_files/
 server/yarn-error.log
+*/target/
+test-state/
+tools/
 .env
 yarn-error.log
