@@ -11,6 +11,15 @@ import {
   SearchChannelsResponse,
   SendChatMessageServerRequest,
 } from '../../common/chat'
+import {
+  AdminEditChannelBannerRequest,
+  AdminEditChannelBannerResponse,
+  AdminGetChannelBannerResponse,
+  AdminGetChannelBannersResponse,
+  AdminUploadChannelBannerRequest,
+  AdminUploadChannelBannerResponse,
+  ChannelBannerId,
+} from '../../common/chat-channels/channel-banners'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
@@ -332,4 +341,77 @@ export function navigateToChannel(channelId: SbChannelId, channelName: string) {
  */
 export function correctChannelNameForChat(channelId: SbChannelId, channelName: string) {
   replace(urlPath`/chat/${channelId}/${channelName}`)
+}
+
+export function adminGetChannelBanners(
+  spec: RequestHandlingSpec<AdminGetChannelBannersResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`admin/chat/banners`, { signal: spec.signal })
+  })
+}
+
+export function adminGetChannelBanner(
+  id: ChannelBannerId,
+  spec: RequestHandlingSpec<AdminGetChannelBannerResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`admin/chat/banners/${id}`, { signal: spec.signal })
+  })
+}
+
+export function adminUploadChannelBanner(
+  channelBanner: AdminUploadChannelBannerRequest & { image: Blob },
+  spec: RequestHandlingSpec<AdminUploadChannelBannerResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const formData = new FormData()
+
+    formData.append('name', String(channelBanner.name))
+    formData.append('image', channelBanner.image)
+
+    if (channelBanner.availableIn) {
+      for (let i = 0; i < channelBanner.availableIn.length; i++) {
+        formData.append('availableIn[]', channelBanner.availableIn[i])
+      }
+    }
+
+    return await fetchJson(apiUrl`admin/chat/banners`, {
+      method: 'POST',
+      signal: spec.signal,
+      body: formData,
+    })
+  })
+}
+
+export function adminUpdateChannelBanner(
+  id: ChannelBannerId,
+  channelBannerChanges: AdminEditChannelBannerRequest & { image?: Blob },
+  spec: RequestHandlingSpec<AdminEditChannelBannerResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const formData = new FormData()
+
+    if (channelBannerChanges.name) {
+      formData.append('name', String(channelBannerChanges.name))
+    }
+    if (channelBannerChanges.image) {
+      formData.append('image', channelBannerChanges.image)
+    }
+    if (channelBannerChanges.availableIn) {
+      if (channelBannerChanges.availableIn.length > 0) {
+        for (let i = 0; i < channelBannerChanges.availableIn.length; i++) {
+          formData.append('availableIn[]', channelBannerChanges.availableIn[i])
+        }
+      } else {
+        formData.append('deleteLimited', String(true))
+      }
+    }
+
+    return await fetchJson(apiUrl`admin/chat/banners/${id}/`, {
+      method: 'PATCH',
+      signal: spec.signal,
+      body: formData,
+    })
+  })
 }

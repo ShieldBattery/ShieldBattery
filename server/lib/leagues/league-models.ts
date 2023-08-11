@@ -1,9 +1,9 @@
 import sql from 'sql-template-strings'
-import { Merge, OptionalKeysOf, RequiredKeysOf } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { appendToMultimap } from '../../../common/data-structures/maps'
 import { League, LeagueId } from '../../../common/leagues'
 import { MatchmakingResult, MatchmakingType } from '../../../common/matchmaking'
+import { Patch } from '../../../common/patch'
 import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
@@ -59,12 +59,6 @@ export async function createLeague(
     done()
   }
 }
-
-// TODO(tec27): Move this somewhere common
-export type Patch<T extends object> = Merge<
-  { [K in RequiredKeysOf<T>]?: T[K] },
-  { [K in OptionalKeysOf<T>]?: T[K] | null }
->
 
 export async function updateLeague(
   id: LeagueId,
