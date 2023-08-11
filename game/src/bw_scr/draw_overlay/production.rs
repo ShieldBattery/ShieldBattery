@@ -347,9 +347,15 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
     let id = unit.id();
     if unit.id().is_building() {
         if !unit.is_completed() {
-            // Note that even for morphing buildings, unit.id() will be the target
-            // building ID - unlike eggs where the target ID is from build queue
-            return Some((Production::Unit(id), unit_completion(unit)));
+            // For zerg buildings, first queued unit is equal to the morph target,
+            // with unit.id() only being equal for first tier of morphs
+            // (So not lair / gspire etc).
+            // Other races have None in queue, so for them use unit.id()
+            if let Some(dest) = unit.first_queued_unit() {
+                return Some((Production::Unit(dest), unit_completion(unit)));
+            } else {
+                return Some((Production::Unit(id), unit_completion(unit)));
+            }
         }
         if let Some(tech) = unit.tech_in_progress() {
             return Some((
