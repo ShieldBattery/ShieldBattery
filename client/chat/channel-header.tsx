@@ -187,6 +187,7 @@ export function ChannelHeader({
   if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
     actions.push(
       <DestructiveMenuItem
+        key='leave-channel'
         text={t('chat.channelHeader.actionItems.leaveChannel', 'Leave channel')}
         onClick={onLeaveChannelClick}
       />,
