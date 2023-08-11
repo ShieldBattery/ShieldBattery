@@ -35,6 +35,7 @@ import {
 } from '../../../common/chat-channels/channel-banners'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
+import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import transact from '../db/transaction'
 import { asHttpError } from '../errors/error-with-payload'
@@ -43,7 +44,6 @@ import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
 import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/images'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { Patch } from '../http/patch-type'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -497,12 +497,7 @@ export class AdminChatApi {
   @httpBefore(checkAllPermissions('manageChannelContent'))
   async getChannelBanners(ctx: RouterContext): Promise<AdminGetChannelBannersResponse> {
     const channelBanners = await adminGetChannelBanners()
-    const channelIds = new Set<SbChannelId>()
-    for (let i = 0; i < channelBanners.length; i++) {
-      for (let j = 0; j < channelBanners[i].availableIn.length; j++) {
-        channelIds.add(channelBanners[i].availableIn[j])
-      }
-    }
+    const channelIds = new Set(channelBanners.flatMap(c => c.availableIn))
     const channelInfos = await getChannelInfos(Array.from(channelIds))
 
     return {

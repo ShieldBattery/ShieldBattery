@@ -1,10 +1,10 @@
 import sql from 'sql-template-strings'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { ChannelBanner, ChannelBannerId } from '../../../common/chat-channels/channel-banners'
+import { Patch } from '../../../common/patch'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 import { getUrl } from '../file-upload'
-import { Patch } from '../http/patch-type'
 
 type DbChannelBanner = Dbify<ChannelBanner>
 
