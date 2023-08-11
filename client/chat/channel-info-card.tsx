@@ -128,8 +128,7 @@ const JoinedIndicator = styled.div`
 
 export interface ConnectedChannelInfoCardProps {
   /**
-   * The ID of a channel for which we want to display info for. In case the channel with this ID is
-   * not found, the card will display an error.
+   * The ID of a channel for which we want to display info for.
    */
   channelId: SbChannelId
   /**
@@ -141,8 +140,10 @@ export interface ConnectedChannelInfoCardProps {
 
 /**
  * A component which finds a channel for a given channel ID and displays its info. Allows users to
- * join the channel if they're not already in it, and handles errors in case the channel is not
- * found etc.
+ * join the channel if they're not already in it.
+ *
+ * NOTE: This component assumes the channel exists and doesn't handle errors in case the channel was
+ * not found.
  */
 export function ConnectedChannelInfoCard({
   channelId,

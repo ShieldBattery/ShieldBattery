@@ -27,6 +27,7 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
+  padding-top: 10px;
 
   background-color: ${background700};
 `

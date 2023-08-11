@@ -27,6 +27,7 @@ import {
   retrieveUserList,
   sendMessage,
 } from './action-creators'
+import { ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
 import { ChannelUserList } from './channel-user-list'
@@ -86,6 +87,8 @@ export function ConnectedChatChannel({
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
+  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
+  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
@@ -157,6 +160,17 @@ export function ConnectedChatChannel({
             onSendChatMessage,
             storageKey: `chat.${channelId}`,
           }}
+          header={
+            // These are basically guaranteed to be defined here, but still doing the check instead
+            // of asserting them with ! because better to be safe than sorry, or something.
+            basicChannelInfo && detailedChannelInfo && joinedChannelInfo ? (
+              <ChannelHeader
+                basicChannelInfo={basicChannelInfo}
+                detailedChannelInfo={detailedChannelInfo}
+                joinedChannelInfo={joinedChannelInfo}
+              />
+            ) : null
+          }
           extraContent={
             <ChannelUserList
               active={channelUsers?.active}
