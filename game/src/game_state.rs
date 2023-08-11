@@ -4,11 +4,10 @@ use std::io;
 use std::mem;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
+use std::pin::{pin, Pin};
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::pin_mut;
 use futures::prelude::*;
 use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
@@ -196,7 +195,7 @@ impl GameState {
         }
     }
 
-    fn set_routes(&mut self, routes: Vec<Route>) -> impl Future<Output = ()> {
+    fn set_routes(&mut self, routes: Vec<Route>) -> impl Future<Output = ()> + '_ {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             state.routes_set = true;
             // TODO log error
@@ -269,15 +268,18 @@ impl GameState {
         let game_request_send = self.send_main_thread_requests.clone();
 
         let network_send = self.network_send.clone();
-        let init_routes_when_ready_future = self.network.init_routes_when_ready();
-        let network_ready_future = self.network.wait_network_ready();
-        let net_game_info_set_future = self.network.set_game_info(info.clone());
+
+        let network = self.network.clone();
         let allow_start = self.wait_can_start_game().boxed();
 
         self.init_main_thread
             .send(())
             .expect("Main thread should be waiting for a wakeup");
         async move {
+            let init_routes_when_ready_future = network.init_routes_when_ready();
+            let network_ready_future = network.wait_network_ready();
+            let net_game_info_set_future = network.set_game_info(info.clone());
+
             let sbat_replay_data = match info.is_replay() {
                 true => Some(read_sbat_replay_data(Path::new(&info.map_path))),
                 false => None,
@@ -534,7 +536,7 @@ impl GameState {
 
     // Message handler, so ideally only return futures that are about sending
     // messages to other tasks.
-    fn handle_message(&mut self, message: GameStateMessage) -> impl Future<Output = ()> {
+    fn handle_message(&mut self, message: GameStateMessage) -> impl Future<Output = ()> + '_ {
         use self::GameStateMessage::*;
 
         match message {
@@ -580,7 +582,7 @@ impl GameState {
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
                 tokio::spawn(async move {
-                    pin_mut!(task);
+                    let task = pin!(task);
                     cancel_token.bind(task).await
                 });
             }
@@ -604,7 +606,7 @@ impl GameState {
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
                 tokio::spawn(async move {
-                    pin_mut!(task);
+                    let task = pin!(task);
                     cancel_token.bind(task).await
                 });
             }
@@ -637,10 +639,10 @@ impl GameState {
         future::ready(()).boxed()
     }
 
-    fn handle_game_thread_message(
-        &mut self,
+    fn handle_game_thread_message<'s>(
+        &'s mut self,
         message: GameThreadMessage,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         use crate::game_thread::GameThreadMessage::*;
         match message {
             WindowMove(..) => (),
@@ -703,10 +705,10 @@ impl GameState {
         future::ready(()).boxed()
     }
 
-    fn handle_network_message(
-        &mut self,
+    fn handle_network_message<'s>(
+        &'s mut self,
         msg: NetworkToGameStateMessage,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
         use crate::network_manager::NetworkToGameStateMessage::*;
         match msg {
             ReceivePayload(ref player_id, payload) => match payload {

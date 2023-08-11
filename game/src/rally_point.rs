@@ -5,13 +5,13 @@ use std::collections::{
 
 use std::io;
 use std::net::{SocketAddr, SocketAddrV6};
+use std::pin::pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use bytes::Bytes;
 use futures::future::Either;
-use futures::pin_mut;
 use futures::prelude::*;
 use quick_error::quick_error;
 use tokio::select;
@@ -175,7 +175,7 @@ impl State {
                     // recv_error finishes => Err
                     // neither finishes => Err(NotActive)
                     let inner_result = async move {
-                        pin_mut!(recv_error);
+                        let recv_error = pin!(recv_error);
                         let first = future::try_select(recv_done, recv_error).await;
                         match first {
                             Ok(Either::Left((result, _))) => result,
@@ -190,15 +190,14 @@ impl State {
                                 .and_then(|x| x),
                         }
                     };
-                    let result = async move {
+                    let result = pin!(async move {
                         let timeout_result = tokio::time::timeout(timeout, inner_result).await;
                         match timeout_result {
                             Ok(inner) => inner,
                             Err(_) => Err(RallyPointError::Timeout),
                         }
-                    };
-                    pin_mut!(result);
-                    pin_mut!(send_requests);
+                    });
+                    let send_requests = pin!(send_requests);
                     future::select(done.send_result(result), send_requests).await;
                     let _ = send_self_requests.send(Request::CleanupJoin(key)).await;
                 };
@@ -242,14 +241,13 @@ impl State {
                             }
                         }
                     };
-                    let result = async move {
+                    let result = pin!(async move {
                         let timeout_result = tokio::time::timeout(PING_TIMEOUT, inner_result).await;
                         match timeout_result {
                             Ok(inner) => inner,
                             Err(_) => Err(RallyPointError::Timeout),
                         }
-                    };
-                    pin_mut!(result);
+                    });
                     done.send_result(result).await;
                     let _ = send_requests
                         .send(Request::CleanupPing((id, address)))
@@ -424,7 +422,7 @@ impl State {
         let recv_task = udp_recv_task(udp_recv, send_requests.clone());
         tokio::spawn(send_task);
         tokio::spawn(async move {
-            pin_mut!(recv_task);
+            let recv_task = pin!(recv_task);
             cancel_token.bind(recv_task).await
         });
         Ok(State {
@@ -589,92 +587,75 @@ impl PlayerId {
 }
 
 impl RallyPoint {
-    pub fn join_route(
+    pub async fn join_route(
         &self,
         address: SocketAddr,
         route_id: RouteId,
         player_id: PlayerId,
         timeout: Duration,
-    ) -> impl Future<Output = Result<(), RallyPointError>> {
+    ) -> Result<(), RallyPointError> {
         let (send, recv) = cancelable_channel();
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::JoinRoute(route_id, player_id, address, timeout, send);
-        let sender = self.send_requests.clone();
-        async move {
-            sender
-                .send(Request::External(request))
-                .await
-                .map_err(|_| RallyPointError::NotActive)?;
-            recv.await.map_err(|_| RallyPointError::NotActive)?
-        }
+        self.send_requests
+            .send(Request::External(request))
+            .map_err(|_| RallyPointError::NotActive)
+            .await?;
+        recv.map_err(|_| RallyPointError::NotActive).await?
     }
 
-    pub fn ping_server(
-        &self,
-        address: SocketAddr,
-    ) -> impl Future<Output = Result<Duration, RallyPointError>> {
+    pub async fn ping_server(&self, address: SocketAddr) -> Result<Duration, RallyPointError> {
         let (send, recv) = cancelable_channel();
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::Ping(address, send);
-        let sender = self.send_requests.clone();
-        async move {
-            sender
-                .send(Request::External(request))
-                .await
-                .map_err(|_| RallyPointError::NotActive)?;
-            recv.await.map_err(|_| RallyPointError::NotActive)?
-        }
+        self.send_requests
+            .send(Request::External(request))
+            .map_err(|_| RallyPointError::NotActive)
+            .await?;
+        recv.map_err(|_| RallyPointError::NotActive).await?
     }
 
-    pub fn wait_route_ready(
+    pub async fn wait_route_ready(
         &self,
         route: &RouteId,
         address: &SocketAddr,
-    ) -> impl Future<Output = Result<(), RallyPointError>> {
+    ) -> Result<(), RallyPointError> {
         let (send, recv) = oneshot::channel();
         let address = to_ipv6_addr(address);
         let request = ExternalRequest::WaitRouteReady(*route, address, send);
-        let sender = self.send_requests.clone();
-        async move {
-            sender
-                .send(Request::External(request))
-                .await
-                .map_err(|_| RallyPointError::NotActive)?;
-            recv.await.map_err(|_| RallyPointError::NotActive)?
-        }
+        self.send_requests
+            .send(Request::External(request))
+            .map_err(|_| RallyPointError::NotActive)
+            .await?;
+        recv.map_err(|_| RallyPointError::NotActive).await?
     }
 
-    pub fn keep_alive(
+    pub async fn keep_alive(
         &self,
         route: &RouteId,
         player_id: PlayerId,
         address: &SocketAddr,
-    ) -> impl Future<Output = Result<(), RallyPointError>> {
+    ) -> Result<(), RallyPointError> {
         let address = to_ipv6_addr(address);
         let request = ExternalRequest::KeepAlive(*route, player_id, address);
-        let sender = self.send_requests.clone();
-        async move {
-            sender
-                .send(Request::External(request))
-                .await
-                .map_err(|_| RallyPointError::NotActive)?;
-            Ok(())
-        }
+        self.send_requests
+            .send(Request::External(request))
+            .map_err(|_| RallyPointError::NotActive)
+            .await
     }
 
     pub fn listen_route_data(
         &self,
         route: &RouteId,
         address: &SocketAddr,
-    ) -> impl Stream<Item = Result<Bytes, RallyPointError>> {
+    ) -> impl Stream<Item = Result<Bytes, RallyPointError>> + '_ {
         let address = to_ipv6_addr(address);
         let (send, recv) = mpsc::channel(32);
         let request = ExternalRequest::ListenData(*route, address, send);
-        let sender = self.send_requests.clone();
         let sent = async move {
-            sender
+            self.send_requests
                 .send(Request::External(request))
                 .await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -685,23 +666,19 @@ impl RallyPoint {
             .chain(tokio_stream::wrappers::ReceiverStream::new(recv).map(Ok))
     }
 
-    pub fn forward(
+    pub async fn forward(
         &self,
         route: &RouteId,
         player: PlayerId,
         data: Bytes,
         address: &SocketAddr,
-    ) -> impl Future<Output = Result<(), RallyPointError>> {
+    ) -> Result<(), RallyPointError> {
         let address = to_ipv6_addr(address);
         let request = ExternalRequest::Forward(*route, player, data, address);
-        let sender = self.send_requests.clone();
-        async move {
-            sender
-                .send(Request::External(request))
-                .await
-                .map_err(|_| RallyPointError::NotActive)?;
-            Ok(())
-        }
+        self.send_requests
+            .send(Request::External(request))
+            .map_err(|_| RallyPointError::NotActive)
+            .await
     }
 }
 
