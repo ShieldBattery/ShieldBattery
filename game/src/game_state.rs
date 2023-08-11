@@ -701,6 +701,11 @@ impl GameState {
                     warn!("Notified of network stall before init was started");
                 }
             }
+            DebugInfoRequest(info) => match info {
+                game_thread::DebugInfoRequest::Network(out) => {
+                    return self.network.request_debug_info(out).boxed();
+                }
+            },
         }
         future::ready(()).boxed()
     }

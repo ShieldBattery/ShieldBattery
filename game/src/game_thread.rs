@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use byteorder::{ByteOrder, LittleEndian};
 use fxhash::FxHashSet;
@@ -89,6 +89,13 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
     NetworkStall(std::time::Duration),
     ReplaySaved(PathBuf),
+    /// Request async task to write debug info to provided parameter.
+    DebugInfoRequest(DebugInfoRequest),
+}
+
+pub enum DebugInfoRequest {
+    /// (OnceLock is effectively oneshot channel for the result)
+    Network(Arc<OnceLock<crate::network_manager::DebugInfo>>),
 }
 
 /// Sends a message from game thread to the async system.

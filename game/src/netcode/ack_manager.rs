@@ -218,6 +218,15 @@ impl AckManager {
 
         message
     }
+
+    pub fn debug_info(&self) -> DebugInfo {
+        DebugInfo {
+            packet_num: self.packet_num,
+            payload_num: self.payload_num,
+            last_seen_remote_packet_num: self.last_seen_remote_packet_num(),
+            payloads_in_flight: self.payloads_in_flight(),
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -237,6 +246,26 @@ struct SentPayload {
 
 #[derive(Clone, Default)]
 struct ReceivedPacket;
+
+/// Data that gets sent out of async thread to be rendered by egui thread.
+pub struct DebugInfo {
+    packet_num: u64,
+    payload_num: u64,
+    last_seen_remote_packet_num: u64,
+    payloads_in_flight: usize,
+}
+
+impl DebugInfo {
+    pub fn draw(&self, ui: &mut egui::Ui) {
+        ui.label(format!("Packet # {}", self.packet_num));
+        ui.label(format!("Payload # {}", self.payload_num));
+        ui.label(format!(
+            "Remote packet # {}",
+            self.last_seen_remote_packet_num
+        ));
+        ui.label(format!("Payloads in flight {}", self.payloads_in_flight));
+    }
+}
 
 #[cfg(test)]
 mod tests {

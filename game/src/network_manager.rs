@@ -1,8 +1,8 @@
 use std::collections::hash_map::{Entry, HashMap};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::pin;
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
@@ -15,7 +15,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages;
 use crate::app_messages::{LobbyPlayerId, Route as RouteInput};
 use crate::cancel_token::{CancelToken, Canceler};
-use crate::netcode::ack_manager::AckManager;
+use crate::netcode::ack_manager::{self, AckManager};
 use crate::netcode::storm::{get_resend_info, get_storm_id, ResendType};
 use crate::proto::messages::game_message_payload::Payload;
 use crate::proto::messages::{GameMessage, StormWrapper};
@@ -38,6 +38,7 @@ pub enum NetworkManagerMessage {
     SetGameInfo(Arc<app_messages::GameSetupInfo>),
     ReceivePacket(Ipv4Addr, Bytes, SendMessages),
     GameState(GameStateToNetworkMessage),
+    RequestDebugInfo(Arc<OnceLock<DebugInfo>>),
 }
 
 pub enum GameStateToNetworkMessage {
@@ -118,9 +119,10 @@ struct State {
     send_messages: mpsc::Sender<NetworkManagerMessage>,
     game_state_send: mpsc::Sender<NetworkToGameStateMessage>,
     /// Maps a storm ID (from the Storm packet header) to a last seen time.
-    last_seen_packet_time: HashMap<u8, std::time::Instant>,
+    last_seen_packet_time: HashMap<u8, Instant>,
     /// Maps an IP address to a player ID (from the Storm packet header).
     ip_to_storm_id: HashMap<Ipv4Addr, u8>,
+    last_sent_snp_packet_time: Instant,
 }
 
 #[derive(Default)]
@@ -397,6 +399,7 @@ impl State {
                             _ => {}
                         };
 
+                        self.last_sent_snp_packet_time = Instant::now();
                         let payload = Some(Payload::Storm(StormWrapper {
                             storm_data: data.into(),
                         }));
@@ -477,8 +480,7 @@ impl State {
                             }
 
                             let need_id = if let Some(storm_id) = self.ip_to_storm_id.get(&ip) {
-                                self.last_seen_packet_time
-                                    .insert(*storm_id, std::time::Instant::now());
+                                self.last_seen_packet_time.insert(*storm_id, Instant::now());
                                 false
                             } else {
                                 true
@@ -641,6 +643,36 @@ impl State {
                     }
                 }
             },
+            NetworkManagerMessage::RequestDebugInfo(out) => {
+                let routes;
+                if let NetworkState::Ready(ref network) = self.network {
+                    routes = network
+                        .ip_to_routes
+                        .iter()
+                        .map(|(ip, route)| {
+                            let storm_id = self.ip_to_storm_id.get(ip).copied();
+                            let last_seen_packet_time = storm_id
+                                .and_then(|x| Some(self.last_seen_packet_time.get(&x)?.elapsed()));
+                            DebugRoute {
+                                lobby_player_id: route.route.lobby_player_id.clone(),
+                                address: route.route.address,
+                                ack_manager: route.ack_manager.lock().debug_info(),
+                                storm_id: storm_id.unwrap_or(u8::MAX),
+                                last_seen_packet_time,
+                            }
+                        })
+                        .collect();
+                } else {
+                    routes = Vec::new();
+                }
+                let result = out.set(DebugInfo {
+                    routes,
+                    last_sent_snp_packet_time: self.last_sent_snp_packet_time.elapsed(),
+                });
+                if result.is_err() {
+                    error!("Requested debug info output was already used");
+                }
+            }
         }
     }
 
@@ -778,6 +810,89 @@ impl State {
     }
 }
 
+/// Data that gets sent out of async thread to be rendered by egui thread.
+pub struct DebugInfo {
+    routes: Vec<DebugRoute>,
+    /// How long ago was the last packet queued to be sent from this game.
+    /// (This should be always small?
+    /// If it is large then something is wrong with game performance?)
+    last_sent_snp_packet_time: Duration,
+}
+
+struct DebugRoute {
+    lobby_player_id: LobbyPlayerId,
+    address: SocketAddr,
+    storm_id: u8,
+    ack_manager: ack_manager::DebugInfo,
+    last_seen_packet_time: Option<Duration>,
+}
+
+/// State for UI drawing kept between frames
+pub struct DebugState {
+    /// Keep largest duration from last few seconds as
+    /// the constantly updating time is hard to read.
+    /// Not that the clear mechanism is that good
+    route_max_times: Vec<(LobbyPlayerId, Duration)>,
+    sent_snp_packet_max_time: Duration,
+    last_clear: Instant,
+}
+
+impl DebugInfo {
+    pub fn draw(&self, ui: &mut egui::Ui, state: &mut DebugState) {
+        if state.last_clear.elapsed().as_millis() > 5000 {
+            *state = DebugState::new();
+        }
+        for route in &self.routes {
+            ui.label(format!(
+                "{:x} {} {:?}",
+                route.storm_id, route.address, route.lobby_player_id
+            ));
+            if let Some(time) = route.last_seen_packet_time {
+                let index = match state
+                    .route_max_times
+                    .iter()
+                    .position(|x| x.0 == route.lobby_player_id)
+                {
+                    Some(s) => s,
+                    None => {
+                        state
+                            .route_max_times
+                            .push((route.lobby_player_id.clone(), time));
+                        state.route_max_times.len() - 1
+                    }
+                };
+                let max = state.route_max_times[index].1.max(time);
+                state.route_max_times[index].1 = max;
+                ui.label(format!(
+                    "Last packet {:03}ms ago, Max {:03}",
+                    time.as_millis(),
+                    max.as_millis()
+                ));
+            }
+            route.ack_manager.draw(ui);
+        }
+        let max = state
+            .sent_snp_packet_max_time
+            .max(self.last_sent_snp_packet_time);
+        state.sent_snp_packet_max_time = max;
+        ui.label(format!(
+            "Last sent SNP packet {:03}ms ago, Max {:03}",
+            self.last_sent_snp_packet_time.as_millis(),
+            max.as_millis()
+        ));
+    }
+}
+
+impl DebugState {
+    pub fn new() -> DebugState {
+        DebugState {
+            route_max_times: Vec::new(),
+            sent_snp_packet_max_time: Duration::from_millis(0),
+            last_clear: Instant::now(),
+        }
+    }
+}
+
 // Select ip4/6 address based on which finishses the ping faster
 fn ping_server(
     rally_point: &RallyPoint,
@@ -842,6 +957,7 @@ impl NetworkManager {
             game_state_send,
             last_seen_packet_time: HashMap::new(),
             ip_to_storm_id: HashMap::new(),
+            last_sent_snp_packet_time: Instant::now(),
         };
         let task = async move {
             loop {
@@ -906,5 +1022,12 @@ impl NetworkManager {
             .send(NetworkManagerMessage::SetGameInfo(info))
             .map_err(|_| NetworkError::NotActive)
             .await
+    }
+
+    pub async fn request_debug_info(&self, out: Arc<OnceLock<DebugInfo>>) {
+        let _ = self
+            .send_messages
+            .send(NetworkManagerMessage::RequestDebugInfo(out))
+            .await;
     }
 }
