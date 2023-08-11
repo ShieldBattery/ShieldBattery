@@ -9,6 +9,9 @@ name = "shieldbattery"
 crate-type = ["cdylib"]
 
 [profile.dev]
+# opt-level 1 should enable basic optimizations but not heavy inlining that makes
+# debugging / compiling rougher.
+opt-level = 1
 panic = "abort"
 
 [profile.release]
