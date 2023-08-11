@@ -3,20 +3,23 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { BasicChannelInfo, DetailedChannelInfo, JoinedChannelInfo } from '../../common/chat'
+import {
+  BasicChannelInfo,
+  DetailedChannelInfo,
+  JoinedChannelInfo,
+  SbChannelId,
+} from '../../common/chat'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { matchLinks } from '../../common/text/links'
-import { urlPath } from '../../common/urls'
-import { useSelfUser } from '../auth/auth-utils'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
+import { DestructiveMenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
-import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../state-hooks'
 import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -115,15 +118,16 @@ export interface ChannelHeaderProps {
   basicChannelInfo: ReadonlyDeep<BasicChannelInfo>
   detailedChannelInfo: ReadonlyDeep<DetailedChannelInfo>
   joinedChannelInfo: ReadonlyDeep<JoinedChannelInfo>
+  onLeaveChannel: (channelId: SbChannelId) => void
 }
 
 export function ChannelHeader({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
+  onLeaveChannel,
 }: ChannelHeaderProps) {
   const { t } = useTranslation()
-  const selfUser = useSelfUser()!
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'bottom')
@@ -175,17 +179,16 @@ export function ChannelHeader({
     return elements
   }, [joinedChannelInfo.topic])
 
-  const onSettingsClick = useStableCallback(() => {
-    push(urlPath`/chat/admin/${basicChannelInfo.id}/${basicChannelInfo.name}/settings`)
+  const onLeaveChannelClick = useStableCallback(() => {
+    onLeaveChannel(basicChannelInfo.id)
   })
 
   const actions: React.ReactNode[] = []
-  if (selfUser.id === joinedChannelInfo.ownerId) {
+  if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
     actions.push(
-      <MenuItem
-        key='channel-settings'
-        text={t('chat.channelHeader.actionItems.settings', 'Channel settings')}
-        onClick={onSettingsClick}
+      <DestructiveMenuItem
+        text={t('chat.channelHeader.actionItems.leaveChannel', 'Leave channel')}
+        onClick={onLeaveChannelClick}
       />,
     )
   }
