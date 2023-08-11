@@ -165,6 +165,7 @@ export function ConnectedChatChannel({
             // of asserting them with ! because better to be safe than sorry, or something.
             basicChannelInfo && detailedChannelInfo && joinedChannelInfo ? (
               <ChannelHeader
+                key={basicChannelInfo.id}
                 basicChannelInfo={basicChannelInfo}
                 detailedChannelInfo={detailedChannelInfo}
                 joinedChannelInfo={joinedChannelInfo}
