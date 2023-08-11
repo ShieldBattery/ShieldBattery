@@ -910,7 +910,8 @@
             "createChannel": "Создать канал",
             "noMatchingChannels": "Нет подходящих каналов чата.",
             "pageHeadline": "Каналы чата",
-            "retrievingError": "При получении каналов чата произошла ошибка."
+            "retrievingError": "При получении каналов чата произошла ошибка.",
+            "manageChannelContent": "Управление контентом канала"
         },
         "channelMenu": {
             "banAction": "Бан {{user}}",
