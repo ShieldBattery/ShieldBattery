@@ -689,7 +689,8 @@
             "createChannel": "채널 만들기",
             "noMatchingChannels": "일치하는 채팅 채널이 없습니다.",
             "pageHeadline": "채팅 채널",
-            "retrievingError": "채팅 채널을 검색하는 중에 오류가 발생했습니다."
+            "retrievingError": "채팅 채널을 검색하는 중에 오류가 발생했습니다.",
+            "manageChannelContent": "채널 콘텐츠 관리"
         },
         "channelMenu": {
             "banAction": "금지 {{user}}",
