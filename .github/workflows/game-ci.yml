@@ -29,6 +29,8 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./game
 
       - name: clippy
         run: cargo clippy --all-targets --workspace -- -D warnings
@@ -65,6 +67,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./game
 
       - name: cargo test
         run: cargo test --all-targets --no-fail-fast
