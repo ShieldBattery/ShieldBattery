@@ -110,6 +110,7 @@ pub struct BwScr {
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
+    first_dialog: Option<Value<*mut bw::Dialog>>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -1348,6 +1349,7 @@ impl BwScr {
         let spawn_dialog = analysis.spawn_dialog().ok_or("spawn_dialog")?;
         let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
+        let first_dialog = analysis.first_dialog();
         let units = analysis.units().ok_or("units")?;
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
@@ -1475,6 +1477,7 @@ impl BwScr {
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
+            first_dialog: first_dialog.map(move |x| Value::new(ctx, x)),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -2141,6 +2144,11 @@ impl BwScr {
                 let cmdicons = self.cmdicons.resolve();
                 let replay_visions = self.replay_visions.resolve();
                 let active_units = self.active_units();
+                let first_dialog = self
+                    .first_dialog
+                    .map(|x| x.resolve())
+                    .filter(|x| !x.is_null())
+                    .map(|x| bw_dat::dialog::Dialog::new(x));
                 // Assuming that the last added draw command (Added during orig() call)
                 // will have the is_hd value that is currently being used.
                 // Could also probably examine the render target from get_render_target,
@@ -2168,6 +2176,7 @@ impl BwScr {
                             use_rgb_colors,
                             replay_visions,
                             active_units,
+                            first_dialog,
                         },
                         apm,
                         size,
@@ -2183,6 +2192,21 @@ impl BwScr {
                         let units = [*unit];
                         (self.select_units)(units.len(), units.as_ptr(), 1, 1);
                         self.center_screen(&unit.position());
+                    }
+                    if let Some((ctrl, show)) = overlay_out.show_hide_control {
+                        if show {
+                            if ctrl.control_type() == 0 {
+                                // ctrl.show() crashes for dialogs, but this seems to work..
+                                // (It tries to check if mouse x/y is on control, but
+                                // to do that it'll access parent rect, which won't exist
+                                // for dialogs)
+                                (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
+                            } else {
+                                ctrl.show();
+                            }
+                        } else {
+                            ctrl.hide();
+                        }
                     }
                     draw_inject::add_overlays(
                         &mut render_state.render,

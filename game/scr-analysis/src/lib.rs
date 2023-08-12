@@ -574,4 +574,8 @@ impl<'e> Analysis<'e> {
     pub fn select_units(&mut self) -> Option<VirtualAddress> {
         self.0.select_units()
     }
+
+    pub fn first_dialog(&mut self) -> Option<Operand<'e>> {
+        self.0.first_dialog()
+    }
 }

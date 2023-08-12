@@ -12,6 +12,7 @@ use egui::{
 };
 use winapi::shared::windef::{HWND, POINT};
 
+use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 
 use crate::bw;
@@ -24,6 +25,9 @@ use self::production::ProductionState;
 pub struct OverlayState {
     ctx: egui::Context,
     start_time: Instant,
+    /// Enables / disables UI interaction during OverlayState::step.
+    /// Based on what BW dialogs are visible.
+    ui_active: bool,
     ui_rects: Vec<Rect>,
     events: Vec<Event>,
     production: ProductionState,
@@ -41,6 +45,7 @@ pub struct OverlayState {
     /// Winapi coords, egui coords
     last_mouse_pos: ((i16, i16), Pos2),
     replay_ui_values: ReplayUiValues,
+    draw_layer: u16,
     network_debug_state: network_manager::DebugState,
     network_debug_info: NetworkDebugInfo,
 }
@@ -73,6 +78,8 @@ struct NetworkDebugInfo {
 struct OutState {
     replay_visions: u8,
     select_unit: Option<Unit>,
+    // true => show, false => hide
+    show_hide_control: Option<(Control, bool)>,
 }
 
 pub struct StepOutput {
@@ -80,6 +87,9 @@ pub struct StepOutput {
     pub primitives: Vec<egui::ClippedPrimitive>,
     pub replay_visions: u8,
     pub select_unit: Option<Unit>,
+    pub draw_layer: u16,
+    // true => show, false => hide
+    pub show_hide_control: Option<(Control, bool)>,
 }
 
 /// Bw globals used by OverlayState::step
@@ -92,6 +102,7 @@ pub struct BwVars {
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
+    pub first_dialog: Option<Dialog>,
 }
 
 #[derive(Copy, Clone)]
@@ -179,12 +190,14 @@ impl OverlayState {
         OverlayState {
             ctx,
             start_time: Instant::now(),
+            ui_active: false,
             ui_rects: Vec::new(),
             events: Vec::new(),
             production: ProductionState::new(),
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
+                show_hide_control: None,
             },
             captured_mouse_down: [false; 2],
             mouse_down: [false; 2],
@@ -201,6 +214,19 @@ impl OverlayState {
                 production_image_size: 40.0,
                 production_max: 16,
             },
+            // - 26 is the first layer that is drawn above minimap
+            // (Or maybe a tie with later draw taking prioriry)
+            // - 22 is first above F10 menu
+            // - 20 is first above the console UI
+            // Since egui doesn't really have a way (for now?) to tell some
+            // of the output to be drawn on different layer from others
+            // (Other than managing multiple `egui::Context`s and drawing output
+            // from different context on different layer),
+            // going to set the layer higher on debug builds so that the debug
+            // window is nicer to use.
+            // Layer 19 as default could be fine too, but probably better to
+            // go bit over BW console UI if our UI ever ends up being that big.
+            draw_layer: if cfg!(debug_assertions) { 26 } else { 21 },
             network_debug_state: network_manager::DebugState::new(),
             network_debug_info: NetworkDebugInfo::new(),
         }
@@ -277,10 +303,31 @@ impl OverlayState {
             has_focus,
         };
         self.ui_rects.clear();
+        self.ui_active = if let Some(dialog) = bw.first_dialog {
+            // Checking if "Minimap" is the first dialog *should* be a good way
+            // to figure out if there are any BW menus open, as they *should*
+            // be placed as the first dialog, before minimap.
+            // Scaning the dialog list for the following names would be more
+            // fool-proof though (But how complete is this list? At least it is
+            // missing surrender menu, victory / defeat popups, anything else?)
+            // GameMenu
+            // HelpMenu
+            // Help
+            // Tips_Dlg
+            // ObjectDlg
+            // AbrtMenu
+            // QuitRepl
+            // Quit
+            // IDD_OPTIONS_POPUP
+            dialog.as_control().string() == "Minimap"
+        } else {
+            true
+        };
         let ctx = self.ctx.clone();
         self.out_state = OutState {
             replay_visions: bw.replay_visions,
             select_unit: None,
+            show_hide_control: None,
         };
         let output = ctx.run(input, |ctx| {
             if bw.is_replay_or_obs {
@@ -288,7 +335,7 @@ impl OverlayState {
             }
             let debug = cfg!(debug_assertions);
             if debug {
-                self.add_debug_ui(ctx);
+                self.add_debug_ui(bw, ctx);
             }
         });
         StepOutput {
@@ -296,10 +343,12 @@ impl OverlayState {
             primitives: self.ctx.tessellate(output.shapes),
             replay_visions: self.out_state.replay_visions,
             select_unit: self.out_state.select_unit,
+            draw_layer: self.draw_layer,
+            show_hide_control: self.out_state.show_hide_control,
         }
     }
 
-    fn add_debug_ui(&mut self, ctx: &egui::Context) {
+    fn add_debug_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
         let res = egui::Window::new("Debug")
             .default_pos((0.0, 0.0))
             .default_open(false)
@@ -338,6 +387,32 @@ impl OverlayState {
                         ui.label(egui::RichText::new(msg).size(18.0));
                     }
                 });
+                ui.collapsing("BW Dialogs", |ui| {
+                    let dialogs = std::iter::successors(bw.first_dialog, |&x| unsafe {
+                        let ctrl = std::ptr::addr_of_mut!((**x).control) as *mut bw::scr::Control;
+                        match (*ctrl).next.is_null() {
+                            false => Some(Dialog::new((*ctrl).next as *mut _)),
+                            true => None,
+                        }
+                    });
+                    ui.label("Click to show / hide (Hidden dialogs stay interactable)");
+                    for dialog in dialogs {
+                        let ctrl = dialog.as_control();
+                        let name = ctrl.string();
+                        // (Coordinates are based on 4:3 => 640x480)
+                        let rect = ctrl.screen_coords();
+                        let name = format!(
+                            "{} {},{},{},{}",
+                            name, rect.left, rect.top, rect.right, rect.bottom
+                        );
+                        let mut hidden = ctrl.is_hidden();
+                        ui.toggle_value(&mut hidden, name);
+                        if hidden != ctrl.is_hidden() {
+                            self.out_state.show_hide_control = Some((ctrl, !hidden));
+                        }
+                    }
+                });
+                ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
                 let msg = format!(
                     "Windows mouse {}, {},\n    egui {}, {}",
                     self.last_mouse_pos.0 .0,
@@ -358,7 +433,7 @@ impl OverlayState {
                 );
                 ui.label(egui::RichText::new(msg).size(18.0));
             });
-        self.add_ui_rect(&res);
+        self.force_add_ui_rect(&res);
     }
 
     fn add_replay_ui(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
@@ -477,7 +552,15 @@ impl OverlayState {
         .inner
     }
 
+    /// Adds UI rect (Making the area interactable by user) if it was decided that
+    /// no higher-priority BW menus are active.
     fn add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
+        if self.ui_active {
+            self.force_add_ui_rect(response);
+        }
+    }
+
+    fn force_add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
         if let Some(res) = response {
             self.ui_rects.push(res.response.rect);
         }

@@ -179,10 +179,7 @@ pub unsafe fn add_overlays(
     render_target: &RenderTarget,
 ) {
     update_textures(bw.renderer, state, &overlay_out.textures_delta);
-    // First layer that is drawn above minimap (Or maybe a tie with later draw taking prioriry)
-    // But also it'll be drawn over menus which is maybe not too nice?
-    // 0x15 is above F10 menu already
-    let layer = 0x1a;
+    let layer = overlay_out.draw_layer;
     for primitive in overlay_out.primitives.into_iter() {
         match primitive.primitive {
             epaint::Primitive::Mesh(mesh) => {
