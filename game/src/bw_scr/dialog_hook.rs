@@ -1,9 +1,15 @@
-use bw_dat::dialog::{Dialog, EventHandler};
+use std::sync::atomic::{AtomicU8, Ordering};
+
+use bw_dat::dialog::{Control, Dialog, EventHandler};
 
 use crate::bw::{self, get_bw, Bw};
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
+static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
+static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
+static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
+static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
 
 pub unsafe fn spawn_dialog_hook(
     raw: *mut bw::Dialog,
@@ -20,6 +26,10 @@ pub unsafe fn spawn_dialog_hook(
         inited.func() as usize
     } else if name == "MsgFltr" {
         let inited = MSG_FILTER_EVENT_HANDLER.init(msg_filter_event_handler);
+        inited.set_orig(event_handler);
+        inited.func() as usize
+    } else if name == "Minimap" {
+        let inited = MINIMAP_EVENT_HANDLER.init(minimap_event_handler);
         inited.set_orig(event_handler);
         inited.func() as usize
     } else {
@@ -59,4 +69,60 @@ unsafe extern "C" fn msg_filter_event_handler(
     let ret = orig(ctrl, event);
     (*game_data).game_template.allies_enabled = old;
     ret
+}
+
+unsafe extern "C" fn minimap_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    let bw = get_bw();
+    let ret = orig(ctrl, event);
+    let event = event as *mut bw::scr::ControlEvent;
+    // Init event
+    if (*event).ty == 0xe && (*event).ext_type == 0x0 {
+        // Replay / obs UI won't have the alliance / chat buttons show above
+        // minimap unless explicitly shown.
+        // But annoyingly they are not immediately hidden by the init event, but
+        // a timer is queued to hide them after a bit, so knowing when to show them
+        // again is kind of annoying.. Have to hook the relevant control's event handlers
+        // and have them ignore the hide event.
+        if bw.is_replay_or_obs() {
+            let ctrl = Control::new(ctrl);
+            for child in ctrl.dialog().children() {
+                if matches!(child.id(), 3 | 4) {
+                    let handler_hook = match child.id() {
+                        3 => &MINIMAP_BUTTON1_EVENT_HANDLER,
+                        _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
+                    };
+                    if let Some(handler) = (*(*child as *mut bw::scr::Control)).event_handler {
+                        let inited = handler_hook.init(prevent_button_hide);
+                        inited.set_orig(handler as usize);
+                        child.set_event_handler(inited);
+                        PREVENT_BUTTON_HIDE_COUNT.fetch_add(1, Ordering::Relaxed);
+                    }
+                    child.show();
+                }
+            }
+        }
+    }
+    ret
+}
+
+unsafe extern "C" fn prevent_button_hide(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    let event = event as *mut bw::scr::ControlEvent;
+    if (*event).ty == 0xe && (*event).ext_type == 0xe {
+        // Hide
+        let hide_skip_count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);
+        if hide_skip_count != 0 {
+            debug!("Skipping minimap button hide");
+            PREVENT_BUTTON_HIDE_COUNT.store(hide_skip_count - 1, Ordering::Relaxed);
+            return 0;
+        }
+    }
+    orig(ctrl, event as _)
 }

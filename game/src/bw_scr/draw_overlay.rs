@@ -449,18 +449,11 @@ impl OverlayState {
     }
 
     fn dialog_debug_ui(&mut self, bw: &BwVars, ui: &mut egui::Ui) {
-        let dialogs = std::iter::successors(bw.first_dialog, |&x| unsafe {
-            let ctrl = std::ptr::addr_of_mut!((**x).control) as *mut bw::scr::Control;
-            match (*ctrl).next.is_null() {
-                false => Some(Dialog::new((*ctrl).next as *mut _)),
-                true => None,
-            }
-        });
         if !self.dialog_debug_inspect_children {
             ui.label("Click to show / hide (Hidden dialogs stay interactable)");
         }
         ui.checkbox(&mut self.dialog_debug_inspect_children, "Inspect children");
-        for dialog in dialogs {
+        for dialog in bw::iter_dialogs(bw.first_dialog) {
             let ctrl = dialog.as_control();
             let name = ctrl.string();
             // (Coordinates are based on 4:3 => 640x480)

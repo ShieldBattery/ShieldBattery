@@ -2138,8 +2138,7 @@ impl BwScr {
                     return;
                 }
                 let game = bw_dat::Game::from_ptr(game);
-                let is_replay_or_obs =
-                    self.is_replay.resolve() != 0 || self.local_unique_player_id.resolve() >= 0x80;
+                let is_replay_or_obs = self.is_replay_or_obs();
                 let main_palette = self.main_palette.resolve();
                 let rgb_colors = self.rgb_colors.resolve();
                 let use_rgb_colors = self.use_rgb_colors.resolve();
@@ -2147,11 +2146,7 @@ impl BwScr {
                 let cmdicons = self.cmdicons.resolve();
                 let replay_visions = self.replay_visions.resolve();
                 let active_units = self.active_units();
-                let first_dialog = self
-                    .first_dialog
-                    .map(|x| x.resolve())
-                    .filter(|x| !x.is_null())
-                    .map(|x| bw_dat::dialog::Dialog::new(x));
+                let first_dialog = self.resolve_first_dialog();
                 let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
                 // Assuming that the last added draw command (Added during orig() call)
                 // will have the is_hd value that is currently being used.
@@ -2677,6 +2672,19 @@ impl BwScr {
         if let Some(mut apm) = self.apm_state.lock() {
             *apm = ApmStats::new();
         }
+    }
+
+    fn resolve_first_dialog(&self) -> Option<bw_dat::dialog::Dialog> {
+        unsafe {
+            self.first_dialog
+                .map(|x| x.resolve())
+                .filter(|x| !x.is_null())
+                .map(|x| bw_dat::dialog::Dialog::new(x))
+        }
+    }
+
+    fn is_replay_or_obs(&self) -> bool {
+        unsafe { self.is_replay.resolve() != 0 || self.local_unique_player_id.resolve() >= 0x80 }
     }
 }
 

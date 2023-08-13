@@ -503,3 +503,15 @@ pub unsafe fn player_color(
     };
     color.unwrap_or([0xff, 0xff, 0xff])
 }
+
+pub fn iter_dialogs(
+    first: Option<bw_dat::dialog::Dialog>,
+) -> impl Iterator<Item = bw_dat::dialog::Dialog> {
+    std::iter::successors(first, |&x| unsafe {
+        let ctrl = std::ptr::addr_of_mut!((**x).control) as *mut scr::Control;
+        match (*ctrl).next.is_null() {
+            false => Some(bw_dat::dialog::Dialog::new((*ctrl).next as *mut _)),
+            true => None,
+        }
+    })
+}
