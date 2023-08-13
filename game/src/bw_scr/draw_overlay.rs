@@ -46,6 +46,8 @@ pub struct OverlayState {
     /// Winapi coords, egui coords
     last_mouse_pos: ((i16, i16), Pos2),
     replay_ui_values: ReplayUiValues,
+    player_vision_was_auto_disabled: [bool; 8],
+    replay_start_handled: bool,
     draw_layer: u16,
     network_debug_state: network_manager::DebugState,
     network_debug_info: NetworkDebugInfo,
@@ -99,6 +101,7 @@ pub struct StepOutput {
 /// Bw globals used by OverlayState::step
 pub struct BwVars {
     pub is_replay_or_obs: bool,
+    pub is_team_game: bool,
     pub game: bw_dat::Game,
     pub players: *mut bw::Player,
     pub main_palette: *mut u8,
@@ -106,6 +109,7 @@ pub struct BwVars {
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
+    pub first_player_unit: *mut *mut bw::Unit,
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
 }
@@ -220,6 +224,8 @@ impl OverlayState {
                 production_image_size: 40.0,
                 production_max: 16,
             },
+            player_vision_was_auto_disabled: [false; 8],
+            replay_start_handled: false,
             // - 26 is the first layer that is drawn above minimap
             // (Or maybe a tie with later draw taking prioriry)
             // - 22 is first above F10 menu
@@ -499,6 +505,36 @@ impl OverlayState {
     }
 
     fn add_replay_ui(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
+        let frame = bw.game.frame_count();
+        if frame == 0 {
+            // Explicit init at start of the game to handle replay restarts /
+            // if we eventually support keeping client over multiple games.
+            self.replay_start_handled = false;
+        }
+        if frame >= 1 && !self.replay_start_handled {
+            // Replay start;
+            // Disable vision for any players that don't own units (Assuming they're observers)
+            self.replay_start_handled = true;
+            self.player_vision_was_auto_disabled = [false; 8];
+            for i in 0..8 {
+                if !player_has_units(bw, i) && !bw.is_team_game {
+                    let mask = 1 << i;
+                    self.out_state.replay_visions &= !mask;
+                    self.player_vision_was_auto_disabled[i as usize] = true;
+                }
+            }
+        } else if self.replay_start_handled {
+            // If we had disabled the vision but a player has suddenly gained units,
+            // enable the vision.
+            for i in 0..8 {
+                if self.player_vision_was_auto_disabled[i as usize] && player_has_units(bw, i) {
+                    let mask = 1 << i;
+                    self.out_state.replay_visions |= mask;
+                    self.player_vision_was_auto_disabled[i as usize] = false;
+                }
+            }
+        }
+
         let res = egui::Window::new("Replay_Resources")
             .anchor(Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 })
             .movable(false)
@@ -512,6 +548,21 @@ impl OverlayState {
                 let mut prev_team = 0;
                 #[allow(clippy::explicit_counter_loop)]
                 for (team, player_id) in replay_players_by_team(bw) {
+                    // Skip players with no units -- assuming they're UMS map observers.
+                    // UMS map with triggers can have players sometimes be
+                    // without units until triggers let them play, but probably this
+                    // won't be too relevant.
+                    // But show all players in team games even though units are owned by one
+                    // of them.
+                    if !player_has_units(bw, player_id) && !bw.is_team_game {
+                        // But if we have player's vision enabled (Can be done through
+                        // vision button above minimap / player having had units before),
+                        // show player's name so that the user (hopefully) realizes that
+                        // they provide vision.
+                        if !has_player_vision(bw, player_id) {
+                            continue;
+                        }
+                    }
                     if team != prev_team {
                         prev_team = team;
                         team_players_shown = 0;
@@ -543,6 +594,12 @@ impl OverlayState {
                             self.out_state.replay_visions &= !mask;
                         } else {
                             self.out_state.replay_visions |= mask;
+                        }
+                        if let Some(val) = self
+                            .player_vision_was_auto_disabled
+                            .get_mut(player_id as usize)
+                        {
+                            *val = false;
                         }
                     }
                     players_shown += 1;
@@ -867,6 +924,17 @@ fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> {
     })
 }
 
+fn player_has_units(bw: &BwVars, player_id: u8) -> bool {
+    unsafe { !(*bw.first_player_unit.add(player_id as usize)).is_null() }
+}
+
+fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
+    match 1u8.checked_shl(player_id as u32) {
+        Some(bit) => bw.replay_visions & bit != 0,
+        None => true,
+    }
+}
+
 struct PlayerInfo {
     name: Cow<'static, str>,
     color: Color32,
@@ -940,10 +1008,7 @@ unsafe fn player_resources_info(
     if race > 2 {
         race = 0;
     }
-    let vision = match 1u8.checked_shl(player_id as u32) {
-        Some(bit) => bw.replay_visions & bit != 0,
-        None => true,
-    };
+    let vision = has_player_vision(bw, player_id);
     PlayerInfo {
         name,
         color: Color32::from_rgb(color[0], color[1], color[2]),

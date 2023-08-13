@@ -25,11 +25,11 @@ use crate::bw::apm_stats::ApmStats;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
 use crate::bw::{commands, UserLatency};
-use crate::game_thread::send_game_msg_to_async;
+use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::windows;
-use crate::{game_thread, GameThreadMessage};
+use crate::GameThreadMessage;
 
 mod bw_hash_table;
 mod bw_vector;
@@ -75,6 +75,7 @@ pub struct BwScr {
     local_player_name: Value<*mut u8>,
     fonts: Value<*mut *mut scr::Font>,
     first_active_unit: Value<*mut bw::Unit>,
+    first_player_unit: Value<*mut *mut bw::Unit>,
     client_selection: Value<*mut *mut bw::Unit>,
     sprites_by_y_tile: Value<*mut *mut scr::Sprite>,
     sprites_by_y_tile_end: Value<*mut *mut scr::Sprite>,
@@ -1273,6 +1274,7 @@ impl BwScr {
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
+        let first_player_unit = analysis.first_player_unit().ok_or("first_player_unit")?;
         let client_selection = analysis.client_selection().ok_or("client_selection")?;
         let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
         let sprite_y = analysis.sprite_y().ok_or("sprite_y")?;
@@ -1448,6 +1450,7 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
+            first_player_unit: Value::new(ctx, first_player_unit),
             client_selection: Value::new(ctx, client_selection),
             sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
             sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
@@ -2139,6 +2142,7 @@ impl BwScr {
                 }
                 let game = bw_dat::Game::from_ptr(game);
                 let is_replay_or_obs = self.is_replay_or_obs();
+                let is_team_game = game_thread::is_team_game();
                 let main_palette = self.main_palette.resolve();
                 let rgb_colors = self.rgb_colors.resolve();
                 let use_rgb_colors = self.use_rgb_colors.resolve();
@@ -2146,6 +2150,7 @@ impl BwScr {
                 let cmdicons = self.cmdicons.resolve();
                 let replay_visions = self.replay_visions.resolve();
                 let active_units = self.active_units();
+                let first_player_unit = self.first_player_unit.resolve();
                 let first_dialog = self.resolve_first_dialog();
                 let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
                 // Assuming that the last added draw command (Added during orig() call)
@@ -2168,6 +2173,7 @@ impl BwScr {
                     let overlay_out = render_state.overlay.step(
                         &draw_overlay::BwVars {
                             is_replay_or_obs,
+                            is_team_game,
                             game,
                             players,
                             main_palette,
@@ -2175,6 +2181,7 @@ impl BwScr {
                             use_rgb_colors,
                             replay_visions,
                             active_units,
+                            first_player_unit,
                             first_dialog,
                             graphic_layers,
                         },

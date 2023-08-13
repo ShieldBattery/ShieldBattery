@@ -582,4 +582,8 @@ impl<'e> Analysis<'e> {
     pub fn graphic_layers(&mut self) -> Option<Operand<'e>> {
         self.0.graphic_layers()
     }
+
+    pub fn first_player_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_player_unit()
+    }
 }

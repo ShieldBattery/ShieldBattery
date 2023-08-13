@@ -6,7 +6,9 @@ use hashbrown::HashMap;
 
 use crate::bw;
 
-use super::{replay_players_by_team, BwVars, OverlayState, ReplayUiValues, Texture};
+use super::{
+    player_has_units, replay_players_by_team, BwVars, OverlayState, ReplayUiValues, Texture,
+};
 
 pub struct ProductionState {
     per_player: [PlayerProduction; 8],
@@ -151,6 +153,9 @@ impl OverlayState {
                 ui.style_mut().spacing.item_spacing.y = 0.0;
                 let is_team_game = crate::game_thread::is_team_game();
                 for (_team, player_id) in replay_players_by_team(bw) {
+                    if !player_has_units(bw, player_id) {
+                        continue;
+                    }
                     if is_team_game
                         && unsafe { !(**bw.game).team_game_main_player.contains(&player_id) }
                     {
