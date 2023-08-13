@@ -49,6 +49,7 @@ pub struct OverlayState {
     draw_layer: u16,
     network_debug_state: network_manager::DebugState,
     network_debug_info: NetworkDebugInfo,
+    dialog_debug_inspect_children: bool,
 }
 
 struct ReplayUiValues {
@@ -234,6 +235,7 @@ impl OverlayState {
             draw_layer: if cfg!(debug_assertions) { 26 } else { 21 },
             network_debug_state: network_manager::DebugState::new(),
             network_debug_info: NetworkDebugInfo::new(),
+            dialog_debug_inspect_children: false,
         }
     }
 
@@ -361,107 +363,146 @@ impl OverlayState {
             .default_open(false)
             .movable(true)
             .show(ctx, |ui| {
-                ui.collapsing("Egui settings", |ui| {
-                    egui::ScrollArea::vertical()
-                        .max_height(self.screen_size.1 as f32 * 0.8)
-                        .show(ui, |ui| {
-                            ctx.settings_ui(ui);
-                        });
-                });
-                ui.collapsing("Replay UI", |ui| {
-                    let v = &mut self.replay_ui_values;
-                    for (var, text) in [
-                        (&mut v.name_width, "Name"),
-                        (&mut v.resource_width, "Resources"),
-                        (&mut v.supply_width, "Supply"),
-                        (&mut v.workers_width, "Workers"),
-                        (&mut v.apm_width, "APM"),
-                        (&mut v.production_pos.0, "Production X"),
-                        (&mut v.production_pos.1, "Production Y"),
-                        (&mut v.production_image_size, "Production size"),
-                    ] {
-                        ui.add(Slider::new(var, 0.0..=200.0).text(text));
-                    }
-                    #[allow(clippy::single_element_loop)]
-                    for (var, text) in [(&mut v.production_max, "Production max")] {
-                        ui.add(Slider::new(var, 0u32..=50).text(text));
-                    }
-                });
-                ui.collapsing("Network", |ui| {
-                    if let Some((values, time)) = self.network_debug_info.get() {
-                        values.draw(ui, &mut self.network_debug_state);
-                        let msg = format!("Updated {}ms ago", time.as_millis());
-                        ui.label(egui::RichText::new(msg).size(18.0));
-                    }
-                });
-                ui.collapsing("BW Dialogs", |ui| {
-                    let dialogs = std::iter::successors(bw.first_dialog, |&x| unsafe {
-                        let ctrl = std::ptr::addr_of_mut!((**x).control) as *mut bw::scr::Control;
-                        match (*ctrl).next.is_null() {
-                            false => Some(Dialog::new((*ctrl).next as *mut _)),
-                            true => None,
-                        }
+                egui::ScrollArea::vertical()
+                    .max_height(self.screen_size.1 as f32 * 0.9)
+                    .show(ui, |ui| {
+                        self.add_debug_ui_contents(bw, ctx, ui);
                     });
-                    ui.label("Click to show / hide (Hidden dialogs stay interactable)");
-                    for dialog in dialogs {
-                        let ctrl = dialog.as_control();
-                        let name = ctrl.string();
-                        // (Coordinates are based on 4:3 => 640x480)
-                        let rect = ctrl.screen_coords();
-                        let name = format!(
-                            "{} {},{},{},{}",
-                            name, rect.left, rect.top, rect.right, rect.bottom
-                        );
-                        let mut hidden = ctrl.is_hidden();
-                        ui.toggle_value(&mut hidden, name);
-                        if hidden != ctrl.is_hidden() {
-                            self.out_state.show_hide_control = Some((ctrl, !hidden));
-                        }
-                    }
-                });
-                ui.collapsing("Pre-SC:R graphic layers", |ui| {
-                    ui.label("Click to show / hide");
-                    if let Some(layers) = bw.graphic_layers {
-                        for i in 0..8 {
-                            unsafe {
-                                let layer = layers.as_ptr().add(i as usize);
-                                let has_draw_func = (*layer).draw_func.is_some();
-                                let was_hidden = (*layer).draw == 0;
-                                let mut hidden = was_hidden;
-                                let mut name = format!("Layer {i}");
-                                if !has_draw_func {
-                                    name.push_str(" (No draw func set)");
-                                }
-                                ui.toggle_value(&mut hidden, name);
-                                if hidden != was_hidden && has_draw_func {
-                                    self.out_state.show_hide_graphic_layer = Some((i, !hidden));
-                                }
-                            }
-                        }
-                    }
-                });
-                ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
-                let msg = format!(
-                    "Windows mouse {}, {},\n    egui {}, {}",
-                    self.last_mouse_pos.0 .0,
-                    self.last_mouse_pos.0 .1,
-                    self.last_mouse_pos.1.x,
-                    self.last_mouse_pos.1.y,
-                );
-                ui.label(egui::RichText::new(msg).size(18.0));
-                let msg = format!(
-                    "Windows size {}, {}, egui size {}, {}",
-                    self.window_size.0, self.window_size.1, self.screen_size.0, self.screen_size.1,
-                );
-                ui.label(egui::RichText::new(msg).size(18.0));
-                let modifiers = current_egui_modifiers();
-                let msg = format!(
-                    "Ctrl {}, Alt {}, shift {}",
-                    modifiers.ctrl, modifiers.alt, modifiers.shift,
-                );
-                ui.label(egui::RichText::new(msg).size(18.0));
             });
         self.force_add_ui_rect(&res);
+    }
+
+    fn add_debug_ui_contents(&mut self, bw: &BwVars, ctx: &egui::Context, ui: &mut egui::Ui) {
+        ui.collapsing("Egui settings", |ui| {
+            ctx.settings_ui(ui);
+        });
+        ui.collapsing("Replay UI", |ui| {
+            let v = &mut self.replay_ui_values;
+            for (var, text) in [
+                (&mut v.name_width, "Name"),
+                (&mut v.resource_width, "Resources"),
+                (&mut v.supply_width, "Supply"),
+                (&mut v.workers_width, "Workers"),
+                (&mut v.apm_width, "APM"),
+                (&mut v.production_pos.0, "Production X"),
+                (&mut v.production_pos.1, "Production Y"),
+                (&mut v.production_image_size, "Production size"),
+            ] {
+                ui.add(Slider::new(var, 0.0..=200.0).text(text));
+            }
+            #[allow(clippy::single_element_loop)]
+            for (var, text) in [(&mut v.production_max, "Production max")] {
+                ui.add(Slider::new(var, 0u32..=50).text(text));
+            }
+        });
+        ui.collapsing("Network", |ui| {
+            if let Some((values, time)) = self.network_debug_info.get() {
+                values.draw(ui, &mut self.network_debug_state);
+                let msg = format!("Updated {}ms ago", time.as_millis());
+                ui.label(egui::RichText::new(msg).size(18.0));
+            }
+        });
+        ui.collapsing("BW Dialogs", |ui| {
+            self.dialog_debug_ui(bw, ui);
+        });
+        ui.collapsing("Pre-SC:R graphic layers", |ui| {
+            ui.label("Click to show / hide");
+            if let Some(layers) = bw.graphic_layers {
+                for i in 0..8 {
+                    unsafe {
+                        let layer = layers.as_ptr().add(i as usize);
+                        let has_draw_func = (*layer).draw_func.is_some();
+                        let was_hidden = (*layer).draw == 0;
+                        let mut hidden = was_hidden;
+                        let mut name = format!("Layer {i}");
+                        if !has_draw_func {
+                            name.push_str(" (No draw func set)");
+                        }
+                        ui.toggle_value(&mut hidden, name);
+                        if hidden != was_hidden && has_draw_func {
+                            self.out_state.show_hide_graphic_layer = Some((i, !hidden));
+                        }
+                    }
+                }
+            }
+        });
+        ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
+        let msg = format!(
+            "Windows mouse {}, {},\n    egui {}, {}",
+            self.last_mouse_pos.0 .0,
+            self.last_mouse_pos.0 .1,
+            self.last_mouse_pos.1.x,
+            self.last_mouse_pos.1.y,
+        );
+        ui.label(egui::RichText::new(msg).size(18.0));
+        let msg = format!(
+            "Windows size {}, {}, egui size {}, {}",
+            self.window_size.0, self.window_size.1, self.screen_size.0, self.screen_size.1,
+        );
+        ui.label(egui::RichText::new(msg).size(18.0));
+        let modifiers = current_egui_modifiers();
+        let msg = format!(
+            "Ctrl {}, Alt {}, shift {}",
+            modifiers.ctrl, modifiers.alt, modifiers.shift,
+        );
+        ui.label(egui::RichText::new(msg).size(18.0));
+    }
+
+    fn dialog_debug_ui(&mut self, bw: &BwVars, ui: &mut egui::Ui) {
+        let dialogs = std::iter::successors(bw.first_dialog, |&x| unsafe {
+            let ctrl = std::ptr::addr_of_mut!((**x).control) as *mut bw::scr::Control;
+            match (*ctrl).next.is_null() {
+                false => Some(Dialog::new((*ctrl).next as *mut _)),
+                true => None,
+            }
+        });
+        if !self.dialog_debug_inspect_children {
+            ui.label("Click to show / hide (Hidden dialogs stay interactable)");
+        }
+        ui.checkbox(&mut self.dialog_debug_inspect_children, "Inspect children");
+        for dialog in dialogs {
+            let ctrl = dialog.as_control();
+            let name = ctrl.string();
+            // (Coordinates are based on 4:3 => 640x480)
+            let rect = ctrl.screen_coords();
+            let name = format!(
+                "{} {},{},{},{}",
+                name, rect.left, rect.top, rect.right, rect.bottom
+            );
+            if !self.dialog_debug_inspect_children {
+                let mut hidden = ctrl.is_hidden();
+                ui.toggle_value(&mut hidden, name);
+                if hidden != ctrl.is_hidden() {
+                    self.out_state.show_hide_control = Some((ctrl, !hidden));
+                }
+            } else {
+                // Pointer address as id_source is stable for lifetime
+                // of the dialog. Maybe will have small issues with ones that
+                // get deleted and readded sometimes using same address?
+                egui::CollapsingHeader::new(name)
+                    .id_source(*dialog as usize)
+                    .show(ui, |ui| {
+                        for ctrl in dialog.children() {
+                            let rect = ctrl.dialog_coords();
+                            let name = format!(
+                                "{} {}: '{}' {},{},{},{}",
+                                control_type_name(ctrl.control_type()),
+                                ctrl.id(),
+                                ctrl.string(),
+                                rect.left,
+                                rect.top,
+                                rect.right,
+                                rect.bottom,
+                            );
+                            let mut hidden = ctrl.is_hidden();
+                            ui.toggle_value(&mut hidden, name);
+                            if hidden != ctrl.is_hidden() {
+                                self.out_state.show_hide_control = Some((ctrl, !hidden));
+                            }
+                        }
+                    });
+            }
+        }
     }
 
     fn add_replay_ui(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
@@ -940,6 +981,29 @@ unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 {
         }
     }
     mask
+}
+
+fn control_type_name(ty: u16) -> Cow<'static, str> {
+    match ty {
+        0x0 => "Dialog",
+        0x1 => "Default button",
+        0x2 => "Button",
+        0x3 => "Option",
+        0x4 => "Checkbox",
+        0x5 => "Image",
+        0x6 => "Slider",
+        0x7 => "Scroll bar",
+        0x8 => "Textbox",
+        0x9 => "Label (Left)",
+        0xa => "Label (Center)",
+        0xb => "Label (Right)",
+        0xc => "Listbox",
+        0xd => "Dropdown",
+        0xe => "Video",
+        0xf => "Webui",
+        _ => return format!("Type_{ty:02x}").into(),
+    }
+    .into()
 }
 
 fn current_egui_modifiers() -> egui::Modifiers {
