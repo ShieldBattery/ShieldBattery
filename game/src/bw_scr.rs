@@ -2,7 +2,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::ptr::{null, null_mut};
+use std::ptr::{null, null_mut, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -111,6 +111,7 @@ pub struct BwScr {
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
     first_dialog: Option<Value<*mut bw::Dialog>>,
+    graphic_layers: Option<Value<*mut bw::GraphicLayer>>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -1350,6 +1351,7 @@ impl BwScr {
         let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
         let first_dialog = analysis.first_dialog();
+        let graphic_layers = analysis.graphic_layers();
         let units = analysis.units().ok_or("units")?;
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
@@ -1478,6 +1480,7 @@ impl BwScr {
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
             first_dialog: first_dialog.map(move |x| Value::new(ctx, x)),
+            graphic_layers: graphic_layers.map(move |x| Value::new(ctx, x)),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -2149,6 +2152,7 @@ impl BwScr {
                     .map(|x| x.resolve())
                     .filter(|x| !x.is_null())
                     .map(|x| bw_dat::dialog::Dialog::new(x));
+                let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
                 // Assuming that the last added draw command (Added during orig() call)
                 // will have the is_hd value that is currently being used.
                 // Could also probably examine the render target from get_render_target,
@@ -2177,6 +2181,7 @@ impl BwScr {
                             replay_visions,
                             active_units,
                             first_dialog,
+                            graphic_layers,
                         },
                         apm,
                         size,
@@ -2206,6 +2211,19 @@ impl BwScr {
                             }
                         } else {
                             ctrl.hide();
+                        }
+                    }
+                    if let Some((index, show)) = overlay_out.show_hide_graphic_layer {
+                        assert!(index < 8);
+                        if let Some(layers) = graphic_layers {
+                            let layer = layers.as_ptr().add(index as usize);
+                            if show {
+                                if (*layer).draw_func.is_some() {
+                                    (*layer).draw = 1;
+                                }
+                            } else {
+                                (*layer).draw = 0;
+                            }
                         }
                     }
                     draw_inject::add_overlays(

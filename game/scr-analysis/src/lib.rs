@@ -578,4 +578,8 @@ impl<'e> Analysis<'e> {
     pub fn first_dialog(&mut self) -> Option<Operand<'e>> {
         self.0.first_dialog()
     }
+
+    pub fn graphic_layers(&mut self) -> Option<Operand<'e>> {
+        self.0.graphic_layers()
+    }
 }

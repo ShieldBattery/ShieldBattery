@@ -2,6 +2,7 @@ mod production;
 
 use std::borrow::Cow;
 use std::mem;
+use std::ptr::NonNull;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -80,6 +81,7 @@ struct OutState {
     select_unit: Option<Unit>,
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
+    show_hide_graphic_layer: Option<(u8, bool)>,
 }
 
 pub struct StepOutput {
@@ -90,6 +92,7 @@ pub struct StepOutput {
     pub draw_layer: u16,
     // true => show, false => hide
     pub show_hide_control: Option<(Control, bool)>,
+    pub show_hide_graphic_layer: Option<(u8, bool)>,
 }
 
 /// Bw globals used by OverlayState::step
@@ -103,6 +106,7 @@ pub struct BwVars {
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
     pub first_dialog: Option<Dialog>,
+    pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
 }
 
 #[derive(Copy, Clone)]
@@ -198,6 +202,7 @@ impl OverlayState {
                 replay_visions: 0,
                 select_unit: None,
                 show_hide_control: None,
+                show_hide_graphic_layer: None,
             },
             captured_mouse_down: [false; 2],
             mouse_down: [false; 2],
@@ -328,6 +333,7 @@ impl OverlayState {
             replay_visions: bw.replay_visions,
             select_unit: None,
             show_hide_control: None,
+            show_hide_graphic_layer: None,
         };
         let output = ctx.run(input, |ctx| {
             if bw.is_replay_or_obs {
@@ -345,6 +351,7 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             draw_layer: self.draw_layer,
             show_hide_control: self.out_state.show_hide_control,
+            show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
         }
     }
 
@@ -409,6 +416,27 @@ impl OverlayState {
                         ui.toggle_value(&mut hidden, name);
                         if hidden != ctrl.is_hidden() {
                             self.out_state.show_hide_control = Some((ctrl, !hidden));
+                        }
+                    }
+                });
+                ui.collapsing("Pre-SC:R graphic layers", |ui| {
+                    ui.label("Click to show / hide");
+                    if let Some(layers) = bw.graphic_layers {
+                        for i in 0..8 {
+                            unsafe {
+                                let layer = layers.as_ptr().add(i as usize);
+                                let has_draw_func = (*layer).draw_func.is_some();
+                                let was_hidden = (*layer).draw == 0;
+                                let mut hidden = was_hidden;
+                                let mut name = format!("Layer {i}");
+                                if !has_draw_func {
+                                    name.push_str(" (No draw func set)");
+                                }
+                                ui.toggle_value(&mut hidden, name);
+                                if hidden != was_hidden && has_draw_func {
+                                    self.out_state.show_hide_graphic_layer = Some((i, !hidden));
+                                }
+                            }
                         }
                     }
                 });

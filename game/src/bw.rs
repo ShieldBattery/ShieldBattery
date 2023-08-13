@@ -408,6 +408,16 @@ pub struct UnitStatusFunc {
     pub update_status: unsafe extern "C" fn(*mut Dialog),
 }
 
+#[repr(C)]
+pub struct GraphicLayer {
+    pub draw: u8,
+    pub flags: u8,
+    pub rect: Rect,
+    pub func_param: *mut c_void,
+    // unk_0, unk_0, func_param, rect, is_drawing_other_asset_mode
+    pub draw_func: Option<unsafe extern "C" fn(usize, usize, *mut c_void, *const Rect, u32)>,
+}
+
 unsafe impl Send for SnpFunctions {}
 unsafe impl Sync for SnpFunctions {}
 unsafe impl Send for ClientInfo {}
@@ -432,6 +442,7 @@ fn struct_sizes() {
     assert_eq!(size_of::<ReplayData>(), size(0x20, 0x30));
     assert_eq!(size_of::<ReplayHeader>(), 0x279);
     assert_eq!(size_of::<UnitStatusFunc>(), size(0xc, 0x18));
+    assert_eq!(size_of::<GraphicLayer>(), size(0x14, 0x20));
 }
 
 pub struct FowSpriteIterator(*mut FowSprite);
