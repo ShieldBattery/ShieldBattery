@@ -3,9 +3,11 @@ name: Game CI
 on:
   push:
     paths:
+      - '.github/workflows/game-ci.yml'
       - 'game/**'
   pull_request:
     paths:
+      - '.github/workflows/game-ci.yml'
       - 'game/**'
 
 concurrency:
