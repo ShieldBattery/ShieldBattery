@@ -586,4 +586,19 @@ impl<'e> Analysis<'e> {
     pub fn first_player_unit(&mut self) -> Option<Operand<'e>> {
         self.0.first_player_unit()
     }
+
+    pub fn game_screen_height_ratio(&mut self) -> Option<Operand<'e>> {
+        self.0.game_screen_height_ratio()
+    }
+
+    pub fn zoom(&mut self) -> Option<Operand<'e>> {
+        self.0.zoom()
+    }
+
+    pub fn console_vtables(&mut self) -> Vec<VirtualAddress> {
+        let mut out = Vec::with_capacity(2);
+        out.extend(self.0.vtables_for_class(b".?AVSDConsole@@"));
+        out.extend(self.0.vtables_for_class(b".?AVHDWideConsole@@"));
+        out
+    }
 }

@@ -4,12 +4,20 @@ use bw_dat::dialog::{Control, Dialog, EventHandler};
 
 use crate::bw::{self, get_bw, Bw};
 
+use super::console;
+
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
+static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.len()] =
+    [NEW_EVENT_HANDLER; console::CONSOLE_DIALOGS.len()];
 static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
+
+// Helper needed for initializing array of event handlers
+#[allow(clippy::declare_interior_mutable_const)]
+const NEW_EVENT_HANDLER: EventHandler = EventHandler::new();
 
 pub unsafe fn spawn_dialog_hook(
     raw: *mut bw::Dialog,
@@ -30,6 +38,12 @@ pub unsafe fn spawn_dialog_hook(
         inited.func() as usize
     } else if name == "Minimap" {
         let inited = MINIMAP_EVENT_HANDLER.init(minimap_event_handler);
+        inited.set_orig(event_handler);
+        inited.func() as usize
+    } else if let Some(index) = console::CONSOLE_DIALOGS.iter().position(|&x| x == name) {
+        // Note: Minimap which is hooked above is also a console dialog, and its
+        // event handler should do same thing as this one.
+        let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
         inited.set_orig(event_handler);
         inited.func() as usize
     } else {
@@ -77,6 +91,9 @@ unsafe extern "C" fn minimap_event_handler(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     let bw = get_bw();
+    if bw.console_hidden() {
+        return 0;
+    }
     let ret = orig(ctrl, event);
     let event = event as *mut bw::scr::ControlEvent;
     // Init event
@@ -107,6 +124,18 @@ unsafe extern "C" fn minimap_event_handler(
         }
     }
     ret
+}
+
+unsafe extern "C" fn console_dialog_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    let bw = get_bw();
+    if bw.console_hidden() {
+        return 0;
+    }
+    orig(ctrl, event)
 }
 
 unsafe extern "C" fn prevent_button_hide(

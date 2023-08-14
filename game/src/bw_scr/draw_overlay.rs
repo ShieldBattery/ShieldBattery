@@ -32,6 +32,7 @@ pub struct OverlayState {
     ui_rects: Vec<Rect>,
     events: Vec<Event>,
     production: ProductionState,
+    replay_panels: ReplayPanelState,
     out_state: OutState,
     window_size: (u32, u32),
     /// If (and only if) a mouse button down event was captured,
@@ -65,6 +66,13 @@ struct ReplayUiValues {
     production_max: u32,
 }
 
+struct ReplayPanelState {
+    hotkeys_active: bool,
+    show_statistics: bool,
+    show_production: bool,
+    show_console: bool,
+}
+
 /// One request from async thread will be active at once, check if it had completed
 /// when rendering a new frame, and if it has then start a new request.
 /// Otherwise re-render with old data.
@@ -85,6 +93,7 @@ struct OutState {
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
     show_hide_graphic_layer: Option<(u8, bool)>,
+    show_console: bool,
 }
 
 pub struct StepOutput {
@@ -96,6 +105,7 @@ pub struct StepOutput {
     // true => show, false => hide
     pub show_hide_control: Option<(Control, bool)>,
     pub show_hide_graphic_layer: Option<(u8, bool)>,
+    pub show_console: bool,
 }
 
 /// Bw globals used by OverlayState::step
@@ -203,11 +213,18 @@ impl OverlayState {
             ui_rects: Vec::new(),
             events: Vec::new(),
             production: ProductionState::new(),
+            replay_panels: ReplayPanelState {
+                hotkeys_active: false, // Will be set true if replay / obs at step()
+                show_statistics: true,
+                show_production: true,
+                show_console: true,
+            },
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
+                show_console: true,
             },
             captured_mouse_down: [false; 2],
             mouse_down: [false; 2],
@@ -342,7 +359,15 @@ impl OverlayState {
             select_unit: None,
             show_hide_control: None,
             show_hide_graphic_layer: None,
+            show_console: self.replay_panels.show_console,
         };
+        let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
+            .find(|x| x.as_control().string() == "TextBox")
+            .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
+            .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
+            .unwrap_or(false);
+        self.replay_panels.hotkeys_active =
+            bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
             if bw.is_replay_or_obs {
                 self.add_replay_ui(bw, apm, ctx);
@@ -360,6 +385,7 @@ impl OverlayState {
             draw_layer: self.draw_layer,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
+            show_console: self.out_state.show_console,
         }
     }
 
@@ -534,7 +560,16 @@ impl OverlayState {
                 }
             }
         }
+        if self.replay_panels.show_statistics {
+            self.add_replay_statistics(bw, apm, ctx);
+        }
+        self.update_replay_production(bw);
+        if self.replay_panels.show_production {
+            self.add_production_ui(bw, ctx);
+        }
+    }
 
+    fn add_replay_statistics(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
         let res = egui::Window::new("Replay_Resources")
             .anchor(Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 })
             .movable(false)
@@ -607,8 +642,6 @@ impl OverlayState {
                 }
             });
         self.add_ui_rect(&res);
-        self.update_replay_production(bw);
-        self.add_production_ui(bw, ctx);
     }
 
     fn add_player_info(&self, ui: &mut egui::Ui, id: Id, info: &PlayerInfo) -> Response {
@@ -788,24 +821,29 @@ impl OverlayState {
                 self.events.push(Event::Scroll(Vec2 { x: 0.0, y: amount }));
                 Some(0)
             }
-            WM_KEYDOWN | WM_KEYUP => {
-                if !self.ctx.wants_keyboard_input() {
-                    return None;
-                }
+            WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+                let mut modifiers = current_egui_modifiers();
+                let is_syskey = matches!(msg, WM_SYSKEYDOWN | WM_SYSKEYUP);
+                let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
+                modifiers.alt |= is_syskey;
                 let vkey = wparam as i32;
                 if let Some(key) = vkey_to_egui_key(vkey) {
-                    let modifiers = current_egui_modifiers();
-                    let pressed = msg == WM_KEYDOWN;
-                    self.events.push(Event::Key {
-                        key,
-                        pressed,
-                        // Could get repeat count from param, but egui docs say that
-                        // it will be automatically done anyway by egui.
-                        repeat: false,
-                        modifiers,
-                    });
+                    if !is_syskey && self.ctx.wants_keyboard_input() {
+                        self.events.push(Event::Key {
+                            key,
+                            pressed,
+                            // Could get repeat count from param, but egui docs say that
+                            // it will be automatically done anyway by egui.
+                            repeat: false,
+                            modifiers,
+                        });
+                        return Some(0);
+                    }
+                    if pressed && self.check_replay_hotkey(&modifiers, key) {
+                        return Some(0);
+                    }
                 }
-                Some(0)
+                None
             }
             WM_CHAR => {
                 if !self.ctx.wants_keyboard_input() {
@@ -825,6 +863,37 @@ impl OverlayState {
             }
             _ => None,
         }
+    }
+
+    fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
+        let panels = &mut self.replay_panels;
+        if panels.hotkeys_active {
+            match key {
+                Key::A => {
+                    // Show if any were hidden, else hide
+                    let show =
+                        !panels.show_statistics || !panels.show_production || !panels.show_console;
+                    panels.show_statistics = show;
+                    panels.show_production = show;
+                    panels.show_console = show;
+                    return true;
+                }
+                Key::F => {
+                    panels.show_production = !panels.show_production;
+                    return true;
+                }
+                Key::W => {
+                    panels.show_console = !panels.show_console;
+                    return true;
+                }
+                Key::E => {
+                    panels.show_statistics = !panels.show_statistics;
+                    return true;
+                }
+                _ => (),
+            }
+        }
+        false
     }
 
     fn window_pos_to_egui(&self, x: i32, y: i32) -> Pos2 {

@@ -5,17 +5,13 @@
 //! bucket count has to be specified upon creation, there is no resizing on insert.
 
 use std::alloc;
-use std::marker::PhantomData;
 use std::mem;
 use std::ptr::{self, null_mut};
 
 use super::scr;
 
 pub struct HashTable<Key: BwHash + BwMove, Value: BwMove> {
-    bw_table: scr::BwHashTable,
-    key_offset: usize,
-    value_offset: usize,
-    phantom: PhantomData<(Key, Value)>,
+    bw_table: scr::BwHashTable<Key, Value>,
 }
 
 pub trait BwHash {
@@ -66,6 +62,16 @@ impl BwHash for scr::BwString {
     }
 }
 
+impl BwHash for scr::BwStringAlign8 {
+    fn hash(&self) -> usize {
+        self.inner.hash()
+    }
+
+    fn compare(&self, other: &Self) -> bool {
+        self.inner.compare(&other.inner)
+    }
+}
+
 impl BwMove for scr::BwString {
     unsafe fn move_construct(&mut self, dest: *mut Self) {
         ptr::copy_nonoverlapping(self, dest, 1);
@@ -73,6 +79,12 @@ impl BwMove for scr::BwString {
             (*dest).pointer = (*dest).inline_buffer.as_mut_ptr();
         }
         super::init_bw_string(self, b"");
+    }
+}
+
+impl BwMove for scr::BwStringAlign8 {
+    unsafe fn move_construct(&mut self, dest: *mut Self) {
+        self.inner.move_construct(ptr::addr_of_mut!((*dest).inner))
     }
 }
 
@@ -103,11 +115,7 @@ impl BwMove for scr::GameInfoValue {
 }
 
 impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
-    pub fn new(
-        bucket_count: usize,
-        key_offset: usize,
-        value_offset: usize,
-    ) -> HashTable<Key, Value> {
+    pub fn new(bucket_count: usize) -> HashTable<Key, Value> {
         assert!(bucket_count.is_power_of_two());
         let mut buckets = vec![null_mut(); bucket_count];
         // This is probably not ever needed, but just to be sure that `bucket_count`
@@ -120,12 +128,7 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
             resize_factor: 1.0,
         };
         mem::forget(buckets);
-        HashTable {
-            bw_table,
-            key_offset,
-            value_offset,
-            phantom: PhantomData,
-        }
+        HashTable { bw_table }
     }
 
     pub fn insert(&mut self, key: &mut Key, value: &mut Value) {
@@ -145,7 +148,7 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
                 bucket = &mut (*entry).next;
             }
             let layout = self.alloc_layout();
-            let entry = alloc::alloc_zeroed(layout) as *mut scr::BwHashTableEntry;
+            let entry = alloc::alloc_zeroed(layout) as *mut scr::BwHashTableEntry<Key, Value>;
             key.move_construct(self.key_from_entry(entry));
             value.move_construct(self.value_from_entry(entry));
             *bucket = entry;
@@ -156,7 +159,7 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
     /// Creates a copy of the BwHashTable which can be embedded in BW structure.
     /// This object still stays alive and will free itself on drop, invalidating
     /// the copy object this returns as well.
-    pub fn bw_table(&self) -> scr::BwHashTable {
+    pub fn bw_table(&self) -> scr::BwHashTable<Key, Value> {
         scr::BwHashTable {
             bucket_count: self.bw_table.bucket_count,
             buckets: self.bw_table.buckets,
@@ -166,18 +169,15 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
     }
 
     fn alloc_layout(&self) -> alloc::Layout {
-        unsafe {
-            let entry_size = self.value_offset + mem::size_of::<Value>();
-            alloc::Layout::from_size_align_unchecked(entry_size, 0x8)
-        }
+        alloc::Layout::new::<scr::BwHashTableEntry<Key, Value>>()
     }
 
-    unsafe fn key_from_entry(&self, entry: *mut scr::BwHashTableEntry) -> *mut Key {
-        (entry as *mut u8).add(self.key_offset) as *mut Key
+    unsafe fn key_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Key {
+        ptr::addr_of_mut!((*entry).key)
     }
 
-    unsafe fn value_from_entry(&self, entry: *mut scr::BwHashTableEntry) -> *mut Value {
-        (entry as *mut u8).add(self.value_offset) as *mut Value
+    unsafe fn value_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Value {
+        ptr::addr_of_mut!((*entry).value)
     }
 }
 

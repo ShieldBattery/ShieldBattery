@@ -2,7 +2,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::ptr::{null, null_mut, NonNull};
+use std::ptr::{self, null, null_mut, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -33,6 +33,7 @@ use crate::GameThreadMessage;
 
 mod bw_hash_table;
 mod bw_vector;
+mod console;
 mod dialog_hook;
 mod draw_inject;
 mod draw_overlay;
@@ -98,6 +99,10 @@ pub struct BwScr {
     /// Value is larger on 16:9, as well as when zooming out.
     game_screen_width_bwpx: Value<u32>,
     game_screen_height_bwpx: Value<u32>,
+    /// How much of the window is vertically used by game screen (0.0 ..= 1.0)
+    /// Usually ~0.8 so that the ui console doesn't cover bottom of the map.
+    game_screen_height_ratio: Option<Value<f32>>,
+    zoom: Value<f32>,
     units: Value<*mut scr::BwVector>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
@@ -157,11 +162,13 @@ pub struct BwScr {
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     move_screen: unsafe extern "C" fn(u32, u32),
     get_render_target: unsafe extern "C" fn(u32) -> *mut scr::RenderTarget,
-    load_consoles: Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable)>,
-    init_consoles: Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable, u32)>,
-    get_ui_consoles: unsafe extern "C" fn() -> *mut scr::BwHashTable,
+    load_consoles: Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable<u32, *mut scr::UiConsole>)>,
+    init_consoles:
+        Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable<u32, *mut scr::UiConsole>, u32)>,
+    get_ui_consoles: unsafe extern "C" fn() -> *mut scr::BwHashTable<u32, *mut scr::UiConsole>,
     // select_units(amount, pointers, bool, bool)
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
+    update_game_screen_size: unsafe extern "C" fn(f32),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -176,6 +183,7 @@ pub struct BwScr {
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<VirtualAddress>,
     prism_renderer_vtable: VirtualAddress,
+    console_vtables: Vec<VirtualAddress>,
     replay_minimap_patch: Option<scr_analysis::Patch>,
     open_file: VirtualAddress,
     prepare_issue_order: VirtualAddress,
@@ -183,7 +191,6 @@ pub struct BwScr {
     spawn_dialog: VirtualAddress,
     step_game_logic: VirtualAddress,
     net_format_turn_rate: VirtualAddress,
-    update_game_screen_size: VirtualAddress,
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
     decide_cursor_type: VirtualAddress,
@@ -217,6 +224,11 @@ pub struct BwScr {
     detection_status_copy: Mutex<Vec<u32>>,
     render_state: RecurseCheckedMutex<RenderState>,
     apm_state: RecurseCheckedMutex<ApmStats>,
+    /// Keeps track of what game_screen_height_ratio was originally.
+    /// (It depends a bit on what console the player uses)
+    original_game_screen_height_ratio: AtomicU32,
+    /// If console was hidden in replay / obs ui
+    console_hidden_state: AtomicBool,
 }
 
 /// State mutated during renderer draw call
@@ -346,6 +358,13 @@ pub mod scr {
         pub capacity: usize,
         /// A buffer that will be used if the string fits within it.
         pub inline_buffer: [u8; 0x10],
+    }
+
+    // Not sure why this exists, but at least JoinableGameInfo hashtable has strings aligned
+    // to 8 on 32-bit. Most of the other hashtables with string keys use normal BwString though.
+    #[repr(C, align(8))]
+    pub struct BwStringAlign8 {
+        pub inner: BwString,
     }
 
     impl BwString {
@@ -536,9 +555,9 @@ pub mod scr {
 
     #[repr(C)]
     pub struct JoinableGameInfo {
-        // String -> GameInfoValue
-        // Key offset in BwHashTableEntry is 0x8, Value offset 0x28
-        pub params: BwHashTable,
+        // Align 8 for some reason, but there is no any extra data in the key that would
+        // require it.
+        pub params: BwHashTable<BwStringAlign8, GameInfoValue>,
         #[cfg(target_arch = "x86")]
         pub unk10: [u8; 0x24],
         #[cfg(target_arch = "x86_64")]
@@ -588,25 +607,18 @@ pub mod scr {
     }
 
     #[repr(C)]
-    pub struct BwHashTable {
+    pub struct BwHashTable<K, V> {
         pub bucket_count: usize,
-        pub buckets: *mut *mut BwHashTableEntry,
+        pub buckets: *mut *mut BwHashTableEntry<K, V>,
         pub size: usize,
         pub resize_factor: f32,
     }
 
     #[repr(C)]
-    pub struct BwHashTableEntry {
-        pub next: *mut BwHashTableEntry,
-        // Key and value are placed in this struct at this point.
-        // I would want to assume that BwHashTableEntry<Key, Val>
-        // and just declaring key/val as fields would get key and value
-        // laid out same as SCR does, but for now just going to hardcode
-        // the offsets.
-        // It seems somewhat inconsistent whether key/value are
-        // 4-aligned or 8-aligned.
-        // As BwHashTable is used only once (as of this writing..), I don't
-        // want to spend time testing if the layout is correct or not.
+    pub struct BwHashTableEntry<K, V> {
+        pub next: *mut BwHashTableEntry<K, V>,
+        pub key: K,
+        pub value: V,
     }
 
     #[repr(C)]
@@ -841,6 +853,22 @@ pub mod scr {
         pub unk_24: u8,
     }
 
+    #[repr(C)]
+    pub struct UiConsole {
+        pub vtable: *const V_UiConsole,
+    }
+
+    #[repr(C)]
+    pub struct V_UiConsole {
+        pub delete: usize,
+        pub unk1: usize,
+        pub unk2: usize,
+        pub unk3: usize,
+        pub unk4: usize,
+        pub unk5: usize,
+        pub hit_test: Thiscall<unsafe extern "C" fn(*mut UiConsole, u32, u32) -> u8>,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -955,6 +983,15 @@ impl BwValue for u32 {
     }
     fn to_usize(val: Self) -> usize {
         val as usize
+    }
+}
+
+impl BwValue for f32 {
+    fn from_usize(val: usize) -> Self {
+        f32::from_bits(val as u32)
+    }
+    fn to_usize(val: Self) -> usize {
+        val.to_bits() as usize
     }
 }
 
@@ -1117,10 +1154,7 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
                 var1: mem::zeroed(),
             },
         };
-        init_bw_string(
-            &mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString),
-            val,
-        );
+        init_bw_string(value.data.var1.as_mut_ptr() as *mut scr::BwString, val);
         value
     }
 }
@@ -1140,10 +1174,7 @@ impl GameInfoValueTrait for scr::GameInfoValue {
                 var1: mem::zeroed(),
             },
         };
-        init_bw_string(
-            &mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString),
-            val,
-        );
+        init_bw_string(value.data.var1.as_mut_ptr() as *mut scr::BwString, val);
         value
     }
 }
@@ -1272,6 +1303,7 @@ impl BwScr {
             .prism_pixel_shaders()
             .ok_or("Prism pixel shaders")?;
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
+        let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
         let first_player_unit = analysis.first_player_unit().ok_or("first_player_unit")?;
@@ -1373,6 +1405,8 @@ impl BwScr {
         let game_screen_height_bwpx = analysis
             .game_screen_height_bwpx()
             .ok_or("game_screen_height_bwpx")?;
+        let game_screen_height_ratio = analysis.game_screen_height_ratio();
+        let zoom = analysis.zoom().ok_or("zoom")?;
         let move_screen = analysis.move_screen().ok_or("move_screen")?;
         let update_game_screen_size = analysis
             .update_game_screen_size()
@@ -1479,6 +1513,8 @@ impl BwScr {
             screen_y: Value::new(ctx, screen_y),
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
+            zoom: Value::new(ctx, zoom),
+            game_screen_height_ratio: game_screen_height_ratio.map(move |x| Value::new(ctx, x)),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
@@ -1493,10 +1529,10 @@ impl BwScr {
             status_screen_funcs,
             original_status_screen_update,
             net_format_turn_rate,
-            update_game_screen_size,
             init_obs_ui,
             draw_graphic_layers,
             decide_cursor_type,
+            update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             step_network_addr: step_network,
@@ -1538,6 +1574,7 @@ impl BwScr {
             game_command_lengths,
             prism_pixel_shaders,
             prism_renderer_vtable,
+            console_vtables,
             replay_minimap_patch,
             prepare_issue_order,
             create_game_multiplayer,
@@ -1569,6 +1606,8 @@ impl BwScr {
                 overlay: draw_overlay::OverlayState::new(),
             }),
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
+            original_game_screen_height_ratio: AtomicU32::new(0),
+            console_hidden_state: AtomicBool::new(false),
         })
     }
 
@@ -1801,7 +1840,7 @@ impl BwScr {
             address,
         );
 
-        let address = self.update_game_screen_size.0 as usize - base;
+        let address = self.update_game_screen_size as usize - base;
         exe.hook_closure_address(
             UpdateGameScreenSize,
             move |zoom, orig| {
@@ -1889,6 +1928,10 @@ impl BwScr {
                     self.local_unique_player_id.write(local_id);
                 } else {
                     orig();
+                }
+                if let Some(ratio) = self.game_screen_height_ratio {
+                    self.original_game_screen_height_ratio
+                        .store(ratio.resolve().to_bits(), Ordering::Relaxed);
                 }
             },
             address,
@@ -2054,6 +2097,23 @@ impl BwScr {
 
         self.rendering_patches(&mut exe, base);
 
+        for &vtable in &self.console_vtables {
+            let vtable = vtable.0 as *const scr::V_UiConsole;
+            let relative = (*vtable).hit_test.cast_usize() - base;
+            // Make console hittest return false when console is hidden.
+            //
+            // Unfortunately BW doesn't update hittest result until mouse moves,
+            // so there's small bug with clicks right after console is shown/hidden.
+            exe.hook_closure_address(
+                Console_HitTest,
+                move |console, x, y, orig| match self.console_hidden() {
+                    true => 0,
+                    false => orig(console, x, y),
+                },
+                relative,
+            );
+        }
+
         sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
 
         let create_file_hook_closure =
@@ -2129,8 +2189,26 @@ impl BwScr {
         // so that the game will be able to fade between the two graphic modes.
         exe.hook_closure_address(
             DrawGraphicLayers,
-            move |a, b, second_draw, orig| {
-                orig(a, b, second_draw);
+            move |extra_funcs, extra_func_len, second_draw, orig| {
+                // It is expected that extra_funcs array has one (just one) function that
+                // draws the UI console. If console is hidden just call orig with 0 extra funcs
+                // and it should make the static parts of console hidden.
+                // (Interactable parts of the console are dialogs which need to be hidden
+                // separately.)
+                let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
+                if self.console_hidden() {
+                    if let Some(layers) = graphic_layers {
+                        // Don't draw tooltip layer if it was active.
+                        // It can stay active when hiding console depending on where
+                        // the mouse was on when console was hidden, even if the control
+                        // becomes uninteractable.
+                        // (Pretty sure that none of the menus use tooltips)
+                        (*layers.as_ptr().add(1)).draw = 0;
+                    }
+                    orig(extra_funcs, 0, second_draw);
+                } else {
+                    orig(extra_funcs, extra_func_len, second_draw);
+                }
                 let renderer = self.renderer.resolve();
                 let commands = self.draw_commands.resolve();
                 let vertex_buffer = self.vertex_buffer.resolve();
@@ -2152,7 +2230,6 @@ impl BwScr {
                 let active_units = self.active_units();
                 let first_player_unit = self.first_player_unit.resolve();
                 let first_dialog = self.resolve_first_dialog();
-                let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
                 // Assuming that the last added draw command (Added during orig() call)
                 // will have the is_hd value that is currently being used.
                 // Could also probably examine the render target from get_render_target,
@@ -2226,6 +2303,14 @@ impl BwScr {
                             } else {
                                 (*layer).draw = 0;
                             }
+                        }
+                    }
+                    let console_shown = !self.console_hidden();
+                    if overlay_out.show_console != console_shown {
+                        if overlay_out.show_console {
+                            self.show_console(first_dialog);
+                        } else {
+                            self.hide_console(first_dialog);
                         }
                     }
                     draw_inject::add_overlays(
@@ -2593,11 +2678,11 @@ impl BwScr {
         input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         turn_rate: u32,
-    ) -> bw_hash_table::HashTable<scr::BwString, T> {
-        let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20, 0x8, 0x28);
+    ) -> bw_hash_table::HashTable<scr::BwStringAlign8, T> {
+        let mut params = bw_hash_table::HashTable::<scr::BwStringAlign8, T>::new(0x20);
         let mut add_param = |key: &[u8], value: u32| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
+            let mut string: scr::BwStringAlign8 = mem::zeroed();
+            init_bw_string(ptr::addr_of_mut!(string.inner), key);
             let mut value = T::from_u32(value);
             params.insert(&mut string, &mut value);
         };
@@ -2621,8 +2706,8 @@ impl BwScr {
         add_param(b"flags", flags);
 
         let mut add_param_string = |key: &[u8], value_str: &[u8]| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
+            let mut string: scr::BwStringAlign8 = mem::zeroed();
+            init_bw_string(ptr::addr_of_mut!(string.inner), key);
             let mut value = T::from_string(value_str);
             params.insert(&mut string, &mut value);
         };
@@ -3645,7 +3730,7 @@ mod hooks {
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
-        !0 => DrawGraphicLayers(*mut c_void, *mut c_void, u32);
+        !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
     );
 
@@ -3680,6 +3765,7 @@ mod hooks {
             *const u8,
             *mut c_void,
         ) -> usize;
+        !0 => Console_HitTest(*mut scr::UiConsole, i32, i32) -> u8;
     );
 
     #[cfg(target_arch = "x86")]
@@ -3714,21 +3800,20 @@ unsafe fn read_fs_gs(offset: usize) -> usize {
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer
 /// if value doens't fit inline.
-unsafe fn init_bw_string(out: &mut scr::BwString, value: &[u8]) {
+unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
     if value.len() < 16 {
-        out.inline_buffer[..value.len()].copy_from_slice(value);
-        out.inline_buffer[value.len()] = 0;
-        out.pointer = out.inline_buffer.as_mut_ptr();
-        out.length = value.len();
-        out.capacity = 15 | (isize::min_value() as usize);
+        (*out).inline_buffer[..value.len()].copy_from_slice(value);
+        (*out).inline_buffer[value.len()] = 0;
+        (*out).pointer = (*out).inline_buffer.as_mut_ptr();
+        (*out).length = value.len();
+        (*out).capacity = 15 | (isize::min_value() as usize);
     } else {
-        let mut vec = Vec::with_capacity(value.len() + 1);
+        let mut vec = mem::ManuallyDrop::new(Vec::with_capacity(value.len() + 1));
         vec.extend(value.iter().cloned());
         vec.push(0);
-        out.pointer = vec.as_mut_ptr();
-        mem::forget(vec);
-        out.length = value.len();
-        out.capacity = value.len();
+        (*out).pointer = vec.as_mut_ptr();
+        (*out).length = value.len();
+        (*out).capacity = value.len();
     }
 }
 
