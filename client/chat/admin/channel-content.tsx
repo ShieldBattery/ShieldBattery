@@ -216,7 +216,7 @@ function ChannelBannerCard({
             <ChannelList>
               {banner.availableIn.map(channelId => (
                 <ChannelListEntry key={channelId}>
-                  {channelInfos.get(channelId)!.name}
+                  {channelInfos.get(channelId)?.name ?? 'Deleted channel'}
                 </ChannelListEntry>
               ))}
             </ChannelList>
