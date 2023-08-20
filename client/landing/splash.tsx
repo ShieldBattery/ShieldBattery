@@ -125,10 +125,21 @@ const ButtonsContainer = styled.div`
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
+`
+
+const ContainerButtonAligner = styled.div.attrs(p => p)<{ align: 'left' | 'right' | 'center' }>`
+  flex: 1 1 0px;
+  display: flex;
+  justify-content: ${p => ({ center: 'center', left: 'flex-start', right: 'flex-end' })[p.align]};
+  @media (max-width: 800px) {
+    flex: 1 1 9999px;
+    justify-content: center;
+  }
 `
 
 const SplashButton = styled(RaisedButton)`
-  width: 200px;
+  min-width: 200px;
   height: 54px;
   margin: 16px 32px;
 
@@ -495,25 +506,31 @@ export function Splash() {
       </Blurb>
       {!IS_ELECTRON ? (
         <ButtonsContainer>
+          <ContainerButtonAligner align='right'>
+            <SplashButton
+              label={t('landing.splash.signUp', 'Sign Up')}
+              color='primary'
+              onClick={onSignUpClick}
+              testName='sign-up-button'
+            />
+          </ContainerButtonAligner>
+          <ContainerButtonAligner align='left'>
+            <SplashButton
+              label={t('common.actions.download', 'Download')}
+              color='primary'
+              onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
+            />
+          </ContainerButtonAligner>
+        </ButtonsContainer>
+      ) : (
+        <ContainerButtonAligner align='center'>
           <SplashButton
             label={t('landing.splash.signUp', 'Sign Up')}
             color='primary'
             onClick={onSignUpClick}
             testName='sign-up-button'
           />
-          <SplashButton
-            label={t('common.actions.download', 'Download')}
-            color='primary'
-            onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
-          />
-        </ButtonsContainer>
-      ) : (
-        <SplashButton
-          label={t('landing.splash.signUp', 'Sign Up')}
-          color='primary'
-          onClick={onSignUpClick}
-          testName='sign-up-button'
-        />
+        </ContainerButtonAligner>
       )}
       <StyledGameCount />
       <BenefitContainer>
