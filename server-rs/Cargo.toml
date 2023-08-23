@@ -75,3 +75,5 @@ opt-level = 3
 # For bcrypt perf
 [profile.dev.package.blowfish]
 opt-level = 3
+
+[workspace]
