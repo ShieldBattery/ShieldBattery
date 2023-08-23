@@ -32,7 +32,9 @@
             "unblock": "$🗡Unblock🗡!",
             "stop": "$🗡Stop🗡!",
             "test": "$🗡Test🗡!",
-            "browse": "$🗡Browse🗡!"
+            "browse": "$🗡Browse🗡!",
+            "edit": "$🗡Edit🗡!",
+            "reveal": "$🗡Reveal🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -171,7 +173,36 @@
                 "selectLanguage": "$🗡Select a language🗡!",
                 "title": "$🗡Language🗡!"
             },
-            "title": "$🗡User🗡!"
+            "title": "$🗡User🗡!",
+            "account": {
+                "changeEmail": {
+                    "patternError": "$🗡Enter a valid email address🗡!",
+                    "dialogTitle": "$🗡Change email🗡!",
+                    "requiredError": "$🗡Enter an email address🗡!",
+                    "success": "$🗡Email changed successfully.🗡!"
+                },
+                "authenticationHeader": "$🗡Authentication🗡!",
+                "changePassword": {
+                    "dialogTitle": "$🗡Change password🗡!",
+                    "success": "$🗡Password changed successfully.🗡!"
+                },
+                "changePasswordButton": "$🗡Change password🗡!",
+                "confirmNewPassword": "$🗡Confirm new password🗡!",
+                "currentPassword": "$🗡Current password🗡!",
+                "displayName": "$🗡Display name🗡!",
+                "email": "$🗡Email🗡!",
+                "error": "$🗡There was a problem retrieving your user information.🗡!",
+                "invalidCurrentPassword": "$🗡Current password is incorrect🗡!",
+                "label": "$🗡Account🗡!",
+                "loginName": "$🗡Login name🗡!",
+                "networkError": "$🗡Network error: {{errorMessage}}🗡!",
+                "newPassword": "$🗡New password🗡!",
+                "passwordValidator": {
+                    "confirm": "$🗡Enter a matching password🗡!",
+                    "current": "$🗡Enter your current password🗡!",
+                    "new": "$🗡Enter a new password🗡!"
+                }
+            }
         },
         "activity": {
             "title": "$🗡Settings (Alt + S)🗡!"
@@ -600,7 +631,7 @@
             "noDescription": "$🗡This channel has no description.🗡!",
             "private": "$🗡This channel is private and requires an invite to join.🗡!",
             "userCount_one": "$🗡{{count}} member🗡!",
-            "userCount_other": "$🗡{{count}} members🗡!"
+            "userCount_other": "$🗡{{count}} member🗡!"
         },
         "channelList": {
             "noMatchingChannels": "$🗡No matching chat channels.🗡!",
@@ -1139,7 +1170,7 @@
             "noActiveLobbies": "$🗡There are no active lobbies🗡!",
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",
             "title": "$🗡Join Lobby🗡!",
-            "openSlotCount_one": "$🗡{{count}} slot open🗡!",
+            "openSlotCount_one": "$🗡{{count}} slots open🗡!",
             "openSlotCount_other": "$🗡{{count}} slots open🗡!"
         },
         "loading": {
