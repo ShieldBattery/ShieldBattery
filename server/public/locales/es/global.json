@@ -34,7 +34,9 @@
             "unblock": "Desatascar",
             "browse": "Navegar",
             "stop": "Detener",
-            "test": "Prueba"
+            "test": "Prueba",
+            "edit": "Editar",
+            "reveal": "Revelar"
         },
         "lists": {
             "empty": "Nada que ver aqui"
@@ -173,7 +175,36 @@
                 "title": "Idioma",
                 "selectLanguage": "Selecciona un idioma"
             },
-            "title": "Usuario"
+            "title": "Usuario",
+            "account": {
+                "authenticationHeader": "Autenticación",
+                "changeEmail": {
+                    "dialogTitle": "Cambiar e-mail",
+                    "patternError": "Introduzca una dirección de correo electrónico válida",
+                    "requiredError": "Introduzca una dirección de correo electrónico",
+                    "success": "El correo electrónico se cambió correctamente."
+                },
+                "changePassword": {
+                    "dialogTitle": "Cambiar la contraseña",
+                    "success": "Contraseña cambiada con éxito."
+                },
+                "displayName": "Nombre para mostrar",
+                "email": "Correo electrónico",
+                "error": "Hubo un problema al recuperar su información de usuario.",
+                "invalidCurrentPassword": "La contraseña actual es incorrecta",
+                "label": "Cuenta",
+                "loginName": "Nombre de inicio de sesión",
+                "networkError": "Error de red: {{errorMessage}}",
+                "changePasswordButton": "Cambiar la contraseña",
+                "confirmNewPassword": "Confirmar nueva contraseña",
+                "currentPassword": "Contraseña actual",
+                "newPassword": "Nueva contraseña",
+                "passwordValidator": {
+                    "confirm": "Ingrese una contraseña coincidente",
+                    "current": "introduce tu contraseña actual",
+                    "new": "Introduzca una nueva contraseña"
+                }
+            }
         },
         "activity": {
             "title": "Ajustes (Alt + S)"
