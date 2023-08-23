@@ -34,7 +34,9 @@
             "previous": "Предыдущий",
             "browse": "Просматривать",
             "stop": "Останавливаться",
-            "test": "Тест"
+            "test": "Тест",
+            "edit": "Редактировать",
+            "reveal": "Раскрывать"
         },
         "lists": {
             "empty": "Здесь нечего смотреть"
@@ -176,7 +178,36 @@
                 "selectLanguage": "Выберите язык",
                 "title": "Язык"
             },
-            "title": "Пользователь"
+            "title": "Пользователь",
+            "account": {
+                "email": "Электронная почта",
+                "error": "Не удалось получить информацию о пользователе.",
+                "invalidCurrentPassword": "Текущий пароль неверен",
+                "label": "Счет",
+                "loginName": "Логин",
+                "passwordValidator": {
+                    "current": "Введите ваш текущий пароль",
+                    "new": "Введите новый пароль",
+                    "confirm": "Введите соответствующий пароль"
+                },
+                "authenticationHeader": "Аутентификация",
+                "changeEmail": {
+                    "dialogTitle": "Изменить e-mail",
+                    "patternError": "Введите действительный адрес электронной почты",
+                    "requiredError": "Введите адрес электронной почты",
+                    "success": "Электронная почта успешно изменена."
+                },
+                "changePassword": {
+                    "dialogTitle": "Изменить пароль",
+                    "success": "Пароль успешно изменен."
+                },
+                "changePasswordButton": "Изменить пароль",
+                "confirmNewPassword": "Подтвердите новый пароль",
+                "currentPassword": "Текущий пароль",
+                "displayName": "Отображаемое имя",
+                "networkError": "Ошибка сети: {{errorMessage}}",
+                "newPassword": "Новый пароль"
+            }
         }
     },
     "landing": {
