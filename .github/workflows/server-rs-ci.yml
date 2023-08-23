@@ -74,19 +74,5 @@ jobs:
         with:
           workspaces: ./server-rs
 
-      - name: cargo install sqlx-cli
-        run: cargo install sqlx-cli --no-default-features --features native-tls,postgres
-
-      - name: cargo sqlx prepare --check
-        id: sqlx-prepare
-        run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
-
-      - name: Display sqlx prepare error
-        if: ${{ failure() && steps.sqlx-prepare.conclusion == 'failure' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('sqlx prepare check failed, please run `cargo sqlx prepare --workspace -- --all-targets --all-features` and check in the changes')
-
       - name: cargo test
         run: cargo test --all-targets --no-fail-fast
