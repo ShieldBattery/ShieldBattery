@@ -30,7 +30,9 @@
             "next": "다음",
             "previous": "이전의",
             "stop": "멈추다",
-            "test": "시험"
+            "test": "시험",
+            "edit": "편집하다",
+            "reveal": "드러내다"
         },
         "lists": {
             "empty": "여기는 볼게 없다"
@@ -151,7 +153,36 @@
                 "selectLanguage": "언어 선택",
                 "title": "언어"
             },
-            "title": "사용자"
+            "title": "사용자",
+            "account": {
+                "authenticationHeader": "입증",
+                "changeEmail": {
+                    "dialogTitle": "이메일을 바꾸다",
+                    "patternError": "유효한 이메일 주소를 입력하세요.",
+                    "requiredError": "이메일 주소를 입력하세요",
+                    "success": "이메일이 성공적으로 변경되었습니다."
+                },
+                "passwordValidator": {
+                    "current": "현재 비밀번호를 입력하세요",
+                    "new": "새 비밀번호를 입력하세요",
+                    "confirm": "일치하는 비밀번호를 입력하세요"
+                },
+                "changePassword": {
+                    "dialogTitle": "비밀번호 변경",
+                    "success": "비밀번호가 성공적으로 변경되었습니다."
+                },
+                "changePasswordButton": "비밀번호 변경",
+                "confirmNewPassword": "새 암호를 확인합니다",
+                "currentPassword": "현재 비밀번호",
+                "displayName": "이름 표시하기",
+                "email": "이메일",
+                "error": "사용자 정보를 검색하는 중에 문제가 발생했습니다.",
+                "invalidCurrentPassword": "현재 암호가 잘못되었습니다",
+                "label": "계정",
+                "loginName": "로그인 이름",
+                "networkError": "네트워크 오류: {{errorMessage}}",
+                "newPassword": "새 비밀번호"
+            }
         },
         "activity": {
             "title": "설정(Alt + S)"
