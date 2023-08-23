@@ -74,6 +74,9 @@ jobs:
         with:
           workspaces: ./server-rs
 
+      - name: cargo install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features native-tls,postgres
+
       - name: cargo sqlx prepare --check
         id: sqlx-prepare
         run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
