@@ -30,7 +30,9 @@
             "decline": "衰退",
             "previous": "以前的",
             "apply": "申请",
-            "block": "堵塞"
+            "block": "堵塞",
+            "edit": "编辑",
+            "reveal": "揭示"
         },
         "lists": {
             "empty": "这没东西看"
@@ -172,7 +174,36 @@
                 "selectLanguage": "选择语言",
                 "title": "语言"
             },
-            "title": "用户"
+            "title": "用户",
+            "account": {
+                "authenticationHeader": "验证",
+                "changeEmail": {
+                    "dialogTitle": "更改电子邮件",
+                    "patternError": "输入一个有效的电子邮件地址",
+                    "requiredError": "输入电子邮件地址",
+                    "success": "邮箱更改成功。"
+                },
+                "changePassword": {
+                    "dialogTitle": "更改密码？",
+                    "success": "密码修改成功。"
+                },
+                "changePasswordButton": "更改密码？",
+                "confirmNewPassword": "确认新密码",
+                "currentPassword": "当前密码",
+                "displayName": "显示名称",
+                "email": "电子邮件",
+                "error": "检索您的用户信息时出现问题。",
+                "invalidCurrentPassword": "当前密码不正确",
+                "label": "帐户",
+                "loginName": "登录名",
+                "networkError": "网络错误：{{errorMessage}}",
+                "newPassword": "新密码",
+                "passwordValidator": {
+                    "confirm": "输入匹配的密码",
+                    "current": "输入当前密码",
+                    "new": "输入新的密码"
+                }
+            }
         }
     },
     "landing": {
