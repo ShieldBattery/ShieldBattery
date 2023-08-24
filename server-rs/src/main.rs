@@ -21,7 +21,20 @@ const TRACING_ENV_FILTER: &str = "info";
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
-    dotenvy::dotenv().unwrap();
+
+    if let Err(e) = dotenvy::dotenv() {
+        match e {
+            dotenvy::Error::Io(e) => {
+                // We ignore this outside of debug mode because we won't usually use a .env file
+                // directly in production
+                #[cfg(debug_assertions)]
+                tracing::error!("I/O error while loading .env file: {e:?}");
+            }
+            _ => {
+                tracing::warn!("Error while loading .env file: {e:?}");
+            }
+        }
+    }
 
     init_subscriber("server", TRACING_ENV_FILTER, std::io::stdout);
 

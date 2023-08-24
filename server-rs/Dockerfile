@@ -1,4 +1,5 @@
-FROM rust:latest AS builder
+# NOTE(tec27): The version of debian used to build should match the version we deploy on (below)
+FROM rust:slim-bullseye AS builder
 
 RUN update-ca-certificates
 
@@ -16,9 +17,9 @@ RUN adduser \
 
 WORKDIR /server
 COPY ./ .
-RUN cargo build --release --bin server
+RUN cargo build --release --locked --bin server
 
-FROM gcr.io/distroless/cc
+FROM gcr.io/distroless/cc-debian11
 
 # Import from builder.
 COPY --from=builder /etc/passwd /etc/passwd

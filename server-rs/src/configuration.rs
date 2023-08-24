@@ -19,7 +19,9 @@ pub struct Settings {
 pub struct DatabaseSettings {
     pub user: String,
     password: Secret<String>,
-    super_password: Secret<String>,
+    /// Super password, only used for maintenance tasks so it will not generally be passed to
+    /// production servers.
+    super_password: Option<Secret<String>>,
     pub host: String,
     pub port: String,
     pub database_name: String,
@@ -46,7 +48,7 @@ impl DatabaseSettings {
     pub fn connection_string_super_without_db(&self) -> Secret<String> {
         Secret::new(format!(
             "postgres://postgres:{}@{}:{}",
-            &self.super_password.expose_secret(),
+            &self.super_password.clone().unwrap().expose_secret(),
             &self.host,
             &self.port
         ))
@@ -55,7 +57,7 @@ impl DatabaseSettings {
     pub fn connection_string_super(&self) -> Secret<String> {
         Secret::new(format!(
             "postgres://postgres:{}@{}:{}/{}",
-            &self.super_password.expose_secret(),
+            &self.super_password.clone().unwrap().expose_secret(),
             &self.host,
             &self.port,
             &self.database_name
@@ -101,13 +103,12 @@ pub fn get_configuration() -> eyre::Result<Settings> {
             password: Secret::new(
                 std::env::var("SB_DB_PASSWORD").wrap_err("SB_DB_PASSWORD is not set")?,
             ),
-            super_password: Secret::new(
-                std::env::var("POSTGRES_SUPER_PASSWORD")
-                    .wrap_err("POSTGRES_SUPER_PASSWORD is not set")?,
-            ),
+            super_password: std::env::var("POSTGRES_SUPER_PASSWORD")
+                .ok()
+                .map(|s| Secret::new(s)),
             host: std::env::var("SB_DB_HOST").wrap_err("SB_DB_HOST is not set")?,
             port: std::env::var("SB_DB_PORT").wrap_err("SB_DB_PORT is not set")?,
-            database_name: std::env::var("SB_DB_NAME").wrap_err("SB_DB_NAME is not set")?,
+            database_name: std::env::var("SB_DB").wrap_err("SB_DB is not set")?,
         },
         redis: RedisSettings {
             host: std::env::var("SB_REDIS_HOST").wrap_err("SB_REDIS_HOST is not set")?,

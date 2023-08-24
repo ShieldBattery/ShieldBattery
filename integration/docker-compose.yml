@@ -21,13 +21,14 @@ services:
       - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
       - SB_HTTP_PORT=5555
       - SB_HTTPS_REVERSE_PROXY=false
+      - 'SB_CANONICAL_HOST=http://localhost:5527'
+      - 'SB_GQL_ORIGIN=http://localhost:5529'
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
       - SB_ROUTE_CREATOR_PORT=14099
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
       - SB_MAP_PARSER_MAX_CONCURRENT=1
-      - 'SB_CANONICAL_HOST=http://localhost:5527'
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
       - SB_DISABLE_THROTTLING=true
@@ -35,12 +36,40 @@ services:
       - SB_MAILGUN_DOMAIN=mg.example.org
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
-      - SB_GQL_ORIGIN=http://graphql:5529
     depends_on:
       - _app-server-build
       - db
+      - mailgun
       - migration
       - redis
+
+  server_rs:
+    build: '../server-rs/'
+    restart: unless-stopped
+    init: true
+    ports:
+      - 5529:5529
+    environment:
+      - SB_DB_HOST=db
+      - SB_DB_PORT=5432
+      - SB_DB_USER=shieldbattery
+      - SB_DB_PASSWORD=shieldbattery_pass
+      - SB_DB=shieldbattery
+      - 'SB_CANONICAL_HOST=http://localhost:5527'
+      - SB_GQL_PORT=5529
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - SB_MAILGUN_KEY=DEADBEEF
+      - SB_MAILGUN_DOMAIN=mg.example.org
+      - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
+      - 'SB_MAILGUN_URL=http://mailgun:5528'
+    depends_on:
+      - db
+      - mailgun
+      - migration
+      - redis
+
+
 
   redis:
     image: redis:6.2.6-alpine

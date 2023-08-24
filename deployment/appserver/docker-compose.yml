@@ -32,9 +32,11 @@ services:
       - VIRTUAL_HOST=${SB_VIRTUAL_HOST}
       - VIRTUAL_PORT=5555
       - LETSENCRYPT_HOST=${SB_VIRTUAL_HOST}
-      - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB:-shieldbattery}
+      - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB_NAME:-shieldbattery}
       - SB_HTTP_PORT=5555
       - SB_HTTPS_REVERSE_PROXY=true
+      - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
+      - SB_GQL_ORIGIN=${SB_GQL_ORIGIN}
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
@@ -42,7 +44,6 @@ services:
       - SB_FILE_STORE=${SB_FILE_STORE}
       - SB_MAP_PARSER_MAX_CONCURRENT=${SB_MAP_PARSER_MAX_CONCURRENT:-1}
       - SB_SPRITE_DATA=server/bw_sprite_data
-      - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
       - SB_SESSION_TTL=${SB_SESSION_TTL}
       - SB_RALLY_POINT_SECRET=${SB_RALLY_POINT_SECRET}
       - SB_MAILGUN_KEY=${SB_MAILGUN_KEY}
@@ -73,6 +74,42 @@ services:
       - proxy_gen
       - redis
       - update_server
+
+  server_rs:
+    image: shieldbattery/server-rs:${SB_VERSION:-latest}
+    restart: unless-stopped
+    init: true
+    ports:
+      - 5556:5556
+    environment:
+      - VIRTUAL_HOST=${SB_GQL_VIRTUAL_HOST}
+      - VIRTUAL_PORT=5556
+      - LETSENCRYPT_HOST=${SB_GQL_VIRTUAL_HOST}
+      - SB_DB_HOST=db
+      - SB_DB_PORT=5432
+      - SB_DB_USER=${SB_DB_USER:-shieldbattery}
+      - SB_DB_PASSWORD=${SB_DB_PASSWORD}
+      - SB_DB=${SB_DB:-shieldbattery}
+      - SB_GQL_PORT=5556
+      - SB_HTTPS_REVERSE_PROXY=true
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
+      - SB_MAILGUN_KEY=${SB_MAILGUN_KEY}
+      - SB_MAILGUN_DOMAIN=${SB_MAILGUN_DOMAIN}
+      - SB_MAILGUN_FROM=${SB_MAILGUN_FROM}
+      - SB_DATADOG_KEY=${SB_DATADOG_KEY}
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - db
+      - nginx_proxy
+      - proxy_gen
+      - redis
+      - update_server
+
+
 
   nginx_proxy:
     image: nginx:stable-alpine
