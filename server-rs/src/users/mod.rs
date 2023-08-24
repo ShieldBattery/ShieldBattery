@@ -99,7 +99,7 @@ impl UsersMutation {
         changes: UpdateCurrentUserChanges,
     ) -> Result<CurrentUser> {
         let SbSession::Authenticated(session) = ctx.data_unchecked::<SbSession>() else {
-            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"))
+            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
 
         let current_password = Secret::new(current_password);

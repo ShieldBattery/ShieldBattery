@@ -77,7 +77,11 @@ where
     type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let Some(session_id) = parts.headers.get("sb-session-id").and_then(|s| s.to_str().ok().map(|s| s.to_owned())) else {
+        let Some(session_id) = parts
+            .headers
+            .get("sb-session-id")
+            .and_then(|s| s.to_str().ok().map(|s| s.to_owned()))
+        else {
             return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
         };
 
@@ -208,7 +212,8 @@ pub async fn update_all_sessions_for_user(
             if let Err(e) = redis
                 .srem::<_, _, ()>(user_sessions_set_key(user_id), key.clone())
                 .await
-                .wrap_err("Failed to remove session from user sessions") {
+                .wrap_err("Failed to remove session from user sessions")
+            {
                 warn!("Ignoring session error: {e}");
             }
             continue;

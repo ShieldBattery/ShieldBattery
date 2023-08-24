@@ -105,7 +105,7 @@ pub fn get_configuration() -> eyre::Result<Settings> {
             ),
             super_password: std::env::var("POSTGRES_SUPER_PASSWORD")
                 .ok()
-                .map(|s| Secret::new(s)),
+                .map(Secret::new),
             host: std::env::var("SB_DB_HOST").wrap_err("SB_DB_HOST is not set")?,
             port: std::env::var("SB_DB_PORT").wrap_err("SB_DB_PORT is not set")?,
             database_name: std::env::var("SB_DB").wrap_err("SB_DB is not set")?,

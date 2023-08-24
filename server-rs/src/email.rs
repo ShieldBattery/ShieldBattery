@@ -149,7 +149,8 @@ impl MailgunClient {
     pub async fn send(&self, message: MailgunMessage) -> Result<(), MailgunError> {
         let Some(settings) = &self.settings else {
             tracing::warn!(
-                "Skipping sending email because mailgun settings are not configured: {message:?}");
+                "Skipping sending email because mailgun settings are not configured: {message:?}"
+            );
             return Ok(());
         };
 
