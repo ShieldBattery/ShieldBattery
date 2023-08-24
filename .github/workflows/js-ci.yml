@@ -1,4 +1,4 @@
-name: Automatic tests
+name: JS CI
 
 on: [push, pull_request]
 
@@ -9,6 +9,8 @@ concurrency:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
     steps:
       - uses: actions/checkout@v3
 
@@ -55,6 +57,23 @@ jobs:
         with:
           script: |
             core.setFailed('The email templates seem outdated. Please run "yarn gen-emails" in the directory root and commit the updated email templates.')
+
+      - name: Generate graphql files
+        id: gen-graphql
+        run: yarn gen-graphql
+
+      - name: Check graphql codegen
+        uses: tj-actions/verify-changed-files@v15
+        id: check-graphql
+        with:
+          files: client/gql/*
+
+      - name: Display graphql error
+        if: ${{ steps.check-graphql.outputs.files_changed == 'true' || failure() && steps.gen-graphql.conclusion == 'failure' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('The generated graphql files seem outdated. Please run `yarn gen-graphql` in the directory root and commit the updated files.')
 
   integration-tests:
     runs-on: ubuntu-latest
