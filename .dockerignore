@@ -7,6 +7,7 @@ assets/
 dist/
 docs/
 game/
+integration/
 node_modules/
 server/.env
 server/config.js
@@ -15,8 +16,11 @@ server/logs/
 server/node_modules/
 server/uploaded_files/
 server/yarn-error.log
+server-rs/
 */target/
 test-state/
 tools/
 .env
 yarn-error.log
+*/.dockerignore
+*/Dockerfile

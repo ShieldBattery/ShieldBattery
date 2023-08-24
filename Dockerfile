@@ -9,29 +9,14 @@ FROM node:18-alpine as builder
 # make the image lighter).
 RUN apk add --no-cache python3 make g++ git
 
-# Ensure that we don't spend time installing dependencies that are only needed for the client
-# application.
-ENV SB_SERVER_ONLY=1
-
 # Set the working directory to where we want to install the dependencies; this directory doesn't
 # really matter as it will not be present in the final image, but keeping the path short makes
 # copying from it easier in the next stage.
 WORKDIR /shieldbattery
 
-# Copy the whole repository to the image, *except* the stuff marked in the `.dockerignore` file
-COPY . .
-
-# Install only the root folder's dependencies (`app` dependencies should be built into the
-# Electron app). Note that we specifically install non-production dependencies here so that we can
-# use them to build the client code. They will be pruned out in a later step.
-RUN yarn
-
-# Prebuild the web client assets so we can simply copy them over
-ENV NODE_ENV=production
-RUN yarn run build-web-client
-
-# Then prune the server deps to only the production ones
-RUN yarn
+# Ensure that we don't spend time installing dependencies that are only needed for the client
+# application.
+ENV SB_SERVER_ONLY=1
 
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
@@ -40,6 +25,21 @@ RUN git clone https://github.com/vishnubob/wait-for-it.git
 # Clone the `s3cmd` repository which contains a script we'll copy over to our final image, and use
 # it to sync our public assets to the cloud
 RUN git clone https://github.com/s3tools/s3cmd.git
+
+# Copy the whole repository to the image, *except* the stuff marked in the `.dockerignore` file
+COPY . .
+
+# Install only the root folder's dependencies (`app` dependencies should be built into the
+# Electron app). Note that we specifically install non-production dependencies here so that we can
+# use them to build the client code. They will be pruned out in a later step.
+RUN yarn --frozen-lockfile
+
+# Prebuild the web client assets so we can simply copy them over
+ENV NODE_ENV=production
+RUN yarn run build-web-client
+
+# Then prune the server deps to only the production ones
+RUN yarn --frozen-lockfile
 
 # ---------- 2nd stage ----------
 # Second stage copies the built dependencies from first stage and runs the app in production mode
@@ -68,23 +68,22 @@ USER node
 # Set the working directory to the home directory of the `node` user
 WORKDIR /home/node/shieldbattery
 
+# Copy the installed dependencies from the first stage
+COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
+COPY --chown=node:node --from=builder /shieldbattery/s3cmd/s3cmd tools/s3cmd/s3cmd
+COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
+
 # Copy just the sources the server needs
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
 COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
 COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
 COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
-
-# Copy the installed dependencies from the first stage
-COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
-COPY --chown=node:node --from=builder /shieldbattery/s3cmd/s3cmd tools/s3cmd/s3cmd
-COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
+COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run (necessary when building on Linux)
 RUN chmod +x ./server/update_server.sh
 RUN chmod +x ./server/testing/run_mailgun.sh
-
-COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by

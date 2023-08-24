@@ -49,13 +49,23 @@ if "%gitsha%" == "" (
 
 SET NAME=shieldbattery/shieldbattery
 SET IMG=%NAME%:%gitsha%
-SET NPM_TAG=%NAME%:%version%
+SET VERSION_TAG=%NAME%:%version%
 SET LATEST_TAG=%NAME%:latest
 
-
-docker buildx build --platform linux/amd64 -t %IMG% -t %NPM_TAG% -t %LATEST_TAG% --push .
+docker buildx build --platform linux/amd64 -t %IMG% -t %VERSION_TAG% -t %LATEST_TAG% --push .
 if errorlevel 1 (
-  echo Error building the image
+  echo Error building the shieldbattery/shieldbattery image
+  goto exit
+)
+
+set NAME=shieldbattery/server-rs
+SET IMG=%NAME%:%gitsha%
+SET VERSION_TAG=%NAME%:%version%
+SET LATEST_TAG=%NAME%:latest
+
+docker buildx build --platform linux/amd64 -t %IMG% -t %VERSION_TAG% -t %LATEST_TAG% --push ./server-rs/
+if errorlevel 1 (
+  echo Error building the shieldbattery/server-rs image
   goto exit
 )
 

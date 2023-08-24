@@ -37,6 +37,11 @@ async fn graphql_playground() -> impl IntoResponse {
     ))
 }
 
+#[cfg(not(debug_assertions))]
+async fn graphql_playground() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "Not Found")
+}
+
 async fn graphql_handler(
     ip: SecureClientIp,
     session: SbSession,

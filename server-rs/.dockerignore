@@ -1,0 +1,7 @@
+.git/
+.idea/
+.vscode/
+target/
+.dockerignore
+Dockerfile
+run-dev-server.bat
