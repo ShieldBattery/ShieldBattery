@@ -86,6 +86,7 @@
     "email-dev": "email dev --dir email/templates --port 5567",
     "gen-emails": "node -r ./babel-register email/generate.tsx",
     "gen-graphql": "graphql-codegen --config graphql-codegen.ts",
+    "gen-schema": "cd ./server-rs && cargo run --bin gen-schema",
     "gen-translations": "yarn gen-translations:app && yarn gen-translations:email",
     "gen-translations:app": "i18next",
     "gen-translations:email": "i18next -c email/i18next-parser.config.json",

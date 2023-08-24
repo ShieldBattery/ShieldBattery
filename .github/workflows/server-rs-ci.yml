@@ -76,3 +76,20 @@ jobs:
 
       - name: cargo test
         run: cargo test --all-targets --no-fail-fast
+
+      - name: cargo run --bin gen-schema
+        id: gen-schema
+        run: cargo run --bin gen-schema
+
+      - name: Check graphql schema
+        uses: tj-actions/verify-changed-files@v15
+        id: check-schema
+        with:
+          files: ./schema.graphql
+
+      - name: Display graphql error
+        if: ${{ steps.check-schema.outputs.files_changed == 'true' || failure() && steps.gen-schema.conclusion == 'failure' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('The generated graphql files seem outdated. Please run `yarn gen-schema && yarn gen-graphql` in the directory root and commit the updated files.')

@@ -7,8 +7,12 @@ edition = "2021"
 path = "src/lib.rs"
 
 [[bin]]
-path = "src/main.rs"
 name = "server"
+path = "src/main.rs"
+
+[[bin]]
+name = "gen-schema"
+path = "src/bin/gen-schema.rs"
 
 [dependencies]
 async-graphql = { version = "6.0", features = ["dataloader", "tracing"] }
