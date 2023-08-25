@@ -210,7 +210,6 @@
     },
     "auth": {
         "editAccount": {
-            "dialogTitle": "$🗡Edit account🗡!",
             "email": "$🗡Email🗡!"
         },
         "emailValidator": {

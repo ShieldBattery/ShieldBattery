@@ -309,7 +309,6 @@
     },
     "auth": {
         "editAccount": {
-            "dialogTitle": "编辑帐户",
             "email": "电子邮件"
         },
         "emailValidator": {

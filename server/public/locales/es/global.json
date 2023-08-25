@@ -229,7 +229,6 @@
             "taken": "Este nombre de usuario ya está tomado"
         },
         "editAccount": {
-            "newPassword": "Nueva contraseña",
             "email": "Correo electrónico"
         },
         "emailValidator": {

@@ -272,7 +272,6 @@
             "logIn": "로그인"
         },
         "editAccount": {
-            "dialogTitle": "계정 수정",
             "email": "이메일"
         },
         "emailValidator": {
