@@ -1,15 +1,5 @@
 {
   "auth": {
-    "editAccount": {
-      "changePassword": "Change password?",
-      "confirmNewPassword": "Confirm new password",
-      "currentPassword": "Current password",
-      "dialogTitle": "Edit account",
-      "email": "Email",
-      "errorUpdatingAccount": "There was an issue updating your account. Please try again later.",
-      "incorrectPassword": "Incorrect current password.",
-      "newPassword": "New password"
-    },
     "emailValidator": {
       "pattern": "Enter a valid email address",
       "required": "Enter an email address"
@@ -78,7 +68,6 @@
     },
     "passwordValidator": {
       "confirm": "Confirm your password",
-      "current": "Enter your current password",
       "matching": "Enter a matching password",
       "required": "Enter a password",
       "resetCode": "Enter your password reset code"
@@ -813,7 +802,6 @@
     "leftNav": {
       "chatChannels": "Chat channels",
       "customGame": "Custom game",
-      "editAccount": "Edit account",
       "gameInProgress": "Game in progress…",
       "joinChannel": "Join a channel (Alt + H)",
       "loadingChannel": "Loading…",
