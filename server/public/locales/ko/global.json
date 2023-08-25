@@ -250,7 +250,6 @@
         },
         "passwordValidator": {
             "confirm": "암호를 확인",
-            "current": "현재 비밀번호를 입력하세요",
             "matching": "일치하는 비밀번호를 입력하세요",
             "required": "비밀번호를 입력하세요",
             "resetCode": "비밀번호 재설정 코드를 입력하세요"
@@ -273,13 +272,9 @@
             "logIn": "로그인"
         },
         "editAccount": {
-            "changePassword": "비밀번호를 변경하시겠습니까?",
             "confirmNewPassword": "새 암호를 확인합니다",
-            "currentPassword": "현재 비밀번호",
             "dialogTitle": "계정 수정",
-            "errorUpdatingAccount": "계정을 업데이트하는 중에 문제가 발생했습니다. 나중에 다시 시도 해주십시오.",
             "incorrectPassword": "현재 암호가 잘못되었습니다.",
-            "newPassword": "새 비밀번호",
             "email": "이메일"
         },
         "emailValidator": {
@@ -1020,7 +1015,6 @@
         "leftNav": {
             "chatChannels": "채팅 채널",
             "customGame": "커스텀 게임",
-            "editAccount": "계정 수정",
             "gameInProgress": "게임 진행 중…",
             "joinChannel": "채널 참여(Alt + H)",
             "loadingChannel": "로드 중…",

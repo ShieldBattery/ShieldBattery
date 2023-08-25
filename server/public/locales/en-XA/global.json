@@ -210,13 +210,9 @@
     },
     "auth": {
         "editAccount": {
-            "changePassword": "$🗡Change password?🗡!",
             "confirmNewPassword": "$🗡Confirm new password🗡!",
-            "currentPassword": "$🗡Current password🗡!",
             "dialogTitle": "$🗡Edit account🗡!",
-            "errorUpdatingAccount": "$🗡There was an issue updating your account. Please try again later.🗡!",
             "incorrectPassword": "$🗡Incorrect current password.🗡!",
-            "newPassword": "$🗡New password🗡!",
             "email": "$🗡Email🗡!"
         },
         "emailValidator": {
@@ -285,7 +281,6 @@
             "confirm": "$🗡Confirm your password🗡!",
             "matching": "$🗡Enter a matching password🗡!",
             "resetCode": "$🗡Enter your password reset code🗡!",
-            "current": "$🗡Enter your current password🗡!",
             "required": "$🗡Enter a password🗡!"
         },
         "signup": {
@@ -913,7 +908,6 @@
             "viewProfile": "$🗡View profile🗡!",
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
-            "editAccount": "$🗡Edit account🗡!",
             "loadingGame": "$🗡Loading…🗡!",
             "viewChangelog": "$🗡View changelog🗡!"
         }

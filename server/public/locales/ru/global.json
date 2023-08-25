@@ -372,7 +372,6 @@
         },
         "passwordValidator": {
             "confirm": "Подтвердите ваш пароль",
-            "current": "Введите ваш текущий пароль",
             "matching": "Введите соответствующий пароль",
             "required": "введите пароль",
             "resetCode": "Введите код сброса пароля"
@@ -407,13 +406,9 @@
             "taken": "Имя пользователя уже используется"
         },
         "editAccount": {
-            "changePassword": "Изменить пароль?",
             "confirmNewPassword": "Подтвердите новый пароль",
-            "currentPassword": "Текущий пароль",
             "dialogTitle": "Редактировать аккаунт",
-            "errorUpdatingAccount": "Не удалось обновить вашу учетную запись. Пожалуйста, повторите попытку позже.",
             "incorrectPassword": "Неверный текущий пароль.",
-            "newPassword": "Новый пароль",
             "email": "Электронная почта"
         },
         "emailValidator": {
@@ -759,7 +754,6 @@
             "viewProfile": "Просмотреть профиль",
             "chatChannels": "Каналы чата",
             "customGame": "Пользовательская игра",
-            "editAccount": "Редактировать аккаунт",
             "loadingGame": "Загрузка…",
             "whisperCloseError": "Ошибка закрытия сеанса шепота: {{errorMessage}}",
             "whispers": "шепот",

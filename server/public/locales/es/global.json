@@ -229,13 +229,9 @@
             "taken": "Este nombre de usuario ya está tomado"
         },
         "editAccount": {
-            "dialogTitle": "Editar cuenta",
             "errorUpdatingAccount": "Hubo un problema al actualizar su cuenta. Por favor, inténtelo de nuevo más tarde.",
-            "incorrectPassword": "Contraseña actual incorrecta.",
             "newPassword": "Nueva contraseña",
-            "changePassword": "¿Cambiar la contraseña?",
             "confirmNewPassword": "Confirmar nueva contraseña",
-            "currentPassword": "Contraseña actual",
             "email": "Correo electrónico"
         },
         "emailValidator": {
@@ -302,7 +298,6 @@
         },
         "passwordValidator": {
             "confirm": "Confirmar la contraseña",
-            "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
             "required": "Ingrese una contraseña",
             "resetCode": "Ingrese su código de restablecimiento de contraseña"
@@ -907,7 +902,6 @@
         "leftNav": {
             "chatChannels": "Canales de chat",
             "customGame": "Juego personalizado",
-            "editAccount": "Editar cuenta",
             "gameInProgress": "Juego en progreso…",
             "joinChannel": "Unirse a un canal (Alt + H)",
             "loadingChannel": "Cargando…",

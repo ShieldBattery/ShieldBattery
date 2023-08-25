@@ -309,13 +309,9 @@
     },
     "auth": {
         "editAccount": {
-            "changePassword": "更改密码？",
             "confirmNewPassword": "确认新密码",
-            "currentPassword": "当前密码",
             "dialogTitle": "编辑帐户",
-            "errorUpdatingAccount": "更新您的帐户时出现问题。请稍后再试。",
             "incorrectPassword": "当前密码不正确。",
-            "newPassword": "新密码",
             "email": "电子邮件"
         },
         "emailValidator": {
@@ -355,7 +351,6 @@
         },
         "passwordValidator": {
             "confirm": "确认你的密码",
-            "current": "输入当前密码",
             "matching": "输入匹配的密码",
             "required": "输入密码",
             "resetCode": "输入您的密码重置代码"
@@ -868,7 +863,6 @@
     "navigation": {
         "leftNav": {
             "customGame": "自定义游戏",
-            "editAccount": "编辑帐户",
             "gameInProgress": "游戏进行中……",
             "whispers": "低语",
             "chatChannels": "聊天频道",
