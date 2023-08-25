@@ -424,10 +424,6 @@ export function ConnectedLeftNav() {
     closeProfileOverlay()
     dispatch(openChangelog())
   }, [closeProfileOverlay, dispatch])
-  const onEditAccountClick = useCallback(() => {
-    closeProfileOverlay()
-    dispatch(openDialog({ type: DialogType.Account }))
-  }, [closeProfileOverlay, dispatch])
   const onViewProfileClick = useCallback(() => {
     closeProfileOverlay()
     navigateToUserProfile(selfUser.id, selfUser.name)
@@ -540,11 +536,6 @@ export function ConnectedLeftNav() {
           icon={<MaterialIcon icon='new_releases' />}
           text={t('navigation.leftNav.viewChangelog', 'View changelog')}
           onClick={onChangelogClick}
-        />
-        <MenuItem
-          icon={<MaterialIcon icon='edit' />}
-          text={t('navigation.leftNav.editAccount', 'Edit account')}
-          onClick={onEditAccountClick}
         />
         <MenuDivider />
         <MenuItem

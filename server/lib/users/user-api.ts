@@ -8,7 +8,6 @@ import {
   EMAIL_MAXLENGTH,
   EMAIL_MINLENGTH,
   EMAIL_PATTERN,
-  isValidEmail,
   isValidPassword,
   isValidUsername,
   PASSWORD_MINLENGTH,
@@ -59,7 +58,7 @@ import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
 import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
@@ -92,7 +91,6 @@ import {
 import { UserIdentifierManager } from './user-identifier-manager'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
-  attemptLogin,
   createUser,
   findSelfById,
   findUserById,
@@ -402,102 +400,6 @@ export class UserApi {
     return {
       userInfos: users,
     }
-  }
-
-  @httpPatch('/:id')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
-  )
-  async updateUser(ctx: RouterContext): Promise<SelfUser | undefined> {
-    const { id: idString } = ctx.params
-    const { currentPassword, newPassword, newEmail } = ctx.request.body
-
-    const id = Number(idString)
-    if (!id || isNaN(id)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    } else if (ctx.session!.userId !== id) {
-      throw new httpErrors.Unauthorized("Can't change another user's account")
-    } else if (newPassword && !isValidPassword(newPassword)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    } else if (newEmail && !isValidEmail(newEmail)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    }
-
-    // TODO(tec27): Updating certain things (e.g. title) might not need to require confirming the
-    // current password, but maybe that should just be a different API
-    if (!newPassword && !newEmail) {
-      ctx.status = 204
-      return undefined
-    }
-
-    if (!isValidPassword(currentPassword)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    }
-
-    const userInfo = await findUserById(id)
-    if (!userInfo) {
-      throw new httpErrors.Unauthorized('Incorrect user ID or password')
-    }
-
-    const oldUser = await attemptLogin(userInfo.name, currentPassword)
-    if (!oldUser) {
-      throw new httpErrors.Unauthorized('Incorrect user ID or password')
-    }
-
-    const oldEmail = oldUser.email
-
-    const updates: Partial<UserUpdatables> = {}
-
-    if (newPassword) {
-      updates.password = await hashPass(newPassword)
-    }
-    if (newEmail) {
-      updates.email = newEmail
-      updates.emailVerified = false
-    }
-    const user = await updateUser(oldUser.id, updates)
-    if (!user) {
-      // NOTE(tec27): We want this to be a 5xx because this is a very unusual case, since we just
-      // looked this user up above
-      throw new Error("User couldn't be found")
-    }
-
-    // No need to await this before sending response to the user
-    if (newPassword) {
-      sendMailTemplate({
-        to: user.email,
-        subject: 'ShieldBattery Password Changed',
-        templateName: 'password-change',
-        templateData: { username: user.name },
-      }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending password changed email'))
-    }
-    if (newEmail) {
-      sendMailTemplate({
-        to: oldEmail,
-        subject: 'ShieldBattery Email Changed',
-        templateName: 'email-change',
-        templateData: { username: user.name },
-      }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email changed email'))
-
-      const emailVerificationCode = cuid()
-      await addEmailVerificationCode({
-        userId: user.id,
-        email: user.email,
-        code: emailVerificationCode,
-        ip: ctx.ip,
-      })
-      await updateAllSessionsForCurrentUser(ctx, { emailVerified: false })
-
-      sendVerificationEmail({
-        email: user.email,
-        code: emailVerificationCode,
-        userId: user.id,
-        username: user.name,
-      }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
-    }
-
-    return user
   }
 
   @httpPost('/:id/policies')

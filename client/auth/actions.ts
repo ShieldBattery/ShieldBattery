@@ -3,15 +3,12 @@ import {
   AcceptPoliciesResponse,
   ChangeLanguagesResponse,
   SbUserId,
-  SelfUser,
 } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type AuthActions =
   | AuthChangeBegin
-  | AccountUpdateSuccess
-  | AccountUpdateFailure
   | LogOutSuccess
   | LogOutFailure
   | ResetPasswordSuccess
@@ -59,15 +56,6 @@ export interface AuthChangeBegin {
     reqId: string
   }
 }
-
-/**
- * The current user's account information was updated successfully.
- */
-export type AccountUpdateSuccess = BaseAuthSuccess<'@auth/accountUpdate', SelfUser>
-/**
- * The attempt to update the current user account's information failed.
- */
-export type AccountUpdateFailure = BaseAuthFailure<'@auth/accountUpdate'>
 
 /** Logging out of the user account was successful. */
 export type LogOutSuccess = BaseAuthSuccess<'@auth/logOut'>

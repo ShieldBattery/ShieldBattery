@@ -7,7 +7,6 @@ import { SbUserId } from '../../common/users/sb-user'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
-  Account = 'account',
   Changelog = 'changelog',
   ChangeEmail = 'changeEmail',
   ChangePassword = 'changePassword',
@@ -36,7 +35,6 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
-type AccountDialogPayload = BaseDialogPayload<typeof DialogType.Account>
 type ChangelogDialogPayload = BaseDialogPayload<typeof DialogType.Changelog>
 type ChangeEmailDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeEmail,
@@ -112,7 +110,6 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
-  | AccountDialogPayload
   | ChangelogDialogPayload
   | ChangeEmailDialogPayload
   | ChangePasswordDialogPayload

@@ -4,13 +4,7 @@ import { SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import { isFetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import {
-  AccountUpdateSuccess,
-  AuthActions,
-  AuthChangeBegin,
-  LogOutSuccess,
-  VerifyEmailSuccess,
-} from './actions'
+import { AuthActions, AuthChangeBegin, LogOutSuccess, VerifyEmailSuccess } from './actions'
 
 type AuthErrors = Extract<AuthActions, { error: true }>
 type AuthErrorable = Extract<AuthActions, { error: true } | { error?: false }>
@@ -86,17 +80,7 @@ function emailVerified(state: AuthState, action: VerifyEmailSuccess) {
   return state
 }
 
-function accountUpdate(state: AuthState, action: AccountUpdateSuccess) {
-  const user = action.payload
-  state.authChangeInProgress = false
-  state.lastFailure = undefined
-  state.self!.user = { ...user }
-  return state
-}
-
 export default immerKeyedReducer<ReadonlyDeep<AuthState>>(DEFAULT_STATE, {
-  ['@auth/accountUpdate']: (state, action) =>
-    !action.error ? accountUpdate(state, action) : handleError(state, action),
   ['@auth/changeBegin']: begin,
   ['@auth/logOut']: (state, action) =>
     !action.error ? logOutSuccess(state, action) : handleError(state, action),

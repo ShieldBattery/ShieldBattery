@@ -1,14 +1,14 @@
 import cuid from 'cuid'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
-import { SbUserId, SelfUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
+import { AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
 const typedIpc = new TypedIpcRenderer()
@@ -224,14 +224,5 @@ export function verifyEmail(userId: SbUserId, token: string) {
 export function sendVerificationEmail(userId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, () =>
     fetchJson<void>(apiUrl`users/${userId}/email-verification/send`, { method: 'post' }),
-  )
-}
-
-export function updateAccount(userId: SbUserId, userProps: Partial<SelfUser>) {
-  return idRequest('@auth/accountUpdate', () =>
-    fetchJson<AccountUpdateSuccess['payload']>('/api/1/users/' + encodeURIComponent(userId), {
-      method: 'PATCH',
-      body: JSON.stringify(userProps),
-    }),
   )
 }

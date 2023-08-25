@@ -5,7 +5,6 @@ import ReactDOM from 'react-dom'
 import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import EditAccount from '../auth/edit-account'
 import ChangelogDialog from '../changelog/changelog-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { FocusTrap } from '../dom/focus-trap'
@@ -68,8 +67,6 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptMatch, modal: true }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
-    case DialogType.Account:
-      return { component: EditAccount }
     case DialogType.Changelog:
       return { component: ChangelogDialog }
     case DialogType.ChangeEmail:
