@@ -191,10 +191,11 @@ export function AccountSettings() {
             <EditableContent>
               <EditableOverline>{t('settings.user.account.email', 'Email')}</EditableOverline>
               <EmailItem>
-                <Subtitle1>{emailText}</Subtitle1>
+                <Subtitle1 data-test='account-email-text'>{emailText}</Subtitle1>
                 <Body1>
                   <a
                     href='#'
+                    data-test='reveal-email-link'
                     onClick={e => {
                       setEmailRevealed(r => !r)
                       e.preventDefault()
@@ -508,6 +509,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       color='accent'
       onClick={onSubmit}
       disabled={fetching}
+      testName='save-button'
     />,
   ]
 
@@ -517,7 +519,8 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       onCancel={onCancel}
       showCloseButton={true}
       buttons={buttons}
-      dialogRef={dialogRef}>
+      dialogRef={dialogRef}
+      testName='change-email-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
