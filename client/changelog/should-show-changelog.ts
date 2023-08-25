@@ -9,5 +9,5 @@ export function shouldShowChangelog() {
     return semverCompare(val, VERSION) < 0
   }
 
-  return true
+  return false
 }
