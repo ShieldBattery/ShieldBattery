@@ -25,6 +25,10 @@ function send404() {
   throw new httpErrors.NotFound()
 }
 
+function sendDisabledRobotsTxt(ctx: RouterContext) {
+  ctx.body = 'User-agent: *\nDisallow: /\n'
+}
+
 interface LatestYaml {
   path: string
   releaseDate: string
@@ -60,8 +64,10 @@ export default function applyRoutes(
   router.all('/api/:param*', send404)
 
   // common requests that we don't want to return the regular page for
-  // TODO(tec27): we should probably do something based on expected content type as well
-  router.get('/robots.txt', send404).get('/favicon.ico', send404)
+  const crawlersDisabled = (process.env.SB_DISABLE_CRAWLERS ?? '').toLowerCase() === 'true'
+  router
+    .get('/robots.txt', crawlersDisabled ? sendDisabledRobotsTxt : send404)
+    .get('/favicon.ico', send404)
 
   const publicAssetsConfig = container.resolve(PublicAssetsConfig)
   const serverConfig: ServerConfig = {
