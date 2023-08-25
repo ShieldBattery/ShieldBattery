@@ -109,6 +109,10 @@ jobs:
         if: ${{ failure() }}
         run: docker logs integration_app-server_1
 
+      - name: View server-rs logs
+        if: ${{ failure() }}
+        run: docker logs integration_server-rs_1
+
       - name: View mailgun logs
         if: ${{ failure() }}
         run: docker logs integration_mailgun_1
