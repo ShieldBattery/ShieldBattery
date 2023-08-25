@@ -309,9 +309,7 @@
     },
     "auth": {
         "editAccount": {
-            "confirmNewPassword": "确认新密码",
             "dialogTitle": "编辑帐户",
-            "incorrectPassword": "当前密码不正确。",
             "email": "电子邮件"
         },
         "emailValidator": {

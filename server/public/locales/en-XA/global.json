@@ -210,9 +210,7 @@
     },
     "auth": {
         "editAccount": {
-            "confirmNewPassword": "$🗡Confirm new password🗡!",
             "dialogTitle": "$🗡Edit account🗡!",
-            "incorrectPassword": "$🗡Incorrect current password.🗡!",
             "email": "$🗡Email🗡!"
         },
         "emailValidator": {

@@ -272,9 +272,7 @@
             "logIn": "로그인"
         },
         "editAccount": {
-            "confirmNewPassword": "새 암호를 확인합니다",
             "dialogTitle": "계정 수정",
-            "incorrectPassword": "현재 암호가 잘못되었습니다.",
             "email": "이메일"
         },
         "emailValidator": {

@@ -406,9 +406,7 @@
             "taken": "Имя пользователя уже используется"
         },
         "editAccount": {
-            "confirmNewPassword": "Подтвердите новый пароль",
             "dialogTitle": "Редактировать аккаунт",
-            "incorrectPassword": "Неверный текущий пароль.",
             "email": "Электронная почта"
         },
         "emailValidator": {

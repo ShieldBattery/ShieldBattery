@@ -229,9 +229,7 @@
             "taken": "Este nombre de usuario ya está tomado"
         },
         "editAccount": {
-            "errorUpdatingAccount": "Hubo un problema al actualizar su cuenta. Por favor, inténtelo de nuevo más tarde.",
             "newPassword": "Nueva contraseña",
-            "confirmNewPassword": "Confirmar nueva contraseña",
             "email": "Correo electrónico"
         },
         "emailValidator": {
