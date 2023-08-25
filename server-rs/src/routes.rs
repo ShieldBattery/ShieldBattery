@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::configuration::Settings;
-use crate::email::MailgunClient;
 use async_graphql::dataloader::DataLoader;
 use async_graphql::extensions::Tracing;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig, ALL_WEBSOCKET_PROTOCOLS};
@@ -19,12 +17,16 @@ use sqlx::PgPool;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors;
+use tower_http::request_id::MakeRequestUuid;
 use tower_http::sensitive_headers::{
     SetSensitiveRequestHeadersLayer, SetSensitiveResponseHeadersLayer,
 };
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tower_http::ServiceBuilderExt;
 use tracing::Level;
 
+use crate::configuration::Settings;
+use crate::email::MailgunClient;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
 use crate::sessions::SbSession;
@@ -100,6 +102,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         header::PROXY_AUTHORIZATION,
         header::COOKIE,
         header::SET_COOKIE,
+        HeaderName::from_static("sb-session-id"),
     ]);
 
     Router::new()
@@ -111,6 +114,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                 .layer(SetSensitiveRequestHeadersLayer::from_shared(Arc::clone(
                     &sensitive_headers,
                 )))
+                .set_x_request_id(MakeRequestUuid)
                 .layer(
                     TraceLayer::new_for_http()
                         .make_span_with(DefaultMakeSpan::new().include_headers(true))
@@ -144,6 +148,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                 .layer(SetSensitiveResponseHeadersLayer::from_shared(
                     sensitive_headers,
                 ))
+                .propagate_x_request_id()
                 .layer(Extension(schema))
                 .layer(Extension(db_pool))
                 .layer(Extension(redis_pool))

@@ -64,8 +64,10 @@ features = [
   "add-extension",
   "compression-full",
   "cors",
+  "request-id",
   "sensitive-headers",
   "trace",
+  "util",
 ]
 
 [dev-dependencies]
