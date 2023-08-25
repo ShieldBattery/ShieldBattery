@@ -209,9 +209,6 @@
         }
     },
     "auth": {
-        "editAccount": {
-            "email": "$🗡Email🗡!"
-        },
         "emailValidator": {
             "pattern": "$🗡Enter a valid email address🗡!",
             "required": "$🗡Enter an email address🗡!"

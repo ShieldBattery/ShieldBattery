@@ -228,9 +228,6 @@
             "required": "Introduzca un nombre de usuario",
             "taken": "Este nombre de usuario ya está tomado"
         },
-        "editAccount": {
-            "email": "Correo electrónico"
-        },
         "emailValidator": {
             "pattern": "Introduzca una dirección de correo electrónico válida",
             "required": "Introduzca una dirección de correo electrónico"

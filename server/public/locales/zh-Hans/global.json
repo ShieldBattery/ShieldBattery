@@ -308,9 +308,6 @@
         }
     },
     "auth": {
-        "editAccount": {
-            "email": "电子邮件"
-        },
         "emailValidator": {
             "pattern": "输入一个有效的电子邮件地址",
             "required": "输入电子邮件地址"

@@ -271,9 +271,6 @@
             "resendVerificationEmail": "확인 이메일을 다시 보내",
             "logIn": "로그인"
         },
-        "editAccount": {
-            "email": "이메일"
-        },
         "emailValidator": {
             "pattern": "유효한 이메일 주소를 입력하세요.",
             "required": "이메일 주소를 입력하세요"
