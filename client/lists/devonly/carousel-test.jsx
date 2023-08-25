@@ -1,6 +1,6 @@
-import { Range } from 'immutable'
 import React from 'react'
 import styled from 'styled-components'
+import { range } from '../../../common/range'
 import Card from '../../material/card'
 import { background400, background700, colorTextSecondary } from '../../styles/colors'
 import Carousel from '../carousel'
@@ -65,13 +65,11 @@ export default class CarouselTest extends React.Component {
   }
 
   render() {
-    const items = Range(0, TOTAL_ITEMS_COUNT)
-      .map(i => (
-        <CarouselItem key={i}>
-          <span>{i + 1}</span>
-        </CarouselItem>
-      ))
-      .toArray()
+    const items = Array.from(range(0, TOTAL_ITEMS_COUNT), i => (
+      <CarouselItem key={i}>
+        <span>{i + 1}</span>
+      </CarouselItem>
+    ))
     const dynamicItems = items.filter((item, index) => index < this.state.page * ITEMS_PER_PAGE)
     const hasMoreItems = TOTAL_ITEMS_COUNT > dynamicItems.length
 
