@@ -105,7 +105,6 @@ interface CreateLobbyFormHandle {
 }
 
 interface CreateLobbyFormProps {
-  inputRef: React.Ref<HTMLInputElement>
   disabled: boolean
   model: CreateLobbyModel
   onSubmit: (model: CreateLobbyModel) => void
@@ -122,12 +121,13 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
       { name: lobbyNameValidator, selectedMap: selectedMapValidator },
       { onSubmit: props.onSubmit, onChange: props.onChange },
     )
+    const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
     useImperativeHandle(ref, () => ({
       submit: onSubmit,
     }))
 
-    const { inputRef, recentMaps, disabled, onMapBrowse } = props
+    const { recentMaps, disabled, onMapBrowse } = props
 
     const gameType = getInputValue('gameType')
     const selectedMap = getInputValue('selectedMap')
@@ -220,7 +220,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
         <SubmitOnEnter />
         <TextField
           {...bindInput('name')}
-          ref={inputRef}
+          ref={autoFocusRef}
           label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
           disabled={disabled}
           floatingLabel={true}
@@ -304,7 +304,6 @@ export function CreateLobby(props: CreateLobbyProps) {
 
   const isInParty = useAppSelector(s => !!s.party.current)
   const formRef = useRef<CreateLobbyFormHandle>(null)
-  const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   const onCreateClick = useCallback(() => {
@@ -407,7 +406,6 @@ export function CreateLobby(props: CreateLobbyProps) {
           {!isRequesting ? (
             <CreateLobbyForm
               ref={formRef}
-              inputRef={autoFocusRef}
               disabled={isDisabled}
               model={model}
               onChange={onChange}

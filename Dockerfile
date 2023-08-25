@@ -20,11 +20,11 @@ ENV SB_SERVER_ONLY=1
 
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
-RUN git clone https://github.com/vishnubob/wait-for-it.git
+RUN git clone --depth 1 https://github.com/vishnubob/wait-for-it.git
 
 # Clone the `s3cmd` repository which contains a script we'll copy over to our final image, and use
 # it to sync our public assets to the cloud
-RUN git clone https://github.com/s3tools/s3cmd.git
+RUN git clone --depth 1 https://github.com/s3tools/s3cmd.git
 
 # Copy the whole repository to the image, *except* the stuff marked in the `.dockerignore` file
 COPY . .

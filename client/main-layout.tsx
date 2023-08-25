@@ -475,6 +475,7 @@ export function MainLayout() {
               ref={settingsButtonRef}
               icon={<MaterialIcon icon='settings' />}
               onClick={() => dispatch(openSettings())}
+              testName='settings-button'
             />
           </Tooltip>
           <FriendsListActivityButton />

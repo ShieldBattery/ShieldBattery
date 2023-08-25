@@ -160,7 +160,7 @@ export function AccountSettings() {
     <Root>
       <Section>
         {currentUser.emailVerified ? null : (
-          <EmailVerificationWarning>
+          <EmailVerificationWarning data-test='email-verification-warning'>
             <ColoredWarningIcon />
             <EmailVerificationWarningContent />
           </EmailVerificationWarning>
@@ -206,7 +206,11 @@ export function AccountSettings() {
                 </Body1>
               </EmailItem>
             </EditableContent>
-            <RaisedButton label={t('common.actions.edit', 'Edit')} onClick={onEditEmail} />
+            <RaisedButton
+              label={t('common.actions.edit', 'Edit')}
+              onClick={onEditEmail}
+              testName='edit-email-button'
+            />
           </EditableItem>
         </UserCard>
       </Section>
@@ -218,6 +222,7 @@ export function AccountSettings() {
         <RaisedButton
           label={t('settings.user.account.changePasswordButton', 'Change password')}
           onClick={onChangePassword}
+          testName='change-password-button'
         />
       </Section>
     </Root>
@@ -354,6 +359,7 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       color='accent'
       onClick={onSubmit}
       disabled={fetching}
+      testName='save-button'
     />,
   ]
 
@@ -363,7 +369,8 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       onCancel={onCancel}
       showCloseButton={true}
       buttons={buttons}
-      dialogRef={dialogRef}>
+      dialogRef={dialogRef}
+      testName='change-password-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />

@@ -175,6 +175,7 @@ export interface DialogProps {
   titleAction?: React.ReactNode
   onCancel?: () => void
   alwaysHasTopDivider?: boolean
+  testName?: string
 }
 
 export function Dialog({
@@ -190,6 +191,7 @@ export function Dialog({
   titleAction,
   onCancel,
   alwaysHasTopDivider = false,
+  testName,
 }: DialogProps) {
   const { t } = useTranslation()
   const dialogContext = useContext(DialogContext)
@@ -218,7 +220,7 @@ export function Dialog({
   ) : null
 
   return (
-    <Container role='dialog'>
+    <Container role='dialog' data-test={testName}>
       <Surface
         className={className}
         style={{ ...style, ...dialogContext.styles }}
@@ -238,7 +240,11 @@ export function Dialog({
           {children}
           {bottomNode}
         </Body>
-        {buttons && buttons.length ? <Actions $showDivider={!isAtBottom}>{buttons}</Actions> : null}
+        {buttons && buttons.length ? (
+          <Actions $showDivider={!isAtBottom} data-test='dialog-actions'>
+            {buttons}
+          </Actions>
+        ) : null}
       </Surface>
     </Container>
   )

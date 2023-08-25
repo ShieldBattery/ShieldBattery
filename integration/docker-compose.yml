@@ -43,7 +43,7 @@ services:
       - migration
       - redis
 
-  server_rs:
+  server-rs:
     build: '../server-rs/'
     restart: unless-stopped
     init: true
@@ -56,6 +56,7 @@ services:
       - SB_DB_PASSWORD=shieldbattery_pass
       - SB_DB=shieldbattery
       - 'SB_CANONICAL_HOST=http://localhost:5527'
+      - 'SB_GQL_HOST=[::]'
       - SB_GQL_PORT=5529
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379

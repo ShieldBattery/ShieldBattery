@@ -30,6 +30,10 @@ use crate::schema::{build_schema, SbSchema};
 use crate::sessions::SbSession;
 use crate::users::UsersLoader;
 
+async fn health_check() -> impl IntoResponse {
+    "OK"
+}
+
 #[cfg(debug_assertions)]
 async fn graphql_playground() -> impl IntoResponse {
     Html(playground_source(
@@ -99,6 +103,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
     ]);
 
     Router::new()
+        .route("/healthcheck", get(health_check))
         .route("/gql", get(graphql_playground).post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .layer(

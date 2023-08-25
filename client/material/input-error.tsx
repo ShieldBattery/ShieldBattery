@@ -69,7 +69,7 @@ export function InputError(props: InputErrorProps) {
     <StyledTransitionGroup className={props.className}>
       {props.error ? (
         <CSSTransition key='error' classNames={transitionNames} timeout={250}>
-          <ErrorText>{props.error}</ErrorText>
+          <ErrorText data-test='validation-error'>{props.error}</ErrorText>
         </CSSTransition>
       ) : null}
     </StyledTransitionGroup>
