@@ -25,6 +25,7 @@ export function makeSbChannelId(id: number): SbChannelId {
 
 export enum ChatServiceErrorCode {
   CannotChangeChannelOwner = 'CannotChangeChannelOwner',
+  CannotEditChannel = 'CannotEditChannel',
   CannotLeaveShieldBattery = 'CannotLeaveShieldBattery',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
@@ -229,6 +230,16 @@ export interface ChatJoinEvent {
   message: JoinChannelMessage
 }
 
+export interface ChatEditEvent {
+  action: 'edit'
+  /** The updated basic information about the edited channel. */
+  channelInfo: BasicChannelInfo
+  /** The updated detailed information about the edited channel. */
+  detailedChannelInfo: DetailedChannelInfo
+  /** The updated channel information specific to user's edited channel. */
+  joinedChannelInfo: JoinedChannelInfo
+}
+
 export interface ChatLeaveEvent {
   action: 'leave2'
   /** The ID of a user that has left the chat channel. */
@@ -298,6 +309,7 @@ export interface ChatUserOfflineEvent {
  */
 export type ChatEvent =
   | ChatJoinEvent
+  | ChatEditEvent
   | ChatLeaveEvent
   | ChatKickEvent
   | ChatBanEvent
@@ -325,6 +337,27 @@ export interface JoinChannelResponse {
   /** The detailed information about the joined channel. */
   detailedChannelInfo: DetailedChannelInfo
   /** The channel information specific to user's joined channel. */
+  joinedChannelInfo: JoinedChannelInfo
+}
+
+/**
+ * The body data of the API route for editing the channel info.
+ */
+export interface EditChannelRequest {
+  description?: string | null
+  topic?: string | null
+  bannerId?: string
+}
+
+/**
+ * The response returned when editing a specific chat channel.
+ */
+export interface EditChannelResponse {
+  /** The updated basic information about the edited channel. */
+  channelInfo: BasicChannelInfo
+  /** The updated detailed information about the edited channel. */
+  detailedChannelInfo: DetailedChannelInfo
+  /** The updated channel information specific to user's edited channel. */
   joinedChannelInfo: JoinedChannelInfo
 }
 

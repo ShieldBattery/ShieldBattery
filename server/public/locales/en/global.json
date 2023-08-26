@@ -152,6 +152,19 @@
     "channelName": {
       "deletedChannel": "deleted-channel"
     },
+    "channelSettings": {
+      "banner": {
+        "defaultOverline": "Default channel banners",
+        "myOverline": "My channel banners",
+        "openFullSize": "Open full size",
+        "title": "Banner"
+      },
+      "general": {
+        "descriptionLabel": "Description",
+        "title": "General",
+        "topicLabel": "Topic"
+      }
+    },
     "channelValidator": {
       "pattern": "Channel name contains invalid characters",
       "required": "Enter a channel name"

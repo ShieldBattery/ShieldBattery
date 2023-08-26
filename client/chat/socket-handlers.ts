@@ -25,6 +25,16 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
+  edit: (channelId, event) => dispatch => {
+    dispatch({
+      type: '@chat/getChannelInfo',
+      payload: event,
+      meta: {
+        channelId,
+      },
+    })
+  },
+
   leave2: (channelId, event) => (dispatch, getState) => {
     const { auth } = getState()
     if (auth.self!.user.id === event.userId) {

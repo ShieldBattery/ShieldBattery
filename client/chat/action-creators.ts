@@ -1,6 +1,8 @@
 import {
   ChannelModerationAction,
   ChatServiceErrorCode,
+  EditChannelRequest,
+  EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -81,6 +83,35 @@ export function joinChannelWithErrorHandling(
 
         throw err
       })
+  })
+}
+
+export function updateChannel(
+  channelId: SbChannelId,
+  channelChanges: EditChannelRequest,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const params: EditChannelRequest = {}
+    for (const [key, value] of Object.entries(channelChanges)) {
+      if (value !== undefined) {
+        params[key as keyof EditChannelRequest] = String(value === '' ? null : value)
+      }
+    }
+
+    const result = await fetchJson<EditChannelResponse>(apiUrl`chat/${channelId}`, {
+      method: 'PATCH',
+      signal: spec.signal,
+      body: encodeBodyAsParams<EditChannelRequest>(params),
+    })
+
+    dispatch({
+      type: '@chat/getChannelInfo',
+      payload: result,
+      meta: {
+        channelId,
+      },
+    })
   })
 }
 

@@ -1,14 +1,17 @@
 import { MergeExclusive } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   BasicChannelInfo,
   ChannelPermissions,
   DetailedChannelInfo,
+  EditChannelRequest,
   JoinedChannelInfo,
   MAXIMUM_JOINED_CHANNELS,
   MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
+import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -142,6 +145,8 @@ export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
 export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
   return {
     id: channel.id,
+    description: channel.description,
+    bannerId: channel.bannerId,
     userCount: channel.userCount,
   }
 }
@@ -166,6 +171,8 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     userCount: props.user_count,
     ownerId: props.owner_id,
     topic: props.topic,
+    description: props.description,
+    bannerId: props.banner_id,
   }
 }
 
@@ -194,6 +201,67 @@ export async function createChannel(
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Updates the channel with the given list of updates. Throws an error if there are no updates, so
+ * make sure to only call this method when you update one of the channel's fields.
+ */
+export async function updateChannel(
+  channelId: SbChannelId,
+  updates: Patch<EditChannelRequest>,
+  withClient?: DbClient,
+): Promise<FullChannelInfo> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      UPDATE channels
+      SET
+    `
+
+    let first = true
+    for (const [_key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        continue
+      }
+
+      const key = _key as keyof typeof updates
+      if (!first) {
+        query.append(sql`, `)
+      } else {
+        first = false
+      }
+
+      switch (key) {
+        case 'description':
+          query.append(sql`description = ${value}`)
+          break
+        case 'topic':
+          query.append(sql`topic = ${value}`)
+          break
+        case 'bannerId':
+          query.append(sql`banner_id = ${value}`)
+          break
+
+        default:
+          assertUnreachable(key)
+      }
+    }
+
+    if (first) {
+      throw new Error('No columns updated')
+    }
+
+    query.append(sql`
+      WHERE id = ${channelId}
+      RETURNING *
+    `)
+
+    const result = await client.query<DbChannel>(query)
+    return convertChannelFromDb(result.rows[0])
   } finally {
     done()
   }

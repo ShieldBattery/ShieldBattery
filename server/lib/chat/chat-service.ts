@@ -10,6 +10,8 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   DetailedChannelInfo,
+  EditChannelRequest,
+  EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -22,8 +24,10 @@ import {
   makeSbChannelId,
   toChatUserProfileJson,
 } from '../../../common/chat'
+import { makeChannelBannerId } from '../../../common/chat-channels/channel-banners'
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
+import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -38,6 +42,7 @@ import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { getChannelBannerById } from './channel-banner-models'
 import {
   ChatMessage,
   FullChannelInfo,
@@ -63,6 +68,7 @@ import {
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
+  updateChannel,
   updateUserPermissions,
 } from './chat-models'
 
@@ -373,6 +379,59 @@ export default class ChatService {
         )
       }
     }
+
+    return {
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    }
+  }
+
+  async editChannel(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    updates: EditChannelRequest,
+  ): Promise<EditChannelResponse> {
+    const originalChannel = await getChannelInfo(channelId)
+
+    if (!originalChannel) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    if (originalChannel.ownerId !== userId) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateChannelModerator,
+        'Only channel owner can edit the channel',
+      )
+    }
+
+    if (updates.bannerId) {
+      const banner = await getChannelBannerById(makeChannelBannerId(updates.bannerId))
+      if (!banner) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.ChannelBannerNotFound,
+          'Channel banner not found',
+        )
+      }
+
+      if (banner.limited && !banner.availableIn.includes(channelId)) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.ChannelBannerNotAvailable,
+          'Channel banner not available',
+        )
+      }
+    }
+
+    const updatedChannel: Patch<EditChannelRequest> = { ...updates }
+
+    const channel = await updateChannel(channelId, updatedChannel)
+
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'edit',
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    })
 
     return {
       channelInfo: toBasicChannelInfo(channel),

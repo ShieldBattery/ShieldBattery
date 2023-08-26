@@ -223,6 +223,7 @@ const NavEntryRoot = styled.div<{ $isActive: boolean }>`
   align-items: center;
 
   border-radius: 4px;
+  overflow: hidden;
   cursor: pointer;
 
   --sb-ripple-color: ${colorTextPrimary};

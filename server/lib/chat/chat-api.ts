@@ -5,6 +5,8 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelPermissions,
   ChatServiceErrorCode,
+  EditChannelRequest,
+  EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -22,7 +24,7 @@ import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -33,6 +35,12 @@ import ChatService, { ChatServiceError } from './chat-service'
 const joinThrottle = createThrottle('chatjoin', {
   rate: 3,
   burst: 10,
+  window: 60000,
+})
+
+const editThrottle = createThrottle('chatedit', {
+  rate: 50,
+  burst: 80,
   window: 60000,
 })
 
@@ -99,6 +107,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.NoInitialChannelData:
       throw asHttpError(400, err)
     case ChatServiceErrorCode.CannotChangeChannelOwner:
+    case ChatServiceErrorCode.CannotEditChannel:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
     case ChatServiceErrorCode.MaximumJoinedChannels:
@@ -149,6 +158,28 @@ export class ChatApi {
     })
 
     return await this.chatService.joinChannel(channelName, ctx.session!.user!.id)
+  }
+
+  @httpPatch('/:channelId')
+  @httpBefore(throttleMiddleware(editThrottle, ctx => String(ctx.session!.user!.id)))
+  async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<EditChannelRequest>({
+        description: Joi.string().allow(null),
+        topic: Joi.string().allow(null),
+        bannerId: Joi.string().uuid(),
+      }),
+    })
+
+    if (body.description === 'null') {
+      body.description = null
+    }
+    if (body.topic === 'null') {
+      body.topic = null
+    }
+
+    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, body)
   }
 
   @httpDelete('/:channelId')

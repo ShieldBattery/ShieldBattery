@@ -5,12 +5,15 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   DetailedChannelInfo,
+  EditChannelRequest,
+  EditChannelResponse,
   GetChannelHistoryServerResponse,
   JoinedChannelInfo,
   makeSbChannelId,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
+import { makeChannelBannerId } from '../../../common/chat-channels/channel-banners'
 import * as flags from '../../../common/flags'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
@@ -27,6 +30,7 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { getChannelBannerById } from './channel-banner-models'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -52,6 +56,7 @@ import {
   searchChannels,
   TextMessageData,
   toBasicChannelInfo,
+  updateChannel,
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
@@ -98,6 +103,10 @@ jest.mock('../users/user-model', () => {
   }
 })
 
+jest.mock('./channel-banner-models', () => ({
+  getChannelBannerById: jest.fn(),
+}))
+
 jest.mock('./chat-models', () => {
   const originalModule = jest.requireActual('./chat-models')
   return {
@@ -106,6 +115,7 @@ jest.mock('./chat-models', () => {
     getUserChannelEntryForUser: jest.fn(),
     getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
     createChannel: jest.fn(),
+    updateChannel: jest.fn(),
     addUserToChannel: jest.fn(),
     addMessageToChannel: jest.fn(),
     getMessagesForChannel: jest.fn().mockResolvedValue([]),
@@ -169,6 +179,8 @@ describe('chat/chat-service', () => {
   }
   const shieldBatteryDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(1),
+    description: 'SHIELDBATTERY_DESCRIPTION',
+    bannerId: makeChannelBannerId('SHIELDBATTERY_BANNER_ID'),
     userCount: 5,
   }
   const shieldBatteryJoinedInfo: JoinedChannelInfo = {
@@ -189,6 +201,8 @@ describe('chat/chat-service', () => {
   }
   const testDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(2),
+    description: 'TEST_DESCRIPTION',
+    bannerId: makeChannelBannerId('TEST_BANNER_ID'),
     userCount: 2,
   }
   const testJoinedInfo: JoinedChannelInfo = {
@@ -715,6 +729,211 @@ describe('chat/chat-service', () => {
         joinedChannelInfo: testJoinedInfo,
         activeUserIds: [user1.id],
         selfPermissions: channelPermissions,
+      })
+    })
+  })
+
+  describe('editChannel', () => {
+    const expectItWorks = (updates: EditChannelRequest, result: EditChannelResponse) => {
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: {
+          ...testDetailedInfo,
+          description: updates.description ? updates.description : testDetailedInfo.description,
+          bannerId: updates.bannerId ? updates.bannerId : testDetailedInfo.bannerId,
+        },
+        joinedChannelInfo: {
+          ...testJoinedInfo,
+          topic: updates.topic ? updates.topic : testJoinedInfo.topic,
+        },
+      })
+      expect(result).toEqual({
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: {
+          ...testDetailedInfo,
+          description: updates.description ? updates.description : testDetailedInfo.description,
+          bannerId: updates.bannerId ? updates.bannerId : testDetailedInfo.bannerId,
+        },
+        joinedChannelInfo: {
+          ...testJoinedInfo,
+          topic: updates.topic ? updates.topic : testJoinedInfo.topic,
+        },
+      })
+    }
+
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {}),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+    })
+
+    test('should throw if not a channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {}),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only channel owner can edit the channel"`)
+    })
+
+    test('should throw if channel banner was not found', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {
+          bannerId: makeChannelBannerId('NEW_BANNER'),
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel banner not found"`)
+    })
+
+    test('should throw if channel banner was not available', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+      asMockedFunction(getChannelBannerById).mockResolvedValue({
+        id: makeChannelBannerId('CHANNEL_BANNER_ID'),
+        name: 'CHANNEL_BANNER',
+        limited: true,
+        availableIn: [shieldBatteryBasicInfo.id],
+        imagePath: 'CHANNEL_BANNER_IMAGE_PATH',
+        uploadedAt: new Date('2023-09-02T00:00:00.000Z'),
+        updatedAt: new Date('2023-09-02T00:00:00.000Z'),
+      })
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {
+          bannerId: makeChannelBannerId('NEW_BANNER'),
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel banner not available"`)
+    })
+
+    test('works when updating description', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+
+      const updates = {
+        description: 'NEW_DESCRIPTION',
+      }
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        ...updates,
+      })
+
+      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+      expectItWorks(updates, result)
+    })
+
+    test('works when updating topic', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+
+      const updates = {
+        topic: 'NEW_TOPIC',
+      }
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        ...updates,
+      })
+
+      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+      expectItWorks(updates, result)
+    })
+
+    describe('when updating channel banner', () => {
+      test('works when channel banner was not limited', async () => {
+        await joinUserToChannel(
+          user1,
+          testChannel,
+          user1TestChannelEntry,
+          joinUser1TestChannelMessage,
+        )
+
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...testChannel,
+          ownerId: user1.id,
+        })
+        asMockedFunction(getChannelBannerById).mockResolvedValue({
+          id: makeChannelBannerId('NEW_BANNER_ID'),
+          name: 'NEW_BANNER',
+          limited: false,
+          availableIn: [],
+          imagePath: 'NEW_BANNER_IMAGE_PATH',
+          uploadedAt: new Date('2023-09-02T00:00:00.000Z'),
+          updatedAt: new Date('2023-09-02T00:00:00.000Z'),
+        })
+
+        const updates = {
+          bannerId: makeChannelBannerId('NEW_BANNER_ID'),
+        }
+        asMockedFunction(updateChannel).mockResolvedValue({
+          ...testChannel,
+          ...updates,
+        })
+
+        const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+        expectItWorks(updates, result)
+      })
+
+      test('works when channel banner was limited', async () => {
+        await joinUserToChannel(
+          user1,
+          testChannel,
+          user1TestChannelEntry,
+          joinUser1TestChannelMessage,
+        )
+
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...testChannel,
+          ownerId: user1.id,
+        })
+        asMockedFunction(getChannelBannerById).mockResolvedValue({
+          id: makeChannelBannerId('NEW_BANNER_ID'),
+          name: 'NEW_BANNER',
+          limited: true,
+          availableIn: [testBasicInfo.id],
+          imagePath: 'NEW_BANNER_IMAGE_PATH',
+          uploadedAt: new Date('2023-09-02T00:00:00.000Z'),
+          updatedAt: new Date('2023-09-02T00:00:00.000Z'),
+        })
+
+        const updates = {
+          bannerId: makeChannelBannerId('NEW_BANNER_ID'),
+        }
+        asMockedFunction(updateChannel).mockResolvedValue({
+          ...testChannel,
+          ...updates,
+        })
+
+        const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+        expectItWorks(updates, result)
       })
     })
   })
