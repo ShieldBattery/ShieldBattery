@@ -30,7 +30,7 @@ The easiest/cheapest way to get this is through the
 
 ### Rust
 
-The code that runs within BW process, as well as Electron-side process launching helpers are DLLs
+The code that runs within BW process, some Electron addons, and the `server-rs` package are
 written in [Rust](https://rust-lang.org). The simplest way to get things built is to use the [rustup
 toolchain installer](https://rustup.rs).
 
@@ -43,8 +43,14 @@ resulting DLL and other necessary support files to `game/dist`, where the JavaSc
 them to be. The build defaults to the quicker debug build, to build the optimized version run
 `build.bat release`.
 
-If the required minimum Rust version is changed (1.63 as of this writing), you can update the Rust
-toolchain by running `rustup update`.
+You can update the Rust toolchain by running `rustup update`. We generally try to stay up to date
+with the current stable version (and some CI runs may fail if your local version is older than this,
+due to changes in `rust fmt` and various warnings/errors).
+
+### Rust utilities
+
+We use `sqlx` for our database interaction in Rust, which has a CLI utility that needs to be installed.
+After installing the Rust toolchain, run `cargo install sqlx-cli`
 
 ### Recommended VSCode Plugins
 
