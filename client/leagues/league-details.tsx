@@ -10,6 +10,8 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
+import { urlPath } from '../../common/urls'
+import { useTrackPageView } from '../analytics/analytics'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
@@ -93,6 +95,8 @@ export function LeagueDetailsPage() {
     params?.subPage && ALL_DETAILS_SUB_PAGES.includes(params.subPage as DetailsSubPage)
       ? (params.subPage as DetailsSubPage)
       : undefined
+
+  useTrackPageView(urlPath`/leagues/${routeId}/${subPage ?? ''}`)
 
   useEffect(() => {
     if (match && leagueName && slug(leagueName) !== slugStr) {

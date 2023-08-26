@@ -2,6 +2,7 @@ import { Immutable } from 'immer'
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
+import { useTrackPageView } from '../analytics/analytics'
 import { CreateLobby } from './create-lobby'
 import JoinLobby from './join-lobby'
 
@@ -24,6 +25,8 @@ export function LobbyActivityOverlay({ creating = false, map }: LobbyActivityOve
   const onNavigateToCreate = useCallback(() => {
     setIsCreating(true)
   }, [])
+
+  useTrackPageView(isCreating ? '/lobbies/create' : '/lobbies')
 
   return (
     <Container>

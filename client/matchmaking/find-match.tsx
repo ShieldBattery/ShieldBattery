@@ -13,8 +13,10 @@ import {
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
+import { urlPath } from '../../common/urls'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
+import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -131,6 +133,7 @@ export function FindMatch() {
     s => s.matchmakingPreferences.lastQueuedMatchmakingType,
   )
   const [activeTab, setActiveTab] = useState(lastQueuedMatchmakingType as ExpandedMatchmakingType)
+  useTrackPageView(urlPath`/matchmaking/find/${activeTab}`)
 
   const dispatch = useAppDispatch()
   const isMatchmakingStatusDisabled = !useAppSelector(
@@ -395,36 +398,35 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   const [loadingError, setLoadingError] = useState<Error>()
 
   const season = useAppSelector(s => s.selfRank.currentSeason)
-  const ladderPlayer = useAppSelector<Readonly<LadderPlayer>>(
-    s =>
-      s.selfRank.byType.get(matchmakingType) ?? {
-        rank: Number.MAX_SAFE_INTEGER,
-        userId: selfUserId,
-        rating: 0,
-        points: 0,
-        bonusUsed: 0,
-        lifetimeGames: 0,
-        wins: 0,
-        losses: 0,
-        lastPlayedDate: 0,
+  const ladderPlayer =
+    useAppSelector(s => s.selfRank.byType.get(matchmakingType)) ??
+    ({
+      rank: Number.MAX_SAFE_INTEGER,
+      userId: selfUserId,
+      rating: 0,
+      points: 0,
+      bonusUsed: 0,
+      lifetimeGames: 0,
+      wins: 0,
+      losses: 0,
+      lastPlayedDate: 0,
 
-        pWins: 0,
-        pLosses: 0,
-        tWins: 0,
-        tLosses: 0,
-        zWins: 0,
-        zLosses: 0,
-        rWins: 0,
-        rLosses: 0,
+      pWins: 0,
+      pLosses: 0,
+      tWins: 0,
+      tLosses: 0,
+      zWins: 0,
+      zLosses: 0,
+      rWins: 0,
+      rLosses: 0,
 
-        rPWins: 0,
-        rPLosses: 0,
-        rTWins: 0,
-        rTLosses: 0,
-        rZWins: 0,
-        rZLosses: 0,
-      },
-  )
+      rPWins: 0,
+      rPLosses: 0,
+      rTWins: 0,
+      rTLosses: 0,
+      rZWins: 0,
+      rZLosses: 0,
+    } satisfies LadderPlayer)
 
   const bonusPoolSize = useMemo(() => {
     if (!season) {

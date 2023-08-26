@@ -16,7 +16,9 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
+import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
+import { useTrackPageView } from '../analytics/analytics'
 import { Avatar } from '../avatars/avatar'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
@@ -129,6 +131,7 @@ export interface LadderProps {
  */
 export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
+  useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))

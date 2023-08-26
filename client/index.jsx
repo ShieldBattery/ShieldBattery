@@ -165,6 +165,9 @@ rootElemPromise
   .then(({ elem, store }) => {
     const root = createRoot(elem)
 
+    // Track the initial page load with normal referer info
+    window.fathom?.trackPageview()
+
     root.render(
       <RootErrorBoundary>
         <ReduxProvider store={store}>

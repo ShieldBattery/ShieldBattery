@@ -7,6 +7,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useTrackPageView } from '../analytics/analytics'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
@@ -77,6 +78,7 @@ export enum LeagueSectionType {
 }
 
 function LeagueList() {
+  useTrackPageView('/leagues/')
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const isAdmin = useHasAnyPermission('manageLeagues')
