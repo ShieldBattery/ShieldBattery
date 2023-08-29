@@ -1,22 +1,44 @@
 use std::future::Future;
+
+use secrecy::ExposeSecret;
 use tokio::task::JoinHandle;
 use tracing::Instrument;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, Layer};
 
-pub fn init_subscriber<Sink>(name: impl Into<String>, env_filter: impl AsRef<str>, sink: Sink)
-where
+use crate::configuration::Settings;
+use crate::telemetry::datadog::{DatadogLogLayer, DatadogOptions};
+
+mod datadog;
+
+/// Initialize a subscriber for tracing events. Note that [env_filter] will apply to *all* layers
+/// (e.g. anything it filters out will not be sent to Datadog or stdout).
+pub fn init_subscriber<Sink>(
+    settings: &Settings,
+    name: impl Into<String>,
+    env_filter: impl AsRef<str>,
+    sink: Sink,
+) where
     Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
 {
     let formatting_layer = BunyanFormattingLayer::new(name.into(), sink);
-    tracing_subscriber::registry()
+
+    let registry = tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter)))
         .with(JsonStorageLayer)
-        .with(formatting_layer)
-        .init();
+        .with(formatting_layer);
+
+    if let Some(ref key) = settings.datadog_api_key {
+        let options = DatadogOptions::new("server-rs", key.expose_secret());
+        let datadog = DatadogLogLayer::new(options);
+        registry.with(datadog.with_filter(LevelFilter::INFO)).init();
+    } else {
+        registry.init();
+    };
 }
 
 /// Calls [tokio::task::spawn_blocking] in a way that preserves traces from the calling scope.

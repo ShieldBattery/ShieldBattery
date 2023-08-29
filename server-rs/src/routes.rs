@@ -5,27 +5,29 @@ use async_graphql::dataloader::DataLoader;
 use async_graphql::extensions::Tracing;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig, ALL_WEBSOCKET_PROTOCOLS};
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
+use axum::body::Body;
 use axum::error_handling::HandleErrorLayer;
 use axum::extract::WebSocketUpgrade;
 use axum::http::header::CONTENT_TYPE;
-use axum::http::{header, HeaderName, StatusCode};
+use axum::http::{header, HeaderName, Request, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::{Extension, Router};
 use axum_client_ip::{SecureClientIp, SecureClientIpSource};
 use sqlx::PgPool;
 use tower::{BoxError, ServiceBuilder};
+use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors;
 use tower_http::request_id::MakeRequestUuid;
 use tower_http::sensitive_headers::{
     SetSensitiveRequestHeadersLayer, SetSensitiveResponseHeadersLayer,
 };
-use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tower_http::trace::TraceLayer;
 use tower_http::ServiceBuilderExt;
-use tracing::Level;
+use tracing::Span;
 
-use crate::configuration::Settings;
+use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
@@ -36,15 +38,13 @@ async fn health_check() -> impl IntoResponse {
     "OK"
 }
 
-#[cfg(debug_assertions)]
 async fn graphql_playground() -> impl IntoResponse {
     Html(playground_source(
         GraphQLPlaygroundConfig::new("/gql").subscription_endpoint("/gql/ws"),
     ))
 }
 
-#[cfg(not(debug_assertions))]
-async fn graphql_playground() -> impl IntoResponse {
+async fn send_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "Not Found")
 }
 
@@ -74,10 +74,32 @@ async fn graphql_ws_handler(
         })
 }
 
+async fn handle_errors(
+    Extension(settings): Extension<Settings>,
+    error: BoxError,
+) -> (StatusCode, String) {
+    if error.is::<tower::timeout::error::Elapsed>() {
+        (StatusCode::REQUEST_TIMEOUT, "Request Timeout".to_string())
+    } else {
+        tracing::error!("Unhandled internal error: {error:?}");
+        if settings.env == Env::Production {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            )
+        } else {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Internal Server Error: {error:?}"),
+            )
+        }
+    }
+}
+
 pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) -> Router {
     let mailgun = Arc::new(MailgunClient::new(
-        settings.mailgun,
-        settings.canonical_host,
+        settings.mailgun.clone(),
+        settings.canonical_host.clone(),
     ));
 
     let ip_source = if settings.reverse_proxied {
@@ -88,6 +110,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
 
     let schema = build_schema()
         .extension(Tracing)
+        .data(settings.clone())
         .data(db_pool.clone())
         .data(redis_pool.clone())
         .data(mailgun.clone())
@@ -105,9 +128,15 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         HeaderName::from_static("sb-session-id"),
     ]);
 
+    let playground_route = if settings.env == Env::Production {
+        get(send_404)
+    } else {
+        get(graphql_playground)
+    };
+
     Router::new()
         .route("/healthcheck", get(health_check))
-        .route("/gql", get(graphql_playground).post(graphql_handler))
+        .route("/gql", playground_route.post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .layer(
             ServiceBuilder::new()
@@ -115,28 +144,61 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                     &sensitive_headers,
                 )))
                 .set_x_request_id(MakeRequestUuid)
+                .layer(Extension(settings))
+                .layer(ip_source.into_extension())
                 .layer(
                     TraceLayer::new_for_http()
-                        .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                        .on_request(DefaultOnRequest::new().level(Level::INFO))
-                        .on_response(
-                            DefaultOnResponse::new()
-                                .level(Level::INFO)
-                                .include_headers(true),
+                        .make_span_with(|request: &Request<Body>| {
+                            let span = tracing::info_span!(
+                                "request",
+                                req.method = %request.method(),
+                                req.url = %request.uri(),
+                                req.id = tracing::field::Empty,
+                                req.userAgent = tracing::field::Empty,
+                                req.headers = ?request.headers(),
+                                req.ip = tracing::field::Empty,
+                                res.statusCode = tracing::field::Empty,
+                                res.responseTime = tracing::field::Empty,
+                                res.headers = tracing::field::Empty,
+                                error = tracing::field::Empty,
+                                errorMessage = tracing::field::Empty,
+                            );
+
+                            request
+                                .headers()
+                                .get(HeaderName::from_static("x-request-id"))
+                                .map(|v| v.to_str().map(|v| span.record("req.id", v)));
+                            request
+                                .headers()
+                                .get(header::USER_AGENT)
+                                .map(|v| v.to_str().map(|v| span.record("req.userAgent", v)));
+                            // TODO(tec27): Ideally this would come from our IP source, but
+                            // extracting it is async and we can't easily make use of that here, so
+                            // it'll take some more figuring out to make work
+                            request
+                                .headers()
+                                .get(HeaderName::from_static("x-real-ip"))
+                                .map(|v| v.to_str().map(|v| span.record("req.ip", v)));
+
+                            span
+                        })
+                        .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
+                            span.record("res.statusCode", response.status().as_u16());
+                            span.record("res.responseTime", latency.as_millis());
+                            span.record("res.headers", &tracing::field::debug(response.headers()));
+
+                            tracing::info!("request completed");
+                        })
+                        .on_failure(
+                            |error: ServerErrorsFailureClass, latency: Duration, span: &Span| {
+                                span.record("errorMessage", &error.to_string());
+                                span.record("res.responseTime", latency.as_millis());
+                                tracing::error!(error = error.to_string(), "request failed");
+                            },
                         ),
                 )
-                .layer(HandleErrorLayer::new(|error: BoxError| async move {
-                    if error.is::<tower::timeout::error::Elapsed>() {
-                        Ok(StatusCode::REQUEST_TIMEOUT)
-                    } else {
-                        Err((
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("Unhandled internal error: {}", error),
-                        ))
-                    }
-                }))
+                .layer(HandleErrorLayer::new(handle_errors))
                 .timeout(Duration::from_secs(10))
-                .layer(ip_source.into_extension())
                 .layer(CompressionLayer::new().no_br())
                 .layer(
                     cors::CorsLayer::new()

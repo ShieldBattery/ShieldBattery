@@ -4,8 +4,17 @@ use color_eyre::eyre::{eyre, WrapErr};
 use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 
+/// The environment the application is running in.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Env {
+    Local,
+    Test,
+    Production,
+}
+
 #[derive(Debug, Clone)]
 pub struct Settings {
+    pub env: Env,
     pub app_host: String,
     pub app_port: u16,
     pub database: DatabaseSettings,
@@ -13,6 +22,7 @@ pub struct Settings {
     pub mailgun: Option<MailgunSettings>,
     pub canonical_host: String,
     pub reverse_proxied: bool,
+    pub datadog_api_key: Option<Secret<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +76,13 @@ impl DatabaseSettings {
 }
 
 pub fn get_configuration() -> eyre::Result<Settings> {
+    #[cfg(test)]
+    let env = Env::Test;
+    #[cfg(all(not(test), debug_assertions))]
+    let env = Env::Local;
+    #[cfg(not(any(test, debug_assertions)))]
+    let env = Env::Production;
+
     let host = std::env::var("SB_GQL_HOST").unwrap_or("127.0.0.1".to_string());
     let port = std::env::var("SB_GQL_PORT").unwrap_or("5556".to_string());
 
@@ -96,6 +113,7 @@ pub fn get_configuration() -> eyre::Result<Settings> {
     });
 
     Ok(Settings {
+        env,
         app_host: host,
         app_port: port.parse()?,
         database: DatabaseSettings {
@@ -120,5 +138,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         reverse_proxied: std::env::var("SB_HTTPS_REVERSE_PROXY")
             .unwrap_or("false".into())
             .eq_ignore_ascii_case("true"),
+        datadog_api_key: std::env::var("SB_DATADOG_KEY").ok().map(Secret::new),
     })
 }

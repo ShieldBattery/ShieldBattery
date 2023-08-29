@@ -8,15 +8,10 @@ use mobc_redis::RedisConnectionManager;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 
-use server::configuration::get_configuration;
+use server::configuration::{get_configuration, Env};
 use server::routes::create_app;
 use server::schema::write_schema;
 use server::telemetry::init_subscriber;
-
-#[cfg(debug_assertions)]
-const TRACING_ENV_FILTER: &str = "debug";
-#[cfg(not(debug_assertions))]
-const TRACING_ENV_FILTER: &str = "info";
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -36,7 +31,17 @@ async fn main() -> eyre::Result<()> {
         }
     }
 
-    init_subscriber("server", TRACING_ENV_FILTER, std::io::stdout);
+    let settings = get_configuration().wrap_err("Failed to read configuration settings")?;
+
+    let env_filter = if settings.env == Env::Production {
+        "info"
+    } else {
+        "debug"
+    };
+
+    init_subscriber(&settings, "server", env_filter, std::io::stdout);
+
+    tracing::info!("Settings: {settings:?}");
 
     #[cfg(debug_assertions)]
     {
@@ -44,10 +49,6 @@ async fn main() -> eyre::Result<()> {
         write_schema("../schema.graphql").wrap_err("Failed to write GraphQL schema")?;
         tracing::info!("GraphQL schema written!")
     }
-
-    let settings = get_configuration().wrap_err("Failed to read configuration settings")?;
-
-    tracing::info!("Settings: {settings:?}");
 
     let connection_string = settings.database.connection_string();
     let db_pool = PgPoolOptions::new()

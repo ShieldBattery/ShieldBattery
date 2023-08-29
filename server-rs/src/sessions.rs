@@ -80,7 +80,7 @@ where
         let Some(session_id) = parts
             .headers
             .get("sb-session-id")
-            .and_then(|s| s.to_str().ok().map(|s| s.to_owned()))
+            .and_then(|s| s.to_str().ok().map(|s| s.to_string()))
         else {
             return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
         };
@@ -111,11 +111,11 @@ where
 
         match session {
             Some(s) => Ok(SbSession::Authenticated(AuthenticatedSession {
-                id: session_id.to_owned(),
+                id: session_id.to_string(),
                 data: s,
             })),
             None => Ok(SbSession::Anonymous(AnonymousSession {
-                id: Some(session_id.to_owned()),
+                id: Some(session_id.to_string()),
             })),
         }
     }
