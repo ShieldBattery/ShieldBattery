@@ -317,7 +317,7 @@ impl OverlayState {
         };
         let time = self.start_time.elapsed().as_secs_f64();
         let events = mem::take(&mut self.events);
-        let has_focus = true;
+        let focused = true;
         let input = egui::RawInput {
             screen_rect: Some(screen_rect),
             pixels_per_point: Some(pixels_per_point),
@@ -330,14 +330,14 @@ impl OverlayState {
             events,
             hovered_files: Vec::new(),
             dropped_files: Vec::new(),
-            has_focus,
+            focused,
         };
         self.ui_rects.clear();
         self.ui_active = if let Some(dialog) = bw.first_dialog {
             // Checking if "Minimap" is the first dialog *should* be a good way
             // to figure out if there are any BW menus open, as they *should*
             // be placed as the first dialog, before minimap.
-            // Scaning the dialog list for the following names would be more
+            // Scanning the dialog list for the following names would be more
             // fool-proof though (But how complete is this list? At least it is
             // missing surrender menu, victory / defeat popups, anything else?)
             // GameMenu
