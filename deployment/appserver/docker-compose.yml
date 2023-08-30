@@ -80,8 +80,6 @@ services:
     image: shieldbattery/server-rs:${SB_VERSION:-latest}
     restart: unless-stopped
     init: true
-    ports:
-      - 5556:5556
     environment:
       - VIRTUAL_HOST=${SB_GQL_VIRTUAL_HOST}
       - VIRTUAL_PORT=5556
@@ -258,3 +256,4 @@ services:
     depends_on:
       - app_server
       - db
+      - server_rs

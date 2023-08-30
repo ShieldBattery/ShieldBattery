@@ -43,5 +43,9 @@ iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.so
 # app_server, 80 -> 5555
 iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 80 -j DNAT --to-destination "${APP_SERVER_IP}:5555"
 iptables -t nat -I PREROUTING -p udp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 80 -j DNAT --to-destination "${APP_SERVER_IP}:5555"
+# server-rs, 8001 -> 5556
+iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${APP_SERVER_IP}:5556"
+iptables -t nat -I PREROUTING -p udp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${APP_SERVER_IP}:5556"
+
 
 wait ${PID}
