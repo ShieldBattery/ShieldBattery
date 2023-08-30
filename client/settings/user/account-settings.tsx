@@ -324,8 +324,16 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
                         'Current password is incorrect',
                       ),
                     )
+                    return
                   }
                 }
+
+                setErrorMessage(
+                  t(
+                    'settings.user.account.unknownError',
+                    'Something went wrong, please try again later.',
+                  ),
+                )
               }
             } else {
               dispatch(
@@ -473,8 +481,16 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                         'Current password is incorrect',
                       ),
                     )
+                    return
                   }
                 }
+
+                setErrorMessage(
+                  t(
+                    'settings.user.account.unknownError',
+                    'Something went wrong, please try again later.',
+                  ),
+                )
               }
             } else {
               dispatch(

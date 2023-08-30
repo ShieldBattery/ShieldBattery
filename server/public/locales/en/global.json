@@ -1117,7 +1117,8 @@
           "confirm": "Enter a matching password",
           "current": "Enter your current password",
           "new": "Enter a new password"
-        }
+        },
+        "unknownError": "Something went wrong, please try again later."
       },
       "language": {
         "selectLanguage": "Select a language",

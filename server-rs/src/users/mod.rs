@@ -269,8 +269,9 @@ impl UsersMutation {
 
 #[derive(Clone, Default, Eq, PartialEq, InputObject)]
 pub struct UpdateCurrentUserChanges {
+    #[graphql(validator(min_length = 3, max_length = 100, regex = r"^[^@]+@[^@]+$"))]
     pub email: Option<String>,
-    #[graphql(secret)]
+    #[graphql(secret, validator(min_length = 6))]
     pub new_password: Option<String>,
 }
 
