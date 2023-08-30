@@ -735,7 +735,13 @@
         "lobby": {
             "gameType": "游戏类型",
             "leaveLobby": "离开大厅",
-            "startGame": "开始游戏"
+            "startGame": "开始游戏",
+            "turnRateAuto": "汽车",
+            "turnRateDynamic": "数字TR",
+            "unitLimit": "单位限制",
+            "unitLimitExtended": "扩展",
+            "unitLimitLegacy": "遗产",
+            "turnRate": "转弯率"
         },
         "state": {
             "exists": "大厅已经存在。加入吗？",
@@ -757,7 +763,12 @@
             "lobbyNameRequired": "输入大厅名称",
             "mapRequired": "选择要玩的地图",
             "selectMap": "选择地图",
-            "title": "创建大厅"
+            "title": "创建大厅",
+            "advancedSettings": "高级设置",
+            "turnRate": "转弯率",
+            "turnRateAuto": "汽车",
+            "turnRateDynamic": "DTR（不推荐）",
+            "useLegacyLimits": "使用旧版单位限制"
         },
         "events": {
             "banned": "您已被禁止进入大厅。",
