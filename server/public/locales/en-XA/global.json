@@ -1143,7 +1143,12 @@
             "lobbyNameRequired": "$🗡Enter a lobby name🗡!",
             "mapRequired": "$🗡Select a map to play🗡!",
             "selectMap": "$🗡Select map🗡!",
-            "title": "$🗡Create lobby🗡!"
+            "title": "$🗡Create lobby🗡!",
+            "advancedSettings": "$🗡Advanced settings🗡!",
+            "turnRate": "$🗡Turn rate🗡!",
+            "turnRateAuto": "$🗡Auto🗡!",
+            "turnRateDynamic": "$🗡DTR (Not recommended)🗡!",
+            "useLegacyLimits": "$🗡Use legacy unit limit🗡!"
         },
         "errors": {
             "alreadyInLobby": "$🗡You're already in another lobby.🗡!",
@@ -1168,7 +1173,13 @@
         "lobby": {
             "gameType": "$🗡Game type🗡!",
             "leaveLobby": "$🗡Leave lobby🗡!",
-            "startGame": "$🗡Start game🗡!"
+            "startGame": "$🗡Start game🗡!",
+            "turnRate": "$🗡Turn rate🗡!",
+            "turnRateAuto": "$🗡Auto🗡!",
+            "turnRateDynamic": "$🗡DTR🗡!",
+            "unitLimit": "$🗡Unit limit🗡!",
+            "unitLimitExtended": "$🗡Extended🗡!",
+            "unitLimitLegacy": "$🗡Legacy🗡!"
         },
         "messageLayout": {
             "banPlayer": "$🗡<0><0></0></0> has been banned from the lobby🗡!",
