@@ -619,7 +619,12 @@
             "gameTypeHeader": "게임 타입",
             "lobbyName": "로비 이름",
             "backToList": "다시 목록으로",
-            "title": "로비 만들기"
+            "title": "로비 만들기",
+            "turnRate": "회전율",
+            "turnRateAuto": "자동",
+            "turnRateDynamic": "DTR(권장하지 않음)",
+            "useLegacyLimits": "레거시 단위 한도 사용",
+            "advancedSettings": "고급 설정"
         },
         "messageLayout": {
             "gameInitializationCanceled": "게임 초기화가 취소되었습니다.",
@@ -664,7 +669,13 @@
         "lobby": {
             "gameType": "게임 타입",
             "leaveLobby": "로비 나가기",
-            "startGame": "게임을 시작하다"
+            "startGame": "게임을 시작하다",
+            "turnRate": "회전율",
+            "turnRateAuto": "자동",
+            "turnRateDynamic": "DTR",
+            "unitLimit": "단위 제한",
+            "unitLimitExtended": "펼친",
+            "unitLimitLegacy": "유산"
         },
         "events": {
             "banned": "당신은 로비에서 금지되었습니다.",
