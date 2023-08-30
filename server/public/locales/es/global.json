@@ -203,7 +203,8 @@
                     "confirm": "Ingrese una contraseña coincidente",
                     "current": "introduce tu contraseña actual",
                     "new": "Introduzca una nueva contraseña"
-                }
+                },
+                "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
             }
         },
         "activity": {
