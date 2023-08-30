@@ -206,7 +206,8 @@
                 "currentPassword": "Текущий пароль",
                 "displayName": "Отображаемое имя",
                 "networkError": "Ошибка сети: {{errorMessage}}",
-                "newPassword": "Новый пароль"
+                "newPassword": "Новый пароль",
+                "unknownError": "Что-то пошло не так. Пожалуйста, повторите попытку позже."
             }
         }
     },
