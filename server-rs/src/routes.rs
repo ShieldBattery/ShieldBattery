@@ -10,10 +10,12 @@ use axum::error_handling::HandleErrorLayer;
 use axum::extract::WebSocketUpgrade;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{header, HeaderName, Request, StatusCode};
+use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
-use axum::{Extension, Router};
+use axum::{middleware, Extension, Router};
 use axum_client_ip::{SecureClientIp, SecureClientIpSource};
+use axum_prometheus::PrometheusMetricLayer;
 use sqlx::PgPool;
 use tower::{BoxError, ServiceBuilder};
 use tower_http::classify::ServerErrorsFailureClass;
@@ -96,6 +98,18 @@ async fn handle_errors(
     }
 }
 
+async fn only_unforwarded_clients<B>(request: Request<B>, next: Next<B>) -> Response {
+    if request
+        .headers()
+        .get(HeaderName::from_static("x-real-ip"))
+        .is_some()
+    {
+        (StatusCode::NOT_FOUND, "Not Found").into_response()
+    } else {
+        next.run(request).await
+    }
+}
+
 pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) -> Router {
     let mailgun = Arc::new(MailgunClient::new(
         settings.mailgun.clone(),
@@ -134,12 +148,19 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         get(graphql_playground)
     };
 
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+
+    let metrics_router = Router::new()
+        .route("/", get(|| async move { metric_handle.render() }))
+        .layer(middleware::from_fn(only_unforwarded_clients));
+
     Router::new()
         .route("/healthcheck", get(health_check))
         .route("/gql", playground_route.post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .layer(
             ServiceBuilder::new()
+                .layer(prometheus_layer)
                 .layer(SetSensitiveRequestHeadersLayer::from_shared(Arc::clone(
                     &sensitive_headers,
                 )))
@@ -217,4 +238,5 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                 .layer(Extension(mailgun))
                 .into_inner(),
         )
+        .nest("/metrics", metrics_router)
 }
