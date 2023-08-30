@@ -620,7 +620,12 @@
             "disabledInPartyText": "Создание лобби как партии в настоящее время находится в стадии разработки. Покиньте вечеринку, чтобы продолжить.",
             "disabledInPartyTitle": "Отключено в группе",
             "gameSubTypeHeader": "Команды",
-            "gameSubTypeOption": "{{numTeams}} команды"
+            "gameSubTypeOption": "{{numTeams}} команды",
+            "advancedSettings": "Расширенные настройки",
+            "turnRate": "Скорость поворота",
+            "turnRateAuto": "Авто",
+            "turnRateDynamic": "ДТР (не рекомендуется)",
+            "useLegacyLimits": "Использовать устаревший лимит единиц измерения"
         },
         "errors": {
             "alreadyInLobby": "Вы уже находитесь в другом лобби.",
@@ -646,7 +651,13 @@
         "lobby": {
             "gameType": "Тип игры",
             "leaveLobby": "Выйти из лобби",
-            "startGame": "Начать игру"
+            "startGame": "Начать игру",
+            "turnRate": "Скорость поворота",
+            "turnRateAuto": "Авто",
+            "turnRateDynamic": "ДТР",
+            "unitLimit": "Лимит единиц",
+            "unitLimitExtended": "Расширенный",
+            "unitLimitLegacy": "Наследие"
         },
         "messageLayout": {
             "banPlayer": "<0><0></0></0> забанен в лобби",
