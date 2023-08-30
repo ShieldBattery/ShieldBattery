@@ -15,6 +15,7 @@ pub mod id {
     pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
 
+#[allow(clippy::manual_range_patterns)]
 pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
     match *data.first()? {
         0x6 | 0x7 => {

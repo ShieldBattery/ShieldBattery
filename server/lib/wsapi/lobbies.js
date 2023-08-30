@@ -21,6 +21,7 @@ import {
   isUms,
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
+import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { toBasicChannelInfo } from '../chat/chat-models'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -37,6 +38,9 @@ const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
+
+const isValidTurnRate = number =>
+  number === undefined || number === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(number)
 
 const Countdown = Record({
   timer: null,
@@ -130,10 +134,13 @@ export class LobbyApi {
       map: nonEmptyString,
       gameType: isValidGameType,
       gameSubType: isValidGameSubType,
+      turnRate: isValidTurnRate,
+      useLegacyLimits: b => b === undefined || b === true || b === false,
     }),
   )
   async create(data, next) {
-    const { name, map, gameType, gameSubType, allowObservers } = data.get('body')
+    const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits } =
+      data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -163,17 +170,19 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
-    const lobby = Lobbies.createLobby(
+    const lobby = Lobbies.createLobby({
       name,
-      mapInfo,
+      map: mapInfo,
       gameType,
       gameSubType,
       numSlots,
-      client.name,
-      client.userId,
-      undefined /* hostRace */,
+      hostName: client.name,
+      hostUserId: client.userId,
+      hostRace: undefined,
       allowObservers,
-    )
+      turnRate,
+      useLegacyLimits,
+    })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
@@ -706,6 +715,10 @@ export class LobbyApi {
       gameType: lobby.gameType,
       gameSubType: lobby.gameSubType,
       gameSource: GameSource.Lobby,
+      gameSourceExtra: {
+        turnRate: lobby.turnRate,
+        useLegacyLimits: lobby.useLegacyLimits,
+      },
       // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
       // they were there
       teams: lobby.teams
@@ -781,7 +794,7 @@ export class LobbyApi {
     }
   }
 
-  _onGameSetup(lobby, setup = {}, resultCodes) {
+  _onGameSetup(lobby, setup, resultCodes) {
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, setup.gameId)
     const players = getHumanSlots(lobby)
     for (const player of players) {

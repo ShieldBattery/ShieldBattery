@@ -1,8 +1,9 @@
 import httpErrors from 'http-errors'
 import { isValidLobbyName } from '../../../common/constants'
 import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
+import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
+import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
 import { getMapInfo } from '../maps/map-models'
-import { getLobbyPreferences, upsertLobbyPreferences } from '../models/lobby-preferences'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -30,7 +31,8 @@ export default function (router) {
 }
 
 async function upsertPreferences(ctx, next) {
-  const { name, gameType, gameSubType, recentMaps, selectedMap } = ctx.request.body
+  const { name, gameType, gameSubType, recentMaps, selectedMap, turnRate, useLegacyLimits } =
+    ctx.request.body
 
   if (name && !isValidLobbyName(name)) {
     throw new httpErrors.BadRequest('invalid lobby name')
@@ -42,16 +44,21 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('recentMaps must be an array')
   } else if (selectedMap && !recentMaps.includes(selectedMap)) {
     throw new httpErrors.BadRequest('invalid selected map')
+  } else if (turnRate && turnRate !== TURN_RATE_DYNAMIC && !ALL_TURN_RATES.includes(turnRate)) {
+    throw new httpErrors.BadRequest('invalid turn rate')
+  } else if (useLegacyLimits && typeof useLegacyLimits !== 'boolean') {
+    throw new httpErrors.BadRequest('invalid use legacy limits')
   }
 
-  const preferences = await upsertLobbyPreferences(
-    ctx.session.userId,
+  const preferences = await upsertLobbyPreferences(ctx.session.userId, {
     name,
     gameType,
     gameSubType,
-    recentMaps.slice(0, 5),
+    recentMaps: recentMaps.slice(0, 5),
     selectedMap,
-  )
+    turnRate,
+    useLegacyLimits,
+  })
   ctx.body = {
     ...preferences,
     recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.userId),

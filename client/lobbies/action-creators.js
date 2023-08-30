@@ -41,12 +41,22 @@ import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
 
-export const createLobby = (name, map, gameType, gameSubType, allowObservers = true) =>
+export const createLobby = ({
+  name,
+  map,
+  gameType,
+  gameSubType,
+  turnRate,
+  useLegacyLimits,
+  allowObservers = true,
+}) =>
   createSiteSocketAction(LOBBY_CREATE_BEGIN, LOBBY_CREATE, '/lobbies/create', {
     name,
     map,
     gameType,
     gameSubType,
+    turnRate,
+    useLegacyLimits,
     allowObservers,
   })
 

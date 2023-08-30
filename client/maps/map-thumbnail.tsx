@@ -1,14 +1,17 @@
 import { Immutable } from 'immer'
 import { rgba } from 'polished'
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { OverrideProperties } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { LoadingDotsArea } from '../progress/dots'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   amberA100,
   background700,
@@ -17,6 +20,7 @@ import {
   colorTextPrimary,
 } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
+import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
 const Container = styled.div`
@@ -303,4 +307,26 @@ export function MapThumbnail({
       ) : null}
     </Container>
   )
+}
+
+export function ConnectedMapThumbnail(
+  props: OverrideProperties<MapThumbnailProps, { map: string }>,
+) {
+  const dispatch = useAppDispatch()
+  const mapInfo = useAppSelector(s => s.maps2.byId.get(props.map))
+
+  useEffect(() => {
+    dispatch(batchGetMapInfo(props.map))
+  }, [dispatch, props.map])
+
+  if (!mapInfo) {
+    // TODO(tec27): Build a loading skeleton for this instead
+    return (
+      <Container className={props.className} style={props.style}>
+        <LoadingDotsArea />
+      </Container>
+    )
+  }
+
+  return <MapThumbnail {...props} map={mapInfo} />
 }

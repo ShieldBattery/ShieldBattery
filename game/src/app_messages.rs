@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::bw;
+use crate::bw::{GameType, LobbyOptions};
 
 // Structures of messages that are used to communicate with the electron app.
 
@@ -114,6 +115,7 @@ pub struct GameSetupInfo {
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
     pub disable_alliance_changes: Option<bool>,
+    pub use_legacy_limits: Option<bool>,
     pub turn_rate: Option<u32>,
     pub user_latency: Option<u32>,
     pub seed: u32,
@@ -125,6 +127,35 @@ pub struct GameSetupInfo {
 impl GameSetupInfo {
     pub fn is_replay(&self) -> bool {
         self.map.is_replay == Some(true)
+    }
+
+    pub fn game_type(&self) -> Option<GameType> {
+        let (primary, subtype) = match &*self.game_type {
+            "melee" => (0x2, 0x1),
+            "ffa" => (0x3, 0x1),
+            "oneVOne" => (0x4, 0x1),
+            "ums" => (0xa, 0x1),
+            // For team games the shieldbattery subtype is team count
+            "teamMelee" => (0xb, self.game_sub_type? - 1),
+            "teamFfa" => (0xc, self.game_sub_type? - 1),
+            // For TvB the shieldbattery subtype is num players on top team
+            "topVBottom" => (0xf, self.game_sub_type?),
+            _ => return None,
+        };
+        Some(GameType { primary, subtype })
+    }
+}
+
+impl From<&GameSetupInfo> for LobbyOptions {
+    fn from(value: &GameSetupInfo) -> Self {
+        LobbyOptions {
+            game_type: value.game_type().unwrap_or(GameType {
+                primary: 0x2,
+                subtype: 0x1,
+            }),
+            turn_rate: value.turn_rate.unwrap_or(0),
+            use_legacy_limits: value.use_legacy_limits.unwrap_or(false),
+        }
     }
 }
 

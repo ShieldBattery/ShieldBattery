@@ -85,6 +85,11 @@ export interface GameLaunchConfig {
      * The initial user latency setting to use. If not set, will default to Low.
      */
     userLatency?: BwUserLatency
+    /**
+     * Whether to use legacy unit/sprite limits (instead of the extended ones that are default in
+     * SC:R).
+     */
+    useLegacyLimits?: boolean
     seed: number
     /**
      * The code used to submit results for this game to the server. This is secret and unique per

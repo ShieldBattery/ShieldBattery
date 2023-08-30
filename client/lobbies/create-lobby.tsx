@@ -1,8 +1,8 @@
-import { Immutable } from 'immer'
-import { Range } from 'immutable'
+import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
 import {
   ALL_GAME_TYPES,
@@ -11,6 +11,8 @@ import {
   isTeamType,
 } from '../../common/games/configuration'
 import { MapInfoJson } from '../../common/maps'
+import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
+import { range } from '../../common/range'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
@@ -18,9 +20,10 @@ import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
-import MapSelect from '../maps/map-select'
+import { MapSelect } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { RaisedButton, TextButton } from '../material/button'
+import CheckBox from '../material/check-box'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -35,7 +38,6 @@ import {
   navigateToLobby,
   updateLobbyPreferences,
 } from './action-creators'
-import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
 
 const Container = styled.div`
   display: flex;
@@ -80,6 +82,11 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
+const AdvancedSettings = styled.div`
+  max-width: 320px;
+  margin-top: 32px;
+`
+
 const SectionHeader = styled.div`
   ${subtitle1};
   margin: 16px 0;
@@ -98,6 +105,8 @@ interface CreateLobbyModel {
   selectedMap: string
   gameType: GameType
   gameSubType: number
+  turnRate: BwTurnRate | 0 | null
+  useLegacyLimits: boolean
 }
 
 interface CreateLobbyFormHandle {
@@ -108,70 +117,67 @@ interface CreateLobbyFormProps {
   disabled: boolean
   model: CreateLobbyModel
   onSubmit: (model: CreateLobbyModel) => void
-  onChange: (model: CreateLobbyModel) => void
+  onValidatedChange: (model: CreateLobbyModel) => void
   onMapBrowse: () => void
-  recentMaps: RecentMaps
+  quickMaps: ReadonlyArray<string>
 }
+
+const TURN_RATE_OPTIONS: ReadonlyArray<BwTurnRate> = ALL_TURN_RATES.slice(0).sort((a, b) => b - a)
 
 const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormProps>(
   (props, ref) => {
     const { t } = useTranslation()
-    const { onSubmit, bindInput, bindCustom, getInputValue, setInputValue } = useForm(
-      props.model,
-      { name: lobbyNameValidator, selectedMap: selectedMapValidator },
-      { onSubmit: props.onSubmit, onChange: props.onChange },
-    )
+    const { onSubmit, bindInput, bindCustom, bindCheckable, getInputValue, setInputValue } =
+      useForm(
+        props.model,
+        { name: lobbyNameValidator, selectedMap: selectedMapValidator },
+        { onSubmit: props.onSubmit, onValidatedChange: props.onValidatedChange },
+      )
     const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
     useImperativeHandle(ref, () => ({
       submit: onSubmit,
     }))
 
-    const { recentMaps, disabled, onMapBrowse } = props
+    const { quickMaps, disabled, onMapBrowse } = props
 
-    const gameType = getInputValue('gameType')
     const selectedMap = getInputValue('selectedMap')
+    const gameType = getInputValue('gameType')
 
-    // TODO(tec27): There's probably a better way to do this via useEffect or useMemo, this is just
-    // a direct conversion of the class component's behavior
-    const lastGameTypeRef = useRef<GameType>()
-    const lastSelectedMapRef = useRef<string>()
+    const selectedMapInfo = useAppSelector(s => s.maps2.byId.get(selectedMap))
 
     useEffect(() => {
-      const map = selectedMap ? recentMaps.byId.get(selectedMap) : undefined
+      if (!selectedMapInfo || !isTeamType(gameType)) return
 
-      if (!selectedMap || !map) return
+      const subType = getInputValue('gameSubType')
+      const {
+        mapData: { slots },
+      } = selectedMapInfo
 
-      // Ensure the `gameSubType` is always set to a default value when the `gameType` and/or the
-      // `selectedMap` changes.
-      if (lastGameTypeRef.current !== gameType || lastSelectedMapRef.current !== selectedMap) {
-        lastGameTypeRef.current = gameType
-        lastSelectedMapRef.current = selectedMap
-
-        if (!isTeamType(gameType)) return
-
-        // TODO(tec27): Really we should preserve the last value if possible, this always resets
-        // the teams each time you change the map currently :(
-        if (gameType === 'topVBottom') {
-          setInputValue('gameSubType', Math.ceil(map.mapData.slots / 2))
-        } else {
-          setInputValue('gameSubType', 2)
+      // Ensure that the game sub-type is always valid for the selected map
+      if (gameType === 'topVBottom') {
+        const maxTopSlots = slots - 1
+        if (subType > maxTopSlots) {
+          setInputValue('gameSubType', Math.min(maxTopSlots, Math.max(0, subType)))
+        }
+      } else {
+        const maxTeams = Math.min(4, slots)
+        if (subType > Math.min(4, slots)) {
+          setInputValue('gameSubType', Math.min(maxTeams, Math.max(2, subType)))
         }
       }
-    }, [gameType, selectedMap, setInputValue, recentMaps])
+    }, [gameType, selectedMapInfo, getInputValue, setInputValue])
 
     let gameSubTypeSelection: React.ReactNode
     if (!isTeamType(gameType)) {
       gameSubTypeSelection = null
     } else {
-      const selectedMapValue = getInputValue('selectedMap')
-      const selectedMap = selectedMapValue ? recentMaps.byId.get(selectedMapValue) : undefined
-      if (!selectedMap) {
+      if (!selectedMapInfo) {
         gameSubTypeSelection = null
       } else {
         const {
           mapData: { slots },
-        } = selectedMap
+        } = selectedMapInfo
         if (gameType === GameType.TopVsBottom) {
           gameSubTypeSelection = (
             <Select
@@ -179,7 +185,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
               label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
               disabled={disabled}
               tabIndex={0}>
-              {Range(slots - 1, 0).map(top => (
+              {Array.from(range(slots - 1, 0), top => (
                 <SelectOption
                   key={top}
                   value={top}
@@ -199,7 +205,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
               label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
               disabled={disabled}
               tabIndex={0}>
-              {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
+              {Array.from(range(2, Math.min(slots, 4) + 1), numTeams => (
                 <SelectOption
                   key={numTeams}
                   value={numTeams}
@@ -244,63 +250,90 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
           </Select>
           {gameSubTypeSelection}
         </GameTypeAndSubType>
+
         <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
         <MapSelect
           {...bindCustom('selectedMap')}
-          list={recentMaps.list}
-          byId={recentMaps.byId}
+          quickMaps={quickMaps}
           disabled={disabled}
-          maxSelections={1}
-          thumbnailSize='large'
-          canBrowseMaps={true}
           onMapBrowse={onMapBrowse}
         />
+
+        <AdvancedSettings>
+          <SectionHeader>
+            {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
+          </SectionHeader>
+          <Select
+            {...bindCustom('turnRate')}
+            label={t('lobbies.createLobby.turnRate', 'Turn rate')}
+            disabled={disabled}
+            tabIndex={0}>
+            <SelectOption
+              key='auto'
+              value={null}
+              text={t('lobbies.createLobby.turnRateAuto', 'Auto')}
+            />
+            {TURN_RATE_OPTIONS.map(t => (
+              <SelectOption key={t} value={t} text={String(t)} />
+            ))}
+            <SelectOption
+              key='dtr'
+              value={0}
+              text={t('lobbies.createLobby.turnRateDynamic', 'DTR (Not recommended)')}
+            />
+          </Select>
+          <CheckBox
+            {...bindCheckable('useLegacyLimits')}
+            label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
+            disabled={disabled}
+            inputProps={{ tabIndex: 0 }}
+          />
+        </AdvancedSettings>
       </form>
     )
   },
 )
 
 export interface CreateLobbyProps {
-  // TODO(tec27): Pass an id instead
-  map?: Immutable<MapInfoJson>
+  mapId?: string
   onNavigateToList: () => void
 }
 
 export function CreateLobby(props: CreateLobbyProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const lobbyPreferences = useAppSelector(s => s.lobbyPreferences)
-  const {
-    isRequesting,
-    recentMaps: storeRecentMaps,
-    name,
-    gameType,
-    gameSubType,
-  } = lobbyPreferences
+  const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
+  const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
+  const name = useAppSelector(s => s.lobbyPreferences.name)
+  const gameType = useAppSelector(s => s.lobbyPreferences.gameType)
+  const gameSubType = useAppSelector(s => s.lobbyPreferences.gameSubType)
+  const turnRate = useAppSelector(s => s.lobbyPreferences.turnRate)
+  const useLegacyLimits = useAppSelector(s => s.lobbyPreferences.useLegacyLimits)
 
-  const initialMap = props.map
+  const storeSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
+  const storeRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
-  const selectedMap = initialMap?.id ?? lobbyPreferences.selectedMap
+  const initialMapId = props.mapId
+
+  const selectedMap = initialMapId ?? storeSelectedMap
   const model = useMemo(
-    () => ({
-      name,
-      gameType: gameType ?? 'melee',
-      gameSubType,
-      selectedMap: selectedMap ?? '',
-    }),
-    [name, gameType, gameSubType, selectedMap],
+    () =>
+      ({
+        name,
+        gameType: gameType ?? 'melee',
+        gameSubType,
+        selectedMap: selectedMap ?? '',
+        turnRate: turnRate ?? null,
+        useLegacyLimits: useLegacyLimits ?? false,
+      }) satisfies CreateLobbyModel,
+    [name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits],
   )
 
   const recentMaps = useMemo(() => {
-    const initialList: Immutable<MapInfoJson>[] = initialMap ? [initialMap] : []
-
-    return recentMapsFromJs(
-      initialList.concat(storeRecentMaps.byId.valueSeq().toArray()).slice(0, 5),
-    )
-  }, [storeRecentMaps, initialMap])
+    const initialList = initialMapId ? [initialMapId] : []
+    return initialList.concat(storeRecentMaps.toArray().filter(m => m !== initialMapId)).slice(0, 5)
+  }, [storeRecentMaps, initialMapId])
   const recentMapsRef = useValueAsRef(recentMaps)
-  const isHostedRef = useRef(false)
-  const lastFormModelRef = useRef<CreateLobbyModel>()
 
   const isInParty = useAppSelector(s => !!s.party.current)
   const formRef = useRef<CreateLobbyFormHandle>(null)
@@ -310,7 +343,7 @@ export function CreateLobby(props: CreateLobbyProps) {
     formRef.current?.submit()
   }, [])
   const onMapSelect = useCallback(
-    (map: Immutable<MapInfoJson>) => {
+    (map: ReadonlyDeep<MapInfoJson>) => {
       dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { map, creating: true } }))
     },
     [dispatch],
@@ -337,54 +370,56 @@ export function CreateLobby(props: CreateLobbyProps) {
         return
       }
 
-      lastFormModelRef.current = model
-      const { name, gameType, gameSubType, selectedMap } = model
+      const { name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits } = model
       const subType = isTeamType(gameType) ? gameSubType : undefined
 
-      dispatch(createLobby(name, selectedMap, gameType, subType))
-      isHostedRef.current = true
+      dispatch(
+        createLobby({
+          name,
+          map: selectedMap,
+          gameType,
+          gameSubType: subType,
+          turnRate: turnRate === null ? undefined : turnRate,
+          useLegacyLimits,
+        }),
+      )
+
+      // Move the hosted map to the front of the recent maps list
+      const orderedRecentMaps = recentMapsRef.current.filter(m => m !== selectedMap).slice(0, 4)
+      orderedRecentMaps.unshift(selectedMap)
+
+      dispatch(
+        updateLobbyPreferences({
+          ...model,
+          turnRate: model.turnRate !== null ? model.turnRate : undefined,
+          recentMaps: orderedRecentMaps,
+        }),
+      )
+
       navigateToLobby(name)
       dispatch(closeOverlay() as any)
     },
-    [isInParty, dispatch],
+    [isInParty, dispatch, recentMapsRef],
   )
-  const onChange = useCallback((model: CreateLobbyModel) => {
-    lastFormModelRef.current = model
+
+  const debouncedSavePrefrencesRef = useRef(
+    debounce((model: CreateLobbyModel) => {
+      dispatch(
+        updateLobbyPreferences({
+          ...model,
+          turnRate: model.turnRate !== null ? model.turnRate : undefined,
+          recentMaps: recentMapsRef.current,
+        }),
+      )
+    }, 200),
+  )
+  const onValidatedChange = useCallback((model: CreateLobbyModel) => {
+    debouncedSavePrefrencesRef.current(model)
   }, [])
 
   useEffect(() => {
     dispatch(getLobbyPreferences())
   }, [dispatch])
-
-  useEffect(() => {
-    return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      const lastFormModel = lastFormModelRef.current
-      if (!lastFormModel?.selectedMap) {
-        // Might happen if this useEffect destructor is called before a selection has been made,
-        // in which case these preferences are not submittable
-        return
-      }
-
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      let orderedRecentMaps = recentMapsRef.current.list
-      // If the selected map is actually hosted, we move it to the front of the recent maps list
-      if (isHostedRef.current) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        const { selectedMap } = lastFormModel
-        orderedRecentMaps = orderedRecentMaps
-          .delete(orderedRecentMaps.indexOf(selectedMap!))
-          .unshift(selectedMap!)
-      }
-
-      dispatch(
-        updateLobbyPreferences({
-          ...lastFormModel,
-          recentMaps: orderedRecentMaps.toArray(),
-        }),
-      )
-    }
-  }, [dispatch, recentMapsRef])
 
   const isDisabled = isInParty || isRequesting
 
@@ -403,14 +438,14 @@ export function CreateLobby(props: CreateLobbyProps) {
       <Contents $disabled={isDisabled}>
         {topElem}
         <ContentsBody>
-          {!isRequesting ? (
+          {!isRequesting && hasLoaded ? (
             <CreateLobbyForm
               ref={formRef}
               disabled={isDisabled}
               model={model}
-              onChange={onChange}
+              onValidatedChange={onValidatedChange}
               onSubmit={onSubmit}
-              recentMaps={recentMaps}
+              quickMaps={recentMaps}
               onMapBrowse={onMapBrowse}
             />
           ) : (

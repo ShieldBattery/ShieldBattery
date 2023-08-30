@@ -188,6 +188,7 @@ interface LobbySetupGameEvent {
     seed: number
     turnRate?: BwTurnRate | 0
     userLatency?: BwUserLatency
+    useLegacyLimits?: boolean
   }
   // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
   // that should be handled differently?
@@ -439,6 +440,7 @@ const eventToAction: EventToActionMap = {
         seed: event.setup.seed,
         turnRate: event.setup.turnRate,
         userLatency: event.setup.userLatency,
+        useLegacyLimits: event.setup.useLegacyLimits,
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),
       },

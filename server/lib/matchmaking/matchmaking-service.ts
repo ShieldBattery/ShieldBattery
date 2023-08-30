@@ -93,7 +93,7 @@ interface GameLoaderCallbacks {
     setup: {
       gameId: string
       seed: number
-      turnRate?: BwTurnRate
+      turnRate?: BwTurnRate | 0
       userLatency?: BwUserLatency
     }
     resultCodes: ReadonlyMap<SbUserId, string>

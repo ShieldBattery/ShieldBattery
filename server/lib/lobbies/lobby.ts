@@ -30,6 +30,7 @@ import {
   createUmsComputer,
 } from '../../../common/lobbies/slot'
 import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps'
+import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 
@@ -213,21 +214,32 @@ function createInitialTeams(
     .toList()
 }
 
-// TODO(tec27): This should be refactored to have less params but I'm not doing that while this
-// isn't in TS code
 /** Creates a new lobby, and an initial host player in the first slot. */
-// eslint-disable-next-line max-params
-export function createLobby(
-  name: string,
-  map: MapInfo,
-  gameType: GameType,
+export function createLobby({
+  name,
+  map,
+  gameType,
   gameSubType = 0,
-  numSlots: number,
-  hostName: string,
-  hostUserId: SbUserId,
-  hostRace: RaceChar = 'r',
-  allowObservers: boolean,
-) {
+  numSlots,
+  hostName,
+  hostUserId,
+  hostRace = 'r',
+  allowObservers,
+  turnRate,
+  useLegacyLimits = false,
+}: {
+  name: string
+  map: MapInfo
+  gameType: GameType
+  gameSubType?: number
+  numSlots: number
+  hostName: string
+  hostUserId: SbUserId
+  hostRace?: RaceChar
+  allowObservers: boolean
+  turnRate?: BwTurnRate | 0
+  useLegacyLimits?: boolean
+}) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (gameType === GameType.Melee && allowObservers) {
     const observerCount = Math.min(
@@ -252,6 +264,8 @@ export function createLobby(
     gameSubType: +gameSubType,
     teams,
     host: new Slot(),
+    turnRate,
+    useLegacyLimits,
   })
   let host
   const [hostTeamIndex, hostSlotIndex, hostSlot] = getLobbySlotsWithIndexes(lobby)

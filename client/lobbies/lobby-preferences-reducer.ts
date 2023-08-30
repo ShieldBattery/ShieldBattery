@@ -1,7 +1,7 @@
-import { Immutable } from 'immer'
-import { List, Map, Record } from 'immutable'
+import { List, Record } from 'immutable'
 import { GameType } from '../../common/games/configuration'
 import { MapInfoJson } from '../../common/maps'
+import { BwTurnRate } from '../../common/network'
 import {
   LOBBY_PREFERENCES_GET,
   LOBBY_PREFERENCES_GET_BEGIN,
@@ -9,37 +9,25 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export class RecentMaps extends Record({
-  list: List<string>(),
-  // TODO(tec27): Don't store anything but IDs here, use the main maps reducer instead
-  byId: Map<string, Immutable<MapInfoJson>>(),
-}) {}
-
 export class LobbyPreferences extends Record({
   name: '',
   gameType: GameType.Melee,
   gameSubType: 0,
-  recentMaps: new RecentMaps(),
+  recentMaps: List<string>(),
   selectedMap: undefined as string | undefined,
+  turnRate: undefined as BwTurnRate | 0 | undefined,
+  useLegacyLimits: undefined as boolean | undefined,
 
   isRequesting: false,
-  // NOTE(2Pac): We don't actually display this anywhere since it's not that useful to the user
-  lastError: undefined as Error | undefined,
+  hasLoaded: false,
 }) {}
-
-export function recentMapsFromJs(recentMaps: Immutable<MapInfoJson[]>) {
-  return new RecentMaps({
-    list: List(recentMaps.map(m => m.id)),
-    byId: Map(recentMaps.map(m => [m.id, m])),
-  })
-}
 
 function createPreferences(preferences: any) {
   return new LobbyPreferences({
     ...preferences,
-    recentMaps: recentMapsFromJs(preferences.recentMaps),
+    recentMaps: List(preferences.recentMaps.map((m: MapInfoJson) => m.id)),
     isRequesting: false,
-    lastError: null,
+    hasLoaded: true,
   })
 }
 
@@ -50,7 +38,7 @@ export default keyedReducer(new LobbyPreferences(), {
 
   [LOBBY_PREFERENCES_GET as any](state: LobbyPreferences, action: any) {
     if (action.error) {
-      return state.set('isRequesting', false).set('lastError', action.payload)
+      return state.set('isRequesting', false).set('hasLoaded', true)
     }
 
     return createPreferences(action.payload)
@@ -58,7 +46,7 @@ export default keyedReducer(new LobbyPreferences(), {
 
   [LOBBY_PREFERENCES_UPDATE as any](state: LobbyPreferences, action: any) {
     if (action.error) {
-      return state.set('isRequesting', false).set('lastError', action.payload)
+      return state.set('isRequesting', false).set('hasLoaded', true)
     }
 
     return createPreferences(action.payload)

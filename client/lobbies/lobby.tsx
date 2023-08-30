@@ -16,6 +16,7 @@ import {
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
+import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -153,6 +154,16 @@ function renderChatMessage(msg: SbMessage) {
       return <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} />
     default:
       return null
+  }
+}
+
+function turnRateToLabel(turnRate: BwTurnRate | 0 | undefined, t: WithTranslation['t']): string {
+  if (turnRate === 0) {
+    return t('lobbies.lobby.turnRateDynamic', 'DTR')
+  } else if (!turnRate) {
+    return t('lobbies.lobby.turnRateAuto', 'Auto')
+  } else {
+    return String(turnRate)
   }
 }
 
@@ -374,6 +385,18 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
+          </InfoItem>
+          <InfoItem>
+            <InfoLabel as='span'>{t('lobbies.lobby.turnRate', 'Turn rate')}</InfoLabel>
+            <InfoValue as='span'>{turnRateToLabel(lobby.turnRate, t)}</InfoValue>
+          </InfoItem>
+          <InfoItem>
+            <InfoLabel as='span'>{t('lobbies.lobby.unitLimit', 'Unit limit')}</InfoLabel>
+            <InfoValue as='span'>
+              {lobby.useLegacyLimits
+                ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
+                : t('lobbies.lobby.unitLimitExtended', 'Extended')}
+            </InfoValue>
           </InfoItem>
           {this.renderCountdown()}
           {this.renderStartButton()}

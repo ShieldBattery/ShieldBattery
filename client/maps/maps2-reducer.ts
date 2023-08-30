@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import { MapInfoJson } from '../../common/maps'
+import { LOBBY_PREFERENCES_GET, LOBBY_PREFERENCES_UPDATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapsState {
@@ -117,6 +118,36 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     } = action
 
     for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
+  [LOBBY_PREFERENCES_GET as any](state: MapsState, action: any) {
+    if (action.error) {
+      return
+    }
+
+    const {
+      system: { monotonicTime },
+    } = action
+
+    for (const map of action.payload.recentMaps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
+  [LOBBY_PREFERENCES_UPDATE as any](state: MapsState, action: any) {
+    if (action.error) {
+      return
+    }
+
+    const {
+      system: { monotonicTime },
+    } = action
+
+    for (const map of action.payload.recentMaps) {
       state.byId.set(map.id, map)
       state.lastRetrieved.set(map.id, monotonicTime)
     }

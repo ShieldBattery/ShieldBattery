@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import { SetOptional } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
 import { MatchmakingType } from '../matchmaking'
+import { BwTurnRate } from '../network'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user'
 
@@ -93,9 +94,14 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
 }
 
 export type LobbyGameConfig = SetOptional<
-  BaseGameConfig<GameSource.Lobby, undefined>,
+  BaseGameConfig<GameSource.Lobby, LobbyExtra>,
   'gameSourceExtra'
 >
+
+export interface LobbyExtra {
+  turnRate?: BwTurnRate | 0
+  useLegacyLimits?: boolean
+}
 
 export interface MatchmakingExtra1v1 {
   type: MatchmakingType.Match1v1

@@ -48,6 +48,8 @@ export class LobbyInfo extends Record({
   gameSubType: 0,
   teams: List(),
   host: new Slot(),
+  turnRate: undefined,
+  useLegacyLimits: false,
 
   isCountingDown: false,
   countdownTimer: -1,

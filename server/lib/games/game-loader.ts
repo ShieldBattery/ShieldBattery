@@ -121,7 +121,13 @@ const LoadingDatas = {
 }
 
 export type OnGameSetupFunc = (
-  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate; userLatency?: BwUserLatency },
+  gameInfo: {
+    gameId: string
+    seed: number
+    turnRate?: BwTurnRate | 0
+    userLatency?: BwUserLatency
+    useLegacyLimits?: boolean
+  },
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
 ) => void | Promise<void>
@@ -210,7 +216,7 @@ export class GameLoader {
             deferred: gameLoaded,
           }),
         )
-        this.doGameLoad(gameId, resultCodes, onGameSetup, onRoutesSet).catch(err => {
+        this.doGameLoad(gameId, gameConfig, resultCodes, onGameSetup, onRoutesSet).catch(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
 
@@ -306,6 +312,7 @@ export class GameLoader {
 
   private async doGameLoad(
     gameId: string,
+    gameConfig: GameConfig,
     resultCodes: Map<SbUserId, string>,
     onGameSetup?: OnGameSetupFunc,
     onRoutesSet?: OnRoutesSetFunc,
@@ -335,37 +342,46 @@ export class GameLoader {
     const routes = hasMultipleHumans ? await createRoutes(players) : []
     cancelToken.throwIfCancelling()
 
-    let chosenTurnRate: BwTurnRate | undefined
+    let chosenTurnRate: BwTurnRate | 0 | undefined
     let chosenUserLatency: BwUserLatency | undefined
-    let maxEstimatedLatency = 0
-    for (const route of routes) {
-      if (route.estimatedLatency > maxEstimatedLatency) {
-        maxEstimatedLatency = route.estimatedLatency
-      }
-    }
 
-    if (USE_STATIC_TURNRATE) {
-      let availableTurnRates = MAX_LATENCIES_LOW.filter(
-        ([_, latency]) => latency > maxEstimatedLatency,
-      )
-      if (availableTurnRates.length) {
-        // Of the turn rates that work for this latency, pick the best one
-        chosenTurnRate = availableTurnRates.at(-1)![0]
-        chosenUserLatency = BwUserLatency.Low
-      } else {
-        // Fall back to a latency that will work for High latency
-        availableTurnRates = MAX_LATENCIES_HIGH.filter(
+    if (
+      gameConfig.gameSource === GameSource.Matchmaking ||
+      gameConfig.gameSourceExtra?.turnRate === undefined
+    ) {
+      let maxEstimatedLatency = 0
+      for (const route of routes) {
+        if (route.estimatedLatency > maxEstimatedLatency) {
+          maxEstimatedLatency = route.estimatedLatency
+        }
+      }
+
+      this.maxEstimatedLatencyMetric
+        .labels(loadingData.gameSource)
+        .observe(maxEstimatedLatency / 1000)
+
+      if (USE_STATIC_TURNRATE) {
+        let availableTurnRates = MAX_LATENCIES_LOW.filter(
           ([_, latency]) => latency > maxEstimatedLatency,
         )
-        // Of the turn rates that work for this latency, pick the best one
-        chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
-        chosenUserLatency = BwUserLatency.High
+        if (availableTurnRates.length) {
+          // Of the turn rates that work for this latency, pick the best one
+          chosenTurnRate = availableTurnRates.at(-1)![0]
+          chosenUserLatency = BwUserLatency.Low
+        } else {
+          // Fall back to a latency that will work for High latency
+          availableTurnRates = MAX_LATENCIES_HIGH.filter(
+            ([_, latency]) => latency > maxEstimatedLatency,
+          )
+          // Of the turn rates that work for this latency, pick the best one
+          chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+          chosenUserLatency = BwUserLatency.High
+        }
       }
+    } else {
+      chosenTurnRate = gameConfig.gameSourceExtra.turnRate
+      chosenUserLatency = BwUserLatency.Low
     }
-
-    this.maxEstimatedLatencyMetric
-      .labels(loadingData.gameSource)
-      .observe(maxEstimatedLatency / 1000)
 
     const onGameSetupResult = onGameSetup
       ? onGameSetup(
@@ -373,6 +389,10 @@ export class GameLoader {
             gameId,
             seed: generateSeed(),
             turnRate: chosenTurnRate,
+            useLegacyLimits:
+              gameConfig.gameSource === GameSource.Lobby
+                ? gameConfig.gameSourceExtra?.useLegacyLimits
+                : undefined,
             userLatency: chosenUserLatency,
           },
           resultCodes,

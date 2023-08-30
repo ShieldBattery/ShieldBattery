@@ -20,7 +20,7 @@ use crate::app_messages::{
     GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, get_bw, Bw, GameType, StormPlayerId, UserLatency};
+use crate::bw::{self, get_bw, Bw, GameType, LobbyOptions, StormPlayerId, UserLatency};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
@@ -102,24 +102,6 @@ pub enum GameStateMessage {
     Network(NetworkToGameStateMessage),
     CleanupQuit,
     QuitIfNotStarted,
-}
-
-impl GameSetupInfo {
-    pub fn game_type(&self) -> Option<GameType> {
-        let (primary, subtype) = match &*self.game_type {
-            "melee" => (0x2, 0x1),
-            "ffa" => (0x3, 0x1),
-            "oneVOne" => (0x4, 0x1),
-            "ums" => (0xa, 0x1),
-            // For team games the shieldbattery subtype is team count
-            "teamMelee" => (0xb, self.game_sub_type? - 1),
-            "teamFfa" => (0xc, self.game_sub_type? - 1),
-            // For TvB the shieldbattery subtype is num players on top team
-            "topVBottom" => (0xf, self.game_sub_type?),
-            _ => return None,
-        };
-        Some(GameType { primary, subtype })
-    }
 }
 
 quick_error! {
@@ -299,7 +281,7 @@ impl GameState {
             unsafe {
                 get_bw().remaining_game_init(&local_user.name);
                 if is_host {
-                    create_lobby(&info, game_type)?;
+                    create_lobby(&info)?;
                 }
             }
             init_routes_when_ready_future
@@ -1322,16 +1304,10 @@ impl InitInProgress {
     }
 }
 
-unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
+unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
     get_bw()
-        .create_lobby(
-            map_path,
-            &info.map,
-            &info.name,
-            game_type,
-            info.turn_rate.unwrap_or(0),
-        )
+        .create_lobby(map_path, &info.map, &info.name, info.into())
         .map_err(GameInitError::Bw)
 }
 
@@ -1390,12 +1366,12 @@ unsafe fn join_lobby(
         Ok(o) => Arc::new(o),
         Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
     };
-    let turn_rate = info.turn_rate.unwrap_or(0);
+    let options: LobbyOptions = info.into();
     async move {
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {
             repeat_interval.tick().await;
-            match try_join_lobby_once(game_info, is_eud, turn_rate, &map_path).await {
+            match try_join_lobby_once(game_info, is_eud, options, &map_path).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
@@ -1419,7 +1395,7 @@ unsafe fn join_lobby(
 async unsafe fn try_join_lobby_once(
     mut game_info: bw::BwGameData,
     is_eud: bool,
-    turn_rate: u32,
+    options: LobbyOptions,
     map_path: &Arc<CString>,
 ) -> Result<(), u32> {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
@@ -1432,7 +1408,7 @@ async unsafe fn try_join_lobby_once(
     std::thread::spawn(move || {
         let address = Ipv4Addr::new(10, 27, 27, 0);
         let bw = get_bw();
-        let result = bw.join_lobby(&mut game_info, is_eud, turn_rate, &map_path, address);
+        let result = bw.join_lobby(&mut game_info, is_eud, options, &map_path, address);
         let _ = send.send(result);
     });
 

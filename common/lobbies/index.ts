@@ -1,6 +1,7 @@
 import { List, Record } from 'immutable'
 import { GameType, isTeamType } from '../games/configuration'
 import { MapInfo } from '../maps'
+import { BwTurnRate } from '../network'
 import { Slot, SlotType } from './slot'
 
 /**
@@ -32,6 +33,8 @@ export class Lobby extends Record({
   /** All lobbies have at least one team (even Melee and FFA). */
   teams: List<Team>(),
   host: new Slot(),
+  turnRate: undefined as BwTurnRate | 0 | undefined,
+  useLegacyLimits: false,
 }) {}
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {

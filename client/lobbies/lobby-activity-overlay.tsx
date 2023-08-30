@@ -31,7 +31,7 @@ export function LobbyActivityOverlay({ creating = false, map }: LobbyActivityOve
   return (
     <Container>
       {isCreating ? (
-        <CreateLobby map={map} onNavigateToList={onNavigateToList} />
+        <CreateLobby mapId={map?.id} onNavigateToList={onNavigateToList} />
       ) : (
         <JoinLobby onNavigateToCreate={onNavigateToCreate} />
       )}

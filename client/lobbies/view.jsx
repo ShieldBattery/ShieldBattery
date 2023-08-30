@@ -244,7 +244,7 @@ export default class LobbyView extends React.Component {
   renderLeaveAndJoin() {
     return (
       <PreLobbyArea as='p'>
-        {t('lobbies.errors.alreadyInLobby', "You're already in another lobby.")}
+        {this.props.t('lobbies.errors.alreadyInLobby', "You're already in another lobby.")}
       </PreLobbyArea>
     )
   }

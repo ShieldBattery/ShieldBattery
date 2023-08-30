@@ -32,6 +32,26 @@ pub fn set_bw_impl(bw: &'static BwScr) {
     let _ = BW_IMPL.set(bw);
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct LobbyOptions {
+    pub game_type: GameType,
+    pub turn_rate: u32,
+    pub use_legacy_limits: bool,
+}
+
+impl Default for LobbyOptions {
+    fn default() -> Self {
+        Self {
+            game_type: GameType {
+                primary: 0x2,
+                subtype: 0x1,
+            },
+            turn_rate: 0,
+            use_legacy_limits: false,
+        }
+    }
+}
+
 /// The interface to Broodwar.
 ///
 /// Has mainly specialized functions that can only be sensibly called from
@@ -57,15 +77,13 @@ pub trait Bw: Sync + Send {
         map_path: &Path,
         map_info: &MapInfo,
         lobby_name: &str,
-        game_type: GameType,
-        turn_rate: u32,
+        options: LobbyOptions,
     ) -> Result<(), LobbyCreateError>;
-    /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
         game_info: &mut BwGameData,
         is_eud_map: bool,
-        turn_rate: u32,
+        options: LobbyOptions,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
@@ -149,6 +167,7 @@ impl GameType {
         self.primary == 0xa
     }
 
+    #[allow(clippy::manual_range_patterns)]
     pub fn is_team_game(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
     }

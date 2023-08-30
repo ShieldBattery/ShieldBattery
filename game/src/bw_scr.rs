@@ -23,7 +23,7 @@ pub use thiscall::Thiscall;
 use crate::app_messages::{MapInfo, Settings};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::unit::{Unit, UnitIterator};
-use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
+use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions, StormPlayerId};
 use crate::bw::{commands, UserLatency};
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
@@ -2045,7 +2045,7 @@ impl BwScr {
         &self,
         input_game_info: &mut bw::BwGameData,
         is_eud: bool,
-        turn_rate: u32,
+        options: LobbyOptions,
     ) -> bw_hash_table::HashTable<scr::BwStringAlign8, T> {
         let mut params = bw_hash_table::HashTable::<scr::BwStringAlign8, T>::new(0x20);
         let mut add_param = |key: &[u8], value: u32| {
@@ -2068,9 +2068,15 @@ impl BwScr {
         add_param(b"map_tile_set", input_game_info.tileset as u32);
         add_param(b"map_width", input_game_info.map_width as u32);
         add_param(b"map_height", input_game_info.map_height as u32);
-        add_param(b"net_turn_rate", turn_rate);
+        add_param(b"net_turn_rate", options.turn_rate);
         // Flag 0x4 = Old limits, 0x10 = EUD
-        let flags = if is_eud { 0x14 } else { 0x0 };
+        let flags = if options.game_type.is_ums() && is_eud {
+            0x14
+        } else if options.use_legacy_limits {
+            0x4
+        } else {
+            0x0
+        };
         add_param(b"flags", flags);
 
         let mut add_param_string = |key: &[u8], value_str: &[u8]| {
@@ -2271,24 +2277,27 @@ impl bw::Bw for BwScr {
         map_path: &Path,
         map_info: &MapInfo,
         lobby_name: &str,
-        game_type: bw::GameType,
-        turn_rate: u32,
+        options: LobbyOptions,
     ) -> Result<(), bw::LobbyCreateError> {
         let mut game_input: scr::GameInput = mem::zeroed();
         init_bw_string(&mut game_input.name, lobby_name.as_bytes());
         init_bw_string(&mut game_input.password, b"");
         game_input.speed = 6;
-        game_input.game_type_subtype = game_type.as_u32();
-
-        game_input.turn_rate = turn_rate;
-
-        let is_eud = match map_info.map_data {
-            Some(ref s) => s.is_eud,
-            None => false,
-        };
-        if is_eud {
+        game_input.game_type_subtype = options.game_type.as_u32();
+        game_input.turn_rate = options.turn_rate;
+        if options.use_legacy_limits {
             game_input.old_limits = 1;
-            game_input.eud = 1;
+        }
+
+        if options.game_type.is_ums() {
+            let is_eud = match map_info.map_data {
+                Some(ref s) => s.is_eud,
+                None => false,
+            };
+            if is_eud {
+                game_input.old_limits = 1;
+                game_input.eud = 1;
+            }
         }
 
         let map_dir = match map_path.parent() {
@@ -2371,14 +2380,14 @@ impl bw::Bw for BwScr {
         &self,
         input_game_info: &mut bw::BwGameData,
         is_eud: bool,
-        turn_rate: u32,
+        options: LobbyOptions,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
         // The GameInfoValue struct is being changed on the newer versions that keeps
         // getting rolled back.. Keep support for both versions.
         let params = if self.uses_new_join_param_variant {
-            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud, turn_rate)
+            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud, options)
         } else {
             // HashTable itself has same layout regardless of which values it contains,
             // so this kind of cast is fine. Only BW is going to read params after this,
@@ -2391,7 +2400,7 @@ impl bw::Bw for BwScr {
             mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(
                 input_game_info,
                 is_eud,
-                turn_rate,
+                options,
             ))
         };
 

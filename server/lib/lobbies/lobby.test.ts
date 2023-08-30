@@ -53,29 +53,29 @@ const BigGameHunters: MapInfo = {
   isFavorited: false,
 }
 
-const BOXER_LOBBY = createLobby(
-  '5v3 Comp Stomp Pros Only',
-  BigGameHunters,
-  GameType.Melee,
-  0,
-  4,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
+const BOXER_LOBBY = createLobby({
+  name: '5v3 Comp Stomp Pros Only',
+  map: BigGameHunters,
+  gameType: GameType.Melee,
+  gameSubType: 0,
+  numSlots: 4,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
 
-const BOXER_LOBBY_WITH_OBSERVERS = createLobby(
-  '5v3 Comp Stomp Pros Only',
-  BigGameHunters,
-  GameType.Melee,
-  0,
-  6,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  true,
-)
+const BOXER_LOBBY_WITH_OBSERVERS = createLobby({
+  name: '5v3 Comp Stomp Pros Only',
+  map: BigGameHunters,
+  gameType: GameType.Melee,
+  gameSubType: 0,
+  numSlots: 6,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: true,
+})
 
 const evaluateMeleeLobby = (lobby: Lobby, teamSize: number, slotCount = 4) => {
   expect(lobby.teams).toHaveProperty('size', teamSize)
@@ -141,32 +141,32 @@ describe('Lobbies - melee', () => {
     expect(t1).toBe(0)
     expect(s1).toBe(1)
 
-    const fullLobby = createLobby(
-      'Full',
-      BigGameHunters,
-      GameType.Melee,
-      0,
-      1,
-      'pachi',
-      makeSbUserId(2),
-      'r',
-      true,
-    )
+    const fullLobby = createLobby({
+      name: 'Full',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 1,
+      hostName: 'pachi',
+      hostUserId: makeSbUserId(2),
+      hostRace: 'r',
+      allowObservers: true,
+    })
     const [t2, s2] = findAvailableSlot(fullLobby)
     expect(t2).toBe(-1)
     expect(s2).toBe(-1)
 
-    let fullLobbyWithObservers = createLobby(
-      'Full',
-      BigGameHunters,
-      GameType.Melee,
-      0,
-      1,
-      'pachi',
-      makeSbUserId(2),
-      'r',
-      true,
-    )
+    let fullLobbyWithObservers = createLobby({
+      name: 'Full',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 1,
+      hostName: 'pachi',
+      hostUserId: makeSbUserId(2),
+      hostRace: 'r',
+      allowObservers: true,
+    })
     const [t3, s3] = findAvailableSlot(fullLobbyWithObservers)
     expect(t3).toBe(-1)
     expect(s3).toBe(-1)
@@ -420,17 +420,17 @@ describe('Lobbies - melee', () => {
   })
 })
 
-const TEAM_LOBBY = createLobby(
-  '2v6 BGH',
-  BigGameHunters,
-  GameType.TopVsBottom,
-  2,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
+const TEAM_LOBBY = createLobby({
+  name: '2v6 BGH',
+  map: BigGameHunters,
+  gameType: GameType.TopVsBottom,
+  gameSubType: 2,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
 
 describe('Lobbies - Top vs bottom', () => {
   test('should create the lobby correctly', () => {
@@ -518,39 +518,39 @@ describe('Lobbies - Top vs bottom', () => {
   })
 })
 
-const TEAM_MELEE_2 = createLobby(
-  '4v4 Team Melee',
-  BigGameHunters,
-  GameType.TeamMelee,
-  2,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
-const TEAM_MELEE_3 = createLobby(
-  '3v3v2 Team Melee',
-  BigGameHunters,
-  GameType.TeamMelee,
-  3,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
-const TEAM_MELEE_4 = createLobby(
-  '2v2v2v2 Team Melee',
-  BigGameHunters,
-  GameType.TeamMelee,
-  4,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
+const TEAM_MELEE_2 = createLobby({
+  name: '4v4 Team Melee',
+  map: BigGameHunters,
+  gameType: GameType.TeamMelee,
+  gameSubType: 2,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
+const TEAM_MELEE_3 = createLobby({
+  name: '3v3v2 Team Melee',
+  map: BigGameHunters,
+  gameType: GameType.TeamMelee,
+  gameSubType: 3,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
+const TEAM_MELEE_4 = createLobby({
+  name: '2v2v2v2 Team Melee',
+  map: BigGameHunters,
+  gameType: GameType.TeamMelee,
+  gameSubType: 4,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
 
 const evaluateControlledSlot = (slot: Slot, type: string, race: RaceChar, controlledBy: string) => {
   expect(slot.type).toBe(type)
@@ -1035,50 +1035,50 @@ const UMS_MAP_4: MapInfo = {
   imageVersion: 1,
   isFavorited: false,
 }
-const UMS_LOBBY_1 = createLobby(
-  'Sunken Defence',
-  UMS_MAP_1,
-  GameType.UseMapSettings,
-  0,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
-const UMS_LOBBY_2 = createLobby(
-  'tappavat',
-  UMS_MAP_2,
-  GameType.UseMapSettings,
-  0,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
-const UMS_LOBBY_3 = createLobby(
-  'Accipiter',
-  UMS_MAP_3,
-  GameType.UseMapSettings,
-  0,
-  4,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
-const UMS_LOBBY_4 = createLobby(
-  'Team Micro',
-  UMS_MAP_4,
-  GameType.UseMapSettings,
-  0,
-  8,
-  'Slayers`Boxer',
-  makeSbUserId(27),
-  'r',
-  false,
-)
+const UMS_LOBBY_1 = createLobby({
+  name: 'Sunken Defence',
+  map: UMS_MAP_1,
+  gameType: GameType.UseMapSettings,
+  gameSubType: 0,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
+const UMS_LOBBY_2 = createLobby({
+  name: 'tappavat',
+  map: UMS_MAP_2,
+  gameType: GameType.UseMapSettings,
+  gameSubType: 0,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
+const UMS_LOBBY_3 = createLobby({
+  name: 'Accipiter',
+  map: UMS_MAP_3,
+  gameType: GameType.UseMapSettings,
+  gameSubType: 0,
+  numSlots: 4,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
+const UMS_LOBBY_4 = createLobby({
+  name: 'Team Micro',
+  map: UMS_MAP_4,
+  gameType: GameType.UseMapSettings,
+  gameSubType: 0,
+  numSlots: 8,
+  hostName: 'Slayers`Boxer',
+  hostUserId: makeSbUserId(27),
+  hostRace: 'r',
+  allowObservers: false,
+})
 
 const evaluateUmsLobby = (
   lobby: Lobby,

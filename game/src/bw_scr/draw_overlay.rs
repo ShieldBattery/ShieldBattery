@@ -695,9 +695,9 @@ impl OverlayState {
             let supply_icon = Texture::StatRes(4 + info.race.min(2u8) as u16);
             info.add_icon_text(ui, supply_icon, &supply_text, supply_width);
 
-            let label = egui::Label::new(egui::RichText::new("APM ").strong());
+            let label = Label::new(egui::RichText::new("APM ").strong());
             ui.add(label);
-            let label = egui::Label::new(info.apm.to_string());
+            let label = Label::new(info.apm.to_string());
             ui.add_fixed_width(label, apm_width);
             ui.interact(ui.min_rect(), id, Sense::click())
         })
@@ -1031,7 +1031,7 @@ impl PlayerInfo {
     ) {
         let image = egui::Image::new(TextureId::User(icon.to_egui_id()), (24.0, 24.0)).tint(color);
         ui.add(image);
-        let label = egui::Label::new(text);
+        let label = Label::new(text);
         ui.add_fixed_width(label, width);
     }
 }
