@@ -1148,7 +1148,12 @@
             "gameSubTypeOption": "{{numTeams}} equipos",
             "gameSubTypeOptionTvB": "{{topSlots}} frente a {{bottomSlots}}",
             "gameTypeHeader": "Tipo de juego",
-            "lobbyName": "Nombre del vestíbulo"
+            "lobbyName": "Nombre del vestíbulo",
+            "advancedSettings": "Ajustes avanzados",
+            "turnRate": "Ritmo de turno",
+            "turnRateAuto": "Auto",
+            "turnRateDynamic": "DTR (No recomendado)",
+            "useLegacyLimits": "Usar límite de unidades heredadas"
         },
         "errors": {
             "alreadyInLobby": "Ya estás en otro vestíbulo.",
@@ -1174,7 +1179,13 @@
         "lobby": {
             "gameType": "Tipo de juego",
             "leaveLobby": "Salir del vestíbulo",
-            "startGame": "Empezar juego"
+            "startGame": "Empezar juego",
+            "turnRate": "Ritmo de turno",
+            "turnRateAuto": "Auto",
+            "turnRateDynamic": "DTR",
+            "unitLimit": "Límite de unidad",
+            "unitLimitExtended": "Extendido",
+            "unitLimitLegacy": "Legado"
         },
         "messageLayout": {
             "banPlayer": "<0><0></0></0> ha sido expulsado del lobby",
