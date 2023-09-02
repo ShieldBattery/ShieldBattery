@@ -989,6 +989,12 @@
             "active": "Активный",
             "idle": "Праздный",
             "offline": "Не в сети"
+        },
+        "channelHeader": {
+            "actionItems": {
+                "leaveChannel": "Покинуть канал"
+            },
+            "moreActions": "Больше действий"
         }
     },
     "fileBrowser": {
