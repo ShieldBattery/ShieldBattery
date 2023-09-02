@@ -653,6 +653,12 @@
             "active": "Activo",
             "idle": "Inactivo",
             "offline": "Desconectado"
+        },
+        "channelHeader": {
+            "actionItems": {
+                "leaveChannel": "Salir del canal"
+            },
+            "moreActions": "Mas acciones"
         }
     },
     "fileBrowser": {
