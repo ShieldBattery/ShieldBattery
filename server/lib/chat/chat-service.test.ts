@@ -104,6 +104,7 @@ jest.mock('../users/user-model', () => {
 })
 
 jest.mock('./channel-banner-models', () => ({
+  getChannelBannersByIds: jest.fn().mockResolvedValue([]),
   getChannelBannerById: jest.fn(),
 }))
 
@@ -1750,6 +1751,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfos: [],
         joinedChannelInfos: [],
         hasMoreChannels: false,
+        channelBanners: [],
       })
     })
 
@@ -1764,6 +1766,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
         hasMoreChannels: false,
+        channelBanners: [],
       })
     })
 
@@ -1782,6 +1785,7 @@ describe('chat/chat-service', () => {
           detailedChannelInfos: [shieldBatteryDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo],
           hasMoreChannels: false,
+          channelBanners: [],
         })
       })
 
@@ -1807,6 +1811,7 @@ describe('chat/chat-service', () => {
           ],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
           hasMoreChannels: false,
+          channelBanners: [],
         })
       })
     })
