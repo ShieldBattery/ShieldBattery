@@ -119,6 +119,7 @@
     },
     "channelHeader": {
       "actionItems": {
+        "channelSettings": "Channel settings",
         "leaveChannel": "Leave channel"
       },
       "moreActions": "More actions"
