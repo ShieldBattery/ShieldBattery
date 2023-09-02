@@ -648,6 +648,12 @@
             "active": "$🗡Active🗡!",
             "idle": "$🗡Idle🗡!",
             "offline": "$🗡Offline🗡!"
+        },
+        "channelHeader": {
+            "actionItems": {
+                "leaveChannel": "$🗡Leave channel🗡!"
+            },
+            "moreActions": "$🗡More actions🗡!"
         }
     },
     "fileBrowser": {
