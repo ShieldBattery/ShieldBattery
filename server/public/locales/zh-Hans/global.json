@@ -690,6 +690,12 @@
         "events": {
             "ban": "您已被禁止使用 {{channelName}}。",
             "kick": "您已被踢出 {{channelName}}。"
+        },
+        "channelHeader": {
+            "actionItems": {
+                "leaveChannel": "离开频道"
+            },
+            "moreActions": "更多操作"
         }
     },
     "lobbies": {
