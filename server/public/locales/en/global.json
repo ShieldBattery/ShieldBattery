@@ -117,6 +117,12 @@
       "noPermissions": "You don't have enough permissions to ban this user",
       "notInChannel": "The user you're trying to ban is not in this channel"
     },
+    "channelHeader": {
+      "actionItems": {
+        "leaveChannel": "Leave channel"
+      },
+      "moreActions": "More actions"
+    },
     "channelInfo": {
       "defaultError": "An error occurred: {{statusText}}",
       "genericError": "Error getting channel info for #{{channelName}}: {{errorMessage}}",

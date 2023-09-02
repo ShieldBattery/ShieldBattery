@@ -27,6 +27,11 @@ interface ChatProps {
   listProps: Omit<MessageListProps, 'onScrollUpdate'>
   inputProps: Omit<MessageInputProps, 'showDivider'>
   /**
+   * Optional header component which will be rendered on top of the message list. This is useful if
+   * you need to show more information about the current chat content.
+   */
+  header?: React.ReactNode
+  /**
    * Optional extra content to place within the chat context provider. This is useful if you need to
    * e.g. mention users via shift-click from UIs outside the message list.
    */
@@ -80,6 +85,7 @@ export function Chat({
   className,
   listProps,
   inputProps,
+  header,
   extraContent,
   modifyUserMenuItems,
   modifyMessageMenuItems,
@@ -148,6 +154,7 @@ export function Chat({
   return (
     <ChatContext.Provider value={chatContextValue}>
       <MessagesAndInput className={className}>
+        {header}
         <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
         <MessageInput
           {...inputProps}
