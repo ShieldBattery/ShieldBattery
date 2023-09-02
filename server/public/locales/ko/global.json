@@ -773,6 +773,12 @@
             "idle": "게으른",
             "offline": "오프라인",
             "active": "활동적인"
+        },
+        "channelHeader": {
+            "actionItems": {
+                "leaveChannel": "채널 나가기"
+            },
+            "moreActions": "더 많은 행동"
         }
     },
     "starcraft": {
