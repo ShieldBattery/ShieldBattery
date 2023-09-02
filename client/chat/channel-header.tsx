@@ -20,18 +20,17 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { shadow2dp } from '../material/shadows'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
-import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../state-hooks'
 import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { caption, headline6, singleLine } from '../styles/typography'
+import { Caption, caption, headline6, singleLine } from '../styles/typography'
 import { ChannelBadge } from './channel-badge'
 
-const ChannelHeaderRoot = styled.div<{ $hasRightPadding: boolean }>`
+const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
   ${shadow2dp};
   width: 100%;
   height: 72px;
   padding: 8px;
-  padding-right: ${props => (props.$hasRightPadding ? '8px' : '0')};
+  padding-right: ${props => (props.$hasActions ? '8px' : '0')};
   background-color: ${background700};
 
   flex-shrink: 0;
@@ -99,14 +98,7 @@ const UserCountContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-`
 
-const UserCountIcon = styled(MaterialIcon).attrs({ icon: 'groups' })`
-  color: ${colorTextSecondary};
-`
-
-const UserCountText = styled.div`
-  ${caption};
   color: ${colorTextSecondary};
 `
 
@@ -195,58 +187,52 @@ export function ChannelHeader({
   }
 
   return (
-    <ChannelHeaderRoot $hasRightPadding={actions.length === 0}>
-      {!basicChannelInfo ? (
-        <LoadingDotsArea />
-      ) : (
-        <>
-          {actions.length > 0 ? (
-            <Popover
-              open={overflowMenuOpen}
-              onDismiss={closeOverflowMenu}
-              anchorX={anchorX ?? 0}
-              anchorY={anchorY ?? 0}
-              originX={'right'}
-              originY={'top'}>
-              <MenuList dense={true}>{actions}</MenuList>
-            </Popover>
+    <ChannelHeaderRoot $hasActions={actions.length === 0}>
+      {actions.length > 0 ? (
+        <Popover
+          open={overflowMenuOpen}
+          onDismiss={closeOverflowMenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX={'right'}
+          originY={'top'}>
+          <MenuList dense={true}>{actions}</MenuList>
+        </Popover>
+      ) : null}
+
+      <BadgeAndTextContainer>
+        <StyledChannelBadge
+          basicChannelInfo={basicChannelInfo}
+          detailedChannelInfo={detailedChannelInfo}
+        />
+        <NameAndTopicContainer>
+          <ChannelName>{basicChannelInfo.name}</ChannelName>
+          {parsedChannelTopic ? (
+            <StyledTooltip
+              text={parsedChannelTopic}
+              position='bottom'
+              disabled={!isChannelTopicOverflowing}
+              ContentComponent={StyledTooltipContent}>
+              <ChannelTopic ref={channelTopicRef}>{parsedChannelTopic}</ChannelTopic>
+            </StyledTooltip>
           ) : null}
+        </NameAndTopicContainer>
+      </BadgeAndTextContainer>
 
-          <BadgeAndTextContainer>
-            <StyledChannelBadge
-              basicChannelInfo={basicChannelInfo}
-              detailedChannelInfo={detailedChannelInfo}
-            />
-            <NameAndTopicContainer>
-              <ChannelName>{basicChannelInfo.name}</ChannelName>
-              {parsedChannelTopic ? (
-                <StyledTooltip
-                  text={parsedChannelTopic}
-                  position='bottom'
-                  disabled={!isChannelTopicOverflowing}
-                  ContentComponent={StyledTooltipContent}>
-                  <ChannelTopic ref={channelTopicRef}>{parsedChannelTopic}</ChannelTopic>
-                </StyledTooltip>
-              ) : null}
-            </NameAndTopicContainer>
-          </BadgeAndTextContainer>
-
-          <ActionsArea>
-            <UserCountContainer>
-              <UserCountIcon icon='groups' size={20} />
-              <UserCountText>{detailedChannelInfo.userCount}</UserCountText>
-            </UserCountContainer>
-            {actions.length > 0 ? (
-              <StyledIconButton
-                ref={anchor}
-                icon={<MaterialIcon icon='more_vert' />}
-                title={t('chat.channelHeader.moreActions', 'More actions')}
-                onClick={openOverflowMenu}
-              />
-            ) : null}
-          </ActionsArea>
-        </>
-      )}
+      <ActionsArea>
+        <UserCountContainer>
+          <MaterialIcon icon='groups' size={20} />
+          <Caption>{detailedChannelInfo.userCount}</Caption>
+        </UserCountContainer>
+        {actions.length > 0 ? (
+          <StyledIconButton
+            ref={anchor}
+            icon={<MaterialIcon icon='more_vert' />}
+            title={t('chat.channelHeader.moreActions', 'More actions')}
+            onClick={openOverflowMenu}
+          />
+        ) : null}
+      </ActionsArea>
     </ChannelHeaderRoot>
   )
 }
