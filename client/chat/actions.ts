@@ -17,6 +17,10 @@ import {
   SbChannelId,
   SearchChannelsResponse,
 } from '../../common/chat'
+import {
+  GetBatchedChannelBannersResponse,
+  GetChannelBannersResponse,
+} from '../../common/chat-channels/channel-banners'
 import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
@@ -41,6 +45,9 @@ export type ChatActions =
   | GetBatchChannelInfoSuccess
   | GetBatchChannelInfoFailure
   | SearchChannels
+  | GetChannelBanners
+  | GetBatchChannelBannerSuccess
+  | GetBatchChannelBannerFailure
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -229,6 +236,26 @@ export interface SearchChannels {
   type: '@chat/searchChannels'
   payload: SearchChannelsResponse
 }
+
+/**
+ * The server returned a response to our request for channel banners.
+ */
+export interface GetChannelBanners {
+  type: '@chat/getChannelBanners'
+  payload: GetChannelBannersResponse
+}
+
+/**
+ * The server returned a response to our request for channel banner info about one or more channel
+ * banners.
+ */
+export interface GetBatchChannelBannerSuccess {
+  type: '@chat/getBatchChannelBanner'
+  payload: GetBatchedChannelBannersResponse
+  error?: false
+}
+
+export type GetBatchChannelBannerFailure = BaseFetchFailure<'@chat/getBatchChannelBanner'>
 
 /**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel

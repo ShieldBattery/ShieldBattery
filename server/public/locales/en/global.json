@@ -155,6 +155,7 @@
     },
     "channelSettings": {
       "banner": {
+        "availableOverline": "Available channel banners",
         "defaultOverline": "Default channel banners",
         "myOverline": "My channel banners",
         "openFullSize": "Open full size",

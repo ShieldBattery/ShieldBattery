@@ -1,5 +1,5 @@
 import { debounce } from 'lodash-es'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -11,7 +11,7 @@ import { IconButton, useButtonState } from '../material/button'
 import Card from '../material/card'
 import { Ripple } from '../material/ripple'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import {
   blue600,
@@ -69,13 +69,20 @@ export function ChannelSettingsBanner({
 }: ChannelSettingsBannerProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const [myChannelBanners, setMyChannelBanners] = useState<ReadonlyDeep<ChannelBannerJson[]>>([])
-  const [defaultChannelBanners, setDefaultChannelBanners] = useState<
-    ReadonlyDeep<ChannelBannerJson[]>
-  >([])
+  const availableBanners = useAppSelector(s => s.channelBanners.availableChannelBanners)
+  const defaultBanners = useAppSelector(s => s.channelBanners.defaultChannelBanners)
+  const bannerIdToInfo = useAppSelector(s => s.channelBanners.idToInfo)
+
   const [isLoading, setIsLoading] = useState(false)
   const [retrieveError, setRetrieveError] = useState<Error>()
   const [updateError, setUpdateError] = useState<Error>()
+
+  const { availableChannelBanners, defaultChannelBanners } = useMemo(() => {
+    const availableChannelBanners = availableBanners.map(id => bannerIdToInfo.get(id)!)
+    const defaultChannelBanners = defaultBanners.map(id => bannerIdToInfo.get(id)!)
+
+    return { availableChannelBanners, defaultChannelBanners }
+  }, [availableBanners, bannerIdToInfo, defaultBanners])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -87,8 +94,6 @@ export function ChannelSettingsBanner({
       getChannelBanners(channelId, {
         signal,
         onSuccess: res => {
-          setMyChannelBanners(res.myChannelBanners)
-          setDefaultChannelBanners(res.defaultChannelBanners)
           setIsLoading(false)
           setRetrieveError(undefined)
         },
@@ -139,7 +144,7 @@ export function ChannelSettingsBanner({
   if (retrieveError) {
     return <ErrorText>{retrieveError.message}</ErrorText>
   }
-  if (myChannelBanners.length === 0 && defaultChannelBanners.length === 0) {
+  if (availableChannelBanners.length === 0 && defaultChannelBanners.length === 0) {
     return <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
   }
 
@@ -149,8 +154,9 @@ export function ChannelSettingsBanner({
       <form noValidate={true} onSubmit={onSubmit}>
         <SelectableBannerList
           {...bindCustom('bannerId')}
-          myChannelBanners={myChannelBanners}
-          defaultChannelBanners={defaultChannelBanners}></SelectableBannerList>
+          availableChannelBanners={availableChannelBanners}
+          defaultChannelBanners={defaultChannelBanners}
+        />
       </form>
     </div>
   )
@@ -160,23 +166,25 @@ function SelectableBannerList({
   name,
   value,
   onChange,
-  myChannelBanners,
+  availableChannelBanners,
   defaultChannelBanners,
 }: {
   name: string
   value?: ChannelBannerId | null
   onChange: (newValue: ChannelBannerId) => void
-  myChannelBanners: ReadonlyDeep<ChannelBannerJson[]>
+  availableChannelBanners: ReadonlyDeep<ChannelBannerJson[]>
   defaultChannelBanners: ReadonlyDeep<ChannelBannerJson[]>
 }) {
   const { t } = useTranslation()
   return (
     <>
-      {myChannelBanners.length ? (
+      {availableChannelBanners.length ? (
         <ListContainer>
-          <Overline>{t('chat.channelSettings.banner.myOverline', 'My channel banners')}</Overline>
+          <Overline>
+            {t('chat.channelSettings.banner.availableOverline', 'Available channel banners')}
+          </Overline>
           <BannerList>
-            {myChannelBanners.map(b => (
+            {availableChannelBanners.map(b => (
               <ChannelBannerCard
                 key={b.id}
                 banner={b}

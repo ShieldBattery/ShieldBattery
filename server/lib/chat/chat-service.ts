@@ -24,7 +24,10 @@ import {
   makeSbChannelId,
   toChatUserProfileJson,
 } from '../../../common/chat'
-import { makeChannelBannerId } from '../../../common/chat-channels/channel-banners'
+import {
+  makeChannelBannerId,
+  toChannelBannerJson,
+} from '../../../common/chat-channels/channel-banners'
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
 import { Patch } from '../../../common/patch'
@@ -42,7 +45,7 @@ import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { getChannelBannerById } from './channel-banner-models'
+import { getChannelBannerById, getChannelBannersByIds } from './channel-banner-models'
 import {
   ChatMessage,
   FullChannelInfo,
@@ -721,11 +724,16 @@ export default class ChatService {
       joinedChannelInfos.push(toJoinedChannelInfo(channel))
     }
 
+    const channelBanners = await getChannelBannersByIds(
+      channels.filter(c => c.bannerId).map(c => c.bannerId!),
+    )
+
     return {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
       hasMoreChannels: channels.length >= limit,
+      channelBanners: channelBanners.map(b => toChannelBannerJson(b)),
     }
   }
 
