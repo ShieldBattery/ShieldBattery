@@ -36,6 +36,8 @@ DB_IP=$(nslookup db | awk '/^Address: / { print $2 }')
 echo "DB_IP is ${DB_IP}"
 APP_SERVER_IP=$(nslookup app_server | awk '/^Address: / { print $2 }')
 echo "APP_SERVER_IP is ${APP_SERVER_IP}"
+SERVER_RS_IP=$(nslookup server_rs | awk '/^Address: / { print $2 }')
+echo "SERVER_RS_IP is ${SERVER_RS_IP}"
 
 echo "Adding forwarding rules to iptables"
 # db, 5432 -> 5432
@@ -44,8 +46,8 @@ iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.so
 iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 80 -j DNAT --to-destination "${APP_SERVER_IP}:5555"
 iptables -t nat -I PREROUTING -p udp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 80 -j DNAT --to-destination "${APP_SERVER_IP}:5555"
 # server-rs, 8001 -> 5556
-iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${APP_SERVER_IP}:5556"
-iptables -t nat -I PREROUTING -p udp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${APP_SERVER_IP}:5556"
+iptables -t nat -I PREROUTING -p tcp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${SERVER_RS_IP}:5556"
+iptables -t nat -I PREROUTING -p udp -d "$(tailscale --socket=/tmp/tailscaled.sock ip -4)" --dport 8001 -j DNAT --to-destination "${SERVER_RS_IP}:5556"
 
 
 wait ${PID}
