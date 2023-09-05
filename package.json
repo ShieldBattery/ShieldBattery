@@ -199,7 +199,7 @@
     "@react-spring/rafz": "^9.7.3",
     "@redux-devtools/core": "^3.13.1",
     "@redux-devtools/dock-monitor": "^3.0.1",
-    "@redux-devtools/inspector-monitor": "^3.0.1",
+    "@redux-devtools/inspector-monitor": "^4.0.0",
     "@types/bcrypt": "^5.0.0",
     "@types/body-parser": "^1.19.0",
     "@types/d3-time-format": "^4.0.0",
