@@ -140,8 +140,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             forge::game_started();
             get_bw().run_game_loop();
             debug!("Game loop ended");
-            let results = game_results();
-            send_game_msg_to_async(GameThreadMessage::Results(results));
+            send_game_results();
             forge::hide_window();
         }
         // Saves registry settings etc.
@@ -167,6 +166,16 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
         warn!("Tried to access player id mapping before it was set");
         &[]
     })
+}
+
+/// Collects and forwards game results to the async thread if they haven't already been sent. Should
+/// only be called from the game thread.
+pub fn send_game_results() {
+    let bw = get_bw();
+    if bw.trigger_game_results_sent() {
+        let results = unsafe { game_results() };
+        send_game_msg_to_async(GameThreadMessage::Results(results));
+    }
 }
 
 #[derive(Debug)]

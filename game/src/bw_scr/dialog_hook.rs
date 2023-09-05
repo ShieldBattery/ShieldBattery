@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use bw_dat::dialog::{Control, Dialog, EventHandler};
 
 use crate::bw::{self, get_bw, Bw};
+use crate::game_thread::send_game_results;
 
 use super::console;
 
@@ -46,6 +47,9 @@ pub unsafe fn spawn_dialog_hook(
         let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
         inited.set_orig(event_handler);
         inited.func() as usize
+    } else if name == "WMission" || name == "LMission" {
+        send_game_results();
+        event_handler
     } else {
         event_handler
     };

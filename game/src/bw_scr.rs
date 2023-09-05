@@ -232,6 +232,8 @@ pub struct BwScr {
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// Whether game results have been sent to the GameState thread yet
+    game_results_sent: AtomicBool,
 }
 
 /// State mutated during renderer draw call
@@ -977,6 +979,7 @@ impl BwScr {
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            game_results_sent: AtomicBool::new(false),
         })
     }
 
@@ -2152,6 +2155,12 @@ impl BwScr {
 
     fn is_replay_or_obs(&self) -> bool {
         unsafe { self.is_replay.resolve() != 0 || self.local_unique_player_id.resolve() >= 0x80 }
+    }
+
+    /// Sets [game_results_sent] atomically, returning whether the results need to be sent by the
+    /// caller.
+    pub fn trigger_game_results_sent(&self) -> bool {
+        !self.game_results_sent.swap(true, Ordering::Relaxed)
     }
 }
 

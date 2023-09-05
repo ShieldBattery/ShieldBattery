@@ -466,8 +466,15 @@ impl GameState {
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
-            game_done.await;
+            // NOTE(tec27): We await the game results before game_done since we get results as soon
+            // as the Victory/Defeat dialog is shown, which is before the game loop exits
             let results = results.await?;
+            if !info.is_replay() {
+                send_game_result(&results, &info, &local_user, &ws_send).await;
+            }
+            debug!("Network stall statistics: {:?}", results.network_stalls);
+
+            game_done.await;
 
             // Make sure (or at least try to) that quit messages get delivered to everyone and don't
             // get lost, so that quitting players don't trigger a drop screen.
@@ -495,12 +502,6 @@ impl GameState {
                     deliver_final_network.push(recv);
                 }
             }
-
-            if !info.is_replay() {
-                send_game_result(&results, &info, &local_user, &ws_send).await;
-            }
-
-            debug!("Network stall statistics: {:?}", results.network_stalls);
 
             if !deliver_final_network.is_empty() {
                 select! {
