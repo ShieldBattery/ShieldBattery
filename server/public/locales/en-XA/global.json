@@ -621,7 +621,7 @@
             "noDescription": "$🗡This channel has no description.🗡!",
             "private": "$🗡This channel is private and requires an invite to join.🗡!",
             "userCount_one": "$🗡{{count}} member🗡!",
-            "userCount_other": "$🗡{{count}} member🗡!"
+            "userCount_other": "$🗡{{count}} members🗡!"
         },
         "channelList": {
             "noMatchingChannels": "$🗡No matching chat channels.🗡!",
