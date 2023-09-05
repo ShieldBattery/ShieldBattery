@@ -1,3 +1,27 @@
+#### 9.3.0 (Sep 5, 2023)
+
+- **Replay/Observer UI improvements.** We've added hotkeys for showing/hiding various parts of the
+  UI, so you can tailor your observing experience to just what you'd like to see. The hotkeys are:
+  - **A**: Toggle all panels
+  - **F**: Toggle production panel
+  - **E**: Toggle player list
+  - **W**: Toggle bottom UI
+- **New account settings page.** Account settings has now moved into the normal Settings area,
+  instead of being under the user menu. The new page also presents a few settings that are not yet
+  available, but will be soon! Stay tuned.
+- **Advanced lobby settings.** Lobbies now have two new advanced settings that can be configured:
+  turn rate and unit limits. In general we recommend users leave these at the defaults, but if you
+  have specific needs for particular maps and game modes, they're there now! Current settings for
+  these will also be displayed while in a lobby.
+- **Bug fixes and small enhancements:**
+  - Show morphing Zerg buildings correctly in replay/observer production view
+  - Show minimap dialog buttons for changing player vision in replay/observer UI
+  - Changed observer UI font and adjusted colors for better readability
+  - Fixed a number of issues with submitted game results that caused incorrect or unresolvable
+    games.
+  - Made game results submit earlier in the game ending process so that game results can be
+    resolved faster.
+
 #### 9.2.0 (Aug 10, 2023)
 
 - **Improved ping estimation**. Ping estimation used for game server selection and ingame latency
