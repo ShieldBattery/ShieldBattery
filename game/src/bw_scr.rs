@@ -1612,7 +1612,9 @@ impl BwScr {
                     .and_then(|idx| (*commands).commands.get(idx as usize))
                     .map(|x| x.is_hd != 0)
                     .unwrap_or(false);
-                let is_carbot = self.is_carbot.load(Ordering::Relaxed);
+                // SC:R only enables carbot if both of these flags are set
+                let is_carbot = self.is_carbot.load(Ordering::Relaxed)
+                    && self.show_skins.load(Ordering::Relaxed);
                 // Render target 1 is for UI layers (0xb to 0x1d inclusive)
                 let render_target = draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
                 if let Some(mut render_state) = self.render_state.lock() {

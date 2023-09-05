@@ -1,20 +1,17 @@
-mod production;
-
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use egui::style::TextStyle;
-use egui::{
-    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
-    Sense, Slider, TextureId, Vec2, Widget,
-};
-use winapi::shared::windef::{HWND, POINT};
-
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
+use egui::style::TextStyle;
+use egui::{
+    Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
+    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, Vec2, Widget,
+};
+use winapi::shared::windef::{HWND, POINT};
 
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
@@ -22,6 +19,8 @@ use crate::game_thread::{self, GameThreadMessage};
 use crate::network_manager;
 
 use self::production::ProductionState;
+
+mod production;
 
 pub struct OverlayState {
     ctx: egui::Context,
@@ -188,10 +187,25 @@ impl UiExt for egui::Ui {
 impl OverlayState {
     pub fn new() -> OverlayState {
         let ctx = egui::Context::default();
+
+        // Add our custom fonts
+        let mut fonts = FontDefinitions::default();
+        fonts.font_data.insert(
+            "inter".to_string(),
+            FontData::from_static(include_bytes!("../../files/fonts/Inter-Regular.ttf")),
+        );
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "inter".to_string());
+        ctx.set_fonts(fonts);
+
         let mut style_arc = ctx.style();
         let style = Arc::make_mut(&mut style_arc);
         // Make windows transparent
-        style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.5);
+        style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
+
         // Increase default font sizes a bit.
         // 16.0 seems to give a size that roughly matches with the smallest text size BW uses.
         let text_styles = [
@@ -695,9 +709,9 @@ impl OverlayState {
             let supply_icon = Texture::StatRes(4 + info.race.min(2u8) as u16);
             info.add_icon_text(ui, supply_icon, &supply_text, supply_width);
 
-            let label = Label::new(egui::RichText::new("APM ").strong());
+            let label = Label::new(egui::RichText::new("APM "));
             ui.add(label);
-            let label = Label::new(info.apm.to_string());
+            let label = Label::new(egui::RichText::new(info.apm.to_string()).strong());
             ui.add_fixed_width(label, apm_width);
             ui.interact(ui.min_rect(), id, Sense::click())
         })
@@ -1031,7 +1045,7 @@ impl PlayerInfo {
     ) {
         let image = egui::Image::new(TextureId::User(icon.to_egui_id()), (24.0, 24.0)).tint(color);
         ui.add(image);
-        let label = Label::new(text);
+        let label = Label::new(egui::RichText::new(text).strong());
         ui.add_fixed_width(label, width);
     }
 }
