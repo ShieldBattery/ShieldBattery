@@ -49,39 +49,6 @@ function countTerminalStates(resultMap: ReadonlyArray<[SbUserId, GameClientPlaye
   )
 }
 
-function getNumPlayers(results: ReadonlyArray<ResultSubmission | null>) {
-  for (const result of results) {
-    if (result) {
-      return result.playerResults.length
-    }
-  }
-
-  throw new Error('results contained no players')
-}
-
-/**
- * Returns true of the given set of results can deliver a victory or defeat for every player in the
- * game.
- *
- * @param results an array of results submitted from each player. Players that have not submitted
- *   results yet will be nulls in this array.
- */
-export function hasCompletedResults(results: ReadonlyArray<ResultSubmission | null>) {
-  const numPlayers = getNumPlayers(results)
-
-  const numTerminalStates = results
-    .filter((r): r is ResultSubmission => !!r)
-    .map(r => countTerminalStates(r.playerResults))
-  let maxTerminal = 0
-  for (const numTerminal of numTerminalStates) {
-    if (numTerminal > maxTerminal) {
-      maxTerminal = numTerminal
-    }
-  }
-
-  return maxTerminal === numPlayers
-}
-
 /**
  * Returns the final game results given the per-player results that were reported for a game.
  *
@@ -139,6 +106,10 @@ export function reconcileResults(
         // exclusively?)
         apm.set(id, result.apm)
       }
+      if (!apm.has(id)) {
+        // Store the first reported APM for a user just in case we don't get a report from them
+        apm.set(id, result.apm)
+      }
     }
   }
 
@@ -152,6 +123,9 @@ export function reconcileResults(
   }
 
   const reconciled = new Map<SbUserId, ReconciledPlayerResult>()
+
+  let winningPlayers = 0
+  let losingPlayers = 0
 
   for (const [playerId, playerResults] of combined.entries()) {
     let victories = 0
@@ -168,15 +142,19 @@ export function reconcileResults(
     if (victories > 0 && defeats > 0) {
       disputed = true
       if (victories > defeats) {
+        winningPlayers += 1
         result = 'win'
       } else if (victories < defeats) {
+        losingPlayers += 1
         result = 'loss'
       } else {
         result = 'unknown'
       }
     } else if (victories > 0) {
+      winningPlayers += 1
       result = 'win'
     } else if (defeats > 0) {
+      losingPlayers += 1
       result = 'loss'
     } else {
       disputed = true
@@ -188,6 +166,15 @@ export function reconcileResults(
       race: playerRaces.get(playerId)!,
       apm: apm.get(playerId) ?? 0,
     })
+  }
+
+  if (losingPlayers && !winningPlayers) {
+    // If there are losing players but no winning players, we mark everything unknown to avoid bugs
+    // where everybody in a game loses
+    for (const key of reconciled.keys()) {
+      reconciled.get(key)!.result = 'unknown'
+      disputed = true
+    }
   }
 
   // TODO(tec27): Check that the results are valid for the game configuration (e.g. only 1 victor

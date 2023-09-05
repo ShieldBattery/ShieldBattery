@@ -20,7 +20,7 @@ import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
 import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
-import { hasCompletedResults, reconcileResults } from '../games/results'
+import { reconcileResults } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
@@ -298,9 +298,15 @@ export default class GameResultService {
   }
 
   private async maybeReconcileResults(gameRecord: GameRecord, force = false): Promise<void> {
+    if (gameRecord.results) {
+      return
+    }
+
     const gameId = gameRecord.id
     const currentResults = await getCurrentReportedResults(gameId)
-    if (!force && !hasCompletedResults(currentResults)) {
+    const numHumans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer)).length
+    const haveResults = currentResults.filter(r => !!r).length
+    if (!force && haveResults < numHumans) {
       return
     }
 

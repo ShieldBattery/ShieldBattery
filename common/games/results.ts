@@ -1,5 +1,4 @@
 import { TFunction } from 'i18next'
-import { Merge } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
 import { AssignedRaceChar } from '../races'
 import { SbUserId } from '../users/sb-user'
@@ -91,9 +90,3 @@ export interface SubmitGameResultsRequest {
   /** Each player's result. */
   playerResults: [playerId: SbUserId, result: GameClientPlayerResult][]
 }
-
-// TODO(tec27): Delete once the game code calls the new endpoint
-export type LegacySubmitGameResultsRequest = Merge<
-  SubmitGameResultsRequest,
-  { playerResults: [playerName: string, result: GameClientPlayerResult][] }
->

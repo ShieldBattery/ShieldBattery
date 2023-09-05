@@ -7,7 +7,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use libc::c_void;
 
 use crate::app_messages::GameSetupInfo;
+use crate::bw::players::BwPlayerId;
 use crate::bw::Bw;
+use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::windows;
 
@@ -52,12 +54,12 @@ unsafe fn has_replay_magic_bytes_res(file: *mut c_void) -> Result<bool, io::Erro
 /// (Seeks to the end if not already)
 pub unsafe fn add_shieldbattery_data(
     file: *mut c_void,
-    bw: &dyn Bw,
+    bw: &BwScr,
     exe_build: u32,
     setup_info: &GameSetupInfo,
     player_id_mapping: &[game_thread::PlayerIdMapping],
 ) -> Result<(), io::Error> {
-    windows::file_seek(file, std::io::SeekFrom::End(0))?;
+    windows::file_seek(file, io::SeekFrom::End(0))?;
     // Current format: (The first two u32s are required by SC:R, after that we can have anything)
     // u32 section_id
     // u32 data_length (Not counting these first 8 bytes)
@@ -98,7 +100,7 @@ pub unsafe fn add_shieldbattery_data(
     for i in 0..8 {
         let user_id = player_id_mapping
             .iter()
-            .find(|x| x.game_id == Some(i))
+            .find(|x| x.game_id == Some(BwPlayerId(i)))
             .map(|x| x.sb_user_id)
             .unwrap_or_else(|| u32::MAX);
         buffer.write_u32::<LE>(user_id)?;

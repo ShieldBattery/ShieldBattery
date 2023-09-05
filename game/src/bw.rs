@@ -7,6 +7,7 @@ pub use bw_dat::structs::*;
 use bw_dat::UnitId;
 use libc::{c_void, sockaddr};
 use once_cell::sync::OnceCell;
+use players::StormPlayerId;
 use quick_error::quick_error;
 use winapi::shared::windef::HWND;
 
@@ -16,10 +17,8 @@ use crate::bw_scr::BwScr;
 pub mod apm_stats;
 pub mod commands;
 pub mod list;
+pub mod players;
 pub mod unit;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct StormPlayerId(pub u8);
 
 static BW_IMPL: OnceCell<&'static BwScr> = OnceCell::new();
 
@@ -159,6 +158,55 @@ pub struct GameType {
 }
 
 impl GameType {
+    pub const fn melee() -> Self {
+        Self {
+            primary: 0x2,
+            subtype: 0x1,
+        }
+    }
+
+    pub const fn ffa() -> Self {
+        Self {
+            primary: 0x3,
+            subtype: 0x1,
+        }
+    }
+
+    pub const fn one_v_one() -> Self {
+        Self {
+            primary: 0x4,
+            subtype: 0x1,
+        }
+    }
+
+    pub const fn ums() -> Self {
+        Self {
+            primary: 0xa,
+            subtype: 0x1,
+        }
+    }
+
+    pub const fn team_melee(team_count: u8) -> Self {
+        Self {
+            primary: 0xb,
+            subtype: team_count - 1,
+        }
+    }
+
+    pub const fn team_ffa(team_count: u8) -> Self {
+        Self {
+            primary: 0xc,
+            subtype: team_count - 1,
+        }
+    }
+
+    pub const fn top_v_bottom(players_on_top: u8) -> Self {
+        Self {
+            primary: 0xf,
+            subtype: players_on_top,
+        }
+    }
+
     pub fn as_u32(self) -> u32 {
         self.primary as u32 | ((self.subtype as u32) << 16)
     }
@@ -167,6 +215,7 @@ impl GameType {
         self.primary == 0xa
     }
 
+    /// Whether the game type has shared control among one or more users, like Team Melee.
     #[allow(clippy::manual_range_patterns)]
     pub fn is_team_game(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
@@ -370,6 +419,15 @@ pub struct BwGameData {
     pub game_creator: [u8; 25],
     pub map_name: [u8; 32],
     pub game_template: GameTemplate,
+}
+
+impl BwGameData {
+    pub fn game_type(&self) -> GameType {
+        GameType {
+            primary: self.game_type as u8,
+            subtype: self.game_subtype as u8,
+        }
+    }
 }
 
 #[repr(C, packed)]

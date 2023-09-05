@@ -1,4 +1,3 @@
-use std::collections::hash_map::{Entry, HashMap};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::pin;
 use std::sync::{Arc, OnceLock};
@@ -6,6 +5,8 @@ use std::time::{Duration, Instant};
 
 use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
+use hashbrown::hash_map::Entry;
+use hashbrown::HashMap;
 use parking_lot::Mutex;
 use prost::Message;
 use quick_error::quick_error;
@@ -479,7 +480,7 @@ impl State {
                                 ack_manager.handle_incoming(&game_message);
                             }
 
-                            let need_id = if let Some(storm_id) = self.ip_to_storm_id.get(&ip) {
+                            let mut need_id = if let Some(storm_id) = self.ip_to_storm_id.get(&ip) {
                                 self.last_seen_packet_time.insert(*storm_id, Instant::now());
                                 false
                             } else {
@@ -500,6 +501,7 @@ impl State {
                                                     self.ip_to_storm_id
                                                         .entry(ip)
                                                         .or_insert(from_id);
+                                                    need_id = false;
                                                     debug!(
                                                         "{:?} found to have Storm ID: {}",
                                                         ip, from_id

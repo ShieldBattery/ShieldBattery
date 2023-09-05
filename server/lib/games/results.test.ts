@@ -5,7 +5,7 @@ import {
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
 import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
-import { hasCompletedResults, reconcileResults } from './results'
+import { reconcileResults } from './results'
 
 function makePlayerResult(
   userId: number,
@@ -15,152 +15,6 @@ function makePlayerResult(
 ): [SbUserId, GameClientPlayerResult] {
   return [makeSbUserId(userId), { result, race, apm }]
 }
-
-describe('games/results/hasCompletedResults', () => {
-  test('should return false when one player is still playing in a 1v1', () => {
-    const results = [
-      {
-        reporter: 2,
-        time: 7,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Playing, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-        ],
-      },
-      null,
-    ]
-
-    expect(hasCompletedResults(results)).toBeFalse()
-  })
-
-  test('should return true when all players have a terminal result in a 1v1', () => {
-    const results = [
-      {
-        reporter: 2,
-        time: 7,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Playing, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-        ],
-      },
-      {
-        reporter: 1,
-        time: 33,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Victory, 't', 27),
-          makePlayerResult(2, GameClientResult.Defeat, 'z', 35),
-        ],
-      },
-    ]
-
-    expect(hasCompletedResults(results)).toBeTrue()
-  })
-
-  test('should return false when one player is still playing in a 4 player game', () => {
-    const results = [
-      {
-        reporter: 2,
-        time: 7,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Playing, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      null,
-      {
-        reporter: 1,
-        time: 9,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      null,
-    ]
-
-    expect(hasCompletedResults(results)).toBeFalse()
-  })
-
-  test('should return true when all players have a terminal state in a 4 player game', () => {
-    const results = [
-      {
-        reporter: 2,
-        time: 7,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Playing, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      {
-        reporter: 3,
-        time: 50,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Defeat, 't', 27),
-          makePlayerResult(2, GameClientResult.Victory, 'z', 35),
-          makePlayerResult(3, GameClientResult.Victory, 'p', 44),
-          makePlayerResult(4, GameClientResult.Defeat, 'p', 378),
-        ],
-      },
-      {
-        reporter: 1,
-        time: 9,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      null,
-    ]
-
-    expect(hasCompletedResults(results)).toBeTrue()
-  })
-
-  test('should handle legacy case that 1 player is disconnected when others have victories', () => {
-    const results = [
-      {
-        reporter: 2,
-        time: 7,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Playing, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      {
-        reporter: 3,
-        time: 50,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
-          makePlayerResult(2, GameClientResult.Victory, 'z', 35),
-          makePlayerResult(3, GameClientResult.Victory, 'p', 44),
-          makePlayerResult(4, GameClientResult.Defeat, 'p', 378),
-        ],
-      },
-      {
-        reporter: 4,
-        time: 9,
-        playerResults: [
-          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
-          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
-          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
-          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
-        ],
-      },
-      null,
-    ]
-
-    expect(hasCompletedResults(results)).toBeTrue()
-  })
-})
 
 function evaluateResults(
   resultsMap: Map<number, ReconciledPlayerResult>,
@@ -198,6 +52,33 @@ describe('games/results/reconcileResults', () => {
     evaluateResults(reconciled.results, {
       1: { result: 'win', race: 't', apm: 25 },
       2: { result: 'loss', race: 'z', apm: 60 },
+    })
+  })
+
+  test('should reconcile a 1v1 with a game crash', () => {
+    const results = [
+      {
+        reporter: 2,
+        time: 7,
+        playerResults: [],
+      },
+      {
+        reporter: 1,
+        time: 33,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 25),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 30),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(results)
+
+    expect(reconciled.disputed).toBe(false)
+    expect(reconciled.time).toBe(33)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 't', apm: 25 },
+      2: { result: 'loss', race: 'z', apm: 30 },
     })
   })
 
@@ -273,7 +154,7 @@ describe('games/results/reconcileResults', () => {
       1: { result: 'loss', race: 't', apm: 40 },
       2: { result: 'win', race: 'z', apm: 20 },
       3: { result: 'win', race: 'p', apm: 30 },
-      4: { result: 'loss', race: 'p', apm: 0 },
+      4: { result: 'loss', race: 'p', apm: 20 },
     })
   })
 
@@ -310,8 +191,8 @@ describe('games/results/reconcileResults', () => {
     evaluateResults(reconciled.results, {
       1: { result: 'unknown', race: 't', apm: 40 },
       2: { result: 'unknown', race: 'z', apm: 20 },
-      3: { result: 'unknown', race: 'p', apm: 0 },
-      4: { result: 'unknown', race: 'p', apm: 0 },
+      3: { result: 'unknown', race: 'p', apm: 20 },
+      4: { result: 'unknown', race: 'p', apm: 20 },
     })
   })
 
@@ -496,10 +377,39 @@ describe('games/results/reconcileResults', () => {
 
     expect(reconciled.disputed).toBe(false)
     evaluateResults(reconciled.results, {
-      1: { result: 'loss', race: 't', apm: 0 },
+      1: { result: 'loss', race: 't', apm: 27 },
       2: { result: 'win', race: 'z', apm: 35 },
       3: { result: 'win', race: 'p', apm: 44 },
       4: { result: 'loss', race: 'p', apm: 378 },
+    })
+  })
+
+  test('1v1 double loss regression', () => {
+    const results = [
+      {
+        reporter: 2,
+        time: 7,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Defeat, 't', 27),
+          makePlayerResult(2, GameClientResult.Playing, 'z', 35),
+        ],
+      },
+      {
+        reporter: 1,
+        time: 50,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 27),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 35),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(results)
+
+    expect(reconciled.disputed).toBe(true)
+    evaluateResults(reconciled.results, {
+      1: { result: 'unknown', race: 't', apm: 27 },
+      2: { result: 'unknown', race: 'z', apm: 35 },
     })
   })
 })

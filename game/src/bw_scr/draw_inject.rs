@@ -83,7 +83,7 @@ impl RenderTarget {
     pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
         let width = (*bw).width as f32;
         let height = (*bw).height as f32;
-        // FIXME: This is more or less duplicating logic in draw_overlay::OverlayState::step,
+        // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
         // (And assuming the render target sizes here are same as the values passed to step())
         // would be more cleaner to have the egui-visible width/height be passed from there.
         let (scale, h_recip) = if height > 1080.0 {

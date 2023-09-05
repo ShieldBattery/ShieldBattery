@@ -3,24 +3,31 @@
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
-
-use byteorder::{ByteOrder, LittleEndian};
-use fxhash::FxHashSet;
-use lazy_static::lazy_static;
-use libc::c_void;
-use once_cell::sync::OnceCell;
+use std::time::Duration;
 
 use bw_dat::dialog::Dialog;
 use bw_dat::{Unit, UnitId};
+use byteorder::{ByteOrder, LittleEndian};
+use fxhash::FxHashSet;
+use hashbrown::HashMap;
+use lazy_static::lazy_static;
+use libc::c_void;
+use once_cell::sync::OnceCell;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::app_messages::GameSetupInfo;
-use crate::bw::{self, get_bw, Bw, StormPlayerId};
-use crate::forge;
+use crate::bw::players::{
+    AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
+    StormPlayerId, VictoryState,
+};
+use crate::bw::{get_bw, Bw, GameType};
+use crate::bw_scr::BwScr;
 use crate::replay;
 use crate::snp;
+use crate::{bw, forge};
 
 lazy_static! {
-    pub static ref SEND_FROM_GAME_THREAD: Mutex<Option<tokio::sync::mpsc::UnboundedSender<GameThreadMessage>>> =
+    pub static ref SEND_FROM_GAME_THREAD: Mutex<Option<UnboundedSender<GameThreadMessage>>> =
         Mutex::new(None);
     pub static ref GAME_RECEIVE_REQUESTS: Mutex<Option<Receiver<GameThreadRequest>>> =
         Mutex::new(None);
@@ -39,7 +46,7 @@ static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
 
 pub struct PlayerIdMapping {
     /// None at least for observers
-    pub game_id: Option<u8>,
+    pub game_id: Option<BwPlayerId>,
     pub sb_user_id: u32,
 }
 
@@ -85,9 +92,9 @@ pub enum GameThreadMessage {
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.
-    PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
+    PlayersRandomized([Option<BwPlayerId>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
-    NetworkStall(std::time::Duration),
+    NetworkStall(Duration),
     ReplaySaved(PathBuf),
     /// Request async task to write debug info to provided parameter.
     DebugInfoRequest(DebugInfoRequest),
@@ -162,25 +169,15 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
     })
 }
 
-#[derive(Eq, PartialEq, Copy, Clone)]
-pub enum PlayerLoseType {
-    UnknownChecksumMismatch,
-    UnknownDisconnect,
-}
-
+#[derive(Debug)]
 pub struct GameThreadResults {
-    // Index by ingame player id
-    pub victory_state: [u8; 8],
-    pub race: [u8; 8],
-    /// player id -> alliance state for other player id
-    /// 0 = unallied, 1 = allied, 2 = allied with allied victory
-    pub alliances: [[u8; 8]; 8],
-    /// Index by storm id, says whether a player was dropped (booted for checksum mismatch, lag)
-    pub player_was_dropped: [bool; 8],
-    /// Index by storm id, says whether a player left voluntarily
-    pub player_has_quit: [bool; 8],
-    pub player_lose_type: Option<PlayerLoseType>,
-    pub time_ms: u32,
+    pub game_type: GameType,
+    pub player_results: HashMap<BwPlayerId, PlayerResult>,
+    pub network_results: HashMap<StormPlayerId, FinalNetworkStatus>,
+    /// The type of loss the local player received (if any)
+    pub local_player_lose_type: Option<PlayerLoseType>,
+    /// The length of the game
+    pub time: Duration,
 }
 
 unsafe fn game_results() -> GameThreadResults {
@@ -188,43 +185,66 @@ unsafe fn game_results() -> GameThreadResults {
     let game = bw.game();
     let players = bw.players();
 
+    let mut player_results = HashMap::new();
+    for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
+        if id.is_observer() {
+            // Observers should already be filtered out of the player ID mapping but just to be safe
+            continue;
+        }
+
+        let victory_state = (*game).victory_state[id.0 as usize]
+            .try_into()
+            .unwrap_or_else(|e| {
+                warn!("Failed to convert victory state for player {id:?}: {e:?}");
+                VictoryState::Playing
+            });
+        let race = (*players.add(id.0 as usize))
+            .race
+            .try_into()
+            .unwrap_or_else(|e| {
+                warn!("Failed to convert race for player {id:?}: {e:?}");
+                AssignedRace::Zerg
+            });
+        let alliances = (*game).alliances[id.0 as usize][0..8]
+            .iter()
+            .map(|&x| {
+                x.try_into().unwrap_or_else(|e| {
+                    warn!("Failed to convert alliance state for player {id:?}: {e:?}",);
+                    AllianceState::Unallied
+                })
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        player_results.insert(
+            id,
+            PlayerResult {
+                victory_state,
+                race,
+                alliances,
+            },
+        );
+    }
+
+    let network_results = (0..8)
+        .map(|i| {
+            (
+                StormPlayerId(i as u8),
+                FinalNetworkStatus {
+                    was_dropped: (*game).player_was_dropped[i] != 0,
+                    has_quit: bw.storm_player_flags()[i] == 0,
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+
     GameThreadResults {
-        victory_state: (*game).victory_state,
-        race: {
-            let mut arr = [bw::RACE_ZERG; 8];
-            for (i, race) in arr.iter_mut().enumerate() {
-                *race = (*players.add(i)).race;
-            }
-            arr
-        },
-        player_was_dropped: {
-            let mut arr = [false; 8];
-            for (i, was_dropped) in arr.iter_mut().enumerate() {
-                *was_dropped = (*game).player_was_dropped[i] != 0;
-            }
-            arr
-        },
-        player_has_quit: {
-            let mut arr = [false; 8];
-            for (i, flag) in bw.storm_player_flags().iter().enumerate().take(8) {
-                arr[i] = *flag == 0
-            }
-            arr
-        },
-        player_lose_type: match (*game).player_lose_type {
-            1 => Some(PlayerLoseType::UnknownChecksumMismatch),
-            2 => Some(PlayerLoseType::UnknownDisconnect),
-            _ => None,
-        },
-        alliances: {
-            let mut arr = [[0; 8]; 8];
-            for (i, alliances) in arr.iter_mut().enumerate() {
-                alliances.clone_from_slice(&(*game).alliances[i][0..8]);
-            }
-            arr
-        },
+        game_type: (*bw.game_data()).game_type(),
+        player_results,
+        network_results,
+        local_player_lose_type: (*game).player_lose_type.try_into().ok(),
         // Assuming fastest speed
-        time_ms: (*game).frame_count.saturating_mul(42),
+        time: Duration::from_millis(((*game).frame_count as u64).saturating_mul(42)),
     }
 }
 
@@ -260,7 +280,7 @@ pub unsafe fn after_init_game_data() {
         );
         let storm_id = player.storm_id;
         if let Some(out) = mapping.get_mut(storm_id as usize) {
-            *out = Some(i as u8);
+            *out = Some(BwPlayerId(i as u8));
         }
     }
 
@@ -282,30 +302,15 @@ pub unsafe fn after_init_game_data() {
     }
 }
 
+/// Returns whether the current game is a Use Map Settings game.
 pub fn is_ums() -> bool {
-    // TODO This returns false on replays. Also same thing about looking at BW's
-    // structures as for is_team_game
-    SETUP_INFO
-        .get()
-        .and_then(|x| x.game_type())
-        .filter(|x| x.is_ums())
-        .is_some()
+    unsafe { (*get_bw().game_data()).game_type().is_ums() }
 }
 
+/// Returns whether the current game is a "Team" game (that is, has shared control among one or more
+/// users for each "player" slot, like Team Melee).
 pub fn is_team_game() -> bool {
-    // Technically it would be better to look at BW's structures instead, but we don't
-    // have them available for SC:R right now.
-    if is_replay() {
-        sbat_replay_data()
-            .filter(|x| x.team_game_main_players != [0, 0, 0, 0])
-            .is_some()
-    } else {
-        SETUP_INFO
-            .get()
-            .and_then(|x| x.game_type())
-            .filter(|x| x.is_team_game())
-            .is_some()
-    }
+    unsafe { (*get_bw().game_data()).game_type().is_team_game() }
 }
 
 pub fn is_replay() -> bool {
@@ -348,7 +353,7 @@ pub unsafe fn after_step_game() {
     add_fow_sprites_for_replay_vision_change(bw);
 }
 
-pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &dyn Bw) {
+pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
     if is_replay() && !is_ums() {
         // One thing BW's step_game does is that it removes any fog sprites that were
         // no longer in fog. Unfortunately now that we show fog sprites for unexplored
@@ -465,7 +470,7 @@ impl<'a> ReplayFrame<'a> {
 /// (It happens to be easy function for SC:R analysis to find and in a nice
 /// spot to inject game init hooks for things that require initialization to
 /// have progressed a bit but not too much)
-pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
+pub unsafe fn before_init_unit_data(bw: &BwScr) {
     let game = bw.game();
     if let Some(ext) = sbat_replay_data() {
         // This makes team game replays work.
@@ -526,7 +531,7 @@ pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
     }
 }
 
-pub unsafe fn after_status_screen_update(bw: &dyn Bw, status_screen: Dialog, unit: Unit) {
+pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) {
     // Show "Stacked (n)" text for stacked buildings
     if unit.is_landed_building() {
         fn normalize_id(id: UnitId) -> UnitId {

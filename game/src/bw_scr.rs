@@ -22,8 +22,9 @@ pub use thiscall::Thiscall;
 
 use crate::app_messages::{MapInfo, Settings};
 use crate::bw::apm_stats::ApmStats;
+use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
-use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions, StormPlayerId};
+use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{commands, UserLatency};
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;

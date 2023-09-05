@@ -240,18 +240,16 @@ export class GameApi {
         time: Joi.number().min(0).required(),
         playerResults: Joi.array()
           .items(
-            Joi.array()
-              .ordered(
-                joiUserId().required(),
-                Joi.object({
-                  result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
-                  race: Joi.string().valid('p', 't', 'z').required(),
-                  apm: Joi.number().min(0).required(),
-                }).required(),
-              )
-              .required(),
+            Joi.array().ordered(
+              joiUserId().required(),
+              Joi.object({
+                result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
+                race: Joi.string().valid('p', 't', 'z').required(),
+                apm: Joi.number().min(0).required(),
+              }).required(),
+            ),
           )
-          .min(1)
+          .min(0)
           .max(8)
           .required(),
       }).required(),

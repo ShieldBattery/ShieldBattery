@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::bw;
+use crate::bw::players::{AssignedRace, VictoryState};
 use crate::bw::{GameType, LobbyOptions};
 
 // Structures of messages that are used to communicate with the electron app.
@@ -28,9 +28,11 @@ pub struct SetupProgressInfo {
     pub extra: Option<String>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct LocalUser {
+    /// The local user's ShieldBattery user ID.
     pub id: u32,
+    /// The local user's ShieldBattery username.
     pub name: String,
 }
 
@@ -40,16 +42,6 @@ pub struct WindowMove {
     pub y: i32,
     pub w: i32,
     pub h: i32,
-}
-
-#[derive(Serialize, Copy, Clone)]
-pub enum Race {
-    #[serde(rename = "z")]
-    Zerg,
-    #[serde(rename = "t")]
-    Terran,
-    #[serde(rename = "p")]
-    Protoss,
 }
 
 #[derive(Deserialize, Copy, Clone, Eq, PartialEq)]
@@ -66,14 +58,14 @@ pub enum UmsLobbyRace {
     Any,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GamePlayerResult {
-    pub result: u8,
-    pub race: Race,
+    pub result: VictoryState,
+    pub race: AssignedRace,
     pub apm: u32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Copy, Clone, Serialize)]
 pub struct NetworkStallInfo {
     pub count: u32,
     pub min: u32,
@@ -81,11 +73,11 @@ pub struct NetworkStallInfo {
     pub median: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GameResults {
     #[serde(rename = "time")]
-    pub time_ms: u32,
+    pub time_ms: u64,
     pub results: HashMap<u32, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
 }
@@ -95,7 +87,7 @@ pub struct GameResults {
 pub struct GameResultsReport {
     pub user_id: u32,
     pub result_code: String,
-    pub time: u32,
+    pub time: u64,
     pub player_results: Vec<(u32, GamePlayerResult)>,
 }
 
@@ -130,19 +122,16 @@ impl GameSetupInfo {
     }
 
     pub fn game_type(&self) -> Option<GameType> {
-        let (primary, subtype) = match &*self.game_type {
-            "melee" => (0x2, 0x1),
-            "ffa" => (0x3, 0x1),
-            "oneVOne" => (0x4, 0x1),
-            "ums" => (0xa, 0x1),
-            // For team games the shieldbattery subtype is team count
-            "teamMelee" => (0xb, self.game_sub_type? - 1),
-            "teamFfa" => (0xc, self.game_sub_type? - 1),
-            // For TvB the shieldbattery subtype is num players on top team
-            "topVBottom" => (0xf, self.game_sub_type?),
-            _ => return None,
-        };
-        Some(GameType { primary, subtype })
+        match &*self.game_type {
+            "melee" => Some(GameType::melee()),
+            "ffa" => Some(GameType::ffa()),
+            "oneVOne" => Some(GameType::one_v_one()),
+            "ums" => Some(GameType::ums()),
+            "teamMelee" => Some(GameType::team_melee(self.game_sub_type?)),
+            "teamFfa" => Some(GameType::team_ffa(self.game_sub_type?)),
+            "topVBottom" => Some(GameType::top_v_bottom(self.game_sub_type?)),
+            _ => None,
+        }
     }
 }
 
