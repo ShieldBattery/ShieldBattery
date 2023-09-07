@@ -88,6 +88,7 @@ import {
   convertUserRelationshipServiceErrors,
   UserApiError,
 } from './user-api-errors'
+import { UserIdentifierCleanupJob } from './user-identifier-cleanup'
 import { UserIdentifierManager } from './user-identifier-manager'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
@@ -182,6 +183,7 @@ export class UserApi {
     private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
     private userRelationshipService: UserRelationshipService,
+    private userIdentifierCleanup: UserIdentifierCleanupJob,
   ) {}
 
   @httpPost('/')

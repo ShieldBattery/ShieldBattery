@@ -90,7 +90,7 @@ export default class GameResultService {
         const reconcileBefore = new Date(this.clock.now())
         reconcileBefore.setMinutes(reconcileBefore.getMinutes() - FORCE_RECONCILE_TIMEOUT_MINUTES)
         const toReconcile = await findUnreconciledGames(reconcileBefore)
-        // TODO(tec27): add prometheues metric for number of unreconciled games found
+        // TODO(tec27): add prometheus metric for number of unreconciled games found
 
         for (const gameId of toReconcile) {
           try {

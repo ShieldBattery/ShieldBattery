@@ -253,3 +253,30 @@ export async function banAllIdentifiers(
     done()
   }
 }
+
+/**
+ * Cleans up any identifiers that haven't been used since `olderThan`, provided they have not been
+ * the subject of a ban for any user. Returns the number of identifiers cleaned up.
+ */
+export async function cleanupUnbannedIdentifiers(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM user_identifiers ui
+      WHERE ui.last_used < ${olderThan}
+      AND NOT EXISTS (
+        SELECT
+        FROM user_identifier_bans uib
+        WHERE uib.identifier_hash = ui.identifier_hash
+        AND uib.identifier_type = ui.identifier_type
+      )
+    `)
+
+    return result.rowCount
+  } finally {
+    done()
+  }
+}
