@@ -141,9 +141,12 @@ process.once('message', async msg => {
       image2048Promise,
     ])
   } catch (err) {
-    console.log(err)
-    setImmediate(() => {
-      process.exit(1)
+    Promise.resolve().then(() => {
+      process.send({ error: err.stack ?? err.message }, () => {
+        setImmediate(() => {
+          process.exit(1)
+        })
+      })
     })
   }
 })

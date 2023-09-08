@@ -149,7 +149,7 @@ export class MapsApi {
 
   @httpPost('/official')
   @httpBefore(checkAllPermissions('manageMaps'), handleMultipartFiles())
-  async upload2(ctx: RouterContext): Promise<any> {
+  async uploadOfficial(ctx: RouterContext): Promise<any> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
       throw new httpErrors.BadRequest('A single map file must be provided')
     }

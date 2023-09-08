@@ -158,7 +158,17 @@ async function mapParseWorker(
       extension,
       generateImages ? BW_DATA_PATH : '',
     ])
-  console.assert(messages.length === 1)
+
+  if (messages.length !== 1) {
+    throw new Error(
+      'Expected exactly one message from map parse worked, but got ' + messages.length,
+    )
+  }
+
+  if ('error' in messages[0]) {
+    throw new Error(`Encountered error parsing map: ${messages[0].error}`)
+  }
+
   return {
     mapData: messages[0],
     image256Stream: BW_DATA_PATH ? image256Stream : undefined,
@@ -169,8 +179,7 @@ async function mapParseWorker(
 }
 
 interface ChildProcessResult {
-  // TODO(tec27): type this better
-  messages: any[]
+  messages: Array<MapParseData | { error: string }>
   image256Stream: BufferList
   image512Stream: BufferList
   image1024Stream: BufferList
