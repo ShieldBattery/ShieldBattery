@@ -131,52 +131,58 @@ function getOverlayComponent(state: ActivityOverlayState) {
   }
 }
 
-function ActivityOverlayContent({ state }: { state: ActivityOverlayState }) {
-  const dispatch = useAppDispatch()
-  const onScrimClick = useCallback(
-    (event: React.MouseEvent) => {
-      if (!isHandledDismissalEvent(event.nativeEvent)) {
-        dispatch(closeOverlay())
-      }
-    },
-    [dispatch],
-  )
-  useKeyListener({
-    onKeyDown(event) {
-      if (event.keyCode === ESCAPE) {
-        dispatch(closeOverlay())
-        return true
-      }
+const ActivityOverlayContent = React.forwardRef<HTMLDivElement, { state: ActivityOverlayState }>(
+  ({ state }, ref) => {
+    const dispatch = useAppDispatch()
+    const onScrimClick = useCallback(
+      (event: React.MouseEvent) => {
+        if (!isHandledDismissalEvent(event.nativeEvent)) {
+          dispatch(closeOverlay())
+        }
+      },
+      [dispatch],
+    )
+    useKeyListener({
+      onKeyDown(event) {
+        if (event.keyCode === ESCAPE) {
+          dispatch(closeOverlay())
+          return true
+        }
 
-      return false
-    },
-  })
+        return false
+      },
+    })
 
-  const focusableRef = useRef<HTMLSpanElement>(null)
+    const focusableRef = useRef<HTMLSpanElement>(null)
 
-  const OverlayComponent = getOverlayComponent(state)
-  return (
-    <Container key={'overlay'}>
-      <FocusTrap focusableRef={focusableRef}>
-        <Scrim onClick={onScrimClick} />
-        <Overlay>
-          <span ref={focusableRef} tabIndex={-1} />
-          <OverlayComponent key={state.id} {...state.initData} />
-        </Overlay>
-      </FocusTrap>
-    </Container>
-  )
-}
+    const OverlayComponent = getOverlayComponent(state)
+    return (
+      <Container key={'overlay'} ref={ref}>
+        <FocusTrap focusableRef={focusableRef}>
+          <Scrim onClick={onScrimClick} />
+          <Overlay>
+            <span ref={focusableRef} tabIndex={-1} />
+            <OverlayComponent key={state.id} {...state.initData} />
+          </Overlay>
+        </FocusTrap>
+      </Container>
+    )
+  },
+)
 
 export function ActivityOverlay() {
+  const nodeRef = useRef(null)
   const state = useAppSelector(state => state.activityOverlay.history.at(-1))
 
   return (
     <TransitionGroup>
       {state ? (
-        <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
+        <CSSTransition
+          classNames={transitionNames}
+          timeout={{ enter: 350, exit: 250 }}
+          nodeRef={nodeRef}>
           <KeyListenerBoundary>
-            <ActivityOverlayContent key='overlay' state={state} />
+            <ActivityOverlayContent key='overlay' state={state} ref={nodeRef} />
           </KeyListenerBoundary>
         </CSSTransition>
       ) : null}

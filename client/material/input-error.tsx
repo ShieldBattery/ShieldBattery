@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
 import { colorError } from '../styles/colors'
@@ -55,6 +55,7 @@ export interface InputErrorProps {
 }
 
 export function InputError(props: InputErrorProps) {
+  const nodeRef = useRef(null)
   // `CSSTransition` can't on its own animate an exit transition of text content (error text in our
   // case), because it gets immediately removed from the DOM when exit transition starts, even if
   // the node that holds those contents remain in DOM; i.e., when using only `CSSTransition`,
@@ -68,8 +69,10 @@ export function InputError(props: InputErrorProps) {
   return (
     <StyledTransitionGroup className={props.className}>
       {props.error ? (
-        <CSSTransition key='error' classNames={transitionNames} timeout={250}>
-          <ErrorText data-test='validation-error'>{props.error}</ErrorText>
+        <CSSTransition key='error' classNames={transitionNames} timeout={250} nodeRef={nodeRef}>
+          <ErrorText ref={nodeRef} data-test='validation-error'>
+            {props.error}
+          </ErrorText>
         </CSSTransition>
       ) : null}
     </StyledTransitionGroup>

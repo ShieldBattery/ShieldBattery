@@ -63,6 +63,8 @@ class TransitionSnackbar extends React.Component {
 
 @connect(state => ({ snackbars: state.snackbars }))
 class ConnectedSnackbar extends React.Component {
+  elemRef = React.createRef()
+
   constructor(props) {
     super(props)
     this._handleChildLeft = this.onChildLeft.bind(this)
@@ -99,6 +101,7 @@ class ConnectedSnackbar extends React.Component {
           time={bar.time}
           dispatch={this.props.dispatch}
           onLeft={this._handleChildLeft}
+          ref={this.elemRef}
         />
       )
     }
@@ -108,7 +111,8 @@ class ConnectedSnackbar extends React.Component {
         {elem ? (
           <CSSTransition
             classNames={transitionNames}
-            timeout={{ enter: ENTER_TIME, exit: LEAVE_TIME }}>
+            timeout={{ enter: ENTER_TIME, exit: LEAVE_TIME }}
+            ref={this.elemRef}>
             {elem}
           </CSSTransition>
         ) : null}

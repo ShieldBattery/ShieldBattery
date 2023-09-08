@@ -304,6 +304,7 @@ class Slider extends React.Component {
   }
   rootRef = React.createRef()
   trackAreaRef = React.createRef()
+  balloonRef = React.createRef()
   _sliderDimensions = null
   _hasWindowListeners = false
 
@@ -331,8 +332,8 @@ class Slider extends React.Component {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
     return (
-      <CSSTransition classNames={transitionNames} timeout={300}>
-        <Balloon>
+      <CSSTransition classNames={transitionNames} timeout={300} nodeRef={this.balloonRef}>
+        <Balloon ref={this.balloonRef}>
           <BalloonText>{this.props.value}</BalloonText>
         </Balloon>
       </CSSTransition>
