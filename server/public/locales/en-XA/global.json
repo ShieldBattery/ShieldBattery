@@ -304,7 +304,8 @@
         },
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
-            "required": "$🗡Enter a username🗡!"
+            "required": "$🗡Enter a username🗡!",
+            "notAvailable": "$🗡Username is not available🗡!"
         },
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",
