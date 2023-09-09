@@ -91,6 +91,7 @@ export type AccountSettings_CurrentUserFragment = {
   __typename?: 'CurrentUser'
   id: number
   name: string
+  loginName: string
   email: string
   emailVerified: boolean
 } & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' }
@@ -144,6 +145,7 @@ export const AccountSettings_CurrentUserFragmentDoc = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
         ],
@@ -186,6 +188,7 @@ export const AccountSettingsDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
         ],
@@ -267,6 +270,7 @@ export const AccountSettingsChangePasswordDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
         ],
@@ -351,6 +355,7 @@ export const AccountSettingsChangeEmailDocument = {
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
         ],

@@ -104,6 +104,7 @@ const CurrentUserFragment = graphql(/* GraphQL */ `
   fragment AccountSettings_CurrentUser on CurrentUser {
     id
     name
+    loginName
     email
     emailVerified
   }
@@ -182,7 +183,7 @@ export function AccountSettings() {
               <EditableOverline>
                 {t('settings.user.account.loginName', 'Login name')}
               </EditableOverline>
-              <Subtitle2>{currentUser.name}</Subtitle2>
+              <Subtitle2>{currentUser.loginName}</Subtitle2>
             </EditableContent>
             <RaisedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
