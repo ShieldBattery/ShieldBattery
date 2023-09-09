@@ -226,8 +226,7 @@
         },
         "usernameValidator": {
             "pattern": "Nombre de usuario contiene caracteres inválidos",
-            "required": "Introduzca un nombre de usuario",
-            "taken": "Este nombre de usuario ya está tomado"
+            "required": "Introduzca un nombre de usuario"
         },
         "emailValidator": {
             "pattern": "Introduzca una dirección de correo electrónico válida",

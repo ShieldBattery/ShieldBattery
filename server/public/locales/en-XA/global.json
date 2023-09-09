@@ -304,8 +304,7 @@
         },
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
-            "required": "$🗡Enter a username🗡!",
-            "taken": "$🗡Username is already taken🗡!"
+            "required": "$🗡Enter a username🗡!"
         },
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",
