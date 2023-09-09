@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import { isValidUsername } from '../../../common/constants'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUserByName } from '../users/user-model'
+import { isUsernameAvailable } from '../users/user-model'
 
 const throttle = createThrottle('usernameavailability', {
   rate: 10,
@@ -25,11 +25,11 @@ async function checkAvailability(ctx: RouterContext) {
     throw new httpErrors.BadRequest('Invalid username')
   }
 
-  const user = await findUserByName(username)
+  const available = await isUsernameAvailable(username)
 
-  if (user) {
+  if (!available) {
     throw new httpErrors.NotFound('Username not available')
   } else {
-    ctx.body = { username, available: true }
+    ctx.body = { username, available }
   }
 }

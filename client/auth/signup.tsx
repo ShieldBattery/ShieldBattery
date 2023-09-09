@@ -150,7 +150,7 @@ function usernameAvailableValidator(): Validator<string, SignupModel> {
       // TODO(tec27): handle non-404 errors differently
     }
 
-    return t('auth.usernameValidator.taken', 'Username is already taken')
+    return t('auth.usernameValidator.notAvailable', 'Username is not available')
   }, 250)
 }
 

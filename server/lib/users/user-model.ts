@@ -436,3 +436,19 @@ export async function retrieveUserCreatedDate(userId: SbUserId): Promise<Date> {
   const user = await internalFindUserById(userId)
   return user!.created
 }
+
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      SELECT 1
+      FROM users
+      WHERE name = ${username}
+      OR login_name = ${username}
+    `)
+
+    return result.rows.length === 0
+  } finally {
+    done()
+  }
+}
