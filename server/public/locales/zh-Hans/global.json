@@ -407,7 +407,8 @@
         },
         "usernameValidator": {
             "pattern": "用户名包含无效字符",
-            "required": "输入用户名"
+            "required": "输入用户名",
+            "notAvailable": "用户名不可用"
         }
     },
     "clientDownload": {
