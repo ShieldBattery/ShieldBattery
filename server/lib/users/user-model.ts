@@ -274,7 +274,7 @@ export async function attemptLogin(
   username: string,
   password: string,
 ): Promise<SelfUser | undefined> {
-  const user = await internalFindUserByName(username)
+  const user = await internalFindUserByLoginName(username)
   if (!user) {
     return undefined
   }
@@ -325,6 +325,20 @@ async function internalFindUserByName(name: string): Promise<UserInternal | unde
     const result = await client.query<DbUser>(sql`
       SELECT * FROM users
       WHERE name = ${name}
+    `)
+
+    return result.rows.length > 0 ? convertUserFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+async function internalFindUserByLoginName(name: string): Promise<UserInternal | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbUser>(sql`
+      SELECT * FROM users
+      WHERE login_name = ${name}
     `)
 
     return result.rows.length > 0 ? convertUserFromDb(result.rows[0]) : undefined
