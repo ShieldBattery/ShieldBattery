@@ -10,6 +10,7 @@ declare module 'koa' {
     // TODO(tec27): Maybe just move these user fields into a SelfUser to keep things synced up?
     userId: SbUserId
     userName: string
+    loginName: string
     email: string
     emailVerified: boolean
     acceptedPrivacyVersion: number

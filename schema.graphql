@@ -1,7 +1,14 @@
 
 type CurrentUser {
 	id: Int!
+	"""
+	The user's display name (may differ from their login name).
+	"""
 	name: String!
+	"""
+	The name the user logs in with (may differ from their display name).
+	"""
+	loginName: String!
 	email: String!
 	emailVerified: Boolean!
 	acceptedPrivacyVersion: Int!
@@ -45,6 +52,9 @@ input UpdateCurrentUserChanges {
 
 type User {
 	id: Int!
+	"""
+	The user's display name (may differ from their login name).
+	"""
 	name: String!
 }
 

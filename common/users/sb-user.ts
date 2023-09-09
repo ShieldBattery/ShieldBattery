@@ -17,6 +17,7 @@ export type SbUserId = Opaque<number, 'SbUser'>
  */
 export interface SbUser {
   id: SbUserId
+  /** The user's display name. */
   name: string
 }
 
@@ -31,6 +32,8 @@ export function makeSbUserId(id: number): SbUserId {
 
 /** Information about the current user. */
 export interface SelfUser extends SbUser {
+  /** The name the user logs in with (may differ from their display name). */
+  loginName: string
   email: string
   emailVerified: boolean
   /** The last version of the privacy policy this user has seen/accepted. */

@@ -133,6 +133,7 @@ export default function applyRoutes(
           user: {
             id: ctx.session.userId,
             name: ctx.session.userName,
+            loginName: ctx.session.loginName,
             email: ctx.session.email,
             emailVerified: ctx.session.emailVerified,
             acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,

@@ -8,7 +8,7 @@ use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use mobc_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::redis::{get_redis, RedisPool};
 
@@ -33,6 +33,7 @@ pub struct SbPermissions {
 pub struct UserSessionData {
     pub user_id: i32,
     pub user_name: String,
+    pub login_name: String,
     pub email: String,
     pub email_verified: bool,
     pub accepted_privacy_version: u32,
@@ -107,7 +108,14 @@ where
                     "Could not retrieve session from Redis",
                 )
             })?;
-        let session = session_json.and_then(|j| serde_json::from_str::<UserSessionData>(&j).ok());
+        let session =
+            session_json.and_then(|j| match serde_json::from_str::<UserSessionData>(&j) {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    error!("Failed to deserialize session: {e:?}");
+                    None
+                }
+            });
 
         match session {
             Some(s) => Ok(SbSession::Authenticated(AuthenticatedSession {

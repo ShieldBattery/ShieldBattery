@@ -30,16 +30,9 @@ export function migrateSessions() {
         retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
         ctx.session.locale = retrievedUser!.locale
       }
-    }
-
-    // TODO(tec27): This code can be removed ~2 months after it has been deployed (after all old
-    // cookies would have expired)
-    if (ctx.sessionId?.startsWith('c') && ctx.sessionId?.length === 25) {
-      // CUID session ID, regenerate to get a new (more secure) ID
-      const oldSession = ctx.session!
-      await ctx.regenerateSession()
-      for (const [key, value] of Object.entries(oldSession)) {
-        ;(ctx.session as any)[key] = value
+      if (!ctx.session.loginName) {
+        retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
+        ctx.session.loginName = retrievedUser!.loginName
       }
     }
 

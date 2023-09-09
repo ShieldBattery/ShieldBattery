@@ -31,13 +31,17 @@ mod auth;
 #[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
 pub struct User {
     pub id: i32,
+    /// The user's display name (may differ from their login name).
     pub name: String,
 }
 
 #[derive(SimpleObject, Clone, Debug)]
 pub struct CurrentUser {
     pub id: i32,
+    /// The user's display name (may differ from their login name).
     pub name: String,
+    /// The name the user logs in with (may differ from their display name).
+    pub login_name: String,
     pub email: String,
     pub email_verified: bool,
     pub accepted_privacy_version: u32,
@@ -51,6 +55,7 @@ impl From<&AuthenticatedSession> for CurrentUser {
         CurrentUser {
             id: session.data.user_id,
             name: session.data.user_name.clone(),
+            login_name: session.data.login_name.clone(),
             email: session.data.email.clone(),
             email_verified: session.data.email_verified,
             accepted_privacy_version: session.data.accepted_privacy_version,

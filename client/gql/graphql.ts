@@ -28,6 +28,9 @@ export type CurrentUser = {
   email: Scalars['String']['output']
   emailVerified: Scalars['Boolean']['output']
   id: Scalars['Int']['output']
+  /** The name the user logs in with (may differ from their display name). */
+  loginName: Scalars['String']['output']
+  /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
   permissions: SbPermissions
 }
@@ -80,6 +83,7 @@ export type UpdateCurrentUserChanges = {
 export type User = {
   __typename?: 'User'
   id: Scalars['Int']['output']
+  /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
 }
 

@@ -27,6 +27,7 @@ import { createUserStats } from './user-stats-model'
 interface UserInternal {
   id: SbUserId
   name: string
+  loginName: string
   email: string
   created: Date
   signupIpAddress?: string
@@ -54,6 +55,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
   return {
     id: dbUser.id,
     name: dbUser.name,
+    loginName: dbUser.login_name,
     email: dbUser.email,
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address,
@@ -80,6 +82,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
   return {
     id: userInternal.id,
     name: userInternal.name,
+    loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
     acceptedPrivacyVersion: userInternal.acceptedPrivacyVersion,
@@ -124,9 +127,9 @@ export async function createUser({
   try {
     const transactionResult = await transact(async client => {
       const result = await client.query<DbUser>(sql`
-      INSERT INTO users (name, email, created, signup_ip_address, email_verified, locale,
-        accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
-      VALUES (${name}, ${email}, ${createdDate}, ${ipAddress}, false, ${locale},
+      INSERT INTO users (name, login_name, email, created, signup_ip_address, email_verified,
+        locale, accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
+      VALUES (${name}, ${name}, ${email}, ${createdDate}, ${ipAddress}, false, ${locale},
         ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
       RETURNING *
     `)
@@ -166,7 +169,7 @@ export async function createUser({
 /** Fields that can be updated for a user. */
 export type UserUpdatables = Omit<
   UserInternal & UserPrivate,
-  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId'
+  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId' | 'loginName'
 >
 
 /**
