@@ -102,7 +102,7 @@ const selectedMapValidator = required(t =>
 
 interface CreateLobbyModel {
   name: string
-  selectedMap: string
+  selectedMap?: string
   gameType: GameType
   gameSubType: number
   turnRate: BwTurnRate | 0 | null
@@ -144,7 +144,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
     const selectedMap = getInputValue('selectedMap')
     const gameType = getInputValue('gameType')
 
-    const selectedMapInfo = useAppSelector(s => s.maps2.byId.get(selectedMap))
+    const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
 
     useEffect(() => {
       if (!selectedMapInfo || !isTeamType(gameType)) return
@@ -322,7 +322,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         name,
         gameType: gameType ?? 'melee',
         gameSubType,
-        selectedMap: selectedMap ?? '',
+        selectedMap,
         turnRate: turnRate ?? null,
         useLegacyLimits: useLegacyLimits ?? false,
       }) satisfies CreateLobbyModel,
@@ -386,7 +386,7 @@ export function CreateLobby(props: CreateLobbyProps) {
 
       // Move the hosted map to the front of the recent maps list
       const orderedRecentMaps = recentMapsRef.current.filter(m => m !== selectedMap).slice(0, 4)
-      orderedRecentMaps.unshift(selectedMap)
+      orderedRecentMaps.unshift(selectedMap!)
 
       dispatch(
         updateLobbyPreferences({
