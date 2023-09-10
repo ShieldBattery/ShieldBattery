@@ -7,23 +7,13 @@ describe('server/lib/db/sql', () => {
     expect(template.values).toEqual([7])
   })
 
-  test('reuses value identifiers', () => {
-    const ids = [7, 8, 9]
+  test('reuses value identifiers in reused pieces', () => {
+    const ids = sql`${[7, 8, 9]}`
     const template = sql`SELECT * FROM users WHERE id = ANY(${ids}) OR other_id = ANY(${ids})`
     expect(template.text).toMatchInlineSnapshot(
       `"SELECT * FROM users WHERE id = ANY($1) OR other_id = ANY($1)"`,
     )
-    expect(template.values).toEqual([ids])
-  })
-
-  test('reuses value identifiers across multiple templates', () => {
-    const ids = [7, 8, 9]
-    const template1 = sql`SELECT * FROM users WHERE id = ANY(${ids})`
-    const template2 = template1.append(sql` OR other_id = ANY(${ids})`)
-    expect(template2.text).toMatchInlineSnapshot(
-      `"SELECT * FROM users WHERE id = ANY($1) OR other_id = ANY($1)"`,
-    )
-    expect(template2.values).toEqual([ids])
+    expect(template.values).toEqual([[7, 8, 9]])
   })
 
   test('passes raw fragments directly', () => {

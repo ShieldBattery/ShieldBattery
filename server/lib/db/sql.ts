@@ -1,6 +1,5 @@
 interface SqlContext {
   fragments: Map<SqlTemplate, string>
-  valueCache: Map<unknown, string>
   values: unknown[]
 }
 
@@ -28,7 +27,6 @@ export class SqlTemplate {
     if (!this.resolved) {
       const context: SqlContext = {
         fragments: new Map(),
-        valueCache: new Map(),
         values: [],
       }
       const text = this.resolveWithContext(context)
@@ -43,18 +41,12 @@ export class SqlTemplate {
     if (!fragment) {
       fragment = this.strings.reduce((previous, current, i) => {
         const child = this.templateValues[i - 1]
-        let mid: string
 
+        let mid: string
         if (child instanceof SqlTemplate) {
           mid = child.resolveWithContext(context)
         } else {
-          if (!context.valueCache.has(child)) {
-            // Store the value ID in the cache so if we see this value again, we can just reuse
-            // the same identifier and avoid sending the value twice
-            context.valueCache.set(child, `$${context.values.push(child)}`)
-          }
-
-          mid = context.valueCache.get(child)!
+          mid = `$${context.values.push(child)}`
         }
 
         return previous + mid + current
