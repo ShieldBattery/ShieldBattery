@@ -1,6 +1,6 @@
-import sql from 'sql-template-strings'
 import { RallyPointServer } from '../../../common/rally-point'
 import db from '../db/index'
+import { sql } from '../db/sql'
 
 /**
  * Retrieves the complete list of rally-point servers, ordered by ID.

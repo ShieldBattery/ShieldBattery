@@ -1,6 +1,6 @@
-import sql from 'sql-template-strings'
 import { MatchmakingType } from '../../../common/matchmaking'
 import db from '../db'
+import { sql, sqlRaw } from '../db/sql'
 
 export interface MatchmakingTime {
   id: string
@@ -58,10 +58,9 @@ async function getTotalTimes(
   const query = sql`
     SELECT COUNT(*)
     FROM matchmaking_times
-    WHERE matchmaking_type = ${matchmakingType} AND start_date
+    WHERE matchmaking_type = ${matchmakingType}
+    AND start_date ${sqlRaw(period === TimesPeriod.Future ? '>' : '<')} ${date};
   `
-    .append(period === TimesPeriod.Future ? '>' : '<')
-    .append(sql`${date};`)
 
   const { client, done } = await db()
   try {

@@ -1,6 +1,6 @@
-import sql from 'sql-template-strings'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface UserBanRow {
@@ -32,14 +32,14 @@ export async function retrieveBanHistory(
 ): Promise<UserBanRow[]> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       SELECT id, user_id, start_time, end_time, banned_by, reason
       FROM user_bans
       WHERE user_id = ${userId}
       ORDER BY start_time DESC
     `
     if (limit !== undefined) {
-      query.append(sql`
+      query = query.append(sql`
         LIMIT ${limit}
       `)
     }

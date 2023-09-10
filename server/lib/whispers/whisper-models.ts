@@ -1,8 +1,8 @@
-import sql from 'sql-template-strings'
 import { SbChannelId } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { WhisperMessageType } from '../../../common/whispers'
 import db from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface WhisperSessionEntry {
@@ -156,7 +156,7 @@ export async function getMessagesForWhisperSession(
 ): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
-  const query = sql`
+  let query = sql`
     WITH messages AS (
       SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
         u_to.name AS to_name, m.sent, m.data
@@ -169,10 +169,10 @@ export async function getMessagesForWhisperSession(
       ) `
 
   if (beforeDate !== undefined) {
-    query.append(sql`AND m.sent < ${beforeDate}`)
+    query = query.append(sql`AND m.sent < ${beforeDate}`)
   }
 
-  query.append(sql`
+  query = query.append(sql`
       ORDER BY m.sent DESC
       LIMIT ${limit}
     )

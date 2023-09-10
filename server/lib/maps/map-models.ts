@@ -1,4 +1,3 @@
-import sql, { SQLStatement } from 'sql-template-strings'
 import {
   MapExtension,
   MapFilters,
@@ -10,6 +9,7 @@ import {
 } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
+import { SqlTemplate, sql, sqlConcat, sqlRaw } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../file-upload'
@@ -339,7 +339,8 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
       ON um.map_hash = m.hash
       WHERE um.id = ANY(${mapIds})
     )
-  `.append(favoritedJoin)
+    ${favoritedJoin}
+  `
 
   const { client, done } = await db()
   try {
@@ -368,17 +369,16 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
 }
 
 /** Returns the number of maps that match a particular condition. */
-async function getMapsCount(whereCondition: SQLStatement): Promise<number> {
+async function getMapsCount(whereCondition: SqlTemplate): Promise<number> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ count: string }>(
-      sql`
+    const result = await client.query<{ count: string }>(sql`
       SELECT COUNT(*)
       FROM uploaded_maps AS um
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
-    `.append(whereCondition),
-    )
+      ${whereCondition}
+    `)
 
     return Number(result.rows[0].count)
   } finally {
@@ -386,7 +386,7 @@ async function getMapsCount(whereCondition: SQLStatement): Promise<number> {
   }
 }
 
-function getOrderByStatement(sort: MapSortType): string {
+function getOrderByStatement(sort: MapSortType): SqlTemplate {
   const sortByArray = ['name']
   if (sort === MapSortType.NumberOfPlayers) {
     // TODO(tec27): Use players_melee if this is 0?
@@ -395,7 +395,7 @@ function getOrderByStatement(sort: MapSortType): string {
     sortByArray.unshift('upload_date DESC')
   }
 
-  return `ORDER BY ${sortByArray.join(', ')}`
+  return sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
 }
 
 export async function getMaps(
@@ -408,29 +408,30 @@ export async function getMaps(
   uploadedBy?: number,
   searchStr?: string,
 ) {
-  const whereCondition = sql`WHERE removed_at IS NULL AND visibility = ${visibility}`
-
+  const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
   if (uploadedBy) {
-    whereCondition.append(sql` AND uploaded_by = ${uploadedBy}`)
+    conditions.push(sql`uploaded_by = ${uploadedBy}`)
   }
 
   if (filters.numPlayers) {
     // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
     // on, so we use players_melee in that case
-    whereCondition.append(sql` AND (
+    conditions.push(sql`(
       players_ums = ANY(${filters.numPlayers}) OR
       players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
     )`)
   }
 
   if (filters.tileset) {
-    whereCondition.append(sql` AND tileset = ANY(${filters.tileset})`)
+    conditions.push(sql`tileset = ANY(${filters.tileset})`)
   }
 
   if (searchStr) {
     const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    whereCondition.append(sql` AND um.name ILIKE ${escapedStr}`)
+    conditions.push(sql` AND um.name ILIKE ${escapedStr}`)
   }
+
+  const whereCondition = sqlConcat(' AND ', conditions)
 
   const totalPromise = getMapsCount(whereCondition)
 
@@ -457,20 +458,15 @@ export async function getMaps(
       ON um.uploaded_by = u.id
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
-    `
-    .append(whereCondition)
-    .append(
-      sql`
+      ${whereCondition}
     )
     SELECT maps.*, fav.map_id AS favorited
     FROM maps LEFT JOIN favorited_maps AS fav
     ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy}
-    `,
-    )
-    .append(orderByStatement).append(sql`
+    ${orderByStatement}
     LIMIT ${limit}
     OFFSET ${pageNumber * limit};
-  `)
+  `
 
   const { client, done } = await db()
   try {
@@ -493,25 +489,27 @@ export async function getFavoritedMaps(
   filters: Partial<MapFilters> = {},
   searchStr?: string,
 ): Promise<MapInfo[]> {
-  const whereCondition = sql`WHERE removed_at IS NULL AND favorited_by = ${favoritedBy}`
+  const conditions = [sql`WHERE removed_at IS NULL AND favorited_by = ${favoritedBy}`]
 
   if (filters.numPlayers) {
     // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
     // on, so we use players_melee in that case
-    whereCondition.append(sql` AND (
+    conditions.push(sql`(
       players_ums = ANY(${filters.numPlayers}) OR
       players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
     )`)
   }
 
   if (filters.tileset) {
-    whereCondition.append(sql` AND tileset = ANY(${filters.tileset})`)
+    conditions.push(sql`tileset = ANY(${filters.tileset})`)
   }
 
   if (searchStr) {
     const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    whereCondition.append(sql` AND um.name ILIKE ${escapedStr}`)
+    conditions.push(sql`um.name ILIKE ${escapedStr}`)
   }
+
+  const whereCondition = sqlConcat(' AND ', conditions)
 
   const orderByStatement = getOrderByStatement(sort)
   const query = sql`
@@ -538,13 +536,9 @@ export async function getFavoritedMaps(
     ON um.uploaded_by = u.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
-    `
-    .append(whereCondition)
-    .append(
-      sql`
-      `,
-    )
-    .append(orderByStatement)
+    ${whereCondition}
+    ${orderByStatement}
+  `
 
   const { client, done } = await db()
   try {
@@ -563,26 +557,20 @@ export async function updateMap(
   name?: string,
   description?: string,
 ): Promise<MapInfo> {
-  const setStatement = sql`SET`
-  let appended = false
+  const updates = []
 
   if (name) {
-    setStatement.append(sql` name = ${name}`)
-    appended = true
+    updates.push(sql`name = ${name}`)
   }
   if (description) {
-    if (appended) {
-      setStatement.append(sql`,`)
-    }
-
-    setStatement.append(sql` description = ${description}`)
-    appended = true
+    updates.push(sql`description = ${description}`)
   }
 
   const query = sql`
     WITH update AS (
       UPDATE uploaded_maps
-      `.append(setStatement).append(sql`
+      SET
+      ${sqlConcat(', ', updates)}
       WHERE id = ${mapId}
       RETURNING *
     )
@@ -609,7 +597,7 @@ export async function updateMap(
     ON um.map_hash = m.hash
     LEFT JOIN favorited_maps AS fav
     ON fav.map_id = um.id AND fav.favorited_by = ${favoritedBy}
-  `)
+  `
 
   const { client, done } = await db()
   try {

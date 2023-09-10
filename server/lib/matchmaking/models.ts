@@ -1,4 +1,3 @@
-import sql from 'sql-template-strings'
 import {
   MatchmakingCompletion,
   MatchmakingResult,
@@ -10,6 +9,7 @@ import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface MatchmakingRating extends RaceStats {
@@ -394,7 +394,7 @@ export async function getRankings(
 ): Promise<GetRankingsResult[]> {
   const { client, done } = await db()
   try {
-    const query = sql`
+    let query = sql`
       SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
         r.bonus_used, r.wins, r.losses, r.lifetime_games,
         r.p_wins, r.p_losses,
@@ -410,12 +410,12 @@ export async function getRankings(
 
     if (searchStr) {
       const escapedStr = `%${escapeSearchString(searchStr)}%`
-      query.append(sql`
+      query = query.append(sql`
         AND u.name ILIKE ${escapedStr}
       `)
     }
 
-    query.append(sql`
+    query = query.append(sql`
       ORDER BY r.rank;
     `)
 

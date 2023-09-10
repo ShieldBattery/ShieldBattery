@@ -1,5 +1,3 @@
-const sql = require('sql-template-strings')
-
 exports.up = async function (db) {
   await db.runSql(`ALTER TABLE matchmaking_preferences ADD COLUMN data jsonb;`)
   // This column is not used anymore so it's not necessary
@@ -18,9 +16,9 @@ exports.up = async function (db) {
     RENAME COLUMN preferred_maps
     TO map_selections;
   `)
-  await db.runSql(sql`
+  await db.runSql(`
     UPDATE matchmaking_preferences
-    SET map_selections = ${[]}
+    SET map_selections = '{}'
     WHERE map_selections IS NULL;
   `)
   await db.runSql(`ALTER TABLE matchmaking_preferences ALTER COLUMN map_selections SET NOT NULL;`)

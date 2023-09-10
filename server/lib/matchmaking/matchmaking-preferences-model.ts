@@ -1,4 +1,3 @@
-import sql from 'sql-template-strings'
 import {
   defaultPreferenceData,
   MatchmakingPreferences,
@@ -7,6 +6,7 @@ import {
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbMatchmakingPreferences = Dbify<MatchmakingPreferences>

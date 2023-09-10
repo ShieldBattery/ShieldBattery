@@ -1,6 +1,6 @@
-import sql from 'sql-template-strings'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { sql } from '../db/sql'
 
 export async function addEmailVerificationCode(
   {

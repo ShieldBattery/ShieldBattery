@@ -1,6 +1,6 @@
-import sql from 'sql-template-strings'
 import { MatchmakingMapPool, MatchmakingType } from '../../../common/matchmaking'
 import db from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbMatchmakingMapPool = Dbify<MatchmakingMapPool>

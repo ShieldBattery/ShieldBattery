@@ -1,7 +1,6 @@
-import sql from 'sql-template-strings'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
-import { appendJoined } from '../db/queries'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 import { ClientIdentifierBuffer } from './client-ids'
 
@@ -32,19 +31,17 @@ export async function upsertUserIdentifiers(
       INSERT INTO user_identifiers AS ui
       (user_id, identifier_type, identifier_hash, first_used, last_used, times_seen)
       VALUES
-    `
-
-    for (let i = 0; i < identifiers.length; i++) {
-      query.append(i !== 0 ? sql`, ` : sql` `)
-      query.append(sql`(${userId}, ${identifiers[i][0]}, ${identifiers[i][1]}, NOW(), NOW(), 1)`)
-    }
-
-    query.append(sql`
+      ${sqlConcat(
+        ', ',
+        identifiers.map(ident => {
+          return sql`(${userId}, ${ident[0]}, ${ident[1]}, NOW(), NOW(), 1)`
+        }),
+      )}
       ON CONFLICT (user_id, identifier_type, identifier_hash)
       DO UPDATE
       SET last_used = NOW(),
       times_seen = ui.times_seen + 1
-    `)
+    `
 
     await client.query(query)
   } finally {
@@ -64,18 +61,18 @@ export async function findConnectedUsers(
 ): Promise<SbUserId[]> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       SELECT user_id as "id"
       FROM user_identifiers ui
       WHERE ui.user_id != ${userId}
     `
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         AND ui.identifier_type != 0
       `)
     }
 
-    query.append(sql`
+    query = query.append(sql`
       AND (ui.identifier_type, ui.identifier_hash) IN (
         SELECT identifier_type, identifier_hash
         FROM user_identifiers ui2
@@ -104,26 +101,27 @@ export async function findUsersWithIdentifiers(
 ): Promise<SbUserId[]> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       SELECT user_id as "id"
       FROM user_identifiers ui
       WHERE
     `
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         ui.identifier_type != 0 AND
       `)
     }
 
-    appendJoined(
-      query,
-      identifiers.map(
-        ([type, hash]) => sql` (ui.identifier_type = ${type} AND ui.identifier_hash = ${hash}) `,
+    query = query.append(
+      sqlConcat(
+        ' OR ',
+        identifiers.map(
+          ([type, hash]) => sql` (ui.identifier_type = ${type} AND ui.identifier_hash = ${hash}) `,
+        ),
       ),
-      sql` OR `,
     )
 
-    query.append(sql`
+    query = query.append(sql`
       GROUP BY ui.user_id
       HAVING COUNT(DISTINCT identifier_type) >= ${minSameIdentifiers}
     `)
@@ -142,7 +140,7 @@ export async function countBannedUserIdentifiers(
   const { client, done } = await db(withClient)
 
   try {
-    const query = sql`
+    let query = sql`
       SELECT COUNT(DISTINCT identifier_type) as "matches"
       FROM user_identifier_bans uib
       WHERE (uib.identifier_type, uib.identifier_hash) IN (
@@ -154,7 +152,7 @@ export async function countBannedUserIdentifiers(
     `
 
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         AND uib.identifier_type != 0
       `)
     }
@@ -182,20 +180,14 @@ export async function countBannedIdentifiers(
       FROM user_identifier_bans uib
       WHERE banned_until > NOW()
       AND (
+        ${sqlConcat(
+          ' OR ',
+          identifiers.map(([type, hash]) => {
+            return sql`(uib.identifier_type = ${type} AND uib.identifier_hash = ${hash})`
+          }),
+        )}
+      )
     `
-    let appended = false
-    for (const [type, hash] of identifiers) {
-      if (appended) {
-        query.append(sql` OR `)
-      } else {
-        appended = true
-      }
-
-      query.append(sql`
-        (uib.identifier_type = ${type} AND uib.identifier_hash = ${hash})
-      `)
-    }
-    query.append(sql`)`)
 
     const result = await client.query<{ matches: string }>(query)
     return result.rows.length > 0 ? Number(result.rows[0].matches) : 0
@@ -221,7 +213,7 @@ export async function banAllIdentifiers(
   const { client, done } = await db(withClient)
 
   try {
-    const query = sql`
+    let query = sql`
       INSERT INTO user_identifier_bans AS uib (
         identifier_type, identifier_hash, time_banned, banned_until, first_user_id
       )
@@ -236,14 +228,14 @@ export async function banAllIdentifiers(
     `
 
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         AND identifier_type != 0
       `)
     }
 
     // This will have the effect of permanently banning any users if they evade a ban (since that
     // ban is permanent). But that seems fine/desirable for now, maybe not in the far future.
-    query.append(sql`
+    query = query.append(sql`
       ON CONFLICT (identifier_type, identifier_hash)
       DO UPDATE SET banned_until = GREATEST(uib.banned_until, EXCLUDED.banned_until)
     `)

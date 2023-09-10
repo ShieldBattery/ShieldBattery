@@ -1,4 +1,3 @@
-import sql from 'sql-template-strings'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { appendToMultimap } from '../../../common/data-structures/maps'
 import { League, LeagueId } from '../../../common/leagues'
@@ -7,6 +6,7 @@ import { Patch } from '../../../common/patch'
 import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 import { getUrl } from '../file-upload'
 
@@ -67,66 +67,51 @@ export async function updateLeague(
 ): Promise<League> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       UPDATE leagues
       SET
     `
-
-    let first = true
-    for (const [_key, value] of Object.entries(updates)) {
-      if (value === undefined) {
-        continue
-      }
-
-      const key = _key as keyof typeof updates
-      if (!first) {
-        query.append(sql`, `)
-      } else {
-        first = false
-      }
-
-      switch (key) {
-        case 'name':
-          query.append(sql`name = ${value}`)
-          break
-        case 'matchmakingType':
-          query.append(sql`matchmaking_type = ${value}`)
-          break
-        case 'description':
-          query.append(sql`description = ${value}`)
-          break
-        case 'signupsAfter':
-          query.append(sql`signups_after = ${value}`)
-          break
-        case 'startAt':
-          query.append(sql`start_at = ${value}`)
-          break
-        case 'endAt':
-          query.append(sql`end_at = ${value}`)
-          break
-        case 'imagePath':
-          query.append(sql`image_path = ${value}`)
-          break
-        case 'badgePath':
-          query.append(sql`badge_path = ${value}`)
-          break
-        case 'rulesAndInfo':
-          query.append(sql`rules_and_info = ${value}`)
-          break
-        case 'link':
-          query.append(sql`link = ${value}`)
-          break
-
-        default:
-          assertUnreachable(key)
-      }
-    }
-
-    if (first) {
+    const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+    if (!updateEntries.length) {
       throw new Error('No columns updated')
     }
 
-    query.append(sql`
+    query = query.append(
+      sqlConcat(
+        ', ',
+        updateEntries.map(([_key, value]) => {
+          const key = _key as keyof typeof updates
+
+          switch (key) {
+            case 'name':
+              return sql`name = ${value}`
+            case 'matchmakingType':
+              return sql`matchmaking_type = ${value}`
+            case 'description':
+              return sql`description = ${value}`
+            case 'signupsAfter':
+              return sql`signups_after = ${value}`
+            case 'startAt':
+              return sql`start_at = ${value}`
+            case 'endAt':
+              return sql`end_at = ${value}`
+            case 'imagePath':
+              return sql`image_path = ${value}`
+            case 'badgePath':
+              return sql`badge_path = ${value}`
+            case 'rulesAndInfo':
+              return sql`rules_and_info = ${value}`
+            case 'link':
+              return sql`link = ${value}`
+
+            default:
+              return assertUnreachable(key)
+          }
+        }),
+      ),
+    )
+
+    query = query.append(sql`
       WHERE id = ${id}
       RETURNING *
     `)

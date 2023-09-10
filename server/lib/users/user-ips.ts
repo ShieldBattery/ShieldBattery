@@ -1,7 +1,7 @@
-import sql from 'sql-template-strings'
 import { container } from 'tsyringe'
 import { SbUserId, UserIpInfo } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 import { UpsertUserIp } from '../network/user-ips-type'
 

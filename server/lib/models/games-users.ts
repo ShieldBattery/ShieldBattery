@@ -1,4 +1,3 @@
-import sql from 'sql-template-strings'
 import { ReadonlyDeep } from 'type-fest'
 import {
   GameClientPlayerResult,
@@ -8,6 +7,7 @@ import {
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { sql } from '../db/sql'
 import { ResultSubmission } from '../games/results'
 
 export interface ReportedResultsData {

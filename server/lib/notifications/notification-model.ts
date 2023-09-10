@@ -1,8 +1,8 @@
-import sql from 'sql-template-strings'
 import { SetRequired } from 'type-fest'
 import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db/index'
+import { sql, sqlConcat, sqlRaw } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface BaseNotificationData {
@@ -94,16 +94,14 @@ export async function retrieveNotifications({
       SELECT id, user_id, read, visible, created_at, data
       FROM notifications
       WHERE user_id = ${userId} AND visible = ${visible}
-    `
-
-    for (const [dataKey, dataValue] of Object.entries(data)) {
-      query.append(sql` AND data->>${dataKey} = ${dataValue}`)
-    }
-
-    query.append(sql`
+      ${sqlRaw(Object.keys(data).length > 0 ? ' AND ' : '')}
+      ${sqlConcat(
+        ' AND ',
+        Object.entries(data).map(([k, v]) => sql`data->>${k} = ${v}`),
+      )}
       ORDER BY created_at DESC
       LIMIT ${limit};
-    `)
+    `
 
     const result = await client.query<DbNotification>(query)
     return result.rows.map(n => fromDbNotification(n))

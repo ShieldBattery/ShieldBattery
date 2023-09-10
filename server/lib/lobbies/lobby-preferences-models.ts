@@ -1,7 +1,7 @@
-import sql from 'sql-template-strings'
 import { ReadonlyDeep } from 'type-fest'
 import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
+import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
 export interface LobbyPreferences {

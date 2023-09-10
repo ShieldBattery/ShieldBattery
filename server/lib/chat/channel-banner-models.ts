@@ -1,8 +1,8 @@
-import sql from 'sql-template-strings'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { ChannelBanner, ChannelBannerId } from '../../../common/chat-channels/channel-banners'
 import { Patch } from '../../../common/patch'
 import db, { DbClient } from '../db'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 import { getUrl } from '../file-upload'
 
@@ -79,49 +79,41 @@ export async function adminUpdateChannelBanner(
 ): Promise<ChannelBanner> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       UPDATE channel_banners
       SET
     `
 
-    let first = true
-    for (const [_key, value] of Object.entries(updates)) {
-      if (value === undefined) {
-        continue
-      }
-
-      const key = _key as keyof typeof updates
-      if (!first) {
-        query.append(sql`, `)
-      } else {
-        first = false
-      }
-
-      switch (key) {
-        case 'name':
-          query.append(sql`name = ${value}`)
-          break
-        case 'limited':
-          query.append(sql`limited = ${value}`)
-          break
-        case 'availableIn':
-          query.append(sql`available_in = ${value}`)
-          break
-        case 'imagePath':
-          query.append(sql`image_path = ${value}`)
-          break
-
-        default:
-          assertUnreachable(key)
-      }
-    }
-
-    if (first) {
+    const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+    if (!updateEntries.length) {
       throw new Error('No columns updated')
     }
 
-    query.append(sql`, updated_at = ${new Date()}`)
-    query.append(sql`
+    query = query.append(
+      sqlConcat(
+        ', ',
+        updateEntries.map(([_key, value]) => {
+          const key = _key as keyof typeof updates
+
+          switch (key) {
+            case 'name':
+              return sql`name = ${value}`
+            case 'limited':
+              return sql`limited = ${value}`
+            case 'availableIn':
+              return sql`available_in = ${value}`
+            case 'imagePath':
+              return sql`image_path = ${value}`
+
+            default:
+              return assertUnreachable(key)
+          }
+        }),
+      ),
+    )
+
+    query = query.append(sql`
+      , updated_at = ${new Date()}
       WHERE id = ${id}
       RETURNING *
     `)

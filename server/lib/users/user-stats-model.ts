@@ -1,8 +1,8 @@
-import sql from 'sql-template-strings'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import { UserStats } from '../../../common/users/user-stats'
 import db, { DbClient } from '../db'
+import { sql, sqlRaw } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbUserStats = Dbify<UserStats>
@@ -79,16 +79,14 @@ export async function incrementUserStatsCount(
   userId: SbUserId,
   countKey: UserStatsCountKey,
 ): Promise<UserStats> {
+  const key = sqlRaw(countKey)
   const result = await client.query<DbUserStats>(
     sql`
       UPDATE user_stats
-      SET `
-      .append(countKey)
-      .append(sql` = `)
-      .append(countKey).append(sql` + 1
+      SET ${key} = ${key} + 1
       WHERE user_id = ${userId}
       RETURNING *
-      `),
+    `,
   )
 
   if (!result.rows.length) {

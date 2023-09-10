@@ -1,4 +1,3 @@
-import sql from 'sql-template-strings'
 import { MergeExclusive } from 'type-fest'
 import {
   BasicChannelInfo,
@@ -13,6 +12,7 @@ import {
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
+import { sql } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
@@ -323,17 +323,17 @@ export async function getMessagesForChannel(
 ): Promise<ChatMessage[]> {
   const { client, done } = await db()
 
-  const query = sql`
+  let query = sql`
       WITH messages AS (
         SELECT m.id AS msg_id, u.id AS user_id, u.name AS user_name, m.channel_id, m.sent, m.data
         FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id
         WHERE m.channel_id = ${channelId} `
 
   if (beforeDate !== undefined) {
-    query.append(sql`AND m.sent < ${beforeDate}`)
+    query = query.append(sql`AND m.sent < ${beforeDate}`)
   }
 
-  query.append(sql`
+  query = query.append(sql`
         ORDER BY m.sent DESC
         LIMIT ${limit}
       ) SELECT * FROM messages ORDER BY sent ASC`)
@@ -488,7 +488,7 @@ export async function countBannedIdentifiersForChannel(
   const { client, done } = await db(withClient)
 
   try {
-    const query = sql`
+    let query = sql`
       SELECT COUNT(DISTINCT identifier_type) as "matches"
       FROM channel_identifier_bans cib
       WHERE cib.channel_id = ${channelId}
@@ -500,7 +500,7 @@ export async function countBannedIdentifiersForChannel(
     `
 
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         AND cib.identifier_type != 0
       `)
     }
@@ -581,7 +581,7 @@ export async function banAllIdentifiersFromChannel(
   const { client, done } = await db(withClient)
 
   try {
-    const query = sql`
+    let query = sql`
       INSERT INTO channel_identifier_bans (
         channel_id, identifier_type, identifier_hash, time_banned, first_user_id
       )
@@ -596,12 +596,12 @@ export async function banAllIdentifiersFromChannel(
     `
 
     if (filterBrowserprint) {
-      query.append(sql`
+      query = query.append(sql`
         AND identifier_type != 0
       `)
     }
 
-    query.append(sql`
+    query = query.append(sql`
       ON CONFLICT (channel_id, identifier_type, identifier_hash)
       DO NOTHING
     `)
@@ -728,16 +728,16 @@ export async function searchChannels(
 ): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       SELECT *
       FROM channels
     `
 
     if (searchStr) {
-      query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+      query = query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
     }
 
-    query.append(sql`
+    query = query.append(sql`
       ORDER BY user_count DESC, name
       LIMIT ${limit}
       OFFSET ${offset}
