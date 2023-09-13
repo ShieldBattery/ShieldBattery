@@ -2,25 +2,25 @@ import { Logger } from 'pino'
 import promClient from 'prom-client'
 import { MatchmakingType } from '../common/matchmaking'
 import { SbPermissions } from '../common/users/permissions'
-import { SbUserId } from '../common/users/sb-user'
+import { SelfUser } from '../common/users/sb-user'
 
 declare module 'koa' {
-  interface AppSession {
-    cookie: any // TODO(tec27): Type this better, this is how koa-generic-session types it as well
-    // TODO(tec27): Maybe just move these user fields into a SelfUser to keep things synced up?
-    userId: SbUserId
-    userName: string
-    loginName: string
-    email: string
-    emailVerified: boolean
-    acceptedPrivacyVersion: number
-    acceptedTermsVersion: number
-    acceptedUsePolicyVersion: number
-    locale?: string
-
+  interface LoggedInAppSession {
+    user: SelfUser
     permissions: SbPermissions
+    // TODO(tec27): Remove this field, there's no real purpose in storing this on the server
     lastQueuedMatchmakingType: MatchmakingType
   }
+
+  interface LoggedOutAppSession {
+    user?: undefined
+    permissions?: undefined
+    lastQueuedMatchmakingType?: undefined
+  }
+
+  type AppSession = {
+    cookie: any // TODO(tec27): Type this better, this is how koa-generic-session types it as well
+  } & (LoggedInAppSession | LoggedOutAppSession)
 
   // NOTE(tec27): We add a bunch of things to ExtendedContext so that koa-router's more generic
   // Context extension stuff doesn't get broken by these libraries' more direct way of just

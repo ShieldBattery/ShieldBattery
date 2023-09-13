@@ -60,10 +60,10 @@ export class SessionApi {
       }),
     })
 
-    if (!ctx.session?.userId) {
+    if (!ctx.session?.user) {
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
-    const userId = ctx.session.userId
+    const userId = ctx.session.user.id
 
     let user: SelfUser | undefined
     try {
@@ -113,9 +113,7 @@ export class SessionApi {
           .required(),
         password: Joi.string().min(PASSWORD_MINLENGTH).required(),
         remember: Joi.boolean(),
-        // TODO(tec27): Make this required in future versions (cur v8.0.2). This is just to allow
-        // old clients to log in so it triggers auto-update
-        clientIds: joiClientIdentifiers(),
+        clientIds: joiClientIdentifiers().required(),
         locale: joiLocale(),
       }),
     })
@@ -123,9 +121,9 @@ export class SessionApi {
     const { username, password, remember, clientIds, locale } = body
     let user: SelfUser | undefined
 
-    if (ctx.session?.userId) {
+    if (ctx.session?.user) {
       try {
-        user = await findSelfById(ctx.session.userId)
+        user = await findSelfById(ctx.session.user.id)
       } catch (err) {
         ctx.log.error({ err }, 'error finding user')
       }
@@ -158,7 +156,7 @@ export class SessionApi {
       })
     } else if (await this.userIdentifierManager.banUserIfNeeded(user.id)) {
       // NOTE(tec27): We make sure to do this check *after* checking the account ban only, otherwise
-      // any banned used that attempts to logs in will be permanently banned.
+      // any banned user that attempts to logs in will be permanently banned.
       const banHistory = await retrieveBanHistory(user.id, 1)
       const banEntry = banHistory.length ? banHistory[0] : undefined
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned', {
@@ -202,11 +200,11 @@ export class SessionApi {
   @httpDelete('/')
   @httpBefore(ensureLoggedIn)
   async endSession(ctx: RouterContext): Promise<void> {
-    if (!ctx.session?.userId) {
+    if (!ctx.session?.user) {
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
 
-    await this.redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId!)
+    await this.redis.srem('user_sessions:' + ctx.session.user.id, ctx.sessionId!)
     await ctx.regenerateSession()
     ctx.status = 204
   }

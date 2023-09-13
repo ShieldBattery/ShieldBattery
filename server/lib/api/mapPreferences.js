@@ -15,14 +15,14 @@ export default function (router) {
   router
     .post(
       '/',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
       ensureLoggedIn,
+      throttleMiddleware(throttle, ctx => ctx.session.user.id),
       upsertPreferences,
     )
     .get(
       '/',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
       ensureLoggedIn,
+      throttleMiddleware(throttle, ctx => ctx.session.user.id),
       getPreferences,
     )
 }
@@ -51,7 +51,7 @@ async function upsertPreferences(ctx, next) {
   }
 
   ctx.body = await upsertMapPreferences(
-    ctx.session.userId,
+    ctx.session.user.id,
     visibility,
     thumbnailSize,
     sortOption,
@@ -61,7 +61,7 @@ async function upsertPreferences(ctx, next) {
 }
 
 async function getPreferences(ctx, next) {
-  const preferences = await getMapPreferences(ctx.session.userId)
+  const preferences = await getMapPreferences(ctx.session.user.id)
 
   if (!preferences) {
     throw new httpErrors.NotFound('No map preferences found for this user')

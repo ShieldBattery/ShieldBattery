@@ -64,8 +64,8 @@ export class MatchmakingMapPoolsApi {
         startDate: Number(m.startDate),
         maps: (
           await reparseMapsAsNeeded(
-            await getMapInfo(m.maps, ctx.session!.userId),
-            ctx.session!.userId,
+            await getMapInfo(m.maps, ctx.session!.user!.id),
+            ctx.session!.user!.id,
           )
         ).map(m => toMapInfoJson(m)),
       })),
@@ -91,7 +91,7 @@ export class MatchmakingMapPoolsApi {
       throw new httpErrors.NotFound('no matchmaking map pool for this type')
     }
 
-    const maps = await getMapInfo(pool.maps, ctx.session!.userId)
+    const maps = await getMapInfo(pool.maps, ctx.session!.user!.id)
 
     return {
       pool: {
@@ -124,7 +124,7 @@ export class MatchmakingMapPoolsApi {
     return {
       ...mapPool,
       startDate: Number(mapPool.startDate),
-      maps: (await getMapInfo(mapPool.maps, ctx.session!.userId)).map(m => toMapInfoJson(m)),
+      maps: (await getMapInfo(mapPool.maps, ctx.session!.user!.id)).map(m => toMapInfoJson(m)),
     }
   }
 

@@ -18,14 +18,14 @@ export default function (router) {
   router
     .post(
       '/',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
       ensureLoggedIn,
+      throttleMiddleware(throttle, ctx => ctx.session.user.id),
       upsertPreferences,
     )
     .get(
       '/',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
       ensureLoggedIn,
+      throttleMiddleware(throttle, ctx => ctx.session.user.id),
       getPreferences,
     )
 }
@@ -50,7 +50,7 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('invalid use legacy limits')
   }
 
-  const preferences = await upsertLobbyPreferences(ctx.session.userId, {
+  const preferences = await upsertLobbyPreferences(ctx.session.user.id, {
     name,
     gameType,
     gameSubType,
@@ -61,19 +61,19 @@ async function upsertPreferences(ctx, next) {
   })
   ctx.body = {
     ...preferences,
-    recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.userId),
+    recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.user.id),
   }
 }
 
 async function getPreferences(ctx, next) {
-  const preferences = await getLobbyPreferences(ctx.session.userId)
+  const preferences = await getLobbyPreferences(ctx.session.user.id)
 
   if (!preferences) {
     throw new httpErrors.NotFound('no lobby preferences found for this user')
   }
 
   const { selectedMap } = preferences
-  const recentMaps = await getMapInfo(preferences.recentMaps, ctx.session.userId)
+  const recentMaps = await getMapInfo(preferences.recentMaps, ctx.session.user.id)
   ctx.body = {
     ...preferences,
     recentMaps,

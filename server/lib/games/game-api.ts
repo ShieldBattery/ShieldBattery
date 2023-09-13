@@ -135,7 +135,7 @@ export class GameApi {
   ) {}
 
   @httpGet('/:gameId')
-  @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.userId) ?? ctx.ip))
+  @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.user?.id) ?? ctx.ip))
   async getGame(ctx: RouterContext): Promise<GetGameResponse> {
     const {
       params: { gameId },
@@ -149,7 +149,7 @@ export class GameApi {
       t.filter(p => !p.isComputer).map(p => p.id),
     )
     const [mapArray, users, mmrChanges] = await Promise.all([
-      getMapInfo([game.mapId], ctx.session!.userId),
+      getMapInfo([game.mapId], ctx.session!.user!.id),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])
@@ -163,7 +163,7 @@ export class GameApi {
   }
 
   @httpPost('/:gameId/subscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
   async subscribeToGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -173,12 +173,12 @@ export class GameApi {
       query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
     })
 
-    await this.gameResultService.subscribeToGame(ctx.session!.userId, clientId, gameId)
+    await this.gameResultService.subscribeToGame(ctx.session!.user!.id, clientId, gameId)
     ctx.status = 204
   }
 
   @httpPost('/:gameId/unsubscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
   async unsubscribeFromGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -188,15 +188,16 @@ export class GameApi {
       query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
     })
 
-    await this.gameResultService.unsubscribeFromGame(ctx.session!.userId, clientId, gameId)
+    await this.gameResultService.unsubscribeFromGame(ctx.session!.user!.id, clientId, gameId)
     ctx.status = 204
   }
 
   @httpPut('/:gameId/status')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
   async updateGameStatus(ctx: RouterContext): Promise<void> {
     const { gameId } = ctx.params
     const { status } = ctx.request.body
+    const user = ctx.session!.user!
 
     if (status < GameStatus.Playing || status > GameStatus.Error) {
       throw new httpErrors.BadRequest('invalid game status')
@@ -210,11 +211,11 @@ export class GameApi {
     }
 
     if (status === GameStatus.Playing) {
-      if (!this.gameLoader.registerGameAsLoaded(gameId, ctx.session!.userName)) {
+      if (!this.gameLoader.registerGameAsLoaded(gameId, user.name)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else if (status === GameStatus.Error) {
-      if (!this.gameLoader.maybeCancelLoading(gameId, ctx.session!.userName)) {
+      if (!this.gameLoader.maybeCancelLoading(gameId, user.name)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else {

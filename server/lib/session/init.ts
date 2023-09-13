@@ -7,20 +7,8 @@ export default function initSession(ctx: Context, data: ClientSessionInfo) {
   if (!ctx.session) {
     throw new Error('Session must be created on context first')
   }
-  if (typeof user.id !== 'number') {
-    throw new Error('Sessions can only be initialized for users saved in the DB')
-  }
 
-  ctx.session.userId = user.id
-  ctx.session.userName = user.name
-  ctx.session.loginName = user.loginName
-  ctx.session.email = user.email
-  ctx.session.emailVerified = user.emailVerified
-  ctx.session.acceptedPrivacyVersion = user.acceptedPrivacyVersion
-  ctx.session.acceptedTermsVersion = user.acceptedTermsVersion
-  ctx.session.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
-  ctx.session.locale = user.locale
-
+  ctx.session.user = user
   ctx.session.permissions = permissions
   ctx.session.lastQueuedMatchmakingType = lastQueuedMatchmakingType
 }

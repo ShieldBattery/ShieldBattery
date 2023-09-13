@@ -69,7 +69,7 @@ export class WhisperApi {
   }
 
   @httpPost('/by-name/:targetName')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user!.id)))
   async startWhisperSessionByName(ctx: RouterContext): Promise<{ userId: SbUserId }> {
     const {
       params: { targetName },
@@ -85,13 +85,13 @@ export class WhisperApi {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'user not found')
     }
 
-    await this.whisperService.startWhisperSession(ctx.session!.userId, targetUser.id)
+    await this.whisperService.startWhisperSession(ctx.session!.user!.id, targetUser.id)
 
     return { userId: targetUser.id }
   }
 
   @httpPost('/:targetId')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user!.id)))
   async startWhisperSessionById(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -101,13 +101,13 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.startWhisperSession(ctx.session!.userId, targetId)
+    await this.whisperService.startWhisperSession(ctx.session!.user!.id, targetId)
 
     ctx.status = 204
   }
 
   @httpDelete('/:targetId')
-  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.user!.id)))
   async closeWhisperSession(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -117,13 +117,13 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.closeWhisperSession(ctx.session!.userId, targetId)
+    await this.whisperService.closeWhisperSession(ctx.session!.user!.id, targetId)
 
     ctx.status = 204
   }
 
   @httpPost('/:targetId/messages')
-  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.user!.id)))
   async sendWhisperMessage(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -137,7 +137,7 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.sendWhisperMessage(ctx.session!.userId, targetId, message)
+    await this.whisperService.sendWhisperMessage(ctx.session!.user!.id, targetId, message)
 
     ctx.status = 204
   }
@@ -146,7 +146,7 @@ export class WhisperApi {
   // for old clients.
   // Last used: 8.0.2 (November 2021)
   @httpGet('/:targetName/messages')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user!.id)))
   getSessionHistoryOld(
     ctx: RouterContext,
   ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
@@ -157,7 +157,7 @@ export class WhisperApi {
   }
 
   @httpGet('/:targetId/messages2')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user!.id)))
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },
@@ -173,7 +173,7 @@ export class WhisperApi {
     })
 
     return await this.whisperService.getSessionHistory(
-      ctx.session!.userId,
+      ctx.session!.user!.id,
       targetId,
       limit,
       beforeTime,

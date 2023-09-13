@@ -1,7 +1,5 @@
 import { RouterContext } from '@koa/router'
 import { Next } from 'koa'
-import { MatchmakingType } from '../../../common/matchmaking'
-import { SelfUser } from '../../../common/users/sb-user'
 import { findSelfById } from '../users/user-model'
 
 /**
@@ -10,30 +8,16 @@ import { findSelfById } from '../users/user-model'
  */
 export function migrateSessions() {
   return async (ctx: RouterContext, next: Next) => {
-    if (ctx.session && ctx.session.userId) {
-      let retrievedUser: SelfUser | undefined
+    if (ctx.session && (ctx.session as any).userId) {
+      // Migrate old-style sessions to the new user field
+      const user = await findSelfById((ctx.session as any).userId)
+      if (!user) {
+        throw new Error('Could not find user for session')
+      }
+      ctx.session.user = user
 
-      if (!ctx.session.email) {
-        retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
-        ctx.session.email = retrievedUser!.email
-      }
-      if (!ctx.session.lastQueuedMatchmakingType) {
-        ctx.session.lastQueuedMatchmakingType = MatchmakingType.Match1v1
-      }
-      if (!ctx.session.acceptedPrivacyVersion) {
-        retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
-        ctx.session.acceptedPrivacyVersion = retrievedUser!.acceptedPrivacyVersion
-        ctx.session.acceptedTermsVersion = retrievedUser!.acceptedTermsVersion
-        ctx.session.acceptedUsePolicyVersion = retrievedUser!.acceptedUsePolicyVersion
-      }
-      if (!ctx.session.locale) {
-        retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
-        ctx.session.locale = retrievedUser!.locale
-      }
-      if (!ctx.session.loginName) {
-        retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
-        ctx.session.loginName = retrievedUser!.loginName
-      }
+      // Delete the old field so we don't try to migrate this session again
+      delete (ctx.session as any).userId
     }
 
     await next()

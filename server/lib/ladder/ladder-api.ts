@@ -109,7 +109,7 @@ export class LadderApi {
       }),
     })
 
-    if (params.id !== ctx.session?.userId) {
+    if (params.id !== ctx.session?.user?.id) {
       throw new LadderApiError(LadderErrorCode.OnlyAllowedOnSelf, 'only allowed on self')
     }
 

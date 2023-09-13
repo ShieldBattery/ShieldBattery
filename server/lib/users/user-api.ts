@@ -291,7 +291,7 @@ export class UserApi {
 
   @httpGet('/:id/profile')
   @httpBefore(
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.userId) ?? ctx.ip),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id) ?? ctx.ip),
   )
   async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
@@ -387,7 +387,7 @@ export class UserApi {
   @httpGet('/batch-info')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
     const { query } = validateRequest(ctx, {
@@ -407,7 +407,7 @@ export class UserApi {
   @httpPost('/:id/policies')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesResponse> {
     const { params, body } = validateRequest(ctx, {
@@ -426,7 +426,7 @@ export class UserApi {
       }),
     })
 
-    if (params.id !== ctx.session!.userId) {
+    if (params.id !== ctx.session!.user!.id) {
       throw new httpErrors.Unauthorized("Can't change another user's account")
     }
 
@@ -453,9 +453,7 @@ export class UserApi {
       throw new Error("Current user couldn't be found for updating")
     }
 
-    ctx.session!.acceptedPrivacyVersion = user.acceptedPrivacyVersion
-    ctx.session!.acceptedTermsVersion = user.acceptedTermsVersion
-    ctx.session!.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
+    await updateAllSessionsForCurrentUser(ctx, { user })
 
     return { user }
   }
@@ -472,7 +470,7 @@ export class UserApi {
       }),
     })
 
-    if (params.id !== ctx.session!.userId) {
+    if (params.id !== ctx.session!.user!.id) {
       throw new httpErrors.Unauthorized("Can't change another user's language")
     }
 
@@ -481,7 +479,7 @@ export class UserApi {
       throw new Error("Current user couldn't be found for updating")
     }
 
-    ctx.session!.locale = user.locale
+    await updateAllSessionsForCurrentUser(ctx, { user })
 
     return { user }
   }
@@ -518,12 +516,12 @@ export class UserApi {
   @httpPost('/:id/email-verification/send')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async resendVerificationEmail(ctx: RouterContext): Promise<void> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.userId).required(),
+        id: joiUserId().valid(ctx.session!.user!.id).required(),
       }),
     })
 
@@ -555,7 +553,7 @@ export class UserApi {
   @httpPost('/:id/email-verification')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async verifyEmail(ctx: RouterContext): Promise<void> {
     const {
@@ -563,7 +561,7 @@ export class UserApi {
       body: { code },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.userId).required(),
+        id: joiUserId().valid(ctx.session!.user!.id).required(),
       }),
       body: Joi.object<{ code: string }>({
         code: Joi.string().required(),
@@ -584,11 +582,10 @@ export class UserApi {
       throw new UserApiError(UserErrorCode.InvalidCode, 'invalid code')
     }
 
+    const updatedUser = await findSelfById(params.id)
+
     // Update all of the user's sessions to indicate that their email is now indeed verified.
-    await updateAllSessionsForCurrentUser(ctx, { emailVerified: true })
-    // We update this session specifically as well, to ensure that any previous changes to the
-    // session during this request don't cause a stale value to be written
-    ctx.session!.emailVerified = true
+    await updateAllSessionsForCurrentUser(ctx, { user: updatedUser })
 
     // Last thing to do is to notify all of the user's opened sockets that their email is now
     // verified
@@ -606,12 +603,12 @@ export class UserApi {
   @httpGet('/:id/relationships')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async getRelationships(ctx: RouterContext): Promise<GetRelationshipsResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.userId).required(),
+        id: joiUserId().valid(ctx.session!.user!.id).required(),
       }),
     })
 
@@ -631,7 +628,7 @@ export class UserApi {
   @httpPost('/:id/relationships/friend-requests')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async sendFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const { params } = validateRequest(ctx, {
@@ -646,7 +643,7 @@ export class UserApi {
     }
 
     const relationship = await this.userRelationshipService.sendFriendRequest(
-      ctx.session!.userId,
+      ctx.session!.user!.id,
       user.id,
     )
 
@@ -656,7 +653,7 @@ export class UserApi {
   @httpDelete('/:toId/relationships/friend-requests/:fromId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async removeFriendRequest(ctx: RouterContext): Promise<void> {
     const {
@@ -668,10 +665,10 @@ export class UserApi {
       }),
     })
 
-    if (toId !== ctx.session!.userId && fromId !== ctx.session!.userId) {
+    if (toId !== ctx.session!.user!.id && fromId !== ctx.session!.user!.id) {
       throw new httpErrors.BadRequest('Can only manage your own friend requests')
     }
-    const otherUser = toId === ctx.session!.userId ? fromId : toId
+    const otherUser = toId === ctx.session!.user!.id ? fromId : toId
 
     const user = await findUserById(otherUser)
     if (!user) {
@@ -686,14 +683,14 @@ export class UserApi {
   @httpPost('/:toId/relationships/friends/:fromId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async acceptFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { toId, fromId },
     } = validateRequest(ctx, {
       params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
-        toId: joiUserId().valid(ctx.session!.userId).required(),
+        toId: joiUserId().valid(ctx.session!.user!.id).required(),
         fromId: joiUserId().required(),
       }),
     })
@@ -711,14 +708,14 @@ export class UserApi {
   @httpDelete('/:removerId/relationships/friends/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async removeFriend(ctx: RouterContext): Promise<void> {
     const {
       params: { removerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ removerId: SbUserId; targetId: SbUserId }>({
-        removerId: joiUserId().valid(ctx.session!.userId).required(),
+        removerId: joiUserId().valid(ctx.session!.user!.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -736,14 +733,14 @@ export class UserApi {
   @httpPost('/:blockerId/relationships/blocks/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async blockUser(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { blockerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ blockerId: SbUserId; targetId: SbUserId }>({
-        blockerId: joiUserId().valid(ctx.session!.userId).required(),
+        blockerId: joiUserId().valid(ctx.session!.user!.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -761,14 +758,14 @@ export class UserApi {
   @httpDelete('/:unblockerId/relationships/blocks/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async unblockUser(ctx: RouterContext): Promise<void> {
     const {
       params: { unblockerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ unblockerId: SbUserId; targetId: SbUserId }>({
-        unblockerId: joiUserId().valid(ctx.session!.userId).required(),
+        unblockerId: joiUserId().valid(ctx.session!.user!.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -846,7 +843,7 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    if (ctx.session!.userId === params.id) {
+    if (ctx.session!.user!.id === params.id) {
       await updateAllSessionsForCurrentUser(ctx, { permissions })
     } else {
       await updateAllSessions(params.id, { permissions })
@@ -904,7 +901,7 @@ export class AdminUserApi {
       }).required(),
     })
 
-    if (params.id === ctx.session!.userId) {
+    if (params.id === ctx.session!.user!.id) {
       throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't ban yourself")
     }
 
@@ -916,11 +913,11 @@ export class AdminUserApi {
     const [ban, bannedBy] = await Promise.all([
       this.banEnacter.enactBan({
         targetId: user.id,
-        bannedBy: ctx.session!.userId,
+        bannedBy: ctx.session!.user!.id,
         banLengthHours: body.banLengthHours,
         reason: body.reason,
       }),
-      await findUserById(ctx.session!.userId),
+      await findUserById(ctx.session!.user!.id),
     ])
 
     // This would be a really weird occurrence! So we just make sure we do the actual banning before

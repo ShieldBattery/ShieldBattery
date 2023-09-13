@@ -53,14 +53,14 @@ pub struct CurrentUser {
 impl From<&AuthenticatedSession> for CurrentUser {
     fn from(session: &AuthenticatedSession) -> Self {
         CurrentUser {
-            id: session.data.user_id,
-            name: session.data.user_name.clone(),
-            login_name: session.data.login_name.clone(),
-            email: session.data.email.clone(),
-            email_verified: session.data.email_verified,
-            accepted_privacy_version: session.data.accepted_privacy_version,
-            accepted_terms_version: session.data.accepted_terms_version,
-            accepted_use_policy_version: session.data.accepted_use_policy_version,
+            id: session.data.user.id,
+            name: session.data.user.name.clone(),
+            login_name: session.data.user.login_name.clone(),
+            email: session.data.user.email.clone(),
+            email_verified: session.data.user.email_verified,
+            accepted_privacy_version: session.data.user.accepted_privacy_version,
+            accepted_terms_version: session.data.user.accepted_terms_version,
+            accepted_use_policy_version: session.data.user.accepted_use_policy_version,
             permissions: session.data.permissions.clone(),
         }
     }
@@ -109,7 +109,7 @@ impl UsersMutation {
 
         let current_password = Secret::new(current_password);
         let stored_credentials =
-            get_stored_credentials(session.data.user_id, ctx.data_unchecked::<PgPool>())
+            get_stored_credentials(session.data.user.id, ctx.data_unchecked::<PgPool>())
                 .await
                 .wrap_err("Failed to get stored credentials")?;
         let credentials_valid = validate_credentials(current_password, stored_credentials)
@@ -125,9 +125,9 @@ impl UsersMutation {
 
         let get_password_query = changes.new_password.map(|new_password| {
             emails.push(MailgunMessage {
-                to: session.data.email.clone(),
+                to: session.data.user.email.clone(),
                 template: MailgunTemplate::PasswordChange(PasswordChangeData {
-                    username: session.data.user_name.clone(),
+                    username: session.data.user.name.clone(),
                 }),
             });
 
@@ -138,7 +138,7 @@ impl UsersMutation {
                 Result::<_, eyre::Error>::Ok(sqlx::query!(
                     r#"UPDATE users_private SET password = $1 WHERE user_id = $2"#,
                     hash.expose_secret(),
-                    session.data.user_id
+                    session.data.user.id
                 ))
             }
         });
@@ -151,11 +151,11 @@ impl UsersMutation {
             let mut query = query.separated(", ");
 
             if let Some(email) = changes.email {
-                if email != session.data.email {
+                if email != session.data.user.email {
                     emails.push(MailgunMessage {
-                        to: session.data.email.clone(),
+                        to: session.data.user.email.clone(),
                         template: MailgunTemplate::EmailChange(EmailChangeData {
-                            username: session.data.user_name.clone(),
+                            username: session.data.user.name.clone(),
                         }),
                     });
                     let token = generate_email_token();
@@ -167,7 +167,7 @@ impl UsersMutation {
                             VALUES
                             ($1, $2, $3, NOW(), $4)
                         "#,
-                        session.data.user_id,
+                        session.data.user.id,
                         email.clone(),
                         token,
                         ip,
@@ -175,15 +175,15 @@ impl UsersMutation {
                     emails.push(MailgunMessage {
                         to: email.clone(),
                         template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                            user_id: session.data.user_id,
-                            username: session.data.user_name.clone(),
+                            user_id: session.data.user.id,
+                            username: session.data.user.name.clone(),
                             token,
                         }),
                     });
 
                     has_update = true;
-                    new_session.data.email = email.clone();
-                    new_session.data.email_verified = false;
+                    new_session.data.user.email = email.clone();
+                    new_session.data.user.email_verified = false;
 
                     query.push("email_verified = FALSE, email = ");
                     query.push_bind_unseparated(email);
@@ -192,7 +192,7 @@ impl UsersMutation {
         }
 
         query.push(" WHERE id = ");
-        query.push_bind(session.data.user_id);
+        query.push_bind(session.data.user.id);
 
         if !has_update && get_password_query.is_none() {
             return Ok(session.into());

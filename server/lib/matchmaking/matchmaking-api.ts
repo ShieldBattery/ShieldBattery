@@ -94,13 +94,13 @@ export class MatchmakingApi {
   ) {}
 
   @httpPost('/find')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
   async findMatch(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
         preferences: matchmakingPreferencesValidator(
-          ctx.session!.userId,
+          ctx.session!.user!.id,
           false /* allowPartial */,
         ).required(),
         identifiers: joiClientIdentifiers().required(),
@@ -116,13 +116,13 @@ export class MatchmakingApi {
       )
     }
 
-    await this.userIdManager.upsert(ctx.session!.userId, identifiers)
+    await this.userIdManager.upsert(ctx.session!.user!.id, identifiers)
 
-    if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
+    if (await this.userIdManager.banUserIfNeeded(ctx.session!.user!.id)) {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
-    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, {
+    await this.matchmakingService.find(ctx.session!.user!.id, clientId, identifiers, {
       ...preferences,
       mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
     })
@@ -134,15 +134,15 @@ export class MatchmakingApi {
   }
 
   @httpDelete('/find')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
   async cancelSearch(ctx: RouterContext): Promise<void> {
-    await this.matchmakingService.cancel(ctx.session!.userId)
+    await this.matchmakingService.cancel(ctx.session!.user!.id)
   }
 
   @httpPost('/accept')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
   async acceptMatch(ctx: RouterContext): Promise<void> {
-    await this.matchmakingService.accept(ctx.session!.userId)
+    await this.matchmakingService.accept(ctx.session!.user!.id)
   }
 
   @httpGet('/seasons')

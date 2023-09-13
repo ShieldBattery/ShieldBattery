@@ -97,12 +97,12 @@ export class LeagueApi {
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<GetLeaguesListResponse> {
     const now = new Date()
-    const isLoggedIn = !!ctx.session?.userId
+    const isLoggedIn = !!ctx.session?.user
     const [past, current, future, selfLeagues] = await Promise.all([
       getPastLeagues(now),
       getCurrentLeagues(now),
       getFutureLeagues(now),
-      isLoggedIn ? getAllLeaguesForUser(ctx.session!.userId) : [],
+      isLoggedIn ? getAllLeaguesForUser(ctx.session!.user!.id) : [],
     ])
     return {
       past: past.map(l => toLeagueJson(l)),
@@ -123,8 +123,8 @@ export class LeagueApi {
     }
 
     let selfLeagueUser: LeagueUser | undefined
-    if (ctx.session?.userId) {
-      selfLeagueUser = await getLeagueUser(leagueId, ctx.session.userId)
+    if (ctx.session?.user) {
+      selfLeagueUser = await getLeagueUser(leagueId, ctx.session.user.id)
     }
 
     return {
@@ -174,10 +174,10 @@ export class LeagueApi {
 
     let selfLeagueUser: LeagueUser | undefined
     try {
-      selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.userId)
+      selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.user!.id)
     } catch (err: any) {
       if (err.code === UNIQUE_VIOLATION) {
-        selfLeagueUser = await getLeagueUser(leagueId, ctx.session!.userId)
+        selfLeagueUser = await getLeagueUser(leagueId, ctx.session!.user!.id)
       }
     }
 

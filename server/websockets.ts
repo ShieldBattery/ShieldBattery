@@ -109,7 +109,7 @@ export class WebsocketServer {
     try {
       await sessionMiddleware(ctx, async () => {})
 
-      if (!ctx.session?.userId) {
+      if (!ctx.session?.user) {
         // User is not logged in
         cb(null, false)
         return
@@ -118,9 +118,9 @@ export class WebsocketServer {
       const clientId = getSingleQueryParam(ctx.query.clientId) ?? cuid()
       const handshakeData: SessionInfo = {
         sessionId: ctx.sessionId!,
-        userId: ctx.session.userId,
+        userId: ctx.session.user.id,
         clientId,
-        userName: ctx.session.userName,
+        userName: ctx.session.user.name,
         address: getAddress(req),
         clientType: isElectronClient(ctx) ? 'electron' : 'web',
       }

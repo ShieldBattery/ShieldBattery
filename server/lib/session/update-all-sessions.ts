@@ -8,7 +8,7 @@ export async function updateAllSessionsForCurrentUser(
   ctx: Koa.Context,
   updatedValues: Partial<Koa.AppSession>,
 ): Promise<void> {
-  if (!ctx.session?.userId) {
+  if (!ctx.session?.user) {
     throw new Error('Cannot update sessions for current user with no active session')
   }
 
@@ -18,7 +18,7 @@ export async function updateAllSessionsForCurrentUser(
     ;(ctx.session as any)[key] = value
   }
 
-  return updateAllSessions(ctx.session.userId, updatedValues)
+  return updateAllSessions(ctx.session.user.id, updatedValues)
 }
 
 export async function updateAllSessions(

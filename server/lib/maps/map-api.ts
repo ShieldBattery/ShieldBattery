@@ -62,7 +62,7 @@ const mapRemoveThrottle = createThrottle('mapremove', {
 @httpBeforeAll(ensureLoggedIn)
 export class MapsApi {
   @httpGet('/')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.user!.id)))
   async list(ctx: RouterContext): Promise<any> {
     // TODO(tec27): Use validateRequest for this stuff to remove the need for all the casts
 
@@ -101,10 +101,10 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
     }
 
-    const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.userId : undefined
+    const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user!.id : undefined
 
     const filters = { numPlayers: numPlayersVal, tileset: tilesetVal }
-    const favoritedBy = ctx.session!.userId
+    const favoritedBy = ctx.session!.user!.id
     const [mapsResult, favoritedMaps] = await Promise.all([
       getMaps(
         visibility as MapVisibility,
@@ -129,7 +129,7 @@ export class MapsApi {
   }
 
   @httpGet('/batch-info')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.user!.id)))
   async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoResponse> {
     const { query } = validateRequest(ctx, {
       query: Joi.object<{ m: string[] }>({
@@ -139,8 +139,8 @@ export class MapsApi {
 
     const mapIds = query.m
 
-    let maps = await getMapInfo(mapIds, ctx.session!.userId)
-    maps = await reparseMapsAsNeeded(maps, ctx.session!.userId)
+    let maps = await getMapInfo(mapIds, ctx.session!.user!.id)
+    maps = await reparseMapsAsNeeded(maps, ctx.session!.user!.id)
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
@@ -171,7 +171,7 @@ export class MapsApi {
     const map = await storeMap(
       filepath,
       lowerCaseExtension,
-      ctx.session!.userId,
+      ctx.session!.user!.id,
       MapVisibility.Official,
     )
     return {
@@ -181,7 +181,7 @@ export class MapsApi {
 
   @httpPost('/')
   @httpBefore(
-    throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.userId)),
+    throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user!.id)),
     handleMultipartFiles(),
   )
   async upload(ctx: RouterContext): Promise<any> {
@@ -206,7 +206,7 @@ export class MapsApi {
     const map = await storeMap(
       filepath,
       lowerCaseExtension,
-      ctx.session!.userId,
+      ctx.session!.user!.id,
       MapVisibility.Private,
     )
     return {
@@ -215,16 +215,16 @@ export class MapsApi {
   }
 
   @httpGet('/:mapId')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.user!.id)))
   async getDetails(ctx: RouterContext): Promise<any> {
     const { mapId } = ctx.params
 
-    const mapResult = await getMapInfo([mapId], ctx.session!.userId)
+    const mapResult = await getMapInfo([mapId], ctx.session!.user!.id)
     if (!mapResult.length) {
       throw new httpErrors.NotFound('Map not found')
     }
 
-    const [map] = await reparseMapsAsNeeded(mapResult, ctx.session!.userId)
+    const [map] = await reparseMapsAsNeeded(mapResult, ctx.session!.user!.id)
 
     return {
       map: toMapInfoJson(map),
@@ -232,7 +232,7 @@ export class MapsApi {
   }
 
   @httpPatch('/:mapId')
-  @httpBefore(throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.user!.id)))
   async update(ctx: RouterContext): Promise<any> {
     const { mapId } = ctx.params
     const { name, description } = ctx.request.body
@@ -241,33 +241,33 @@ export class MapsApi {
       throw new httpErrors.BadRequest("Map name can't be empty")
     }
 
-    let map = (await getMapInfo([mapId], ctx.session!.userId))[0]
+    let map = (await getMapInfo([mapId], ctx.session!.user!.id))[0]
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
 
-    ;[map] = await reparseMapsAsNeeded([map], ctx.session!.userId)
+    ;[map] = await reparseMapsAsNeeded([map], ctx.session!.user!.id)
 
     // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
     // public
     if (
       [MapVisibility.Official, MapVisibility.Public].includes(map.visibility) &&
-      !ctx.session!.permissions.manageMaps
+      !ctx.session!.permissions!.manageMaps
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session!.userId) {
+    if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session!.user!.id) {
       throw new httpErrors.Forbidden("Can't update maps of other users")
     }
 
-    map = await updateMap(mapId, ctx.session!.userId, name, description)
+    map = await updateMap(mapId, ctx.session!.user!.id, name, description)
     return {
       map,
     }
   }
 
   @httpDelete('/:mapId')
-  @httpBefore(throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.user!.id)))
   async remove(ctx: RouterContext): Promise<void> {
     const { mapId } = ctx.params
 
@@ -279,11 +279,11 @@ export class MapsApi {
     // public
     if (
       (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) &&
-      !ctx.session!.permissions.manageMaps
+      !ctx.session!.permissions!.manageMaps
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session!.userId) {
+    if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session!.user!.id) {
       throw new httpErrors.Forbidden("Can't remove maps of other users")
     }
 
@@ -292,16 +292,16 @@ export class MapsApi {
   }
 
   @httpPost('/:mapId/favorite')
-  @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)))
   async addToFavorites(ctx: RouterContext): Promise<void> {
-    await addMapToFavorites(ctx.params.mapId, ctx.session!.userId)
+    await addMapToFavorites(ctx.params.mapId, ctx.session!.user!.id)
     ctx.status = 204
   }
 
   @httpDelete('/:mapId/favorite')
-  @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)))
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
-    await removeMapFromFavorites(ctx.params.mapId, ctx.session!.userId)
+    await removeMapFromFavorites(ctx.params.mapId, ctx.session!.user!.id)
     ctx.status = 204
   }
 

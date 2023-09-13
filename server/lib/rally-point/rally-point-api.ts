@@ -6,7 +6,6 @@ import {
   AddRallyPointServerResponse,
   GetRallyPointServersResponse,
   UpdateRallyPointClientPingBatchRequest,
-  UpdateRallyPointClientPingRequest,
   UpdateRallyPointServerRequest,
   UpdateRallyPointServerResponse,
 } from '../../../common/rally-point'
@@ -19,12 +18,6 @@ import { validateRequest } from '../validation/joi-validator'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { retrieveRallyPointServers } from './models'
 import { RallyPointService } from './rally-point-service'
-
-interface UpdateClientPingParams {
-  userId: SbUserId
-  clientId: string
-  serverId: number
-}
 
 interface UpdateClientPingBatchParams {
   userId: SbUserId
@@ -43,7 +36,7 @@ export class RallyPointPingApi {
   async updateClientPingBatch(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<UpdateClientPingBatchParams>({
-        userId: Joi.allow(ctx.session!.userId).required(),
+        userId: Joi.allow(ctx.session!.user!.id).required(),
         clientId: Joi.string().required(),
       }),
 
@@ -67,32 +60,6 @@ export class RallyPointPingApi {
     for (const [serverId, ping] of body.pings) {
       this.rallyPointService.updatePing(client, serverId, ping)
     }
-
-    ctx.status = 204
-  }
-
-  // TODO(tec27): Delete this after a version with the batch route has gone live
-  @httpPut('/pings/:userId/:clientId/:serverId')
-  async updateClientPing(ctx: RouterContext): Promise<void> {
-    const { params, body } = validateRequest(ctx, {
-      params: Joi.object<UpdateClientPingParams>({
-        userId: Joi.allow(ctx.session!.userId),
-        clientId: Joi.string().required(),
-        serverId: Joi.number().integer().min(0).required(),
-      }),
-
-      body: Joi.object<UpdateRallyPointClientPingRequest>({
-        ping: Joi.number().min(0).unsafe().required(),
-      }),
-    })
-
-    const client = this.clientSocketsManager.getById(params.userId, params.clientId)
-
-    if (!client) {
-      throw new NotFound(`could not find a client with id ${params.clientId}`)
-    }
-
-    this.rallyPointService.updatePing(client, params.serverId, body.ping)
 
     ctx.status = 204
   }

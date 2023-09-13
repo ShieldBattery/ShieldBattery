@@ -12,6 +12,20 @@ use tracing::{error, warn};
 
 use crate::redis::{get_redis, RedisPool};
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfUser {
+    pub id: i32,
+    pub name: String,
+    pub login_name: String,
+    pub email: String,
+    pub email_verified: bool,
+    pub accepted_privacy_version: u32,
+    pub accepted_terms_version: u32,
+    pub accepted_use_policy_version: u32,
+    pub locale: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, SimpleObject)]
 #[serde(rename_all = "camelCase")]
 pub struct SbPermissions {
@@ -31,16 +45,7 @@ pub struct SbPermissions {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserSessionData {
-    pub user_id: i32,
-    pub user_name: String,
-    pub login_name: String,
-    pub email: String,
-    pub email_verified: bool,
-    pub accepted_privacy_version: u32,
-    pub accepted_terms_version: u32,
-    pub accepted_use_policy_version: u32,
-    pub locale: Option<String>,
-
+    pub user: SelfUser,
     pub permissions: SbPermissions,
     pub last_queued_matchmaking_type: String,
 }
@@ -189,7 +194,7 @@ pub async fn update_all_sessions_for_user(
         .await
         .wrap_err("Failed to get Redis connection")?;
 
-    let user_id = reference_session.data.user_id;
+    let user_id = reference_session.data.user.id;
     let session_keys: Vec<String> = redis
         .smembers(user_sessions_set_key(user_id))
         .await

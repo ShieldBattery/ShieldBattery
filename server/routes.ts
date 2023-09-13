@@ -127,20 +127,10 @@ export default function applyRoutes(
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
         serverConfig,
       }
-      if (ctx.session?.userId) {
+      if (ctx.session?.user) {
         initData.session = {
           sessionId: ctx.sessionId!,
-          user: {
-            id: ctx.session.userId,
-            name: ctx.session.userName,
-            loginName: ctx.session.loginName,
-            email: ctx.session.email,
-            emailVerified: ctx.session.emailVerified,
-            acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,
-            acceptedTermsVersion: ctx.session.acceptedTermsVersion,
-            acceptedUsePolicyVersion: ctx.session.acceptedUsePolicyVersion,
-            locale: ctx.session.locale,
-          },
+          user: ctx.session.user,
           permissions: ctx.session.permissions,
           lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
         }
