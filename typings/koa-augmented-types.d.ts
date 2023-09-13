@@ -8,7 +8,6 @@ declare module 'koa' {
   interface LoggedInAppSession {
     user: SelfUser
     permissions: SbPermissions
-    // TODO(tec27): Remove this field, there's no real purpose in storing this on the server
     lastQueuedMatchmakingType: MatchmakingType
   }
 
