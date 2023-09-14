@@ -6,7 +6,7 @@ import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../com
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RaisedButton, TextButton } from '../material/button'
-import CheckBox from '../material/check-box'
+import { CheckBox } from '../material/check-box'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'

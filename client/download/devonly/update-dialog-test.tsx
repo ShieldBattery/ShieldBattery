@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import Card from '../../material/card'
-import CheckBox from '../../material/check-box'
+import { CheckBox } from '../../material/check-box'
 import { TextField } from '../../material/text-field'
 import { Subtitle1 } from '../../styles/typography'
 import { UpdateDialog } from '../update-overlay'

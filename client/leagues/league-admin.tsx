@@ -23,7 +23,7 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
-import CheckBox from '../material/check-box'
+import { CheckBox } from '../material/check-box'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
@@ -639,7 +639,11 @@ function EditLeagueForm({
         />
       </div>
 
-      <CheckBox {...bindCheckable('deleteImage')} label='Delete current image' tabIndex={0} />
+      <CheckBox
+        {...bindCheckable('deleteImage')}
+        label='Delete current image'
+        inputProps={{ tabIndex: 0 }}
+      />
 
       <TextField
         {...bindInput('name')}

@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../button'
 import Card from '../card'
-import CheckBox from '../check-box'
+import { CheckBox } from '../check-box'
 import { PasswordTextField } from '../password-text-field'
 import { TextField } from '../text-field'
 

@@ -27,7 +27,7 @@ import {
 } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
 import { RaisedButton } from '../material/button'
-import CheckBox from '../material/check-box'
+import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
@@ -100,22 +100,10 @@ const CheckBoxError = styled(InputError)`
   padding-bottom: 4px;
 `
 
-// TODO(2Pac): Move this to the Checkbox file once that's TS-ified
-interface CheckboxProps {
-  name: string
-  checked: boolean
-  label: React.ReactNode
-  value?: string
-  disabled?: boolean
-  className?: string
-  inputProps?: React.InputHTMLAttributes<HTMLInputElement>
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
-}
-
 function CheckBoxRowWithError({
   errorText,
   ...checkboxProps
-}: { errorText?: string } & CheckboxProps) {
+}: { errorText?: string } & CheckBoxProps) {
   return (
     <>
       <MultiCheckBoxFieldRow>

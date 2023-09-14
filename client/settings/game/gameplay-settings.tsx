@@ -12,7 +12,7 @@ import {
 } from '../../../common/settings/blizz-settings'
 import { useForm, Validator } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
-import CheckBox from '../../material/check-box'
+import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'

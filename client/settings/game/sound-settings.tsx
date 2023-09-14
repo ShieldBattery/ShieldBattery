@@ -8,7 +8,7 @@ import {
 } from '../../../common/settings/blizz-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
-import CheckBox from '../../material/check-box'
+import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import Slider from '../../material/slider'
