@@ -123,6 +123,10 @@ export function sqlRaw(str: string): SqlTemplate {
  * })))
  */
 export function sqlConcat(separator: string, templates: ReadonlyArray<SqlTemplate>): SqlTemplate {
+  if (!templates.length) {
+    return sql``
+  }
+
   const strings = new Array(templates.length).fill(separator)
   // Remove the separator before/after all the templates
   strings[0] = ''
