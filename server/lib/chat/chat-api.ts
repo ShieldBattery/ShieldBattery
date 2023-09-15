@@ -136,7 +136,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.NotEnoughPermissions:
       throw asHttpError(403, err)
     case ChatServiceErrorCode.UserBanned:
-      throw asHttpError(401, err)
+      throw asHttpError(403, err)
     default:
       assertUnreachable(err.code)
   }

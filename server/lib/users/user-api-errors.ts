@@ -20,7 +20,7 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
     case UserErrorCode.InvalidCode:
       throw asHttpError(410, err)
     case UserErrorCode.InvalidCredentials:
-      throw asHttpError(401, err)
+      throw asHttpError(403, err)
     case UserErrorCode.AccountBanned:
       throw asHttpError(403, err)
     case UserErrorCode.SessionExpired:
@@ -28,9 +28,9 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
     case UserErrorCode.UsernameTaken:
       throw asHttpError(409, err)
     case UserErrorCode.SuspiciousActivity:
-      throw asHttpError(401, err)
+      throw asHttpError(403, err)
     case UserErrorCode.MachineBanned:
-      throw asHttpError(401, err)
+      throw asHttpError(403, err)
 
     default:
       assertUnreachable(err.code)
