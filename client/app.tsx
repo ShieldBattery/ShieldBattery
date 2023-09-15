@@ -18,8 +18,10 @@ import { Faq } from './landing/faq'
 import { Splash } from './landing/splash'
 import { LoadingFilter } from './loading/loading-filter'
 import { LoggedOutContent } from './logged-out-content'
+import { logger } from './logging/logger'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
+import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteConnectedFilter } from './network/site-connected-filter'
 import {
@@ -28,7 +30,7 @@ import {
   TermsOfServicePage,
 } from './policies/policy-displays'
 import { LoadingDotsArea } from './progress/dots'
-import { useAppSelector } from './redux-hooks'
+import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
 import { getServerConfig } from './server-config-storage'
 import { ConnectedSettings } from './settings/settings'
@@ -58,6 +60,25 @@ const LoadableSystemBar = IS_ELECTRON
   ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar')).SystemBar }))
   : () => null
 
+function RedirectOnUnauthorized() {
+  const dispatch = useAppDispatch()
+
+  useEffect(() => {
+    const handler = (url: string) => {
+      logger.debug(`Got 401 Unauthorized response for: ${url}, removing active user session`)
+      dispatch({ type: '@auth/sessionUnauthorized', payload: undefined })
+    }
+
+    UNAUTHORIZED_EMITTER.on('unauthorized', handler)
+
+    return () => {
+      UNAUTHORIZED_EMITTER.removeListener('unauthorized', handler)
+    }
+  }, [dispatch])
+
+  return null
+}
+
 function MainContent() {
   const [matchesRoot] = useRoute('/')
   const loggedIn = useIsLoggedIn()
@@ -70,11 +91,14 @@ function MainContent() {
 
   const loggedInContent = (
     <LoggedInFilter>
-      <SiteConnectedFilter>
-        <LoadingFilter>
-          <MainLayout />
-        </LoadingFilter>
-      </SiteConnectedFilter>
+      <>
+        <RedirectOnUnauthorized />
+        <SiteConnectedFilter>
+          <LoadingFilter>
+            <MainLayout />
+          </LoadingFilter>
+        </SiteConnectedFilter>
+      </>
     </LoggedInFilter>
   )
 

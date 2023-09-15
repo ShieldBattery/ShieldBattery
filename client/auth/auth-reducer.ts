@@ -106,4 +106,7 @@ export default immerKeyedReducer<ReadonlyDeep<AuthState>>(DEFAULT_STATE, {
   ['@auth/permissionsChanged'](state, action) {
     state.self!.permissions = { ...action.payload.permissions }
   },
+  ['@auth/sessionUnauthorized']() {
+    return DEFAULT_STATE
+  },
 })

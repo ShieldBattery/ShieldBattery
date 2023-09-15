@@ -25,6 +25,7 @@ export type AuthActions =
   | AcceptPoliciesFailure
   | ChangeLanguage
   | PermissionsChanged
+  | SessionUnauthorized
 
 interface BaseAuthSuccess<T extends string, P = void> {
   type: T
@@ -122,4 +123,10 @@ export interface PermissionsChanged {
     userId: SbUserId
     permissions: SbPermissions
   }
+}
+
+/** The server told us we were unauthorized (e.g. our session expired or was revoked). */
+export interface SessionUnauthorized {
+  type: '@auth/sessionUnauthorized'
+  payload: void
 }

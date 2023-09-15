@@ -1,7 +1,18 @@
+import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
+
+export interface UnauthorizedEmitterEvents extends EventMap {
+  /** A request to `url` returned a 401 response. */
+  unauthorized: (url: string) => void
+}
+
+export class UnauthorizedEmitter extends TypedEventEmitter<UnauthorizedEmitterEvents> {}
+
+/** `EventEmitter` that emits events when a request returns a `401 Unauthorized` response. */
+export const UNAUTHORIZED_EMITTER = new UnauthorizedEmitter()
 
 // NOTE(tec27): I have no idea where to import this from otherwise lol
 type RequestInit = NonNullable<Parameters<typeof fetch>[1]>
@@ -11,6 +22,11 @@ async function ensureSuccessStatus(res: Response): Promise<Response> {
     return res
   } else {
     const text = await res.text()
+
+    if (res.status === 401) {
+      UNAUTHORIZED_EMITTER.emit('unauthorized', res.url)
+    }
+
     throw new FetchError(res, text)
   }
 }
