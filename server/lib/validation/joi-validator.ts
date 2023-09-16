@@ -58,7 +58,12 @@ export type ValidatedRequestData<T extends JoiValidationDescriptor> = {
   body: ValidatedBodyType<T>
 }
 
-/** Validates a Koa request using Joi, returning typed values that have been normalized by Joi. */
+/**
+ * Validates a Koa request using Joi, returning typed values that have been normalized by Joi.
+ *
+ * PATCH requests are using a convention where if they recieve a `patches` field in their body, it
+ * is assumed that it was JSON.stringified, so we JSON.parse it here before validating its contents.
+ */
 export function validateRequest<T extends JoiValidationDescriptor>(
   ctx: RouterContext,
   { params, query, body }: T,
@@ -84,7 +89,15 @@ export function validateRequest<T extends JoiValidationDescriptor>(
     queryResult = result.value
   }
   if (body) {
-    const result = body.validate(ctx.request.body)
+    let bodyToValidate = ctx.request.body
+    if (ctx.request.method.toLowerCase() === 'patch' && Object.hasOwn(bodyToValidate, 'patches')) {
+      try {
+        bodyToValidate = { ...bodyToValidate, patches: JSON.parse(bodyToValidate.patches) }
+      } catch (err) {
+        throw new httpErrors.BadRequest('The field `patches` is not a valid JSON')
+      }
+    }
+    const result = body.validate(bodyToValidate)
     if (result.error) {
       throw new httpErrors.BadRequest(`Invalid request body - ${result.error.message}`)
     }

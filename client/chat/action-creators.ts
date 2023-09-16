@@ -92,17 +92,14 @@ export function updateChannel(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const params: EditChannelRequest = {}
-    for (const [key, value] of Object.entries(channelChanges)) {
-      if (value !== undefined) {
-        params[key as keyof EditChannelRequest] = String(value === '' ? null : value)
-      }
+    const params = {
+      patches: JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
     }
 
     const result = await fetchJson<EditChannelResponse>(apiUrl`chat/${channelId}`, {
       method: 'PATCH',
       signal: spec.signal,
-      body: encodeBodyAsParams<EditChannelRequest>(params),
+      body: encodeBodyAsParams(params),
     })
 
     dispatch({

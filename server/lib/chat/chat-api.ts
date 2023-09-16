@@ -164,21 +164,18 @@ export class ChatApi {
   @httpBefore(throttleMiddleware(editThrottle, ctx => String(ctx.session!.user!.id)))
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
-    const { body } = validateRequest(ctx, {
-      body: Joi.object<EditChannelRequest>({
-        description: Joi.string().allow(null),
-        topic: Joi.string().allow(null),
+    const {
+      body: { patches },
+    } = validateRequest(ctx, {
+      body: Joi.object<{ patches: EditChannelRequest }>({
+        patches: Joi.object<EditChannelRequest>({
+          description: Joi.string().allow(null),
+          topic: Joi.string().allow(null),
+        }),
       }),
     })
 
-    if (body.description === 'null') {
-      body.description = null
-    }
-    if (body.topic === 'null') {
-      body.topic = null
-    }
-
-    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, body)
+    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, patches)
   }
 
   @httpDelete('/:channelId')

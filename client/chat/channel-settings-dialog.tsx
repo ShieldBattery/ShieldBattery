@@ -12,8 +12,8 @@ import { useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary } from '../styles/colors'
 import { body1, singleLine } from '../styles/typography'
-import { ChannelSettingsGeneral } from './channel-settings-general'
 import { ALL_CHANNEL_SETTINGS_SECTIONS, ChannelSettingsSection } from './channel-settings-section'
+import { ChannelSettingsGeneral } from './settings/general'
 
 const Container = styled.div`
   display: flex;
