@@ -173,11 +173,6 @@ function PermissionsEditorForm({
       <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
       <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
       <CheckBox
-        {...bindCheckable('manageChannelContent')}
-        label='Manage channel content'
-        inputProps={inputProps}
-      />
-      <CheckBox
         {...bindCheckable('manageLeagues')}
         label='Manage leagues'
         inputProps={inputProps}

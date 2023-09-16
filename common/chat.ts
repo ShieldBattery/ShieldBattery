@@ -2,6 +2,8 @@ import { Opaque } from 'type-fest'
 import { Jsonify } from './json'
 import { SbUser, SbUserId } from './users/sb-user'
 
+export const CHANNEL_BANNER_WIDTH = 736 * 2
+export const CHANNEL_BANNER_HEIGHT = 414 * 2
 export const CHANNEL_BADGE_WIDTH = 80 * 4
 export const CHANNEL_BADGE_HEIGHT = 80 * 4
 
@@ -28,7 +30,6 @@ export enum ChatServiceErrorCode {
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
-  ChannelBannerNotFound = 'ChannelBannerNotFound',
   ChannelNotFound = 'ChannelNotFound',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',

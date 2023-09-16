@@ -824,7 +824,6 @@ export class AdminUserApi {
           editPermissions: Joi.boolean().required(),
           debug: Joi.boolean().required(),
           banUsers: Joi.boolean().required(),
-          manageChannelContent: Joi.boolean().required(),
           manageLeagues: Joi.boolean().required(),
           manageMaps: Joi.boolean().required(),
           manageMapPools: Joi.boolean().required(),

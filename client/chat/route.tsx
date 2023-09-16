@@ -39,7 +39,7 @@ export function ChannelRoute({
 }
 
 export function ChannelRouteComponent(props: { params: any }) {
-  const isAdmin = useHasAnyPermission('manageChannelContent', 'moderateChatChannels')
+  const isAdmin = useHasAnyPermission('moderateChatChannels')
 
   return (
     <Suspense fallback={<LoadingDotsArea />}>
