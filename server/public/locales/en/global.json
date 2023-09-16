@@ -154,12 +154,6 @@
       "deletedChannel": "deleted-channel"
     },
     "channelSettings": {
-      "banner": {
-        "availableOverline": "Available channel banners",
-        "defaultOverline": "Default channel banners",
-        "openFullSize": "Open full size",
-        "title": "Banner"
-      },
       "general": {
         "descriptionLabel": "Description",
         "title": "General",

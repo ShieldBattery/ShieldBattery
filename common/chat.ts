@@ -346,7 +346,6 @@ export interface JoinChannelResponse {
 export interface EditChannelRequest {
   description?: string | null
   topic?: string | null
-  bannerId?: string
 }
 
 /**

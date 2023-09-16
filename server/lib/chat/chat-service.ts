@@ -24,10 +24,6 @@ import {
   makeSbChannelId,
   toChatUserProfileJson,
 } from '../../../common/chat'
-import {
-  makeChannelBannerId,
-  toChannelBannerJson,
-} from '../../../common/chat-channels/channel-banners'
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
 import { Patch } from '../../../common/patch'
@@ -45,7 +41,6 @@ import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { getChannelBannerById, getChannelBannersByIds } from './channel-banner-models'
 import {
   ChatMessage,
   FullChannelInfo,
@@ -408,23 +403,6 @@ export default class ChatService {
       )
     }
 
-    if (updates.bannerId) {
-      const banner = await getChannelBannerById(makeChannelBannerId(updates.bannerId))
-      if (!banner) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.ChannelBannerNotFound,
-          'Channel banner not found',
-        )
-      }
-
-      if (banner.limited && !banner.availableIn.includes(channelId)) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.ChannelBannerNotAvailable,
-          'Channel banner not available',
-        )
-      }
-    }
-
     const updatedChannel: Patch<EditChannelRequest> = { ...updates }
 
     const channel = await updateChannel(channelId, updatedChannel)
@@ -724,16 +702,11 @@ export default class ChatService {
       joinedChannelInfos.push(toJoinedChannelInfo(channel))
     }
 
-    const channelBanners = await getChannelBannersByIds(
-      channels.filter(c => c.bannerId).map(c => c.bannerId!),
-    )
-
     return {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
       hasMoreChannels: channels.length >= limit,
-      channelBanners: channelBanners.map(b => toChannelBannerJson(b)),
     }
   }
 

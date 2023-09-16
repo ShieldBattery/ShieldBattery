@@ -20,7 +20,6 @@ import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline6 } from '../styles/typography'
 import {
-  getBatchChannelBanner,
   getBatchChannelInfo,
   joinChannelWithErrorHandling,
   navigateToChannel,
@@ -154,11 +153,7 @@ export function ConnectedChannelInfoCard({
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
-  const bannerId = detailedChannelInfo?.bannerId
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
-  const bannerInfo = useAppSelector(s =>
-    bannerId ? s.channelBanners.idToInfo.get(bannerId) : undefined,
-  )
   const isAdmin = useHasAnyPermission('moderateChatChannels')
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
@@ -170,12 +165,6 @@ export function ConnectedChannelInfoCard({
   useEffect(() => {
     dispatch(getBatchChannelInfo(channelId))
   }, [dispatch, channelId])
-
-  useEffect(() => {
-    if (bannerId) {
-      dispatch(getBatchChannelBanner(bannerId))
-    }
-  }, [dispatch, bannerId])
 
   const onViewClick = useStableCallback(() => {
     navigateToChannel(channelId, channelName)
@@ -269,8 +258,8 @@ export function ConnectedChannelInfoCard({
       ) : null}
 
       <ChannelBannerAndBadge>
-        {bannerInfo?.imagePath ? (
-          <ChannelBanner src={bannerInfo.imagePath} />
+        {detailedChannelInfo?.bannerPath ? (
+          <ChannelBanner src={detailedChannelInfo.bannerPath} />
         ) : (
           <ChannelBannerPlaceholderImage />
         )}

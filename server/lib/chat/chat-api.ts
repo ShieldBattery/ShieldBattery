@@ -168,7 +168,6 @@ export class ChatApi {
       body: Joi.object<EditChannelRequest>({
         description: Joi.string().allow(null),
         topic: Joi.string().allow(null),
-        bannerId: Joi.string().uuid(),
       }),
     })
 

@@ -12,7 +12,6 @@ import { useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary } from '../styles/colors'
 import { body1, singleLine } from '../styles/typography'
-import { ChannelSettingsBanner } from './channel-settings-banner'
 import { ChannelSettingsGeneral } from './channel-settings-general'
 import { ALL_CHANNEL_SETTINGS_SECTIONS, ChannelSettingsSection } from './channel-settings-section'
 
@@ -59,11 +58,6 @@ export function ChannelSettingsDialog({
           channelDescription={detailedChannelInfo?.description}
           channelTopic={joinedChannelInfo?.topic}
         />
-      )
-      break
-    case ChannelSettingsSection.Banner:
-      settingsContent = (
-        <ChannelSettingsBanner channelId={channelId} bannerId={detailedChannelInfo?.bannerId} />
       )
       break
     default:
@@ -139,9 +133,6 @@ function NavEntry({
   switch (section) {
     case ChannelSettingsSection.General:
       title = t('chat.channelSettings.general.title', 'General')
-      break
-    case ChannelSettingsSection.Banner:
-      title = t('chat.channelSettings.banner.title', 'Banner')
       break
     default:
       assertUnreachable(section)

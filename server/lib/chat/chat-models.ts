@@ -15,7 +15,7 @@ import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
@@ -146,7 +146,6 @@ export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannel
   return {
     id: channel.id,
     description: channel.description,
-    bannerId: channel.bannerId,
     userCount: channel.userCount,
   }
 }
@@ -172,7 +171,6 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     ownerId: props.owner_id,
     topic: props.topic,
     description: props.description,
-    bannerId: props.banner_id,
   }
 }
 
@@ -217,45 +215,36 @@ export async function updateChannel(
 ): Promise<FullChannelInfo> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    let query = sql`
       UPDATE channels
       SET
     `
 
-    let first = true
-    for (const [_key, value] of Object.entries(updates)) {
-      if (value === undefined) {
-        continue
-      }
-
-      const key = _key as keyof typeof updates
-      if (!first) {
-        query.append(sql`, `)
-      } else {
-        first = false
-      }
-
-      switch (key) {
-        case 'description':
-          query.append(sql`description = ${value}`)
-          break
-        case 'topic':
-          query.append(sql`topic = ${value}`)
-          break
-        case 'bannerId':
-          query.append(sql`banner_id = ${value}`)
-          break
-
-        default:
-          assertUnreachable(key)
-      }
-    }
-
-    if (first) {
+    const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+    if (!updateEntries.length) {
       throw new Error('No columns updated')
     }
 
-    query.append(sql`
+    query = query.append(
+      sqlConcat(
+        ', ',
+        updateEntries.map(([_key, value]) => {
+          const key = _key as keyof typeof updates
+
+          switch (key) {
+            case 'description':
+              return sql`description = ${value}`
+            case 'topic':
+              return sql`topic = ${value}`
+
+            default:
+              return assertUnreachable(key)
+          }
+        }),
+      ),
+    )
+
+    query = query.append(sql`
       WHERE id = ${channelId}
       RETURNING *
     `)
