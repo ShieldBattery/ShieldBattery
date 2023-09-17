@@ -587,8 +587,7 @@
             "createChannel": "Crear canal",
             "noMatchingChannels": "No hay canales de chat coincidentes.",
             "pageHeadline": "Canales de chat",
-            "retrievingError": "Hubo un error al recuperar los canales de chat.",
-            "manageChannelContent": "Administrar el contenido del canal"
+            "retrievingError": "Hubo un error al recuperar los canales de chat."
         },
         "channelMenu": {
             "kickingError": "Error al patear {{user.name}}",

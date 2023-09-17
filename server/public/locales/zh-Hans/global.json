@@ -663,8 +663,7 @@
             "createChannel": "创建频道",
             "noMatchingChannels": "没有匹配的聊天频道。",
             "pageHeadline": "聊天频道",
-            "retrievingError": "检索聊天频道时出错。",
-            "manageChannelContent": "管理频道内容"
+            "retrievingError": "检索聊天频道时出错。"
         },
         "channelMenu": {
             "banAction": "禁令 {{user}}",

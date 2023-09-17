@@ -627,8 +627,7 @@
             "noMatchingChannels": "$🗡No matching chat channels.🗡!",
             "pageHeadline": "$🗡Chat channels🗡!",
             "retrievingError": "$🗡There was an error retrieving the chat channels.🗡!",
-            "createChannel": "$🗡Create channel🗡!",
-            "manageChannelContent": "$🗡Manage channel content🗡!"
+            "createChannel": "$🗡Create channel🗡!"
         },
         "channelName": {
             "deletedChannel": "$🗡deleted-channel🗡!"
