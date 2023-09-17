@@ -2,7 +2,6 @@ export interface SbPermissions {
   editPermissions: boolean
   debug: boolean
   banUsers: boolean
-  manageChannelContent: boolean
   manageLeagues: boolean
   manageMaps: boolean
   manageMapPools: boolean
@@ -19,7 +18,6 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   editPermissions: false,
   debug: false,
   banUsers: false,
-  manageChannelContent: false,
   manageLeagues: false,
   manageMaps: false,
   manageMapPools: false,

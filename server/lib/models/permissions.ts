@@ -11,7 +11,6 @@ function convertFromDb(props: DbPermissions): SbPermissions {
     editPermissions: props.edit_permissions,
     debug: props.debug,
     banUsers: props.ban_users,
-    manageChannelContent: props.manage_channel_content,
     manageLeagues: props.manage_leagues,
     manageMaps: props.manage_maps,
     manageMapPools: props.manage_map_pools,
@@ -38,9 +37,9 @@ export async function createPermissions(
 
 export async function getPermissions(userId: SbUserId): Promise<SbPermissions | undefined> {
   const query = sql`
-    SELECT user_id, edit_permissions, debug, ban_users, manage_channel_content, manage_leagues,
-        manage_maps, manage_map_pools, mass_delete_maps, manage_matchmaking_times,
-        manage_rally_point_servers, moderate_chat_channels, manage_matchmaking_seasons
+    SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
+        manage_map_pools, mass_delete_maps, manage_matchmaking_times, manage_rally_point_servers,
+        moderate_chat_channels, manage_matchmaking_seasons
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -64,7 +63,6 @@ export async function updatePermissions(
       edit_permissions = ${!!perms.editPermissions},
       debug = ${!!perms.debug},
       ban_users = ${!!perms.banUsers},
-      manage_channel_content = ${!!perms.manageChannelContent},
       manage_leagues = ${!!perms.manageLeagues},
       manage_maps = ${!!perms.manageMaps},
       manage_map_pools = ${!!perms.manageMapPools},

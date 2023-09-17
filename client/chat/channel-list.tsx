@@ -2,10 +2,8 @@ import { debounce } from 'lodash-es'
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { Link } from 'wouter'
 import { BasicChannelInfo } from '../../common/chat'
 import { urlPath } from '../../common/urls'
-import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -68,7 +66,6 @@ export function ChannelList() {
   useTrackPageView('/chat/')
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isAdmin = useHasAnyPermission('manageChannelContent')
   const autoFocusRef = useAutoFocusRef<SearchInputHandle>()
 
   const [channels, setChannels] = useState<BasicChannelInfo[]>()
@@ -171,11 +168,6 @@ export function ChannelList() {
     <Container>
       <TitleBar>
         <PageHeadline>{t('chat.channelList.pageHeadline', 'Chat channels')}</PageHeadline>
-        {isAdmin ? (
-          <Link href='/chat/admin/channel-content'>
-            {t('chat.channelList.manageChannelContent', 'Manage channel content')}
-          </Link>
-        ) : null}
         <FlexSpacer />
         <RaisedButton
           label={t('chat.channelList.createChannel', 'Create channel')}
