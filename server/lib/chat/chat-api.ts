@@ -23,6 +23,8 @@ import {
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
+import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
+import { MAX_IMAGE_SIZE } from '../file-upload/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -161,7 +163,10 @@ export class ChatApi {
   }
 
   @httpPatch('/:channelId')
-  @httpBefore(throttleMiddleware(editThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(
+    throttleMiddleware(editThrottle, ctx => String(ctx.session!.user!.id)),
+    handleMultipartFiles(MAX_IMAGE_SIZE),
+  )
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {

@@ -95,12 +95,13 @@ export function validateRequest<T extends JoiValidationDescriptor>(
     if (
       (reqMethodLowerCase === 'post' || reqMethodLowerCase === 'patch') &&
       ctx.request.headers['content-type']?.toLocaleLowerCase().startsWith('multipart/form-data') &&
+      bodyToValidate &&
       Object.hasOwn(bodyToValidate, 'jsonBody')
     ) {
       try {
-        bodyToValidate = { ...bodyToValidate, patches: JSON.parse(bodyToValidate.patches) }
+        bodyToValidate = { ...bodyToValidate, jsonBody: JSON.parse(bodyToValidate.jsonBody) }
       } catch (err) {
-        throw new httpErrors.BadRequest('The field `patches` is not a valid JSON')
+        throw new httpErrors.BadRequest('The field `jsonBody` is not a valid JSON')
       }
     }
     const result = body.validate(bodyToValidate)
