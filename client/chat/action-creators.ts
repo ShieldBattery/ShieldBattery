@@ -92,14 +92,20 @@ export function updateChannel(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const params = {
-      patches: JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
-    }
+    // TODO(2Pac): There's technically no reason to use FormData here at the moment, but I just
+    // wanted to test out the new system of using it. And we're gonna need it soon anyway, as I'm
+    // about to add banner images here as well (in the next PR most likely). Remove this comment
+    // once that's done.
+    const formData = new FormData()
+    formData.append(
+      'jsonBody',
+      JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
+    )
 
     const result = await fetchJson<EditChannelResponse>(apiUrl`chat/${channelId}`, {
       method: 'PATCH',
       signal: spec.signal,
-      body: encodeBodyAsParams(params),
+      body: formData,
     })
 
     dispatch({

@@ -165,17 +165,17 @@ export class ChatApi {
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      body: { patches },
+      body: { jsonBody },
     } = validateRequest(ctx, {
-      body: Joi.object<{ patches: EditChannelRequest }>({
-        patches: Joi.object<EditChannelRequest>({
+      body: Joi.object<{ jsonBody: EditChannelRequest }>({
+        jsonBody: Joi.object<EditChannelRequest>({
           description: Joi.string().allow(null),
           topic: Joi.string().allow(null),
         }),
       }),
     })
 
-    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, patches)
+    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, jsonBody)
   }
 
   @httpDelete('/:channelId')

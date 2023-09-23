@@ -61,8 +61,9 @@ export type ValidatedRequestData<T extends JoiValidationDescriptor> = {
 /**
  * Validates a Koa request using Joi, returning typed values that have been normalized by Joi.
  *
- * PATCH requests are using a convention where if they recieve a `patches` field in their body, it
- * is assumed that it was JSON.stringified, so we JSON.parse it here before validating its contents.
+ * POST and PATCH requests are using a convention where if they recieve a `jsonBody` field in a
+ * request using "multipart/form-data" content type, it is assumed that it was JSON.stringified, so
+ * we JSON.parse it here before validating its contents.
  */
 export function validateRequest<T extends JoiValidationDescriptor>(
   ctx: RouterContext,
@@ -89,8 +90,13 @@ export function validateRequest<T extends JoiValidationDescriptor>(
     queryResult = result.value
   }
   if (body) {
+    const reqMethodLowerCase = ctx.request.method.toLowerCase()
     let bodyToValidate = ctx.request.body
-    if (ctx.request.method.toLowerCase() === 'patch' && Object.hasOwn(bodyToValidate, 'patches')) {
+    if (
+      (reqMethodLowerCase === 'post' || reqMethodLowerCase === 'patch') &&
+      ctx.request.headers['content-type']?.toLocaleLowerCase().startsWith('multipart/form-data') &&
+      Object.hasOwn(bodyToValidate, 'jsonBody')
+    ) {
       try {
         bodyToValidate = { ...bodyToValidate, patches: JSON.parse(bodyToValidate.patches) }
       } catch (err) {
