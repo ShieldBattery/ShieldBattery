@@ -1,29 +1,28 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { ReadonlyDeep } from 'type-fest'
 import {
   PASSWORD_MINLENGTH,
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../../common/constants'
-import { MatchmakingType } from '../../../common/matchmaking'
 import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
-import { getPermissions } from '../models/permissions'
-import { Redis } from '../redis'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { Clock } from '../time/clock'
 import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { UserApiError, convertUserApiErrors } from '../users/user-api-errors'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { attemptLogin, findSelfById, maybeMigrateSignupIp, updateUser } from '../users/user-model'
+import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
+import { UserService } from '../users/user-service'
 import { validateRequest } from '../validation/joi-validator'
-import ensureLoggedIn from './ensure-logged-in'
-import initSession from './init'
+import { getJwt } from './jwt-session-middleware'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)
@@ -46,11 +45,12 @@ interface LogInRequestBody {
 export class SessionApi {
   constructor(
     private userIdentifierManager: UserIdentifierManager,
-    private redis: Redis,
+    private userService: UserService,
+    private clock: Clock,
   ) {}
 
   @httpGet('/')
-  async getCurrentSession(ctx: RouterContext): Promise<ClientSessionInfo> {
+  async getCurrentSession(ctx: RouterContext): Promise<ReadonlyDeep<ClientSessionInfo>> {
     const {
       query: { locale },
     } = validateRequest(ctx, {
@@ -74,36 +74,20 @@ export class SessionApi {
     }
 
     if (!user) {
-      await ctx.regenerateSession()
+      await ctx.deleteSession()
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
 
     if (locale && !user.locale) {
-      user = await updateUser(user.id, { locale })
+      await this.userService.updateCurrentUser(user.id, { locale }, ctx)
     }
 
-    // This would be a very weird occurrence, so we just throw a 500 here.
-    if (!user) {
-      throw new Error("couldn't find current user")
-    }
-
-    const sessionInfo: ClientSessionInfo = {
-      sessionId: ctx.sessionId!,
-      user,
-      permissions: ctx.session.permissions,
-      lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
-    }
-    // Ensure that the currently saved session has matching values to what we just retrieved from
-    // the DB (prevents things like a user having a session with outdated email verification status
-    // due to a botched migration or something)
-    initSession(ctx, sessionInfo)
-
-    return sessionInfo
+    return { ...ctx.session, jwt: await getJwt(ctx, this.clock.now()) }
   }
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(loginThrottle, ctx => ctx.ip))
-  async startNewSession(ctx: RouterContext): Promise<ClientSessionInfo> {
+  async startNewSession(ctx: RouterContext): Promise<ReadonlyDeep<ClientSessionInfo>> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<LogInRequestBody>({
         username: Joi.string()
@@ -129,7 +113,7 @@ export class SessionApi {
       }
 
       if (!user) {
-        await ctx.regenerateSession()
+        await ctx.deleteSession()
       }
     }
 
@@ -167,45 +151,24 @@ export class SessionApi {
       })
     }
 
-    await ctx.regenerateSession()
-    const perms = (await getPermissions(user.id))!
+    await ctx.beginSession(user.id, !!remember)
+    user = ctx.session!.user
     await maybeMigrateSignupIp(user.id, ctx.ip)
 
     if (locale && !user.locale) {
-      user = await updateUser(user.id, { locale })
+      await this.userService.updateCurrentUser(user.id, { locale }, ctx)
     }
 
-    // This would be a very weird occurrence, so we just throw a 500 here.
-    if (!user) {
-      throw new Error("couldn't find current user")
-    }
-
-    const sessionInfo: ClientSessionInfo = {
-      sessionId: ctx.sessionId!,
-      user,
-      permissions: perms,
-      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
-    }
-
-    initSession(ctx, sessionInfo)
-    if (!remember) {
-      // Make the cookie a session-expiring cookie
-      ctx.session!.cookie.maxAge = undefined
-      ctx.session!.cookie.expires = undefined
-    }
-
-    return sessionInfo
+    return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
   }
 
   @httpDelete('/')
-  @httpBefore(ensureLoggedIn)
   async endSession(ctx: RouterContext): Promise<void> {
-    if (!ctx.session?.user) {
+    if (!ctx.session) {
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
 
-    await this.redis.srem('user_sessions:' + ctx.session.user.id, ctx.sessionId!)
-    await ctx.regenerateSession()
+    await ctx.deleteSession()
     ctx.status = 204
   }
 }

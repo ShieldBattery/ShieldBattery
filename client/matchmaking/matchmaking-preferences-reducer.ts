@@ -11,12 +11,10 @@ export interface FetchedMatchmakingPreferences {
 
 export interface MatchmakingPreferencesState {
   byType: Map<MatchmakingType, FetchedMatchmakingPreferences>
-  lastQueuedMatchmakingType: MatchmakingType
 }
 
 const DEFAULT_STATE: Immutable<MatchmakingPreferencesState> = {
   byType: new Map(),
-  lastQueuedMatchmakingType: MatchmakingType.Match1v1,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -45,18 +43,5 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     const { preferences, mapPoolOutdated } = action.payload
     state.byType.set(type, { preferences, mapPoolOutdated })
-  },
-
-  ['@matchmaking/updateLastQueuedMatchmakingType'](state, action) {
-    state.lastQueuedMatchmakingType = action.payload
-  },
-
-  ['@auth/loadCurrentSession'](state, action) {
-    const { lastQueuedMatchmakingType } = action.payload
-    if (lastQueuedMatchmakingType) {
-      state.lastQueuedMatchmakingType = lastQueuedMatchmakingType
-    }
-
-    return state
   },
 })

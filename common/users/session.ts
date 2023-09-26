@@ -1,4 +1,3 @@
-import { MatchmakingType } from '../matchmaking'
 import { SbPermissions } from './permissions'
 import { SelfUser } from './sb-user'
 
@@ -7,8 +6,7 @@ import { SelfUser } from './sb-user'
  * data should closely match what we store on the server in the user's session.
  */
 export interface ClientSessionInfo {
-  sessionId: string
   user: SelfUser
   permissions: SbPermissions
-  lastQueuedMatchmakingType: MatchmakingType
+  jwt: string
 }

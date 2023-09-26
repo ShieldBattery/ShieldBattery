@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import uid from 'uid-safe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   EMAIL_MAXLENGTH,
@@ -68,20 +69,16 @@ import { getPermissions, updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import initSession from '../session/init'
-import { updateAllSessions, updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
+import { getJwt } from '../session/jwt-session-middleware'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { Clock } from '../time/clock'
 import { validateRequest } from '../validation/joi-validator'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { BanEnacter } from './ban-enacter'
 import { retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
-import {
-  addEmailVerificationCode,
-  consumeEmailVerificationCode,
-  getEmailVerificationsCount,
-} from './email-verification-models'
+import { addEmailVerificationCode, getEmailVerificationsCount } from './email-verification-models'
 import { SuspiciousIpsService } from './suspicious-ips'
 import {
   convertUserApiErrors,
@@ -98,10 +95,10 @@ import {
   findUserByName,
   findUsersById,
   retrieveUserCreatedDate,
-  updateUser,
   UserUpdatables,
 } from './user-model'
 import { UserRelationshipService } from './user-relationship-service'
+import { UserService } from './user-service'
 import { getUserStats } from './user-stats-model'
 import { joiUserId } from './user-validators'
 
@@ -183,7 +180,9 @@ export class UserApi {
     private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
     private userRelationshipService: UserRelationshipService,
-    private userIdentifierCleanup: UserIdentifierCleanupJob,
+    private _userIdentifierCleanup: UserIdentifierCleanupJob,
+    private userService: UserService,
+    private clock: Clock,
   ) {}
 
   @httpPost('/')
@@ -263,20 +262,9 @@ export class UserApi {
       createdUser.permissions.editPermissions = true
     }
 
-    const sessionInfo: ClientSessionInfo = {
-      sessionId: '',
-      user: createdUser.user,
-      permissions: createdUser.permissions,
-      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
-    }
+    await ctx.beginSession(createdUser.user.id, false)
 
-    // regenerate the session to ensure that logged in sessions and anonymous sessions don't
-    // share a session ID
-    await ctx.regenerateSession()
-    initSession(ctx, sessionInfo)
-    sessionInfo.sessionId = ctx.sessionId!
-
-    const code = cuid()
+    const code = await uid(12)
     await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })
     // No need to await for this
     sendVerificationEmail({
@@ -286,7 +274,7 @@ export class UserApi {
       username: createdUser.user.name,
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
-    return sessionInfo
+    return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
   }
 
   @httpGet('/:id/profile')
@@ -448,12 +436,7 @@ export class UserApi {
       }
     }
 
-    const user = await updateUser(params.id, updates)
-    if (!user) {
-      throw new Error("Current user couldn't be found for updating")
-    }
-
-    await updateAllSessionsForCurrentUser(ctx, { user })
+    const { user } = await this.userService.updateCurrentUser(params.id, updates, ctx)
 
     return { user }
   }
@@ -474,12 +457,11 @@ export class UserApi {
       throw new httpErrors.Unauthorized("Can't change another user's language")
     }
 
-    const user = await updateUser(params.id, { locale: body.language })
-    if (!user) {
-      throw new Error("Current user couldn't be found for updating")
-    }
-
-    await updateAllSessionsForCurrentUser(ctx, { user })
+    const { user } = await this.userService.updateCurrentUser(
+      params.id,
+      { locale: body.language },
+      ctx,
+    )
 
     return { user }
   }
@@ -507,7 +489,7 @@ export class UserApi {
         throw new httpErrors.Conflict('User not found')
       }
 
-      await updateUser(user.id, { password: await hashPass(password) })
+      await this.userService.updateCurrentUser(user.id, { password: await hashPass(password) })
     })
 
     ctx.status = 204
@@ -573,7 +555,7 @@ export class UserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const emailVerified = await consumeEmailVerificationCode({
+    const emailVerified = await this.userService.verifyEmail({
       id: user.id,
       email: user.email,
       code,
@@ -581,11 +563,6 @@ export class UserApi {
     if (!emailVerified) {
       throw new UserApiError(UserErrorCode.InvalidCode, 'invalid code')
     }
-
-    const updatedUser = await findSelfById(params.id)
-
-    // Update all of the user's sessions to indicate that their email is now indeed verified.
-    await updateAllSessionsForCurrentUser(ctx, { user: updatedUser })
 
     // Last thing to do is to notify all of the user's opened sockets that their email is now
     // verified
@@ -842,11 +819,6 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    if (ctx.session!.user!.id === params.id) {
-      await updateAllSessionsForCurrentUser(ctx, { permissions })
-    } else {
-      await updateAllSessions(params.id, { permissions })
-    }
     this.publisher.publish(`/userProfiles/${params.id}`, {
       action: 'permissionsChanged',
       userId: params.id,

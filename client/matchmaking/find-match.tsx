@@ -21,6 +21,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
+import { JsonLocalStorageValue } from '../local-storage'
 import { RaisedButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
@@ -45,7 +46,7 @@ import {
   singleLine,
   subtitle1,
 } from '../styles/typography'
-import { findMatch, getCurrentMapPool, updateLastQueuedMatchmakingType } from './action-creators'
+import { findMatch, getCurrentMapPool } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
@@ -127,12 +128,26 @@ function DisabledContents(props: DisabledContentsProps) {
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
 type ExpandedMatchmakingType = MatchmakingType | '3v3'
 
+// TODO(tec27): Write a hook for user-specific storage of this
+const lastActiveTabStorage = new JsonLocalStorageValue<ExpandedMatchmakingType>(
+  'matchmaking.findMatch.lastActiveTab',
+)
+
+function normalizeExpandedMatchmakingType(type?: string): ExpandedMatchmakingType {
+  switch (type) {
+    case MatchmakingType.Match1v1:
+    case MatchmakingType.Match2v2:
+    case '3v3':
+      return type
+    default:
+      return MatchmakingType.Match1v1
+  }
+}
+
 export function FindMatch() {
   const { t } = useTranslation()
-  const lastQueuedMatchmakingType = useAppSelector(
-    s => s.matchmakingPreferences.lastQueuedMatchmakingType,
-  )
-  const [activeTab, setActiveTab] = useState(lastQueuedMatchmakingType as ExpandedMatchmakingType)
+  const lastActiveTab = normalizeExpandedMatchmakingType(lastActiveTabStorage.getValue())
+  const [activeTab, setActiveTab] = useState(lastActiveTab)
   useTrackPageView(urlPath`/matchmaking/find/${activeTab}`)
 
   const dispatch = useAppDispatch()
@@ -157,16 +172,10 @@ export function FindMatch() {
   })
   const formRef = useRef<FindMatchFormRef>(null)
 
-  const onTabChange = useCallback(
-    (tab: ExpandedMatchmakingType) => {
-      if (tab !== '3v3') {
-        dispatch(updateLastQueuedMatchmakingType(tab))
-      }
-
-      setActiveTab(tab)
-    },
-    [dispatch],
-  )
+  const onTabChange = useCallback((tab: ExpandedMatchmakingType) => {
+    lastActiveTabStorage.setValue(tab)
+    setActiveTab(tab)
+  }, [])
 
   const onSubmit = useCallback(
     (prefs: Immutable<MatchmakingPreferences>) => {

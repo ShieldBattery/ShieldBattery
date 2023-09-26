@@ -16,6 +16,7 @@ import { FileStoreType, PublicAssetsConfig } from './lib/file-upload/public-asse
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
+import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
 import { WebsocketServer } from './websockets'
 
@@ -126,14 +127,8 @@ export default function applyRoutes(
     async (ctx: RouterContext) => {
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
         serverConfig,
-      }
-      if (ctx.session?.user) {
-        initData.session = {
-          sessionId: ctx.sessionId!,
-          user: ctx.session.user,
-          permissions: ctx.session.permissions,
-          lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
-        }
+        session:
+          ctx.session && ctx.state.jwtData ? { ...ctx.session, jwt: await getJwt(ctx) } : undefined,
       }
       await ctx.render('index', {
         initData,

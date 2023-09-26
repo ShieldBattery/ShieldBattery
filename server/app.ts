@@ -6,6 +6,7 @@ import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
+import koaJwt from 'koa-jwt'
 import views from 'koa-views'
 import path from 'path'
 import { container } from 'tsyringe'
@@ -25,9 +26,7 @@ import { Redis } from './lib/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
-import sessionMiddleware from './lib/session/middleware'
-import { migrateSessions } from './lib/session/migrate-sessions'
-import userSessionsMiddleware from './lib/session/user-sessions-middleware'
+import { MIGRATION_COOKIE, StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
 import createRoutes from './routes'
 import { WebsocketServer } from './websockets'
 
@@ -36,6 +35,9 @@ if (!process.env.SB_GQL_ORIGIN) {
 }
 if (!process.env.SB_CANONICAL_HOST) {
   throw new Error('SB_CANONICAL_HOST must be specified')
+}
+if (!process.env.SB_JWT_SECRET) {
+  throw new Error('SB_JWT_SECRET must be specified')
 }
 if (!process.env.SB_RALLY_POINT_SECRET) {
   throw new Error('SB_RALLY_POINT_SECRET must be specified')
@@ -110,6 +112,14 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
   }
 })
 
+const jwtMiddleware = koaJwt({
+  secret: process.env.SB_JWT_SECRET,
+  passthrough: true,
+  key: 'jwtData',
+  cookie: MIGRATION_COOKIE,
+})
+const jwtSessionMiddleware = jwtSessions()
+
 const unhandledRejections = new Set<Promise<any>>()
 process
   .on('unhandledRejection', (err, promise) => {
@@ -148,12 +158,12 @@ app
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
-  .use(sessionMiddleware)
-  .use(migrateSessions())
+  // TODO(tec27): 1 month after JWT sessions are deployed, the cookie setting here can be removed
+  .use(jwtMiddleware)
+  .use(jwtSessionMiddleware)
   .use(cors())
   .use(secureHeaders())
   .use(userIpsMiddleware())
-  .use(userSessionsMiddleware())
 
 const serverCallback = app.callback()
 const mainServer = http.createServer((req, res) => {
@@ -163,7 +173,12 @@ const mainServer = http.createServer((req, res) => {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   serverCallback(req, res)
 })
-container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddleware })
+container.register<Koa.Middleware>('jwtMiddleware', {
+  useValue: jwtMiddleware,
+})
+container.register<Koa.Middleware<StateWithJwt>>('sessionMiddleware', {
+  useValue: jwtSessionMiddleware,
+})
 container.register<http.Server>(http.Server, { useValue: mainServer })
 
 const websocketServer = container.resolve(WebsocketServer)

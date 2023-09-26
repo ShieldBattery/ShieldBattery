@@ -1,3 +1,4 @@
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
@@ -13,6 +14,62 @@ export class UnauthorizedEmitter extends TypedEventEmitter<UnauthorizedEmitterEv
 
 /** `EventEmitter` that emits events when a request returns a `401 Unauthorized` response. */
 export const UNAUTHORIZED_EMITTER = new UnauthorizedEmitter()
+
+export enum CredentialStorageType {
+  Session,
+  Local,
+  /**
+   * Select storage based on where credentials were previously stored. Defaults to Session if none
+   * are stored.
+   */
+  Auto,
+}
+
+const CREDENTIAL_KEY = 'sbjwt'
+
+export class CredentialStorage {
+  get(): string | undefined {
+    return (
+      sessionStorage.getItem(CREDENTIAL_KEY) ?? localStorage.getItem(CREDENTIAL_KEY) ?? undefined
+    )
+  }
+
+  store(token: string | undefined, storageType = CredentialStorageType.Auto): void {
+    let storage = sessionStorage
+    switch (storageType) {
+      case CredentialStorageType.Session:
+        storage = sessionStorage
+        break
+      case CredentialStorageType.Local:
+        storage = localStorage
+        break
+      case CredentialStorageType.Auto: {
+        if (sessionStorage.getItem(CREDENTIAL_KEY) || !localStorage.getItem(CREDENTIAL_KEY)) {
+          storage = sessionStorage
+        } else {
+          storage = localStorage
+        }
+        break
+      }
+      default:
+        storage = assertUnreachable(storageType)
+    }
+
+    // Ensure that if we had any other token in a different storage, it gets removed
+    sessionStorage.removeItem(CREDENTIAL_KEY)
+    localStorage.removeItem(CREDENTIAL_KEY)
+
+    if (token) {
+      storage.setItem(CREDENTIAL_KEY, token)
+    }
+  }
+}
+
+/**
+ * Storage for authorization tokens. Should be set whenever a new user auths and cleared when they
+ * log out.
+ */
+export const CREDENTIAL_STORAGE = new CredentialStorage()
 
 // NOTE(tec27): I have no idea where to import this from otherwise lol
 type RequestInit = NonNullable<Parameters<typeof fetch>[1]>
@@ -46,13 +103,27 @@ const DEFAULT_HEADERS: HeadersInit = {
   Accept: 'application/json',
 }
 
+function doFetch(url: string, opts: RequestInit): Promise<Response> {
+  if (opts.credentials === 'include') {
+    // Add the JWT to the request if we have one
+    const token = CREDENTIAL_STORAGE.get()
+    let withCredentials = opts
+    if (token) {
+      withCredentials = { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } }
+    }
+    return fetch(url, withCredentials)
+  } else {
+    return fetch(url, opts)
+  }
+}
+
 export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
   const serverUrl =
     path.startsWith('http:') || path.startsWith('https:') || path.startsWith('shieldbattery:')
       ? path
       : makeServerUrl(path)
   if (!opts) {
-    return fetch(serverUrl, { credentials: 'include', headers: DEFAULT_HEADERS })
+    return doFetch(serverUrl, { credentials: 'include', headers: DEFAULT_HEADERS })
   }
 
   // We generally want to merge headers with our defaults, so we have to do this explicitly
@@ -69,7 +140,7 @@ export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
     }
   }
 
-  return fetch(serverUrl, {
+  return doFetch(serverUrl, {
     credentials: 'include',
     ...opts,
     headers,

@@ -1,28 +1,35 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use async_trait::async_trait;
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use axum::http::StatusCode;
+use axum::Extension;
 use axum_client_ip::SecureClientIp;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
+use mobc_redis::redis::AsyncCommands;
 use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;
 use secrecy::{ExposeSecret, Secret};
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
+use tracing::error;
 
 use crate::email::{
     EmailChangeData, EmailVerificationData, MailgunClient, MailgunMessage, MailgunTemplate,
     PasswordChangeData,
 };
 use crate::errors::graphql_error;
-use crate::redis::RedisPool;
-use crate::sessions::{
-    update_all_sessions_for_user, AuthenticatedSession, SbPermissions, SbSession,
-};
+use crate::redis::{get_redis, RedisPool};
+use crate::sessions::SbSession;
+use crate::state::AppState;
 use crate::telemetry::spawn_with_tracing;
 use crate::users::auth::{get_stored_credentials, hash_password, validate_credentials};
 
@@ -44,25 +51,37 @@ pub struct CurrentUser {
     pub login_name: String,
     pub email: String,
     pub email_verified: bool,
-    pub accepted_privacy_version: u32,
-    pub accepted_terms_version: u32,
-    pub accepted_use_policy_version: u32,
+    pub accepted_privacy_version: i32,
+    pub accepted_terms_version: i32,
+    pub accepted_use_policy_version: i32,
+    pub locale: Option<String>,
+
     pub permissions: SbPermissions,
 }
 
-impl From<&AuthenticatedSession> for CurrentUser {
-    fn from(session: &AuthenticatedSession) -> Self {
-        CurrentUser {
-            id: session.data.user.id,
-            name: session.data.user.name.clone(),
-            login_name: session.data.user.login_name.clone(),
-            email: session.data.user.email.clone(),
-            email_verified: session.data.user.email_verified,
-            accepted_privacy_version: session.data.user.accepted_privacy_version,
-            accepted_terms_version: session.data.user.accepted_terms_version,
-            accepted_use_policy_version: session.data.user.accepted_use_policy_version,
-            permissions: session.data.permissions.clone(),
-        }
+#[async_trait]
+impl FromRequestParts<AppState> for CurrentUser {
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> std::result::Result<Self, Self::Rejection> {
+        let Extension(session): Extension<SbSession> = Extension::from_request_parts(parts, state)
+            .await
+            .map_err(|_| (StatusCode::UNAUTHORIZED, "Unauthorized"))?;
+        let SbSession::Authenticated(session) = session else {
+            return Err((StatusCode::UNAUTHORIZED, "Unauthorized"));
+        };
+
+        state
+            .current_user_repo
+            .load_cached_user(session.user_id, Default::default())
+            .await
+            .map_err(|e| {
+                error!("Failed to load cached user: {e:?}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+            })
     }
 }
 
@@ -84,11 +103,7 @@ impl UsersQuery {
     }
 
     async fn current_user(&self, ctx: &Context<'_>) -> Result<Option<CurrentUser>> {
-        let session = ctx.data_unchecked::<SbSession>();
-        match session {
-            SbSession::Authenticated(session) => Ok(Some(session.into())),
-            _ => Ok(None),
-        }
+        Ok(ctx.data_unchecked::<Option<CurrentUser>>().clone())
     }
 }
 
@@ -103,15 +118,14 @@ impl UsersMutation {
         #[graphql(secret)] current_password: String,
         changes: UpdateCurrentUserChanges,
     ) -> Result<CurrentUser> {
-        let SbSession::Authenticated(session) = ctx.data_unchecked::<SbSession>() else {
+        let Some(user) = ctx.data_unchecked::<Option<CurrentUser>>() else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
 
         let current_password = Secret::new(current_password);
-        let stored_credentials =
-            get_stored_credentials(session.data.user.id, ctx.data_unchecked::<PgPool>())
-                .await
-                .wrap_err("Failed to get stored credentials")?;
+        let stored_credentials = get_stored_credentials(user.id, ctx.data_unchecked::<PgPool>())
+            .await
+            .wrap_err("Failed to get stored credentials")?;
         let credentials_valid = validate_credentials(current_password, stored_credentials)
             .await
             .wrap_err("Failed to validate credentials")?;
@@ -125,9 +139,9 @@ impl UsersMutation {
 
         let get_password_query = changes.new_password.map(|new_password| {
             emails.push(MailgunMessage {
-                to: session.data.user.email.clone(),
+                to: user.email.clone(),
                 template: MailgunTemplate::PasswordChange(PasswordChangeData {
-                    username: session.data.user.name.clone(),
+                    username: user.name.clone(),
                 }),
             });
 
@@ -138,24 +152,23 @@ impl UsersMutation {
                 Result::<_, eyre::Error>::Ok(sqlx::query!(
                     r#"UPDATE users_private SET password = $1 WHERE user_id = $2"#,
                     hash.expose_secret(),
-                    session.data.user.id
+                    user.id
                 ))
             }
         });
 
         let mut query = QueryBuilder::new("UPDATE users SET ");
         let mut email_verification = None;
-        let mut new_session = session.clone();
         let mut has_update = false;
         {
             let mut query = query.separated(", ");
 
             if let Some(email) = changes.email {
-                if email != session.data.user.email {
+                if email != user.email {
                     emails.push(MailgunMessage {
-                        to: session.data.user.email.clone(),
+                        to: user.email.clone(),
                         template: MailgunTemplate::EmailChange(EmailChangeData {
-                            username: session.data.user.name.clone(),
+                            username: user.name.clone(),
                         }),
                     });
                     let token = generate_email_token();
@@ -167,7 +180,7 @@ impl UsersMutation {
                             VALUES
                             ($1, $2, $3, NOW(), $4)
                         "#,
-                        session.data.user.id,
+                        user.id,
                         email.clone(),
                         token,
                         ip,
@@ -175,15 +188,13 @@ impl UsersMutation {
                     emails.push(MailgunMessage {
                         to: email.clone(),
                         template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                            user_id: session.data.user.id,
-                            username: session.data.user.name.clone(),
+                            user_id: user.id,
+                            username: user.name.clone(),
                             token,
                         }),
                     });
 
                     has_update = true;
-                    new_session.data.user.email = email.clone();
-                    new_session.data.user.email_verified = false;
 
                     query.push("email_verified = FALSE, email = ");
                     query.push_bind_unseparated(email);
@@ -192,10 +203,10 @@ impl UsersMutation {
         }
 
         query.push(" WHERE id = ");
-        query.push_bind(session.data.user.id);
+        query.push_bind(user.id);
 
         if !has_update && get_password_query.is_none() {
-            return Ok(session.into());
+            return Ok(user.clone());
         }
 
         let mut tx = ctx
@@ -256,18 +267,20 @@ impl UsersMutation {
             let mailgun = mailgun.clone();
             spawn_with_tracing(async move {
                 if let Err(e) = mailgun.send(email).await {
-                    tracing::error!("sending email failed: {e:?}")
+                    error!("sending email failed: {e:?}")
                 }
             });
         }
 
         if update_sessions {
-            update_all_sessions_for_user(&new_session, ctx.data_unchecked::<RedisPool>())
+            let user = ctx
+                .data_unchecked::<CurrentUserRepo>()
+                .load_cached_user(user.id, CacheBehavior::ForceRefresh)
                 .await
                 .wrap_err("Failed to update sessions")?;
-            Ok((&new_session).into())
+            Ok(user)
         } else {
-            Ok(session.into())
+            Ok(user.clone())
         }
     }
 }
@@ -329,4 +342,164 @@ impl Loader<String> for UsersLoader {
 
 fn generate_email_token() -> String {
     Alphanumeric.sample_string(&mut thread_rng(), 12)
+}
+
+/// Repository implementation for retrieving/updating info about the current user. Utilizes a cache
+/// in front of the DB for this purpose.
+#[derive(Clone)]
+pub struct CurrentUserRepo {
+    db: PgPool,
+    redis: RedisPool,
+}
+
+// TODO(tec27): Move this somewhere common for other caches to use
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum CacheBehavior {
+    #[default]
+    AllowCached,
+    ForceRefresh,
+}
+
+impl CurrentUserRepo {
+    // NOTE(tec27): If you update this here, also update it in the node server's UserService.
+    const USER_CACHE_TIME: Duration = Duration::from_secs(60 * 60);
+
+    pub fn new(db: PgPool, redis: RedisPool) -> Self {
+        Self { db, redis }
+    }
+
+    fn user_cache_key(user_id: i32) -> String {
+        format!("users:{}", user_id)
+    }
+
+    pub async fn load_cached_user(
+        &self,
+        user_id: i32,
+        cache_behavior: CacheBehavior,
+    ) -> eyre::Result<CurrentUser> {
+        if cache_behavior == CacheBehavior::AllowCached {
+            let mut redis = get_redis(&self.redis).await?;
+            match redis
+                .get::<_, Option<String>>(&CurrentUserRepo::user_cache_key(user_id))
+                .await
+            {
+                Ok(user_json) => {
+                    if let Some(user_json) = user_json {
+                        match serde_json::from_str::<CachedCurrentUser>(&user_json) {
+                            Ok(user) => {
+                                return Ok(user.into());
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize cached user: {e:?}");
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to get cached user: {e:?}");
+                }
+            }
+        }
+
+        let db = self.db.clone();
+        let (user, permissions) = tokio::join!(
+            sqlx::query_as!(
+                SelfUser,
+                r#"
+                    SELECT id, name::TEXT as "name!", login_name::TEXT as "login_name!",
+                        email, email_verified, accepted_privacy_version, accepted_terms_version,
+                        accepted_use_policy_version, locale
+                    FROM users
+                    WHERE id = $1
+                "#,
+                user_id
+            )
+            .fetch_one(&db),
+            sqlx::query_as!(
+                SbPermissions,
+                r#"
+                    SELECT edit_permissions, debug, ban_users, manage_leagues, manage_maps,
+                        manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels
+                    FROM permissions
+                    WHERE user_id = $1"#,
+                user_id
+            )
+            .fetch_one(&db)
+        );
+
+        let cached_user = CachedCurrentUser {
+            user: user.wrap_err("failed to load user")?,
+            permissions: permissions.wrap_err("failed to load permissions")?,
+        };
+
+        let mut redis = get_redis(&self.redis)
+            .await
+            .wrap_err("Couldn't get redis connection")?;
+        redis
+            .set_ex(
+                &CurrentUserRepo::user_cache_key(user_id),
+                serde_json::to_string(&cached_user).wrap_err("Failed to serialize cached user")?,
+                CurrentUserRepo::USER_CACHE_TIME.as_secs() as usize,
+            )
+            .await
+            .wrap_err("Failed to save cached user")?;
+
+        Ok(cached_user.into())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+struct SelfUser {
+    pub id: i32,
+    pub name: String,
+    pub login_name: String,
+    pub email: String,
+    pub email_verified: bool,
+    pub accepted_privacy_version: i32,
+    pub accepted_terms_version: i32,
+    pub accepted_use_policy_version: i32,
+    pub locale: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, SimpleObject, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SbPermissions {
+    pub edit_permissions: bool,
+    pub debug: bool,
+    pub ban_users: bool,
+    pub manage_leagues: bool,
+    pub manage_maps: bool,
+    pub manage_map_pools: bool,
+    pub manage_matchmaking_seasons: bool,
+    pub manage_matchmaking_times: bool,
+    pub manage_rally_point_servers: bool,
+    pub mass_delete_maps: bool,
+    pub moderate_chat_channels: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CachedCurrentUser {
+    user: SelfUser,
+    permissions: SbPermissions,
+}
+
+impl From<CachedCurrentUser> for CurrentUser {
+    fn from(value: CachedCurrentUser) -> Self {
+        CurrentUser {
+            id: value.user.id,
+            name: value.user.name,
+            login_name: value.user.login_name,
+            email: value.user.email,
+            email_verified: value.user.email_verified,
+            accepted_privacy_version: value.user.accepted_privacy_version,
+            accepted_terms_version: value.user.accepted_terms_version,
+            accepted_use_policy_version: value.user.accepted_use_policy_version,
+            locale: value.user.locale,
+
+            permissions: value.permissions,
+        }
+    }
 }

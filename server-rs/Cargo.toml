@@ -20,7 +20,7 @@ path = "src/bin/gen-schema.rs"
 async-graphql = { version = "6.0", features = ["dataloader", "tracing"] }
 async-graphql-axum = "6.0"
 async-trait = "0.1"
-axum = { version = "0.6", features = ["headers"] }
+axum = { version = "0.6", features = ["headers", "macros"] }
 axum-client-ip = "0.4"
 axum-prometheus = "0.4"
 base64 = "0.21"
@@ -30,6 +30,7 @@ chrono = "0.4"
 dotenvy = "0.15"
 gethostname = "0.4"
 ipnetwork = "0.20"
+jsonwebtoken = "8.3"
 mobc = "0.8"
 mobc-redis = "0.8"
 rand = "0.8"
@@ -41,7 +42,7 @@ serde_json = "1.0"
 sha2 = "0.10"
 thiserror = "1.0"
 tokio = { version = "1.26", features = ["macros", "rt-multi-thread"] }
-tower = { version = "0.4", features = ["timeout", "util"] }
+tower = { version = "0.4", features = ["util"] }
 tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -69,6 +70,7 @@ features = [
   "cors",
   "request-id",
   "sensitive-headers",
+  "timeout",
   "trace",
   "util",
 ]

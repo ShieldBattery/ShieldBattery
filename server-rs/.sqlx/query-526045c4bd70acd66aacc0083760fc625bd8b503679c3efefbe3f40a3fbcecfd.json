@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT id, name::TEXT as \"name!\", login_name::TEXT as \"login_name!\",\n                        email, email_verified, accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale\n                    FROM users\n                    WHERE id = $1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "login_name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "email_verified",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "accepted_privacy_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "accepted_terms_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "accepted_use_policy_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "locale",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "526045c4bd70acd66aacc0083760fc625bd8b503679c3efefbe3f40a3fbcecfd"
+}

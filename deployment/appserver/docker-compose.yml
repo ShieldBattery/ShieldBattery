@@ -37,6 +37,7 @@ services:
       - SB_HTTPS_REVERSE_PROXY=true
       - SB_CANONICAL_HOST
       - SB_GQL_ORIGIN
+      - SB_JWT_SECRET
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
@@ -101,6 +102,7 @@ services:
       - SB_MAILGUN_DOMAIN
       - SB_MAILGUN_FROM
       - SB_DATADOG_KEY
+      - SB_JWT_SECRET
     networks:
       - frontend
       - backend

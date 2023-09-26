@@ -20,7 +20,6 @@ import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorat
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
@@ -125,11 +124,6 @@ export class MatchmakingApi {
     await this.matchmakingService.find(ctx.session!.user!.id, clientId, identifiers, {
       ...preferences,
       mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
-    })
-
-    // Save the last queued matchmaking type on the user's session
-    await updateAllSessionsForCurrentUser(ctx, {
-      lastQueuedMatchmakingType: preferences.matchmakingType,
     })
   }
 

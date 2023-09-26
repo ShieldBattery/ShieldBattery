@@ -7,7 +7,12 @@ import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import {
+  CREDENTIAL_STORAGE,
+  CredentialStorageType,
+  encodeBodyAsParams,
+  fetchJson,
+} from '../network/fetch'
 import { AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
@@ -91,6 +96,10 @@ export function logIn(
       }),
     })
 
+    CREDENTIAL_STORAGE.store(
+      result.jwt,
+      remember ? CredentialStorageType.Local : CredentialStorageType.Session,
+    )
     dispatch({
       type: '@auth/loadCurrentSession',
       payload: result,
@@ -105,6 +114,7 @@ export function logOut() {
     const result = await fetchJson<void>(apiUrl`sessions`, {
       method: 'delete',
     })
+    CREDENTIAL_STORAGE.store(undefined)
 
     return result
   })
@@ -132,6 +142,7 @@ export function signUp(
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
 
+    CREDENTIAL_STORAGE.store(result.jwt, CredentialStorageType.Session)
     dispatch({
       type: '@auth/loadCurrentSession',
       payload: result,
@@ -153,6 +164,7 @@ export function getCurrentSession(
       },
     )
 
+    CREDENTIAL_STORAGE.store(result.jwt, CredentialStorageType.Auto)
     dispatch({
       type: '@auth/loadCurrentSession',
       payload: result,
@@ -168,6 +180,7 @@ export function getCurrentSession(
 export function bootstrapSession(session?: ClientSessionInfo): ThunkAction {
   return dispatch => {
     if (session) {
+      CREDENTIAL_STORAGE.store(session.jwt, CredentialStorageType.Auto)
       dispatch({
         type: '@auth/loadCurrentSession',
         payload: session,

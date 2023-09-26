@@ -5,5 +5,6 @@ pub mod redis;
 pub mod routes;
 pub mod schema;
 pub mod sessions;
+mod state;
 pub mod telemetry;
 pub mod users;

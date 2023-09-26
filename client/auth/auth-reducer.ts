@@ -15,7 +15,6 @@ export interface AuthState {
   self?: {
     user: SelfUser
     permissions: SbPermissions
-    sessionId: string
   }
 }
 
@@ -31,14 +30,13 @@ function begin(state: AuthState, action: AuthChangeBegin) {
 }
 
 function logInSuccess(state: AuthState, action: { payload: ClientSessionInfo }): AuthState {
-  const { user, permissions, sessionId } = action.payload
+  const { user, permissions } = action.payload
   return {
     authChangeInProgress: false,
     lastFailure: undefined,
     self: {
       user: { ...user },
       permissions: { ...permissions },
-      sessionId,
     },
   }
 }

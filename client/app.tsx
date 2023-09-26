@@ -21,7 +21,7 @@ import { LoggedOutContent } from './logged-out-content'
 import { logger } from './logging/logger'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
-import { UNAUTHORIZED_EMITTER } from './network/fetch'
+import { CREDENTIAL_STORAGE, UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteConnectedFilter } from './network/site-connected-filter'
 import {
@@ -67,6 +67,7 @@ function RedirectOnUnauthorized() {
     const handler = (url: string) => {
       logger.debug(`Got 401 Unauthorized response for: ${url}, removing active user session`)
       dispatch({ type: '@auth/sessionUnauthorized', payload: undefined })
+      CREDENTIAL_STORAGE.store(undefined)
     }
 
     UNAUTHORIZED_EMITTER.on('unauthorized', handler)

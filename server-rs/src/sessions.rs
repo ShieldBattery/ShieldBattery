@@ -1,59 +1,69 @@
-use async_graphql::SimpleObject;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, State};
+use axum::headers::authorization::Bearer;
+use axum::headers::Authorization;
 use axum::http::request::Parts;
-use axum::http::StatusCode;
-use axum::{Extension, RequestPartsExt};
-use color_eyre::eyre;
-use color_eyre::eyre::WrapErr;
+use axum::http::{Request, StatusCode};
+use axum::middleware::Next;
+use axum::response::{IntoResponse, Response};
+use axum::{Extension, TypedHeader};
+use jsonwebtoken::DecodingKey;
 use mobc_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
-use tracing::{error, warn};
+use tracing::error;
 
+use crate::configuration::Settings;
 use crate::redis::{get_redis, RedisPool};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SelfUser {
-    pub id: i32,
-    pub name: String,
-    pub login_name: String,
-    pub email: String,
-    pub email_verified: bool,
-    pub accepted_privacy_version: u32,
-    pub accepted_terms_version: u32,
-    pub accepted_use_policy_version: u32,
-    pub locale: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, SimpleObject)]
-#[serde(rename_all = "camelCase")]
-pub struct SbPermissions {
-    pub edit_permissions: bool,
-    pub debug: bool,
-    pub ban_users: bool,
-    pub manage_leagues: bool,
-    pub manage_maps: bool,
-    pub manage_map_pools: bool,
-    pub manage_matchmaking_seasons: bool,
-    pub manage_matchmaking_times: bool,
-    pub manage_rally_point_servers: bool,
-    pub mass_delete_maps: bool,
-    pub moderate_chat_channels: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UserSessionData {
-    pub user: SelfUser,
-    pub permissions: SbPermissions,
-    pub last_queued_matchmaking_type: String,
+struct JwtClaims {
+    session_id: String,
+    user_id: i32,
+    /// The last time the user explicitly authenticated (as a JS unix timestamp in UTC).
+    auth_time: u64,
+    /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
+    stay_logged_in: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct AuthenticatedSession {
-    pub id: String,
-    pub data: UserSessionData,
+    pub session_id: String,
+    pub user_id: i32,
+    /// The last time the user explicitly authenticated (as a JS unix timestamp in UTC).
+    pub auth_time: u64,
+    /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
+    pub stay_logged_in: bool,
+
+    destroyed: Arc<AtomicBool>,
+}
+
+impl AuthenticatedSession {
+    fn new(claims: JwtClaims) -> Self {
+        Self {
+            session_id: claims.session_id,
+            user_id: claims.user_id,
+            auth_time: claims.auth_time,
+            stay_logged_in: claims.stay_logged_in,
+            destroyed: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Destroys the session, returning whether it was previously destroyed. Note that this does not
+    /// actually remove the session from the store, it just marks it for deletion when the response
+    /// completes.
+    pub fn destroy(&self) -> bool {
+        self.destroyed.swap(true, Ordering::Relaxed)
+    }
+
+    /// Returns whether this session is destroyed (e.g. the data should not be used and it will
+    /// be removed from the session store).
+    pub fn is_destroyed(&self) -> bool {
+        self.destroyed.load(Ordering::Relaxed)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -67,12 +77,107 @@ pub enum SbSession {
     Anonymous(AnonymousSession),
 }
 
-fn session_key(session_id: &str) -> String {
-    format!("koa:sess:{session_id}")
+fn session_key(user_id: i32, session_id: &str) -> String {
+    format!("sessions:{user_id}:{session_id}")
 }
 
-fn user_sessions_set_key(user_id: i32) -> String {
-    format!("user_sessions:{user_id}")
+async fn load_session(
+    redis_pool: &RedisPool,
+    jwt_key: Arc<DecodingKey>,
+    auth_header: Option<TypedHeader<Authorization<Bearer>>>,
+) -> color_eyre::Result<SbSession, (StatusCode, &'static str)> {
+    let Some(token) = auth_header.as_ref().map(|d| d.token()) else {
+        return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
+    };
+
+    let token_data = match jsonwebtoken::decode::<JwtClaims>(
+        token,
+        &jwt_key,
+        &jsonwebtoken::Validation::default(),
+    ) {
+        Ok(d) => d,
+        Err(e) => {
+            return match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    Ok(SbSession::Anonymous(AnonymousSession { id: None }))
+                }
+                e => {
+                    tracing::debug!("Invalid JWT: {e:?}");
+                    Err((StatusCode::BAD_REQUEST, "Invalid JWT"))
+                }
+            }
+        }
+    };
+    let claims = token_data.claims;
+
+    let mut redis = get_redis(redis_pool).await.map_err(|_err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Could not connect to Redis",
+        )
+    })?;
+
+    let exists: bool = redis
+        .exists(session_key(claims.user_id, &claims.session_id))
+        .await
+        .map_err(|_err| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Could not check session existence in Redis",
+            )
+        })?;
+
+    if !exists {
+        return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
+    }
+
+    // TODO(tec27): Should maybe grab the auth time from redis instead of using what's in the
+    // JWT?
+    Ok(SbSession::Authenticated(AuthenticatedSession::new(claims)))
+}
+
+pub async fn jwt_middleware<B>(
+    State(settings): State<Arc<Settings>>,
+    State(jwt_key): State<Arc<DecodingKey>>,
+    State(redis_pool): State<RedisPool>,
+    auth_header: Option<TypedHeader<Authorization<Bearer>>>,
+    mut request: Request<B>,
+    next: Next<B>,
+) -> Response {
+    let session = match load_session(&redis_pool, jwt_key, auth_header).await {
+        Ok(s) => s,
+        Err(r) => {
+            return r.into_response();
+        }
+    };
+
+    request.extensions_mut().insert(session.clone());
+    let response = next.run(request).await;
+
+    // FIXME: deal with new session creation (response extensions?)
+    if let SbSession::Authenticated(session) = session {
+        let key = session_key(session.user_id, &session.session_id);
+        let mut redis = match get_redis(&redis_pool).await {
+            Ok(r) => r,
+            Err(_) => {
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+                    .into_response();
+            }
+        };
+
+        if session.is_destroyed() {
+            if let Err(e) = redis.del::<_, usize>(key).await {
+                error!("error deleting session from Redis: {e:?}");
+            }
+        } else if let Err(e) = redis
+            .expire::<_, bool>(key, settings.session_ttl.as_secs() as usize)
+            .await
+        {
+            error!("error setting new session expiration: {e:?}");
+        }
+    }
+
+    response
 }
 
 #[async_trait]
@@ -80,181 +185,12 @@ impl<S> FromRequestParts<S> for SbSession
 where
     S: Send + Sync,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = std::convert::Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let Some(session_id) = parts
-            .headers
-            .get("sb-session-id")
-            .and_then(|s| s.to_str().ok().map(|s| s.to_string()))
-        else {
-            return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
-        };
-
-        if session_id.len() < 16 || session_id.len() > 64 {
-            return Err((StatusCode::BAD_REQUEST, "Invalid session ID"));
-        }
-
-        let Extension(redis_pool) = parts
-            .extract::<Extension<RedisPool>>()
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Extension(session): Extension<SbSession> = Extension::from_request_parts(parts, state)
             .await
-            .map_err(|_err| (StatusCode::INTERNAL_SERVER_ERROR, "Missing Redis pool"))?;
-        let mut redis = get_redis(&redis_pool).await.map_err(|_err| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Could not connect to Redis",
-            )
-        })?;
-
-        let session_json: Option<String> =
-            redis.get(session_key(&session_id)).await.map_err(|_err| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Could not retrieve session from Redis",
-                )
-            })?;
-        let session =
-            session_json.and_then(|j| match serde_json::from_str::<UserSessionData>(&j) {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    error!("Failed to deserialize session: {e:?}");
-                    None
-                }
-            });
-
-        match session {
-            Some(s) => Ok(SbSession::Authenticated(AuthenticatedSession {
-                id: session_id.to_string(),
-                data: s,
-            })),
-            None => Ok(SbSession::Anonymous(AnonymousSession {
-                id: Some(session_id.to_string()),
-            })),
-        }
+            .expect("Session extension not found");
+        Ok(session)
     }
-}
-
-/// Merges JSON value `b` into JSON value `a` recursively (in place).
-fn merge_json(a: &mut serde_json::Value, b: &serde_json::Value) {
-    match (a, b) {
-        (a @ &mut serde_json::Value::Object(_), serde_json::Value::Object(b)) => {
-            let a = a.as_object_mut().unwrap();
-            for (k, v) in b {
-                merge_json(a.entry(k).or_insert(serde_json::Value::Null), v);
-            }
-        }
-        (a, b) => *a = b.clone(),
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn json_merging() {
-        let mut a = serde_json::json!({
-            "a": 1,
-            "b": {
-                "c": 2,
-                "d": 3,
-            },
-            "e": 4,
-        });
-        let b = serde_json::json!({
-            "b": {
-                "c": 5,
-            },
-            "e": 6,
-            "f": 7
-        });
-        merge_json(&mut a, &b);
-        assert_eq!(
-            a,
-            serde_json::json!({
-                "a": 1,
-                "b": {
-                    "c": 5,
-                    "d": 3,
-                },
-                "e": 6,
-                "f": 7,
-            })
-        );
-    }
-}
-
-/// Updates all sessions for a given user to match the session provided.
-#[tracing::instrument(skip_all)]
-pub async fn update_all_sessions_for_user(
-    reference_session: &AuthenticatedSession,
-    redis_pool: &RedisPool,
-) -> Result<(), eyre::Error> {
-    let mut redis = get_redis(redis_pool)
-        .await
-        .wrap_err("Failed to get Redis connection")?;
-
-    let user_id = reference_session.data.user.id;
-    let session_keys: Vec<String> = redis
-        .smembers(user_sessions_set_key(user_id))
-        .await
-        .wrap_err("Failed to get session IDs")?;
-
-    if session_keys.is_empty() {
-        warn!("No sessions found to update for user {user_id}");
-        return Ok(());
-    };
-
-    let data = serde_json::to_value(&reference_session.data)
-        .wrap_err("Serializing reference session failed")?;
-
-    // TODO(tec27): Update these in parallel instead? Or remove the data from sessions that requires
-    // doing this in the first place?
-    for key in session_keys {
-        tracing::debug!("Updating session {key}");
-        let old_data: Result<Option<String>, eyre::Error> = redis
-            .get(key.clone())
-            .await
-            .wrap_err("Failed to get session");
-
-        let Ok(old_data) = old_data else {
-            warn!("Ignoring session error: {}", old_data.unwrap_err());
-            continue;
-        };
-        let Some(old_data) = old_data else {
-            if let Err(e) = redis
-                .srem::<_, _, ()>(user_sessions_set_key(user_id), key.clone())
-                .await
-                .wrap_err("Failed to remove session from user sessions")
-            {
-                warn!("Ignoring session error: {e}");
-            }
-            continue;
-        };
-
-        let old_data = serde_json::from_str::<serde_json::Value>(&old_data)
-            .wrap_err("Deserializing old session failed");
-        let Ok(mut old_data) = old_data else {
-            warn!("Ignoring session error: {}", old_data.unwrap_err());
-            continue;
-        };
-
-        merge_json(&mut old_data, &data);
-        let new_data = serde_json::to_string(&old_data).wrap_err("Serializing new session failed");
-        let Ok(new_data) = new_data else {
-            warn!("Ignoring session error: {}", new_data.unwrap_err());
-            continue;
-        };
-
-        let r = redis
-            .set::<_, _, ()>(key, new_data)
-            .await
-            .wrap_err("Failed to set session");
-
-        if let Err(e) = r {
-            warn!("Ignoring session error: {e}");
-        };
-    }
-
-    Ok(())
 }

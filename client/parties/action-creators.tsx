@@ -23,10 +23,7 @@ import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
-import {
-  updateLastQueuedMatchmakingType,
-  updateMatchmakingPreferences,
-} from '../matchmaking/action-creators'
+import { updateMatchmakingPreferences } from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
@@ -377,7 +374,6 @@ export function findMatchAsParty(
       )
     })
 
-    dispatch(updateLastQueuedMatchmakingType(matchmakingType))
     dispatch({
       type: '@parties/findMatchAsParty',
       payload: promise,

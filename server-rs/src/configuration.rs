@@ -3,6 +3,7 @@ use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
 use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
+use std::time::Duration;
 
 /// The environment the application is running in.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -23,6 +24,8 @@ pub struct Settings {
     pub canonical_host: String,
     pub reverse_proxied: bool,
     pub datadog_api_key: Option<Secret<String>>,
+    pub jwt_secret: Secret<String>,
+    pub session_ttl: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -139,5 +142,14 @@ pub fn get_configuration() -> eyre::Result<Settings> {
             .unwrap_or("false".into())
             .eq_ignore_ascii_case("true"),
         datadog_api_key: std::env::var("SB_DATADOG_KEY").ok().map(Secret::new),
+        jwt_secret: Secret::new(
+            std::env::var("SB_JWT_SECRET").wrap_err("SB_JWT_SECRET is not set")?,
+        ),
+        session_ttl: Duration::from_secs(
+            std::env::var("SB_SESSION_TTL")
+                .wrap_err("SB_SESSION_TTL is not set")?
+                .parse()
+                .wrap_err("SB_SESSION_TTL is not a valid integer")?,
+        ),
     })
 }

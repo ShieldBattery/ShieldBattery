@@ -6,18 +6,19 @@ use async_graphql::extensions::Tracing;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig, ALL_WEBSOCKET_PROTOCOLS};
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
 use axum::body::Body;
-use axum::error_handling::HandleErrorLayer;
-use axum::extract::WebSocketUpgrade;
+use axum::extract::{State, WebSocketUpgrade};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{header, HeaderName, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
-use axum::{middleware, Extension, Router};
+use axum::{middleware, Router};
 use axum_client_ip::{SecureClientIp, SecureClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
+use jsonwebtoken::DecodingKey;
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
-use tower::{BoxError, ServiceBuilder};
+use tower::ServiceBuilder;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors;
@@ -25,6 +26,7 @@ use tower_http::request_id::MakeRequestUuid;
 use tower_http::sensitive_headers::{
     SetSensitiveRequestHeadersLayer, SetSensitiveResponseHeadersLayer,
 };
+use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 use tower_http::ServiceBuilderExt;
 use tracing::Span;
@@ -33,8 +35,9 @@ use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
-use crate::sessions::SbSession;
-use crate::users::UsersLoader;
+use crate::sessions::{jwt_middleware, SbSession};
+use crate::state::AppState;
+use crate::users::{CurrentUser, CurrentUserRepo, UsersLoader};
 
 async fn health_check() -> impl IntoResponse {
     "OK"
@@ -53,17 +56,18 @@ async fn send_404() -> impl IntoResponse {
 async fn graphql_handler(
     ip: SecureClientIp,
     session: SbSession,
-    schema: Extension<SbSchema>,
+    current_user: Option<CurrentUser>,
+    State(schema): State<SbSchema>,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
     schema
-        .execute(req.into_inner().data(ip).data(session))
+        .execute(req.into_inner().data(ip).data(session).data(current_user))
         .await
         .into()
 }
 
 async fn graphql_ws_handler(
-    Extension(schema): Extension<SbSchema>,
+    State(schema): State<SbSchema>,
     protocol: GraphQLProtocol,
     websocket: WebSocketUpgrade,
 ) -> Response {
@@ -74,28 +78,6 @@ async fn graphql_ws_handler(
             // over the websocket rather than grabbed from headers? unsure)
             GraphQLWebSocket::new(stream, schema.clone(), protocol).serve()
         })
-}
-
-async fn handle_errors(
-    Extension(settings): Extension<Settings>,
-    error: BoxError,
-) -> (StatusCode, String) {
-    if error.is::<tower::timeout::error::Elapsed>() {
-        (StatusCode::REQUEST_TIMEOUT, "Request Timeout".to_string())
-    } else {
-        tracing::error!("Unhandled internal error: {error:?}");
-        if settings.env == Env::Production {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Server Error".to_string(),
-            )
-        } else {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal Server Error: {error:?}"),
-            )
-        }
-    }
 }
 
 async fn only_unforwarded_clients<B>(request: Request<B>, next: Next<B>) -> Response {
@@ -122,6 +104,8 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         SecureClientIpSource::ConnectInfo
     };
 
+    let current_user_repo = CurrentUserRepo::new(db_pool.clone(), redis_pool.clone());
+
     let schema = build_schema()
         .extension(Tracing)
         .data(settings.clone())
@@ -132,6 +116,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
             UsersLoader::new(db_pool.clone()),
             tokio::spawn,
         ))
+        .data(current_user_repo.clone())
         .finish();
 
     let sensitive_headers: Arc<[_]> = Arc::new([
@@ -154,6 +139,18 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
 
+    let app_state = AppState {
+        settings: Arc::new(settings.clone()),
+        db_pool,
+        redis_pool,
+        mailgun,
+        jwt_key: Arc::new(DecodingKey::from_secret(
+            settings.jwt_secret.expose_secret().as_ref(),
+        )),
+        graphql_schema: schema.clone(),
+        current_user_repo,
+    };
+
     Router::new()
         .route("/healthcheck", get(health_check))
         .route("/gql", playground_route.post(graphql_handler))
@@ -165,7 +162,6 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                     &sensitive_headers,
                 )))
                 .set_x_request_id(MakeRequestUuid)
-                .layer(Extension(settings))
                 .layer(ip_source.into_extension())
                 .layer(
                     TraceLayer::new_for_http()
@@ -218,25 +214,29 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                             },
                         ),
                 )
-                .layer(HandleErrorLayer::new(handle_errors))
-                .timeout(Duration::from_secs(10))
+                .layer(TimeoutLayer::new(Duration::from_secs(15)))
                 .layer(CompressionLayer::new().no_br())
                 .layer(
                     cors::CorsLayer::new()
                         .allow_origin(cors::Any)
-                        .allow_headers([CONTENT_TYPE, HeaderName::from_static("sb-session-id")])
+                        .allow_headers([
+                            CONTENT_TYPE,
+                            HeaderName::from_static("sb-session-id"),
+                            header::AUTHORIZATION,
+                        ])
                         .allow_methods(cors::Any)
                         .max_age(Duration::from_secs(60 * 60 * 24)),
                 )
+                .layer(middleware::from_fn_with_state(
+                    app_state.clone(),
+                    jwt_middleware,
+                ))
                 .layer(SetSensitiveResponseHeadersLayer::from_shared(
                     sensitive_headers,
                 ))
                 .propagate_x_request_id()
-                .layer(Extension(schema))
-                .layer(Extension(db_pool))
-                .layer(Extension(redis_pool))
-                .layer(Extension(mailgun))
                 .into_inner(),
         )
+        .with_state(app_state)
         .nest("/metrics", metrics_router)
 }

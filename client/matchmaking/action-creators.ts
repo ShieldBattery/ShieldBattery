@@ -112,7 +112,6 @@ export function findMatch<M extends MatchmakingType>(
 
     findPromise
       .then(() => {
-        dispatch(updateLastQueuedMatchmakingType(matchmakingType))
         // Load the current map pool in the store so we can download all of the maps in it as soon
         // as the player queues.
         dispatch(getCurrentMapPool(matchmakingType))

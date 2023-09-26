@@ -36,6 +36,7 @@ services:
       - SB_MAILGUN_DOMAIN=mg.example.org
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
+      - SB_JWT_SECRET=SuperSecretJwtKey
     depends_on:
       - _app-server-build
       - db
@@ -64,6 +65,7 @@ services:
       - SB_MAILGUN_DOMAIN=mg.example.org
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
+      - SB_JWT_SECRET=SuperSecretJwtKey
     depends_on:
       - db
       - mailgun
