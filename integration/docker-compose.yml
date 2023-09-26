@@ -66,6 +66,7 @@ services:
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
       - SB_JWT_SECRET=SuperSecretJwtKey
+      - SB_SESSION_TTL=2592000
     depends_on:
       - db
       - mailgun
