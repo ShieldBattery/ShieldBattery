@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { ReadonlyDeep } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   PASSWORD_MINLENGTH,
   USERNAME_MAXLENGTH,
@@ -9,6 +10,8 @@ import {
 } from '../../../common/constants'
 import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
+import { makeErrorConverterMiddleware } from '../errors/coded-error'
+import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
@@ -22,7 +25,7 @@ import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
 import { UserService } from '../users/user-service'
 import { validateRequest } from '../validation/joi-validator'
-import { getJwt } from './jwt-session-middleware'
+import { SessionError, SessionErrorCode, getJwt } from './jwt-session-middleware'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)
@@ -40,8 +43,22 @@ interface LogInRequestBody {
   locale?: string
 }
 
+export const convertSessionErrors = makeErrorConverterMiddleware(err => {
+  if (!(err instanceof SessionError)) {
+    throw err
+  }
+
+  switch (err.code) {
+    case SessionErrorCode.AlreadyHaveSession:
+      throw asHttpError(409, err)
+
+    default:
+      assertUnreachable(err.code)
+  }
+})
+
 @httpApi('/sessions')
-@httpBeforeAll(convertUserApiErrors)
+@httpBeforeAll(convertUserApiErrors, convertSessionErrors)
 export class SessionApi {
   constructor(
     private userIdentifierManager: UserIdentifierManager,
@@ -103,23 +120,12 @@ export class SessionApi {
     })
 
     const { username, password, remember, clientIds, locale } = body
-    let user: SelfUser | undefined
 
-    if (ctx.session?.user) {
-      try {
-        user = await findSelfById(ctx.session.user.id)
-      } catch (err) {
-        ctx.log.error({ err }, 'error finding user')
-      }
-
-      if (!user) {
-        await ctx.deleteSession()
-      }
+    if (ctx.session) {
+      await ctx.deleteSession()
     }
 
-    if (!user) {
-      user = await attemptLogin(username, password)
-    }
+    let user = await attemptLogin(username, password)
 
     if (!user) {
       throw new UserApiError(UserErrorCode.InvalidCredentials, 'Incorrect username or password')

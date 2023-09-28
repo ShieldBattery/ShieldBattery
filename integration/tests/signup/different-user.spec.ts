@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
+import { clearLocalState } from '../../clear-local-state'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
@@ -34,7 +35,8 @@ test('sign up and verify email with different user', async ({ context, page }) =
   const link = getVerificationLink(emails[0].templateVariables)
   expect(link).toBeDefined()
 
-  await context.clearCookies()
+  await clearLocalState({ context, page })
+
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   await page.waitForSelector('[data-test=left-nav]')

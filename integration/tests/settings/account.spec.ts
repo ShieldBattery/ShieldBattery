@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
+import { clearLocalState } from '../../clear-local-state'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
@@ -55,7 +56,7 @@ test('change password', async ({ context, page }) => {
   const passwordChangeEmail = emails.filter(e => e.template === 'password-change')
   expect(passwordChangeEmail).toHaveLength(1)
 
-  await context.clearCookies()
+  await clearLocalState({ context, page })
   await loginPage.navigateTo()
   await loginPage.loginWith(username, 'new-password')
   await page.waitForSelector('[data-test=left-nav]')

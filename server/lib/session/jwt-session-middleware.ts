@@ -4,6 +4,7 @@ import { container } from 'tsyringe'
 import uid from 'uid-safe'
 import { promisify } from 'util'
 import { SbUserId } from '../../../common/users/sb-user'
+import { CodedError } from '../errors/coded-error'
 import { isElectronClient } from '../network/only-web-clients'
 import { Redis } from '../redis/index'
 import { Clock } from '../time/clock'
@@ -46,6 +47,13 @@ export interface StateWithJwt {
   } & JwtPayloadData
 }
 
+export enum SessionErrorCode {
+  /** Attempted to create a new session when one already exists. */
+  AlreadyHaveSession = 'alreadyHaveSession',
+}
+
+export class SessionError extends CodedError<SessionErrorCode> {}
+
 export function jwtSessions(): Koa.Middleware<StateWithJwt> {
   const redis = container.resolve(Redis)
   const clock = container.resolve(Clock)
@@ -55,7 +63,10 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
   return async (ctx, next) => {
     ctx.beginSession = async (userId: SbUserId, stayLoggedIn: boolean) => {
       if (ctx.session) {
-        throw new Error('tried to start a new session with an existing session')
+        throw new SessionError(
+          SessionErrorCode.AlreadyHaveSession,
+          'tried to start a new session with an existing session',
+        )
       }
       const now = clock.now()
 

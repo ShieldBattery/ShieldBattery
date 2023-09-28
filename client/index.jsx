@@ -105,8 +105,15 @@ rootElemPromise
     let configPromise
     let sessionPromise
 
-    if (IS_ELECTRON || !window._sbInitData) {
+    if (!window._sbInitData) {
       configPromise = fetchJson('/config')
+    } else {
+      configPromise = Promise.resolve(window._sbInitData.serverConfig)
+    }
+
+    // TODO(tec27): Could use a service worker to add the auth header to non-fetch requests to get
+    // this working + avoid the extra request for logged out users
+    if (!window._sbInitData?.session) {
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession(
           { locale: detectedLocale.getValue() },
@@ -117,9 +124,8 @@ rootElemPromise
         )
       })
     } else {
-      configPromise = Promise.resolve(window._sbInitData.serverConfig)
-      action = bootstrapSession(window._sbInitData.session)
       sessionPromise = Promise.resolve()
+      action = bootstrapSession(window._sbInitData.session)
     }
 
     store.dispatch(action)
