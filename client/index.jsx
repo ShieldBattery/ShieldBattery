@@ -140,14 +140,14 @@ rootElemPromise
       log.warning(`An error when retrieving the server config: ${err?.stack ?? err}`)
     }
 
+    const i18nextPromise = initI18next()
+
     try {
       await sessionPromise
     } catch (err) {
       // Ignored, usually just means we don't have a current session
       // TODO(tec27): Probably we should handle some error codes here specifically
     }
-
-    const i18nextPromise = initI18next()
 
     try {
       await i18nextPromise

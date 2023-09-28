@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch, useRoute } from 'wouter'
+import { revokeSession } from './auth/action-creators'
 import { useIsLoggedIn } from './auth/auth-utils'
 import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
@@ -21,7 +22,7 @@ import { LoggedOutContent } from './logged-out-content'
 import { logger } from './logging/logger'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
-import { CREDENTIAL_STORAGE, UNAUTHORIZED_EMITTER } from './network/fetch'
+import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteConnectedFilter } from './network/site-connected-filter'
 import {
@@ -66,8 +67,7 @@ function RedirectOnUnauthorized() {
   useEffect(() => {
     const handler = (url: string) => {
       logger.debug(`Got 401 Unauthorized response for: ${url}, removing active user session`)
-      dispatch({ type: '@auth/sessionUnauthorized', payload: undefined })
-      CREDENTIAL_STORAGE.store(undefined)
+      dispatch(revokeSession())
     }
 
     UNAUTHORIZED_EMITTER.on('unauthorized', handler)
