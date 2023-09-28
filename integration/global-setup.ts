@@ -1,7 +1,7 @@
 import { FullConfig, request } from '@playwright/test'
 import { DEFAULT_PERMISSIONS, SbPermissions } from '../common/users/permissions'
 import { AdminUpdatePermissionsRequest } from '../common/users/sb-user'
-import { ADMIN_STORAGE_STATE } from './admin-utils'
+import { setAdminJwt } from './admin-utils'
 
 export default async function globalSetup(config: FullConfig) {
   const { baseURL } = config.projects[0].use
@@ -25,6 +25,9 @@ export default async function globalSetup(config: FullConfig) {
     )
   }
 
+  const { jwt } = JSON.parse(await response.json())
+  setAdminJwt(jwt)
+
   // Give the admin user every permission
   const permissions = Object.fromEntries(
     Object.entries(DEFAULT_PERMISSIONS).map(([key, _value]) => [key, true]),
@@ -34,6 +37,7 @@ export default async function globalSetup(config: FullConfig) {
     {
       headers: {
         Origin: baseURL!,
+        Authorization: `Bearer ${jwt}`,
       },
       data: {
         permissions,
@@ -48,6 +52,5 @@ export default async function globalSetup(config: FullConfig) {
     )
   }
 
-  await requestContext.storageState({ path: ADMIN_STORAGE_STATE })
   await requestContext.dispose()
 }

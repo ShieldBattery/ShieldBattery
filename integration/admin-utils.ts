@@ -1,7 +1,17 @@
 import { request } from '@playwright/test'
 
-export const ADMIN_STORAGE_STATE = 'test-state/admin-state.json'
+export function setAdminJwt(jwt: string) {
+  process.env.ADMIN_JWT = jwt
+}
 
 export function adminRequestContext() {
-  return request.newContext({ storageState: 'test-state/admin-state.json' })
+  if (!process.env.ADMIN_JWT) {
+    throw new Error('Admin JWT not initialized!')
+  }
+
+  return request.newContext({
+    extraHTTPHeaders: {
+      Authorization: `Bearer ${process.env.ADMIN_JWT}`,
+    },
+  })
 }
