@@ -1,9 +1,10 @@
 import Koa, { AppSession } from 'koa'
 import { singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
-import { SbUserId, SelfUser } from '../../../common/users/sb-user'
-import { getPermissions } from '../models/permissions'
+import { AuthEvent, SbUserId, SelfUser } from '../../../common/users/sb-user'
+import { getPermissions, updatePermissions } from '../models/permissions'
 import { Redis } from '../redis'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
 import { UserUpdatables, findSelfById, updateUser } from './user-model'
 
@@ -26,7 +27,10 @@ export enum CacheBehavior {
 
 @singleton()
 export class UserService {
-  constructor(private redis: Redis) {}
+  constructor(
+    private redis: Redis,
+    private publisher: TypedPublisher<AuthEvent>,
+  ) {}
 
   /**
    * Retrieves info about the current user (specified by ID), optionally forcing the request to
@@ -100,5 +104,18 @@ export class UserService {
     }
 
     return verified
+  }
+
+  async updatePermissions(id: SbUserId, permissions: SbPermissions): Promise<SbPermissions> {
+    await updatePermissions(id, permissions)
+    const updated = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+
+    this.publisher.publish(`/userProfiles/${id}`, {
+      action: 'permissionsChanged',
+      userId: id,
+      permissions,
+    })
+
+    return updated.permissions
   }
 }

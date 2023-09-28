@@ -764,6 +764,7 @@ export class AdminUserApi {
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private banEnacter: BanEnacter,
+    private userService: UserService,
   ) {}
 
   @httpGet('/:id/permissions')
@@ -813,17 +814,12 @@ export class AdminUserApi {
       }),
     })
 
-    const permissions = await updatePermissions(params.id, body.permissions)
-
-    if (!permissions) {
+    const user = await findUserById(params.id)
+    if (!user) {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    this.publisher.publish(`/userProfiles/${params.id}`, {
-      action: 'permissionsChanged',
-      userId: params.id,
-      permissions,
-    })
+    await this.userService.updatePermissions(user.id, body.permissions)
 
     ctx.status = 204
   }
