@@ -25,7 +25,7 @@ export default async function globalSetup(config: FullConfig) {
     )
   }
 
-  const { jwt } = JSON.parse(await response.json())
+  const { jwt } = await response.json()
   setAdminJwt(jwt)
 
   // Give the admin user every permission
