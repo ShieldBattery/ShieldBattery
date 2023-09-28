@@ -762,7 +762,6 @@ export class UserApi {
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
   constructor(
-    private publisher: TypedPublisher<AuthEvent>,
     private banEnacter: BanEnacter,
     private userService: UserService,
   ) {}

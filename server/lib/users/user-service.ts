@@ -1,5 +1,5 @@
 import Koa, { AppSession } from 'koa'
-import { singleton } from 'tsyringe'
+import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
 import { AuthEvent, SbUserId, SelfUser } from '../../../common/users/sb-user'
 import { getPermissions, updatePermissions } from '../models/permissions'
@@ -29,7 +29,9 @@ export enum CacheBehavior {
 export class UserService {
   constructor(
     private redis: Redis,
-    private publisher: TypedPublisher<AuthEvent>,
+    // NOTE(tec27): This service is used by the JWT middleware, which also needs to be used by the
+    // websockets, so we use a lazy injection to break the dependency cycle
+    @inject(delay(() => TypedPublisher<AuthEvent>)) private publisher: TypedPublisher<AuthEvent>,
   ) {}
 
   /**
