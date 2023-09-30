@@ -153,17 +153,17 @@ SELECT
   map_name,
   total_games,
   pvz_wins || '-' || pvz_losses AS pvz_stats,
-  ROUND(pvz_wins::decimal / (pvz_wins + pvz_losses) * 100, 2) || '%' AS pvz_rate,
+  ROUND(pvz_wins::decimal / GREATEST(pvz_wins + pvz_losses, 1) * 100, 2) || '%' AS pvz_rate,
   pvt_wins || '-' || pvt_losses AS pvt_stats,
-  ROUND(pvt_wins::decimal / (pvt_wins + pvt_losses) * 100, 2) || '%' AS pvt_rate,
+  ROUND(pvt_wins::decimal / GREATEST(pvt_wins + pvt_losses, 1) * 100, 2) || '%' AS pvt_rate,
   tvz_wins || '-' || tvz_losses AS tvz_stats,
-  ROUND(tvz_wins::decimal / (tvz_wins + tvz_losses) * 100, 2) || '%' AS tvz_rate,
+  ROUND(tvz_wins::decimal / GREATEST(tvz_wins + tvz_losses, 1) * 100, 2) || '%' AS tvz_rate,
   tvp_wins || '-' || tvp_losses AS tvp_stats,
-  ROUND(tvp_wins::decimal / (tvp_wins + tvp_losses) * 100, 2) || '%' AS tvp_rate,
+  ROUND(tvp_wins::decimal / GREATEST(tvp_wins + tvp_losses, 1) * 100, 2) || '%' AS tvp_rate,
   zvp_wins || '-' || zvp_losses AS zvp_stats,
-  ROUND(zvp_wins::decimal / (zvp_wins + zvp_losses) * 100, 2) || '%' AS zvp_rate,
+  ROUND(zvp_wins::decimal / GREATEST(zvp_wins + zvp_losses, 1) * 100, 2) || '%' AS zvp_rate,
   zvt_wins || '-' || zvt_losses AS zvt_stats,
-  ROUND(zvt_wins::decimal / (zvt_wins + zvt_losses) * 100, 2) || '%' AS zvt_rate
+  ROUND(zvt_wins::decimal / GREATEST(zvt_wins + zvt_losses, 1) * 100, 2) || '%' AS zvt_rate
 FROM stats;
 ```
 
