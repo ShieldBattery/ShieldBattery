@@ -27,6 +27,7 @@ import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
 import { MAX_IMAGE_SIZE } from '../file-upload/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { json } from '../json/json-validator'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -173,7 +174,7 @@ export class ChatApi {
       body: { jsonBody },
     } = validateRequest(ctx, {
       body: Joi.object<{ jsonBody: EditChannelRequest }>({
-        jsonBody: Joi.object<EditChannelRequest>({
+        jsonBody: json.object({
           description: Joi.string().allow(null),
           topic: Joi.string().allow(null),
         }),

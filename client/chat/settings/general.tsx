@@ -22,6 +22,12 @@ const SuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
   color: ${colorSuccess};
 `
 
+enum UpdateStatus {
+  Updating = 'Updating',
+  Success = 'Success',
+  Error = 'Error',
+}
+
 interface ChannelSettingsGeneralModel {
   description?: string
   topic?: string
@@ -41,30 +47,26 @@ export function ChannelSettingsGeneral({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
-  const [isUpdatingDescription, setIsUpdatingDescription] = useState(false)
-  const [isUpdatingTopic, setIsUpdatingTopic] = useState(false)
-  const [hasUpdatedDescription, setHasUpdatedDescription] = useState(false)
-  const [hasUpdatedTopic, setHasUpdatedTopic] = useState(false)
+  const [descriptionUpdateStatus, setDescriptionUpdateStatus] = useState<UpdateStatus>()
+  const [topicUpdateStatus, setTopicUpdateStatus] = useState<UpdateStatus>()
 
   const debouncedUpdateChannelRef = useRef(
     debounce((patch: EditChannelRequest) => {
       dispatch(
         updateChannel(channelId, patch, {
           onSuccess: () => {
-            setIsUpdatingDescription(false)
-            setIsUpdatingTopic(false)
             setError(undefined)
 
             if (patch.description !== undefined) {
-              setHasUpdatedDescription(true)
+              setDescriptionUpdateStatus(UpdateStatus.Success)
             }
             if (patch.topic !== undefined) {
-              setHasUpdatedTopic(true)
+              setTopicUpdateStatus(UpdateStatus.Success)
             }
           },
           onError: err => {
-            setIsUpdatingDescription(false)
-            setIsUpdatingTopic(false)
+            setDescriptionUpdateStatus(UpdateStatus.Error)
+            setTopicUpdateStatus(UpdateStatus.Error)
             setError(err)
           },
         }),
@@ -79,10 +81,10 @@ export function ChannelSettingsGeneral({
     }
 
     if (patch.description !== undefined) {
-      setIsUpdatingDescription(true)
+      setDescriptionUpdateStatus(UpdateStatus.Updating)
     }
     if (patch.topic !== undefined) {
-      setIsUpdatingTopic(true)
+      setTopicUpdateStatus(UpdateStatus.Updating)
     }
 
     debouncedUpdateChannelRef.current(patch)
@@ -106,7 +108,7 @@ export function ChannelSettingsGeneral({
           label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
           floatingLabel={true}
           trailingIcons={
-            !isUpdatingDescription && hasUpdatedDescription
+            descriptionUpdateStatus === UpdateStatus.Success
               ? [<SuccessIcon key='success' />]
               : undefined
           }
@@ -117,7 +119,7 @@ export function ChannelSettingsGeneral({
           label={t('chat.channelSettings.general.topicLabel', 'Topic')}
           floatingLabel={true}
           trailingIcons={
-            !isUpdatingTopic && hasUpdatedTopic ? [<SuccessIcon key='success' />] : undefined
+            topicUpdateStatus === UpdateStatus.Success ? [<SuccessIcon key='success' />] : undefined
           }
           inputProps={{ tabIndex: 0 }}
         />

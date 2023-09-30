@@ -58,13 +58,7 @@ export type ValidatedRequestData<T extends JoiValidationDescriptor> = {
   body: ValidatedBodyType<T>
 }
 
-/**
- * Validates a Koa request using Joi, returning typed values that have been normalized by Joi.
- *
- * POST and PATCH requests are using a convention where if they recieve a `jsonBody` field in a
- * request using "multipart/form-data" content type, it is assumed that it was JSON.stringified, so
- * we JSON.parse it here before validating its contents.
- */
+/** Validates a Koa request using Joi, returning typed values that have been normalized by Joi. */
 export function validateRequest<T extends JoiValidationDescriptor>(
   ctx: RouterContext,
   { params, query, body }: T,
@@ -90,21 +84,7 @@ export function validateRequest<T extends JoiValidationDescriptor>(
     queryResult = result.value
   }
   if (body) {
-    const reqMethodLowerCase = ctx.request.method.toLowerCase()
-    let bodyToValidate = ctx.request.body
-    if (
-      (reqMethodLowerCase === 'post' || reqMethodLowerCase === 'patch') &&
-      ctx.request.headers['content-type']?.toLocaleLowerCase().startsWith('multipart/form-data') &&
-      bodyToValidate &&
-      Object.hasOwn(bodyToValidate, 'jsonBody')
-    ) {
-      try {
-        bodyToValidate = { ...bodyToValidate, jsonBody: JSON.parse(bodyToValidate.jsonBody) }
-      } catch (err) {
-        throw new httpErrors.BadRequest('The field `jsonBody` is not a valid JSON')
-      }
-    }
-    const result = body.validate(bodyToValidate)
+    const result = body.validate(ctx.request.body)
     if (result.error) {
       throw new httpErrors.BadRequest(`Invalid request body - ${result.error.message}`)
     }
