@@ -59,10 +59,10 @@ impl User {
 
 impl From<CurrentUser> for User {
     fn from(value: CurrentUser) -> Self {
-        return Self {
+        Self {
             id: value.id,
             name: value.name,
-        };
+        }
     }
 }
 

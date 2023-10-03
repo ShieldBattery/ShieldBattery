@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - '.github/workflows/server-rs-ci.yml'
+      - 'common/typeshare.ts'
       - 'schema.graphql'
       - 'server-rs/**'
   pull_request:
     paths:
       - '.github/workflows/server-rs-ci.yml'
+      - 'common/typeshare.ts'
       - 'schema.graphql'
       - 'server-rs/**'
 
@@ -93,3 +95,41 @@ jobs:
         with:
           script: |
             core.setFailed('The generated graphql files seem outdated. Please run `yarn gen-schema && yarn gen-graphql` in the directory root and commit the updated files.')
+
+  typeshare:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Using Node.js 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'yarn'
+
+      - name: Install JS dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Install typeshare-cli
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: typeshare-cli
+
+      - name: Run typeshare
+        id: gen-typeshare
+        run: yarn gen-typeshare
+
+      - name: Check typeshare
+        uses: tj-actions/verify-changed-files@v15
+        id: check-typeshare
+        with:
+          files: common/typeshare.ts
+
+      - name: Display typeshare
+        if: ${{ steps.check-typeshare.outputs.files_changed == 'true' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('The typeshare types seem outdated. Please run "yarn gen-typeshare" in the directory root and commit the updated files.')
