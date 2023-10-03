@@ -103,9 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Using Node.js 18.x
         uses: actions/setup-node@v3
         with:
@@ -116,7 +113,10 @@ jobs:
         run: yarn --frozen-lockfile
 
       - name: Install typeshare-cli
-        run: cargo install typeshare-cli
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: typeshare-cli
+          version: '^1'
 
       - name: Run typeshare
         id: gen-typeshare
