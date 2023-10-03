@@ -25,4 +25,3 @@ export type PublishedUserMessage = {
     permissions: SbPermissions
   }
 }
-// fail the CI!!!!

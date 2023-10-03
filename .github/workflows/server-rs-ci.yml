@@ -116,7 +116,6 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: typeshare-cli
-          version: '^1'
 
       - name: Run typeshare
         id: gen-typeshare
