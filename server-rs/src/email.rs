@@ -1,6 +1,6 @@
-use base64::Engine;
 use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
+use data_encoding::BASE64;
 use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
@@ -123,12 +123,10 @@ pub enum MailgunError {
 }
 
 fn get_template_version(canonical_host: &str) -> String {
-    use base64::engine::general_purpose::STANDARD;
-
     let mut hasher = Sha256::new();
     hasher.update(canonical_host);
     let hash = hasher.finalize();
-    STANDARD.encode(hash)
+    BASE64.encode(&hash[..])
 }
 
 impl MailgunClient {
