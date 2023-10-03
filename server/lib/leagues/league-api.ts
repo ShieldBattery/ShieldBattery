@@ -36,7 +36,7 @@ import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/ima
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
-import { Redis } from '../redis'
+import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'

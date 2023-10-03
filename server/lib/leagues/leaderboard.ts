@@ -1,6 +1,6 @@
 import { LeagueId } from '../../../common/leagues'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user'
-import { Redis } from '../redis'
+import { Redis } from '../redis/redis'
 import { LeagueUser } from './league-models'
 
 function leaderboardKey(leagueId: LeagueId) {

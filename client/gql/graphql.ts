@@ -39,11 +39,17 @@ export type CurrentUser = {
 export type Mutation = {
   __typename?: 'Mutation'
   updateCurrentUser: CurrentUser
+  updatePermissions: User
 }
 
 export type MutationUpdateCurrentUserArgs = {
   changes: UpdateCurrentUserChanges
   currentPassword: Scalars['String']['input']
+}
+
+export type MutationUpdatePermissionsArgs = {
+  permissions: SbPermisssionsInput
+  userId: Scalars['Int']['input']
 }
 
 export type Query = {
@@ -76,6 +82,20 @@ export type SbPermissions = {
   moderateChatChannels: Scalars['Boolean']['output']
 }
 
+export type SbPermisssionsInput = {
+  banUsers: Scalars['Boolean']['input']
+  debug: Scalars['Boolean']['input']
+  editPermissions: Scalars['Boolean']['input']
+  manageLeagues: Scalars['Boolean']['input']
+  manageMapPools: Scalars['Boolean']['input']
+  manageMaps: Scalars['Boolean']['input']
+  manageMatchmakingSeasons: Scalars['Boolean']['input']
+  manageMatchmakingTimes: Scalars['Boolean']['input']
+  manageRallyPointServers: Scalars['Boolean']['input']
+  massDeleteMaps: Scalars['Boolean']['input']
+  moderateChatChannels: Scalars['Boolean']['input']
+}
+
 export type UpdateCurrentUserChanges = {
   email?: InputMaybe<Scalars['String']['input']>
   newPassword?: InputMaybe<Scalars['String']['input']>
@@ -86,6 +106,7 @@ export type User = {
   id: Scalars['Int']['output']
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
+  permissions: SbPermissions
 }
 
 export type AccountSettings_CurrentUserFragment = {

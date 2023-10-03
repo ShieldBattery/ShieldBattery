@@ -23,6 +23,7 @@ type CurrentUser {
 
 type Mutation {
 	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
+	updatePermissions(userId: Int!, permissions: SbPermisssionsInput!): User!
 }
 
 type Query {
@@ -32,6 +33,20 @@ type Query {
 }
 
 type SbPermissions {
+	editPermissions: Boolean!
+	debug: Boolean!
+	banUsers: Boolean!
+	manageLeagues: Boolean!
+	manageMaps: Boolean!
+	manageMapPools: Boolean!
+	manageMatchmakingSeasons: Boolean!
+	manageMatchmakingTimes: Boolean!
+	manageRallyPointServers: Boolean!
+	massDeleteMaps: Boolean!
+	moderateChatChannels: Boolean!
+}
+
+input SbPermisssionsInput {
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -57,6 +72,7 @@ type User {
 	The user's display name (may differ from their login name).
 	"""
 	name: String!
+	permissions: SbPermissions!
 }
 
 schema {

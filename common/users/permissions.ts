@@ -1,16 +1,6 @@
-export interface SbPermissions {
-  editPermissions: boolean
-  debug: boolean
-  banUsers: boolean
-  manageLeagues: boolean
-  manageMaps: boolean
-  manageMapPools: boolean
-  manageMatchmakingSeasons: boolean
-  manageMatchmakingTimes: boolean
-  manageRallyPointServers: boolean
-  massDeleteMaps: boolean
-  moderateChatChannels: boolean
-}
+import { SbPermissions } from '../typeshare'
+
+export { SbPermissions }
 
 export type PermissionName = keyof SbPermissions
 

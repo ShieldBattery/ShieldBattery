@@ -92,6 +92,7 @@
     "gen-translations": "yarn gen-translations:app && yarn gen-translations:email",
     "gen-translations:app": "i18next",
     "gen-translations:email": "i18next -c email/i18next-parser.config.json",
+    "gen-typeshare": "typeshare ./server-rs --lang=typescript --output-file=common/typeshare.ts && prettier --write common/typeshare.ts",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx ./",
     "local-dev": "run-pty local-dev.json",
     "migrate-create": "db-migrate -m ./server/migrations create",

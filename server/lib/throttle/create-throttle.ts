@@ -1,7 +1,7 @@
 import tokenthrottle, { Throttle } from 'tokenthrottle'
 import { RedisTable, RedisTableOptions } from 'tokenthrottle-redis'
 import { container } from 'tsyringe'
-import { Redis } from '../redis'
+import { Redis } from '../redis/redis'
 
 export class PromiseBasedThrottle {
   readonly _throttle: Throttle

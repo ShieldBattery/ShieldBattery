@@ -9,6 +9,7 @@ use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 
 use server::configuration::{get_configuration, Env};
+use server::redis::RedisPool;
 use server::routes::create_app;
 use server::schema::write_schema;
 use server::telemetry::init_subscriber;
@@ -61,7 +62,7 @@ async fn main() -> eyre::Result<()> {
     let redis_client = redis::Client::open(redis_host.clone())
         .wrap_err_with(|| format!("Failed to open Redis server at {}", redis_host))?;
     let redis_manager = RedisConnectionManager::new(redis_client);
-    let redis_pool = mobc::Pool::builder().build(redis_manager);
+    let redis_pool = RedisPool::new(mobc::Pool::builder().build(redis_manager));
 
     let addr_string = format!("{}:{}", settings.app_host, settings.app_port);
     let addr = addr_string

@@ -49,8 +49,15 @@ due to changes in `rust fmt` and various warnings/errors).
 
 ### Rust utilities
 
-We use `sqlx` for our database interaction in Rust, which has a CLI utility that needs to be installed.
-After installing the Rust toolchain, run `cargo install sqlx-cli`
+- We use `sqlx` for our database interaction in Rust, which has a CLI utility.
+- We use `typeshare` for sharing types between Rust and TS.
+
+After installing the Rust toolchain, run:
+
+```sh
+cargo install sqlx-cli
+cargo install typeshare-cli
+```
 
 ### Recommended VSCode Plugins
 

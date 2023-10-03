@@ -49,7 +49,7 @@ import {
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
-import { Redis } from '../redis'
+import { Redis } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
 import { ClientSocketsManager } from '../websockets/socket-groups'

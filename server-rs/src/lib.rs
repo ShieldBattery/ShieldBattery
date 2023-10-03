@@ -1,10 +1,11 @@
 pub mod configuration;
 pub mod email;
 pub mod errors;
+pub mod pubsub;
 pub mod redis;
 pub mod routes;
 pub mod schema;
 pub mod sessions;
-mod state;
+pub mod state;
 pub mod telemetry;
 pub mod users;

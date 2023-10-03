@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::configuration::Settings;
-use crate::redis::{get_redis, RedisPool};
+use crate::redis::RedisPool;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,14 +67,9 @@ impl AuthenticatedSession {
 }
 
 #[derive(Clone, Debug)]
-pub struct AnonymousSession {
-    pub id: Option<String>,
-}
-
-#[derive(Clone, Debug)]
 pub enum SbSession {
     Authenticated(AuthenticatedSession),
-    Anonymous(AnonymousSession),
+    Anonymous,
 }
 
 fn session_key(user_id: i32, session_id: &str) -> String {
@@ -87,7 +82,7 @@ async fn load_session(
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> color_eyre::Result<SbSession, (StatusCode, &'static str)> {
     let Some(token) = auth_header.as_ref().map(|d| d.token()) else {
-        return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
+        return Ok(SbSession::Anonymous);
     };
 
     let token_data = match jsonwebtoken::decode::<JwtClaims>(
@@ -98,9 +93,7 @@ async fn load_session(
         Ok(d) => d,
         Err(e) => {
             return match e.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    Ok(SbSession::Anonymous(AnonymousSession { id: None }))
-                }
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => Ok(SbSession::Anonymous),
                 e => {
                     tracing::debug!("Invalid JWT: {e:?}");
                     Err((StatusCode::BAD_REQUEST, "Invalid JWT"))
@@ -110,7 +103,7 @@ async fn load_session(
     };
     let claims = token_data.claims;
 
-    let mut redis = get_redis(redis_pool).await.map_err(|_err| {
+    let mut redis = redis_pool.get().await.map_err(|_err| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             "Could not connect to Redis",
@@ -128,7 +121,7 @@ async fn load_session(
         })?;
 
     if !exists {
-        return Ok(SbSession::Anonymous(AnonymousSession { id: None }));
+        return Ok(SbSession::Anonymous);
     }
 
     // TODO(tec27): Should maybe grab the auth time from redis instead of using what's in the
@@ -157,7 +150,7 @@ pub async fn jwt_middleware<B>(
     // FIXME: deal with new session creation (response extensions?)
     if let SbSession::Authenticated(session) = session {
         let key = session_key(session.user_id, &session.session_id);
-        let mut redis = match get_redis(&redis_pool).await {
+        let mut redis = match redis_pool.get().await {
             Ok(r) => r,
             Err(_) => {
                 return (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")

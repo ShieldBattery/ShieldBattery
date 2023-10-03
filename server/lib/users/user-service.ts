@@ -1,9 +1,10 @@
 import Koa, { AppSession } from 'koa'
 import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
-import { AuthEvent, SbUserId, SelfUser } from '../../../common/users/sb-user'
+import { AuthEvent, SbUserId, SelfUser, makeSbUserId } from '../../../common/users/sb-user'
+import logger from '../logging/logger'
 import { getPermissions, updatePermissions } from '../models/permissions'
-import { Redis } from '../redis'
+import { Redis, RedisSubscriber } from '../redis/redis'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
 import { UserUpdatables, findSelfById, updateUser } from './user-model'
@@ -29,10 +30,27 @@ export enum CacheBehavior {
 export class UserService {
   constructor(
     private redis: Redis,
+    private redisSubscriber: RedisSubscriber,
     // NOTE(tec27): This service is used by the JWT middleware, which also needs to be used by the
     // websockets, so we use a lazy injection to break the dependency cycle
     @inject(delay(() => TypedPublisher<AuthEvent>)) private publisher: TypedPublisher<AuthEvent>,
-  ) {}
+  ) {
+    this.redisSubscriber
+      .subscribe('user', message => {
+        switch (message.type) {
+          case 'permissionsChanged':
+            this.publisher.publish(`/userProfiles/${message.data.userId}`, {
+              action: 'permissionsChanged',
+              userId: makeSbUserId(message.data.userId),
+              permissions: message.data.permissions,
+            })
+            break
+        }
+      })
+      .catch(err => {
+        logger.error({ err }, 'failed to subscribe to Redis user messages')
+      })
+  }
 
   /**
    * Retrieves info about the current user (specified by ID), optionally forcing the request to

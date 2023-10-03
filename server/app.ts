@@ -22,7 +22,7 @@ import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/pr
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { RallyPointService } from './lib/rally-point/rally-point-service'
-import { Redis } from './lib/redis'
+import { Redis } from './lib/redis/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'

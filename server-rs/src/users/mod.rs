@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::futures_util::TryStreamExt;
-use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
+use async_graphql::{ComplexObject, Context, Guard, InputObject, Object, Result, SimpleObject};
 use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
@@ -21,25 +21,70 @@ use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
 use tracing::error;
+use typeshare::typeshare;
 
 use crate::email::{
     EmailChangeData, EmailVerificationData, MailgunClient, MailgunMessage, MailgunTemplate,
     PasswordChangeData,
 };
 use crate::errors::graphql_error;
-use crate::redis::{get_redis, RedisPool};
+use crate::redis::RedisPool;
 use crate::sessions::SbSession;
 use crate::state::AppState;
 use crate::telemetry::spawn_with_tracing;
 use crate::users::auth::{get_stored_credentials, hash_password, validate_credentials};
+use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermissions};
 
 mod auth;
+pub mod permissions;
 
 #[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
+#[graphql(complex)]
 pub struct User {
     pub id: i32,
     /// The user's display name (may differ from their login name).
     pub name: String,
+}
+
+#[ComplexObject]
+impl User {
+    #[graphql(guard = RequiredPermission::EditPermissions.or(IsCurrentUser::guard(self.id)))]
+    async fn permissions(&self, ctx: &Context<'_>) -> Result<SbPermissions> {
+        ctx.data_unchecked::<DataLoader<PermissionsLoader>>()
+            .load_one(self.id)
+            .await?
+            .ok_or(graphql_error("NOT_FOUND", "User not found"))
+    }
+}
+
+impl From<CurrentUser> for User {
+    fn from(value: CurrentUser) -> Self {
+        return Self {
+            id: value.id,
+            name: value.name,
+        };
+    }
+}
+
+pub struct IsCurrentUser(i32);
+
+impl IsCurrentUser {
+    fn guard(checked_user_id: i32) -> Self {
+        Self(checked_user_id)
+    }
+}
+
+#[async_trait]
+impl Guard for IsCurrentUser {
+    async fn check(&self, ctx: &Context<'_>) -> Result<()> {
+        if let Some(ref user) = ctx.data_unchecked::<Option<CurrentUser>>() {
+            if user.id == self.0 {
+                return Ok(());
+            }
+        }
+
+        Err(graphql_error("FORBIDDEN", "Forbidden"))
+    }
 }
 
 #[derive(SimpleObject, Clone, Debug)]
@@ -83,6 +128,17 @@ impl FromRequestParts<AppState> for CurrentUser {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             })
     }
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedUserMessage {
+    #[serde(rename_all = "camelCase")]
+    PermissionsChanged {
+        user_id: i32,
+        permissions: SbPermissions,
+    },
 }
 
 #[derive(Default)]
@@ -283,6 +339,61 @@ impl UsersMutation {
             Ok(user.clone())
         }
     }
+
+    #[graphql(guard = RequiredPermission::EditPermissions)]
+    async fn update_permissions(
+        &self,
+        ctx: &Context<'_>,
+        user_id: i32,
+        permissions: SbPermissions,
+    ) -> Result<User> {
+        sqlx::query!(
+            r#"
+                UPDATE permissions
+                SET
+                    edit_permissions = $1,
+                    debug = $2,
+                    ban_users = $3,
+                    manage_leagues = $4,
+                    manage_maps = $5,
+                    manage_map_pools = $6,
+                    manage_matchmaking_seasons = $7,
+                    manage_matchmaking_times = $8,
+                    manage_rally_point_servers = $9,
+                    mass_delete_maps = $10,
+                    moderate_chat_channels = $11
+                WHERE user_id = $12
+            "#,
+            permissions.edit_permissions,
+            permissions.debug,
+            permissions.ban_users,
+            permissions.manage_leagues,
+            permissions.manage_maps,
+            permissions.manage_map_pools,
+            permissions.manage_matchmaking_seasons,
+            permissions.manage_matchmaking_times,
+            permissions.manage_rally_point_servers,
+            permissions.mass_delete_maps,
+            permissions.moderate_chat_channels,
+            user_id,
+        )
+        .execute(ctx.data_unchecked::<PgPool>())
+        .await?;
+
+        let user = ctx
+            .data_unchecked::<CurrentUserRepo>()
+            .load_cached_user(user_id, CacheBehavior::ForceRefresh)
+            .await?;
+
+        ctx.data_unchecked::<RedisPool>()
+            .publish(PublishedUserMessage::PermissionsChanged {
+                user_id,
+                permissions,
+            })
+            .await?;
+
+        Ok(user.into())
+    }
 }
 
 #[derive(Clone, Default, Eq, PartialEq, InputObject)]
@@ -378,7 +489,7 @@ impl CurrentUserRepo {
         cache_behavior: CacheBehavior,
     ) -> eyre::Result<CurrentUser> {
         if cache_behavior == CacheBehavior::AllowCached {
-            let mut redis = get_redis(&self.redis).await?;
+            let mut redis = self.redis.get().await?;
             match redis
                 .get::<_, Option<String>>(&CurrentUserRepo::user_cache_key(user_id))
                 .await
@@ -422,7 +533,8 @@ impl CurrentUserRepo {
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
                         manage_rally_point_servers, mass_delete_maps, moderate_chat_channels
                     FROM permissions
-                    WHERE user_id = $1"#,
+                    WHERE user_id = $1
+                "#,
                 user_id
             )
             .fetch_one(&db)
@@ -433,7 +545,9 @@ impl CurrentUserRepo {
             permissions: permissions.wrap_err("failed to load permissions")?,
         };
 
-        let mut redis = get_redis(&self.redis)
+        let mut redis = self
+            .redis
+            .get()
             .await
             .wrap_err("Couldn't get redis connection")?;
         redis
@@ -461,22 +575,6 @@ struct SelfUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, SimpleObject, sqlx::FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct SbPermissions {
-    pub edit_permissions: bool,
-    pub debug: bool,
-    pub ban_users: bool,
-    pub manage_leagues: bool,
-    pub manage_maps: bool,
-    pub manage_map_pools: bool,
-    pub manage_matchmaking_seasons: bool,
-    pub manage_matchmaking_times: bool,
-    pub manage_rally_point_servers: bool,
-    pub mass_delete_maps: bool,
-    pub moderate_chat_channels: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

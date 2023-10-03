@@ -37,6 +37,7 @@ use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
 use crate::sessions::{jwt_middleware, SbSession};
 use crate::state::AppState;
+use crate::users::permissions::PermissionsLoader;
 use crate::users::{CurrentUser, CurrentUserRepo, UsersLoader};
 
 async fn health_check() -> impl IntoResponse {
@@ -116,7 +117,13 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
             UsersLoader::new(db_pool.clone()),
             tokio::spawn,
         ))
+        .data(DataLoader::new(
+            PermissionsLoader::new(db_pool.clone()),
+            tokio::spawn,
+        ))
         .data(current_user_repo.clone())
+        // TODO(tec27): Figure out good limits
+        .limit_depth(8)
         .finish();
 
     let sensitive_headers: Arc<[_]> = Arc::new([
