@@ -1,8 +1,8 @@
 import { devices, PlaywrightTestConfig } from '@playwright/test'
 
 const config: PlaywrightTestConfig = {
-  testDir: './integration/tests',
-  globalSetup: require.resolve('./integration/global-setup.ts'),
+  testDir: './integration/',
+  reporter: process.env.CI ? 'github' : 'list',
 
   forbidOnly: !!process.env.CI,
   // We can't really do retries because our database is shared between tests, so
@@ -11,8 +11,14 @@ const config: PlaywrightTestConfig = {
 
   projects: [
     {
+      name: 'setup',
+      testMatch: /global-setup\.ts/,
+    },
+    {
       name: 'chromium',
+      testMatch: '**/*.spec.ts',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
 

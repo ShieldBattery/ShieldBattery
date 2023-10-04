@@ -39,9 +39,7 @@ import {
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
-  AdminGetPermissionsResponse,
   AdminGetUserIpsResponse,
-  AdminUpdatePermissionsRequest,
   AuthEvent,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
@@ -65,7 +63,7 @@ import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
 import { usePasswordResetCode } from '../models/password-resets'
-import { getPermissions, updatePermissions } from '../models/permissions'
+import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -765,63 +763,6 @@ export class AdminUserApi {
     private banEnacter: BanEnacter,
     private userService: UserService,
   ) {}
-
-  @httpGet('/:id/permissions')
-  @httpBefore(checkAllPermissions('editPermissions'))
-  async getPermissions(ctx: RouterContext): Promise<AdminGetPermissionsResponse> {
-    const { params } = validateRequest(ctx, {
-      params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().required(),
-      }),
-    })
-
-    const [user, permissions] = await Promise.all([
-      findUserById(params.id),
-      getPermissions(params.id),
-    ])
-    if (!user || !permissions) {
-      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
-    }
-
-    return {
-      user,
-      permissions,
-    }
-  }
-
-  @httpPost('/:id/permissions')
-  @httpBefore(checkAllPermissions('editPermissions'))
-  async updatePermissions(ctx: RouterContext): Promise<void> {
-    const { params, body } = validateRequest(ctx, {
-      params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().required(),
-      }),
-      body: Joi.object<AdminUpdatePermissionsRequest>({
-        permissions: Joi.object<SbPermissions>({
-          editPermissions: Joi.boolean().required(),
-          debug: Joi.boolean().required(),
-          banUsers: Joi.boolean().required(),
-          manageLeagues: Joi.boolean().required(),
-          manageMaps: Joi.boolean().required(),
-          manageMapPools: Joi.boolean().required(),
-          manageMatchmakingSeasons: Joi.boolean().required(),
-          manageMatchmakingTimes: Joi.boolean().required(),
-          manageRallyPointServers: Joi.boolean().required(),
-          massDeleteMaps: Joi.boolean().required(),
-          moderateChatChannels: Joi.boolean().required(),
-        }).required(),
-      }),
-    })
-
-    const user = await findUserById(params.id)
-    if (!user) {
-      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
-    }
-
-    await this.userService.updatePermissions(user.id, body.permissions)
-
-    ctx.status = 204
-  }
 
   @httpGet('/:id/bans')
   @httpBefore(checkAllPermissions('banUsers'))

@@ -1,13 +1,9 @@
-import { FullConfig, request } from '@playwright/test'
-import { DEFAULT_PERMISSIONS, SbPermissions } from '../common/users/permissions'
-import { AdminUpdatePermissionsRequest } from '../common/users/sb-user'
+import { test as setup } from '@playwright/test'
 import { setAdminJwt } from './admin-utils'
+import { LoginPage } from './pages/login-page'
 
-export default async function globalSetup(config: FullConfig) {
-  const { baseURL } = config.projects[0].use
-
-  const requestContext = await request.newContext()
-  const response = await requestContext.post(`${baseURL}/api/1/users`, {
+setup('create admin account', async ({ page, request, baseURL }) => {
+  const response = await request.post(`/api/1/users`, {
     headers: {
       Origin: baseURL!,
     },
@@ -28,29 +24,23 @@ export default async function globalSetup(config: FullConfig) {
   const { jwt } = await response.json()
   setAdminJwt(jwt)
 
-  // Give the admin user every permission
-  const permissions = Object.fromEntries(
-    Object.entries(DEFAULT_PERMISSIONS).map(([key, _value]) => [key, true]),
-  ) as unknown as SbPermissions
-  const permissionsResponse = await requestContext.post(
-    `${baseURL}/api/1/admin/users/1/permissions`,
-    {
-      headers: {
-        Origin: baseURL!,
-        Authorization: `Bearer ${jwt}`,
-      },
-      data: {
-        permissions,
-      } satisfies AdminUpdatePermissionsRequest,
-    },
-  )
+  const loginPage = new LoginPage(page)
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  await page.waitForSelector('[data-test=left-nav]')
 
-  if (permissionsResponse.status() < 200 || permissionsResponse.status() >= 300) {
-    throw new Error(
-      `Got unsuccessful response for permissions request: ` +
-        `${permissionsResponse.status()} ${permissionsResponse.statusText()}`,
-    )
+  await page.goto('/users/1/admin/admin')
+  await page.waitForSelector('[data-test=permissions-form]')
+
+  const checkboxes = await page.locator(
+    'form[data-test=permissions-form] input[type=checkbox]:not(:disabled)',
+  )
+  const count = await checkboxes.count()
+  for (let i = 0; i < count; i++) {
+    await checkboxes.nth(i).check()
   }
 
-  await requestContext.dispose()
-}
+  await page.click('[data-test=save-permissions-button]')
+
+  await page.waitForSelector('[data-test=ban-history-section]')
+})

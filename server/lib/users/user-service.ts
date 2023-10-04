@@ -3,7 +3,7 @@ import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
 import { AuthEvent, SbUserId, SelfUser, makeSbUserId } from '../../../common/users/sb-user'
 import logger from '../logging/logger'
-import { getPermissions, updatePermissions } from '../models/permissions'
+import { getPermissions } from '../models/permissions'
 import { Redis, RedisSubscriber } from '../redis/redis'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
@@ -124,18 +124,5 @@ export class UserService {
     }
 
     return verified
-  }
-
-  async updatePermissions(id: SbUserId, permissions: SbPermissions): Promise<SbPermissions> {
-    await updatePermissions(id, permissions)
-    const updated = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
-
-    this.publisher.publish(`/userProfiles/${id}`, {
-      action: 'permissionsChanged',
-      userId: id,
-      permissions,
-    })
-
-    return updated.permissions
   }
 }

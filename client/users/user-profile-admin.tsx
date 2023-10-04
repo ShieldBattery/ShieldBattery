@@ -151,7 +151,7 @@ function PermissionsEditor({
     <AdminSection $gridColumn='span 3'>
       <Headline5>Permissions</Headline5>
       {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={onSubmit} data-test='permissions-form'>
         <CheckBox
           {...bindCheckable('editPermissions')}
           label='Edit permissions'
@@ -225,6 +225,7 @@ function PermissionsEditor({
           tabIndex={0}
           onClick={onSubmit}
           disabled={fetching}
+          testName='save-permissions-button'
         />
       </form>
     </AdminSection>
@@ -293,7 +294,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
   }, [userId, dispatch])
 
   return (
-    <AdminSection $gridColumn='span 6'>
+    <AdminSection $gridColumn='span 6' data-test='ban-history-section'>
       <Headline5>Ban history</Headline5>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
