@@ -23,12 +23,12 @@ type CurrentUser {
 
 type Mutation {
 	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
-	updatePermissions(userId: Int!, permissions: SbPermisssionsInput!): User!
+	updateUserPermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
 }
 
 type Query {
-	user(id: Int!): User
-	userByDisplayName(name: String!): User
+	user(id: Int!): SbUser
+	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
 }
 
@@ -46,7 +46,7 @@ type SbPermissions {
 	moderateChatChannels: Boolean!
 }
 
-input SbPermisssionsInput {
+input SbPermissionsInput {
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -60,19 +60,19 @@ input SbPermisssionsInput {
 	moderateChatChannels: Boolean!
 }
 
-
-input UpdateCurrentUserChanges {
-	email: String
-	newPassword: String
-}
-
-type User {
+type SbUser {
 	id: Int!
 	"""
 	The user's display name (may differ from their login name).
 	"""
 	name: String!
 	permissions: SbPermissions!
+}
+
+
+input UpdateCurrentUserChanges {
+	email: String
+	newPassword: String
 }
 
 schema {

@@ -39,7 +39,7 @@ export type CurrentUser = {
 export type Mutation = {
   __typename?: 'Mutation'
   updateCurrentUser: CurrentUser
-  updatePermissions: User
+  updateUserPermissions: SbUser
 }
 
 export type MutationUpdateCurrentUserArgs = {
@@ -47,16 +47,16 @@ export type MutationUpdateCurrentUserArgs = {
   currentPassword: Scalars['String']['input']
 }
 
-export type MutationUpdatePermissionsArgs = {
-  permissions: SbPermisssionsInput
+export type MutationUpdateUserPermissionsArgs = {
+  permissions: SbPermissionsInput
   userId: Scalars['Int']['input']
 }
 
 export type Query = {
   __typename?: 'Query'
   currentUser?: Maybe<CurrentUser>
-  user?: Maybe<User>
-  userByDisplayName?: Maybe<User>
+  user?: Maybe<SbUser>
+  userByDisplayName?: Maybe<SbUser>
 }
 
 export type QueryUserArgs = {
@@ -82,7 +82,7 @@ export type SbPermissions = {
   moderateChatChannels: Scalars['Boolean']['output']
 }
 
-export type SbPermisssionsInput = {
+export type SbPermissionsInput = {
   banUsers: Scalars['Boolean']['input']
   debug: Scalars['Boolean']['input']
   editPermissions: Scalars['Boolean']['input']
@@ -96,17 +96,17 @@ export type SbPermisssionsInput = {
   moderateChatChannels: Scalars['Boolean']['input']
 }
 
-export type UpdateCurrentUserChanges = {
-  email?: InputMaybe<Scalars['String']['input']>
-  newPassword?: InputMaybe<Scalars['String']['input']>
-}
-
-export type User = {
-  __typename?: 'User'
+export type SbUser = {
+  __typename?: 'SbUser'
   id: Scalars['Int']['output']
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
   permissions: SbPermissions
+}
+
+export type UpdateCurrentUserChanges = {
+  email?: InputMaybe<Scalars['String']['input']>
+  newPassword?: InputMaybe<Scalars['String']['input']>
 }
 
 export type AccountSettings_CurrentUserFragment = {
@@ -155,6 +155,55 @@ export type AccountSettingsChangeEmailMutation = {
   }
 }
 
+export type AdminUserProfileQueryVariables = Exact<{
+  userId: Scalars['Int']['input']
+  includePermissions: Scalars['Boolean']['input']
+}>
+
+export type AdminUserProfileQuery = {
+  __typename?: 'Query'
+  user?:
+    | ({ __typename?: 'SbUser'; id: number } & {
+        ' $fragmentRefs'?: {
+          AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
+        }
+      })
+    | null
+}
+
+export type AdminUserProfile_PermissionsFragment = {
+  __typename?: 'SbUser'
+  id: number
+  permissions: {
+    __typename?: 'SbPermissions'
+    editPermissions: boolean
+    debug: boolean
+    banUsers: boolean
+    manageLeagues: boolean
+    manageMaps: boolean
+    manageMapPools: boolean
+    manageMatchmakingTimes: boolean
+    manageMatchmakingSeasons: boolean
+    manageRallyPointServers: boolean
+    massDeleteMaps: boolean
+    moderateChatChannels: boolean
+  }
+} & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
+
+export type AdminUpdateUserPermissionsMutationVariables = Exact<{
+  userId: Scalars['Int']['input']
+  permissions: SbPermissionsInput
+}>
+
+export type AdminUpdateUserPermissionsMutation = {
+  __typename?: 'Mutation'
+  updateUserPermissions: { __typename?: 'SbUser' } & {
+    ' $fragmentRefs'?: {
+      AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
+    }
+  }
+}
+
 export const AccountSettings_CurrentUserFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -175,6 +224,42 @@ export const AccountSettings_CurrentUserFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<AccountSettings_CurrentUserFragment, unknown>
+export const AdminUserProfile_PermissionsFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminUserProfile_PermissionsFragment, unknown>
 export const AccountSettingsDocument = {
   kind: 'Document',
   definitions: [
@@ -387,4 +472,197 @@ export const AccountSettingsChangeEmailDocument = {
 } as unknown as DocumentNode<
   AccountSettingsChangeEmailMutation,
   AccountSettingsChangeEmailMutationVariables
+>
+export const AdminUserProfileDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminUserProfile' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'includePermissions' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+                  directives: [
+                    {
+                      kind: 'Directive',
+                      name: { kind: 'Name', value: 'include' },
+                      arguments: [
+                        {
+                          kind: 'Argument',
+                          name: { kind: 'Name', value: 'if' },
+                          value: {
+                            kind: 'Variable',
+                            name: { kind: 'Name', value: 'includePermissions' },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminUserProfileQuery, AdminUserProfileQueryVariables>
+export const AdminUpdateUserPermissionsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminUpdateUserPermissions' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'permissions' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbPermissionsInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'updateUserPermissions' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'permissions' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'permissions' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AdminUpdateUserPermissionsMutation,
+  AdminUpdateUserPermissionsMutationVariables
 >

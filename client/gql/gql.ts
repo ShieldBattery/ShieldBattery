@@ -21,6 +21,12 @@ const documents = {
     types.AccountSettingsChangePasswordDocument,
   '\n  mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {\n    updateCurrentUser(currentPassword: $currentPassword, changes: { email: $email }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n':
     types.AccountSettingsChangeEmailDocument,
+  '\n  query AdminUserProfile($userId: Int!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n':
+    types.AdminUserProfileDocument,
+  '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n    }\n  }\n':
+    types.AdminUserProfile_PermissionsFragmentDoc,
+  '\n  mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {\n    updateUserPermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
+    types.AdminUpdateUserPermissionsDocument,
 }
 
 /**
@@ -61,6 +67,24 @@ export function graphql(
 export function graphql(
   source: '\n  mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {\n    updateCurrentUser(currentPassword: $currentPassword, changes: { email: $email }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n',
 ): (typeof documents)['\n  mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {\n    updateCurrentUser(currentPassword: $currentPassword, changes: { email: $email }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminUserProfile($userId: Int!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n',
+): (typeof documents)['\n  query AdminUserProfile($userId: Int!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n    }\n  }\n',
+): (typeof documents)['\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {\n    updateUserPermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {\n    updateUserPermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n']
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {}

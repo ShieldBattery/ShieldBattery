@@ -40,14 +40,14 @@ pub mod permissions;
 
 #[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
 #[graphql(complex)]
-pub struct User {
+pub struct SbUser {
     pub id: i32,
     /// The user's display name (may differ from their login name).
     pub name: String,
 }
 
 #[ComplexObject]
-impl User {
+impl SbUser {
     #[graphql(guard = RequiredPermission::EditPermissions.or(IsCurrentUser::guard(self.id)))]
     async fn permissions(&self, ctx: &Context<'_>) -> Result<SbPermissions> {
         ctx.data_unchecked::<DataLoader<PermissionsLoader>>()
@@ -57,7 +57,7 @@ impl User {
     }
 }
 
-impl From<CurrentUser> for User {
+impl From<CurrentUser> for SbUser {
     fn from(value: CurrentUser) -> Self {
         Self {
             id: value.id,
@@ -146,13 +146,17 @@ pub struct UsersQuery;
 
 #[Object]
 impl UsersQuery {
-    async fn user(&self, ctx: &Context<'_>, id: i32) -> Result<Option<User>> {
+    async fn user(&self, ctx: &Context<'_>, id: i32) -> Result<Option<SbUser>> {
         ctx.data_unchecked::<DataLoader<UsersLoader>>()
             .load_one(id)
             .await
     }
 
-    async fn user_by_display_name(&self, ctx: &Context<'_>, name: String) -> Result<Option<User>> {
+    async fn user_by_display_name(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+    ) -> Result<Option<SbUser>> {
         ctx.data_unchecked::<DataLoader<UsersLoader>>()
             .load_one(name)
             .await
@@ -341,12 +345,12 @@ impl UsersMutation {
     }
 
     #[graphql(guard = RequiredPermission::EditPermissions)]
-    async fn update_permissions(
+    async fn update_user_permissions(
         &self,
         ctx: &Context<'_>,
         user_id: i32,
         permissions: SbPermissions,
-    ) -> Result<User> {
+    ) -> Result<SbUser> {
         sqlx::query!(
             r#"
                 UPDATE permissions
@@ -416,12 +420,12 @@ impl UsersLoader {
 
 #[async_trait]
 impl Loader<i32> for UsersLoader {
-    type Value = User;
+    type Value = SbUser;
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[i32]) -> Result<HashMap<i32, Self::Value>, Self::Error> {
         Ok(sqlx::query_as!(
-            User,
+            SbUser,
             r#"SELECT id, name::TEXT as "name!" FROM users WHERE id = ANY($1)"#,
             keys
         )
@@ -434,7 +438,7 @@ impl Loader<i32> for UsersLoader {
 
 #[async_trait]
 impl Loader<String> for UsersLoader {
-    type Value = User;
+    type Value = SbUser;
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
@@ -444,7 +448,7 @@ impl Loader<String> for UsersLoader {
             sqlx::query_as(r#"SELECT id, name::TEXT as "name" FROM users WHERE name = ANY($1)"#)
                 .bind(keys)
                 .fetch(&self.db)
-                .map_ok(|u: User| (u.name.clone(), u))
+                .map_ok(|u: SbUser| (u.name.clone(), u))
                 .try_collect()
                 .await?,
         )

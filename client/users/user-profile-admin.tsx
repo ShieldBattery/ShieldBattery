@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { SbPermissions } from '../../common/users/permissions'
+import { useMutation, useQuery } from 'urql'
 import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../common/users/sb-user'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
+import { graphql, useFragment } from '../gql'
+import { AdminUserProfile_PermissionsFragment } from '../gql/graphql'
+import { logger } from '../logging/logger'
 import { RaisedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { SelectOption } from '../material/select/option'
@@ -19,13 +22,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography'
-import {
-  adminBanUser,
-  adminGetUserBanHistory,
-  adminGetUserIps,
-  adminGetUserPermissions,
-  adminUpdateUserPermissions,
-} from './action-creators'
+import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
 import { ConnectedUsername } from './connected-username'
 
 const AdminUserPageRoot = styled.div`
@@ -57,13 +54,32 @@ const LoadingError = styled.div`
   padding: 0 24px;
 `
 
+const AdminUserProfileQuery = graphql(/* GraphQL */ `
+  query AdminUserProfile($userId: Int!, $includePermissions: Boolean!) {
+    user(id: $userId) {
+      id
+      ...AdminUserProfile_Permissions @include(if: $includePermissions)
+    }
+  }
+`)
+
 export function AdminUserPage({ user }: { user: SbUser }) {
   const selfUser = useSelfUser()!
   const selfPermissions = useSelfPermissions()
+
+  const [{ data }] = useQuery({
+    query: AdminUserProfileQuery,
+    variables: {
+      userId: user.id,
+      includePermissions: !!selfPermissions?.editPermissions,
+    },
+  })
+  const userPermissionsFragment = useFragment(PermissionsFragment, data?.user)
+
   return (
     <AdminUserPageRoot>
-      {selfPermissions?.editPermissions ? (
-        <PermissionsEditor user={user} selfUser={selfUser} />
+      {selfPermissions?.editPermissions && userPermissionsFragment ? (
+        <PermissionsEditor fragment={userPermissionsFragment} isSelf={selfUser.id === user.id} />
       ) : null}
       {selfPermissions?.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
       {selfPermissions?.banUsers ? <UserIpHistory user={user} /> : null}
@@ -71,90 +87,59 @@ export function AdminUserPage({ user }: { user: SbUser }) {
   )
 }
 
-function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
-  const dispatch = useAppDispatch()
-  const [permissions, setPermissions] = useState<Readonly<SbPermissions>>()
-
-  const [requestError, setRequestError] = useState<Error>()
-  const cancelLoadRef = useRef(new AbortController())
-  const [formKey, setFormKey] = useState(0)
-
-  const userId = user.id
-  const isSelf = userId === selfUser.id
-
-  const onFormSubmit = useCallback(
-    (model: SbPermissions) => {
-      dispatch(
-        adminUpdateUserPermissions(userId, model, {
-          onSuccess: () => {
-            setPermissions(model)
-            setRequestError(undefined)
-          },
-          onError: (error: Error) => {
-            setRequestError(error)
-          },
-        }),
-      )
-    },
-    [userId, dispatch],
-  )
-
-  const model = useMemo(() => (permissions ? { ...permissions } : undefined), [permissions])
-
-  useEffect(() => {
-    cancelLoadRef.current.abort()
-    const abortController = new AbortController()
-    cancelLoadRef.current = abortController
-
-    dispatch(
-      adminGetUserPermissions(userId, {
-        signal: abortController.signal,
-        onSuccess: response => {
-          setRequestError(undefined)
-          setPermissions(response.permissions)
-          setFormKey(key => key + 1)
-        },
-        onError: err => setRequestError(err),
-      }),
-    )
-
-    return () => {
-      abortController.abort()
+const PermissionsFragment = graphql(/* GraphQL */ `
+  fragment AdminUserProfile_Permissions on SbUser {
+    id
+    permissions {
+      editPermissions
+      debug
+      banUsers
+      manageLeagues
+      manageMaps
+      manageMapPools
+      manageMatchmakingTimes
+      manageMatchmakingSeasons
+      manageRallyPointServers
+      massDeleteMaps
+      moderateChatChannels
     }
-  }, [userId, dispatch])
+  }
+`)
 
-  return (
-    <AdminSection $gridColumn='span 3'>
-      <Headline5>Permissions</Headline5>
-      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
-      {model ? (
-        <PermissionsEditorForm
-          key={formKey}
-          isSelf={isSelf}
-          model={model}
-          onSubmit={onFormSubmit}
-        />
-      ) : (
-        <LoadingDotsArea />
-      )}
-    </AdminSection>
-  )
-}
+const UpdatePermissionsMutation = graphql(/* GraphQL */ `
+  mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {
+    updateUserPermissions(userId: $userId, permissions: $permissions) {
+      ...AdminUserProfile_Permissions
+    }
+  }
+`)
 
-function PermissionsEditorForm({
+function PermissionsEditor({
+  fragment,
   isSelf,
-  model,
-  onSubmit: onFormSubmit,
 }: {
+  fragment: AdminUserProfile_PermissionsFragment
   isSelf: boolean
-  model: SbPermissions
-  onSubmit: (model: SbPermissions) => void
 }) {
+  const { id: userId, permissions } = fragment
+  const [{ fetching }, updatePermissions] = useMutation(UpdatePermissionsMutation)
+  const [errorMessage, setErrorMessage] = useState<string>()
+
   const { onSubmit, bindCheckable } = useForm(
-    model,
+    permissions,
     {},
     {
-      onSubmit: onFormSubmit,
+      onSubmit: model => {
+        updatePermissions({ userId, permissions: model })
+          .then(result => {
+            if (result.error) {
+              setErrorMessage(result.error.message)
+            } else {
+              setErrorMessage(undefined)
+            }
+          })
+          .catch(err => logger.error(`Error changing permissions: ${err.stack ?? err}`))
+      },
     },
   )
 
@@ -163,54 +148,86 @@ function PermissionsEditorForm({
   }
 
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
-      <CheckBox
-        {...bindCheckable('editPermissions')}
-        label='Edit permissions'
-        inputProps={inputProps}
-        disabled={isSelf}
-      />
-      <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
-      <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
-      <CheckBox
-        {...bindCheckable('manageLeagues')}
-        label='Manage leagues'
-        inputProps={inputProps}
-      />
-      <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
-      <CheckBox
-        {...bindCheckable('manageMapPools')}
-        label='Manage matchmaking map pools'
-        inputProps={inputProps}
-      />
-      <CheckBox
-        {...bindCheckable('manageMatchmakingTimes')}
-        label='Manage matchmaking times'
-        inputProps={inputProps}
-      />
-      <CheckBox
-        {...bindCheckable('manageMatchmakingSeasons')}
-        label='Manage matchmaking seasons'
-        inputProps={inputProps}
-      />
-      <CheckBox
-        {...bindCheckable('manageRallyPointServers')}
-        label='Manage rally-point servers'
-        inputProps={inputProps}
-      />
-      <CheckBox
-        {...bindCheckable('massDeleteMaps')}
-        label='Mass delete maps'
-        inputProps={inputProps}
-      />
-      <CheckBox
-        {...bindCheckable('moderateChatChannels')}
-        label='Moderate chat channels'
-        inputProps={inputProps}
-      />
+    <AdminSection $gridColumn='span 3'>
+      <Headline5>Permissions</Headline5>
+      {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
+      <form noValidate={true} onSubmit={onSubmit}>
+        <CheckBox
+          {...bindCheckable('editPermissions')}
+          label='Edit permissions'
+          inputProps={inputProps}
+          disabled={isSelf || fetching}
+        />
+        <CheckBox
+          {...bindCheckable('debug')}
+          label='Debug'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('banUsers')}
+          label='Ban users'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageLeagues')}
+          label='Manage leagues'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageMaps')}
+          label='Manage maps'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageMapPools')}
+          label='Manage matchmaking map pools'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageMatchmakingTimes')}
+          label='Manage matchmaking times'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageMatchmakingSeasons')}
+          label='Manage matchmaking seasons'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageRallyPointServers')}
+          label='Manage rally-point servers'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('massDeleteMaps')}
+          label='Mass delete maps'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('moderateChatChannels')}
+          label='Moderate chat channels'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
 
-      <TextButton label='Save' color='accent' tabIndex={0} onClick={onSubmit} />
-    </form>
+        <TextButton
+          label='Save'
+          color='accent'
+          tabIndex={0}
+          onClick={onSubmit}
+          disabled={fetching}
+        />
+      </form>
+    </AdminSection>
   )
 }
 

@@ -12,7 +12,7 @@ use typeshare::typeshare;
 #[typeshare]
 #[derive(Clone, Debug, Deserialize, Serialize, SimpleObject, InputObject, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
-#[graphql(input_name = "SbPermisssionsInput")]
+#[graphql(input_name = "SbPermissionsInput")]
 pub struct SbPermissions {
     pub edit_permissions: bool,
     pub debug: bool,
