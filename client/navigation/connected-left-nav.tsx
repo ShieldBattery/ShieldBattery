@@ -5,7 +5,6 @@ import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { useLocation } from 'wouter'
 import { SbChannelId } from '../../common/chat'
-import { MULTI_CHANNEL } from '../../common/flags'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
@@ -491,20 +490,16 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <ActiveGameSection /> : null}
       {IS_ELECTRON ? <LobbySection /> : null}
       {IS_ELECTRON ? <PartySection /> : null}
-      {MULTI_CHANNEL ? (
-        <Tooltip
-          text={t('navigation.leftNav.joinChannel', 'Join a channel (Alt + H)')}
-          position='right'>
-          <ClickableSubheader
-            ref={joinChannelButtonRef}
-            href={urlPath`/chat/list`}
-            icon={<MaterialIcon icon='add' />}>
-            {t('navigation.leftNav.chatChannels', 'Chat channels')}
-          </ClickableSubheader>
-        </Tooltip>
-      ) : (
-        <Subheader>{t('navigation.leftNav.chatChannels', 'Chat channels')}</Subheader>
-      )}
+      <Tooltip
+        text={t('navigation.leftNav.joinChannel', 'Join a channel (Alt + H)')}
+        position='right'>
+        <ClickableSubheader
+          ref={joinChannelButtonRef}
+          href={urlPath`/chat/list`}
+          icon={<MaterialIcon icon='add' />}>
+          {t('navigation.leftNav.chatChannels', 'Chat channels')}
+        </ClickableSubheader>
+      </Tooltip>
       <Section>
         {Array.from(chatChannels.values(), c => (
           <ConnectedChatNavEntry key={c} channelId={c} onLeave={onChannelLeave} />

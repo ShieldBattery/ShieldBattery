@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL, MULTI_CHANNEL } from '../../common/flags'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
@@ -104,7 +104,6 @@ export function addChannelUserMenuItems(
 
   const channelUserProfile = channelUserProfiles.get(user.id)
   if (
-    MULTI_CHANNEL &&
     channelUserProfile &&
     user.id !== selfUserId &&
     (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)

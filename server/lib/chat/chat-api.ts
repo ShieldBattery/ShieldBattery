@@ -19,10 +19,8 @@ import {
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
-import { MULTI_CHANNEL } from '../../../common/flags'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
-import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -140,10 +138,7 @@ export class ChatApi {
   constructor(private chatService: ChatService) {}
 
   @httpPost('/join/:channelName')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(joinThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(joinThrottle, ctx => String(ctx.session!.user!.id)))
   async joinChannel(ctx: RouterContext): Promise<JoinChannelResponse> {
     const {
       params: { channelName },
@@ -157,10 +152,7 @@ export class ChatApi {
   }
 
   @httpDelete('/:channelId')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(leaveThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(leaveThrottle, ctx => String(ctx.session!.user!.id)))
   async leaveChannel(ctx: RouterContext): Promise<void> {
     const channelId = getValidatedChannelId(ctx)
 
@@ -248,10 +240,7 @@ export class ChatApi {
   }
 
   @httpPost('/:channelId/users/:targetId/remove')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.user!.id)))
   async moderateChannelUser(ctx: RouterContext): Promise<void> {
     const {
       params: { channelId, targetId },
@@ -279,10 +268,7 @@ export class ChatApi {
   }
 
   @httpGet('/:channelId/users/:targetId/permissions')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user!.id)))
   async getChannelUserPermissions(ctx: RouterContext): Promise<GetChannelUserPermissionsResponse> {
     const {
       params: { channelId, targetId },
@@ -297,10 +283,7 @@ export class ChatApi {
   }
 
   @httpPost('/:channelId/users/:targetId/permissions')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user!.id)))
   async updateChannelUserPermissions(ctx: RouterContext): Promise<void> {
     const {
       params: { channelId, targetId },
@@ -354,10 +337,7 @@ export class ChatApi {
   }
 
   @httpGet('/')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(channelRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
-  )
+  @httpBefore(throttleMiddleware(channelRetrievalThrottle, ctx => String(ctx.session!.user!.id)))
   async searchChannels(ctx: RouterContext): Promise<SearchChannelsResponse> {
     const {
       query: { q: searchQuery, offset },
