@@ -4,7 +4,6 @@ import { container, singleton } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
-import { USE_STATIC_TURNRATE } from '../../../common/flags'
 import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameRouteDebugInfo } from '../../../common/games/games'
@@ -360,27 +359,22 @@ export class GameLoader {
         .labels(loadingData.gameSource)
         .observe(maxEstimatedLatency / 1000)
 
-      if (USE_STATIC_TURNRATE) {
-        let availableTurnRates = MAX_LATENCIES_LOW.filter(
+      let availableTurnRates = MAX_LATENCIES_LOW.filter(
+        ([_, latency]) => latency > maxEstimatedLatency,
+      )
+      if (availableTurnRates.length) {
+        // Of the turn rates that work for this latency, pick the best one
+        chosenTurnRate = availableTurnRates.at(-1)![0]
+        chosenUserLatency = BwUserLatency.Low
+      } else {
+        // Fall back to a latency that will work for High latency
+        availableTurnRates = MAX_LATENCIES_HIGH.filter(
           ([_, latency]) => latency > maxEstimatedLatency,
         )
-        if (availableTurnRates.length) {
-          // Of the turn rates that work for this latency, pick the best one
-          chosenTurnRate = availableTurnRates.at(-1)![0]
-          chosenUserLatency = BwUserLatency.Low
-        } else {
-          // Fall back to a latency that will work for High latency
-          availableTurnRates = MAX_LATENCIES_HIGH.filter(
-            ([_, latency]) => latency > maxEstimatedLatency,
-          )
-          // Of the turn rates that work for this latency, pick the best one
-          chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
-          chosenUserLatency = BwUserLatency.High
-        }
+        // Of the turn rates that work for this latency, pick the best one
+        chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+        chosenUserLatency = BwUserLatency.High
       }
-    } else {
-      chosenTurnRate = gameConfig.gameSourceExtra.turnRate
-      chosenUserLatency = BwUserLatency.Low
     }
 
     const onGameSetupResult = onGameSetup
