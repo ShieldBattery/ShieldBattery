@@ -32,7 +32,7 @@ setup('create admin account', async ({ page, request, baseURL }) => {
   await page.goto('/users/1/admin/admin')
   await page.waitForSelector('[data-test=permissions-form]')
 
-  const checkboxes = await page.locator(
+  const checkboxes = page.locator(
     'form[data-test=permissions-form] input[type=checkbox]:not(:disabled)',
   )
   const count = await checkboxes.count()
