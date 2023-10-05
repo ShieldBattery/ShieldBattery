@@ -16,3 +16,5 @@ export const DEV_INDICATOR = DEV()
 // TODO(2Pac): Flip this flag to ON once we have a news/home page
 /** Allows users to leave the ShieldBattery chat channel. */
 export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = OFF()
+/** Add a news/landing/home page. */
+export const NEWS_PAGE = DEV()

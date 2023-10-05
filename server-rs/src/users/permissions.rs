@@ -25,6 +25,7 @@ pub struct SbPermissions {
     pub manage_rally_point_servers: bool,
     pub mass_delete_maps: bool,
     pub moderate_chat_channels: bool,
+    pub manage_news: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -94,7 +95,8 @@ impl Loader<i32> for PermissionsLoader {
             r#"
                     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
-                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        manage_news
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -116,6 +118,7 @@ impl Loader<i32> for PermissionsLoader {
                     manage_rally_point_servers: r.manage_rally_point_servers,
                     mass_delete_maps: r.mass_delete_maps,
                     moderate_chat_channels: r.moderate_chat_channels,
+                    manage_news: r.manage_news,
                 },
             )
         })

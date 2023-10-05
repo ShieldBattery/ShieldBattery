@@ -77,6 +77,7 @@ export type SbPermissions = {
   manageMaps: Scalars['Boolean']['output']
   manageMatchmakingSeasons: Scalars['Boolean']['output']
   manageMatchmakingTimes: Scalars['Boolean']['output']
+  manageNews: Scalars['Boolean']['output']
   manageRallyPointServers: Scalars['Boolean']['output']
   massDeleteMaps: Scalars['Boolean']['output']
   moderateChatChannels: Scalars['Boolean']['output']
@@ -91,6 +92,7 @@ export type SbPermissionsInput = {
   manageMaps: Scalars['Boolean']['input']
   manageMatchmakingSeasons: Scalars['Boolean']['input']
   manageMatchmakingTimes: Scalars['Boolean']['input']
+  manageNews: Scalars['Boolean']['input']
   manageRallyPointServers: Scalars['Boolean']['input']
   massDeleteMaps: Scalars['Boolean']['input']
   moderateChatChannels: Scalars['Boolean']['input']
@@ -187,6 +189,7 @@ export type AdminUserProfile_PermissionsFragment = {
     manageRallyPointServers: boolean
     massDeleteMaps: boolean
     moderateChatChannels: boolean
+    manageNews: boolean
   }
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
@@ -252,6 +255,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
               ],
             },
           },
@@ -566,6 +570,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
               ],
             },
           },
@@ -655,6 +660,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
               ],
             },
           },

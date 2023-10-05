@@ -355,19 +355,21 @@ impl UsersMutation {
             r#"
                 UPDATE permissions
                 SET
-                    edit_permissions = $1,
-                    debug = $2,
-                    ban_users = $3,
-                    manage_leagues = $4,
-                    manage_maps = $5,
-                    manage_map_pools = $6,
-                    manage_matchmaking_seasons = $7,
-                    manage_matchmaking_times = $8,
-                    manage_rally_point_servers = $9,
-                    mass_delete_maps = $10,
-                    moderate_chat_channels = $11
-                WHERE user_id = $12
+                    edit_permissions = $2,
+                    debug = $3,
+                    ban_users = $4,
+                    manage_leagues = $5,
+                    manage_maps = $6,
+                    manage_map_pools = $7,
+                    manage_matchmaking_seasons = $8,
+                    manage_matchmaking_times = $9,
+                    manage_rally_point_servers = $10,
+                    mass_delete_maps = $11,
+                    moderate_chat_channels = $12,
+                    manage_news = $13
+                WHERE user_id = $1
             "#,
+            user_id,
             permissions.edit_permissions,
             permissions.debug,
             permissions.ban_users,
@@ -379,7 +381,7 @@ impl UsersMutation {
             permissions.manage_rally_point_servers,
             permissions.mass_delete_maps,
             permissions.moderate_chat_channels,
-            user_id,
+            permissions.manage_news,
         )
         .execute(ctx.data_unchecked::<PgPool>())
         .await?;
@@ -535,7 +537,8 @@ impl CurrentUserRepo {
                 r#"
                     SELECT edit_permissions, debug, ban_users, manage_leagues, manage_maps,
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
-                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        manage_news
                     FROM permissions
                     WHERE user_id = $1
                 "#,

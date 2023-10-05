@@ -19,6 +19,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
     manageRallyPointServers: props.manage_rally_point_servers,
     massDeleteMaps: props.mass_delete_maps,
     moderateChatChannels: props.moderate_chat_channels,
+    manageNews: props.manage_news,
   }
 }
 
@@ -39,7 +40,7 @@ export async function getPermissions(userId: SbUserId): Promise<SbPermissions | 
   const query = sql`
     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
         manage_map_pools, mass_delete_maps, manage_matchmaking_times, manage_rally_point_servers,
-        moderate_chat_channels, manage_matchmaking_seasons
+        moderate_chat_channels, manage_matchmaking_seasons, manage_news
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -71,6 +72,7 @@ export async function updatePermissions(
       manage_rally_point_servers = ${!!perms.manageRallyPointServers},
       moderate_chat_channels=${!!perms.moderateChatChannels},
       manage_matchmaking_seasons=${!!perms.manageMatchmakingSeasons}
+      manage_news=${!!perms.manageNews}
     WHERE user_id = ${userId}
     RETURNING *;
   `

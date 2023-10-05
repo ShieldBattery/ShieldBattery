@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
+import { NEWS_PAGE } from '../common/flags'
 import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { ReduxAction } from './action-types'
@@ -22,6 +23,7 @@ import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
 import { FileDropZone } from './file-browser/file-drop-zone'
 import { GamesRouteComponent } from './games/route'
+import { Home } from './home'
 import { MaterialIcon } from './icons/material/material-icon'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
@@ -40,7 +42,7 @@ import { usePopoverController } from './material/popover'
 import { shadowDef8dp } from './material/shadow-constants'
 import { Tooltip } from './material/tooltip'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
-import Index from './navigation/index'
+import { GoToIndex } from './navigation/index'
 import { replace } from './navigation/routing'
 import { addLocalNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
@@ -456,12 +458,14 @@ export function MainLayout() {
           {matchmakingRoute}
           {partyRoute}
           <Route path='/users/:rest*' component={ProfileRouteComponent} />
-          {/* TODO(2Pac): Remove `any` once the `Whisper` is TS-ified */}
           <Route path='/whispers/:rest*' component={WhisperRouteComponent} />
-          {/* If no paths match, redirect the page to the "index". */}
-          <Route>
-            <Index transitionFn={replace} />
-          </Route>
+          {NEWS_PAGE ? (
+            <Route component={Home} />
+          ) : (
+            <Route>
+              <GoToIndex transitionFn={replace} />
+            </Route>
+          )}
         </Switch>
       </Content>
       <ActivityBar>

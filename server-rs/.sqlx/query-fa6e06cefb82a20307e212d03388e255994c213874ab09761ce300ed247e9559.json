@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT edit_permissions, debug, ban_users, manage_leagues, manage_maps,\n                        manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,\n                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
+  "query": "\n                    SELECT edit_permissions, debug, ban_users, manage_leagues, manage_maps,\n                        manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,\n                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,\n                        manage_news\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,11 @@
         "ordinal": 10,
         "name": "moderate_chat_channels",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "manage_news",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -75,8 +80,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "5620d6c8ca9fcc4a18df6f70719c52495980b7863e60e285d942f40290397508"
+  "hash": "fa6e06cefb82a20307e212d03388e255994c213874ab09761ce300ed247e9559"
 }

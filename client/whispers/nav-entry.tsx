@@ -5,7 +5,7 @@ import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import Entry from '../material/left-nav/entry'
+import { Entry } from '../material/left-nav/entry'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { Route, Switch } from 'wouter'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
-import Index from '../navigation/index'
+import { GoToIndex } from '../navigation/index'
 import { replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
@@ -59,7 +59,7 @@ export default function MatchmakingView() {
       <Route path='/matchmaking/countdown' component={MatchmakingMatchHolder} />
       <Route path='/matchmaking/game-starting' component={MatchmakingMatchHolder} />
       <Route path='/matchmaking/active-game' component={MatchmakingMatchHolder} />
-      <Index transitionFn={replace} />
+      <GoToIndex transitionFn={replace} />
     </Switch>
   )
 }

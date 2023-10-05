@@ -21,7 +21,6 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { selectableTextContainer } from '../material/text-selection'
-import { goToIndex } from '../navigation/action-creators'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -83,7 +82,7 @@ export function ConnectedUserProfilePage({
   subPage = UserProfileSubPage.Summary,
 }: ConnectedUserProfilePageProps) {
   if (isNaN(userId)) {
-    goToIndex(replace)
+    replace('/')
   }
 
   const { t } = useTranslation()

@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
@@ -6,7 +5,7 @@ import { amberA200 } from '../../styles/colors'
 import { body2, singleLine } from '../../styles/typography'
 import AttentionIndicator from './attention-indicator'
 
-const Container = styled.li`
+const Container = styled.li<{ $isActive: boolean }>`
   position: relative;
   height: 36px;
   margin: 0;
@@ -16,9 +15,9 @@ const Container = styled.li`
   justify-content: space-between;
   align-items: center;
 
-  background-color: ${props => (props.isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
   line-height: 36px;
-  color: ${props => (props.isActive ? amberA200 : 'currentColor')};
+  color: ${props => (props.$isActive ? amberA200 : 'currentColor')};
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.12);
@@ -53,33 +52,39 @@ const EntryButton = styled.div`
   }
 `
 
+export interface EntryProps {
+  link: string
+  currentPath: string
+  children: React.ReactNode
+  title?: string
+  button?: React.ReactNode
+  needsAttention?: boolean
+  className?: string
+}
+
 // TODO(2Pac): Try to rework this component to make it more customizable, so it could be used in all
 // nav-entries. Or, remove this component and instead only export smaller components that encompass
 // common functionality/design across all the nav-entries, and leave it to specific nav-entries to
 // use those smaller components to create a nav-entry to their liking.
+export function Entry({
+  link,
+  currentPath,
+  title,
+  button,
+  needsAttention,
+  className,
+  children,
+}: EntryProps) {
+  const isActive = link.toLowerCase() === currentPath.toLowerCase()
 
-export default class Entry extends React.Component {
-  static propTypes = {
-    link: PropTypes.string.isRequired,
-    currentPath: PropTypes.string.isRequired,
-    title: PropTypes.string,
-    button: PropTypes.element,
-    needsAttention: PropTypes.bool,
-  }
-
-  render() {
-    const { link, currentPath, title, button, needsAttention, children } = this.props
-    const isActive = link.toLowerCase() === currentPath.toLowerCase()
-
-    // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
-    return (
-      <Container isActive={isActive}>
-        {needsAttention ? <AttentionIndicator /> : null}
-        <EntryLink to={link} title={title}>
-          {children}
-        </EntryLink>
-        <EntryButton>{button}</EntryButton>
-      </Container>
-    )
-  }
+  // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
+  return (
+    <Container $isActive={isActive} className={className}>
+      {needsAttention ? <AttentionIndicator /> : null}
+      <EntryLink to={link} title={title}>
+        {children}
+      </EntryLink>
+      <EntryButton>{button}</EntryButton>
+    </Container>
+  )
 }

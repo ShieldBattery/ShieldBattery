@@ -6,7 +6,7 @@ import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { urlPath } from '../../common/urls'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import Entry from '../material/left-nav/entry'
+import { Entry } from '../material/left-nav/entry'
 import { useStableCallback } from '../state-hooks'
 
 const LeaveButton = styled(IconButton)`

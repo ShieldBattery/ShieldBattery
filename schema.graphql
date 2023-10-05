@@ -44,6 +44,7 @@ type SbPermissions {
 	manageRallyPointServers: Boolean!
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
+	manageNews: Boolean!
 }
 
 input SbPermissionsInput {
@@ -58,6 +59,7 @@ input SbPermissionsInput {
 	manageRallyPointServers: Boolean!
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
+	manageNews: Boolean!
 }
 
 type SbUser {
