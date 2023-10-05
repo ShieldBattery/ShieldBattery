@@ -914,7 +914,8 @@
             "viewChangelog": "Ver registro de cambios",
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
-            "whispers": "susurros"
+            "whispers": "susurros",
+            "home": "Hogar"
         }
     },
     "notifications": {
