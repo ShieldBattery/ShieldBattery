@@ -909,7 +909,8 @@
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
             "loadingGame": "$🗡Loading…🗡!",
-            "viewChangelog": "$🗡View changelog🗡!"
+            "viewChangelog": "$🗡View changelog🗡!",
+            "home": "$🗡Home🗡!"
         }
     },
     "notifications": {
@@ -1169,7 +1170,7 @@
             "noActiveLobbies": "$🗡There are no active lobbies🗡!",
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",
             "title": "$🗡Join Lobby🗡!",
-            "openSlotCount_one": "$🗡{{count}} slots open🗡!",
+            "openSlotCount_one": "$🗡{{count}} slot open🗡!",
             "openSlotCount_other": "$🗡{{count}} slots open🗡!"
         },
         "loading": {
