@@ -766,7 +766,8 @@
             "gameInProgress": "Идет игра…",
             "joinChannel": "Присоединиться к каналу (Alt + H)",
             "loadingChannel": "Загрузка…",
-            "lobby": "Лобби"
+            "lobby": "Лобби",
+            "home": "Дом"
         },
         "copyLink": {
             "copiedText": "Скопировано!",
