@@ -71,7 +71,7 @@ export async function updatePermissions(
       manage_matchmaking_times = ${!!perms.manageMatchmakingTimes},
       manage_rally_point_servers = ${!!perms.manageRallyPointServers},
       moderate_chat_channels=${!!perms.moderateChatChannels},
-      manage_matchmaking_seasons=${!!perms.manageMatchmakingSeasons}
+      manage_matchmaking_seasons=${!!perms.manageMatchmakingSeasons},
       manage_news=${!!perms.manageNews}
     WHERE user_id = ${userId}
     RETURNING *;
