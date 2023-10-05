@@ -555,7 +555,7 @@
       "disabledInPartyTitle": "Disabled while in party",
       "noActiveLobbies": "There are no active lobbies",
       "noOpenLobbies": "There are no open lobbies",
-      "openSlotCount_one": "{{count}} slots open",
+      "openSlotCount_one": "{{count}} slot open",
       "openSlotCount_other": "{{count}} slots open",
       "title": "Join Lobby"
     },
