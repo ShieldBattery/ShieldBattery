@@ -887,7 +887,8 @@
             "startWhisper": "开始窃窃私语 (Alt + W)",
             "viewChangelog": "查看变更日志",
             "viewProfile": "查看资料",
-            "whisperCloseError": "关闭耳语会话时出错：{{errorMessage}}"
+            "whisperCloseError": "关闭耳语会话时出错：{{errorMessage}}",
+            "home": "家"
         },
         "copyLink": {
             "copiedText": "复制了！",
