@@ -1038,7 +1038,8 @@
             "viewProfile": "프로필보기",
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
-            "loadingGame": "로드 중…"
+            "loadingGame": "로드 중…",
+            "home": "집"
         }
     },
     "users": {
