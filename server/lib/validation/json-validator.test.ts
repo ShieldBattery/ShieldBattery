@@ -8,7 +8,7 @@ describe('server/lib/json/json-validator', () => {
     })
 
     expect(schema.validate('INVALID_JSON').error).toMatchInlineSnapshot(
-      `[ValidationError: The field "value" is not a valid JSON]`,
+      `[ValidationError: The field "value" is not valid JSON]`,
     )
   })
 
