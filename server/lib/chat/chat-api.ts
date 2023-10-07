@@ -27,12 +27,12 @@ import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
 import { MAX_IMAGE_SIZE } from '../file-upload/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
-import { json } from '../json/json-validator'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { json } from '../validation/json-validator'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -171,17 +171,17 @@ export class ChatApi {
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      body: { jsonBody },
+      body: { channelChanges },
     } = validateRequest(ctx, {
-      body: Joi.object<{ jsonBody: EditChannelRequest }>({
-        jsonBody: json.object({
+      body: Joi.object<{ channelChanges: EditChannelRequest }>({
+        channelChanges: json.object({
           description: Joi.string().allow(null),
           topic: Joi.string().allow(null),
         }),
       }),
     })
 
-    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, jsonBody)
+    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, channelChanges)
   }
 
   @httpDelete('/:channelId')

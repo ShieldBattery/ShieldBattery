@@ -23,9 +23,9 @@ const SuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
 `
 
 enum UpdateStatus {
-  Updating = 'Updating',
-  Success = 'Success',
-  Error = 'Error',
+  Updating,
+  Success,
+  Error,
 }
 
 interface ChannelSettingsGeneralModel {

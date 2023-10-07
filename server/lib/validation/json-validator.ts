@@ -4,15 +4,14 @@ export const json = Joi.extend({
   type: 'object',
   base: Joi.object(),
   messages: {
-    'json.invalid': 'The field {{#label}} is not a valid JSON',
+    'json.invalid': 'The field {{#label}} is not valid JSON',
   },
   coerce: {
     from: 'string',
     method: (value, helpers) => {
       try {
-        const parsedValue = JSON.parse(value)
         return {
-          value: parsedValue,
+          value: JSON.parse(value),
         }
       } catch (err) {
         return {

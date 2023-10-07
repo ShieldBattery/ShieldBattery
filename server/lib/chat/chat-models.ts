@@ -213,20 +213,17 @@ export async function updateChannel(
   updates: Patch<EditChannelRequest>,
   withClient?: DbClient,
 ): Promise<FullChannelInfo> {
+  const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+  if (!updateEntries.length) {
+    throw new Error('No columns updated')
+  }
+
   const { client, done } = await db(withClient)
   try {
-    let query = sql`
+    const query = sql`
       UPDATE channels
       SET
-    `
-
-    const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
-    if (!updateEntries.length) {
-      throw new Error('No columns updated')
-    }
-
-    query = query.append(
-      sqlConcat(
+      ${sqlConcat(
         ', ',
         updateEntries.map(([_key, value]) => {
           const key = _key as keyof typeof updates
@@ -241,13 +238,10 @@ export async function updateChannel(
               return assertUnreachable(key)
           }
         }),
-      ),
-    )
-
-    query = query.append(sql`
+      )}
       WHERE id = ${channelId}
       RETURNING *
-    `)
+    `
 
     const result = await client.query<DbChannel>(query)
     return convertChannelFromDb(result.rows[0])

@@ -98,7 +98,7 @@ export function updateChannel(
     // once that's done.
     const formData = new FormData()
     formData.append(
-      'jsonBody',
+      'channelChanges',
       JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
     )
 

@@ -26,7 +26,6 @@ import {
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
-import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -403,9 +402,7 @@ export default class ChatService {
       )
     }
 
-    const updatedChannel: Patch<EditChannelRequest> = { ...updates }
-
-    const channel = await updateChannel(channelId, updatedChannel)
+    const channel = await updateChannel(channelId, updates)
 
     this.publisher.publish(getChannelPath(channelId), {
       action: 'edit',
