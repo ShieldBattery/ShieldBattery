@@ -1,5 +1,4 @@
 import i18n, { TFunction } from 'i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
 import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend'
 import { initReactI18next } from 'react-i18next'
 import createDeferred from '../../common/async/deferred'
@@ -10,6 +9,7 @@ import {
 } from '../../common/i18n'
 import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
 import { JsonSessionStorageValue } from '../session-storage'
+import { getBestLanguage } from './language-detector'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 const CUR_VERSION = __WEBPACK_ENV.VERSION
@@ -30,11 +30,6 @@ export type TransInterpolation = any
  */
 export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')
 
-export const languageDetector = new LanguageDetector(null, {
-  order: ['navigator'],
-  caches: [],
-})
-
 const i18nextDeferred = createDeferred<TFunction>()
 
 export const i18nextPromise = i18nextDeferred.then(i18next => i18next)
@@ -46,7 +41,6 @@ export const i18nextPromise = i18nextDeferred.then(i18next => i18next)
 export function initI18next() {
   const i18next = i18n
     .use(HttpBackend)
-    .use(languageDetector)
     .use(initReactI18next)
     .init<HttpBackendOptions>({
       backend: {
@@ -59,6 +53,7 @@ export function initI18next() {
       saveMissing: isDev,
       saveMissingTo: 'all', // Save the missing keys to all languages
 
+      lng: getBestLanguage(),
       supportedLngs: ALL_TRANSLATION_LANGUAGES,
       fallbackLng: TranslationLanguage.English,
 
