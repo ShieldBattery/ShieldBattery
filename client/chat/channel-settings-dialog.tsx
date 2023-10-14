@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -6,6 +6,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload } from '../dialogs/dialog-type'
 import { useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { Dialog } from '../material/dialog'
 import { Ripple } from '../material/ripple'
 import { useAppSelector } from '../redux-hooks'
@@ -49,6 +50,14 @@ export function ChannelSettingsDialog({
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const [section, setSection] = useState<ChannelSettingsSection>(ChannelSettingsSection.General)
 
+  useEffect(() => {
+    const handle = (event: FocusEvent) => {
+      console.log(event.target)
+    }
+    document.addEventListener('focusin', handle)
+    return () => document.removeEventListener('focusin', handle)
+  }, [])
+
   let settingsContent
   switch (section) {
     case ChannelSettingsSection.General:
@@ -85,7 +94,8 @@ export function ChannelSettingsDialog({
   )
 }
 
-const NavEntryRoot = styled.div<{ $isActive: boolean }>`
+const NavEntryRoot = styled.button<{ $isActive: boolean }>`
+  ${buttonReset};
   position: relative;
   width: 100%;
   height: 36px;
@@ -95,7 +105,7 @@ const NavEntryRoot = styled.div<{ $isActive: boolean }>`
   align-items: center;
 
   border-radius: 4px;
-  overflow: hidden;
+  contain: content;
   cursor: pointer;
 
   --sb-ripple-color: ${colorTextPrimary};

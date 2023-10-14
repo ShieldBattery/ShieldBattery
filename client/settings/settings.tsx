@@ -9,6 +9,7 @@ import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { IconButton, useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
@@ -213,7 +214,8 @@ function Settings({
   )
 }
 
-const NavEntryRoot = styled.div<{ $isActive: boolean }>`
+const NavEntryRoot = styled.button<{ $isActive: boolean }>`
+  ${buttonReset};
   position: relative;
   width: 100%;
   height: 36px;
@@ -223,7 +225,7 @@ const NavEntryRoot = styled.div<{ $isActive: boolean }>`
   align-items: center;
 
   border-radius: 4px;
-  overflow: hidden;
+  contain: content;
   cursor: pointer;
 
   --sb-ripple-color: ${colorTextPrimary};

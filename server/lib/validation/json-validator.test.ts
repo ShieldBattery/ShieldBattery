@@ -2,13 +2,25 @@ import Joi from 'joi'
 import { json } from './json-validator'
 
 describe('server/lib/json/json-validator', () => {
-  test('throws an error if the property is not a valid JSON', () => {
+  test('throws an error if the root value is not a valid JSON', () => {
     const schema = json.object({
       test: Joi.string(),
     })
 
     expect(schema.validate('INVALID_JSON').error).toMatchInlineSnapshot(
       `[ValidationError: The field "value" is not valid JSON]`,
+    )
+  })
+
+  test('throws an error if the property inside an object is not a valid JSON', () => {
+    const schema = Joi.object({
+      jsonObject: json.object({
+        test: Joi.string(),
+      }),
+    })
+
+    expect(schema.validate({ jsonObject: 'INVALID_JSON' }).error).toMatchInlineSnapshot(
+      `[ValidationError: The field "jsonObject" is not valid JSON]`,
     )
   })
 

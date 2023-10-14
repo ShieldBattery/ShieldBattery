@@ -5,8 +5,6 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   DetailedChannelInfo,
-  EditChannelRequest,
-  EditChannelResponse,
   GetChannelHistoryServerResponse,
   JoinedChannelInfo,
   makeSbChannelId,
@@ -726,32 +724,6 @@ describe('chat/chat-service', () => {
   })
 
   describe('editChannel', () => {
-    const expectItWorks = (updates: EditChannelRequest, result: EditChannelResponse) => {
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
-        action: 'edit',
-        channelInfo: testBasicInfo,
-        detailedChannelInfo: {
-          ...testDetailedInfo,
-          description: updates.description ? updates.description : testDetailedInfo.description,
-        },
-        joinedChannelInfo: {
-          ...testJoinedInfo,
-          topic: updates.topic ? updates.topic : testJoinedInfo.topic,
-        },
-      })
-      expect(result).toEqual({
-        channelInfo: testBasicInfo,
-        detailedChannelInfo: {
-          ...testDetailedInfo,
-          description: updates.description ? updates.description : testDetailedInfo.description,
-        },
-        joinedChannelInfo: {
-          ...testJoinedInfo,
-          topic: updates.topic ? updates.topic : testJoinedInfo.topic,
-        },
-      })
-    }
-
     test("should throw if channel doesn't exist", async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
@@ -791,7 +763,20 @@ describe('chat/chat-service', () => {
 
       const result = await chatService.editChannel(testChannel.id, user1.id, updates)
 
-      expectItWorks(updates, result)
+      const channelInfo = {
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: {
+          ...testDetailedInfo,
+          description: updates.description,
+        },
+        joinedChannelInfo: testJoinedInfo,
+      }
+
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        ...channelInfo,
+      })
+      expect(result).toEqual(channelInfo)
     })
 
     test('works when updating topic', async () => {
@@ -817,7 +802,20 @@ describe('chat/chat-service', () => {
 
       const result = await chatService.editChannel(testChannel.id, user1.id, updates)
 
-      expectItWorks(updates, result)
+      const channelInfo = {
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: testDetailedInfo,
+        joinedChannelInfo: {
+          ...testJoinedInfo,
+          topic: updates.topic,
+        },
+      }
+
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        ...channelInfo,
+      })
+      expect(result).toEqual(channelInfo)
     })
   })
 
