@@ -310,95 +310,95 @@
     },
     "auth": {
         "emailValidator": {
-            "pattern": "输入一个有效的电子邮件地址",
-            "required": "输入电子邮件地址"
+            "pattern": "请输入真实有效的电子邮件地址",
+            "required": "请输入电子邮箱地址"
         },
         "emailVerification": {
-            "defaultError": "出了严重的问题。请再试一次。",
+            "defaultError": "出错了。请再试一次。",
             "emailSent": "验证邮件已成功发送。",
-            "invalidCodeError": "错误：提供的电子邮件或验证码无效。如果验证码与您通过电子邮件收到的验证码相符，则该验证码可能已过期。请请求新的验证电子邮件并重试。",
+            "invalidCodeError": "错误：您提供的电子邮箱或验证码无效。如果输入的验证码与您通过电子邮件收到的验证码相符，则该验证码可能已过期。请重新发送验证邮件并重试。",
             "resendVerificationEmail": "重新发送验证邮件",
-            "emailUnverifiedMessage": "您的电子邮件未经验证！检查来自 ShieldBattery 的电子邮件。如果您没有看到，我们可以<2>再发送一份</2>。",
+            "emailUnverifiedMessage": "您的电子邮箱尚未验证！请查阅ShieldBattery发给您的电子邮件。如果您没有收到，我们可以<2>再发送一份</2>。",
             "generalError": "错误：{{error}}",
-            "loggedOutError": "错误：您需要登录才能验证您的电子邮件。请点击下面的按钮登录并重试。",
+            "loggedOutError": "错误：您需要登录才能验证您的电子邮箱。请点击下面的按钮登录并重试。",
             "resendError": "重新发送电子邮件时出错：{{error}}",
-            "resendSuccess": "新的验证码已发送至您帐户的电子邮件地址。",
-            "sendError": "发送验证电子邮件时出现问题，请稍后重试。",
-            "switchUser": "切换用户",
-            "title": "验证邮件",
-            "verifySuccess": "您的电子邮件已成功验证。",
-            "wrongUserError": "错误：您必须登录要验证其电子邮件的帐户。请点击下面的按钮切换用户，然后重试。",
+            "resendSuccess": "新的验证码已发送至您的电子邮箱。",
+            "sendError": "发送验证邮件时出现问题，请稍后重试。",
+            "switchUser": "切换账号",
+            "title": "验证邮箱",
+            "verifySuccess": "您的电子邮箱已成功验证。",
+            "wrongUserError": "错误：您必须先登录账号才能验证绑定该账号的电子邮箱。请点击下面的按钮切换账号，然后重试。",
             "logIn": "登录"
         },
         "login": {
-            "forgotPassword": "忘记密码？",
-            "forgotUsername": "忘了用户名了吗？",
-            "rememberMe": "记住账号",
+            "forgotPassword": "忘了密码？",
+            "forgotUsername": "忘了用户名？",
+            "rememberMe": "自动登录",
             "signUp": "注册新账号",
             "title": "登录",
-            "whatIsShieldBattery": "什么是屏蔽电池？",
+            "whatIsShieldBattery": "关于ShieldBattery",
             "logIn": "登录",
             "password": "密码",
             "username": "用户名"
         },
         "noPermissionsPage": {
-            "body": "您没有足够的权限访问此页面。"
+            "body": "您没有权限访问此页面。"
         },
         "passwordValidator": {
-            "confirm": "确认你的密码",
-            "matching": "输入匹配的密码",
+            "confirm": "确认密码",
+            "matching": "两次输入的密码必须相同",
             "required": "输入密码",
-            "resetCode": "输入您的密码重置代码"
+            "resetCode": "输入您的密码重置验证码"
         },
         "signup": {
-            "title": "创建账户",
-            "ageConfirmation": "我证明我已年满 13 岁",
-            "alreadyHaveAccount": "已经有帐户？",
+            "title": "创建账号",
+            "ageConfirmation": "我证明我已年满13岁",
+            "alreadyHaveAccount": "已有账号？",
             "confirmPassword": "确认密码",
-            "createAccount": "创建账户",
-            "emailAddress": "电子邮件地址",
+            "createAccount": "创建账号",
+            "emailAddress": "电子邮箱地址",
             "logIn": "登录",
             "password": "密码",
             "username": "用户名",
-            "readAndAgree": "我已阅读并同意<2>服务条款</2>、<4>可接受的使用</4>和<6>隐私</6>政策"
+            "readAndAgree": "我已阅读并接受<2>服务条款</2>、<4>可接受的使用</4>和<6>隐私</6>政策"
         },
         "userErrorDisplay": {
-            "accountBanned": "该帐户已被禁止。<1><0>原因：</0><1>{{banReason}}</1></1><2>禁令将于{{expireTime}}到期。</2>",
-            "banWithoutReason": "没有说明原因",
+            "accountBanned": "此账号已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>账号将于{{expireTime}}解封。</2>",
+            "banWithoutReason": "未说明原因",
             "defaultError": "发生错误：{{status}} {{statusText}}",
-            "genericError": "发生错误：{{errorMessage}}",
+            "genericError": "出现错误：{{errorMessage}}",
             "invalidCredentials": "用户名或密码错误",
-            "machineBanned": "该机器被禁止创建新帐户。",
-            "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接，然后重试。",
+            "machineBanned": "您的机器被禁止注册新帐号。",
+            "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
             "sessionExpired": "会话已过期",
-            "suspiciousActivity": "由于在此网络上检测到可疑活动，目前已禁用在网络上创建帐户。请下载独立客户端以创建新帐户。",
-            "usernameTaken": "具有该名称的用户已存在"
+            "suspiciousActivity": "由于在此网络上检测到可疑活动，您不能在网页端创建帐号。请下载独立客户端以创建新帐号。",
+            "usernameTaken": "该用户名已被注册"
         },
         "forgot": {
-            "backToLogin": "回到登入",
+            "backToLogin": "返回登录界面",
             "generalError": "错误：{{error}}",
             "password": {
-                "sendResetEmail": "发送重置电子邮件",
-                "successMessage": "如果该电子邮件地址和用户名与注册帐户匹配，您应该会在接下来的几分钟内收到一封电子邮件，其中包含有关如何重置密码的说明。",
-                "title": "重设密码",
-                "emailAddress": "电子邮件地址",
+                "sendResetEmail": "发送邮件以重置密码",
+                "successMessage": "如果您输入的电子邮箱地址和用户名与注册帐户匹配，您应该会在几分钟内收到一封电子邮件，它会指引您重置您的密码。",
+                "title": "重置密码",
+                "emailAddress": "电子邮箱",
                 "username": "用户名"
             },
             "reset": {
                 "confirmPassword": "确认新密码",
-                "newPassword": "新密码",
-                "passwordCode": "密码重置代码",
+                "newPassword": "新的密码",
+                "passwordCode": "密码重置验证码",
                 "setNewPassword": "设置新密码",
-                "successMessage": "您的密码已重置。",
-                "title": "重设密码",
+                "successMessage": "您的密码已经重置。",
+                "title": "重置密码",
                 "username": "用户名"
             },
             "user": {
-                "enterEmail": "请输入您注册时使用的电子邮件地址。",
-                "recoverUsername": "恢复用户名",
-                "successMessage": "如果有任何用户注册到该电子邮件地址，您应该会在接下来的几分钟内收到一封包含相关用户名的电子邮件。",
-                "title": "恢复您的用户名",
-                "emailAddress": "电子邮件地址"
+                "enterEmail": "请输入您注册时使用的电子邮箱。",
+                "recoverUsername": "找回用户名",
+                "successMessage": "如果有任何用户使用该电子邮箱注册，您应该会在几分钟内收到一封电子邮件，其中包含绑定该邮箱的用户名。",
+                "title": "找回您的用户名",
+                "emailAddress": "电子邮箱"
             }
         },
         "language": {
@@ -406,9 +406,9 @@
             "changeErrorMessage": "更改语言时出现问题"
         },
         "usernameValidator": {
-            "pattern": "用户名包含无效字符",
+            "pattern": "此用户名包含不可用的字符",
             "required": "输入用户名",
-            "notAvailable": "用户名不可用"
+            "notAvailable": "此用户名不可用"
         }
     },
     "clientDownload": {
@@ -608,26 +608,26 @@
     },
     "chat": {
         "banUser": {
-            "successMessage": "{{user}} 被禁止",
-            "banAction": "禁令 {{user}}",
-            "banReason": "禁止原因（可选）",
-            "dialogTitle": "禁止{{user}}？"
+            "successMessage": "{{user}} 已被封禁",
+            "banAction": "封禁 {{user}}",
+            "banReason": "封禁原因（非必填）",
+            "dialogTitle": "封禁{{user}}？"
         },
         "banUserErrorDisplay": {
-            "genericError": "禁止 {{user}} 时出错：{{errorMessage}}",
-            "moderateChannelModerator": "您不能禁止其他版主",
-            "moderateChannelOwner": "您不能禁止频道所有者",
-            "noPermissions": "您没有足够的权限来禁止该用户",
-            "notInChannel": "您要禁止的用户不在该频道中",
+            "genericError": "封禁 {{user}} 时遇到错误：{{errorMessage}}",
+            "moderateChannelModerator": "您不能封禁其他管理员",
+            "moderateChannelOwner": "您不能封禁频道所有者",
+            "noPermissions": "您的权限不足以封禁该用户",
+            "notInChannel": "您要封禁的用户不在该频道中",
             "defaultError": "发生错误：{{statusText}}"
         },
         "channelInfo": {
             "genericError": "获取#{{channelName}} 频道信息时出错：{{errorMessage}}",
-            "notFound": "找不到此频道。它可能不存在，也可能是由其他人重新创建的。",
+            "notFound": "找不到该频道。该频道可能不存在，也可能已被其他人重新创建。",
             "defaultError": "发生错误：{{statusText}}"
         },
         "channelInfoCard": {
-            "adminView": "管理视图",
+            "adminView": "管理者界面",
             "joined": "已加入",
             "moreActions": "更多操作",
             "noDescription": "这个频道没有描述。",
