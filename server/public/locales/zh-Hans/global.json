@@ -1,16 +1,16 @@
 {
     "common": {
         "validators": {
-            "required": "必需的",
-            "maxLength_other": "最多输入 {{count}} 个字符",
-            "minLength_other": "输入至少 {{count}} 个字符"
+            "required": "必填",
+            "maxLength_other": "不能输入超过{{count}}个字符",
+            "minLength_other": "不能输入少于 {{count}} 个字符"
         },
         "actions": {
             "back": "后退",
             "cancel": "取消",
             "continue": "继续",
             "okay": "好的",
-            "save": "节省",
+            "save": "保存",
             "clear": "清除",
             "browse": "浏览",
             "download": "下载",
@@ -18,24 +18,24 @@
             "join": "加入",
             "next": "下一个",
             "refresh": "刷新",
-            "remove": "消除",
+            "remove": "删除",
             "search": "搜索",
             "show": "展示",
             "start": "开始",
             "stop": "停止",
             "test": "测试",
-            "unblock": "解锁",
-            "view": "看法",
+            "unblock": "解除屏蔽",
+            "view": "查看",
             "accept": "接受",
-            "decline": "衰退",
-            "previous": "以前的",
-            "apply": "申请",
-            "block": "堵塞",
+            "decline": "拒绝",
+            "previous": "上一个",
+            "apply": "应用",
+            "block": "屏蔽",
             "edit": "编辑",
             "reveal": "揭示"
         },
         "lists": {
-            "empty": "这没东西看"
+            "empty": "这里什么都没有"
         }
     },
     "settings": {
@@ -215,24 +215,24 @@
             "faq": "常问问题"
         },
         "faq": {
-            "linuxSupportAnswer": "<0>目前我们还没有对此提供官方支持。</0><1>但是，社区贡献了 ShieldBattery 与 Wine 的集成。查看我们的<2>Discord</2>，了解如何在 Wine 上运行 ShieldBattery。</1>",
-            "officialSupportAnswer": "不，ShieldBattery 是一个由热情的社区成员开发的项目，没有得到暴雪的官方支持或认可。",
-            "header": "常问问题",
-            "openSourceAnswer": "<0>是的。您可以在我们的 <2>GitHub 页面</2> 上访问我们的主存储库以及我们编写并分离到各自存储库中的各种其他项目。</0><1>我们始终可以使用更多贡献者，因此如果您认为可以提供帮助，请查看！</1>",
-            "openSourceQuestion": "该项目是开源的吗？",
-            "reportIssuesAnswer": "报告错误或问题的最简单方法是通过我们的<2>Discord</2>。如果您愿意这样做，您也可以在我们的 <5>GitHub</5> 上提交问题。",
-            "reportIssuesQuestion": "我如何报告错误或问题？",
-            "supportedStarcraftVersionAnswer": "ShieldBattery 支持最新版本的《星际争霸：重制版》。您可以从<2>暴雪官方网站</2>下载《星际争霸：重制版》的免费版本，或通过暴雪启动器安装。任何购买的插件（例如高清显卡）都可以在 ShieldBattery 上使用。",
-            "supportedStarcraftVersionQuestion": "ShieldBattery 支持哪个版本的星际争霸？",
-            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>星际争霸：重制版安装，已修补至最新版本</3></ 1>",
-            "systemRequirementsQuestion": "在 ShieldBattery 上玩游戏有哪些系统要求？",
-            "title": "经常问的问题",
-            "hotkeyCustomizationAnswer": "是的，我们支持自定义热键，但我们目前没有热键编辑器。如果您想使用自定义热键，请先通过暴雪启动器启动《星际争霸：重制版》并在那里自定义它们。完成此操作后，将来通过 ShieldBattery 进行的启动将使用这些热键。",
-            "hotkeyCustomizationQuestion": "是否允许或提供热键定制？",
-            "isShieldBatteryFreeQuestion": "ShieldBattery 需要付费吗？我如何支持该项目？",
-            "linuxSupportQuestion": "ShieldBattery 可以在 Linux 或 OS X 上运行吗？",
+            "linuxSupportAnswer": "<0>目前我们尚未对此提供官方支持，</0><1>但有社区用户提供了ShieldBattery与Wine的整合包。请访问我们的<2>Discord</2>，了解如何在Wine上运行ShieldBattery。</1>",
+            "officialSupportAnswer": "不，ShieldBattery由社区爱好者进行开发，没有得到暴雪的官方支持或认可。",
+            "header": "常见问题",
+            "openSourceAnswer": "<0>是的。您可以在我们的 <2>GitHub 页面</2>上访问我们的主存储库以及我们编写并分离到各自存储库中的各种其他项目。</0><1>我们欢迎更多贡献者加入，因此如果您认为您可以提供帮助，不妨看一看！</1>",
+            "openSourceQuestion": "该项目是否开源？",
+            "reportIssuesAnswer": "报告错误最简单的渠道是通过我们的<2>Discord</2>。但如果您愿意，您也可以在我们的 <5>GitHub</5>上提交问题报告。",
+            "reportIssuesQuestion": "我遇到了bug或错误，如何告知你们？",
+            "supportedStarcraftVersionAnswer": "ShieldBattery支持最新版本的《星际争霸：重制版》。您可以从<2>暴雪官方网站</2>下载《星际争霸：重制版》的免费版本，或通过暴雪启动器安装。您通过官方渠道购买的任何增值服务（例如高清画面）在ShieldBattery上依然有效。",
+            "supportedStarcraftVersionQuestion": "ShieldBattery支持哪些版本的星际争霸？",
+            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>必须有安装好的最新版本星际争霸：重制版</3></ 1>",
+            "systemRequirementsQuestion": "ShieldBattery有哪些硬件要求？",
+            "title": "常见问题",
+            "hotkeyCustomizationAnswer": "是的，我们支持自定义热键，但您目前无法在ShieldBattery内编辑热键设置。如果您想使用自定义热键，请先通过暴雪启动器启动《星际争霸：重制版》并进行热键设置，之后通过ShieldBattery启动游戏时便会使用您调整后的热键设置。",
+            "hotkeyCustomizationQuestion": "可否使用自定义热键？",
+            "isShieldBatteryFreeQuestion": "ShieldBattery收费吗？我能赞助该项目吗？",
+            "linuxSupportQuestion": "ShieldBattery可以在Linux或OS X上运行吗？",
             "officialSupportQuestion": "ShieldBattery是在暴雪的支持下开发的吗？",
-            "isShieldBatteryFreeAnswer": "<0>ShieldBattery 完全免费使用！</0><1>但是，它确实花费了我们时间和金钱来托管和开发 ShieldBattery。如果您愿意帮助我们支付这些费用，我们将不胜感激。我们设置了多种贡献方式：</1>"
+            "isShieldBatteryFreeAnswer": "<0>ShieldBattery完全免费！</0><1>但软件开发、服务器维护都需要费用，如果您愿意帮助我们支付这些费用，我们将不胜感激。您可以通过下列方式为我们赞助：</1>"
         },
         "bottomLinks": {
             "acceptableUsePolicy": "可接受的使用政策",
@@ -241,47 +241,47 @@
         },
         "splash": {
             "benefits": {
-                "tacticallyFaithfulText": "由拥有数十年《星际争霸》经验的社区成员打造，我们知道游戏的魅力所在。我们保持重要的事情不变，但构建了全新的功能和改进，让您的星际争霸体验比以往更好。",
-                "communityFirstText": "ShieldBattery 是每个玩或观看《星际争霸》玩家的充满活力的中心。聊天是最重要的，进入游戏是无缝且简单的，您的体验是我们最关心的。无论您是从 1998 年开始玩游戏还是这周才开始玩游戏，您都会在这里找到家。",
+                "tacticallyFaithfulText": "本项目开发组在《星际争霸》中摸爬滚打数十年，我们知道游戏的魅力所在。我们在关键之处保留了原汁原味的体验，同时用全新的功能和改进让您的游戏体验更上一层。",
+                "communityFirstText": "ShieldBattery是属于所有《星际争霸》玩家与观众的活动中心。聊天界面显眼易用，轻松就可开始游玩，您的游戏体验是我们的第一事项。无论您是1998年还是这周刚刚开始玩星际，这里都是您的家。",
                 "communityFirstTitle": "社区第一",
-                "fullPotentialText": "《星际争霸》拥有令人惊叹的竞技历史，而 ShieldBattery 是提供其应有的一流游戏和观看体验的基础。开源、社区驱动，旨在提供现代游戏都希望拥有的功能和体验：ShieldBattery 是《星际争霸》社区向前迈出的革命性一步。",
-                "fullPotentialTitle": "全部潜力被释放",
-                "tacticallyFaithfulTitle": "战术上忠实"
+                "fullPotentialText": "《星际争霸》作为电子竞技拥有辉煌的历史，而ShieldBattery将为您提供配得上这款伟大游戏的竞技与观战体验。ShieldBattery是社区驱动的开源项目，旨在为玩家提供最新最尖端的功能和游戏乐趣。这是《星际争霸》玩家社区掀起的一场革命。",
+                "fullPotentialTitle": "释放全部潜力",
+                "tacticallyFaithfulTitle": "忠于原作"
             },
             "comingSoon": {
-                "builtInMapmakingTitle": "新的内置地图制作功能",
-                "3v3Title": "3v3配对",
-                "playerProfilesDescription": "检查您在不同比赛和地图中的技能，找到改进的方法，并看看您在竞争中的表现如何。",
-                "playerProfilesTitle": "球员档案和统计数据",
-                "replayAnalysisDescription": "内置支持类似 BWChart 的重放分析，以及更高级的统计和图表。",
+                "builtInMapmakingTitle": "地图制作新功能",
+                "3v3Title": "3v3匹配",
+                "playerProfilesDescription": "了解您在不同对抗和地图上的水平，找到改进的方法，并直观地看出您的水平和其他人的对比。",
+                "playerProfilesTitle": "玩家档案和统计数据",
+                "replayAnalysisDescription": "内置类似BWChart的回放分析功能，还有更高级的统计和图表。",
                 "replayAnalysisTitle": "回放分析",
-                "sandboxModeDescription": "测试新版本，练习你的工人分裂，改进你的微观。",
-                "3v3Description": "轻松找到 3v3 的游戏，有安排的或随机的队伍。",
-                "automatedTournamentsDescription": "查找与您的技能水平相匹配的锦标赛和联赛，并自动运行。",
-                "automatedTournamentsTitle": "自动化锦标赛和联赛",
-                "builtInMapmakingDescription": "可破坏的岩石、理想的工人起始位置、先进的蠕变放置等等！",
-                "cloudReplaysDescription": "自动上传重播。与他人分享，随时随地观看！",
-                "cloudReplaysTitle": "云同步重播",
-                "expandedChatDescription": "使用表情、嵌入地图、比赛和重播等来表达自己！",
-                "expandedChatTitle": "扩展的聊天功能",
-                "fpReplaysDescription": "记录鼠标和屏幕的移动并为所有玩家回放。",
-                "fpReplaysTitle": "第一人称重播",
-                "liveStreamingDescription": "跳入正在进行的比赛并观看直播，享受游戏内观察的所有好处。",
+                "sandboxModeDescription": "测试新的开局，练习分农民和微操技巧。",
+                "3v3Description": "轻松匹配3v3，无论是固定队伍还是随机队伍。",
+                "automatedTournamentsDescription": "锦标赛和联赛自动运行，总有一款适合您的技术水平。",
+                "automatedTournamentsTitle": "自动化锦标赛与联赛",
+                "builtInMapmakingDescription": "可破坏的岩石、农民起始位置优化、菌毯布置优化，还有更多！",
+                "cloudReplaysDescription": "游戏回放自动上传，随时随地观看、分享！",
+                "cloudReplaysTitle": "云端回放",
+                "expandedChatDescription": "使用表情、嵌入地图、比赛和回放尽情表达自己！",
+                "expandedChatTitle": "聊天功能强化",
+                "fpReplaysDescription": "所有玩家鼠标和屏幕的移动都会被记录，可以进行回放。",
+                "fpReplaysTitle": "第一视角回放",
+                "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。",
                 "liveStreamingTitle": "比赛直播",
-                "pixelScalingDescription": "使用自定义缩放算法改善现代屏幕上标清图形的外观",
-                "pixelScalingTitle": "可配置的像素缩放",
+                "pixelScalingDescription": "使用自定义缩放算法，改善现代显示屏上旧版图像的显示",
+                "pixelScalingTitle": "可设置的像素缩放",
                 "sandboxModeTitle": "训练/沙盒模式",
-                "umsPortalDescription": "轻松查找和探索 UMS 地图，然后快速聚集玩家并开始游戏。",
-                "umsPortalTitle": "使用地图设置门户"
+                "umsPortalDescription": "轻松查找和探索RPG地图，然后快速聚集玩家并开始游戏。",
+                "umsPortalTitle": "RPG门户"
             },
             "features": {
                 "cloudHostingTitle": "基于云的地图分发和托管",
                 "rankedLadderTitle": "天梯排名",
                 "remasteredSupportDescription": "支持所有新的重制版功能，包括高清显卡（如果从暴雪购买）和自定义热键。",
-                "cloudHostingDescription": "在我们官方库中的任何地图上玩，或上传您自己的地图。上传所有您喜爱的地图，与您的朋友分享，从任何地方托管它们。",
-                "fixesBugsExploitsDescription": "避免困扰官方服务器的黑客攻击和漏洞利用。工人重复、采矿黑客和永久流动工人等事情在这里已经成为过去。",
-                "fixesBugsExploitsTitle": "修复错误和漏洞",
-                "friendsListDescription": "跟踪您的朋友何时在线，轻松向他们发送消息并邀请他们参加游戏。",
+                "cloudHostingDescription": "游玩官方地图库中的任何地图，或上传您自己的地图。您可以上传您喜爱的地图，与您的朋友分享，在其他电脑上也可以随时用它们建立游戏。",
+                "fixesBugsExploitsDescription": "跟官方服务器上的外挂和恶性bug说再见吧。复制农民、刷钱外挂和永久叠农民在这里统统不存在。",
+                "fixesBugsExploitsTitle": "修复错误和恶性bug",
+                "friendsListDescription": "跟踪您好友的在线状况，轻松向他们发送消息并邀请他们参加游戏。",
                 "friendsListTitle": "好友列表",
                 "improvedNetcodeDescription": "减少延迟、丢包和丢包！",
                 "improvedNetcodeTitle": "改进的网络代码",
@@ -298,9 +298,9 @@
                 "webClientDescription": "无需安装任何东西即可与您的朋友（和敌人）保持联系。",
                 "webClientTitle": "基于网络的聊天客户端"
             },
-            "blurb": "ShieldBattery 是第一个支持<2>星际争霸：重制版</2>的社区运行服务器。我们的自定义启动器增强了真实的游戏客户端，使其能够与我们的高级平台配合使用，从而改进星际争霸 1 体验，同时保持忠实、真实的游戏玩法。下载我们的启动器，只需点击几下即可开始玩！",
-            "comingSoonTitle": "在管道中<1>（即将推出）</1>",
-            "disclaimerText": "StarCraft 是 Blizzard Entertainment, Inc. 的注册商标。ShieldBattery 仅由社区成员开发，与 Blizzard 无关，并且未得到 Blizzard 的正式认可或支持。",
+            "blurb": "ShieldBattery是全球首个支持<2>星际争霸：重制版</2>的社区服务器。我们使用自定义启动器对游戏客户端进行增强，保留核心玩法不变的同时让您享受更好的星际争霸1体验。下载我们的启动器，只需点击几下即可开始畅玩！",
+            "comingSoonTitle": "尚未问世<1>（即将推出）</1>",
+            "disclaimerText": "《星际争霸》是Blizzard Entertainment, Inc. 的注册商标。ShieldBattery仅由社区成员开发，与Blizzard无关，并且未得到Blizzard的正式认可或支持。",
             "featuresTitle": "特征",
             "gameCount": "<0></0> 玩过的游戏",
             "linksHeader": "链接",
@@ -412,53 +412,53 @@
         }
     },
     "clientDownload": {
-        "andMore": "和更多！",
-        "blurb": "下载 ShieldBattery 客户端至：",
+        "andMore": "还有更多！",
+        "blurb": "将ShieldBattery客户端下载到：",
         "downloadClient": "下载客户端",
         "exploreMaps": "探索地图",
-        "playGames": "玩游戏",
-        "supportProjectText": "想支持该项目吗？",
-        "watchReplays": "观看重播"
+        "playGames": "畅玩游戏",
+        "supportProjectText": "愿意支持我们的项目吗？",
+        "watchReplays": "观看回放"
     },
     "clientUpdate": {
         "overlay": {
-            "errorBody": "下载更新时出错。请重新启动并重试，或访问<2>我们的网站</2>下载最新版本。",
-            "errorTitle": "下载更新时出错",
-            "newUpdateDownloading": "正在下载新的更新。请等待下载完成才能继续。",
-            "newUpdateReady": "新的更新已下载并准备安装。请重新启动应用程序以继续。",
-            "noErrorTitle": "可用更新",
-            "restartNow": "现在重启",
+            "errorBody": "下载更新时遇到错误。请重启程序并重试，或访问<2>我们的网站</2>下载最新版本。",
+            "errorTitle": "下载更新时遇到错误",
+            "newUpdateDownloading": "正在下载新版本。请等待下载完成后再继续。",
+            "newUpdateReady": "新版本已下载完成并准备安装。请重新启动程序以继续。",
+            "noErrorTitle": "有新版本可用",
+            "restartNow": "立即重启",
             "progress": "{{transferred}} / {{total}} 在 {{perSecond}}/秒"
         }
     },
     "comingSoon": {
-        "headline": "此功能即将推出！",
-        "subtitle": "帮助资助 ShieldBattery 的开发"
+        "headline": "此功能将在不久后推出！",
+        "subtitle": "赞助ShieldBattery开发组"
     },
     "ladder": {
-        "division": "分配",
+        "division": "分级",
         "divisionGroup": {
             "all": "全部",
             "bronze": "青铜",
-            "champion": "冠军",
+            "champion": "精英",
             "diamond": "钻石",
-            "gold": "金子",
-            "platinum": "铂",
-            "silver": "银",
-            "unrated": "未评级"
+            "gold": "黄金",
+            "platinum": "白金",
+            "silver": "白银",
+            "unrated": "未定级"
         },
-        "errorRetrievingRankings": "检索当前排名时出错。",
-        "lastPlayedHeader": "最后玩过",
+        "errorRetrievingRankings": "查询排行榜时出错。",
+        "lastPlayedHeader": "上次游玩",
         "mmrHeader": "MMR",
         "noMatchingPlayers": "没有匹配的玩家。",
-        "pageHeadline": "梯子",
+        "pageHeadline": "天梯",
         "playerHeader": "玩家",
-        "pointsHeader": "积分",
-        "rankHeader": "秩",
-        "updatedText": "更新：{{timestamp}}",
-        "winLossHeader": "赢/输",
+        "pointsHeader": "分数",
+        "rankHeader": "排位",
+        "updatedText": "更新时间：{{timestamp}}",
+        "winLossHeader": "胜/败",
         "activity": {
-            "title": "梯子"
+            "title": "天梯"
         }
     },
     "matchmaking": {
@@ -561,19 +561,19 @@
     },
     "game": {
         "gameType": {
-            "captureTheFlag": "夺旗",
-            "freeForAll": "所有人免费",
-            "melee": "混战",
-            "oneOnOne": "一对一",
-            "slaughter": "屠宰",
-            "suddenDeath": "猝死",
-            "teamCaptureTheFlag": "团队夺旗",
-            "teamFreeForAll": "团队免费",
-            "teamMelee": "团队混战",
-            "topVsBottom": "顶部与底部",
+            "captureTheFlag": "夺旗战",
+            "freeForAll": "混战",
+            "melee": "对战",
+            "oneOnOne": "1v1",
+            "slaughter": "屠杀",
+            "suddenDeath": "突然死亡",
+            "teamCaptureTheFlag": "队伍夺旗战",
+            "teamFreeForAll": "队伍混战",
+            "teamMelee": "队伍对战",
+            "topVsBottom": "上对下",
             "unknown": "未知",
             "useMapSettings": "使用地图设置",
-            "greed": "贪婪"
+            "greed": "资源战"
         },
         "mapName": {
             "unknown": "未知地图"
@@ -583,27 +583,27 @@
             "unknown": "未知玩家"
         },
         "results": {
-            "lossShort": "L",
-            "winShort": "瓦",
-            "draw": "画",
-            "loss": "损失",
-            "unknown": "未知",
-            "win": "赢"
+            "lossShort": "败",
+            "winShort": "胜",
+            "draw": "平局",
+            "loss": "失败",
+            "unknown": "不明",
+            "win": "胜利"
         },
         "teamName": {
-            "bottom": "底部",
-            "number": "团队{{teamNumber}}",
-            "top": "顶部"
+            "bottom": "客队",
+            "number": "{{teamNumber}}队",
+            "top": "主队"
         },
         "race": {
-            "protoss": "神族",
-            "random": "随机的",
-            "terran": "人族",
-            "zerg": "虫族"
+            "protoss": "星灵",
+            "random": "随机",
+            "terran": "人类",
+            "zerg": "异虫"
         },
         "gameSource": {
             "custom": "自定义游戏",
-            "ranked": "排名 {{matchmakingType}}"
+            "ranked": "{{matchmakingType}}排位"
         }
     },
     "chat": {
@@ -615,7 +615,7 @@
         },
         "banUserErrorDisplay": {
             "genericError": "封禁 {{user}} 时遇到错误：{{errorMessage}}",
-            "moderateChannelModerator": "您不能封禁其他管理员",
+            "moderateChannelModerator": "您不能封禁其他版主",
             "moderateChannelOwner": "您不能封禁频道所有者",
             "noPermissions": "您的权限不足以封禁该用户",
             "notInChannel": "您要封禁的用户不在该频道中",
@@ -630,64 +630,64 @@
             "adminView": "管理者界面",
             "joined": "已加入",
             "moreActions": "更多操作",
-            "noDescription": "这个频道没有描述。",
-            "private": "此频道是私人频道，需要邀请才能加入。",
+            "noDescription": "该频道没有简介。",
+            "private": "此频道是私人频道，需要得到邀请才能加入。",
             "userCount_other": "{{count}} 成员"
         },
         "messageLayout": {
             "kickUser": "<0><0></0></0> 已被踢出频道",
             "leaveChannel": "<0><0></0></0> 已离开频道",
-            "newChannelOwner": "<0><0></0></0> 是频道的新所有者",
+            "newChannelOwner": "<0><0></0></0> 已成为新的频道主",
             "selfJoinChannel": "您加入了 <2><0></0></2>",
-            "banUser": "<0><0></0></0> 已被频道禁止",
+            "banUser": "<0><0></0></0> 已被频道封禁",
             "joinChannel": "<0><0></0></0> 已加入频道"
         },
         "messageMenu": {
-            "deleteError": "删除消息时出错",
+            "deleteError": "删除消息时遇到错误",
             "messageDeleted": "消息已删除"
         },
         "navEntry": {
             "leaveChannel": "离开频道"
         },
         "userList": {
-            "active": "积极的",
-            "idle": "闲置的",
-            "offline": "离线"
+            "active": "活跃用户",
+            "idle": "空闲用户",
+            "offline": "离线用户"
         },
         "joinChannel": {
-            "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个，然后才能加入另一个。",
-            "bannedError": "你被禁止#{{channelName}}",
-            "genericError": "加入时发生错误#{{channelName}}"
+            "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。",
+            "bannedError": "您被 #{{channelName}} 封禁",
+            "genericError": "加入 #{{channelName}} 时遇到错误"
         },
         "channelList": {
             "createChannel": "创建频道",
-            "noMatchingChannels": "没有匹配的聊天频道。",
+            "noMatchingChannels": "未找到匹配的聊天频道。",
             "pageHeadline": "聊天频道",
-            "retrievingError": "检索聊天频道时出错。"
+            "retrievingError": "检索聊天频道时发生了错误。"
         },
         "channelMenu": {
-            "banAction": "禁令 {{user}}",
-            "kickAction": "踢 {{user}}",
-            "kickingError": "错误踢 {{user.name}}",
-            "userKicked": "{{user}} 被踢了"
+            "banAction": "封禁 {{user}}",
+            "kickAction": "踢出 {{user}}",
+            "kickingError": "踢出 {{user.name}} 时遇到错误",
+            "userKicked": "{{user}} 已被踢出"
         },
         "channelName": {
-            "deletedChannel": "删除频道"
+            "deletedChannel": "被删除的频道"
         },
         "channelValidator": {
-            "pattern": "频道名称包含无效字符",
-            "required": "输入频道名称"
+            "pattern": "频道名称含有不可用字符",
+            "required": "请输入频道名称"
         },
         "createChannel": {
             "bannedError": "您被禁止访问此频道。",
             "channelName": "频道名称",
             "createAction": "创建频道",
-            "defaultError": "创建频道时出错。",
-            "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建另一个频道。",
+            "defaultError": "创建频道时遇到错误。",
+            "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建新的频道。",
             "title": "创建频道"
         },
         "events": {
-            "ban": "您已被禁止使用 {{channelName}}。",
+            "ban": "您已被 {{channelName}} 封禁。",
             "kick": "您已被踢出 {{channelName}}。"
         },
         "channelHeader": {
@@ -699,7 +699,7 @@
     },
     "lobbies": {
         "joinLobby": {
-            "openSlotCount_other": "{{count}} 插槽打开",
+            "openSlotCount_other": "有{{count}}个空位",
             "disabledInPartyText": "目前正在开发以派对形式加入游说团的功能。离开你的聚会继续。",
             "disabledInPartyTitle": "聚会时禁用",
             "noActiveLobbies": "没有活跃的大厅",
@@ -1060,28 +1060,28 @@
         }
     },
     "gameDetails": {
-        "statusLive": "居住",
+        "statusLive": "直播中",
         "summary": {
             "mmr": "MMR",
             "rp": "RP",
-            "pointsBase": "根据",
-            "pointsBonus": "奖金"
+            "pointsBase": "基础",
+            "pointsBonus": "加分"
         },
         "buttonSearchAgain": "再次搜索",
         "buttonCopyLink": "复制游戏链接",
-        "errorLoading": "加载该游戏时出现问题。",
+        "errorLoading": "加载该游戏时遇到了问题。",
         "headlineDefault": "结果",
-        "headlineDefeat": "打败！",
-        "headlineDraw": "画！",
+        "headlineDefeat": "战败！",
+        "headlineDraw": "平局！",
         "headlineInProgress": "进行中…",
         "headlineVictory": "胜利！",
         "infoDate": "日期",
-        "infoDuration": "期间",
-        "infoGameType": "类型",
-        "statusFinal": "最终的",
-        "tabBuildOrders": "建造订单",
+        "infoDuration": "时长",
+        "infoGameType": "游戏类型",
+        "statusFinal": "决赛",
+        "tabBuildOrders": "开局建造顺序",
         "tabStats": "统计数据",
-        "tabSummary": "概括"
+        "tabSummary": "概要"
     },
     "user": {
         "miniMatchHistory": {
@@ -1269,7 +1269,7 @@
         }
     },
     "fileBrowser": {
-        "rootFolder": "根文件夹",
-        "upOneDirectory": "上一级目录"
+        "rootFolder": "根目录",
+        "upOneDirectory": "向上一级目录"
     }
 }
