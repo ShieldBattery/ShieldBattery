@@ -209,10 +209,10 @@
     },
     "landing": {
         "topLinks": {
-            "home": "家",
-            "changeLanguage": "改变语言",
+            "home": "返回首页",
+            "changeLanguage": "更改语言",
             "login": "登录",
-            "faq": "常问问题"
+            "faq": "常见问题"
         },
         "faq": {
             "linuxSupportAnswer": "<0>目前我们尚未对此提供官方支持，</0><1>但有社区用户提供了ShieldBattery与Wine的整合包。请访问我们的<2>Discord</2>，了解如何在Wine上运行ShieldBattery。</1>",
@@ -253,19 +253,19 @@
                 "3v3Title": "3v3匹配",
                 "playerProfilesDescription": "了解您在不同对抗和地图上的水平，找到改进的方法，并直观地看出您的水平和其他人的对比。",
                 "playerProfilesTitle": "玩家档案和统计数据",
-                "replayAnalysisDescription": "内置类似BWChart的回放分析功能，还有更高级的统计和图表。",
-                "replayAnalysisTitle": "回放分析",
+                "replayAnalysisDescription": "内置类似BWChart的录像分析功能，还有更高级的统计和图表。",
+                "replayAnalysisTitle": "录像分析",
                 "sandboxModeDescription": "测试新的开局，练习分农民和微操技巧。",
                 "3v3Description": "轻松匹配3v3，无论是固定队伍还是随机队伍。",
                 "automatedTournamentsDescription": "锦标赛和联赛自动运行，总有一款适合您的技术水平。",
                 "automatedTournamentsTitle": "自动化锦标赛与联赛",
                 "builtInMapmakingDescription": "可破坏的岩石、农民起始位置优化、菌毯布置优化，还有更多！",
-                "cloudReplaysDescription": "游戏回放自动上传，随时随地观看、分享！",
-                "cloudReplaysTitle": "云端回放",
-                "expandedChatDescription": "使用表情、嵌入地图、比赛和回放尽情表达自己！",
+                "cloudReplaysDescription": "游戏录像自动上传，随时随地观看、分享！",
+                "cloudReplaysTitle": "云端录像",
+                "expandedChatDescription": "使用表情、嵌入地图、比赛和录像尽情表达自己！",
                 "expandedChatTitle": "聊天功能强化",
                 "fpReplaysDescription": "所有玩家鼠标和屏幕的移动都会被记录，可以进行回放。",
-                "fpReplaysTitle": "第一视角回放",
+                "fpReplaysTitle": "第一视角录像",
                 "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。",
                 "liveStreamingTitle": "比赛直播",
                 "pixelScalingDescription": "使用自定义缩放算法，改善现代显示屏上旧版图像的显示",
@@ -276,36 +276,36 @@
             },
             "features": {
                 "cloudHostingTitle": "基于云的地图分发和托管",
-                "rankedLadderTitle": "天梯排名",
-                "remasteredSupportDescription": "支持所有新的重制版功能，包括高清显卡（如果从暴雪购买）和自定义热键。",
+                "rankedLadderTitle": "天梯排位",
+                "remasteredSupportDescription": "支持所有《重制版》中新增的功能，包括高清图像（需要从暴雪官方渠道购买）和自定义热键。",
                 "cloudHostingDescription": "游玩官方地图库中的任何地图，或上传您自己的地图。您可以上传您喜爱的地图，与您的朋友分享，在其他电脑上也可以随时用它们建立游戏。",
                 "fixesBugsExploitsDescription": "跟官方服务器上的外挂和恶性bug说再见吧。复制农民、刷钱外挂和永久叠农民在这里统统不存在。",
                 "fixesBugsExploitsTitle": "修复错误和恶性bug",
                 "friendsListDescription": "跟踪您好友的在线状况，轻松向他们发送消息并邀请他们参加游戏。",
                 "friendsListTitle": "好友列表",
-                "improvedNetcodeDescription": "减少延迟、丢包和丢包！",
-                "improvedNetcodeTitle": "改进的网络代码",
-                "leaguesDescription": "参加由社区组织并由自动配对促进的激动人心的限时联赛。",
+                "improvedNetcodeDescription": "延迟、掉线、丢包问题均有大幅改善！",
+                "improvedNetcodeTitle": "网络代码改进",
+                "leaguesDescription": "在社区组织的限时联赛中大展身手，自动匹配功能则使举办赛事更加便利。",
                 "leaguesTitle": "公开联赛",
-                "matchmakingDescription": "您可以自己或与安排的团队一起快速轻松地找到匹配项。",
-                "matchmakingTitle": "1v1 和 2v2 配对",
-                "partiesDescription": "与好友组队轻松举办私人比赛、一起观看回放或加入配对。",
-                "partiesTitle": "派对",
-                "rankedladderDescription": "在我们基于 Glicko 的所有配对模式排名系统中磨练您的技能。",
-                "remasteredSupportTitle": "星际争霸：重制版支持",
-                "teamMeleeReplaysDescription": "在 ShieldBattery 上回放在团队混战模式下玩的所有游戏！",
-                "teamMeleeReplaysTitle": "工作组混战重播",
-                "webClientDescription": "无需安装任何东西即可与您的朋友（和敌人）保持联系。",
-                "webClientTitle": "基于网络的聊天客户端"
+                "matchmakingDescription": "无论是自己单排还是和好友组队，都可以轻松而迅速地找到对手。",
+                "matchmakingTitle": "1v1与2v2自动匹配",
+                "partiesDescription": "与好友们一起举办私人比赛、观看录像或组队匹配。",
+                "partiesTitle": "组队",
+                "rankedladderDescription": "我们在所有匹配模式中都应用了基于Glicko排名系统，让您直观地看出自己的进步。",
+                "remasteredSupportTitle": "支持重制版",
+                "teamMeleeReplaysDescription": "队伍对战模式下的录像在ShieldBattery上能够正常播放！",
+                "teamMeleeReplaysTitle": "队伍对战录像",
+                "webClientDescription": "无需安装任何程序即可与您的朋友（和敌人）保持联系。",
+                "webClientTitle": "网页版聊天客户端"
             },
             "blurb": "ShieldBattery是全球首个支持<2>星际争霸：重制版</2>的社区服务器。我们使用自定义启动器对游戏客户端进行增强，保留核心玩法不变的同时让您享受更好的星际争霸1体验。下载我们的启动器，只需点击几下即可开始畅玩！",
             "comingSoonTitle": "尚未问世<1>（即将推出）</1>",
             "disclaimerText": "《星际争霸》是Blizzard Entertainment, Inc. 的注册商标。ShieldBattery仅由社区成员开发，与Blizzard无关，并且未得到Blizzard的正式认可或支持。",
-            "featuresTitle": "特征",
-            "gameCount": "<0></0> 玩过的游戏",
+            "featuresTitle": "特性",
+            "gameCount": "已进行<0></0> 场游戏",
             "linksHeader": "链接",
-            "signUp": "报名",
-            "tagline": "在一流的社区运营平台上畅玩《星际争霸 1》"
+            "signUp": "注册",
+            "tagline": "在最先进的社区运营平台上畅玩《星际争霸1》"
         }
     },
     "auth": {
@@ -418,7 +418,7 @@
         "exploreMaps": "探索地图",
         "playGames": "畅玩游戏",
         "supportProjectText": "愿意支持我们的项目吗？",
-        "watchReplays": "观看回放"
+        "watchReplays": "观看录像"
     },
     "clientUpdate": {
         "overlay": {
@@ -472,9 +472,9 @@
             "unrated": "未评级"
         },
         "acceptMatch": {
-            "body": "所有球员必须做好比赛开始的准备。",
+            "body": "所有玩家准备完成后游戏才会开始。",
             "failedToAccept": "未能接受",
-            "matchFound": "找到匹配项",
+            "matchFound": "已找到对手",
             "readyUp": "准备好",
             "removedFromQueue": "您没有及时准备好，已被从队列中删除。",
             "returningToQueue": "有些玩家没有及时准备或加载失败。返回配对队列…"
@@ -527,7 +527,7 @@
             "rating": "评分",
             "searchAgain": "再次搜索",
             "title": "比赛结果",
-            "watchReplay": "看回放",
+            "watchReplay": "观看录像",
             "leagues": "联赛",
             "matchmaking": "对接会",
             "points": "积分"
@@ -700,157 +700,157 @@
     "lobbies": {
         "joinLobby": {
             "openSlotCount_other": "有{{count}}个空位",
-            "disabledInPartyText": "目前正在开发以派对形式加入游说团的功能。离开你的聚会继续。",
-            "disabledInPartyTitle": "聚会时禁用",
-            "noActiveLobbies": "没有活跃的大厅",
-            "noOpenLobbies": "没有开放的大厅",
-            "title": "加入大厅"
+            "disabledInPartyText": "组队加入房间功能目前仍在开发中。您必须退出队伍才能继续。",
+            "disabledInPartyTitle": "组队时不可加入房间",
+            "noActiveLobbies": "目前没有活跃的房间",
+            "noOpenLobbies": "目前没有开放的房间",
+            "title": "加入房间"
         },
         "messageLayout": {
-            "kickPlayer": "<0><0></0></0>已被踢出大厅",
-            "leaveLobby": "<0><0></0></0>已离开大厅",
+            "kickPlayer": "<0><0></0></0>已被踢出房间",
+            "leaveLobby": "<0><0></0></0>已离开房间",
             "selfJoin": "您已加入<1>{{lobby}}</1>。主机是<4><0></0></4>。",
-            "banPlayer": "<0><0></0></0>已被禁止进入大厅",
-            "countdownCanceled": "比赛倒计时已取消",
-            "countdownStarted": "比赛倒计时已经开始",
+            "banPlayer": "<0><0></0></0>已被房间封禁",
+            "countdownCanceled": "游戏倒计时已取消",
+            "countdownStarted": "游戏倒计时已经开始",
             "gameInitializationCanceled": "游戏初始化已取消",
-            "hostChange": "<0><0></0></0>现在是主持人",
-            "joinLobby": "<0><0></0></0>已加入大厅"
+            "hostChange": "<0><0></0></0>已成为主机",
+            "joinLobby": "<0><0></0></0>已加入房间"
         },
         "slots": {
-            "addComputer": "添加计算机",
-            "makeObserver": "做观察者",
-            "makePlayer": "制作播放器",
-            "open": "打开",
-            "removeComputer": "删除电脑",
-            "slotActions": "老虎机动作",
-            "openSlot": "开槽",
+            "addComputer": "添加电脑玩家",
+            "makeObserver": "设为观战者",
+            "makePlayer": "设为玩家",
+            "open": "开放",
+            "removeComputer": "删除电脑玩家",
+            "slotActions": "空位动作",
+            "openSlot": "开放空位",
             "banPlayer": "封禁玩家",
-            "closeSlot": "关闭插槽",
-            "kickPlayer": "踢球员",
+            "closeSlot": "关闭空位",
+            "kickPlayer": "踢出玩家",
             "name": "关闭"
         },
         "errors": {
-            "alreadyInLobby": "您已经在另一个大厅了。",
-            "load": "加载该大厅时出现问题"
+            "alreadyInLobby": "您已经在另一个房间了。",
+            "load": "加载该房间时遇到问题"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1>于</1><2>{{mapName}}</2>"
         },
         "lobby": {
             "gameType": "游戏类型",
-            "leaveLobby": "离开大厅",
+            "leaveLobby": "离开房间",
             "startGame": "开始游戏",
-            "turnRateAuto": "汽车",
-            "turnRateDynamic": "数字TR",
-            "unitLimit": "单位限制",
+            "turnRateAuto": "自动设置",
+            "turnRateDynamic": "动态转换率",
+            "unitLimit": "单位数量限制",
             "unitLimitExtended": "扩展",
-            "unitLimitLegacy": "遗产",
-            "turnRate": "转弯率"
+            "unitLimitLegacy": "原版",
+            "turnRate": "转换率"
         },
         "state": {
-            "exists": "大厅已经存在。加入吗？",
-            "nonexistent": "大堂不存在。创造它？",
-            "started": "大厅已经开始了。"
+            "exists": "该房间已经存在。是否要加入该房间？",
+            "nonexistent": "该房间不存在。是否要创建该房间？",
+            "started": "房间已经开始游戏。"
         },
         "activity": {
-            "title": "大堂"
+            "title": "房间"
         },
         "createLobby": {
-            "backToList": "返回目录",
-            "disabledInPartyText": "目前正在开发将大厅作为政党创建。离开你的聚会继续。",
-            "disabledInPartyTitle": "聚会时禁用",
-            "gameSubTypeHeader": "团队",
-            "gameSubTypeOption": "{{numTeams}} 团队",
-            "gameSubTypeOptionTvB": "{{topSlots}} 与 {{bottomSlots}}",
+            "backToList": "返回列表",
+            "disabledInPartyText": "组队创建房间功能目前仍在开发中。您必须退出队伍才能继续。",
+            "disabledInPartyTitle": "组队时不可创建房间",
+            "gameSubTypeHeader": "队伍",
+            "gameSubTypeOption": "{{numTeams}}支队伍",
+            "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
             "gameTypeHeader": "游戏类型",
-            "lobbyName": "大厅名称",
-            "lobbyNameRequired": "输入大厅名称",
+            "lobbyName": "房间名称",
+            "lobbyNameRequired": "输入房间名称",
             "mapRequired": "选择要玩的地图",
             "selectMap": "选择地图",
-            "title": "创建大厅",
+            "title": "创建房间",
             "advancedSettings": "高级设置",
-            "turnRate": "转弯率",
-            "turnRateAuto": "汽车",
-            "turnRateDynamic": "DTR（不推荐）",
-            "useLegacyLimits": "使用旧版单位限制"
+            "turnRate": "转换率",
+            "turnRateAuto": "自动设置",
+            "turnRateDynamic": "动态转换率（不推荐使用）",
+            "useLegacyLimits": "使用旧版单位数量限制"
         },
         "events": {
-            "banned": "您已被禁止进入大厅。",
-            "kicked": "您已被踢出大厅。"
+            "banned": "您已被该房间封禁。",
+            "kicked": "您已被踢出房间。"
         }
     },
     "maps": {
         "details": {
-            "retrieveError": "尝试检索该地图的详细信息时出现问题。错误消息是：",
-            "tileset": "瓷砖集：{{tilesetName}}",
+            "retrieveError": "查询该地图的详细信息时遇到问题。错误信息：",
+            "tileset": "地形类型：{{tilesetName}}",
             "title": "地图详情",
-            "editDescription": "编辑描述",
-            "editName": "编辑姓名",
-            "mapDescription": "地图说明",
+            "editDescription": "编辑地图描述",
+            "editName": "编辑地图名称",
+            "mapDescription": "地图描述",
             "mapDescriptionRequired": "输入地图描述",
             "mapName": "地图名称",
             "mapNameRequired": "输入地图名称",
-            "players": "玩家：{{playerSize}}",
-            "size": "尺寸：{{width}}x{{height}}"
+            "players": "玩家数：{{playerSize}}",
+            "size": "大小：{{width}}x{{height}}"
         },
         "local": {
-            "documentsFolder": "文件文件夹",
+            "documentsFolder": "文档文件夹",
             "programFolder": "程序文件夹",
-            "title": "当地地图",
-            "uploadError": "上传地图时出现问题",
-            "uploadMapError": "上传地图时发生错误"
+            "title": "本地地图",
+            "uploadError": "上传地图时遇到问题",
+            "uploadMapError": "上传地图时遇到了错误"
         },
         "mapSelect": {
             "browseMaps": "浏览地图"
         },
         "server": {
             "allMaps": "所有地图",
-            "browseLocal": "浏览当地地图",
-            "error": "出了点问题：{{errorMessage}}",
+            "browseLocal": "浏览本地地图",
+            "error": "出错了：{{errorMessage}}",
             "favorites": {
                 "added": "已添加至收藏夹",
-                "addedError": "添加到收藏夹时出错",
+                "addedError": "添加到收藏夹时遇到错误",
                 "removed": "已从收藏夹中删除",
-                "removedError": "从收藏夹中删除时出错"
+                "removedError": "从收藏夹中删除地图时遇到错误"
             },
             "filterOptions": {
                 "section": {
                     "numberOfPlayers": "玩家人数",
-                    "tileset": "瓷砖集"
+                    "tileset": "地形类型"
                 },
-                "title": "过滤器选项"
+                "title": "筛选选项"
             },
             "noCommunityMaps": "社区尚未公开任何地图。",
-            "noOfficialMaps": "尚未上传官方地图。",
-            "noResults": "没有结果。",
-            "noUploadedMaps": "您尚未上传任何地图。您可以通过单击下面的浏览按钮上传地图。",
-            "regenerateError": "重新生成图像时发生错误",
+            "noOfficialMaps": "尚未上传任何官方地图。",
+            "noResults": "没有找到。",
+            "noUploadedMaps": "您尚未上传任何地图。您可以单击下面的浏览按钮上传地图。",
+            "regenerateError": "重新生成图像时遇到错误",
             "sortMaps": {
                 "option": {
                     "dateUploaded": "上传日期",
-                    "name": "姓名",
+                    "name": "名称",
                     "numberOfPlayers": "玩家人数"
                 },
-                "title": "对地图进行排序"
+                "title": "地图排序"
             },
             "tab": {
-                "community": "社区",
+                "community": "社区地图",
                 "myMaps": "我的地图",
-                "official": "官方的"
+                "official": "官方地图"
             },
             "thumbnailSize": {
                 "option": {
-                    "large": "大的",
-                    "medium": "中等的",
-                    "small": "小的"
+                    "large": "大",
+                    "medium": "中等",
+                    "small": "小"
                 },
                 "title": "缩略图尺寸"
             }
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",
-            "mapActions": "地图行动",
+            "mapActions": "地图动作",
             "noMapPreview": "地图预览不可用",
             "regenerateImage": "重新生成图像",
             "removeFromFavorites": "从收藏夹中删除",
@@ -858,14 +858,14 @@
             "viewMapDetails": "查看地图详情"
         },
         "tileset": {
-            "ashworld": "灰烬世界",
-            "badlands": "荒地",
+            "ashworld": "灰烬",
+            "badlands": "荒原",
             "desert": "沙漠",
-            "ice": "冰",
-            "spacePlatform": "太空平台",
-            "twilight": "暮",
-            "installation": "安装",
-            "jungleWorld": "丛林世界"
+            "ice": "冰原",
+            "spacePlatform": "太空",
+            "twilight": "暮光",
+            "installation": "基地",
+            "jungleWorld": "丛林"
         },
         "activity": {
             "title": "地图"
@@ -1023,7 +1023,7 @@
             "loadingError": "加载重播时出现问题",
             "rootFolderName": "重播",
             "title": "本地重播",
-            "watchReplay": "看回放"
+            "watchReplay": "观看录像"
         },
         "fileDropText": "将重播放到此处即可使用 ShieldBattery 观看。",
         "loading": {
@@ -1220,51 +1220,51 @@
             "title": "联赛"
         },
         "explainer": {
-            "description": "联赛是争夺奖品、获得锦标赛参赛资格等等的新方式！",
+            "description": "在全新推出的联赛中争夺奖品、锦标赛参赛资格，还有更多！",
             "howLeaguesWork": "联赛如何运作",
-            "joinDescription": "查找当前正在运行或接受您想要参加的形式注册的联赛。某些联赛可能有不同的要求、规则或资格，因此请务必在加入前阅读信息！",
+            "joinDescription": "首先需要在当前正在进行中或报名中的联赛中找到您想要参加的赛制。某些联赛可能有不同的要求、规则或门槛，因此请务必在加入前详细阅读联赛信息！",
             "joinTitle": "加入。",
-            "playDescription": "联赛开始后，您参加的所有天梯比赛都会在您的正常天梯排名中奖励积分。查看联赛页面上的排行榜，看看您的表现如何！",
-            "playTitle": "玩。",
-            "winDescription": "联赛结束后，将提供排行榜供组织者发放奖品和奖励。查看联赛信息页面了解更多详情。",
-            "winTitle": "赢！"
+            "playDescription": "联赛开始后，您参加的所有天梯游戏除了正常的天梯点数以外还会额外奖励联赛积分。查看联赛页面上的排行榜，看看您的表现如何！",
+            "playTitle": "游玩。",
+            "winDescription": "联赛结束后，组织者可以查看排行榜以便发放奖品。详情请查看联赛信息页面。",
+            "winTitle": "取胜！"
         },
         "leagueDetails": {
             "goBack": "返回列表",
             "joined": "已加入",
-            "joinError": "无法加入联盟：{{errorMessage}}",
+            "joinError": "无法加入联赛：{{errorMessage}}",
             "leaderboard": "排行榜",
-            "leaderboardError": "检索排行榜时出现问题：{{errorMessage}}",
+            "leaderboardError": "查询排行榜时遇到问题：{{errorMessage}}",
             "leaderBoardHeader": {
-                "lastPlayed": "最后玩过",
+                "lastPlayed": "上一次游戏",
                 "player": "玩家",
                 "points": "积分",
-                "rank": "秩",
-                "winLoss": "赢/输"
+                "rank": "排名",
+                "winLoss": "胜/败"
             },
-            "leagueEndedError": "无法加入，因为联赛已经结束",
-            "leagueJoined": "加入联盟",
+            "leagueEndedError": "无法加入联赛，因为该联赛已经结束",
+            "leagueJoined": "已加入的联赛",
             "noPlayers": "没有匹配的玩家。",
             "notFound": "未找到联赛",
-            "retrieveError": "检索此联赛时出错：{{errorMessage}}",
-            "rulesAndInfo": "规则和信息",
+            "retrieveError": "查询此联赛时遇到错误：{{errorMessage}}",
+            "rulesAndInfo": "规则与信息",
             "about": "关于",
             "copyLink": "复制联赛链接",
-            "dateText": "{{startDate}} 到 {{endDate}}",
+            "dateText": "{{startDate}} 至 {{endDate}}",
             "info": "信息"
         },
         "list": {
             "acceptingSignups": "接受报名",
-            "currentlyRunning": "目前正在运行",
-            "ends": "结束{{endDate}}",
-            "finished": "完成的",
+            "currentlyRunning": "正在进行",
+            "ends": "于{{endDate}}结束",
+            "finished": "已完成",
             "howDoLeaguesWork": "联赛如何运作？",
             "joined": "已加入",
             "loadingError": "加载联赛时出错",
             "manageLeagues": "管理联赛",
             "noLeagues": "没有匹配的联赛",
             "pageHeadline": "联赛",
-            "starts": "开始{{startDate}}",
+            "starts": "于{{startDate}}开始",
             "viewInfo": "查看信息"
         }
     },
