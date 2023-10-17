@@ -440,7 +440,7 @@
         "divisionGroup": {
             "all": "全部",
             "bronze": "青铜",
-            "champion": "精英",
+            "champion": "冠军",
             "diamond": "钻石",
             "gold": "黄金",
             "platinum": "白金",
@@ -475,26 +475,26 @@
             "body": "所有玩家准备完成后游戏才会开始。",
             "failedToAccept": "未能接受",
             "matchFound": "已找到对手",
-            "readyUp": "准备好",
-            "removedFromQueue": "您没有及时准备好，已被从队列中删除。",
-            "returningToQueue": "有些玩家没有及时准备或加载失败。返回配对队列…"
+            "readyUp": "我准备好了",
+            "removedFromQueue": "您没有及时点击“我准备好了”，因此已被移除匹配队列。",
+            "returningToQueue": "部分玩家没有及时准备好或加载失败。正在返回匹配队列……"
         },
         "activity": {
-            "finding": "寻找…",
-            "findMatch": "查找匹配项"
+            "finding": "正在寻找对手…",
+            "findMatch": "寻找对手"
         },
         "disabledCard": {
-            "description": "匹配有时会因维护和开发而关闭，目前已禁用。下一个配对时段是：",
+            "description": "因维护和开发的需要，匹配功能有时会关闭。匹配功能目前已禁用。下一次匹配时段是：",
             "hours": "小时",
-            "inParty": "聚会时禁用",
+            "inParty": "组队时不可用",
             "minutes": "分钟",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>至</1><2>{{nextEndDate}}</2>",
-            "notPartyLeader": "只有党魁才能排队参加比赛。",
-            "partyTooLargeTitle": "聚会规模太大",
+            "notPartyLeader": "只有队长能够参加匹配队列。",
+            "partyTooLargeTitle": "队伍人数太多",
             "title": "配对已禁用",
             "days": "天",
-            "partyTooLargeText": "您当前的队伍太大，无法排队参加这种配对类型。",
-            "seconds": "秒数",
+            "partyTooLargeText": "您当前的队伍人数太多，无法参加此类型的匹配。",
+            "seconds": "秒",
             "soon": "很快™"
         },
         "findMatch": {
