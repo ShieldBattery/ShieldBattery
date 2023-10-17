@@ -468,8 +468,8 @@
             "diamond": "钻石{{level}}",
             "gold": "黄金 {{level}}",
             "platinum": "白金{{level}}",
-            "silver": "银色{{level}}",
-            "unrated": "未评级"
+            "silver": "白银{{level}}",
+            "unrated": "未定级"
         },
         "acceptMatch": {
             "body": "所有玩家准备完成后游戏才会开始。",
@@ -491,45 +491,45 @@
             "nextDateRange": "<0>{{nextStartDate}}</0><1>至</1><2>{{nextEndDate}}</2>",
             "notPartyLeader": "只有队长能够参加匹配队列。",
             "partyTooLargeTitle": "队伍人数太多",
-            "title": "配对已禁用",
+            "title": "匹配已被禁用",
             "days": "天",
             "partyTooLargeText": "您当前的队伍人数太多，无法参加此类型的匹配。",
             "seconds": "秒",
-            "soon": "很快™"
+            "soon": "Soon™"
         },
         "findMatch": {
-            "action": "查找匹配项",
-            "alternateRace": "替代比赛",
-            "bonusPoints": "{{bonusAvailable}} 点",
-            "bonusPool": "奖金池",
-            "description": "当你的对手选择了相同的主要种族时，选择要使用的种族。",
+            "action": "开始匹配",
+            "alternateRace": "备用种族",
+            "bonusPoints": "{{bonusAvailable}}分",
+            "bonusPool": "加分池",
+            "description": "选择你的备用种族。如果您和对手的主族相同，则您会使用备用种族进行游戏。",
             "errors": {
-                "alreadyInGame": "您已经在游戏中、正在搜索比赛或在自定义大厅中",
-                "inParty": "您正在组队中，无法作为单人玩家排队",
-                "loadingRank": "加载您当前的排名时出现问题。",
+                "alreadyInGame": "您已经在游戏中、正在搜索比赛或在自定义房间中",
+                "inParty": "您正在组队中，无法作为单人玩家匹配",
+                "loadingRank": "加载您的当前排名时遇到问题。",
                 "matchmakingDisabled": "目前已禁用匹配功能",
-                "somethingWentWrong": "出了些问题 ：（",
-                "dialogTitle": "搜索匹配项时出错"
+                "somethingWentWrong": "出错了 :(",
+                "dialogTitle": "匹配时遇到错误"
             },
             "race": "种族",
             "rating": "评分",
-            "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} 展示位置",
-            "title": "查找匹配项",
+            "remainingPlacements": "剩余{{lifetimeGames}} / {{numPlacementMatches}}场定级赛",
+            "title": "开始匹配",
             "updated": "更新",
-            "useAlternateRace": "使用交替种族来避免镜像匹配",
+            "useAlternateRace": "使用第二种族以避免镜像对抗",
             "mapPool": "地图池",
             "points": "积分",
             "vetoesLeft": "<0>剩余否决权：</0><1>{{vetoesLeft}}</1>",
-            "vetoDescriptionNoOverlap": "否决最多 {{count}} 张地图。被否决的地图将永远不会被选择进行游戏。",
-            "vetoDescriptionWithOverlap": "否决最多 {{count}} 张地图。被否决的地图的选择频率明显低于其他地图。"
+            "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
+            "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。"
         },
         "postMatchDialog": {
             "rating": "评分",
-            "searchAgain": "再次搜索",
+            "searchAgain": "重新匹配",
             "title": "比赛结果",
             "watchReplay": "观看录像",
             "leagues": "联赛",
-            "matchmaking": "对接会",
+            "matchmaking": "匹配",
             "points": "积分"
         },
         "type": {
@@ -539,19 +539,19 @@
         },
         "match": {
             "gameFailedToLoad": "游戏加载失败。",
-            "gameInProgress": "游戏进行中……",
-            "gameLoading": "游戏启动…",
-            "gameStarting": "游戏开始……",
-            "playerVsPlayer": "与"
+            "gameInProgress": "游戏正在进行中……",
+            "gameLoading": "游戏正在启动…",
+            "gameStarting": "游戏正在开始……",
+            "playerVsPlayer": "对"
         },
         "navEntry": {
-            "cancelSearch": "取消搜索",
+            "cancelSearch": "取消匹配",
             "elapsedTime": "时间： ",
-            "matchFound": "找到匹配项！",
-            "searchingForMatch": "正在寻找{{matchmakingType}}"
+            "matchFound": "匹配成功！",
+            "searchingForMatch": "正在搜索{{matchmakingType}}"
         },
         "searchingOverlay": {
-            "cancelSearch": "取消搜索"
+            "cancelSearch": "取消匹配"
         }
     },
     "forms": {
@@ -875,28 +875,28 @@
         "leftNav": {
             "customGame": "自定义游戏",
             "gameInProgress": "游戏进行中……",
-            "whispers": "低语",
+            "whispers": "私聊",
             "chatChannels": "聊天频道",
             "joinChannel": "加入频道（Alt + H）",
             "loadingChannel": "加载中…",
             "loadingGame": "加载中…",
-            "lobby": "大堂",
+            "lobby": "房间",
             "logIn": "登录",
             "logOut": "登出",
-            "rankedGame": "排名 {{matchmakingType}}",
-            "startWhisper": "开始窃窃私语 (Alt + W)",
-            "viewChangelog": "查看变更日志",
+            "rankedGame": "{{matchmakingType}}排位",
+            "startWhisper": "开始私聊 (Alt + W)",
+            "viewChangelog": "查看更新日志",
             "viewProfile": "查看资料",
-            "whisperCloseError": "关闭耳语会话时出错：{{errorMessage}}",
-            "home": "家"
+            "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
+            "home": "首页"
         },
         "copyLink": {
-            "copiedText": "复制了！",
+            "copiedText": "已复制！",
             "defaultText": "复制链接"
         },
         "externalLink": {
             "alwaysTrust": "始终信任该域名",
-            "dialogText": "<0>此链接将带您访问 ShieldBattery 之外的网站：</0><1>{{link}}</1><2>您确定要访问该网站吗？</2>",
+            "dialogText": "<0>此链接指向ShieldBattery之外的网站：</0><1>{{link}}</1><2>您确定要访问该网站吗？</2>",
             "openLink": "打开链接",
             "title": "外部链接"
         }
@@ -910,10 +910,10 @@
         },
         "activityButton": {
             "read": "通知（Alt + N）",
-            "unread": "通知 - 未读 (Alt + N)"
+            "unread": "未读通知 (Alt + N)"
         },
         "errors": {
-            "markRead": "将通知标记为已读时出错"
+            "markRead": "将通知标记为已读时遇到错误"
         },
         "list": {
             "title": "通知"
@@ -922,7 +922,7 @@
     "parties": {
         "errors": {
             "acceptPartyInvite": {
-                "general": "接受邀请时出错",
+                "general": "接受邀请时遇到错误",
                 "notFoundOrNotInvited": "派对已经不存在了",
                 "partyFull": "聚会已满"
             },
@@ -1205,10 +1205,10 @@
         }
     },
     "messaging": {
-        "blockedMessage": "被阻止的消息",
+        "blockedMessage": "消息被屏蔽",
         "mention": "提到",
         "newDayMessage": "日期更改为<2>{{day}}</2>",
-        "sendMessage": "发送一个消息"
+        "sendMessage": "发送消息"
     },
     "windowControls": {
         "close": "关闭",
