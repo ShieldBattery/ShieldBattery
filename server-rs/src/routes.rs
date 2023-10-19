@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_graphql::dataloader::DataLoader;
 use async_graphql::extensions::Tracing;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig, ALL_WEBSOCKET_PROTOCOLS};
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
@@ -33,13 +32,13 @@ use tracing::Span;
 
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
-use crate::news::NewsPostRepo;
+use crate::graphql::schema_builder::SchemaBuilderModuleExt;
+use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
 use crate::sessions::{jwt_middleware, SbSession};
 use crate::state::AppState;
-use crate::users::permissions::PermissionsLoader;
-use crate::users::{CurrentUser, CurrentUserRepo, UsersLoader};
+use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
 async fn health_check() -> impl IntoResponse {
     "OK"
@@ -106,29 +105,14 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         SecureClientIpSource::ConnectInfo
     };
 
-    let current_user_repo = CurrentUserRepo::new(db_pool.clone(), redis_pool.clone());
-
-    // TODO(tec27): It'd be really nice to be able to let each module add its own data to the
-    // schema instead of needing to init them all here (similar to Plugins in bevy). This is
-    // somewhat annoying because the builder has type parameters, and the data we init basically
-    // never cares about those. Maybe we'd just need to wrap the builder before passing it down to
-    // the plugins (basically only exposing the .data() call)?
     let schema = build_schema()
         .extension(Tracing)
         .data(settings.clone())
         .data(db_pool.clone())
         .data(redis_pool.clone())
         .data(mailgun.clone())
-        .data(DataLoader::new(
-            UsersLoader::new(db_pool.clone()),
-            tokio::spawn,
-        ))
-        .data(DataLoader::new(
-            PermissionsLoader::new(db_pool.clone()),
-            tokio::spawn,
-        ))
-        .data(current_user_repo.clone())
-        .data(NewsPostRepo::new(db_pool.clone()))
+        .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
+        .module(NewsModule::new(db_pool.clone()))
         // TODO(tec27): Figure out good limits
         .limit_depth(8)
         .finish();
@@ -155,6 +139,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
+        current_user_repo: CurrentUserRepo::new(db_pool.clone(), redis_pool.clone()),
         db_pool,
         redis_pool,
         mailgun,
@@ -162,7 +147,6 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
             settings.jwt_secret.expose_secret().as_ref(),
         )),
         graphql_schema: schema.clone(),
-        current_user_repo,
     };
 
     Router::new()

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::graphql::errors::graphql_error;
 use async_graphql::dataloader::Loader;
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{Context, Guard, InputObject, SimpleObject};
@@ -8,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use typeshare::typeshare;
 
-use crate::errors::graphql_error;
 use crate::users::CurrentUser;
 
 #[typeshare]

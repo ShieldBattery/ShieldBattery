@@ -1,6 +1,8 @@
+use crate::graphql::errors::graphql_error;
+use crate::graphql::schema_builder::SchemaBuilderModule;
 use async_graphql::connection::{query, Connection, Edge};
 use async_graphql::dataloader::DataLoader;
-use async_graphql::{ComplexObject, Context, Guard, InputObject, Object};
+use async_graphql::{ComplexObject, Context, Guard, InputObject, Object, SchemaBuilder};
 use async_graphql::{Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
@@ -8,9 +10,24 @@ use color_eyre::eyre::WrapErr;
 use sqlx::{PgPool, QueryBuilder};
 use uuid::Uuid;
 
-use crate::errors::graphql_error;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, UsersLoader};
+
+pub struct NewsModule {
+    db_pool: PgPool,
+}
+
+impl NewsModule {
+    pub fn new(db_pool: PgPool) -> Self {
+        Self { db_pool }
+    }
+}
+
+impl SchemaBuilderModule for NewsModule {
+    fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
+        builder.data(NewsPostRepo::new(self.db_pool.clone()))
+    }
+}
 
 #[derive(Default)]
 pub struct NewsQuery;

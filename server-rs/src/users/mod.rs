@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::futures_util::TryStreamExt;
-use async_graphql::{ComplexObject, Context, Guard, InputObject, Object, Result, SimpleObject};
+use async_graphql::{
+    ComplexObject, Context, Guard, InputObject, Object, Result, SchemaBuilder, SimpleObject,
+};
 use async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
@@ -27,7 +29,8 @@ use crate::email::{
     EmailChangeData, EmailVerificationData, MailgunClient, MailgunMessage, MailgunTemplate,
     PasswordChangeData,
 };
-use crate::errors::graphql_error;
+use crate::graphql::errors::graphql_error;
+use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::redis::RedisPool;
 use crate::sessions::SbSession;
 use crate::state::AppState;
@@ -37,6 +40,38 @@ use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermiss
 
 mod auth;
 pub mod permissions;
+
+pub struct UsersModule {
+    db_pool: PgPool,
+    redis_pool: RedisPool,
+}
+
+impl UsersModule {
+    pub fn new(db_pool: PgPool, redis_pool: RedisPool) -> Self {
+        Self {
+            db_pool,
+            redis_pool,
+        }
+    }
+}
+
+impl SchemaBuilderModule for UsersModule {
+    fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
+        builder
+            .data(DataLoader::new(
+                UsersLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                PermissionsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(CurrentUserRepo::new(
+                self.db_pool.clone(),
+                self.redis_pool.clone(),
+            ))
+    }
+}
 
 #[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
 #[graphql(complex)]
