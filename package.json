@@ -192,8 +192,6 @@
     "@graphql-codegen/cli": "^5.0.0",
     "@graphql-codegen/client-preset": "^4.0.0",
     "@graphql-codegen/introspection": "^4.0.0",
-    "@graphql-codegen/near-operation-file-preset": "^2.5.0",
-    "@graphql-codegen/typescript-urql": "^3.7.3",
     "@parcel/watcher": "^2.2.0",
     "@playwright/test": "^1.34.3",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.5",
