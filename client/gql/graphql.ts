@@ -60,6 +60,10 @@ export type Mutation = {
   updateUserPermissions: SbUser
 }
 
+export type MutationCreateNewsPostArgs = {
+  post: NewsPostCreation
+}
+
 export type MutationUpdateCurrentUserArgs = {
   changes: UpdateCurrentUserChanges
   currentPassword: Scalars['String']['input']
@@ -90,6 +94,14 @@ export type NewsPostConnection = {
   nodes: Array<NewsPost>
   /** Information to aid in pagination. */
   pageInfo: PageInfo
+}
+
+export type NewsPostCreation = {
+  authorId?: InputMaybe<Scalars['Int']['input']>
+  content: Scalars['String']['input']
+  publishedAt?: InputMaybe<Scalars['DateTime']['input']>
+  summary: Scalars['String']['input']
+  title: Scalars['String']['input']
 }
 
 /** An edge in a connection. */
@@ -126,6 +138,7 @@ export type QueryNewsPostsArgs = {
   after?: InputMaybe<Scalars['String']['input']>
   before?: InputMaybe<Scalars['String']['input']>
   first?: InputMaybe<Scalars['Int']['input']>
+  includeUnpublished?: InputMaybe<Scalars['Boolean']['input']>
   last?: InputMaybe<Scalars['Int']['input']>
 }
 
