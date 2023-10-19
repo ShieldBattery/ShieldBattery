@@ -140,6 +140,7 @@ dependencies = [
  "async-trait",
  "base64 0.13.1",
  "bytes",
+ "chrono",
  "fast_chemail",
  "fnv",
  "futures-channel",
@@ -163,6 +164,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-futures",
+ "uuid",
 ]
 
 [[package]]
@@ -3402,6 +3404,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
 dependencies = [
  "getrandom",
+ "serde",
 ]
 
 [[package]]

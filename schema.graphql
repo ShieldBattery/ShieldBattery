@@ -18,15 +18,94 @@ type CurrentUser {
 	permissions: SbPermissions!
 }
 
+"""
+Implement the DateTime<Utc> scalar
+
+The input/output is a string in RFC3339 format.
+"""
+scalar DateTime
+
 
 
 
 type Mutation {
+	createNewsPost(post: NewsPostCreation!): NewsPost!
 	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	updateUserPermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
 }
 
+type NewsPost {
+	id: UUID!
+	coverImagePath: String
+	title: String!
+	summary: String!
+	content: String!
+	publishedAt: DateTime
+	updatedAt: DateTime!
+	author: SbUser
+}
+
+type NewsPostConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [NewsPostEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [NewsPost!]!
+}
+
+input NewsPostCreation {
+	authorId: Int
+	title: String!
+	summary: String!
+	content: String!
+	publishedAt: DateTime
+}
+
+"""
+An edge in a connection.
+"""
+type NewsPostEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: NewsPost!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+Information about pagination in a connection
+"""
+type PageInfo {
+	"""
+	When paginating backwards, are there more items?
+	"""
+	hasPreviousPage: Boolean!
+	"""
+	When paginating forwards, are there more items?
+	"""
+	hasNextPage: Boolean!
+	"""
+	When paginating backwards, the cursor to continue.
+	"""
+	startCursor: String
+	"""
+	When paginating forwards, the cursor to continue.
+	"""
+	endCursor: String
+}
+
 type Query {
+	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	user(id: Int!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
@@ -71,6 +150,18 @@ type SbUser {
 	permissions: SbPermissions!
 }
 
+
+"""
+A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+Strings within GraphQL. UUIDs are used to assign unique identifiers to
+entities without requiring a central allocating authority.
+
+# References
+
+* [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+* [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+"""
+scalar UUID
 
 input UpdateCurrentUserChanges {
 	email: String

@@ -1,13 +1,15 @@
-use crate::errors::graphql_error;
-use crate::users::CurrentUser;
+use std::collections::HashMap;
+
 use async_graphql::dataloader::Loader;
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{Context, Guard, InputObject, SimpleObject};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::collections::HashMap;
 use typeshare::typeshare;
+
+use crate::errors::graphql_error;
+use crate::users::CurrentUser;
 
 #[typeshare]
 #[derive(Clone, Debug, Deserialize, Serialize, SimpleObject, InputObject, sqlx::FromRow)]
@@ -42,10 +44,11 @@ pub enum RequiredPermission {
     ManageRallyPointServers,
     MassDeleteMaps,
     ModerateChatChannels,
+    ManageNews,
 }
 
 impl RequiredPermission {
-    pub fn check(&self, permissions: &SbPermissions) -> bool {
+    fn has_permission(&self, permissions: &SbPermissions) -> bool {
         match self {
             Self::EditPermissions => permissions.edit_permissions,
             Self::Debug => permissions.debug,
@@ -58,6 +61,7 @@ impl RequiredPermission {
             Self::ManageRallyPointServers => permissions.manage_rally_point_servers,
             Self::MassDeleteMaps => permissions.mass_delete_maps,
             Self::ModerateChatChannels => permissions.moderate_chat_channels,
+            Self::ManageNews => permissions.manage_news,
         }
     }
 }
@@ -66,7 +70,7 @@ impl RequiredPermission {
 impl Guard for RequiredPermission {
     async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
         if let Some(ref user) = ctx.data_unchecked::<Option<CurrentUser>>() {
-            if self.check(&user.permissions) {
+            if self.has_permission(&user.permissions) {
                 return Ok(());
             }
         }

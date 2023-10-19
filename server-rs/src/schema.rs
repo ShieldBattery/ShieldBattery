@@ -5,17 +5,19 @@ use std::path::Path;
 use async_graphql::{EmptySubscription, MergedObject, Schema, SchemaBuilder};
 use tokio::io;
 
+use crate::news::{NewsMutation, NewsQuery};
 use crate::users::{UsersMutation, UsersQuery};
 
 pub type SbSchema = Schema<Query, Mutation, EmptySubscription>;
+pub type SbSchemaBuilder = SchemaBuilder<Query, Mutation, EmptySubscription>;
 
 #[derive(MergedObject, Default)]
-pub struct Query(UsersQuery);
+pub struct Query(NewsQuery, UsersQuery);
 
 #[derive(MergedObject, Default)]
-pub struct Mutation(UsersMutation);
+pub struct Mutation(NewsMutation, UsersMutation);
 
-pub fn build_schema() -> SchemaBuilder<Query, Mutation, EmptySubscription> {
+pub fn build_schema() -> SbSchemaBuilder {
     Schema::build(Query::default(), Mutation::default(), EmptySubscription)
 }
 

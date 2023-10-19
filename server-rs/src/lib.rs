@@ -1,6 +1,7 @@
 pub mod configuration;
 pub mod email;
 pub mod errors;
+pub mod news;
 pub mod pubsub;
 pub mod redis;
 pub mod routes;

@@ -18,6 +18,23 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean }
   Int: { input: number; output: number }
   Float: { input: number; output: number }
+  /**
+   * Implement the DateTime<Utc> scalar
+   *
+   * The input/output is a string in RFC3339 format.
+   */
+  DateTime: { input: any; output: any }
+  /**
+   * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
+   * Strings within GraphQL. UUIDs are used to assign unique identifiers to
+   * entities without requiring a central allocating authority.
+   *
+   * # References
+   *
+   * * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
+   * * [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+   */
+  UUID: { input: any; output: any }
 }
 
 export type CurrentUser = {
@@ -38,6 +55,7 @@ export type CurrentUser = {
 
 export type Mutation = {
   __typename?: 'Mutation'
+  createNewsPost: NewsPost
   updateCurrentUser: CurrentUser
   updateUserPermissions: SbUser
 }
@@ -52,11 +70,63 @@ export type MutationUpdateUserPermissionsArgs = {
   userId: Scalars['Int']['input']
 }
 
+export type NewsPost = {
+  __typename?: 'NewsPost'
+  author?: Maybe<SbUser>
+  content: Scalars['String']['output']
+  coverImagePath?: Maybe<Scalars['String']['output']>
+  id: Scalars['UUID']['output']
+  publishedAt?: Maybe<Scalars['DateTime']['output']>
+  summary: Scalars['String']['output']
+  title: Scalars['String']['output']
+  updatedAt: Scalars['DateTime']['output']
+}
+
+export type NewsPostConnection = {
+  __typename?: 'NewsPostConnection'
+  /** A list of edges. */
+  edges: Array<NewsPostEdge>
+  /** A list of nodes. */
+  nodes: Array<NewsPost>
+  /** Information to aid in pagination. */
+  pageInfo: PageInfo
+}
+
+/** An edge in a connection. */
+export type NewsPostEdge = {
+  __typename?: 'NewsPostEdge'
+  /** A cursor for use in pagination */
+  cursor: Scalars['String']['output']
+  /** The item at the end of the edge */
+  node: NewsPost
+}
+
+/** Information about pagination in a connection */
+export type PageInfo = {
+  __typename?: 'PageInfo'
+  /** When paginating forwards, the cursor to continue. */
+  endCursor?: Maybe<Scalars['String']['output']>
+  /** When paginating forwards, are there more items? */
+  hasNextPage: Scalars['Boolean']['output']
+  /** When paginating backwards, are there more items? */
+  hasPreviousPage: Scalars['Boolean']['output']
+  /** When paginating backwards, the cursor to continue. */
+  startCursor?: Maybe<Scalars['String']['output']>
+}
+
 export type Query = {
   __typename?: 'Query'
   currentUser?: Maybe<CurrentUser>
+  newsPosts: NewsPostConnection
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
+}
+
+export type QueryNewsPostsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>
+  before?: InputMaybe<Scalars['String']['input']>
+  first?: InputMaybe<Scalars['Int']['input']>
+  last?: InputMaybe<Scalars['Int']['input']>
 }
 
 export type QueryUserArgs = {
