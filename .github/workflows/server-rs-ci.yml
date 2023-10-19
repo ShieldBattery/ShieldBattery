@@ -109,6 +109,9 @@ jobs:
           node-version: '18.x'
           cache: 'yarn'
 
+      - name: Add global packages
+        run: yarn global add node-gyp
+
       - name: Install JS dependencies
         run: yarn --frozen-lockfile
 
