@@ -109,7 +109,7 @@ impl NewsMutation {
         }
 
         let repo = ctx.data_unchecked::<NewsPostRepo>();
-        repo.create_post(post).await.map_err(|e| e.into())
+        repo.create_post(post, user.id).await.map_err(|e| e.into())
     }
 }
 
@@ -264,8 +264,14 @@ impl NewsPostRepo {
         Ok((has_prev_page, has_next_page, results))
     }
 
-    async fn create_post(&self, post: NewsPostCreation) -> eyre::Result<NewsPost> {
-        sqlx::query_as!(
+    async fn create_post(&self, post: NewsPostCreation, creator_id: i32) -> eyre::Result<NewsPost> {
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .wrap_err("Failed to start transaction")?;
+
+        let post = sqlx::query_as!(
             NewsPost,
             r#"
                 INSERT INTO news_posts (author_id, title, summary, content,
@@ -281,8 +287,33 @@ impl NewsPostRepo {
             post.published_at,
             Utc::now(),
         )
-        .fetch_one(&self.db)
+        .fetch_one(&mut *tx)
         .await
-        .wrap_err("Failed to create news post in DB")
+        .wrap_err("Failed to create news post in DB")?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO news_post_edits
+                    (post_id, editor_id, author_id, cover_image_path, title, summary, content,
+                        published_at, edited_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            "#,
+            post.id,
+            creator_id,
+            post.author_id,
+            post.cover_image_path,
+            post.title,
+            post.summary,
+            post.content,
+            post.published_at,
+            post.updated_at,
+        )
+        .execute(&mut *tx)
+        .await
+        .wrap_err("Failed to update edit log in DB")?;
+
+        tx.commit().await.wrap_err("Failed to commit transaction")?;
+
+        Ok(post)
     }
 }
