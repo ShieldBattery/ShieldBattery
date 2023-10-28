@@ -992,9 +992,17 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "Покинуть канал"
+                "leaveChannel": "Покинуть канал",
+                "channelSettings": "Настройки канала"
             },
             "moreActions": "Больше действий"
+        },
+        "channelSettings": {
+            "general": {
+                "descriptionLabel": "Описание",
+                "title": "Общий",
+                "topicLabel": "Тема"
+            }
         }
     },
     "fileBrowser": {
