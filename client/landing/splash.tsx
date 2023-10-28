@@ -128,7 +128,7 @@ const ButtonsContainer = styled.div`
 `
 
 const SplashButton = styled(RaisedButton)`
-  width: 200px;
+  min-width: 200px;
   height: 54px;
   margin: 16px 32px;
 
