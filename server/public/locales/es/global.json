@@ -655,9 +655,17 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "Salir del canal"
+                "leaveChannel": "Salir del canal",
+                "channelSettings": "Configuración del canal"
             },
             "moreActions": "Mas acciones"
+        },
+        "channelSettings": {
+            "general": {
+                "descriptionLabel": "Descripción",
+                "title": "General",
+                "topicLabel": "Tema"
+            }
         }
     },
     "fileBrowser": {
