@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload } from '../dialogs/dialog-type'
-import { useButtonState } from '../material/button'
+import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Dialog } from '../material/dialog'
 import { Ripple } from '../material/ripple'
@@ -14,11 +14,15 @@ import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary } from '../styles/colors'
 import { body1, singleLine } from '../styles/typography'
 import { ALL_CHANNEL_SETTINGS_SECTIONS, ChannelSettingsSection } from './channel-settings-section'
-import { ChannelSettingsGeneral } from './settings/general'
+import { ChannelSettingsGeneral, ChannelSettingsGeneralHandle } from './settings/general'
+
+const StyledDialog = styled(Dialog)`
+  max-width: 960px;
+`
 
 const Container = styled.div`
   display: flex;
-  gap: 20px;
+  gap: 24px;
 `
 
 const NavContainer = styled.div`
@@ -34,6 +38,7 @@ const Divider = styled.div`
 `
 
 const ContentContainer = styled.div`
+  min-width: 0;
   flex-grow: 1;
 `
 
@@ -45,31 +50,48 @@ export function ChannelSettingsDialog({
   onCancel,
   channelId,
 }: ChannelSettingsDialogProps) {
-  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
-  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
-  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
+  const { t } = useTranslation()
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)!)
+  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId)!)
+  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)!)
   const [section, setSection] = useState<ChannelSettingsSection>(ChannelSettingsSection.General)
 
+  const channelSettingsGeneralRef = useRef<ChannelSettingsGeneralHandle>(null)
+
   let settingsContent
+  let buttons
   switch (section) {
     case ChannelSettingsSection.General:
       settingsContent = (
         <ChannelSettingsGeneral
-          channelId={channelId}
-          channelDescription={detailedChannelInfo?.description}
-          channelTopic={joinedChannelInfo?.topic}
+          ref={channelSettingsGeneralRef}
+          basicChannelInfo={basicChannelInfo}
+          detailedChannelInfo={detailedChannelInfo}
+          joinedChannelInfo={joinedChannelInfo}
         />
       )
+      buttons = [
+        <TextButton
+          label={t('common.actions.save', 'Save')}
+          key='save'
+          color='accent'
+          onClick={() => {
+            channelSettingsGeneralRef.current?.submit?.()
+            onCancel()
+          }}
+        />,
+      ]
       break
     default:
       assertUnreachable(section)
   }
 
   return (
-    <Dialog
+    <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={true}
       title={`#${basicChannelInfo?.name}`}
+      buttons={buttons}
       onCancel={onCancel}>
       <Container>
         <NavContainer>
@@ -82,7 +104,7 @@ export function ChannelSettingsDialog({
 
         <ContentContainer>{settingsContent}</ContentContainer>
       </Container>
-    </Dialog>
+    </StyledDialog>
   )
 }
 

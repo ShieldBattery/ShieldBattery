@@ -1,8 +1,14 @@
+import formidable from 'formidable'
 import { Record as ImmutableRecord, Map, Set } from 'immutable'
+import mime from 'mime'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
+  CHANNEL_BADGE_HEIGHT,
+  CHANNEL_BADGE_WIDTH,
+  CHANNEL_BANNER_HEIGHT,
+  CHANNEL_BANNER_WIDTH,
   ChannelModerationAction,
   ChannelPermissions,
   ChatEvent,
@@ -26,11 +32,14 @@ import {
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
+import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
+import { writeFile } from '../file-upload'
+import { createImagePath, resizeImage } from '../file-upload/images'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -42,6 +51,7 @@ import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-group
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   ChatMessage,
+  EditableChannelFields,
   FullChannelInfo,
   UserChannelEntry,
   addMessageToChannel,
@@ -388,6 +398,8 @@ export default class ChatService {
     channelId: SbChannelId,
     userId: SbUserId,
     updates: EditChannelRequest,
+    bannerFile?: formidable.File,
+    badgeFile?: formidable.File,
   ): Promise<EditChannelResponse> {
     const originalChannel = await getChannelInfo(channelId)
 
@@ -402,20 +414,80 @@ export default class ChatService {
       )
     }
 
-    const channel = await updateChannel(channelId, updates)
+    const [banner, bannerExtension] = bannerFile
+      ? await resizeImage(bannerFile.filepath, CHANNEL_BANNER_WIDTH, CHANNEL_BANNER_HEIGHT, {
+          fallbackType: 'jpg',
+        })
+      : [undefined, undefined]
+    const [badge, badgeExtension] = badgeFile
+      ? await resizeImage(badgeFile.filepath, CHANNEL_BADGE_WIDTH, CHANNEL_BADGE_HEIGHT)
+      : [undefined, undefined]
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: 'edit',
-      channelInfo: toBasicChannelInfo(channel),
-      detailedChannelInfo: toDetailedChannelInfo(channel),
-      joinedChannelInfo: toJoinedChannelInfo(channel),
+    return await transact(async () => {
+      let bannerPath: string | undefined
+      if (banner) {
+        bannerPath = createImagePath('channel-images', bannerExtension)
+      }
+      let badgePath: string | undefined
+      if (badge) {
+        badgePath = createImagePath('channel-images', badgeExtension)
+      }
+
+      const updatedChannel: Patch<EditableChannelFields> = { ...updates }
+      delete (updatedChannel as any).banner
+      delete (updatedChannel as any).deleteBanner
+      delete (updatedChannel as any).badge
+      delete (updatedChannel as any).deleteBadge
+
+      if (updates.deleteBanner) {
+        updatedChannel.bannerPath = null
+      } else if (bannerPath) {
+        updatedChannel.bannerPath = bannerPath
+      }
+      if (updates.deleteBadge) {
+        updatedChannel.badgePath = null
+      } else if (badgePath) {
+        updatedChannel.badgePath = badgePath
+      }
+
+      const channel = await updateChannel(channelId, updatedChannel)
+
+      const filePromises: Array<Promise<unknown>> = []
+
+      if (banner && bannerPath) {
+        const buffer = await banner.toBuffer()
+        filePromises.push(
+          writeFile(bannerPath, buffer, {
+            acl: 'public-read',
+            type: mime.getType(bannerExtension),
+          }),
+        )
+      }
+      if (badge && badgePath) {
+        const buffer = await badge.toBuffer()
+        filePromises.push(
+          writeFile(badgePath, buffer, {
+            acl: 'public-read',
+            type: mime.getType(badgeExtension),
+          }),
+        )
+      }
+
+      await Promise.all(filePromises)
+
+      this.publisher.publish(getChannelPath(channelId), {
+        action: 'edit',
+        channelInfo: toBasicChannelInfo(channel),
+        detailedChannelInfo: toDetailedChannelInfo(channel),
+        joinedChannelInfo: toJoinedChannelInfo(channel),
+      })
+
+      return {
+        channelInfo: toBasicChannelInfo(channel),
+        detailedChannelInfo: toDetailedChannelInfo(channel),
+        joinedChannelInfo: toJoinedChannelInfo(channel),
+      }
     })
-
-    return {
-      channelInfo: toBasicChannelInfo(channel),
-      detailedChannelInfo: toDetailedChannelInfo(channel),
-      joinedChannelInfo: toJoinedChannelInfo(channel),
-    }
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {

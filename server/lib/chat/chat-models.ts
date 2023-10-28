@@ -4,7 +4,6 @@ import {
   BasicChannelInfo,
   ChannelPermissions,
   DetailedChannelInfo,
-  EditChannelRequest,
   JoinedChannelInfo,
   MAXIMUM_JOINED_CHANNELS,
   MAXIMUM_OWNED_CHANNELS,
@@ -18,6 +17,7 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
+import { getUrl } from '../file-upload'
 
 export interface UserChannelEntry {
   userId: SbUserId
@@ -130,6 +130,12 @@ export async function getUserChannelEntriesForUser(
  */
 export type FullChannelInfo = BasicChannelInfo & DetailedChannelInfo & JoinedChannelInfo
 
+/**
+ * A type that contains channel fields which can be edited. Note that this doesn't mean the API
+ * allows editing all of these fields yet, but at some point in the future it might.
+ */
+export type EditableChannelFields = Omit<FullChannelInfo, 'id' | 'userCount'>
+
 /** Takes the full channel info and returns only the basic fields. */
 export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
   return {
@@ -140,12 +146,13 @@ export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
   }
 }
 
-// TODO(2Pac): Add the missing fields here after #909 is done.
 /** Takes the full channel info and returns only the detailed fields. */
 export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
   return {
     id: channel.id,
     description: channel.description,
+    bannerPath: channel.bannerPath,
+    badgePath: channel.badgePath,
     userCount: channel.userCount,
   }
 }
@@ -171,6 +178,8 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     ownerId: props.owner_id,
     topic: props.topic,
     description: props.description,
+    bannerPath: props.banner_path ? getUrl(props.banner_path) : undefined,
+    badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
   }
 }
 
@@ -210,7 +219,7 @@ export async function createChannel(
  */
 export async function updateChannel(
   channelId: SbChannelId,
-  updates: Patch<EditChannelRequest>,
+  updates: Patch<EditableChannelFields>,
   withClient?: DbClient,
 ): Promise<FullChannelInfo> {
   const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
@@ -229,8 +238,20 @@ export async function updateChannel(
           const key = _key as keyof typeof updates
 
           switch (key) {
+            case 'name':
+              return sql`name = ${value}`
+            case 'private':
+              return sql`private = ${value}`
+            case 'official':
+              return sql`official = ${value}`
             case 'description':
               return sql`description = ${value}`
+            case 'bannerPath':
+              return sql`banner_path = ${value}`
+            case 'badgePath':
+              return sql`badge_path = ${value}`
+            case 'ownerId':
+              return sql`owner_id = ${value}`
             case 'topic':
               return sql`topic = ${value}`
 

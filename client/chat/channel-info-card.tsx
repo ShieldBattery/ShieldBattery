@@ -27,7 +27,7 @@ import {
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
 
-const ChannelCardRoot = styled(Card)`
+export const ChannelCardRoot = styled(Card)`
   position: relative;
   width: 352px;
   padding: 0;
@@ -44,13 +44,13 @@ const OverflowMenuButton = styled(IconButton)`
   right: 4px;
 `
 
-const ChannelBannerAndBadge = styled.div`
+export const ChannelBannerAndBadge = styled.div`
   box-sizing: content-box;
   position: relative;
   padding-bottom: 20px;
 `
 
-const ChannelCardBadge = styled.div`
+export const ChannelCardBadge = styled.div`
   ${shadow2dp};
   position: absolute;
   left: 12px;
@@ -63,7 +63,7 @@ const ChannelCardBadge = styled.div`
   border-radius: 9999px;
 `
 
-const ChannelName = styled.div`
+export const ChannelName = styled.div`
   ${headline6};
   margin-top: 4px;
   padding: 0 16px;
@@ -92,7 +92,7 @@ const PrivateChannelDescriptionText = styled.span`
   text-align: center;
 `
 
-const ChannelDescriptionContainer = styled.div`
+export const ChannelDescriptionContainer = styled.div`
   ${body1};
   margin-top: 16px;
   padding: 0 16px;
@@ -109,7 +109,7 @@ const NoChannelDescriptionText = styled.span`
   color: ${colorTextFaint};
 `
 
-const ChannelActions = styled.div`
+export const ChannelActions = styled.div`
   padding: 16px 16px 10px 16px;
 
   display: flex;
@@ -266,8 +266,8 @@ export function ConnectedChannelInfoCard({
         {basicChannelInfo ? (
           <ChannelCardBadge>
             <ChannelBadge
-              basicChannelInfo={basicChannelInfo}
-              detailedChannelInfo={detailedChannelInfo}
+              src={detailedChannelInfo?.badgePath}
+              channelName={basicChannelInfo.name}
             />
           </ChannelCardBadge>
         ) : null}

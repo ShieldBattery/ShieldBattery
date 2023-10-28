@@ -233,8 +233,8 @@ export function ChannelHeader({
 
       <BadgeAndTextContainer>
         <StyledChannelBadge
-          basicChannelInfo={basicChannelInfo}
-          detailedChannelInfo={detailedChannelInfo}
+          src={detailedChannelInfo.badgePath}
+          channelName={basicChannelInfo.name}
         />
         <NameAndTopicContainer>
           <ChannelName>#{basicChannelInfo.name}</ChannelName>

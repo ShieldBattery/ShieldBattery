@@ -1,16 +1,54 @@
-import { debounce } from 'lodash-es'
-import React, { useRef, useState } from 'react'
+import React, { useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { EditChannelRequest, SbChannelId } from '../../../common/chat'
+import {
+  BasicChannelInfo,
+  DetailedChannelInfo,
+  EditChannelRequest,
+  JoinedChannelInfo,
+} from '../../../common/chat'
+import { useObjectUrl } from '../../dom/use-object-url'
+import { FileInputHandle, SingleFileInput } from '../../forms/file-input'
 import { useForm } from '../../forms/form-hook'
-import { MaterialIcon } from '../../icons/material/material-icon'
+import { RaisedButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { colorError, colorSuccess } from '../../styles/colors'
+import { colorError } from '../../styles/colors'
+import { FlexSpacer } from '../../styles/flex-spacer'
 import { subtitle1 } from '../../styles/typography'
 import { updateChannel } from '../action-creators'
+import { ChannelBadge } from '../channel-badge'
+import { ChannelBanner, ChannelBannerPlaceholderImage } from '../channel-banner'
+import {
+  ChannelActions,
+  ChannelBannerAndBadge,
+  ChannelCardBadge,
+  ChannelCardRoot,
+  ChannelDescriptionContainer,
+  ChannelName,
+} from '../channel-info-card'
+
+const Root = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+`
+
+const FormContainer = styled.div`
+  flex-grow: 1;
+`
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`
+
+const BannerButtonsContainer = styled.div`
+  display: flex;
+  gap: 20px;
+`
 
 const ErrorText = styled.div`
   ${subtitle1};
@@ -18,112 +56,181 @@ const ErrorText = styled.div`
   margin-bottom: 8px;
 `
 
-const SuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+const HiddenFileInput = styled(SingleFileInput)`
+  display: none;
 `
-
-enum UpdateStatus {
-  Updating,
-  Success,
-  Error,
-}
 
 interface ChannelSettingsGeneralModel {
   description?: string
   topic?: string
+  banner?: File | string
+  badge?: File | string
+}
+
+export interface ChannelSettingsGeneralHandle {
+  submit?: () => void
 }
 
 interface ChannelSettingsGeneralProps {
-  channelId: SbChannelId
-  channelDescription?: string
-  channelTopic?: string
+  basicChannelInfo: BasicChannelInfo
+  detailedChannelInfo: DetailedChannelInfo
+  joinedChannelInfo: JoinedChannelInfo
 }
 
-export function ChannelSettingsGeneral({
-  channelId,
-  channelDescription: originalChannelDescription,
-  channelTopic: originalChannelTopic,
-}: ChannelSettingsGeneralProps) {
+export const ChannelSettingsGeneral = React.forwardRef<
+  ChannelSettingsGeneralHandle,
+  ChannelSettingsGeneralProps
+>(({ basicChannelInfo, detailedChannelInfo, joinedChannelInfo }, ref) => {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
-  const [descriptionUpdateStatus, setDescriptionUpdateStatus] = useState<UpdateStatus>()
-  const [topicUpdateStatus, setTopicUpdateStatus] = useState<UpdateStatus>()
 
-  const debouncedUpdateChannelRef = useRef(
-    debounce((patch: EditChannelRequest) => {
-      dispatch(
-        updateChannel(channelId, patch, {
+  const bannerInputRef = useRef<FileInputHandle>(null)
+  const badgeInputRef = useRef<FileInputHandle>(null)
+
+  useImperativeHandle(ref, () => ({
+    submit: onSubmit,
+  }))
+
+  const onFormSubmit = useStableCallback((model: Readonly<ChannelSettingsGeneralModel>) => {
+    const patch: EditChannelRequest & { banner?: Blob; badge?: Blob } = {
+      description:
+        model.description !== detailedChannelInfo.description ? model.description : undefined,
+      topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
+      deleteBanner: detailedChannelInfo.bannerPath && !model.banner ? true : undefined,
+      deleteBadge: detailedChannelInfo.badgePath && !model.badge ? true : undefined,
+    }
+
+    dispatch(
+      updateChannel({
+        channelId: basicChannelInfo.id,
+        channelChanges: patch,
+        channelBanner: model.banner instanceof File ? model.banner : undefined,
+        channelBadge: model.badge instanceof File ? model.badge : undefined,
+        spec: {
           onSuccess: () => {
             setError(undefined)
-
-            if (patch.description !== undefined) {
-              setDescriptionUpdateStatus(UpdateStatus.Success)
-            }
-            if (patch.topic !== undefined) {
-              setTopicUpdateStatus(UpdateStatus.Success)
-            }
           },
           onError: err => {
-            setDescriptionUpdateStatus(UpdateStatus.Error)
-            setTopicUpdateStatus(UpdateStatus.Error)
             setError(err)
           },
-        }),
-      )
-    }, 500),
-  )
-
-  const onValidatedChange = useStableCallback((model: Readonly<ChannelSettingsGeneralModel>) => {
-    const patch: EditChannelRequest = {
-      description: model.description !== originalChannelDescription ? model.description : undefined,
-      topic: model.topic !== originalChannelTopic ? model.topic : undefined,
-    }
-
-    if (patch.description !== undefined) {
-      setDescriptionUpdateStatus(UpdateStatus.Updating)
-    }
-    if (patch.topic !== undefined) {
-      setTopicUpdateStatus(UpdateStatus.Updating)
-    }
-
-    debouncedUpdateChannelRef.current(patch)
+        },
+      }),
+    )
   })
 
-  const { bindInput, onSubmit } = useForm(
+  const { bindCustom, bindInput, getInputValue, setInputValue, onSubmit } = useForm(
     {
-      description: originalChannelDescription,
-      topic: originalChannelTopic,
+      description: detailedChannelInfo.description,
+      topic: joinedChannelInfo.topic,
+      banner: detailedChannelInfo.bannerPath,
+      badge: detailedChannelInfo.badgePath,
     },
     {},
-    { onValidatedChange },
+    { onSubmit: onFormSubmit },
   )
 
+  const bannerUrl = useObjectUrl(getInputValue('banner'))
+  const badgeUrl = useObjectUrl(getInputValue('badge'))
+
   return (
-    <div>
-      {error ? <ErrorText>{error.message}</ErrorText> : null}
-      <form noValidate={true} onSubmit={onSubmit}>
-        <TextField
-          {...bindInput('description')}
-          label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
-          floatingLabel={true}
-          trailingIcons={
-            descriptionUpdateStatus === UpdateStatus.Success
-              ? [<SuccessIcon key='success' />]
-              : undefined
-          }
-          inputProps={{ tabIndex: 0 }}
-        />
-        <TextField
-          {...bindInput('topic')}
-          label={t('chat.channelSettings.general.topicLabel', 'Topic')}
-          floatingLabel={true}
-          trailingIcons={
-            topicUpdateStatus === UpdateStatus.Success ? [<SuccessIcon key='success' />] : undefined
-          }
-          inputProps={{ tabIndex: 0 }}
-        />
-      </form>
-    </div>
+    <Root>
+      <FormContainer>
+        {error ? <ErrorText>{error.message}</ErrorText> : null}
+        <StyledForm noValidate={true} onSubmit={onSubmit}>
+          <BannerButtonsContainer>
+            <HiddenFileInput
+              {...bindCustom('banner')}
+              ref={bannerInputRef}
+              inputProps={{ accept: 'image/*', tabIndex: -1 }}
+            />
+
+            <RaisedButton
+              label={bannerUrl ? 'Change banner' : 'Upload banner'}
+              tabIndex={0}
+              onClick={() => {
+                bannerInputRef.current?.click()
+              }}
+            />
+            {bannerUrl ? (
+              <TextButton
+                label='Remove banner'
+                tabIndex={0}
+                onClick={() => {
+                  setInputValue('banner', undefined)
+                  bannerInputRef.current?.clear()
+                }}
+              />
+            ) : null}
+          </BannerButtonsContainer>
+
+          <BannerButtonsContainer>
+            <HiddenFileInput
+              {...bindCustom('badge')}
+              ref={badgeInputRef}
+              inputProps={{ accept: 'image/*', tabIndex: -1 }}
+            />
+
+            <RaisedButton
+              label={badgeUrl ? 'Change badge' : 'Upload badge'}
+              tabIndex={0}
+              onClick={() => {
+                badgeInputRef.current?.click()
+              }}
+            />
+            {badgeUrl ? (
+              <TextButton
+                label='Remove badge'
+                tabIndex={0}
+                onClick={() => {
+                  setInputValue('badge', undefined)
+                  badgeInputRef.current?.clear()
+                }}
+              />
+            ) : null}
+          </BannerButtonsContainer>
+
+          <TextField
+            {...bindInput('description')}
+            label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
+            allowErrors={false}
+            floatingLabel={true}
+            multiline={true}
+            rows={4}
+            maxRows={4}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <TextField
+            {...bindInput('topic')}
+            label={t('chat.channelSettings.general.topicLabel', 'Topic')}
+            allowErrors={false}
+            floatingLabel={true}
+            inputProps={{ tabIndex: 0 }}
+          />
+        </StyledForm>
+      </FormContainer>
+
+      <ChannelCardRoot>
+        <ChannelBannerAndBadge>
+          {bannerUrl ? <ChannelBanner src={bannerUrl} /> : <ChannelBannerPlaceholderImage />}
+          {basicChannelInfo ? (
+            <ChannelCardBadge>
+              <ChannelBadge src={badgeUrl} channelName={basicChannelInfo.name} />
+            </ChannelCardBadge>
+          ) : null}
+        </ChannelBannerAndBadge>
+        <ChannelName>{basicChannelInfo.name}</ChannelName>
+
+        <ChannelDescriptionContainer>
+          <span>{getInputValue('description')}</span>
+        </ChannelDescriptionContainer>
+
+        <FlexSpacer />
+
+        <ChannelActions>
+          <div />
+        </ChannelActions>
+      </ChannelCardRoot>
+    </Root>
   )
-}
+})
