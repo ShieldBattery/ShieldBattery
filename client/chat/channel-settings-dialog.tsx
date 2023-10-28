@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -49,14 +49,6 @@ export function ChannelSettingsDialog({
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const [section, setSection] = useState<ChannelSettingsSection>(ChannelSettingsSection.General)
-
-  useEffect(() => {
-    const handle = (event: FocusEvent) => {
-      console.log(event.target)
-    }
-    document.addEventListener('focusin', handle)
-    return () => document.removeEventListener('focusin', handle)
-  }, [])
 
   let settingsContent
   switch (section) {
