@@ -692,9 +692,17 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "离开频道"
+                "leaveChannel": "离开频道",
+                "channelSettings": "频道设置"
             },
             "moreActions": "更多操作"
+        },
+        "channelSettings": {
+            "general": {
+                "descriptionLabel": "描述",
+                "title": "一般的",
+                "topicLabel": "话题"
+            }
         }
     },
     "lobbies": {
