@@ -1,7 +1,5 @@
 import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
 
-const lowerCaseSupportedLanguages = ALL_TRANSLATION_LANGUAGES.map(l => l.toLowerCase())
-
 /**
  * Choose the preferred language from the list of given languages. If no languages are given, we
  * default to using `navigator.languages` as a list of available languages. The logic for choosing
@@ -10,20 +8,25 @@ const lowerCaseSupportedLanguages = ALL_TRANSLATION_LANGUAGES.map(l => l.toLower
  *    of given languages.
  *  - for languages we support with dialects, prefer only if exact match.
  */
-export function getBestLanguage(languages = navigator.languages) {
-  for (let i = 0; i < languages.length; i++) {
-    const lng = languages[i].toLowerCase() as TranslationLanguage
+export function getBestLanguage(
+  languages = navigator.languages,
+  supportedLanguages: string[] = ALL_TRANSLATION_LANGUAGES as string[],
+) {
+  const lowerCaseSupportedLanguages = supportedLanguages.map(l => l.toLowerCase())
 
-    let lngIndex = lowerCaseSupportedLanguages.indexOf(lng)
+  for (const lng of languages) {
+    const lowerCaseLanguage = lng.toLowerCase()
+
+    let lngIndex = lowerCaseSupportedLanguages.indexOf(lowerCaseLanguage)
     if (lngIndex > -1) {
-      return ALL_TRANSLATION_LANGUAGES[lngIndex]
+      return supportedLanguages[lngIndex]
     }
 
-    const lngWithoutDialect = lng.split('-')[0]
+    const lngWithoutDialect = lowerCaseLanguage.split('-', 1)[0]
 
     lngIndex = lowerCaseSupportedLanguages.indexOf(lngWithoutDialect)
     if (lngIndex > -1) {
-      return ALL_TRANSLATION_LANGUAGES[lngIndex]
+      return supportedLanguages[lngIndex]
     }
   }
 
