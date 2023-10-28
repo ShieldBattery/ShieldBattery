@@ -1,38 +1,38 @@
 {
     "common": {
         "validators": {
-            "required": "필수의",
+            "required": "필수",
             "maxLength_other": "최대 {{count}}자까지 입력하세요.",
-            "minLength_other": "{{count}}자 이상 입력하세요."
+            "minLength_other": "최소 {{count}}자 이상 입력하세요."
         },
         "actions": {
-            "back": "뒤쪽에",
+            "back": "뒤로가기",
             "cancel": "취소",
-            "continue": "계속하다",
+            "continue": "계속",
             "okay": "좋아요",
-            "save": "구하다",
-            "apply": "적용하다",
-            "join": "가입하다",
-            "refresh": "새로 고치다",
-            "remove": "제거하다",
-            "show": "보여주다",
+            "save": "저장",
+            "apply": "적용",
+            "join": "참가",
+            "refresh": "새로 고침",
+            "remove": "제거",
+            "show": "보기",
             "start": "시작",
             "unblock": "차단 해제",
             "view": "보다",
-            "block": "차단하다",
-            "clear": "분명한",
-            "search": "찾다",
-            "accept": "수용하다",
+            "block": "차단",
+            "clear": "지우기",
+            "search": "찾기",
+            "accept": "수락",
             "decline": "감소",
             "browse": "검색",
             "download": "다운로드",
-            "hide": "숨다",
+            "hide": "숨기기",
             "next": "다음",
-            "previous": "이전의",
-            "stop": "멈추다",
-            "test": "시험",
-            "edit": "편집하다",
-            "reveal": "드러내다"
+            "previous": "이전",
+            "stop": "멈추기",
+            "test": "테스트",
+            "edit": "편집",
+            "reveal": "노출"
         },
         "lists": {
             "empty": "여기는 볼게 없다"
@@ -230,7 +230,7 @@
                 "newPassword": "새 비밀번호",
                 "passwordCode": "비밀번호 재설정 코드",
                 "setNewPassword": "새 비밀번호 설정",
-                "successMessage": "당신의 비밀번호가 초기화되었습니다.",
+                "successMessage": "당신의 비밀번호가 재설정되었습니다.",
                 "title": "암호를 재설정",
                 "username": "사용자 이름"
             }
@@ -239,7 +239,7 @@
             "forgotPassword": "비밀번호를 잊으 셨나요?",
             "forgotUsername": "사용자 이름을 잊으셨나요?",
             "rememberMe": "자동 로그인",
-            "signUp": "계정에 가입",
+            "signUp": "회원 가입",
             "title": "로그인",
             "whatIsShieldBattery": "실드배터리란?",
             "logIn": "로그인",
@@ -269,7 +269,7 @@
             "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
             "resendError": "이메일 재전송 오류: {{error}}",
             "resendSuccess": "새 확인 코드가 계정의 이메일 주소로 전송되었습니다.",
-            "resendVerificationEmail": "확인 이메일을 다시 보내",
+            "resendVerificationEmail": "확인 이메일 재전송",
             "logIn": "로그인"
         },
         "emailValidator": {
@@ -277,11 +277,11 @@
             "required": "이메일 주소를 입력하세요"
         },
         "signup": {
-            "ageConfirmation": "본인은 13세 이상임을 확인합니다.",
+            "ageConfirmation": "본인은 만13세 이상임을 확인합니다.",
             "alreadyHaveAccount": "이미 계정이 있습니까?",
             "confirmPassword": "비밀번호 확인",
             "createAccount": "계정 만들기",
-            "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
+            "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한 방침</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
             "logIn": "로그인",
@@ -415,17 +415,17 @@
         "blurb": "다음 위치에 ShieldBattery 클라이언트를 다운로드합니다.",
         "downloadClient": "클라이언트 다운로드",
         "exploreMaps": "지도 탐색",
-        "playGames": "게임을하다",
+        "playGames": "게임하기",
         "supportProjectText": "프로젝트를 지원하고 싶습니까?",
-        "watchReplays": "다시 보기 보기",
+        "watchReplays": "다시보기",
         "andMore": "그리고 더!"
     },
     "clientUpdate": {
         "overlay": {
-            "errorBody": "업데이트를 다운로드하는 동안 오류가 발생했습니다. 다시 시작하고 다시 시도하거나 <2>저희 웹사이트</2>를 방문하여 최신 버전을 다운로드하십시오.",
+            "errorBody": "업데이트를 다운로드하는 동안 오류가 발생했습니다. 다시 시작하고 시도하거나 <2>저희 웹사이트</2>를 방문하여 최신 버전을 다운로드하십시오.",
             "errorTitle": "업데이트 다운로드 오류",
             "newUpdateDownloading": "새 업데이트를 다운로드 중입니다. 계속하려면 다운로드가 완료될 때까지 기다리십시오.",
-            "newUpdateReady": "새 업데이트가 다운로드되었으며 설치할 준비가 되었습니다. 계속하려면 응용 프로그램을 다시 시작하십시오.",
+            "newUpdateReady": "새 업데이트가 다운로드 되었으며 설치할 준비가 되었습니다. 계속하려면 프로그램을 다시 시작하십시오.",
             "noErrorTitle": "업데이트 가능",
             "restartNow": "지금 다시 시작",
             "progress": "{{perSecond}}/s에서 {{transferred}} / {{total}}"
@@ -571,8 +571,8 @@
             "suddenDeath": "급사",
             "teamCaptureTheFlag": "팀이 깃발을 탈취하다",
             "teamFreeForAll": "모두를 위한 무료 팀",
-            "captureTheFlag": "깃발 잡기",
-            "freeForAll": "모두를위한 무료",
+            "captureTheFlag": "깃발 뺏기",
+            "freeForAll": "개별 전투",
             "useMapSettings": "지도 설정 사용"
         },
         "results": {
@@ -691,15 +691,15 @@
     },
     "chat": {
         "banUser": {
-            "banAction": "금지 {{user}}",
+            "banAction": "차단 {{user}}",
             "banReason": "차단 사유(선택사항)",
-            "dialogTitle": "{{user}}를 금지하시겠습니까?",
-            "successMessage": "{{user}} 금지됨"
+            "dialogTitle": "{{user}}를 차단하시겠습니까?",
+            "successMessage": "{{user}} 차단됨"
         },
         "banUserErrorDisplay": {
             "defaultError": "오류 발생: {{statusText}}",
-            "genericError": "{{user}} 금지 오류: {{errorMessage}}",
-            "moderateChannelModerator": "다른 중재자를 차단할 수 없습니다.",
+            "genericError": "{{user}} 차단 오류: {{errorMessage}}",
+            "moderateChannelModerator": "다른 관리자를 차단할 수 없습니다.",
             "moderateChannelOwner": "채널 소유자를 차단할 수 없습니다.",
             "noPermissions": "이 사용자를 차단할 권한이 없습니다.",
             "notInChannel": "차단하려는 사용자가 이 채널에 없습니다."
@@ -711,7 +711,7 @@
         },
         "channelInfoCard": {
             "adminView": "관리자 보기",
-            "joined": "가입",
+            "joined": "참가",
             "moreActions": "더 많은 행동",
             "noDescription": "이 채널은 설명이 없습니다.",
             "private": "이 채널은 비공개이며 참여하려면 초대가 필요합니다.",
@@ -724,10 +724,10 @@
             "retrievingError": "채팅 채널을 검색하는 중에 오류가 발생했습니다."
         },
         "channelMenu": {
-            "banAction": "금지 {{user}}",
-            "kickingError": "오류 킥 {{user.name}}",
-            "userKicked": "{{user}}가 쫓겨났습니다",
-            "kickAction": "킥 {{user}}"
+            "banAction": "차단 {{user}}",
+            "kickingError": "강퇴 오류 {{user.name}}",
+            "userKicked": "{{user}}가 강퇴되었습니다",
+            "kickAction": "강퇴 {{user}}"
         },
         "channelName": {
             "deletedChannel": "삭제된 채널"
@@ -746,12 +746,12 @@
         },
         "events": {
             "ban": "귀하는 {{channelName}}에서 금지되었습니다.",
-            "kick": "당신은 {{channelName}}에서 쫓겨났습니다."
+            "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
         },
         "joinChannel": {
-            "bannedError": "#{{channelName}}에서 금지되었습니다.",
+            "bannedError": "#{{channelName}}에서 차단되었습니다.",
             "genericError": "#{{channelName}}에 가입하는 동안 오류가 발생했습니다.",
-            "maximumChannelsError": "가입한 채널의 한도에 도달했습니다. 다른 계정에 가입하기 전에 먼저 탈퇴해야 합니다."
+            "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
         },
         "messageLayout": {
             "banUser": "<0><0></0></0> 채널에서 차단되었습니다.",
@@ -769,9 +769,9 @@
             "leaveChannel": "채널 나가기"
         },
         "userList": {
-            "idle": "게으른",
+            "idle": "개발 환경",
             "offline": "오프라인",
-            "active": "활동적인"
+            "active": "실행"
         },
         "channelHeader": {
             "actionItems": {
