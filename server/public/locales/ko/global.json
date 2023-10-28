@@ -775,9 +775,17 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "채널 나가기"
+                "leaveChannel": "채널 나가기",
+                "channelSettings": "채널 설정"
             },
             "moreActions": "더 많은 행동"
+        },
+        "channelSettings": {
+            "general": {
+                "descriptionLabel": "설명",
+                "title": "일반적인",
+                "topicLabel": "주제"
+            }
         }
     },
     "starcraft": {
