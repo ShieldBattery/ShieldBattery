@@ -119,6 +119,7 @@
     },
     "channelHeader": {
       "actionItems": {
+        "channelSettings": "Channel settings",
         "leaveChannel": "Leave channel"
       },
       "moreActions": "More actions"
@@ -151,6 +152,13 @@
     },
     "channelName": {
       "deletedChannel": "deleted-channel"
+    },
+    "channelSettings": {
+      "general": {
+        "descriptionLabel": "Description",
+        "title": "General",
+        "topicLabel": "Topic"
+      }
     },
     "channelValidator": {
       "pattern": "Channel name contains invalid characters",

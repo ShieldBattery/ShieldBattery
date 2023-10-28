@@ -1,18 +1,21 @@
 import { MergeExclusive } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   BasicChannelInfo,
   ChannelPermissions,
   DetailedChannelInfo,
+  EditChannelRequest,
   JoinedChannelInfo,
   MAXIMUM_JOINED_CHANNELS,
   MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
+import { Patch } from '../../../common/patch'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
@@ -142,6 +145,7 @@ export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
 export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
   return {
     id: channel.id,
+    description: channel.description,
     userCount: channel.userCount,
   }
 }
@@ -166,6 +170,7 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     userCount: props.user_count,
     ownerId: props.owner_id,
     topic: props.topic,
+    description: props.description,
   }
 }
 
@@ -194,6 +199,52 @@ export async function createChannel(
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Updates the channel with the given list of updates. Throws an error if there are no updates, so
+ * make sure to only call this method when you update one of the channel's fields.
+ */
+export async function updateChannel(
+  channelId: SbChannelId,
+  updates: Patch<EditChannelRequest>,
+  withClient?: DbClient,
+): Promise<FullChannelInfo> {
+  const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+  if (!updateEntries.length) {
+    throw new Error('No columns updated')
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      UPDATE channels
+      SET
+      ${sqlConcat(
+        ', ',
+        updateEntries.map(([_key, value]) => {
+          const key = _key as keyof typeof updates
+
+          switch (key) {
+            case 'description':
+              return sql`description = ${value}`
+            case 'topic':
+              return sql`topic = ${value}`
+
+            default:
+              return assertUnreachable(key)
+          }
+        }),
+      )}
+      WHERE id = ${channelId}
+      RETURNING *
+    `
+
+    const result = await client.query<DbChannel>(query)
+    return convertChannelFromDb(result.rows[0])
   } finally {
     done()
   }

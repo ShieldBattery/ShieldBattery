@@ -1,6 +1,8 @@
 import {
   ChannelModerationAction,
   ChatServiceErrorCode,
+  EditChannelRequest,
+  EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -81,6 +83,38 @@ export function joinChannelWithErrorHandling(
 
         throw err
       })
+  })
+}
+
+export function updateChannel(
+  channelId: SbChannelId,
+  channelChanges: EditChannelRequest,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    // TODO(2Pac): There's technically no reason to use FormData here at the moment, but I just
+    // wanted to test out the new system of using it. And we're gonna need it soon anyway, as I'm
+    // about to add banner images here as well (in the next PR most likely). Remove this comment
+    // once that's done.
+    const formData = new FormData()
+    formData.append(
+      'channelChanges',
+      JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
+    )
+
+    const result = await fetchJson<EditChannelResponse>(apiUrl`chat/${channelId}`, {
+      method: 'PATCH',
+      signal: spec.signal,
+      body: formData,
+    })
+
+    dispatch({
+      type: '@chat/getChannelInfo',
+      payload: result,
+      meta: {
+        channelId,
+      },
+    })
   })
 }
 

@@ -52,6 +52,7 @@ import {
   searchChannels,
   TextMessageData,
   toBasicChannelInfo,
+  updateChannel,
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
@@ -106,6 +107,7 @@ jest.mock('./chat-models', () => {
     getUserChannelEntryForUser: jest.fn(),
     getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
     createChannel: jest.fn(),
+    updateChannel: jest.fn(),
     addUserToChannel: jest.fn(),
     addMessageToChannel: jest.fn(),
     getMessagesForChannel: jest.fn().mockResolvedValue([]),
@@ -169,6 +171,7 @@ describe('chat/chat-service', () => {
   }
   const shieldBatteryDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(1),
+    description: 'SHIELDBATTERY_DESCRIPTION',
     userCount: 5,
   }
   const shieldBatteryJoinedInfo: JoinedChannelInfo = {
@@ -189,6 +192,7 @@ describe('chat/chat-service', () => {
   }
   const testDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(2),
+    description: 'TEST_DESCRIPTION',
     userCount: 2,
   }
   const testJoinedInfo: JoinedChannelInfo = {
@@ -716,6 +720,102 @@ describe('chat/chat-service', () => {
         activeUserIds: [user1.id],
         selfPermissions: channelPermissions,
       })
+    })
+  })
+
+  describe('editChannel', () => {
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {}),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+    })
+
+    test('should throw if not a channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.editChannel(testChannel.id, user1.id, {}),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only channel owner can edit the channel"`)
+    })
+
+    test('works when updating description', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+
+      const updates = {
+        description: 'NEW_DESCRIPTION',
+      }
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        ...updates,
+      })
+
+      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+      const channelInfo = {
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: {
+          ...testDetailedInfo,
+          description: updates.description,
+        },
+        joinedChannelInfo: testJoinedInfo,
+      }
+
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        ...channelInfo,
+      })
+      expect(result).toEqual(channelInfo)
+    })
+
+    test('works when updating topic', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+
+      const updates = {
+        topic: 'NEW_TOPIC',
+      }
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        ...updates,
+      })
+
+      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+
+      const channelInfo = {
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: testDetailedInfo,
+        joinedChannelInfo: {
+          ...testJoinedInfo,
+          topic: updates.topic,
+        },
+      }
+
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        ...channelInfo,
+      })
+      expect(result).toEqual(channelInfo)
     })
   })
 

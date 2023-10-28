@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import ChangelogDialog from '../changelog/changelog-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
+import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
@@ -75,6 +76,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog }
+    case DialogType.ChannelSettings:
+      return { component: ChannelSettingsDialog }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.ExternalLink:

@@ -11,15 +11,20 @@ import {
 } from '../../common/chat'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { matchLinks } from '../../common/text/links'
+import { useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import { DestructiveMenuItem } from '../material/menu/item'
+import { Divider } from '../material/menu/divider'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
+import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { Caption, caption, headline6, singleLine } from '../styles/typography'
@@ -65,6 +70,7 @@ const NameAndTopicContainer = styled.div`
 
 const ChannelName = styled.div`
   ${headline6};
+  flex-shrink: 0;
 `
 
 const StyledTooltip = styled(Tooltip)`
@@ -120,6 +126,8 @@ export function ChannelHeader({
   onLeaveChannel,
 }: ChannelHeaderProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const user = useSelfUser()
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'bottom')
@@ -171,11 +179,34 @@ export function ChannelHeader({
     return elements
   }, [joinedChannelInfo.topic])
 
+  const onChannelSettingsClick = useStableCallback(() => {
+    closeOverflowMenu()
+    dispatch(
+      openDialog({
+        type: DialogType.ChannelSettings,
+        initData: {
+          channelId: basicChannelInfo.id,
+        },
+      }),
+    )
+  })
   const onLeaveChannelClick = useStableCallback(() => {
     onLeaveChannel(basicChannelInfo.id)
   })
 
   const actions: React.ReactNode[] = []
+  if (user?.id === joinedChannelInfo.ownerId) {
+    actions.push(
+      <MenuItem
+        key='channel-settings'
+        text={t('chat.channelHeader.actionItems.channelSettings', 'Channel settings')}
+        onClick={onChannelSettingsClick}
+      />,
+    )
+  }
+  if (actions.length > 0) {
+    actions.push(<Divider key='divider' />)
+  }
   if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
     actions.push(
       <DestructiveMenuItem
@@ -206,7 +237,7 @@ export function ChannelHeader({
           detailedChannelInfo={detailedChannelInfo}
         />
         <NameAndTopicContainer>
-          <ChannelName>{basicChannelInfo.name}</ChannelName>
+          <ChannelName>#{basicChannelInfo.name}</ChannelName>
           {parsedChannelTopic ? (
             <StyledTooltip
               text={parsedChannelTopic}

@@ -10,6 +10,8 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   DetailedChannelInfo,
+  EditChannelRequest,
+  EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -63,6 +65,7 @@ import {
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
+  updateChannel,
   updateUserPermissions,
 } from './chat-models'
 
@@ -373,6 +376,40 @@ export default class ChatService {
         )
       }
     }
+
+    return {
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    }
+  }
+
+  async editChannel(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    updates: EditChannelRequest,
+  ): Promise<EditChannelResponse> {
+    const originalChannel = await getChannelInfo(channelId)
+
+    if (!originalChannel) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    if (originalChannel.ownerId !== userId) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateChannelModerator,
+        'Only channel owner can edit the channel',
+      )
+    }
+
+    const channel = await updateChannel(channelId, updates)
+
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'edit',
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    })
 
     return {
       channelInfo: toBasicChannelInfo(channel),
