@@ -650,9 +650,17 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "$🗡Leave channel🗡!"
+                "leaveChannel": "$🗡Leave channel🗡!",
+                "channelSettings": "$🗡Channel settings🗡!"
             },
             "moreActions": "$🗡More actions🗡!"
+        },
+        "channelSettings": {
+            "general": {
+                "descriptionLabel": "$🗡Description🗡!",
+                "title": "$🗡General🗡!",
+                "topicLabel": "$🗡Topic🗡!"
+            }
         }
     },
     "fileBrowser": {
