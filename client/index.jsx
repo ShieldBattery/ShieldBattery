@@ -10,7 +10,8 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import i18n, { detectedLocale, initI18next, languageDetector } from './i18n/i18next'
+import i18n, { detectedLocale, initI18next } from './i18n/i18next'
+import { getBestLanguage } from './i18n/language-detector'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
@@ -98,7 +99,7 @@ rootElemPromise
       store.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
     })
 
-    const detected = languageDetector.detect()
+    const detected = getBestLanguage()
     detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
 
     let action
@@ -160,7 +161,7 @@ rootElemPromise
       })
 
       if (locale) {
-        await i18n.changeLanguage(i18n.services.languageUtils.getBestMatchFromCodes([locale]))
+        await i18n.changeLanguage(getBestLanguage([locale]))
       }
     } catch (err) {
       log.error(`Error initializing i18next: ${err?.stack ?? err}`)

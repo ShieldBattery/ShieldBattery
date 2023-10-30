@@ -8,13 +8,14 @@ import logger from '../logging/logger'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { getBestLanguage } from './language-detector'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
   return dispatch => {
     if (!locale || locale === i18n.language || !i18n.isInitialized) {
       return
     }
-    const detectedLanguage = i18n.services.languageUtils.getBestMatchFromCodes([locale])
+    const detectedLanguage = getBestLanguage([locale])
     if (!detectedLanguage || detectedLanguage === i18n.language) {
       return
     }
