@@ -2,6 +2,7 @@ import { ReactElement } from 'react'
 
 export enum MenuItemType {
   Default = 'Default',
+  Checkable = 'Checkable',
   Selectable = 'Selectable',
 }
 

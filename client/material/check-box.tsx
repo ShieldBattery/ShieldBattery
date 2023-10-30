@@ -54,7 +54,11 @@ const Root = styled.div<{ $disabled?: boolean }>`
   }
 `
 
-const IconContainer = styled.div<{ $disabled?: boolean; $checked?: boolean; $focused?: boolean }>`
+export const CheckIconContainer = styled.div<{
+  $disabled?: boolean
+  $checked?: boolean
+  $focused?: boolean
+}>`
   position: relative;
   order: 1;
   width: ${BOX_WIDTH}px;
@@ -97,7 +101,11 @@ const IconContainer = styled.div<{ $disabled?: boolean; $checked?: boolean; $foc
   }
 `
 
-const CheckIcon = styled.div<{ $disabled?: boolean; $checked?: boolean; $focused?: boolean }>`
+export const CheckIcon = styled.div<{
+  $disabled?: boolean
+  $checked?: boolean
+  $focused?: boolean
+}>`
   position: absolute;
   top: 0;
   left: 0;
@@ -210,9 +218,9 @@ export const CheckBox = React.forwardRef<HTMLInputElement, CheckBoxProps>(
     return (
       <Root className={className} $disabled={disabled}>
         {inputElem}
-        <IconContainer $checked={checked} $focused={isKeyboardFocused} $disabled={disabled}>
+        <CheckIconContainer $checked={checked} $focused={isKeyboardFocused} $disabled={disabled}>
           <CheckIcon $checked={checked} $focused={isKeyboardFocused} $disabled={disabled} />
-        </IconContainer>
+        </CheckIconContainer>
         {labelElem}
       </Root>
     )

@@ -186,6 +186,13 @@ const eventToChatUserAction: EventToChatUserActionMap = {
       meta: { channelId },
     }
   },
+  preferencesChanged(channelId, event) {
+    return {
+      type: '@chat/preferencesChanged',
+      payload: event,
+      meta: { channelId },
+    }
+  },
   permissionsChanged(channelId, event) {
     return {
       type: '@chat/permissionsChanged',

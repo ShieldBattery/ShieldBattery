@@ -5,6 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import {
   BasicChannelInfo,
+  ChannelPreferences,
   DetailedChannelInfo,
   JoinedChannelInfo,
   SbChannelId,
@@ -17,23 +18,26 @@ import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
+import { CheckableMenuItem } from '../material/menu/checkable-item'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { shadow2dp } from '../material/shadows'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
+import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { Caption, caption, headline6, singleLine } from '../styles/typography'
+import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 
+export const CHANNEL_HEADER_HEIGHT = 72
+
 const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
-  ${shadow2dp};
   width: 100%;
-  height: 72px;
+  height: ${CHANNEL_HEADER_HEIGHT}px;
   padding: 8px;
   padding-right: ${props => (props.$hasActions ? '8px' : '0')};
   background-color: ${background700};
@@ -43,6 +47,10 @@ const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+`
+
+const StyledMenuList = styled(MenuList)`
+  --sb-menu-min-width: 192px;
 `
 
 const BadgeAndTextContainer = styled.div`
@@ -116,6 +124,7 @@ export interface ChannelHeaderProps {
   basicChannelInfo: ReadonlyDeep<BasicChannelInfo>
   detailedChannelInfo: ReadonlyDeep<DetailedChannelInfo>
   joinedChannelInfo: ReadonlyDeep<JoinedChannelInfo>
+  selfPreferences: ChannelPreferences
   onLeaveChannel: (channelId: SbChannelId) => void
 }
 
@@ -123,6 +132,7 @@ export function ChannelHeader({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
+  selfPreferences,
   onLeaveChannel,
 }: ChannelHeaderProps) {
   const { t } = useTranslation()
@@ -191,6 +201,27 @@ export function ChannelHeader({
       }),
     )
   })
+  const onHideBannerClick = useStableCallback(() => {
+    dispatch(
+      updateChannelUserPreferences(
+        basicChannelInfo.id,
+        { hideBanner: !selfPreferences.hideBanner },
+        {
+          onSuccess: () => {},
+          onError: err => {
+            dispatch(
+              openSnackbar({
+                message: t(
+                  'chat.channelHeader.errors.toggleBannerVisibility',
+                  'Something went wrong toggling the banner visibility',
+                ),
+              }),
+            )
+          },
+        },
+      ),
+    )
+  })
   const onLeaveChannelClick = useStableCallback(() => {
     onLeaveChannel(basicChannelInfo.id)
   })
@@ -202,6 +233,16 @@ export function ChannelHeader({
         key='channel-settings'
         text={t('chat.channelHeader.actionItems.channelSettings', 'Channel settings')}
         onClick={onChannelSettingsClick}
+      />,
+    )
+  }
+  if (detailedChannelInfo.bannerPath) {
+    actions.push(
+      <CheckableMenuItem
+        key='hide-banner'
+        checked={selfPreferences.hideBanner}
+        text={t('chat.channelHeader.actionItems.hideBanner', 'Hide banner')}
+        onClick={onHideBannerClick}
       />,
     )
   }
@@ -226,7 +267,7 @@ export function ChannelHeader({
           anchorY={anchorY ?? 0}
           originX={'right'}
           originY={'top'}>
-          <MenuList dense={true}>{actions}</MenuList>
+          <StyledMenuList dense={true}>{actions}</StyledMenuList>
         </Popover>
       ) : null}
 
