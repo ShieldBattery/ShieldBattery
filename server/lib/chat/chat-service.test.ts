@@ -728,16 +728,28 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
       await expect(
-        chatService.editChannel(testChannel.id, user1.id, {}),
+        chatService.editChannel({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isAdmin: false,
+          updates: {},
+        }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
     })
 
-    test('should throw if not a channel owner', async () => {
+    test('should throw if not a channel owner or an admin', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
 
       await expect(
-        chatService.editChannel(testChannel.id, user1.id, {}),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only channel owner can edit the channel"`)
+        chatService.editChannel({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isAdmin: false,
+          updates: {},
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"Only channel owner and admins can edit the channel"`,
+      )
     })
 
     test('works when updating description', async () => {
@@ -761,7 +773,12 @@ describe('chat/chat-service', () => {
         ...updates,
       })
 
-      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isAdmin: false,
+        updates,
+      })
 
       const channelInfo = {
         channelInfo: testBasicInfo,
@@ -800,7 +817,12 @@ describe('chat/chat-service', () => {
         ...updates,
       })
 
-      const result = await chatService.editChannel(testChannel.id, user1.id, updates)
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isAdmin: false,
+        updates,
+      })
 
       const channelInfo = {
         channelInfo: testBasicInfo,

@@ -394,23 +394,31 @@ export default class ChatService {
     }
   }
 
-  async editChannel(
-    channelId: SbChannelId,
-    userId: SbUserId,
-    updates: EditChannelRequest,
-    bannerFile?: formidable.File,
-    badgeFile?: formidable.File,
-  ): Promise<EditChannelResponse> {
+  async editChannel({
+    channelId,
+    userId,
+    isAdmin,
+    updates,
+    bannerFile,
+    badgeFile,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isAdmin: boolean
+    updates: EditChannelRequest
+    bannerFile?: formidable.File
+    badgeFile?: formidable.File
+  }): Promise<EditChannelResponse> {
     const originalChannel = await getChannelInfo(channelId)
 
     if (!originalChannel) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    if (originalChannel.ownerId !== userId) {
+    if (!isAdmin && originalChannel.ownerId !== userId) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.CannotModerateChannelModerator,
-        'Only channel owner can edit the channel',
+        ChatServiceErrorCode.CannotEditChannel,
+        'Only channel owner and admins can edit the channel',
       )
     }
 

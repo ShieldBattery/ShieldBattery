@@ -194,13 +194,14 @@ export class ChatApi {
       throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
     }
 
-    return await this.chatService.editChannel(
+    return await this.chatService.editChannel({
       channelId,
-      ctx.session!.user!.id,
-      channelChanges,
+      userId: ctx.session!.user!.id,
+      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      updates: channelChanges,
       bannerFile,
       badgeFile,
-    )
+    })
   }
 
   @httpDelete('/:channelId')
