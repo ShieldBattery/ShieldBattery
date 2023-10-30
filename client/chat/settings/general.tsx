@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useRef, useState } from 'react'
+import React, { useImperativeHandle, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -13,10 +13,9 @@ import { useForm } from '../../forms/form-hook'
 import { RaisedButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
+import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { colorError } from '../../styles/colors'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { subtitle1 } from '../../styles/typography'
 import { updateChannel } from '../action-creators'
 import { ChannelBadge } from '../channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from '../channel-banner'
@@ -50,12 +49,6 @@ const BannerButtonsContainer = styled.div`
   gap: 20px;
 `
 
-const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
-  margin-bottom: 8px;
-`
-
 const HiddenFileInput = styled(SingleFileInput)`
   display: none;
 `
@@ -83,7 +76,6 @@ export const ChannelSettingsGeneral = React.forwardRef<
 >(({ basicChannelInfo, detailedChannelInfo, joinedChannelInfo }, ref) => {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const [error, setError] = useState<Error>()
 
   const bannerInputRef = useRef<FileInputHandle>(null)
   const badgeInputRef = useRef<FileInputHandle>(null)
@@ -108,11 +100,16 @@ export const ChannelSettingsGeneral = React.forwardRef<
         channelBanner: model.banner instanceof File ? model.banner : undefined,
         channelBadge: model.badge instanceof File ? model.badge : undefined,
         spec: {
-          onSuccess: () => {
-            setError(undefined)
-          },
+          onSuccess: () => {},
           onError: err => {
-            setError(err)
+            dispatch(
+              openSnackbar({
+                message: t(
+                  'chat.channelSettings.general.saveErrorMessage',
+                  'Something went wrong saving the settings',
+                ),
+              }),
+            )
           },
         },
       }),
@@ -136,7 +133,6 @@ export const ChannelSettingsGeneral = React.forwardRef<
   return (
     <Root>
       <FormContainer>
-        {error ? <ErrorText>{error.message}</ErrorText> : null}
         <StyledForm noValidate={true} onSubmit={onSubmit}>
           <BannerButtonsContainer>
             <HiddenFileInput
