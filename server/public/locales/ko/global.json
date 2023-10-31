@@ -18,7 +18,7 @@
             "show": "보기",
             "start": "시작",
             "unblock": "차단 해제",
-            "view": "보다",
+            "view": "보기",
             "block": "차단",
             "clear": "지우기",
             "search": "찾기",
@@ -35,7 +35,7 @@
             "reveal": "노출"
         },
         "lists": {
-            "empty": "여기는 볼게 없다"
+            "empty": "볼 것이 없다"
         }
     },
     "settings": {
@@ -213,15 +213,15 @@
                 "title": "사용자 이름 복구",
                 "enterEmail": "가입하신 이메일 주소를 입력해주세요.",
                 "recoverUsername": "사용자 이름 복구",
-                "successMessage": "해당 이메일 주소에 등록된 사용자가 있는 경우 몇 분 안에 관련 사용자 이름이 포함된 이메일을 받게 됩니다.",
+                "successMessage": "해당 이메일 주소에 등록된 사용자가 있는 경우 몇 분 안에 사용자 이름이 포함된 이메일을 받게 됩니다.",
                 "emailAddress": "이메일 주소"
             },
-            "backToLogin": "로그인으로 돌아가기",
+            "backToLogin": "로그인창으로 돌아가기",
             "generalError": "오류: {{error}}",
             "password": {
                 "sendResetEmail": "재설정 이메일 보내기",
-                "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정 방법에 대한 지침이 포함된 이메일을 받게 됩니다.",
-                "title": "암호를 재설정",
+                "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정에 대한 지침이 포함된 이메일을 받게 됩니다.",
+                "title": "암호 재설정",
                 "emailAddress": "이메일 주소",
                 "username": "사용자 이름"
             },
@@ -236,7 +236,7 @@
             }
         },
         "login": {
-            "forgotPassword": "비밀번호를 잊으 셨나요?",
+            "forgotPassword": "비밀번호를 잊으셨나요?",
             "forgotUsername": "사용자 이름을 잊으셨나요?",
             "rememberMe": "자동 로그인",
             "signUp": "회원 가입",
@@ -247,7 +247,7 @@
             "username": "사용자 이름"
         },
         "noPermissionsPage": {
-            "body": "이 페이지에 액세스할 수 있는 권한이 없습니다."
+            "body": "이 페이지에 접근할 수 있는 권한이 없습니다."
         },
         "passwordValidator": {
             "confirm": "암호를 확인",
@@ -265,7 +265,7 @@
             "emailSent": "확인 이메일이 성공적으로 전송되었습니다.",
             "emailUnverifiedMessage": "이메일이 확인되지 않았습니다! ShieldBattery에서 보낸 이메일을 확인하십시오. 하나가 보이지 않으면 <2>다른 하나를 보낼 수 있습니다</2>.",
             "generalError": "오류: {{error}}",
-            "invalidCodeError": "오류: 제공된 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 이메일로 받은 것과 일치하면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
+            "invalidCodeError": "오류: 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 일치한다면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
             "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
             "resendError": "이메일 재전송 오류: {{error}}",
             "resendSuccess": "새 확인 코드가 계정의 이메일 주소로 전송되었습니다.",
@@ -314,20 +314,20 @@
         "topLinks": {
             "changeLanguage": "언어 변경",
             "faq": "자주하는 질문",
-            "home": "집",
+            "home": "홈",
             "login": "로그인"
         },
         "faq": {
             "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있습니까?",
-            "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery를 통한 향후 출시에서 해당 핫키를 사용합니다.",
-            "hotkeyCustomizationQuestion": "단축키 사용자 정의가 허용되거나 제공됩니까?",
+            "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery에서 해당 단축키를 사용합니다.",
+            "hotkeyCustomizationQuestion": "단축키 사용자 설정이 허용되거나 제공됩니까?",
             "linuxSupportAnswer": "<0>현재 공식적으로 지원하는 기능은 아닙니다.</0><1>그러나 ShieldBattery와 Wine의 커뮤니티 기여 통합이 있습니다. Wine에서 ShieldBattery를 실행하는 방법을 알아보려면 <2>Discord</2>를 확인하세요.</1>",
             "linuxSupportQuestion": "ShieldBattery는 Linux 또는 OS X에서 작동합니까?",
             "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 구성원이 개발한 프로젝트이며 Blizzard의 공식적인 지원이나 승인을 받지 않았습니다.",
             "officialSupportQuestion": "ShieldBattery는 Blizzard의 지원을 받아 개발되었습니까?",
-            "openSourceAnswer": "<0>예. <2>GitHub 페이지</2>에서 우리가 작성하고 자체 저장소로 분리한 다양한 추가 프로젝트뿐만 아니라 기본 저장소에 액세스할 수 있습니다.</0><1>항상 더 많은 기여자를 사용할 수 있으므로 도움이 될 수 있다고 생각하시면 확인해 보세요!</1>",
+            "openSourceAnswer": "<0>예. <2>GitHub 페이지</2>에서 다양한 추가 프로젝트 뿐만 아니라 기본 저장소에 액세스할 수 있습니다.</0><1>항상 더 많은 지원자를 사용할 수 있으므로 도움이 될 수 있다고 생각하시면 확인해 보세요!</1>",
             "openSourceQuestion": "프로젝트가 오픈 소스입니까?",
-            "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>Discord</2>를 이용하는 것입니다. 그렇게 하는 것이 편하다면 <5>GitHub</5>에 문제를 제기할 수도 있습니다.",
+            "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>Discord</2>를 이용하는 것입니다. 그런 방식으로, <5>GitHub</5>에 문제를 제기할 수도 있습니다.",
             "reportIssuesQuestion": "버그나 문제를 보고하려면 어떻게 해야 하나요?",
             "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 버전의 StarCraft: Remastered를 지원합니다. 무료 버전의 스타크래프트: 리마스터는 공식 <2>블리자드 사이트</2>에서 다운로드하거나 블리자드 런처를 통해 설치할 수 있습니다. 구매한 모든 애드온(예: HD 그래픽)은 ShieldBattery에서 사용할 수 있습니다.",
             "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 StarCraft를 지원하나요?",
@@ -335,42 +335,42 @@
             "systemRequirementsQuestion": "ShieldBattery에서 플레이하기 위한 시스템 요구 사항은 무엇입니까?",
             "title": "자주 묻는 질문",
             "header": "자주하는 질문",
-            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 기여 방법을 마련했습니다.</1>"
+            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 지원 방법을 마련했습니다.</1>"
         },
         "bottomLinks": {
-            "acceptableUsePolicy": "허용되는 사용 정책",
+            "acceptableUsePolicy": "허용된 사용 정책",
             "privacyPolicy": "개인 정보 정책",
             "termsOfService": "서비스 약관"
         },
         "splash": {
             "comingSoon": {
-                "cloudReplaysTitle": "클라우드 동기화된 리플레이",
-                "expandedChatDescription": "감정 표현, 내장 맵, 매치, 리플레이 등을 사용하여 자신을 표현하세요!",
-                "liveStreamingDescription": "진행 중인 경기에 뛰어들어 게임 내 관전의 모든 이점과 함께 경기를 실시간으로 시청하세요.",
-                "liveStreamingTitle": "라이브 매치 스트리밍",
-                "3v3Description": "편성된 팀 또는 무작위 팀이 있는 3v3용 게임을 쉽게 찾을 수 있습니다.",
-                "automatedTournamentsDescription": "기술 수준에 맞는 토너먼트와 리그를 찾고 자동으로 실행됩니다.",
+                "cloudReplaysTitle": "클라우드에 동기화된 리플레이",
+                "expandedChatDescription": "감정 표현, 제작맵, 경기, 리플레이 등을 사용하여 자신을 표현하세요!",
+                "liveStreamingDescription": "진행 중인 경기에 뛰어들어 게임 내 관전의 모든 기능과 함께 경기를 실시간으로 시청하세요.",
+                "liveStreamingTitle": "실시간 매치 스트리밍",
+                "3v3Description": "편성된 팀 또는 무작위 팀이 있는 3v3 게임을 쉽게 찾을 수 있습니다.",
+                "automatedTournamentsDescription": "수준에 맞는 토너먼트와 리그를 찾고 자동으로 실행됩니다.",
                 "automatedTournamentsTitle": "자동화된 토너먼트 및 리그",
-                "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 작업자 시작 위치, 고급 크립 배치 등!",
-                "builtInMapmakingTitle": "새로운 내장 지도 제작 기능",
+                "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 일꾼 시작 위치, 고급 크립 배치 등!",
+                "builtInMapmakingTitle": "새로운 지도 제작 기능",
                 "cloudReplaysDescription": "리플레이 자동 업로드. 다른 사람과 공유하고 어디서나 시청하세요!",
                 "expandedChatTitle": "확장된 채팅 기능",
                 "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
                 "fpReplaysTitle": "1인칭 리플레이",
                 "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다.",
                 "pixelScalingTitle": "구성 가능한 픽셀 스케일링",
-                "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 쌓이는지 확인하세요.",
+                "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요.",
                 "playerProfilesTitle": "플레이어 프로필 및 통계",
                 "replayAnalysisDescription": "BWChart와 같은 리플레이 분석 및 고급 통계 및 차트 작성을 기본적으로 지원합니다.",
                 "replayAnalysisTitle": "리플레이 분석",
-                "sandboxModeDescription": "새 빌드를 테스트하고 작업자 분할을 연습하고 마이크로를 개선하십시오.",
-                "sandboxModeTitle": "교육/샌드박스 모드",
-                "umsPortalDescription": "쉽게 UMS 맵을 찾고 탐색한 다음 빠르게 플레이어를 모아 게임을 시작하세요.",
-                "umsPortalTitle": "지도 설정 포털 사용",
+                "sandboxModeDescription": "새 빌드를 테스트하고, 일꾼 나누기 연습을 하고, 컨트롤을 연습하십시오.",
+                "sandboxModeTitle": "훈련/샌드박스 모드",
+                "umsPortalDescription": "쉽게 유즈맵을 찾고 탐색한 다음 빠르게 플레이어를 모아 게임을 시작하세요.",
+                "umsPortalTitle": "유즈맵 모음",
                 "3v3Title": "3v3 매치메이킹"
             },
             "benefits": {
-                "communityFirstText": "ShieldBattery는 StarCraft를 플레이하거나 시청하는 모든 사람을 위한 활기찬 허브입니다. 채팅이 가장 중요하고, 게임에 원활하고 쉽게 참여할 수 있으며, 귀하의 경험이 우리의 최우선 관심사입니다. 1998년부터 플레이했든 이번 주에 게임을 시작했든 관계없이 여기에서 집을 찾을 수 있습니다.",
+                "communityFirstText": "ShieldBattery는 StarCraft를 플레이하거나 시청하는 모든 사람을 위한 활기찬 허브입니다. 채팅이 가장 중요하고, 게임에 원활하고 쉽게 참여할 수 있으며, 귀하의 경험이 우리의 최우선 관심사입니다. 1998년부터 플레이했든 이번 주에 게임을 시작했든 관계없이 여기에서 편하게 즐기세요.",
                 "communityFirstTitle": "커뮤니티 우선",
                 "fullPotentialText": "StarCraft는 놀라운 경쟁 역사를 가지고 있으며 ShieldBattery는 최고 수준의 플레이 및 시청 경험을 제공하기 위한 기반입니다. 오픈 소스, 커뮤니티 중심, 현대 게임에서도 원하는 기능과 경험 제공: ShieldBattery는 StarCraft 커뮤니티를 위한 혁신적인 단계입니다.",
                 "fullPotentialTitle": "전체 잠재력 잠금 해제",
@@ -379,34 +379,34 @@
             },
             "blurb": "ShieldBattery는 <2>스타크래프트: 리마스터</2>를 지원하는 최초의 커뮤니티 운영 서버입니다. 맞춤형 런처는 고급 플랫폼과 함께 작동하도록 실제 게임 클라이언트를 향상시켜 충실하고 사실적인 게임 플레이를 유지하면서 스타크래프트 1 경험을 개선합니다. 런처를 다운로드하고 몇 번의 클릭만으로 게임을 시작하세요!",
             "features": {
-                "rankedLadderTitle": "랭크 래더",
+                "rankedLadderTitle": "래더 순위",
                 "cloudHostingDescription": "공식 라이브러리의 지도에서 플레이하거나 직접 업로드하세요. 즐겨찾는 지도를 모두 업로드하고 친구와 공유하고 어디에서나 호스트하세요.",
                 "cloudHostingTitle": "클라우드 기반 지도 배포 및 호스팅",
-                "fixesBugsExploitsDescription": "공식 서버를 괴롭히는 해킹 및 익스플로잇을 피하세요. 작업자 복제, 광물 해킹, 영구적으로 떠다니는 작업자와 같은 것은 이곳에서 과거의 일입니다.",
-                "fixesBugsExploitsTitle": "버그 및 악용에 대한 수정",
+                "fixesBugsExploitsDescription": "공식 서버에 존재하는 핵 및 버그를 피하세요. 일꾼 복사, 미네랄 핵, 날아다니는 일꾼 같은 것은 이곳에서 과거의 일입니다.",
+                "fixesBugsExploitsTitle": "버그 및 핵에 대한 수정",
                 "friendsListDescription": "친구가 온라인 상태일 때 추적하고 쉽게 메시지를 보내고 게임에 초대하세요.",
                 "friendsListTitle": "친구 목록",
-                "improvedNetcodeDescription": "지연, 드롭 및 패킷 손실 감소!",
+                "improvedNetcodeDescription": "적은 렉, 드랍, 패킷 손실!",
                 "improvedNetcodeTitle": "향상된 넷코드",
-                "leaguesDescription": "커뮤니티에서 주최하고 자동화된 매치메이킹을 통해 진행되는 흥미진진한 기간 한정 리그에 참여하십시오.",
+                "leaguesDescription": "커뮤니티에서 주최하고 자동화된 매치메이킹을 통해 진행되는 흥미진진한 기간제 리그에 참여하십시오.",
                 "leaguesTitle": "오픈 리그",
-                "matchmakingDescription": "혼자서 또는 정해진 팀과 함께 쉽고 빠르게 매치를 찾으세요.",
+                "matchmakingDescription": "혼자서 또는 팀과 함께 쉽고 빠르게 매치를 찾으세요.",
                 "matchmakingTitle": "1v1 및 2v2 매치메이킹",
                 "partiesDescription": "친구들과 파티를 만들어 쉽게 개인 경기를 주최하거나 함께 리플레이를 시청하거나 매치메이킹에 참여하세요.",
                 "partiesTitle": "파티",
-                "rankedladderDescription": "모든 매치메이킹 모드에 대한 Glicko 기반 순위 시스템에서 기술을 연마하세요.",
+                "rankedladderDescription": "모든 매치메이킹 모드에 대한 Glicko 기반 순위 시스템에서 실력을 길러보세요.",
                 "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다.",
                 "remasteredSupportTitle": "스타크래프트: 리마스터 지원",
-                "teamMeleeReplaysDescription": "ShieldBattery에서 Team Melee 모드로 플레이한 모든 게임을 플레이하세요!",
-                "teamMeleeReplaysTitle": "워킹 팀 근접전 리플레이",
+                "teamMeleeReplaysDescription": "ShieldBattery에서 진행한 팀밀리 게임을 다시 재생해보세요!",
+                "teamMeleeReplaysTitle": "팀밀리 리플레이",
                 "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요.",
                 "webClientTitle": "웹 기반 채팅 클라이언트"
             },
             "comingSoonTitle": "파이프 <1>(출시 예정)</1>",
             "disclaimerText": "StarCraft는 Blizzard Entertainment, Inc.의 등록 상표입니다. ShieldBattery는 Blizzard와 무관한 커뮤니티 구성원에 의해서만 개발되며 Blizzard에서 공식적으로 보증하거나 지원하지 않습니다.",
-            "featuresTitle": "특징",
+            "featuresTitle": "기능",
             "gameCount": "<0></0> 게임 플레이",
-            "linksHeader": "연결",
+            "linksHeader": "링크",
             "signUp": "가입하기",
             "tagline": "최고의 커뮤니티 운영 플랫폼에서 스타크래프트 1을 플레이하세요"
         }
@@ -418,7 +418,7 @@
         "playGames": "게임하기",
         "supportProjectText": "프로젝트를 지원하고 싶습니까?",
         "watchReplays": "다시보기",
-        "andMore": "그리고 더!"
+        "andMore": "추가로!"
     },
     "clientUpdate": {
         "overlay": {
@@ -428,12 +428,12 @@
             "newUpdateReady": "새 업데이트가 다운로드 되었으며 설치할 준비가 되었습니다. 계속하려면 프로그램을 다시 시작하십시오.",
             "noErrorTitle": "업데이트 가능",
             "restartNow": "지금 다시 시작",
-            "progress": "{{perSecond}}/s에서 {{transferred}} / {{total}}"
+            "progress": "{{perSecond}}/s 속도로 {{transferred}} / {{total}}"
         }
     },
     "comingSoon": {
         "headline": "이 기능은 곧 제공될 예정입니다!",
-        "subtitle": "ShieldBattery의 개발 자금 지원"
+        "subtitle": "ShieldBattery의 개발 자금 지원하기"
     },
     "forms": {
         "fileInput": {
@@ -441,29 +441,29 @@
         }
     },
     "ladder": {
-        "division": "분할",
+        "division": "디비전",
         "divisionGroup": {
             "all": "모두",
-            "bronze": "청동",
-            "champion": "챔피언",
+            "bronze": "브론즈",
+            "champion": "우승자",
             "diamond": "다이아몬드",
-            "gold": "금",
-            "platinum": "백금",
-            "silver": "은",
-            "unrated": "등급 없음"
+            "gold": "골드",
+            "platinum": "플래티넘",
+            "silver": "실버",
+            "unrated": "등급없음"
         },
         "errorRetrievingRankings": "현재 순위를 가져오는 중에 오류가 발생했습니다.",
-        "lastPlayedHeader": "마지막 플레이",
+        "lastPlayedHeader": "최근 플레이",
         "mmrHeader": "MMR",
         "noMatchingPlayers": "일치하는 플레이어가 없습니다.",
-        "pageHeadline": "사다리",
+        "pageHeadline": "래더",
         "playerHeader": "플레이어",
-        "pointsHeader": "포인트들",
-        "rankHeader": "계급",
+        "pointsHeader": "점수",
+        "rankHeader": "랭크",
         "updatedText": "업데이트: {{timestamp}}",
         "winLossHeader": "승/패",
         "activity": {
-            "title": "사다리"
+            "title": "래더"
         }
     },
     "matchmaking": {
@@ -561,42 +561,42 @@
     },
     "game": {
         "gameType": {
-            "teamMelee": "팀 근접전",
-            "topVsBottom": "상단 대 하단",
-            "unknown": "알려지지 않은",
+            "teamMelee": "팀 섬멸전",
+            "topVsBottom": "홈팀 대 원정팀",
+            "unknown": "언노운",
             "greed": "탐욕",
-            "melee": "난투",
-            "oneOnOne": "하나에 하나",
+            "melee": "섬멸전",
+            "oneOnOne": "1대1",
             "slaughter": "학살",
-            "suddenDeath": "급사",
-            "teamCaptureTheFlag": "팀이 깃발을 탈취하다",
-            "teamFreeForAll": "모두를 위한 무료 팀",
+            "suddenDeath": "서든데스",
+            "teamCaptureTheFlag": "팀 깃발 뺏기",
+            "teamFreeForAll": "팀 개별 전투",
             "captureTheFlag": "깃발 뺏기",
             "freeForAll": "개별 전투",
-            "useMapSettings": "지도 설정 사용"
+            "useMapSettings": "유즈맵 설정"
         },
         "results": {
-            "lossShort": "엘",
-            "draw": "그리다",
-            "loss": "손실",
-            "unknown": "알려지지 않은",
-            "win": "이기다",
-            "winShort": "여"
+            "lossShort": "L",
+            "draw": "무승부",
+            "loss": "패배",
+            "unknown": "언노운",
+            "win": "승리",
+            "winShort": "W"
         },
         "teamName": {
-            "bottom": "맨 아래",
-            "number": "팀 {{teamNumber}}",
-            "top": "맨 위"
+            "bottom": "원정팀",
+            "number": "{{teamNumber}} 팀",
+            "top": "홈팀"
         },
         "race": {
             "terran": "테란",
             "protoss": "프로토스",
-            "random": "무작위의",
+            "random": "무작위",
             "zerg": "저그"
         },
         "gameSource": {
             "custom": "커스텀 게임",
-            "ranked": "순위 {{matchmakingType}}"
+            "ranked": "{{matchmakingType}} 위"
         },
         "mapName": {
             "unknown": "알 수 없는 지도"
@@ -707,13 +707,13 @@
         "channelInfo": {
             "defaultError": "오류 발생: {{statusText}}",
             "genericError": "#{{channelName}}에 대한 채널 정보 가져오기 오류: {{errorMessage}}",
-            "notFound": "이 채널을 찾을 수 없습니다. 존재하지 않거나 다른 사람이 다시 만들었을 수 있습니다."
+            "notFound": "해당 채널을 찾을 수 없습니다. 존재하지 않거나 다른 사람이 다시 만들었을 수 있습니다."
         },
         "channelInfoCard": {
             "adminView": "관리자 보기",
             "joined": "참가",
-            "moreActions": "더 많은 행동",
-            "noDescription": "이 채널은 설명이 없습니다.",
+            "moreActions": "추가 행동",
+            "noDescription": "해당 채널은 설명이 없습니다.",
             "private": "이 채널은 비공개이며 참여하려면 초대가 필요합니다.",
             "userCount_other": "{{count}} 멤버"
         },
@@ -721,7 +721,7 @@
             "createChannel": "채널 만들기",
             "noMatchingChannels": "일치하는 채팅 채널이 없습니다.",
             "pageHeadline": "채팅 채널",
-            "retrievingError": "채팅 채널을 검색하는 중에 오류가 발생했습니다."
+            "retrievingError": "채팅 채널을 찾는 중에 오류가 발생했습니다."
         },
         "channelMenu": {
             "banAction": "차단 {{user}}",
@@ -737,29 +737,29 @@
             "required": "채널 이름을 입력하세요."
         },
         "createChannel": {
-            "bannedError": "이 채널에서 차단되었습니다.",
+            "bannedError": "해당 채널에서 차단되었습니다.",
             "channelName": "채널 이름",
             "createAction": "채널 만들기",
             "defaultError": "채널을 만드는 동안 오류가 발생했습니다.",
-            "maximumOwnedError": "생성된 채널의 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
-            "title": "채널 만들기"
+            "maximumOwnedError": "채널을 생성하는데 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
+            "title": "채널 생성"
         },
         "events": {
-            "ban": "귀하는 {{channelName}}에서 금지되었습니다.",
+            "ban": "귀하는 {{channelName}}에서 차단되었습니다.",
             "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
         },
         "joinChannel": {
             "bannedError": "#{{channelName}}에서 차단되었습니다.",
-            "genericError": "#{{channelName}}에 가입하는 동안 오류가 발생했습니다.",
+            "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다.",
             "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
         },
         "messageLayout": {
             "banUser": "<0><0></0></0> 채널에서 차단되었습니다.",
-            "joinChannel": "<0><0></0></0>님이 채널에 가입했습니다.",
+            "joinChannel": "<0><0></0></0>님이 채널에 참여했습니다.",
             "kickUser": "<0><0></0></0>님이 채널에서 추방되었습니다.",
             "leaveChannel": "<0><0></0></0>님이 채널을 나갔습니다.",
             "newChannelOwner": "<0><0></0></0>은(는) 채널의 새 소유자입니다.",
-            "selfJoinChannel": "<2><0></0></2>에 가입했습니다."
+            "selfJoinChannel": "<2><0></0></2>에 참여했습니다."
         },
         "messageMenu": {
             "deleteError": "메시지 삭제 오류",
@@ -778,7 +778,7 @@
                 "leaveChannel": "채널 나가기",
                 "channelSettings": "채널 설정"
             },
-            "moreActions": "더 많은 행동"
+            "moreActions": "추가 행동"
         },
         "channelSettings": {
             "general": {
@@ -1186,18 +1186,18 @@
         "buttonSearchAgain": "다시 검색",
         "errorLoading": "이 게임을 로드하는 중에 문제가 발생했습니다.",
         "headlineDefault": "결과",
-        "headlineDefeat": "패배시키다!",
-        "headlineDraw": "그리다!",
+        "headlineDefeat": "패배!",
+        "headlineDraw": "무승부!",
         "headlineInProgress": "진행 중…",
         "headlineVictory": "승리!",
         "infoDate": "날짜",
-        "infoDuration": "지속",
+        "infoDuration": "기간",
         "infoGameType": "유형",
-        "statusFinal": "결정적인",
-        "statusLive": "살다",
+        "statusFinal": "마지막",
+        "statusLive": "라이브",
         "summary": {
             "mmr": "MMR",
-            "pointsBase": "베이스",
+            "pointsBase": "기지",
             "pointsBonus": "보너스",
             "rp": "RP"
         },
@@ -1228,10 +1228,10 @@
             "title": "리그"
         },
         "explainer": {
-            "description": "리그는 상품을 놓고 경쟁하고 토너먼트 참가 자격을 얻는 등의 새로운 방법입니다!",
+            "description": "리그는 상금을 놓고 경쟁하고 토너먼트 참가 자격 등을 얻을 수 있는 새로운 방법입니다!",
             "howLeaguesWork": "리그 운영 방식",
-            "joinDescription": "현재 진행 중이거나 원하는 형식으로 가입을 수락하는 리그를 찾으십시오. 일부 리그는 요구 사항, 규칙 또는 자격이 다를 수 있으므로 가입하기 전에 정보를 반드시 읽으십시오!",
-            "joinTitle": "가입하다.",
+            "joinDescription": "현재 진행 중 이거나 플레이하고 싶은 형식의 리그를 찾으세요. 몇몇 리그는 다른 요구 조건, 방식, 예선이 있을 수 있습니다. 리그에 참여하기 전에 꼭 안내문을 읽어보세요!",
+            "joinTitle": "참여하기.",
             "playDescription": "리그가 시작되면 플레이하는 모든 래더 게임은 일반 래더 순위와 함께 리그 순위에 대한 포인트를 보상합니다. 리그 페이지에서 순위표를 확인하여 자신의 성적을 확인하세요!",
             "playTitle": "놀다.",
             "winDescription": "리그가 끝나면 리더보드에서 주최자가 상품과 보상을 배포할 수 있습니다. 자세한 내용은 리그 정보 페이지를 확인하세요.",
