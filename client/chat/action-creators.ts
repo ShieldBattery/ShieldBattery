@@ -100,6 +100,14 @@ export function updateChannel({
   spec: RequestHandlingSpec<void>
 }): ThunkAction {
   return abortableThunk(spec, async dispatch => {
+    if (
+      Object.values(channelChanges).filter(c => c !== undefined).length === 0 &&
+      !channelBanner &&
+      !channelBadge
+    ) {
+      return
+    }
+
     const formData = new FormData()
     formData.append(
       'channelChanges',
@@ -111,10 +119,6 @@ export function updateChannel({
     }
     if (channelBadge) {
       formData.append('badge', channelBadge)
-    }
-
-    if (Array.from(formData.entries()).length === 0) {
-      return
     }
 
     const result = await fetchJson<EditChannelResponse>(apiUrl`chat/${channelId}`, {
