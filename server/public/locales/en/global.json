@@ -157,7 +157,6 @@
       "general": {
         "descriptionLabel": "Description",
         "saveErrorMessage": "Something went wrong saving the settings",
-        "title": "General",
         "topicLabel": "Topic"
       }
     },
