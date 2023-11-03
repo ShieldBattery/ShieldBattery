@@ -9,6 +9,7 @@ import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type
 import { useObjectUrl } from '../dom/use-object-url'
 import { FileInputHandle, SingleFileInput } from '../forms/file-input'
 import { useForm } from '../forms/form-hook'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
@@ -167,6 +168,7 @@ export function ChannelSettingsDialog({
               {bannerUrl ? (
                 <TextButton
                   label='Remove banner'
+                  iconStart={<MaterialIcon icon='clear' />}
                   tabIndex={0}
                   onClick={() => {
                     setInputValue('banner', undefined)
@@ -193,6 +195,7 @@ export function ChannelSettingsDialog({
               {badgeUrl ? (
                 <TextButton
                   label='Remove badge'
+                  iconStart={<MaterialIcon icon='clear' />}
                   tabIndex={0}
                   onClick={() => {
                     setInputValue('badge', undefined)
