@@ -50,6 +50,7 @@ const StyledForm = styled.form`
 `
 
 const BannerButtonsContainer = styled.div`
+  width: fit-content;
   display: grid;
   grid-template-columns: auto auto;
   grid-column-gap: 16px;
