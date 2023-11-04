@@ -84,7 +84,8 @@ function removeUserFromChannel(
   const joinedChannelInfo = state.idToJoinedInfo.get(channelId)
   const channelUsers = state.idToUsers.get(channelId)
   const channelUserProfiles = state.idToUserProfiles.get(channelId)
-  if (!joinedChannelInfo || !channelUsers || !channelUserProfiles) {
+  const detailedChannelInfo = state.idToDetailedInfo.get(channelId)
+  if (!joinedChannelInfo || !channelUsers || !channelUserProfiles || !detailedChannelInfo) {
     return
   }
 
@@ -92,6 +93,7 @@ function removeUserFromChannel(
   channelUsers.idle.delete(userId)
   channelUsers.offline.delete(userId)
   channelUserProfiles.delete(userId)
+  detailedChannelInfo.userCount -= 1
 
   let messageType:
     | ClientChatMessageType.LeaveChannel
@@ -252,11 +254,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
 
     const channelUsers = state.idToUsers.get(channelId)
-    if (!channelUsers) {
+    const detailedChannelInfo = state.idToDetailedInfo.get(channelId)
+    if (!channelUsers || !detailedChannelInfo) {
       return
     }
 
     channelUsers.active.add(user.id)
+    detailedChannelInfo.userCount += 1
 
     updateMessages(state, channelId, true, m => m.concat(message))
   },
