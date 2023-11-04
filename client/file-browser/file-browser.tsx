@@ -136,7 +136,8 @@ interface FileBrowserProps {
   title: string
   titleButton?: React.ReactElement
   fileEntryConfig: FileBrowserFileEntryConfig
-  sortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
+  folderSortFunc?: (a: FileBrowserFolderEntry, b: FileBrowserFolderEntry) => number
+  fileSortFunc?: (a: FileBrowserFileEntry, b: FileBrowserFileEntry) => number
 }
 
 export function FileBrowser({
@@ -145,7 +146,8 @@ export function FileBrowser({
   title = 'Files',
   titleButton,
   fileEntryConfig,
-  sortFunc = sortByName,
+  folderSortFunc = sortByName,
+  fileSortFunc = sortByName,
 }: FileBrowserProps) {
   const { t } = useTranslation()
 
@@ -255,10 +257,10 @@ export function FileBrowser({
 
           const folders: FileBrowserFolderEntry[] = result
             .filter((e): e is FileBrowserFolderEntry => e.type === FileBrowserEntryType.Folder)
-            .sort(sortFunc)
+            .sort(folderSortFunc)
           const files: FileBrowserFileEntry[] = result
             .filter((e): e is FileBrowserFileEntry => e.type === FileBrowserEntryType.File)
-            .sort(sortFunc)
+            .sort(fileSortFunc)
 
           setUpOneDir(upOneDir)
           setFolders(folders)
