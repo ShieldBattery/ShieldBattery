@@ -57,7 +57,7 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-export const TooltipContent = styled.div<{ $position: TooltipPosition }>`
+export const TooltipContent = styled.div<{ $position: TooltipPosition; $interactive?: boolean }>`
   ${caption};
   ${shadow2dp};
 
@@ -72,7 +72,7 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition }>`
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 4px;
   background-color: ${background900};
-  pointer-events: none;
+  pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
   &::before {
     content: '';
@@ -114,14 +114,23 @@ interface TooltipProps {
    * used if you wish to customize the Tooltip style. Will get injected with the following props:
    *  - $position: the `TooltipPosition` of the content
    *  - children: the Tooltip's content
-   * */
-  ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
+   */
+  ContentComponent?: React.ComponentType<{
+    $position: TooltipPosition
+    $interactive?: boolean
+    children: React.ReactNode
+  }>
   /**
    * Optionally disable interaction with this tooltip. This allows for cases where we need to turn
    * a tooltip off without changing the DOM structure around it, such as only showing a tooltip
    * when text is cut off.
    */
   disabled?: boolean
+  /**
+   * Optionally keep the tooltip open while the mouse is hovered over it. This allows users to
+   * interact with the content inside the tooltip, e.g. buttons and links.
+   */
+  interactive?: boolean
 }
 
 /**
@@ -138,6 +147,7 @@ export function Tooltip({
   position = 'bottom',
   ContentComponent = TooltipContent,
   disabled,
+  interactive,
 }: TooltipProps) {
   const contentId = useId()
   const [open, setOpen] = useState(false)
@@ -146,6 +156,10 @@ export function Tooltip({
   const [mouseAnchorElem, setMouseAnchorElem] = useState<HTMLElement>()
   const [focusAnchorElem, setFocusAnchorElem] = useState<HTMLElement>()
   const anchorElem = focusAnchorElem ?? mouseAnchorElem
+  // NOTE(2Pac): We store the tooltip element here to indicate the mousing over the tooltip content
+  // so we can keep the tooltip open in case it's interactive.
+  const [tooltipElem, setTooltipElem] = useState<HTMLElement>()
+
   const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
     from: { opacity: 0, scale: 0.667 },
     enter: { opacity: 1, scale: 1 },
@@ -174,9 +188,15 @@ export function Tooltip({
   const onBlur = useCallback(() => {
     setFocusAnchorElem(undefined)
   }, [])
+  const onTooltipMouseEnter = useCallback((event: React.MouseEvent | React.FocusEvent) => {
+    setTooltipElem(event.currentTarget as HTMLElement)
+  }, [])
+  const onTooltipMouseLeave = useCallback(() => {
+    setTooltipElem(undefined)
+  }, [])
 
   useEffect(() => {
-    if (anchorElem) {
+    if (anchorElem || tooltipElem) {
       let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         timeout = undefined
         setOpen(true)
@@ -188,10 +208,23 @@ export function Tooltip({
         }
       }
     } else {
-      setOpen(false)
-      return () => {}
+      if (interactive) {
+        let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+          timeout = undefined
+          setOpen(false)
+        }, 200)
+
+        return () => {
+          if (timeout) {
+            clearTimeout(timeout)
+          }
+        }
+      } else {
+        setOpen(false)
+        return () => {}
+      }
     }
-  }, [anchorElem])
+  }, [anchorElem, interactive, tooltipElem])
 
   let originX: OriginX
   if (anchorOriginX === 'left') {
@@ -240,8 +273,12 @@ export function Tooltip({
                   anchorY={anchorY}
                   originX={originX}
                   originY={originY}
-                  styles={styles}>
-                  <ContentComponent $position={position}>{text}</ContentComponent>
+                  styles={styles}
+                  onMouseEnter={interactive ? onTooltipMouseEnter : undefined}
+                  onMouseLeave={interactive ? onTooltipMouseLeave : undefined}>
+                  <ContentComponent $position={position} $interactive={interactive}>
+                    {text}
+                  </ContentComponent>
                 </NoPointerPopoverContent>
               </KeyListenerBoundary>
             </NoPointerPortal>

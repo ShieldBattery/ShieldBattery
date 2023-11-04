@@ -208,6 +208,8 @@ export interface PopoverContentProps extends Omit<PopoverProps, 'open' | 'onDism
   /** The ARIA role to use for the content container. */
   role?: React.AriaRole
   styles: React.CSSProperties
+  onMouseEnter?: (event: React.MouseEvent | React.FocusEvent) => void
+  onMouseLeave?: (event: React.MouseEvent | React.FocusEvent) => void
 }
 
 /**
@@ -226,6 +228,8 @@ export function PopoverContent({
   originX,
   originY,
   styles,
+  onMouseEnter,
+  onMouseLeave,
 }: PopoverContentProps) {
   const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
@@ -339,7 +343,9 @@ export function PopoverContent({
         className={className}
         id={id}
         role={role}
-        style={{ ...styles, ...(containerStyle as any) }}>
+        style={{ ...styles, ...(containerStyle as any) }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}>
         {children}
       </Container>
     </PositioningArea>
