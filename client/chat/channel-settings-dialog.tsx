@@ -50,8 +50,10 @@ const StyledForm = styled.form`
 `
 
 const BannerButtonsContainer = styled.div`
-  display: flex;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-column-gap: 16px;
+  grid-row-gap: 24px;
 `
 
 const HiddenFileInput = styled(SingleFileInput)`
@@ -176,9 +178,7 @@ export function ChannelSettingsDialog({
                   }}
                 />
               ) : null}
-            </BannerButtonsContainer>
 
-            <BannerButtonsContainer>
               <HiddenFileInput
                 {...bindCustom('badge')}
                 ref={badgeInputRef}
