@@ -487,25 +487,25 @@
         "findMatch": {
             "bonusPoints": "{{bonusAvailable}} 포인트",
             "bonusPool": "보너스 풀",
-            "rating": "평가",
-            "title": "일치하는 항목 찾기",
+            "rating": "레이팅",
+            "title": "게임 찾기",
             "updated": "업데이트됨",
-            "useAlternateRace": "미러 매치업을 피하기 위해 대체 종족 사용",
+            "useAlternateRace": "동족전을 피하기 위해 대체 종족 사용",
             "vetoesLeft": "<0>남은 거부권: </0><1>{{vetoesLeft}}</1>",
             "action": "일치하는 항목 찾기",
-            "alternateRace": "대체 인종",
-            "description": "상대가 동일한 기본 종족을 선택할 때마다 사용할 종족을 선택합니다.",
+            "alternateRace": "부종족",
+            "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
             "errors": {
                 "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다.",
-                "dialogTitle": "일치 검색 오류",
-                "inParty": "당신은 파티에 있습니다. 솔로 플레이어로 대기열에 들어갈 수 없습니다.",
+                "dialogTitle": "게임 검색 오류",
+                "inParty": "당신은 파티에 있습니다. 솔로 플레이 대기열에 들어갈 수 없습니다.",
                 "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다.",
-                "somethingWentWrong": "문제가 발생했습니다."
+                "somethingWentWrong": "문제가 발생했습니다 :("
             },
             "mapPool": "맵 풀",
-            "points": "포인트들",
-            "race": "경주",
+            "points": "포인트",
+            "race": "종족",
             "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} 배치",
             "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
             "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다."
@@ -526,8 +526,8 @@
             "soon": "곧™",
             "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다.",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
-            "partyTooLargeText": "현재 파티가 너무 커서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
-            "partyTooLargeTitle": "파티가 너무 큼",
+            "partyTooLargeText": "현재 파티원이 너무 많아서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
+            "partyTooLargeTitle": "파티원이 너무 많음",
             "seconds": "초",
             "title": "매치메이킹 비활성화됨"
         },
@@ -555,7 +555,7 @@
             "3v3": "3v3"
         },
         "activity": {
-            "finding": "발견…",
+            "finding": "찾는중…",
             "findMatch": "일치하는 항목 찾기"
         }
     },
@@ -817,7 +817,7 @@
             "mapName": "지도 이름",
             "mapNameRequired": "지도 이름을 입력하세요",
             "players": "플레이어: {{playerSize}}",
-            "retrieveError": "이 지도의 세부정보를 검색하는 중에 문제가 발생했습니다. 오류 메시지는 다음과 같습니다.",
+            "retrieveError": "이 지도의 세부 정보를 탐색하는 중에 문제가 발생했습니다. 오류 메시지는 다음과 같습니다:",
             "size": "크기: {{width}}x{{height}}",
             "tileset": "타일셋: {{tilesetName}}",
             "title": "지도 세부정보"
@@ -825,16 +825,16 @@
         "local": {
             "documentsFolder": "문서 폴더",
             "programFolder": "프로그램 폴더",
-            "title": "지역 지도",
-            "uploadError": "지도를 업로드하는 중에 문제가 발생했습니다.",
-            "uploadMapError": "지도를 업로드하는 중에 오류가 발생했습니다."
+            "title": "로컬 맵",
+            "uploadError": "맵을 업로드하는 중에 문제가 발생했습니다.",
+            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다."
         },
         "mapSelect": {
-            "browseMaps": "지도 찾아보기"
+            "browseMaps": "맵 찾아보기"
         },
         "server": {
-            "noOfficialMaps": "공식 지도는 아직 업로드되지 않았습니다.",
-            "noUploadedMaps": "지도를 업로드하지 않았습니다. 아래 찾아보기 버튼을 클릭하여 지도를 업로드할 수 있습니다.",
+            "noOfficialMaps": "공식 맵이 아직 업로드되지 않았습니다.",
+            "noUploadedMaps": "맵을 업로드하지 않았습니다. 아래 찾아보기 버튼을 클릭하여 맵을 업로드할 수 있습니다.",
             "regenerateError": "이미지를 재생성하는 동안 오류가 발생했습니다.",
             "sortMaps": {
                 "option": {
@@ -842,23 +842,23 @@
                     "name": "이름",
                     "numberOfPlayers": "플레이어 수"
                 },
-                "title": "지도 정렬"
+                "title": "맵 정렬"
             },
             "tab": {
-                "community": "지역 사회",
-                "myMaps": "내 지도",
+                "community": "커뮤니티",
+                "myMaps": "내 맵",
                 "official": "공식적인"
             },
             "thumbnailSize": {
                 "option": {
-                    "large": "크기가 큰",
+                    "large": "큰",
                     "medium": "중간",
                     "small": "작은"
                 },
                 "title": "썸네일 크기"
             },
-            "allMaps": "모든 지도",
-            "browseLocal": "지역 지도 찾아보기",
+            "allMaps": "모든 맵",
+            "browseLocal": "로컬 맵 찾아보기",
             "error": "문제 발생: {{errorMessage}}",
             "favorites": {
                 "added": "즐겨찾기에 추가됨",
@@ -873,26 +873,26 @@
                 },
                 "title": "필터 옵션"
             },
-            "noCommunityMaps": "아직 커뮤니티에서 공개한 지도가 없습니다.",
+            "noCommunityMaps": "아직 커뮤니티에서 공개한 맵이 없습니다.",
             "noResults": "결과가 없습니다."
         },
         "thumbnail": {
             "addToFavorites": "즐겨 찾기에 추가",
-            "mapActions": "지도 작업",
-            "noMapPreview": "지도 미리보기를 사용할 수 없음",
+            "mapActions": "맵 작업",
+            "noMapPreview": "맵 미리보기를 사용할 수 없음",
             "regenerateImage": "이미지 재생성",
             "removeFromFavorites": "즐겨 찾기에서 삭제하기",
-            "showMapPreview": "지도 미리보기 표시",
-            "viewMapDetails": "지도 세부정보 보기"
+            "showMapPreview": "맵 미리보기 표시",
+            "viewMapDetails": "맵 세부정보 보기"
         },
         "tileset": {
-            "ashworld": "애쉬월드",
+            "ashworld": "화산지",
             "badlands": "황무지",
             "desert": "사막",
             "ice": "얼음",
             "installation": "설치",
-            "jungleWorld": "정글월드",
-            "spacePlatform": "우주 플랫폼",
+            "jungleWorld": "정글",
+            "spacePlatform": "우주",
             "twilight": "어스름"
         }
     },
