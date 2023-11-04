@@ -2,8 +2,8 @@
     "common": {
         "validators": {
             "required": "필수",
-            "maxLength_other": "최대 {{count}}자까지 입력하세요.",
-            "minLength_other": "최소 {{count}}자 이상 입력하세요."
+            "maxLength_other": "최대 {{count}}자까지 입력하세요",
+            "minLength_other": "최소 {{count}}자 이상 입력하세요"
         },
         "actions": {
             "back": "뒤로가기",
@@ -80,7 +80,7 @@
                 "apmDisplay": "APM 표시",
                 "apmSound": "소리 재생",
                 "apmValue": "APM 값",
-                "apmValueValidation": "1에서 999 사이의 값을 입력하세요.",
+                "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
                 "colorCycling": "색상 순환 활성화",
                 "showBonusSkins": "보너스 스킨 보기"
             },
@@ -158,7 +158,7 @@
                 "authenticationHeader": "입증",
                 "changeEmail": {
                     "dialogTitle": "이메일을 바꾸다",
-                    "patternError": "유효한 이메일 주소를 입력하세요.",
+                    "patternError": "유효한 이메일 주소를 입력하세요",
                     "requiredError": "이메일 주소를 입력하세요",
                     "success": "이메일이 성공적으로 변경되었습니다."
                 },
@@ -273,15 +273,15 @@
             "logIn": "로그인"
         },
         "emailValidator": {
-            "pattern": "유효한 이메일 주소를 입력하세요.",
+            "pattern": "유효한 이메일 주소를 입력하세요",
             "required": "이메일 주소를 입력하세요"
         },
         "signup": {
-            "ageConfirmation": "본인은 만13세 이상임을 확인합니다.",
+            "ageConfirmation": "본인은 만13세 이상임을 확인합니다",
             "alreadyHaveAccount": "이미 계정이 있습니까?",
             "confirmPassword": "비밀번호 확인",
             "createAccount": "계정 만들기",
-            "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한 방침</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
+            "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한 방침</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다",
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
             "logIn": "로그인",
@@ -298,16 +298,16 @@
             "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도하십시오.",
             "sessionExpired": "세션이 만료됨",
             "suspiciousActivity": "이 네트워크에서 의심스러운 활동이 감지되어 현재 웹에서 계정을 생성할 수 없습니다. 새 계정을 만들려면 독립 실행형 클라이언트를 다운로드하십시오.",
-            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다."
+            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다"
         },
         "usernameValidator": {
-            "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
+            "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
-            "notAvailable": "사용자 이름을 사용할 수 없습니다."
+            "notAvailable": "사용자 이름을 사용할 수 없습니다"
         },
         "language": {
             "changeErrorHeader": "언어 변경 오류",
-            "changeErrorMessage": "언어를 변경할 때 문제가 발생했습니다."
+            "changeErrorMessage": "언어를 변경할 때 문제가 발생했습니다"
         }
     },
     "landing": {
@@ -357,7 +357,7 @@
                 "expandedChatTitle": "확장된 채팅 기능",
                 "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
                 "fpReplaysTitle": "1인칭 리플레이",
-                "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다.",
+                "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다",
                 "pixelScalingTitle": "구성 가능한 픽셀 스케일링",
                 "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요.",
                 "playerProfilesTitle": "플레이어 프로필 및 통계",
@@ -412,7 +412,7 @@
         }
     },
     "clientDownload": {
-        "blurb": "다음 위치에 ShieldBattery 클라이언트를 다운로드합니다.",
+        "blurb": "다음 위치에 ShieldBattery 클라이언트를 다운로드합니다:",
         "downloadClient": "클라이언트 다운로드",
         "exploreMaps": "지도 탐색",
         "playGames": "게임하기",
@@ -478,9 +478,9 @@
         },
         "acceptMatch": {
             "body": "모든 플레이어는 경기를 시작할 준비를 해야 합니다.",
-            "failedToAccept": "수락하지 못했습니다.",
+            "failedToAccept": "수락하지 못했습니다",
             "returningToQueue": "일부 플레이어는 제 시간에 준비하지 않았거나 로드하지 못했습니다. 매치메이킹 대기열로 돌아가는 중…",
-            "matchFound": "일치 항목을 찾았습니다.",
+            "matchFound": "일치 항목을 찾았습니다",
             "readyUp": "준비",
             "removedFromQueue": "제시간에 준비하지 않아 대기열에서 제외되었습니다."
         },
@@ -496,11 +496,11 @@
             "alternateRace": "부종족",
             "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
             "errors": {
-                "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다.",
+                "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다",
                 "dialogTitle": "게임 검색 오류",
-                "inParty": "당신은 파티에 있습니다. 솔로 플레이 대기열에 들어갈 수 없습니다.",
+                "inParty": "당신은 파티에 있습니다. 솔로 플레이 대기열에 들어갈 수 없습니다",
                 "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
-                "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다.",
+                "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :("
             },
             "mapPool": "맵 풀",
@@ -524,7 +524,7 @@
             "minutes": "분",
             "notPartyLeader": "파티 리더만 매치 대기열에 들어갈 수 있습니다.",
             "soon": "곧™",
-            "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다.",
+            "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다:",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
             "partyTooLargeText": "현재 파티원이 너무 많아서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
             "partyTooLargeTitle": "파티원이 너무 많음",
@@ -627,14 +627,14 @@
             "advancedSettings": "고급 설정"
         },
         "messageLayout": {
-            "gameInitializationCanceled": "게임 초기화가 취소되었습니다.",
-            "hostChange": "<0><0></0></0>이(가) 이제 호스트입니다.",
-            "joinLobby": "<0><0></0></0>님이 로비에 참여했습니다.",
-            "banPlayer": "<0><0></0></0>이(가) 로비에서 금지되었습니다.",
-            "countdownCanceled": "게임 카운트다운이 취소되었습니다.",
+            "gameInitializationCanceled": "게임 초기화가 취소되었습니다",
+            "hostChange": "<0><0></0></0>이(가) 이제 호스트입니다",
+            "joinLobby": "<0><0></0></0>님이 로비에 참여했습니다",
+            "banPlayer": "<0><0></0></0>이(가) 로비에서 금지되었습니다",
+            "countdownCanceled": "게임 카운트다운이 취소되었습니다",
             "countdownStarted": "게임 카운트다운이 시작되었습니다",
-            "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다.",
-            "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다.",
+            "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다",
+            "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다",
             "selfJoin": "<1>{{lobby}}</1>에 가입하셨습니다. 호스트는 <4><0></0></4>입니다."
         },
         "joinLobby": {
@@ -642,8 +642,8 @@
             "title": "로비 참가",
             "disabledInPartyText": "파티로 로비에 참여하는 기능은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
             "disabledInPartyTitle": "파티 중 비활성화",
-            "noActiveLobbies": "활성 로비가 없습니다.",
-            "noOpenLobbies": "공개된 로비가 없습니다."
+            "noActiveLobbies": "활성 로비가 없습니다",
+            "noOpenLobbies": "공개된 로비가 없습니다"
         },
         "slots": {
             "closeSlot": "슬롯 닫기",
@@ -686,7 +686,7 @@
         },
         "errors": {
             "alreadyInLobby": "이미 다른 로비에 있습니다.",
-            "load": "로비를 로드하는 중에 문제가 발생했습니다."
+            "load": "로비를 로드하는 중에 문제가 발생했습니다"
         }
     },
     "chat": {
@@ -699,10 +699,10 @@
         "banUserErrorDisplay": {
             "defaultError": "오류 발생: {{statusText}}",
             "genericError": "{{user}} 차단 오류: {{errorMessage}}",
-            "moderateChannelModerator": "다른 관리자를 차단할 수 없습니다.",
-            "moderateChannelOwner": "채널 소유자를 차단할 수 없습니다.",
-            "noPermissions": "이 사용자를 차단할 권한이 없습니다.",
-            "notInChannel": "차단하려는 사용자가 이 채널에 없습니다."
+            "moderateChannelModerator": "다른 관리자를 차단할 수 없습니다",
+            "moderateChannelOwner": "채널 소유자를 차단할 수 없습니다",
+            "noPermissions": "이 사용자를 차단할 권한이 없습니다",
+            "notInChannel": "차단하려는 사용자가 이 채널에 없습니다"
         },
         "channelInfo": {
             "defaultError": "오류 발생: {{statusText}}",
@@ -733,8 +733,8 @@
             "deletedChannel": "삭제된 채널"
         },
         "channelValidator": {
-            "pattern": "채널 이름에 잘못된 문자가 포함되어 있습니다.",
-            "required": "채널 이름을 입력하세요."
+            "pattern": "채널 이름에 잘못된 문자가 포함되어 있습니다",
+            "required": "채널 이름을 입력하세요"
         },
         "createChannel": {
             "bannedError": "해당 채널에서 차단되었습니다.",
@@ -749,17 +749,17 @@
             "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
         },
         "joinChannel": {
-            "bannedError": "#{{channelName}}에서 차단되었습니다.",
-            "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다.",
+            "bannedError": "#{{channelName}}에서 차단되었습니다",
+            "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
             "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
         },
         "messageLayout": {
-            "banUser": "<0><0></0></0> 채널에서 차단되었습니다.",
-            "joinChannel": "<0><0></0></0>님이 채널에 참여했습니다.",
-            "kickUser": "<0><0></0></0>님이 채널에서 추방되었습니다.",
-            "leaveChannel": "<0><0></0></0>님이 채널을 나갔습니다.",
-            "newChannelOwner": "<0><0></0></0>은(는) 채널의 새 소유자입니다.",
-            "selfJoinChannel": "<2><0></0></2>에 참여했습니다."
+            "banUser": "<0><0></0></0> 채널에서 차단되었습니다",
+            "joinChannel": "<0><0></0></0>님이 채널에 참여했습니다",
+            "kickUser": "<0><0></0></0>님이 채널에서 추방되었습니다",
+            "leaveChannel": "<0><0></0></0>님이 채널을 나갔습니다",
+            "newChannelOwner": "<0><0></0></0>은(는) 채널의 새 소유자입니다",
+            "selfJoinChannel": "<2><0></0></2>에 참여했습니다"
         },
         "messageMenu": {
             "deleteError": "메시지 삭제 오류",
@@ -795,13 +795,13 @@
             "noProblems": "이제 로컬 설치에 문제가 없습니다.",
             "rescanFiles": "파일 재검색",
             "title": "설치 문제 감지됨",
-            "topContents": "다음 ShieldBattery 파일이 없거나 수정되었음을 감지했습니다."
+            "topContents": "다음 ShieldBattery 파일이 없거나 수정되었음을 감지했습니다:"
         },
         "starcraftHealth": {
             "installPathContents": "StarCraft 경로 설정이 올바른 설치를 가리키지 않습니다. <2>설정</2>에서 값을 수정하십시오. 게임이 설치되어 있지 않은 경우 <5><0>블리자드 웹사이트</0></5>에서 쉽게 다운로드할 수 있습니다. 설치 후 ShieldBattery를 다시 시작해야 할 수도 있습니다.",
             "title": "설치 문제 감지됨",
             "starcraftVersionContents": "StarCraft 설치가 오래되었습니다. ShieldBattery는 버전 1.16.1 또는 최신 Remastered 버전의 설치를 지원합니다. <2><0>최신 버전</0></2>을 설치하고 ShieldBattery를 다시 시작하세요.",
-            "header": "ShieldBattery에서 게임을 플레이하려면 먼저 다음 문제를 수정해야 합니다.",
+            "header": "ShieldBattery에서 게임을 플레이하려면 먼저 다음 문제를 수정해야 합니다:",
             "noProblems": "이제 로컬 설치에 문제가 없습니다."
         }
     },
@@ -813,7 +813,7 @@
             "editDescription": "설명 수정",
             "editName": "이름 수정",
             "mapDescription": "지도 설명",
-            "mapDescriptionRequired": "지도 설명을 입력하세요.",
+            "mapDescriptionRequired": "지도 설명을 입력하세요",
             "mapName": "지도 이름",
             "mapNameRequired": "지도 이름을 입력하세요",
             "players": "플레이어: {{playerSize}}",
@@ -826,8 +826,8 @@
             "documentsFolder": "문서 폴더",
             "programFolder": "프로그램 폴더",
             "title": "로컬 맵",
-            "uploadError": "맵을 업로드하는 중에 문제가 발생했습니다.",
-            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다."
+            "uploadError": "맵을 업로드하는 중에 문제가 발생했습니다",
+            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다"
         },
         "mapSelect": {
             "browseMaps": "맵 찾아보기"
@@ -835,7 +835,7 @@
         "server": {
             "noOfficialMaps": "공식 맵이 아직 업로드되지 않았습니다.",
             "noUploadedMaps": "맵을 업로드하지 않았습니다. 아래 찾아보기 버튼을 클릭하여 맵을 업로드할 수 있습니다.",
-            "regenerateError": "이미지를 재생성하는 동안 오류가 발생했습니다.",
+            "regenerateError": "이미지를 재생성하는 동안 오류가 발생했습니다",
             "sortMaps": {
                 "option": {
                     "dateUploaded": "업로드 날짜",
@@ -862,9 +862,9 @@
             "error": "문제 발생: {{errorMessage}}",
             "favorites": {
                 "added": "즐겨찾기에 추가됨",
-                "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다.",
+                "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다",
                 "removed": "즐겨찾기에서 삭제됨",
-                "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다."
+                "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다"
             },
             "filterOptions": {
                 "section": {
@@ -901,7 +901,7 @@
             "watchReplay": "다시 보기",
             "duration": "기간: {{durationStr}}",
             "gameType": "게임 유형: {{gameTypeLabel}}",
-            "loadingError": "리플레이를 로드하는 중에 문제가 발생했습니다.",
+            "loadingError": "리플레이를 로드하는 중에 문제가 발생했습니다",
             "rootFolderName": "리플레이",
             "title": "로컬 리플레이"
         },
@@ -923,40 +923,40 @@
     "parties": {
         "errors": {
             "inviteToParty": {
-                "alreadyMember": "{{user}}는 이미 파티에 있습니다.",
-                "blocked": "초대를 보내지 못했습니다. 이 사용자가 귀하를 차단했습니다.",
-                "general": "초대장을 보내는 중에 오류가 발생했습니다.",
-                "invalidSelfAction": "파티에 자신을 초대할 수 없습니다.",
+                "alreadyMember": "{{user}}는 이미 파티에 있습니다",
+                "blocked": "초대를 보내지 못했습니다, 이 사용자가 귀하를 차단했습니다",
+                "general": "초대장을 보내는 중에 오류가 발생했습니다",
+                "invalidSelfAction": "파티에 자신을 초대할 수 없습니다",
                 "notificationFailure": "초대장을 보내지 못했습니다. 다시 시도해 주세요"
             },
-            "alreadySearching": "일부 파티원은 이미 게임을 하고 있거나 매치를 검색하고 있거나 사용자 지정 로비에 있습니다.",
+            "alreadySearching": "일부 파티원은 이미 게임을 하고 있거나 매치를 검색하고 있거나 사용자 지정 로비에 있습니다:",
             "cancelQueue": "매치메이킹 취소 오류: {{errorMessage}}",
             "changeLeader": {
-                "general": "리더를 변경하는 동안 오류가 발생했습니다."
+                "general": "리더를 변경하는 동안 오류가 발생했습니다"
             },
             "declinePartyInvite": {
-                "general": "초대를 거절하는 중에 오류가 발생했습니다."
+                "general": "초대를 거절하는 중에 오류가 발생했습니다"
             },
             "kickPlayer": {
-                "general": "플레이어를 차는 중에 오류가 발생했습니다."
+                "general": "플레이어를 차는 중에 오류가 발생했습니다"
             },
             "leaveParty": {
-                "general": "파티에서 나가는 중 오류가 발생했습니다."
+                "general": "파티에서 나가는 중 오류가 발생했습니다"
             },
             "removePartyInvite": {
-                "general": "초대를 삭제하는 중에 오류가 발생했습니다."
+                "general": "초대를 삭제하는 중에 오류가 발생했습니다"
             },
             "findMatchAsParty": {
-                "invalidAction": "해당 매치메이킹 유형에 비해 파티가 너무 큽니다.",
+                "invalidAction": "해당 매치메이킹 유형에 비해 파티가 너무 큽니다",
                 "notFoundOrNotInParty": "파티를 찾을 수 없거나 당신이 파티에 없습니다",
                 "title": "일치 검색 오류",
-                "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다.",
-                "general": "문제가 발생했습니다.",
-                "insufficientPermissions": "파티 리더만 매치메이킹을 위해 대기할 수 있습니다."
+                "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다",
+                "general": "문제가 발생했습니다",
+                "insufficientPermissions": "파티 리더만 매치메이킹을 위해 대기할 수 있습니다"
             },
-            "unknownError": "알 수 없는 오류가 발생했습니다.",
+            "unknownError": "알 수 없는 오류가 발생했습니다",
             "acceptPartyInvite": {
-                "general": "초대를 수락하는 중에 오류가 발생했습니다.",
+                "general": "초대를 수락하는 중에 오류가 발생했습니다",
                 "notFoundOrNotInvited": "더 이상 존재하지 않는 파티",
                 "partyFull": "파티가 꽉 찼습니다"
             }
@@ -989,19 +989,19 @@
             "title": "파티에 플레이어 초대"
         },
         "messageLayout": {
-            "inviteToParty": "<0><0></0></0>님이 파티에 초대되었습니다.",
-            "joinParty": "<0><0></0></0>님이 파티에 참여했습니다.",
-            "kickFromParty": "<0><0></0></0>님이 파티에서 추방되었습니다.",
-            "leaderChange": "<0><0></0></0>이(가) 이제 리더입니다.",
-            "leaveParty": "<0><0></0></0>님이 파티를 나갔습니다.",
+            "inviteToParty": "<0><0></0></0>님이 파티에 초대되었습니다",
+            "joinParty": "<0><0></0></0>님이 파티에 참여했습니다",
+            "kickFromParty": "<0><0></0></0>님이 파티에서 추방되었습니다",
+            "leaderChange": "<0><0></0></0>이(가) 이제 리더입니다",
+            "leaveParty": "<0><0></0></0>님이 파티를 나갔습니다",
             "queueCancel": {
-                "error": "오류로 인해 매치메이킹이 취소되었습니다.",
-                "matchmakingDisabled": "매치메이킹이 현재 비활성화되어 취소되었습니다.",
+                "error": "오류로 인해 매치메이킹이 취소되었습니다",
+                "matchmakingDisabled": "매치메이킹이 현재 비활성화되어 취소되었습니다",
                 "rejected": "<0><0></0></0> 취소된 매치메이킹",
-                "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다."
+                "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다"
             },
             "queueReady": "파티는 지금 짝을 찾고 있습니다",
-            "queueStart": "<0><0></0></0>에서 <4>{{matchmakingLabel}}</4> 일치 검색을 시작합니다.",
+            "queueStart": "<0><0></0></0>에서 <4>{{matchmakingLabel}}</4> 일치 검색을 시작합니다",
             "selfJoin": "당신은 파티에 가입했습니다. 리더는 <2><0></0></2>입니다."
         }
     },
@@ -1083,15 +1083,15 @@
                 "blockedByUser": "당신은 이 사용자에 의해 차단되었습니다",
                 "errorAcceptingFriendRequest": "친구 요청 수락 오류",
                 "errorBlockingUser": "사용자 차단 오류",
-                "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다.",
-                "errorRemovingFriend": "친구를 삭제하는 중에 오류가 발생했습니다.",
-                "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다.",
-                "errorSendingFriendRequest": "친구 요청을 보내는 중에 오류가 발생했습니다.",
-                "errorUnblockingUser": "사용자 차단을 해제하는 중에 오류가 발생했습니다.",
+                "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다",
+                "errorRemovingFriend": "친구를 삭제하는 중에 오류가 발생했습니다",
+                "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다",
+                "errorSendingFriendRequest": "친구 요청을 보내는 중에 오류가 발생했습니다",
+                "errorUnblockingUser": "사용자 차단을 해제하는 중에 오류가 발생했습니다",
                 "invalidSelfAction": "자신에게 이 작업을 수행할 수 없습니다.`",
-                "limitReached": "최대 친구 또는 차단 수에 도달했습니다. 더 추가하려면 일부를 제거하세요.",
-                "load": "친구 목록을 로드하지 못했습니다.",
-                "noMatchingEntry": "일치하는 항목이 없습니다."
+                "limitReached": "최대 친구 또는 차단 수에 도달했습니다, 더 추가하려면 일부를 제거하세요",
+                "load": "친구 목록을 로드하지 못했습니다",
+                "noMatchingEntry": "일치하는 항목이 없습니다"
             },
             "profile": {
                 "loadUser": "이 사용자를 로드하는 중에 문제가 발생했습니다."
@@ -1146,19 +1146,19 @@
     "rootErrorBoundary": {
         "contents": "<2>Discord</2>에서 이 문제를 보고해 주십시오.",
         "reloadApp": "앱 새로고침",
-        "title": "문제가 발생했습니다."
+        "title": "문제가 발생했습니다"
     },
     "whispers": {
         "createWhisper": {
             "error": "오류: {{errorMessage}}",
             "username": "사용자 이름",
-            "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
+            "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "usernameRequired": "사용자 이름을 입력하세요",
             "title": "메세지를 보내다"
         },
         "errors": {
             "cantWhisperYourself": "당신은 자신과 속삭일 수 없습니다.",
-            "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다.",
+            "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",
             "loadingHistory": "메시지 기록 로드 오류: {{errorMessage}}",
             "noSelfMessaging": "자신에게 메시지를 보낼 수 없습니다",
             "openSession": "사용자에게 귓속말 열기 오류: {{errorMessage}}",
@@ -1214,7 +1214,7 @@
             "unread": "알림 - 읽지 않음(Alt + N)"
         },
         "errors": {
-            "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다."
+            "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다"
         },
         "list": {
             "title": "알림"
@@ -1254,7 +1254,7 @@
                 "rank": "계급",
                 "winLoss": "승/패"
             },
-            "leagueEndedError": "리그가 이미 종료되어 참가할 수 없습니다.",
+            "leagueEndedError": "리그가 이미 종료되어 참가할 수 없습니다",
             "leagueJoined": "리그 가입",
             "noPlayers": "일치하는 플레이어가 없습니다.",
             "notFound": "리그를 찾을 수 없음",
