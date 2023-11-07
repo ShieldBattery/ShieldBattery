@@ -7,6 +7,7 @@ import { closeOverlay } from '../activities/action-creators'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   ExpansionPanelProps,
+  FileBrowserEntry,
   FileBrowserFileEntry,
   FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
@@ -25,6 +26,9 @@ async function getReplayFolderPath() {
     '\\',
   )
 }
+
+const sortByNameReverse = (a: FileBrowserEntry, b: FileBrowserEntry) => b.name.localeCompare(a.name)
+const sortByDateReverse = (a: FileBrowserFileEntry, b: FileBrowserFileEntry) => +b.date - +a.date
 
 const StyledReplayInfoDisplay = styled(ReplayInfoDisplay)`
   padding: 16px;
@@ -85,6 +89,8 @@ export function BrowseLocalReplays() {
       title={t('replays.local.title', 'Local Replays')}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
+      folderSortFunc={sortByNameReverse}
+      fileSortFunc={sortByDateReverse}
     />
   )
 }
