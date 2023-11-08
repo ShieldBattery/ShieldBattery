@@ -151,6 +151,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.idToMatchHistory.set(user.id, matchHistory.games)
   },
 
+  ['@users/searchMatchHistory'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
   ['@users/loadUsers'](state, action) {
     updateUsers(state, action.payload)
   },

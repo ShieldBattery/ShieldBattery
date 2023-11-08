@@ -22,6 +22,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@users/searchMatchHistory'](state, { payload: { games }, meta: { userId } }) {
+    for (const game of games) {
+      state.byId.set(game.id, game)
+    }
+  },
+
   ['@games/getGameRecord'](state, { payload: { game, mmrChanges } }) {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))

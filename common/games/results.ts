@@ -35,7 +35,11 @@ export interface GameClientPlayerResult {
  */
 export type ReconciledResult = 'win' | 'loss' | 'draw' | 'unknown'
 
-export function getResultLabel(result: ReconciledResult, t: TFunction): string {
+export function getResultLabel(
+  result: ReconciledResult,
+  t: TFunction,
+  alternativeUnknown?: boolean,
+): string {
   if (result === 'win') {
     return t('game.results.win', 'Win')
   } else if (result === 'loss') {
@@ -43,7 +47,7 @@ export function getResultLabel(result: ReconciledResult, t: TFunction): string {
   } else if (result === 'draw') {
     return t('game.results.draw', 'Draw')
   } else if (result === 'unknown') {
-    return t('game.results.unknown', 'Unknown')
+    return alternativeUnknown ? '—' : t('game.results.unknown', 'Unknown')
   }
 
   return assertUnreachable(result)

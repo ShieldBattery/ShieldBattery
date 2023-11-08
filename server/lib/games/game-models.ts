@@ -158,6 +158,41 @@ export async function getRecentGamesForUser(
 }
 
 /**
+ * Retrieves game information for the match history of a user.
+ */
+export async function searchGamesForUser(
+  {
+    userId,
+    limit,
+    offset,
+  }: {
+    userId: SbUserId
+    limit: number
+    offset: number
+  },
+  withClient?: DbClient,
+): Promise<GameRecord[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      SELECT *
+      FROM games_users gu
+      INNER JOIN games g ON gu.game_id = g.id
+      WHERE gu.user_id = ${userId}
+      ORDER BY g.start_time DESC
+      LIMIT ${limit}
+      OFFSET ${offset};
+    `
+
+    const result = await client.query<DbGameRecord>(query)
+
+    return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Returns a list of game IDs that don't yet have reconciled results. This can be used to (roughly)
  * determine games that have completed but didn't get reconciled (usually because at least one
  * player failed to report).

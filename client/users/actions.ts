@@ -11,12 +11,14 @@ import {
   GetUserProfileResponse,
   SbUser,
   SbUserId,
+  SearchMatchHistoryResponse,
 } from '../../common/users/sb-user'
 
 export type UserActions =
   | GetUserProfile
   | GetBatchUserInfo
   | LoadUsers
+  | SearchMatchHistory
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
@@ -51,6 +53,12 @@ export type GetBatchUserInfo =
 export interface LoadUsers {
   type: '@users/loadUsers'
   payload: SbUser[]
+}
+
+export interface SearchMatchHistory {
+  type: '@users/searchMatchHistory'
+  payload: SearchMatchHistoryResponse
+  meta: { userId: SbUserId }
 }
 
 export interface AdminGetUserBanHistory {
