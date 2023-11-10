@@ -22,6 +22,21 @@ const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
+const marginStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+  left: css`
+    margin-right: 8px;
+  `,
+  right: css`
+    margin-left: 8px;
+  `,
+  top: css`
+    margin-bottom: 8px;
+  `,
+  bottom: css`
+    margin-top: 8px;
+  `,
+}
+
 const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   left: css`
     top: 50%;
@@ -57,13 +72,14 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-export const TooltipContent = styled.div<{ $position: TooltipPosition }>`
+export const TooltipContent = styled.div<{ $position: TooltipPosition; $interactive?: boolean }>`
   ${caption};
   ${shadow2dp};
 
   position: relative;
   min-height: 24px;
   padding: 4px 8px;
+  ${props => marginStyle[props.$position]};
 
   display: flex;
   align-items: center;
@@ -72,7 +88,7 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition }>`
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 4px;
   background-color: ${background900};
-  pointer-events: none;
+  pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
   &::before {
     content: '';
@@ -114,14 +130,23 @@ interface TooltipProps {
    * used if you wish to customize the Tooltip style. Will get injected with the following props:
    *  - $position: the `TooltipPosition` of the content
    *  - children: the Tooltip's content
-   * */
-  ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
+   */
+  ContentComponent?: React.ComponentType<{
+    $position: TooltipPosition
+    $interactive?: boolean
+    children: React.ReactNode
+  }>
   /**
    * Optionally disable interaction with this tooltip. This allows for cases where we need to turn
    * a tooltip off without changing the DOM structure around it, such as only showing a tooltip
    * when text is cut off.
    */
   disabled?: boolean
+  /**
+   * Optionally keep the tooltip open while the mouse is hovered over it. This allows users to
+   * interact with the content inside the tooltip, e.g. buttons and links.
+   */
+  interactive?: boolean
 }
 
 /**
@@ -138,6 +163,7 @@ export function Tooltip({
   position = 'bottom',
   ContentComponent = TooltipContent,
   disabled,
+  interactive,
 }: TooltipProps) {
   const contentId = useId()
   const [open, setOpen] = useState(false)
@@ -146,6 +172,10 @@ export function Tooltip({
   const [mouseAnchorElem, setMouseAnchorElem] = useState<HTMLElement>()
   const [focusAnchorElem, setFocusAnchorElem] = useState<HTMLElement>()
   const anchorElem = focusAnchorElem ?? mouseAnchorElem
+  // NOTE(2Pac): This is only used when the tooltip is interactive, so we can keep the tooltip open
+  // while the mouse is over it as well.
+  const [isTooltipHovered, setIsTooltipHovered] = useState(false)
+
   const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
     from: { opacity: 0, scale: 0.667 },
     enter: { opacity: 1, scale: 1 },
@@ -156,7 +186,7 @@ export function Tooltip({
 
   const anchorOriginX = position === 'top' || position === 'bottom' ? 'center' : position
   const anchorOriginY = position === 'left' || position === 'right' ? 'center' : position
-  let [, anchorX = 0, anchorY = 0] = useAnchorPosition(
+  const [, anchorX = 0, anchorY = 0] = useAnchorPosition(
     anchorOriginX,
     anchorOriginY,
     anchorElem ?? null,
@@ -174,9 +204,15 @@ export function Tooltip({
   const onBlur = useCallback(() => {
     setFocusAnchorElem(undefined)
   }, [])
+  const onTooltipMouseEnter = useCallback((event: React.MouseEvent | React.FocusEvent) => {
+    setIsTooltipHovered(true)
+  }, [])
+  const onTooltipMouseLeave = useCallback(() => {
+    setIsTooltipHovered(false)
+  }, [])
 
   useEffect(() => {
-    if (anchorElem) {
+    if (anchorElem || isTooltipHovered) {
       let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         timeout = undefined
         setOpen(true)
@@ -191,15 +227,13 @@ export function Tooltip({
       setOpen(false)
       return () => {}
     }
-  }, [anchorElem])
+  }, [anchorElem, isTooltipHovered])
 
   let originX: OriginX
   if (anchorOriginX === 'left') {
     originX = 'right'
-    anchorX = anchorX - 8
   } else if (anchorOriginX === 'right') {
     originX = 'left'
-    anchorX = anchorX + 8
   } else {
     originX = 'center'
   }
@@ -207,13 +241,13 @@ export function Tooltip({
   let originY: OriginY
   if (anchorOriginY === 'top') {
     originY = 'bottom'
-    anchorY = anchorY - 8
   } else if (anchorOriginY === 'bottom') {
     originY = 'top'
-    anchorY = anchorY + 8
   } else {
     originY = 'center'
   }
+
+  const PopoverContentComponent = interactive ? PopoverContent : NoPointerPopoverContent
 
   return (
     <>
@@ -233,16 +267,20 @@ export function Tooltip({
           open && (
             <NoPointerPortal open={open}>
               <KeyListenerBoundary>
-                <NoPointerPopoverContent
+                <PopoverContentComponent
                   role='tooltip'
                   id={contentId}
                   anchorX={anchorX}
                   anchorY={anchorY}
                   originX={originX}
                   originY={originY}
-                  styles={styles}>
-                  <ContentComponent $position={position}>{text}</ContentComponent>
-                </NoPointerPopoverContent>
+                  styles={styles}
+                  onMouseEnter={interactive ? onTooltipMouseEnter : undefined}
+                  onMouseLeave={interactive ? onTooltipMouseLeave : undefined}>
+                  <ContentComponent $position={position} $interactive={interactive}>
+                    {text}
+                  </ContentComponent>
+                </PopoverContentComponent>
               </KeyListenerBoundary>
             </NoPointerPortal>
           ),

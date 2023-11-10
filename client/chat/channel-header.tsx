@@ -243,6 +243,7 @@ export function ChannelHeader({
               text={parsedChannelTopic}
               position='bottom'
               disabled={!isChannelTopicOverflowing}
+              interactive={true}
               ContentComponent={StyledTooltipContent}>
               <ChannelTopic ref={channelTopicRef}>{parsedChannelTopic}</ChannelTopic>
             </StyledTooltip>
