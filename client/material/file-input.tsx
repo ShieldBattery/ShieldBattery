@@ -25,7 +25,7 @@ const InputContainer = styled.div`
 `
 
 interface FileInputProps {
-  value?: File | File[] | string | null
+  value?: File | File[] | '' | null
   label?: string
   allowErrors?: boolean
   errorText?: string
