@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useValueAsRef } from '../state-hooks'
+import { useEffect, useRef } from 'react'
+import { useForceUpdate } from '../state-hooks'
 
 /**
  * A hook which creates an object URL out of the received file, while also making sure that stale
@@ -9,20 +9,21 @@ import { useValueAsRef } from '../state-hooks'
  * the received string.
  */
 export function useObjectUrl(file?: Blob | string): string | undefined {
-  const [objectUrl, setObjectUrl] = useState<string>()
-  const objectUrlRef = useValueAsRef(objectUrl)
+  const objectUrlRef = useRef<string>()
+  const forceUpdate = useForceUpdate()
 
   useEffect(() => {
-    if (typeof file === 'string') {
-      return
+    if (typeof file !== 'string') {
+      objectUrlRef.current = file ? URL.createObjectURL(file) : undefined
+      forceUpdate()
     }
 
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current)
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+      }
     }
+  }, [file, forceUpdate])
 
-    setObjectUrl(file ? URL.createObjectURL(file) : undefined)
-  }, [file, objectUrlRef])
-
-  return typeof file === 'string' ? file : objectUrl
+  return typeof file === 'string' ? file : objectUrlRef.current
 }

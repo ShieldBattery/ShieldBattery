@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -7,11 +7,11 @@ import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
 import { useObjectUrl } from '../dom/use-object-url'
-import { FileInputHandle, SingleFileInput } from '../forms/file-input'
 import { useForm } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton, TextButton } from '../material/button'
+import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { SingleFileInput } from '../material/file-input'
 import { TextField } from '../material/text-field'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -57,10 +57,6 @@ const BannerButtonsContainer = styled.div`
   grid-row-gap: 24px;
 `
 
-const HiddenFileInput = styled(SingleFileInput)`
-  display: none;
-`
-
 interface ChannelSettingsModel {
   description?: string
   topic?: string
@@ -81,9 +77,6 @@ export function ChannelSettingsDialog({
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)!)
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId)!)
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)!)
-
-  const bannerInputRef = useRef<FileInputHandle>(null)
-  const badgeInputRef = useRef<FileInputHandle>(null)
 
   const onFormSubmit = useStableCallback((model: Readonly<ChannelSettingsModel>) => {
     const patch: EditChannelRequest = {
@@ -155,55 +148,41 @@ export function ChannelSettingsDialog({
         <FormContainer>
           <StyledForm noValidate={true} onSubmit={onSubmit}>
             <BannerButtonsContainer>
-              <HiddenFileInput
+              <SingleFileInput
                 {...bindCustom('banner')}
-                ref={bannerInputRef}
-                inputProps={{ accept: 'image/*', tabIndex: -1 }}
+                label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                inputProps={{ accept: 'image/*' }}
               />
 
-              <RaisedButton
-                label={bannerUrl ? 'Change banner' : 'Upload banner'}
-                tabIndex={0}
-                onClick={() => {
-                  bannerInputRef.current?.click()
-                }}
-              />
               {bannerUrl ? (
                 <TextButton
                   label='Remove banner'
                   iconStart={<MaterialIcon icon='clear' />}
-                  tabIndex={0}
                   onClick={() => {
                     setInputValue('banner', undefined)
-                    bannerInputRef.current?.clear()
                   }}
                 />
-              ) : null}
+              ) : (
+                <div></div>
+              )}
 
-              <HiddenFileInput
+              <SingleFileInput
                 {...bindCustom('badge')}
-                ref={badgeInputRef}
-                inputProps={{ accept: 'image/*', tabIndex: -1 }}
+                label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                inputProps={{ accept: 'image/*' }}
               />
 
-              <RaisedButton
-                label={badgeUrl ? 'Change badge' : 'Upload badge'}
-                tabIndex={0}
-                onClick={() => {
-                  badgeInputRef.current?.click()
-                }}
-              />
               {badgeUrl ? (
                 <TextButton
                   label='Remove badge'
                   iconStart={<MaterialIcon icon='clear' />}
-                  tabIndex={0}
                   onClick={() => {
                     setInputValue('badge', undefined)
-                    badgeInputRef.current?.clear()
                   }}
                 />
-              ) : null}
+              ) : (
+                <div></div>
+              )}
             </BannerButtonsContainer>
 
             <TextField

@@ -273,7 +273,7 @@
   },
   "forms": {
     "fileInput": {
-      "clearFiles": "Clear files"
+      "chooseFile": "Choose file"
     }
   },
   "game": {
