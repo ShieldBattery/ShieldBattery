@@ -82,6 +82,9 @@ export function ChannelList() {
       // Just need to clear the search results here and let the infinite scroll list initiate the
       // network request.
       setSearchQuery(searchQuery)
+      // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
+      // to do this here, which is pretty unintuitive.
+      setIsLoadingMoreChannels(false)
       setSearchError(undefined)
       setChannels(undefined)
       setHasMoreChannels(true)
