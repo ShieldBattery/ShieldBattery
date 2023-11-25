@@ -39,8 +39,18 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     const { t } = useTranslation()
     const inputRef = useRef<HTMLInputElement>(null)
 
+    if (typeof value === 'string' && value !== '') {
+      throw new Error('non-empty string values are not supported for FileInput')
+    }
+
     useEffect(() => {
-      if (inputRef.current && (value === null || value === undefined)) {
+      if (value && inputRef.current && inputRef.current.value !== (value as any)) {
+        throw new Error(
+          "FileInput's value cannot be changed to a new File programmatically, " +
+            'only through user selection',
+        )
+      }
+      if (inputRef.current?.value && !value) {
         inputRef.current.value = ''
       }
     }, [value])
