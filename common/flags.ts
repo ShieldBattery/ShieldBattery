@@ -18,3 +18,5 @@ export const DEV_INDICATOR = DEV()
 export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = OFF()
 /** Add a news/landing/home page. */
 export const NEWS_PAGE = DEV()
+/** Allow users to upload channel banners (and badges). */
+export const CHANNEL_BANNERS = DEV()

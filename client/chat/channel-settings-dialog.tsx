@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { EditChannelRequest } from '../../common/chat'
+import { CHANNEL_BANNERS } from '../../common/flags'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
@@ -149,45 +150,47 @@ export function ChannelSettingsDialog({
       <Root>
         <FormContainer>
           <StyledForm noValidate={true} onSubmit={onSubmit}>
-            <BannerButtonsContainer>
-              <SingleFileInput
-                {...bindCustom('banner')}
-                label={bannerUrl ? 'Change banner' : 'Upload banner'}
-                inputProps={{ accept: 'image/*' }}
-              />
-
-              {bannerUrl ? (
-                <TextButton
-                  label='Remove banner'
-                  iconStart={<MaterialIcon icon='clear' />}
-                  onClick={() => {
-                    setInputValue('uploadedBannerPath', undefined)
-                    setInputValue('banner', undefined)
-                  }}
+            {CHANNEL_BANNERS ? (
+              <BannerButtonsContainer>
+                <SingleFileInput
+                  {...bindCustom('banner')}
+                  label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                  inputProps={{ accept: 'image/*' }}
                 />
-              ) : (
-                <div></div>
-              )}
 
-              <SingleFileInput
-                {...bindCustom('badge')}
-                label={badgeUrl ? 'Change badge' : 'Upload badge'}
-                inputProps={{ accept: 'image/*' }}
-              />
+                {bannerUrl ? (
+                  <TextButton
+                    label='Remove banner'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBannerPath', undefined)
+                      setInputValue('banner', undefined)
+                    }}
+                  />
+                ) : (
+                  <div></div>
+                )}
 
-              {badgeUrl ? (
-                <TextButton
-                  label='Remove badge'
-                  iconStart={<MaterialIcon icon='clear' />}
-                  onClick={() => {
-                    setInputValue('uploadedBadgePath', undefined)
-                    setInputValue('badge', undefined)
-                  }}
+                <SingleFileInput
+                  {...bindCustom('badge')}
+                  label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                  inputProps={{ accept: 'image/*' }}
                 />
-              ) : (
-                <div></div>
-              )}
-            </BannerButtonsContainer>
+
+                {badgeUrl ? (
+                  <TextButton
+                    label='Remove badge'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBadgePath', undefined)
+                      setInputValue('badge', undefined)
+                    }}
+                  />
+                ) : (
+                  <div></div>
+                )}
+              </BannerButtonsContainer>
+            ) : null}
 
             <TextField
               {...bindInput('description')}
