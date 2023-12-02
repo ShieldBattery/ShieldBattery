@@ -60,8 +60,10 @@ const BannerButtonsContainer = styled.div`
 interface ChannelSettingsModel {
   description?: string
   topic?: string
-  banner?: File | string
-  badge?: File | string
+  uploadedBannerPath?: string
+  uploadedBadgePath?: string
+  banner?: File
+  badge?: File
 }
 
 type ChannelSettingsDialogProps = CommonDialogProps &
@@ -83,16 +85,16 @@ export function ChannelSettingsDialog({
       description:
         model.description !== detailedChannelInfo.description ? model.description : undefined,
       topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
-      deleteBanner: detailedChannelInfo.bannerPath && !model.banner ? true : undefined,
-      deleteBadge: detailedChannelInfo.badgePath && !model.badge ? true : undefined,
+      deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
+      deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
     }
 
     dispatch(
       updateChannel({
         channelId: basicChannelInfo.id,
         channelChanges: patch,
-        channelBanner: model.banner instanceof File ? model.banner : undefined,
-        channelBadge: model.badge instanceof File ? model.badge : undefined,
+        channelBanner: model.banner,
+        channelBadge: model.badge,
         spec: {
           onSuccess: () => {},
           onError: err => {
@@ -114,15 +116,15 @@ export function ChannelSettingsDialog({
     {
       description: detailedChannelInfo.description,
       topic: joinedChannelInfo.topic,
-      banner: detailedChannelInfo.bannerPath,
-      badge: detailedChannelInfo.badgePath,
+      uploadedBannerPath: detailedChannelInfo.bannerPath,
+      uploadedBadgePath: detailedChannelInfo.badgePath,
     },
     {},
     { onSubmit: onFormSubmit },
   )
 
-  const bannerUrl = useObjectUrl(getInputValue('banner'))
-  const badgeUrl = useObjectUrl(getInputValue('badge'))
+  const bannerUrl = useObjectUrl(getInputValue('banner')) ?? getInputValue('uploadedBannerPath')
+  const badgeUrl = useObjectUrl(getInputValue('badge')) ?? getInputValue('uploadedBadgePath')
 
   const buttons = [
     <TextButton
@@ -159,6 +161,7 @@ export function ChannelSettingsDialog({
                   label='Remove banner'
                   iconStart={<MaterialIcon icon='clear' />}
                   onClick={() => {
+                    setInputValue('uploadedBannerPath', undefined)
                     setInputValue('banner', undefined)
                   }}
                 />
@@ -177,6 +180,7 @@ export function ChannelSettingsDialog({
                   label='Remove badge'
                   iconStart={<MaterialIcon icon='clear' />}
                   onClick={() => {
+                    setInputValue('uploadedBadgePath', undefined)
                     setInputValue('badge', undefined)
                   }}
                 />

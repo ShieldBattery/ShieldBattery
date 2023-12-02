@@ -4,6 +4,14 @@ import styled from 'styled-components'
 import { RaisedButton } from './button'
 import { InputError } from './input-error'
 
+function isValueAndFileListSame(value: File | File[], fileList: FileList): boolean {
+  if (Array.isArray(value)) {
+    return value.length === fileList.length && value.every((v, i) => v === fileList[i])
+  } else {
+    return fileList.length === 1 && value === fileList[0]
+  }
+}
+
 const InputContainer = styled.div`
   position: relative;
   display: flex;
@@ -44,7 +52,11 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     }
 
     useEffect(() => {
-      if (value && inputRef.current && inputRef.current.value !== (value as any)) {
+      if (
+        value &&
+        inputRef.current?.files &&
+        !isValueAndFileListSame(value, inputRef.current.files)
+      ) {
         throw new Error(
           "FileInput's value cannot be changed to a new File programmatically, " +
             'only through user selection',
