@@ -554,11 +554,6 @@
             "cancelSearch": "取消匹配"
         }
     },
-    "forms": {
-        "fileInput": {
-            "clearFiles": "清除文件"
-        }
-    },
     "game": {
         "gameType": {
             "captureTheFlag": "夺旗战",
@@ -700,7 +695,6 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "描述",
-                "title": "一般的",
                 "topicLabel": "话题"
             }
         }

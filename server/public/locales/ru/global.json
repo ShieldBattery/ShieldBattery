@@ -562,11 +562,6 @@
         "headline": "Эта функция скоро появится!",
         "subtitle": "Помогите финансировать развитие ShieldBattery"
     },
-    "forms": {
-        "fileInput": {
-            "clearFiles": "Очистить файлы"
-        }
-    },
     "whispers": {
         "createWhisper": {
             "title": "Отправить сообщение",
@@ -1000,7 +995,6 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "Описание",
-                "title": "Общий",
                 "topicLabel": "Тема"
             }
         }

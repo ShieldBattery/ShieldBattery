@@ -454,11 +454,6 @@
         "subtitle": "Ayude a financiar el desarrollo de ShieldBattery",
         "headline": "¡Esta característica estará disponible en breve!"
     },
-    "forms": {
-        "fileInput": {
-            "clearFiles": "Borrar archivos"
-        }
-    },
     "matchmaking": {
         "division": {
             "bronze": "Bronce {{level}}",
@@ -663,7 +658,6 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "Descripción",
-                "title": "General",
                 "topicLabel": "Tema"
             }
         }

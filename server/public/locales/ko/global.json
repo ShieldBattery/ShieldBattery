@@ -435,11 +435,6 @@
         "headline": "이 기능은 곧 제공될 예정입니다!",
         "subtitle": "ShieldBattery의 개발 자금 지원하기"
     },
-    "forms": {
-        "fileInput": {
-            "clearFiles": "파일 지우기"
-        }
-    },
     "ladder": {
         "division": "디비전",
         "divisionGroup": {
@@ -783,7 +778,6 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "설명",
-                "title": "일반적인",
                 "topicLabel": "주제"
             }
         }
