@@ -658,7 +658,8 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "Descripción",
-                "topicLabel": "Tema"
+                "topicLabel": "Tema",
+                "saveErrorMessage": "Algo salió mal al guardar la configuración."
             }
         }
     },
@@ -1285,5 +1286,10 @@
         "reloadApp": "recargar aplicación",
         "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
         "title": "Algo salió mal :("
+    },
+    "forms": {
+        "fileInput": {
+            "chooseFile": "Elija el archivo"
+        }
     }
 }
