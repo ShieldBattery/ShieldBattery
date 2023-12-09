@@ -77,7 +77,7 @@ function getDialog(dialogType: DialogType): {
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog }
     case DialogType.ChannelSettings:
-      return { component: ChannelSettingsDialog }
+      return { component: ChannelSettingsDialog, modal: true }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.ExternalLink:

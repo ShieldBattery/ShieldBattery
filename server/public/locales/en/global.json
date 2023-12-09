@@ -156,7 +156,7 @@
     "channelSettings": {
       "general": {
         "descriptionLabel": "Description",
-        "title": "General",
+        "saveErrorMessage": "Something went wrong saving the settings",
         "topicLabel": "Topic"
       }
     },
@@ -273,7 +273,7 @@
   },
   "forms": {
     "fileInput": {
-      "clearFiles": "Clear files"
+      "chooseFile": "Choose file"
     }
   },
   "game": {

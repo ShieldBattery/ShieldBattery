@@ -72,7 +72,7 @@ const dbClient = {} as DbClient
 
 jest.mock('../db/transaction', () =>
   jest.fn(async next => {
-    await next(dbClient)
+    return await next(dbClient)
   }),
 )
 

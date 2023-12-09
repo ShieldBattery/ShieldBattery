@@ -1,41 +1,71 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../common/assert-unreachable'
+import { EditChannelRequest } from '../../common/chat'
+import { CHANNEL_BANNERS } from '../../common/flags'
+import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { ChannelSettingsDialogPayload } from '../dialogs/dialog-type'
-import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
+import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
+import { useObjectUrl } from '../dom/use-object-url'
+import { useForm } from '../forms/form-hook'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { Ripple } from '../material/ripple'
-import { useAppSelector } from '../redux-hooks'
+import { SingleFileInput } from '../material/file-input'
+import { TextField } from '../material/text-field'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorTextPrimary } from '../styles/colors'
-import { body1, singleLine } from '../styles/typography'
-import { ALL_CHANNEL_SETTINGS_SECTIONS, ChannelSettingsSection } from './channel-settings-section'
-import { ChannelSettingsGeneral } from './settings/general'
+import { FlexSpacer } from '../styles/flex-spacer'
+import { updateChannel } from './action-creators'
+import { ChannelBadge } from './channel-badge'
+import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
+import {
+  ChannelActions,
+  ChannelBannerAndBadge,
+  ChannelCardBadge,
+  ChannelCardRoot,
+  ChannelDescriptionContainer,
+  ChannelName,
+} from './channel-info-card'
 
-const Container = styled.div`
+const StyledDialog = styled(Dialog)`
+  max-width: 960px;
+`
+
+const Root = styled.div`
   display: flex;
-  gap: 20px;
+  align-items: flex-start;
+  gap: 24px;
 `
 
-const NavContainer = styled.div`
-  flex-shrink: 0;
-  width: 160px;
-`
-
-const Divider = styled.div`
-  flex-shrink: 0;
-  width: 1px;
-
-  background-color: ${colorDividers};
-`
-
-const ContentContainer = styled.div`
+const FormContainer = styled.div`
   flex-grow: 1;
 `
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`
+
+const BannerButtonsContainer = styled.div`
+  width: fit-content;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-column-gap: 16px;
+  grid-row-gap: 24px;
+`
+
+interface ChannelSettingsModel {
+  description?: string
+  topic?: string
+  uploadedBannerPath?: string
+  uploadedBadgePath?: string
+  banner?: File
+  badge?: File
+}
 
 type ChannelSettingsDialogProps = CommonDialogProps &
   ReadonlyDeep<ChannelSettingsDialogPayload['initData']>
@@ -45,106 +75,165 @@ export function ChannelSettingsDialog({
   onCancel,
   channelId,
 }: ChannelSettingsDialogProps) {
-  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
-  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
-  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
-  const [section, setSection] = useState<ChannelSettingsSection>(ChannelSettingsSection.General)
-
-  let settingsContent
-  switch (section) {
-    case ChannelSettingsSection.General:
-      settingsContent = (
-        <ChannelSettingsGeneral
-          channelId={channelId}
-          channelDescription={detailedChannelInfo?.description}
-          channelTopic={joinedChannelInfo?.topic}
-        />
-      )
-      break
-    default:
-      assertUnreachable(section)
-  }
-
-  return (
-    <Dialog
-      dialogRef={dialogRef}
-      showCloseButton={true}
-      title={`#${basicChannelInfo?.name}`}
-      onCancel={onCancel}>
-      <Container>
-        <NavContainer>
-          {ALL_CHANNEL_SETTINGS_SECTIONS.map(s => (
-            <NavEntry key={s} section={s} isActive={section === s} onChangeSection={setSection} />
-          ))}
-        </NavContainer>
-
-        <Divider />
-
-        <ContentContainer>{settingsContent}</ContentContainer>
-      </Container>
-    </Dialog>
-  )
-}
-
-const NavEntryRoot = styled.button<{ $isActive: boolean }>`
-  ${buttonReset};
-  position: relative;
-  width: 100%;
-  height: 36px;
-  padding: 0 16px;
-
-  display: flex;
-  align-items: center;
-
-  border-radius: 4px;
-  contain: content;
-  cursor: pointer;
-
-  --sb-ripple-color: ${colorTextPrimary};
-  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
-
-  :focus-visible {
-    outline: none;
-  }
-`
-
-const NavEntryText = styled.span`
-  ${body1};
-  ${singleLine};
-
-  height: 100%;
-  line-height: 36px;
-`
-
-function NavEntry({
-  section,
-  isActive,
-  onChangeSection,
-}: {
-  section: ChannelSettingsSection
-  isActive: boolean
-  onChangeSection: (section: ChannelSettingsSection) => void
-}) {
   const { t } = useTranslation()
-  const onClick = useStableCallback(() => {
-    onChangeSection(section)
-  })
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const dispatch = useAppDispatch()
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)!)
+  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId)!)
+  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)!)
 
-  let title
-  switch (section) {
-    case ChannelSettingsSection.General:
-      title = t('chat.channelSettings.general.title', 'General')
-      break
-    default:
-      assertUnreachable(section)
-  }
+  const onFormSubmit = useStableCallback((model: Readonly<ChannelSettingsModel>) => {
+    const patch: EditChannelRequest = {
+      description:
+        model.description !== detailedChannelInfo.description ? model.description : undefined,
+      topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
+      deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
+      deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
+    }
+
+    dispatch(
+      updateChannel({
+        channelId: basicChannelInfo.id,
+        channelChanges: patch,
+        channelBanner: model.banner,
+        channelBadge: model.badge,
+        spec: {
+          onSuccess: () => {},
+          onError: err => {
+            dispatch(
+              openSnackbar({
+                message: t(
+                  'chat.channelSettings.general.saveErrorMessage',
+                  'Something went wrong saving the settings',
+                ),
+              }),
+            )
+          },
+        },
+      }),
+    )
+  })
+
+  const { bindCustom, bindInput, getInputValue, setInputValue, onSubmit } = useForm(
+    {
+      description: detailedChannelInfo.description,
+      topic: joinedChannelInfo.topic,
+      uploadedBannerPath: detailedChannelInfo.bannerPath,
+      uploadedBadgePath: detailedChannelInfo.badgePath,
+    },
+    {},
+    { onSubmit: onFormSubmit },
+  )
+
+  const bannerUrl = useObjectUrl(getInputValue('banner')) ?? getInputValue('uploadedBannerPath')
+  const badgeUrl = useObjectUrl(getInputValue('badge')) ?? getInputValue('uploadedBadgePath')
+
+  const buttons = [
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      color='accent'
+      onClick={() => dispatch(closeDialog(DialogType.ChannelSettings))}
+    />,
+    <TextButton
+      label={t('common.actions.save', 'Save')}
+      key='save'
+      color='accent'
+      onClick={() => {
+        onSubmit()
+        dispatch(closeDialog(DialogType.ChannelSettings))
+      }}
+    />,
+  ]
 
   return (
-    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0}>
-      <NavEntryText>{title}</NavEntryText>
+    <StyledDialog dialogRef={dialogRef} title={`#${basicChannelInfo?.name}`} buttons={buttons}>
+      <Root>
+        <FormContainer>
+          <StyledForm noValidate={true} onSubmit={onSubmit}>
+            {CHANNEL_BANNERS ? (
+              <BannerButtonsContainer>
+                <SingleFileInput
+                  {...bindCustom('banner')}
+                  label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                  inputProps={{ accept: 'image/*' }}
+                />
 
-      <Ripple ref={rippleRef} />
-    </NavEntryRoot>
+                {bannerUrl ? (
+                  <TextButton
+                    label='Remove banner'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBannerPath', undefined)
+                      setInputValue('banner', undefined)
+                    }}
+                  />
+                ) : (
+                  <div></div>
+                )}
+
+                <SingleFileInput
+                  {...bindCustom('badge')}
+                  label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                  inputProps={{ accept: 'image/*' }}
+                />
+
+                {badgeUrl ? (
+                  <TextButton
+                    label='Remove badge'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBadgePath', undefined)
+                      setInputValue('badge', undefined)
+                    }}
+                  />
+                ) : (
+                  <div></div>
+                )}
+              </BannerButtonsContainer>
+            ) : null}
+
+            <TextField
+              {...bindInput('description')}
+              label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
+              allowErrors={false}
+              floatingLabel={true}
+              multiline={true}
+              rows={4}
+              maxRows={4}
+              inputProps={{ tabIndex: 0 }}
+            />
+            <TextField
+              {...bindInput('topic')}
+              label={t('chat.channelSettings.general.topicLabel', 'Topic')}
+              allowErrors={false}
+              floatingLabel={true}
+              inputProps={{ tabIndex: 0 }}
+            />
+          </StyledForm>
+        </FormContainer>
+
+        <ChannelCardRoot>
+          <ChannelBannerAndBadge>
+            {bannerUrl ? <ChannelBanner src={bannerUrl} /> : <ChannelBannerPlaceholderImage />}
+            {basicChannelInfo ? (
+              <ChannelCardBadge>
+                <ChannelBadge src={badgeUrl} channelName={basicChannelInfo.name} />
+              </ChannelCardBadge>
+            ) : null}
+          </ChannelBannerAndBadge>
+          <ChannelName>{basicChannelInfo.name}</ChannelName>
+
+          <ChannelDescriptionContainer>
+            <span>{getInputValue('description')}</span>
+          </ChannelDescriptionContainer>
+
+          <FlexSpacer />
+
+          <ChannelActions>
+            <div />
+          </ChannelActions>
+        </ChannelCardRoot>
+      </Root>
+    </StyledDialog>
   )
 }

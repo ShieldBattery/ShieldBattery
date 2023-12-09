@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -21,6 +22,7 @@ import {
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
+import { CHANNEL_BANNERS } from '../../../common/flags'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
@@ -177,11 +179,28 @@ export class ChatApi {
         channelChanges: json.object({
           description: Joi.string().allow(null),
           topic: Joi.string().allow(null),
+          deleteBanner: Joi.boolean(),
+          deleteBadge: Joi.boolean(),
         }),
       }),
     })
 
-    return await this.chatService.editChannel(channelId, ctx.session!.user!.id, channelChanges)
+    const bannerFile = ctx.request.files?.banner
+    const badgeFile = ctx.request.files?.badge
+    if (!CHANNEL_BANNERS && (bannerFile || badgeFile)) {
+      throw new httpErrors.BadRequest('banner/badge upload is not supported')
+    }
+    if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
+      throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
+    }
+
+    return await this.chatService.editChannel(
+      channelId,
+      ctx.session!.user!.id,
+      channelChanges,
+      bannerFile,
+      badgeFile,
+    )
   }
 
   @httpDelete('/:channelId')

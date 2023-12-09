@@ -383,6 +383,8 @@ export interface RaisedButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  as?: string | React.ComponentType<any>
+  children?: React.ReactNode
   testName?: string
 }
 
@@ -407,6 +409,8 @@ export const RaisedButton = React.forwardRef(
       title,
       type,
       name,
+      as = 'button',
+      children,
       testName,
     }: RaisedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
@@ -423,6 +427,7 @@ export const RaisedButton = React.forwardRef(
     return (
       <RaisedButtonRoot
         ref={ref}
+        as={as}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -431,6 +436,7 @@ export const RaisedButton = React.forwardRef(
         name={name}
         data-test={testName}
         {...buttonProps}>
+        {children}
         <Label>
           {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
           {label}

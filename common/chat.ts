@@ -346,6 +346,8 @@ export interface JoinChannelResponse {
 export interface EditChannelRequest {
   description?: string | null
   topic?: string | null
+  deleteBanner?: boolean
+  deleteBadge?: boolean
 }
 
 /**

@@ -2,11 +2,11 @@ import { List, Map } from 'immutable'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { FileInput } from '../forms/file-input'
 import form from '../forms/form'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { upload as uploadMap } from '../maps/upload'
 import { RaisedButton, TextButton } from '../material/button'
+import { FileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import {
@@ -83,20 +83,9 @@ class UploadForm extends React.Component {
     const { onSubmit, bindCustom } = this.props
     return (
       <form noValidate={true} onSubmit={onSubmit}>
-        <FileInput
-          {...bindCustom('files')}
-          inputProps={{ multiple: true, accept: '.scm,.scx' }}
-          onFilesCleared={this.onFilesCleared}
-        />
+        <FileInput {...bindCustom('files')} inputProps={{ multiple: true, accept: '.scm,.scx' }} />
       </form>
     )
-  }
-
-  onFilesCleared = () => {
-    this.props.setInputValue('files', '')
-    if (this.props.onCleared) {
-      this.props.onCleared()
-    }
   }
 }
 
@@ -177,7 +166,6 @@ export default class MapManager extends React.Component {
           model={model}
           onSubmit={this.onSubmit}
           onChange={this.onFormChange}
-          onCleared={this.onFilesRemoved}
         />
         {this.renderSelectedFiles()}
         {selectedFiles.size ? (
@@ -244,10 +232,6 @@ export default class MapManager extends React.Component {
 
     const initialUploadStatus = files.map(file => [file.path, UPLOAD_STATUS_PENDING])
     this.setState({ selectedFiles: new List(files), results: new Map(initialUploadStatus) })
-  }
-
-  onFilesRemoved = () => {
-    this.setState({ selectedFiles: new List(), results: new Map() })
   }
 
   onUploadClick = () => {
