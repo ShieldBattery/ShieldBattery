@@ -695,7 +695,8 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "描述",
-                "topicLabel": "话题"
+                "topicLabel": "话题",
+                "saveErrorMessage": "保存设置时出错"
             }
         }
     },
@@ -1273,5 +1274,10 @@
     "fileBrowser": {
         "rootFolder": "根目录",
         "upOneDirectory": "向上一级目录"
+    },
+    "forms": {
+        "fileInput": {
+            "chooseFile": "选择文件"
+        }
     }
 }
