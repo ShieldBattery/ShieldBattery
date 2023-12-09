@@ -995,7 +995,8 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "Описание",
-                "topicLabel": "Тема"
+                "topicLabel": "Тема",
+                "saveErrorMessage": "Что-то пошло не так при сохранении настроек"
             }
         }
     },
@@ -1285,5 +1286,10 @@
         "contents": "Пожалуйста, сообщите нам об этой проблеме в нашем <2>Discord</2>.",
         "reloadApp": "Перезагрузить приложение",
         "title": "Что-то пошло не так :("
+    },
+    "forms": {
+        "fileInput": {
+            "chooseFile": "Выберите файл"
+        }
     }
 }
