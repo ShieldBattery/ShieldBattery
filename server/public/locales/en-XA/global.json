@@ -653,7 +653,8 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "$🗡Description🗡!",
-                "topicLabel": "$🗡Topic🗡!"
+                "topicLabel": "$🗡Topic🗡!",
+                "saveErrorMessage": "$🗡Something went wrong saving the settings🗡!"
             }
         }
     },
@@ -1279,5 +1280,10 @@
         "reloadApp": "$🗡Reload app🗡!",
         "title": "$🗡Something went wrong :(🗡!",
         "contents": "$🗡Please report this issue to us in our <2>Discord</2>.🗡!"
+    },
+    "forms": {
+        "fileInput": {
+            "chooseFile": "$🗡Choose file🗡!"
+        }
     }
 }
