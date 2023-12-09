@@ -778,7 +778,8 @@
         "channelSettings": {
             "general": {
                 "descriptionLabel": "설명",
-                "topicLabel": "주제"
+                "topicLabel": "주제",
+                "saveErrorMessage": "설정을 저장하는 중에 문제가 발생했습니다."
             }
         }
     },
@@ -1273,5 +1274,10 @@
     "fileBrowser": {
         "rootFolder": "루트 폴더",
         "upOneDirectory": "한 디렉토리 위로"
+    },
+    "forms": {
+        "fileInput": {
+            "chooseFile": "파일을 선택"
+        }
     }
 }
