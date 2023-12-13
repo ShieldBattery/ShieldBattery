@@ -1099,6 +1099,10 @@
         "miniMatchHistory": {
             "viewDetails": "Посмотреть детали",
             "noGameSelected": "Игра не выбрана"
+        },
+        "matchHistory": {
+            "noMatchingGames": "Нет подходящих игр.",
+            "retrievingError": "Не удалось получить историю матчей."
         }
     },
     "users": {
