@@ -779,6 +779,10 @@
         "miniMatchHistory": {
             "noGameSelected": "$🗡No game selected🗡!",
             "viewDetails": "$🗡View details🗡!"
+        },
+        "matchHistory": {
+            "retrievingError": "$🗡There was an error retrieving the match history.🗡!",
+            "noMatchingGames": "$🗡No matching games.🗡!"
         }
     },
     "windowControls": {
