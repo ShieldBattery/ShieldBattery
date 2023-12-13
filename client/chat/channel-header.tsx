@@ -11,7 +11,7 @@ import {
 } from '../../common/chat'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { matchLinks } from '../../common/text/links'
-import { useSelfUser } from '../auth/auth-utils'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
@@ -128,6 +128,7 @@ export function ChannelHeader({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const user = useSelfUser()
+  const selfPermissions = useSelfPermissions()
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'bottom')
@@ -195,7 +196,7 @@ export function ChannelHeader({
   })
 
   const actions: React.ReactNode[] = []
-  if (user?.id === joinedChannelInfo.ownerId) {
+  if (selfPermissions?.moderateChatChannels || user?.id === joinedChannelInfo.ownerId) {
     actions.push(
       <MenuItem
         key='channel-settings'
@@ -204,10 +205,8 @@ export function ChannelHeader({
       />,
     )
   }
-  if (actions.length > 0) {
-    actions.push(<Divider key='divider' />)
-  }
   if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
+    actions.push(<Divider key='divider' />)
     actions.push(
       <DestructiveMenuItem
         key='leave-channel'
