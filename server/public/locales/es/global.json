@@ -784,6 +784,10 @@
         "miniMatchHistory": {
             "noGameSelected": "Ningún juego seleccionado",
             "viewDetails": "Ver detalles"
+        },
+        "matchHistory": {
+            "noMatchingGames": "Nada de juegos de combinación.",
+            "retrievingError": "Se produjo un error al recuperar el historial de partidos."
         }
     },
     "windowControls": {
