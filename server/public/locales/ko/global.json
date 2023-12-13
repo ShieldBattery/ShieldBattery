@@ -1169,6 +1169,10 @@
         "miniMatchHistory": {
             "viewDetails": "세부 정보보기",
             "noGameSelected": "선택한 게임 없음"
+        },
+        "matchHistory": {
+            "noMatchingGames": "일치하는 게임이 없습니다.",
+            "retrievingError": "경기 기록을 가져오는 중에 오류가 발생했습니다."
         }
     },
     "windowControls": {
