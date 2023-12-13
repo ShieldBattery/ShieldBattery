@@ -5,11 +5,10 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledResult, getResultLabel } from '../../common/games/results'
-import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user'
 import { navigateToGameResults } from '../games/action-creators'
+import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
-import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { TextButton, useButtonState } from '../material/button'
@@ -25,7 +24,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { Body1, body2, overline, singleLine, subtitle1 } from '../styles/typography'
+import { Body1, body2, singleLine, subtitle1 } from '../styles/typography'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;
@@ -222,84 +221,16 @@ const NoGameText = styled.div`
   text-align: center;
 `
 
-const GamePreviewPlayers = styled.div`
+const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
   position: absolute;
   bottom: 12px; /* 12px + 8px from player bottom margin = 20px */
   left: 16px;
   right: 16px;
 
-  column-count: 2;
-  column-gap: 16px;
   padding-top: 48px;
 
   background: linear-gradient(to bottom, ${rgba(background700, 0)}, ${background700} 40%);
 `
-
-const GamePreviewTeamOverline = styled.div`
-  ${overline};
-  ${singleLine};
-
-  color: ${colorTextSecondary};
-  margin-bottom: 8px;
-`
-
-const GamePreviewPlayer = styled.div`
-  ${body2};
-  ${singleLine};
-
-  height: 20px;
-
-  display: flex;
-  align-items: center;
-
-  margin-bottom: 8px;
-`
-
-const GamePreviewPlayerRaceRoot = styled.div`
-  position: relative;
-  width: auto;
-  height: 20px;
-  margin-right: 4px;
-`
-
-const GamePreviewPlayerAssignedRace = styled(RaceIcon)`
-  width: auto;
-  height: 100%;
-  aspect-ratio: 1;
-`
-
-const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
-  position: absolute;
-  /*
-    NOTE(tec27): For reasons I don't fully understand, 0 positions this at a place where it is
-    clipped by the parent element.
-  */
-  bottom: 2px;
-  right: 0;
-
-  && {
-    width: 12px;
-    height: 12px;
-  }
-
-  & > * {
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
-  }
-`
-
-interface GamePreviewPlayerRaceProps {
-  race: RaceChar
-  isRandom: boolean
-}
-
-function GamePreviewPlayerRace({ race, isRandom }: GamePreviewPlayerRaceProps) {
-  return (
-    <GamePreviewPlayerRaceRoot>
-      <GamePreviewPlayerAssignedRace race={race} />
-      {isRandom && race !== 'r' ? <GamePreviewPlayerRandomIcon race={'r'} /> : null}
-    </GamePreviewPlayerRaceRoot>
-  )
-}
 
 export interface ConnectedGamePreviewProps {
   game?: Immutable<GameRecordJson>
@@ -312,18 +243,6 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   const gameId = game?.id
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
-  const players = useAppSelector(s => {
-    if (!game) {
-      return []
-    }
-
-    const onlyHumans = game.config.teams.flat().filter(p => !p.isComputer)
-    return onlyHumans.map(p => s.users.byId.get(p.id)!)
-  })
-  const playersMapping = useMemo(
-    () => new Map<number, SbUser>(players.map(p => [p.id, p])),
-    [players],
-  )
 
   const onMapPreview = useCallback(() => {
     if (!map) {
@@ -345,10 +264,6 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     }
   }, [dispatch, mapId])
 
-  const resultsById = useMemo(() => {
-    return new Map(game?.results ?? [])
-  }, [game?.results])
-
   if (!game) {
     return (
       <GamePreviewRoot>
@@ -359,83 +274,11 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     )
   }
 
-  const playerElems: React.ReactNode[] = []
-  if (game.config.gameType === 'topVBottom') {
-    playerElems.push(
-      <GamePreviewTeamOverline key={'team-top'}>
-        {t('game.teamName.top', 'Top')}
-      </GamePreviewTeamOverline>,
-    )
-    playerElems.push(
-      ...game.config.teams[0].map((p, i) => {
-        const result = p.isComputer ? undefined : resultsById.get(p.id)
-        return (
-          <GamePreviewPlayer key={`team-top-${i}`}>
-            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-            <span>
-              {p.isComputer
-                ? t('game.playerName.computer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
-            </span>
-          </GamePreviewPlayer>
-        )
-      }),
-    )
-
-    playerElems.push(
-      <GamePreviewTeamOverline key={'team-bottom'}>
-        {t('game.teamName.bottom', 'Bottom')}
-      </GamePreviewTeamOverline>,
-    )
-    playerElems.push(
-      ...game.config.teams[1].map((p, i) => {
-        const result = p.isComputer ? undefined : resultsById.get(p.id)
-        return (
-          <GamePreviewPlayer key={`team-bottom-${i}`}>
-            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-            <span>
-              {p.isComputer
-                ? t('game.playerName.computer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
-            </span>
-          </GamePreviewPlayer>
-        )
-      }),
-    )
-  } else {
-    // TODO(tec27): Handle UMS game types with 2 teams? Always add team labels for 1v1?
-    playerElems.push(
-      ...game.config.teams.flatMap((team, i) =>
-        team.map((p, j) => {
-          const result = p.isComputer ? undefined : resultsById.get(p.id)
-          return (
-            <GamePreviewPlayer key={`team-${i}-${j}`}>
-              <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-              <span>
-                {p.isComputer
-                  ? t('game.playerName.computer', 'Computer')
-                  : playersMapping.get(p.id)?.name ??
-                    t('game.playerName.unknown', 'Unknown player')}
-              </span>
-            </GamePreviewPlayer>
-          )
-        }),
-      ),
-    )
-  }
-
-  // NOTE(tec27): If there are an uneven number of items, column-count does really weird stuff
-  // splitting the middle element across both columns, which we definitely don't want. Instead we
-  // just add a dummy entry at the end to balance the columns.
-  if (playerElems.length % 2 !== 0) {
-    playerElems.push(<GamePreviewPlayer key={`placeholder`} />)
-  }
-
   return (
     <GamePreviewRoot>
       <GamePreviewDetails>
         {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
-        <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
+        <StyledGamePlayersDisplay game={game} />
       </GamePreviewDetails>
       <TextButton
         label={t('user.miniMatchHistory.viewDetails', 'View details')}

@@ -11,6 +11,7 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
+  SearchMatchHistoryResponse,
 } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
@@ -103,6 +104,29 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
       infoBatchRequester.request(dispatch, userId)
     }
   }
+}
+
+export function searchMatchHistory(
+  userId: SbUserId,
+  offset: number,
+  spec: RequestHandlingSpec<SearchMatchHistoryResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<SearchMatchHistoryResponse>(
+      apiUrl`users/${userId}/match-history?offset=${offset}`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@users/searchMatchHistory',
+      payload: result,
+      meta: { userId },
+    })
+
+    return result
+  })
 }
 
 export function adminGetUserPermissions(

@@ -9,6 +9,8 @@ import { SbPolicyType } from '../policies/policy-type'
 import { SbPermissions } from './permissions'
 import { UserStats } from './user-stats'
 
+export const SEARCH_MATCH_HISTORY_LIMIT = 40
+
 export type SbUserId = Opaque<number, 'SbUser'>
 
 /**
@@ -96,6 +98,16 @@ export interface GetUserProfileResponse {
     maps: MapInfoJson[]
     users: SbUser[]
   }
+}
+
+/**
+ * The response returned when searching the user's match history.
+ */
+export interface SearchMatchHistoryResponse {
+  games: GameRecordJson[]
+  maps: MapInfoJson[]
+  users: SbUser[]
+  hasMoreGames: boolean
 }
 
 export interface GetBatchUserInfoResponse {

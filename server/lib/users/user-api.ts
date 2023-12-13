@@ -47,6 +47,8 @@ import {
   GetUserProfileResponse,
   SbUser,
   SbUserId,
+  SEARCH_MATCH_HISTORY_LIMIT,
+  SearchMatchHistoryResponse,
   SelfUser,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
@@ -55,7 +57,7 @@ import {
 import { ClientSessionInfo } from '../../../common/users/session'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
-import { getRecentGamesForUser } from '../games/game-models'
+import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
@@ -118,6 +120,12 @@ const accountUpdateThrottle = createThrottle('accountupdate', {
 const accountRetrievalThrottle = createThrottle('accountretrieval', {
   rate: 40,
   burst: 80,
+  window: 60000,
+})
+
+const matchHistoryRetrievalThrottle = createThrottle('matchhistoryretrieval', {
+  rate: 50,
+  burst: 150,
   window: 60000,
 })
 
@@ -367,6 +375,63 @@ export class UserApi {
       user,
       profile: { userId: user.id, created: Number(createdDate), ladder, userStats },
       matchHistory,
+    }
+  }
+
+  @httpGet('/:id/match-history')
+  @httpBefore(
+    throttleMiddleware(
+      matchHistoryRetrievalThrottle,
+      ctx => String(ctx.session?.user?.id) ?? ctx.ip,
+    ),
+  )
+  async searchMatchHistory(ctx: RouterContext): Promise<SearchMatchHistoryResponse> {
+    const {
+      params,
+      query: { offset },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      query: Joi.object<{ q?: string; offset: number }>({
+        q: Joi.string().allow(''),
+        offset: Joi.number().min(0),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const games = await searchGamesForUser({
+      userId: user.id,
+      limit: SEARCH_MATCH_HISTORY_LIMIT,
+      offset,
+    })
+    const uniqueUsers = new Set<SbUserId>()
+    const uniqueMaps = new Set<string>()
+    for (const g of games) {
+      uniqueMaps.add(g.mapId)
+
+      for (const team of g.config.teams) {
+        for (const player of team) {
+          if (!player.isComputer) {
+            uniqueUsers.add(player.id)
+          }
+        }
+      }
+    }
+    const [users, maps] = await Promise.all([
+      findUsersById(Array.from(uniqueUsers.values())),
+      getMapInfo(Array.from(uniqueMaps.values())),
+    ])
+
+    return {
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      hasMoreGames: games.length >= SEARCH_MATCH_HISTORY_LIMIT,
     }
   }
 

@@ -49,6 +49,7 @@ import {
   navigateToUserProfile,
   viewUserProfile,
 } from './action-creators'
+import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
@@ -230,8 +231,11 @@ export function UserProfilePage({
       content = <SummaryPage user={user} profile={profile} matchHistory={matchHistory} />
       break
 
-    case UserProfileSubPage.Stats:
     case UserProfileSubPage.MatchHistory:
+      content = <ConnectedMatchHistory userId={user.id} />
+      break
+
+    case UserProfileSubPage.Stats:
     case UserProfileSubPage.Seasons:
       content = <ComingSoonPage />
       break

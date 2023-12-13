@@ -1170,6 +1170,10 @@
     }
   },
   "user": {
+    "matchHistory": {
+      "noMatchingGames": "No matching games.",
+      "retrievingError": "There was an error retrieving the match history."
+    },
     "miniMatchHistory": {
       "noGameSelected": "No game selected",
       "viewDetails": "View details"
