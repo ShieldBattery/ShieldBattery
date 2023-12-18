@@ -116,15 +116,18 @@ export const startCountdown = () =>
 export const sendChat = text =>
   createSiteSocketAction(LOBBY_SEND_CHAT_BEGIN, LOBBY_SEND_CHAT, '/lobbies/sendChat', { text })
 
-const STATE_CACHE_TIMEOUT = 1 * 60 * 1000
+const STATE_CACHE_TIMEOUT = 20 * 1000
 export function getLobbyState(lobbyName) {
   return (dispatch, getState) => {
+    console.log('get lobby state!')
     const { lobbyState } = getState()
-    const requestTime = Date.now()
+    const requestTime = window.performance.now()
     if (
       lobbyState.has(lobbyName) &&
-      requestTime - lobbyState.get(lobbyName).time < STATE_CACHE_TIMEOUT
+      (!lobbyState.get(lobbyName).time ||
+        requestTime - lobbyState.get(lobbyName).time < STATE_CACHE_TIMEOUT)
     ) {
+      console.log('Using cached lobby state')
       return
     }
 

@@ -1,0 +1,299 @@
+import React, { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
+import { Route, Switch } from 'wouter'
+import { LobbyState } from '../../common/lobbies'
+import { RaceChar } from '../../common/races'
+import { useSelfUser } from '../auth/auth-utils'
+import { navigateToGameResults } from '../games/action-creators'
+import { ResultsSubPage } from '../games/results-sub-page'
+import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
+import { push, replace } from '../navigation/routing'
+import LoadingIndicator from '../progress/dots'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { usePrevious, useStableCallback } from '../state-hooks'
+import {
+  activateLobby,
+  addComputer,
+  banPlayer,
+  changeSlot,
+  closeSlot,
+  deactivateLobby,
+  getLobbyState,
+  kickPlayer,
+  leaveLobby,
+  makeObserver,
+  openSlot,
+  removeObserver,
+  sendChat,
+  setRace,
+  startCountdown,
+} from './action-creators'
+import ActiveLobby from './active-lobby'
+import LoadingScreen from './loading'
+import Lobby from './lobby'
+
+const LoadingArea = styled.div`
+  height: 32px;
+  display: flex;
+  align-items: center;
+`
+
+const PreLobbyArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+`
+
+export interface LobbyViewProps {
+  params: { lobby: string }
+}
+
+export function LobbyView(props: LobbyViewProps) {
+  const dispatch = useAppDispatch()
+  const routeLobby = decodeURIComponent(props.params.lobby)
+  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const lobbyName = useAppSelector(s => s.lobby.info.name)
+
+  const prevRouteLobby = usePrevious(routeLobby)
+  const prevInLobby = usePrevious(inLobby)
+  const prevLobbyName = usePrevious(lobbyName)
+  const isLeavingLobby =
+    !inLobby && prevRouteLobby === routeLobby && prevInLobby && prevLobbyName === prevRouteLobby
+
+  const isActiveGame = useAppSelector(s => s.activeGame.isActive)
+  const prevIsActiveGame = usePrevious(isActiveGame)
+  const gameClientGameId = useAppSelector(s => s.gameClient.gameId)
+  const prevGameClientGameId = usePrevious(gameClientGameId)
+
+  useEffect(() => {
+    // TODO(tec27): This check seems kind of bad because you could (theoretically) get kicked from
+    // a lobby on the same render you launch an active game? Ideally this would check that this
+    // specific lobby is the active one (or we move the 'actiev game' stuff out of the lobby flow
+    // entirely, which is probably better)
+    if (isLeavingLobby && !isActiveGame) {
+      push('/')
+    }
+  }, [isLeavingLobby, isActiveGame])
+  useEffect(() => {
+    if (!isActiveGame && prevIsActiveGame) {
+      if (prevGameClientGameId) {
+        navigateToGameResults(
+          prevGameClientGameId,
+          true /* isPostGame */,
+          ResultsSubPage.Summary,
+          replace,
+        )
+      } else {
+        replace('/')
+      }
+    }
+  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame])
+
+  useEffect(() => {
+    dispatch(getLobbyState(routeLobby))
+
+    if (inLobby) {
+      dispatch(activateLobby() as any)
+    }
+
+    return () => {
+      dispatch(deactivateLobby() as any)
+    }
+  }, [dispatch, inLobby, routeLobby])
+
+  return (
+    <Switch>
+      <Route path='/lobbies/:lobby/loading-game'>
+        <LobbyLoadingScreen />
+      </Route>
+      <Route path='/lobbies/:lobby/active-game'>
+        <ActiveLobbyGameScreen />
+      </Route>
+      <Route path='/lobbies/:lobby'>
+        <LobbyContent routeLobby={routeLobby} />
+      </Route>
+    </Switch>
+  )
+}
+
+function LobbyLoadingScreen() {
+  const isLoading = useAppSelector(s => s.lobby.info.isLoading)
+  const lobbyInfo = useAppSelector(s => s.lobby.info)
+  const gameClientStatus = useAppSelector(s => s.gameClient.status)
+  const user = useSelfUser()
+
+  return isLoading ? (
+    <LoadingScreen lobby={lobbyInfo} gameStatus={gameClientStatus} user={user} />
+  ) : null
+}
+
+function ActiveLobbyGameScreen() {
+  const hasActiveGame = useAppSelector(s => s.activeGame.isActive)
+  const activeGameLobby = useAppSelector(s =>
+    s.activeGame.info?.type === 'lobby' ? s.activeGame.info.extra.lobby.info : undefined,
+  )
+
+  return hasActiveGame && activeGameLobby ? <ActiveLobby lobby={activeGameLobby} /> : null
+}
+
+function LobbyContent({ routeLobby }: { routeLobby: string }) {
+  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const lobbyName = useAppSelector(s => s.lobby.info.name)
+
+  if (!inLobby) {
+    return <LobbyStateView routeLobby={routeLobby} />
+  } else if (lobbyName !== routeLobby) {
+    return <InAnotherLobbyView />
+  } else {
+    return <ConnectedLobby />
+  }
+}
+
+function ConnectedLobby() {
+  const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+  const lobby = useAppSelector(s => s.lobby.info)
+  const chat = useAppSelector(s => s.lobby.chat)
+  const isFavoritingMap = useAppSelector(s =>
+    lobby.map ? s.maps.favoriteStatusRequests.has((lobby.map as any).id) : false,
+  )
+
+  const onLeaveLobbyClick = useStableCallback(() => {
+    dispatch(leaveLobby())
+  })
+  const onAddComputer = useStableCallback((slotId: string) => {
+    dispatch(addComputer(slotId))
+  })
+  const onSwitchSlot = useStableCallback((slotId: string) => {
+    dispatch(changeSlot(slotId))
+  })
+  const onOpenSlot = useStableCallback((slotId: string) => {
+    dispatch(openSlot(slotId))
+  })
+  const onCloseSlot = useStableCallback((slotId: string) => {
+    dispatch(closeSlot(slotId))
+  })
+  const onKickPlayer = useStableCallback((slotId: string) => {
+    dispatch(kickPlayer(slotId))
+  })
+  const onBanPlayer = useStableCallback((slotId: string) => {
+    dispatch(banPlayer(slotId))
+  })
+  const onMakeObserver = useStableCallback((slotId: string) => {
+    dispatch(makeObserver(slotId))
+  })
+  const onRemoveObserver = useStableCallback((slotId: string) => {
+    dispatch(removeObserver(slotId))
+  })
+  const onSetRace = useStableCallback((slotId: string, race: RaceChar) => {
+    dispatch(setRace(slotId, race))
+  })
+  const onSendChatMessage = useStableCallback((message: string) => {
+    dispatch(sendChat(message))
+  })
+  const onStartGame = useStableCallback(() => {
+    dispatch(startCountdown())
+  })
+  const onMapPreview = useStableCallback(() => {
+    dispatch(openMapPreviewDialog((lobby.map as any).id))
+  })
+  const onToggleFavoriteMap = useStableCallback(() => {
+    dispatch(toggleFavoriteMap(lobby.map as any))
+  })
+
+  return (
+    <Lobby
+      lobby={lobby}
+      chat={chat}
+      user={selfUser!}
+      isFavoritingMap={isFavoritingMap}
+      onLeaveLobbyClick={onLeaveLobbyClick}
+      onAddComputer={onAddComputer}
+      onSetRace={onSetRace}
+      onSwitchSlot={onSwitchSlot}
+      onOpenSlot={onOpenSlot}
+      onCloseSlot={onCloseSlot}
+      onKickPlayer={onKickPlayer}
+      onBanPlayer={onBanPlayer}
+      onMakeObserver={onMakeObserver}
+      onRemoveObserver={onRemoveObserver}
+      onStartGame={onStartGame}
+      onSendChatMessage={onSendChatMessage}
+      onMapPreview={onMapPreview}
+      onToggleFavoriteMap={onToggleFavoriteMap}
+    />
+  )
+}
+
+function InAnotherLobbyView() {
+  const { t } = useTranslation()
+
+  return (
+    <PreLobbyArea as='p'>
+      {t('lobbies.errors.alreadyInLobby', "You're already in another lobby.")}
+    </PreLobbyArea>
+  )
+}
+
+function LobbyStateView({ routeLobby }: { routeLobby: string }) {
+  const { t } = useTranslation()
+  const lobby = useAppSelector(s => s.lobbyState.get(routeLobby))
+  if (!lobby) {
+    return null
+  }
+
+  let preLobbyAreaContents: React.ReactNode
+  if (!lobby.state && !lobby.error) {
+    if (lobby.isRequesting) {
+      preLobbyAreaContents = (
+        <LoadingArea>
+          <LoadingIndicator />
+        </LoadingArea>
+      )
+    } else {
+      preLobbyAreaContents = (
+        <span>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</span>
+      )
+    }
+  } else if (lobby.state) {
+    preLobbyAreaContents = (
+      <>
+        {lobby.isRequesting ? (
+          <LoadingArea>
+            <LoadingIndicator />
+          </LoadingArea>
+        ) : null}
+        <LobbyStateContent state={lobby.state} />
+      </>
+    )
+  } else if (lobby.error) {
+    preLobbyAreaContents = (
+      <>
+        {lobby.isRequesting ? (
+          <LoadingArea>
+            <LoadingIndicator />
+          </LoadingArea>
+        ) : null}
+        <p>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</p>
+      </>
+    )
+  }
+
+  return <PreLobbyArea>{preLobbyAreaContents}</PreLobbyArea>
+}
+
+function LobbyStateContent({ state }: { state: LobbyState }) {
+  const { t } = useTranslation()
+  switch (state) {
+    case 'nonexistent':
+      return <p>{t('lobbies.state.nonexistent', "Lobby doesn't exist. Create it?")}</p>
+    case 'exists':
+      return <p>{t('lobbies.state.exists', 'Lobby already exists. Join it?')}</p>
+    case 'countingDown':
+    case 'hasStarted':
+      return <p>{t('lobbies.state.started', 'Lobby already started.')}</p>
+    default:
+      throw new Error('Unknown lobby state: ' + state)
+  }
+}

@@ -10,6 +10,9 @@ import { Slot, SlotType } from './slot'
  */
 export const MAX_OBSERVERS = 4
 
+/** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
+export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
+
 export class Team extends Record({
   name: '',
   teamId: 0,

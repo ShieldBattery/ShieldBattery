@@ -31,7 +31,7 @@ import { navigateToLadder } from './ladder/action-creators'
 import { LadderRouteComponent } from './ladder/ladder'
 import { navigateToLeaguesList } from './leagues/action-creators'
 import { LeagueRoot } from './leagues/league-list'
-import LobbyView from './lobbies/view'
+import { LobbyView } from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
@@ -94,7 +94,7 @@ let matchmakingRoute = <></>
 let partyRoute = <></>
 if (IS_ELECTRON) {
   // TODO(2Pac): Remove `any` once the `LobbyView` is TS-ified
-  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView as any} />
+  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView} />
   matchmakingRoute = <Route path='/matchmaking/:rest*' component={MatchmakingView} />
   partyRoute = <Route path='/parties/:partyId/:rest*' component={PartyView} />
 }
