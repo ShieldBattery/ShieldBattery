@@ -11,10 +11,10 @@ dependencies in order to properly test things.
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (16.14.0 at the time of
-writing). On Windows, you'll be given the option to install dependencies for building native modules
-(Visual Studio build tools + Python), you should take that option if you don't already have them
-installed separately.
+to install a version of it, generally the current LTS version is a good choice (20.10.5 at the time
+of writing). On Windows, you'll be given the option to install dependencies for building native
+modules (Visual Studio build tools + Python), you should take that option if you don't already have
+them installed separately.
 
 ### Yarn
 
@@ -24,9 +24,9 @@ Note that we are currently using "Yarn Classic" (that is, 1.x).
 
 ### C++
 
-Visual Studio 2017 or higher is required to build various C++ parts and to link the Rust DLL.
+Visual Studio 2022 or higher is required to build various C++ parts and to link the Rust DLL.
 The easiest/cheapest way to get this is through the
-[Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
+[Community edition](https://visualstudio.microsoft.com/downloads/).
 
 ### Rust
 
