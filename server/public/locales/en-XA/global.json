@@ -646,9 +646,13 @@
         "channelHeader": {
             "actionItems": {
                 "leaveChannel": "$🗡Leave channel🗡!",
-                "channelSettings": "$🗡Channel settings🗡!"
+                "channelSettings": "$🗡Channel settings🗡!",
+                "hideBanner": "$🗡Hide banner🗡!"
             },
-            "moreActions": "$🗡More actions🗡!"
+            "moreActions": "$🗡More actions🗡!",
+            "errors": {
+                "toggleBannerVisibility": "$🗡Something went wrong toggling the banner visibility🗡!"
+            }
         },
         "channelSettings": {
             "general": {
