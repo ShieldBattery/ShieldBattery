@@ -2,7 +2,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { EditChannelRequest } from '../../common/chat'
+import { ChatServiceErrorCode, EditChannelRequest } from '../../common/chat'
 import { CHANNEL_BANNERS } from '../../common/flags'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -14,8 +14,9 @@ import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { SingleFileInput } from '../material/file-input'
 import { TextField } from '../material/text-field'
+import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { updateChannel } from './action-creators'
@@ -99,14 +100,18 @@ export function ChannelSettingsDialog({
         spec: {
           onSuccess: () => {},
           onError: err => {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'chat.channelSettings.general.saveErrorMessage',
-                  'Something went wrong saving the settings',
-                ),
-              }),
+            let message = t(
+              'chat.channelSettings.general.saveErrorMessage',
+              'Something went wrong saving the settings',
             )
+            if (isFetchError(err) && err.code === ChatServiceErrorCode.InappropriateImage) {
+              message = t(
+                'chat.channelSettings.general.inappropriateImageErrorMessage',
+                'The selected image is inappropriate. Please select a different image.',
+              )
+            }
+
+            dispatch(openSnackbar({ message, time: TIMING_LONG }))
           },
         },
       }),

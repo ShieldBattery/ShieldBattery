@@ -160,6 +160,7 @@
     "channelSettings": {
       "general": {
         "descriptionLabel": "Description",
+        "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
         "saveErrorMessage": "Something went wrong saving the settings",
         "topicLabel": "Topic"
       }

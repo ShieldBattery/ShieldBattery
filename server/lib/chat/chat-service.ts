@@ -41,6 +41,7 @@ import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
 import { writeFile } from '../file-upload'
 import { createImagePath, resizeImage } from '../file-upload/images'
+import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -118,6 +119,7 @@ export default class ChatService {
   private state = new ChatState()
 
   constructor(
+    private imageService: ImageService,
     private publisher: TypedPublisher<ChatEvent | ChatUserEvent>,
     private userSocketsManager: UserSocketsManager,
   ) {
@@ -422,6 +424,20 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotEditChannel,
         'Only channel owner and admins can edit the channel',
+      )
+    }
+
+    if (bannerFile && !(await this.imageService.isImageSafe(bannerFile.filepath))) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.InappropriateImage,
+        'Banner image is inappropriate',
+      )
+    }
+
+    if (badgeFile && !(await this.imageService.isImageSafe(badgeFile.filepath))) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.InappropriateImage,
+        'Badge image is inappropriate',
       )
     }
 

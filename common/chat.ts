@@ -33,6 +33,7 @@ export enum ChatServiceErrorCode {
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
+  InappropriateImage = 'InappropriateImage',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   NoInitialChannelData = 'NoChannelData',
