@@ -53,8 +53,9 @@ ENV SB_PREBUILT_ASSETS=true
 # Also, we need python to execute some python scripts (e.g. `s3cmd`).
 RUN apk add --no-cache bash logrotate jq python3 py-pip
 
-# Install the dependencies of the `s3cmd` python script
-RUN pip3 install python-dateutil
+# Install the dependencies of the `s3cmd` python script (--break-system-packages because otherwise
+# we'd need a virtualenv, which is overkill since we're not using python for anything else)
+RUN pip3 install python-dateutil --break-system-packages
 
 # Set up log rotation
 COPY --from=builder /shieldbattery/server/deployment_files/logrotate.conf /etc/logrotate.d/shieldbattery
