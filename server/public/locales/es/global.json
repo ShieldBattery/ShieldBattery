@@ -651,9 +651,13 @@
         "channelHeader": {
             "actionItems": {
                 "leaveChannel": "Salir del canal",
-                "channelSettings": "Configuración del canal"
+                "channelSettings": "Configuración del canal",
+                "hideBanner": "Ocultar banner"
             },
-            "moreActions": "Mas acciones"
+            "moreActions": "Mas acciones",
+            "errors": {
+                "toggleBannerVisibility": "Algo salió mal al alternar la visibilidad del banner."
+            }
         },
         "channelSettings": {
             "general": {
