@@ -119,9 +119,9 @@ export default class ChatService {
   private state = new ChatState()
 
   constructor(
-    private imageService: ImageService,
     private publisher: TypedPublisher<ChatEvent | ChatUserEvent>,
     private userSocketsManager: UserSocketsManager,
+    private imageService: ImageService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
