@@ -120,7 +120,11 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Channel settings",
+        "hideBanner": "Hide banner",
         "leaveChannel": "Leave channel"
+      },
+      "errors": {
+        "toggleBannerVisibility": "Something went wrong toggling the banner visibility"
       },
       "moreActions": "More actions"
     },

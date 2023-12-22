@@ -3,6 +3,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   BasicChannelInfo,
   ChannelPermissions,
+  ChannelPreferences,
   DetailedChannelInfo,
   JoinedChannelInfo,
   MAXIMUM_JOINED_CHANNELS,
@@ -23,16 +24,20 @@ export interface UserChannelEntry {
   userId: SbUserId
   channelId: SbChannelId
   joinDate: Date
+  channelPreferences: ChannelPreferences
   channelPermissions: ChannelPermissions
 }
 
-type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPermissions>
+type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPreferences & ChannelPermissions>
 
 function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEntry {
   return {
     userId: props.user_id,
     channelId: props.channel_id,
     joinDate: props.join_date,
+    channelPreferences: {
+      hideBanner: props.hide_banner,
+    },
     channelPermissions: {
       kick: props.kick,
       ban: props.ban,
@@ -520,6 +525,47 @@ export async function removeUserFromChannel(
 
     return { newOwnerId: newOwnerResult.rows[0].owner_id }
   })
+}
+
+export async function updateUserPreferences(
+  channelId: SbChannelId,
+  userId: SbUserId,
+  updates: Patch<ChannelPreferences>,
+  withClient?: DbClient,
+) {
+  const updateEntries = Object.entries(updates).filter(([_, value]) => value !== undefined)
+  if (!updateEntries.length) {
+    throw new Error('No columns updated')
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      UPDATE channel_users
+      SET
+      ${sqlConcat(
+        ', ',
+        updateEntries.map(([_key, value]) => {
+          const key = _key as keyof typeof updates
+
+          switch (key) {
+            case 'hideBanner':
+              return sql`hide_banner = ${value}`
+
+            default:
+              return assertUnreachable(key)
+          }
+        }),
+      )}
+      WHERE channel_id = ${channelId} AND user_id = ${userId}
+      RETURNING *
+    `
+
+    const result = await client.query<DbUserChannelEntry>(query)
+    return convertUserChannelEntryFromDb(result.rows[0])
+  } finally {
+    done()
+  }
 }
 
 export async function updateUserPermissions(

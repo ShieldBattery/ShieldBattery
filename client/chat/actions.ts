@@ -7,6 +7,7 @@ import {
   ChatMessageDeletedEvent,
   ChatMessageEvent,
   ChatPermissionsChangedEvent,
+  ChatPreferencesChangedEvent,
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
@@ -56,6 +57,7 @@ export type ChatActions =
   | UpdateUserActive
   | UpdateUserIdle
   | UpdateUserOffline
+  | UpdateSelfPreferences
   | UpdateSelfPermissions
 
 export interface JoinChannelBegin {
@@ -363,6 +365,15 @@ export interface UpdateUserIdle {
 export interface UpdateUserOffline {
   type: '@chat/updateUserOffline'
   payload: ChatUserOfflineEvent
+  meta: { channelId: SbChannelId }
+}
+
+/**
+ * Our preferences in one of the chat channels we're in have changed.
+ */
+export interface UpdateSelfPreferences {
+  type: '@chat/preferencesChanged'
+  payload: ChatPreferencesChangedEvent
   meta: { channelId: SbChannelId }
 }
 

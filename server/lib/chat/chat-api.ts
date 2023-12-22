@@ -20,6 +20,7 @@ import {
   SearchChannelsResponse,
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
+  UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { CHANNEL_BANNERS } from '../../../common/flags'
@@ -88,6 +89,12 @@ const getUserProfileThrottle = createThrottle('chatgetuserprofile', {
 const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   rate: 30,
   burst: 60,
+  window: 60000,
+})
+
+const userPreferencesThrottle = createThrottle('chatuserpreferences', {
+  rate: 40,
+  burst: 70,
   window: 60000,
 })
 
@@ -275,6 +282,26 @@ export class ChatApi {
   async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelId = getValidatedChannelId(ctx)
     return await this.chatService.getChannelUsers({ channelId, userId: ctx.session!.user!.id })
+  }
+
+  @httpPost('/:channelId/userPreferences')
+  @httpBefore(throttleMiddleware(userPreferencesThrottle, ctx => String(ctx.session!.user!.id)))
+  async updateChannelUserPreferences(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId },
+      body,
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId }>({
+        channelId: joiSerialId().required(),
+      }),
+      body: Joi.object<UpdateChannelUserPreferencesRequest>({
+        hideBanner: Joi.boolean(),
+      }),
+    })
+
+    await this.chatService.updateUserPreferences(channelId, ctx.session!.user!.id, body)
+
+    ctx.status = 204
   }
 
   @httpGet('/:channelId/users/:targetId')

@@ -11,6 +11,7 @@ import { useStableCallback } from '../state-hooks'
 import { MenuItemCategory } from '../users/user-context-menu'
 
 const MessagesAndInput = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 320px;
@@ -19,6 +20,7 @@ const MessagesAndInput = styled.div`
 `
 
 const StyledMessageList = styled(MessageList)`
+  position: relative;
   flex-grow: 1;
 `
 
@@ -31,6 +33,11 @@ interface ChatProps {
    * you need to show more information about the current chat content.
    */
   header?: React.ReactNode
+  /**
+   * Optional background content (usually an image) which will be rendered behind the message list.
+   * Should be absolutely positioned and have lower opacity so the messages are readable.
+   */
+  backgroundContent?: React.ReactNode
   /**
    * Optional extra content to place within the chat context provider. This is useful if you need to
    * e.g. mention users via shift-click from UIs outside the message list.
@@ -86,6 +93,7 @@ export function Chat({
   listProps,
   inputProps,
   header,
+  backgroundContent,
   extraContent,
   modifyUserMenuItems,
   modifyMessageMenuItems,
@@ -155,6 +163,7 @@ export function Chat({
     <ChatContext.Provider value={chatContextValue}>
       <MessagesAndInput className={className}>
         {header}
+        {backgroundContent}
         <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
         <MessageInput
           {...inputProps}

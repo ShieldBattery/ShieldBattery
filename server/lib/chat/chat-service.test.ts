@@ -4,6 +4,7 @@ import {
   BasicChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
+  ChannelPreferences,
   DetailedChannelInfo,
   GetChannelHistoryServerResponse,
   JoinedChannelInfo,
@@ -54,6 +55,7 @@ import {
   toBasicChannelInfo,
   updateChannel,
   updateUserPermissions,
+  updateUserPreferences,
   UserChannelEntry,
 } from './chat-models'
 import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
@@ -113,6 +115,7 @@ jest.mock('./chat-models', () => {
     getMessagesForChannel: jest.fn().mockResolvedValue([]),
     deleteChannelMessage: jest.fn(),
     removeUserFromChannel: jest.fn(),
+    updateUserPreferences: jest.fn(),
     updateUserPermissions: jest.fn(),
     countBannedIdentifiersForChannel: jest.fn(),
     banUserFromChannel: jest.fn(),
@@ -207,6 +210,9 @@ describe('chat/chat-service', () => {
   }
 
   const userPermissions = { ...DEFAULT_PERMISSIONS }
+  const channelPreferences: ChannelPreferences = {
+    hideBanner: false,
+  }
   const channelPermissions: ChannelPermissions = {
     kick: false,
     ban: false,
@@ -218,24 +224,28 @@ describe('chat/chat-service', () => {
     userId: user1.id,
     channelId: shieldBatteryChannel.id,
     joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    channelPreferences,
     channelPermissions,
   }
   const user1TestChannelEntry: UserChannelEntry = {
     userId: user1.id,
     channelId: testChannel.id,
     joinDate: new Date('2023-03-12T00:00:00.000Z'),
+    channelPreferences,
     channelPermissions,
   }
   const user2ShieldBatteryChannelEntry: UserChannelEntry = {
     userId: user2.id,
     channelId: shieldBatteryChannel.id,
     joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    channelPreferences,
     channelPermissions,
   }
   const user2TestChannelEntry: UserChannelEntry = {
     userId: user2.id,
     channelId: testChannel.id,
     joinDate: new Date('2023-03-12T00:00:00.000Z'),
+    channelPreferences,
     channelPermissions,
   }
 
@@ -457,6 +467,7 @@ describe('chat/chat-service', () => {
             detailedChannelInfo: shieldBatteryDetailedInfo,
             joinedChannelInfo: shieldBatteryJoinedInfo,
             activeUserIds: [user3.id],
+            selfPreferences: channelPreferences,
             selfPermissions: channelPermissions,
           },
           {
@@ -464,6 +475,7 @@ describe('chat/chat-service', () => {
             detailedChannelInfo: testDetailedInfo,
             joinedChannelInfo: testJoinedInfo,
             activeUserIds: [user3.id],
+            selfPreferences: channelPreferences,
             selfPermissions: channelPermissions,
           },
         ],
@@ -551,6 +563,7 @@ describe('chat/chat-service', () => {
           detailedChannelInfo: shieldBatteryDetailedInfo,
           joinedChannelInfo: shieldBatteryJoinedInfo,
           activeUserIds: [user2.id, user1.id],
+          selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
       )
@@ -672,6 +685,7 @@ describe('chat/chat-service', () => {
           detailedChannelInfo: shieldBatteryDetailedInfo,
           joinedChannelInfo: shieldBatteryJoinedInfo,
           activeUserIds: [user2.id, user1.id],
+          selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
       )
@@ -718,6 +732,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
         activeUserIds: [user1.id],
+        selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
       })
     })
@@ -2155,6 +2170,55 @@ describe('chat/chat-service', () => {
         userId: user2TestChannelEntry.userId,
         channelId: user2TestChannelEntry.channelId,
         permissions: user2TestChannelEntry.channelPermissions,
+      })
+    })
+  })
+
+  describe('updateUserPreferences', () => {
+    const updateUserPreferencesMock =
+      asMockedFunction(updateUserPreferences).mockResolvedValue(user1TestChannelEntry)
+
+    beforeEach(async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+    })
+
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+    })
+
+    test('should throw if not in channel', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
+      await expect(
+        chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in channel to update preferences"`)
+    })
+
+    test('works when updating channel preferences', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      await chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences)
+
+      expect(updateUserPreferencesMock).toHaveBeenCalledWith(
+        testChannel.id,
+        user1.id,
+        channelPreferences,
+      )
+      expect(client1.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
+        action: 'preferencesChanged',
+        selfPreferences: channelPreferences,
       })
     })
   })

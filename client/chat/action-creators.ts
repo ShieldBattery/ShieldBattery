@@ -12,6 +12,7 @@ import {
   SbChannelId,
   SearchChannelsResponse,
   SendChatMessageServerRequest,
+  UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
@@ -133,6 +134,20 @@ export function updateChannel({
       meta: {
         channelId,
       },
+    })
+  })
+}
+
+export function updateChannelUserPreferences(
+  channelId: SbChannelId,
+  preferences: UpdateChannelUserPreferencesRequest,
+  spec: RequestHandlingSpec<void>,
+) {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`chat/${channelId}/userPreferences`, {
+      method: 'POST',
+      body: encodeBodyAsParams<UpdateChannelUserPreferencesRequest>(preferences),
+      signal: spec.signal,
     })
   })
 }

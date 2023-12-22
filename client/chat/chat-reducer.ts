@@ -4,6 +4,7 @@ import {
   BasicChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
+  ChannelPreferences,
   ChatMessage,
   ChatUserProfileJson,
   ClientChatMessageType,
@@ -50,6 +51,8 @@ export interface ChatState {
   idToMessages: Map<SbChannelId, MessagesState>
   /** A nested map of channel ID -> a map of user ID -> chat channel user profile */
   idToUserProfiles: Map<SbChannelId, Map<SbUserId, ChatUserProfileJson>>
+  /** A map of channel ID -> your own preferences for this chat channel */
+  idToSelfPreferences: Map<SbChannelId, ChannelPreferences>
   /** A map of channel ID -> your own permissions for this chat channel */
   idToSelfPermissions: Map<SbChannelId, ChannelPermissions>
   /** A set of joined chat channels that are activated */
@@ -68,6 +71,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToUsers: new Map(),
   idToMessages: new Map(),
   idToUserProfiles: new Map(),
+  idToSelfPreferences: new Map(),
   idToSelfPermissions: new Map(),
   activatedChannels: new Set(),
   unreadChannels: new Set(),
@@ -136,6 +140,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.idToUsers.delete(channelId)
   state.idToMessages.delete(channelId)
   state.idToUserProfiles.delete(channelId)
+  state.idToSelfPreferences.delete(channelId)
   state.idToSelfPermissions.delete(channelId)
   state.activatedChannels.delete(channelId)
   state.unreadChannels.delete(channelId)
@@ -204,8 +209,14 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
 }
 
 function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
-  const { channelInfo, detailedChannelInfo, joinedChannelInfo, activeUserIds, selfPermissions } =
-    data
+  const {
+    channelInfo,
+    detailedChannelInfo,
+    joinedChannelInfo,
+    activeUserIds,
+    selfPreferences,
+    selfPermissions,
+  } = data
 
   const channelUsers: UsersState = {
     active: new Set(activeUserIds),
@@ -226,6 +237,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToUsers.set(channelId, channelUsers)
   state.idToMessages.set(channelId, messagesState)
   state.idToUserProfiles.set(channelId, new Map())
+  state.idToSelfPreferences.set(channelId, selfPreferences)
   state.idToSelfPermissions.set(channelId, selfPermissions)
 
   updateMessages(state, channelId, false, m =>
@@ -493,6 +505,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
     state.activatedChannels.delete(channelId)
+  },
+
+  ['@chat/preferencesChanged'](state, action) {
+    const { channelId } = action.meta
+
+    state.idToSelfPreferences.set(channelId, action.payload.selfPreferences)
   },
 
   ['@chat/permissionsChanged'](state, action) {

@@ -11,6 +11,7 @@ import {
   CHANNEL_BANNER_WIDTH,
   ChannelModerationAction,
   ChannelPermissions,
+  ChannelPreferences,
   ChatEvent,
   ChatReadyEvent,
   ChatServiceErrorCode,
@@ -77,6 +78,7 @@ import {
   toJoinedChannelInfo,
   updateChannel,
   updateUserPermissions,
+  updateUserPreferences,
 } from './chat-models'
 
 class ChatState extends ImmutableRecord({
@@ -171,6 +173,7 @@ export default class ChatService {
           detailedChannelInfo: toDetailedChannelInfo(channelInfo),
           joinedChannelInfo: toJoinedChannelInfo(channelInfo),
           activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
+          selfPreferences: userChannelEntry.channelPreferences,
           selfPermissions: userChannelEntry.channelPermissions,
         })
       }
@@ -984,6 +987,33 @@ export default class ChatService {
     }
   }
 
+  async updateUserPreferences(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    preferences: Patch<ChannelPreferences>,
+  ) {
+    const [channelInfo, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+    if (!userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        'Must be in channel to update preferences',
+      )
+    }
+
+    const { channelPreferences } = await updateUserPreferences(channelId, userId, preferences)
+    this.publisher.publish(getChannelUserPath(channelId, userId), {
+      action: 'preferencesChanged',
+      selfPreferences: channelPreferences,
+    })
+  }
+
   async updateUserPermissions(
     channelId: SbChannelId,
     userId: SbUserId,
@@ -1105,6 +1135,7 @@ export default class ChatService {
               detailedChannelInfo: toDetailedChannelInfo(channelInfo),
               joinedChannelInfo: toJoinedChannelInfo(channelInfo),
               activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
+              selfPreferences: userChannelEntry.channelPreferences,
               selfPermissions: userChannelEntry.channelPermissions,
             }
           }),
