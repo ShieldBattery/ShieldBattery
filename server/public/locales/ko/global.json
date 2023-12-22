@@ -771,9 +771,13 @@
         "channelHeader": {
             "actionItems": {
                 "leaveChannel": "채널 나가기",
-                "channelSettings": "채널 설정"
+                "channelSettings": "채널 설정",
+                "hideBanner": "배너 숨기기"
             },
-            "moreActions": "추가 행동"
+            "moreActions": "추가 행동",
+            "errors": {
+                "toggleBannerVisibility": "배너 공개 상태를 전환하는 중에 문제가 발생했습니다."
+            }
         },
         "channelSettings": {
             "general": {
