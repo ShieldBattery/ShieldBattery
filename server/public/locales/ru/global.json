@@ -988,9 +988,13 @@
         "channelHeader": {
             "actionItems": {
                 "leaveChannel": "Покинуть канал",
-                "channelSettings": "Настройки канала"
+                "channelSettings": "Настройки канала",
+                "hideBanner": "Скрыть баннер"
             },
-            "moreActions": "Больше действий"
+            "moreActions": "Больше действий",
+            "errors": {
+                "toggleBannerVisibility": "Что-то пошло не так при переключении видимости баннера"
+            }
         },
         "channelSettings": {
             "general": {
