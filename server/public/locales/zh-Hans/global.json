@@ -688,9 +688,13 @@
         "channelHeader": {
             "actionItems": {
                 "leaveChannel": "离开频道",
-                "channelSettings": "频道设置"
+                "channelSettings": "频道设置",
+                "hideBanner": "隐藏横幅"
             },
-            "moreActions": "更多操作"
+            "moreActions": "更多操作",
+            "errors": {
+                "toggleBannerVisibility": "切换横幅可见性时出现问题"
+            }
         },
         "channelSettings": {
             "general": {
