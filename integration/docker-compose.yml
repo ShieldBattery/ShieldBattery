@@ -37,6 +37,7 @@ services:
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
       - SB_JWT_SECRET=SuperSecretJwtKey
+      - GOOGLE_APPLICATION_CREDENTIALS=server/google/credentials.json
     depends_on:
       - _app-server-build
       - db
@@ -72,8 +73,6 @@ services:
       - mailgun
       - migration
       - redis
-
-
 
   redis:
     image: redis:6.2.6-alpine

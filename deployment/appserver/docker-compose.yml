@@ -53,6 +53,7 @@ services:
       - SB_ANALYTICS_ID
       - SB_DATADOG_KEY
       - SB_DISABLE_CRAWLERS
+      - GOOGLE_APPLICATION_CREDENTIALS=server/google/credentials.json
     networks:
       - frontend
       - backend
@@ -112,8 +113,6 @@ services:
       - proxy_gen
       - redis
       - update_server
-
-
 
   nginx_proxy:
     image: nginx:stable-alpine
