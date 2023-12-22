@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
 import { useSelfUser } from '../auth/auth-utils'
@@ -294,6 +295,6 @@ function LobbyStateContent({ state }: { state: LobbyState }) {
     case 'hasStarted':
       return <p>{t('lobbies.state.started', 'Lobby already started.')}</p>
     default:
-      throw new Error('Unknown lobby state: ' + state)
+      return assertUnreachable(state)
   }
 }
