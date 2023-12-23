@@ -288,6 +288,17 @@ If you know that none of the changes you have made will affect the app server co
 .\run-integration-tests.bat nobuild
 ```
 
+Additionally, any arguments other than `nobuild` will be forwarded to playwwright, which allows you
+to do something like this:
+
+```bat
+.\run-integration-tests.bat --ui ban.spec.ts
+```
+
+This will run a specific test matching the `ban.spec.ts` pattern in
+[UI Mode](https://playwright.dev/docs/test-ui-mode). You can find a full list of playwright's CLI
+options in their [documentation](https://playwright.dev/docs/test-cli).
+
 On other operating systems, you can do those steps manually:
 
 ```sh

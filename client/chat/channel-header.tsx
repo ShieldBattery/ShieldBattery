@@ -232,6 +232,7 @@ export function ChannelHeader({
       <MenuItem
         key='channel-settings'
         text={t('chat.channelHeader.actionItems.channelSettings', 'Channel settings')}
+        testName='channel-settings-button'
         onClick={onChannelSettingsClick}
       />,
     )
@@ -301,6 +302,7 @@ export function ChannelHeader({
             ref={anchor}
             icon={<MaterialIcon icon='more_vert' />}
             title={t('chat.channelHeader.moreActions', 'More actions')}
+            testName='channel-header-actions-button'
             onClick={openOverflowMenu}
           />
         ) : null}

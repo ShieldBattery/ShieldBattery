@@ -150,6 +150,7 @@ export interface TextFieldProps {
   maxRows?: number
   multiline?: boolean
   name?: string
+  testName?: string
   onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   onEnterKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
@@ -181,6 +182,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
       maxRows,
       multiline,
       name,
+      testName,
       onBlur,
       onChange,
       onEnterKeyDown,
@@ -361,6 +363,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
             $multiline={multiline}
             $leadingIconsLength={leadingIcons.length}
             $trailingIconsLength={trailingIcons.length}
+            data-test={testName}
             {...inputProps}
             {...internalInputProps}
           />

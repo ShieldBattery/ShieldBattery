@@ -147,6 +147,7 @@ export function ChannelSettingsDialog({
         onSubmit()
         dispatch(closeDialog(DialogType.ChannelSettings))
       }}
+      testName='channel-settings-save-button'
     />,
   ]
 
@@ -161,6 +162,7 @@ export function ChannelSettingsDialog({
                   {...bindCustom('banner')}
                   label={bannerUrl ? 'Change banner' : 'Upload banner'}
                   inputProps={{ accept: 'image/*' }}
+                  testName='channel-settings-banner-input'
                 />
 
                 {bannerUrl ? (
@@ -180,6 +182,7 @@ export function ChannelSettingsDialog({
                   {...bindCustom('badge')}
                   label={badgeUrl ? 'Change badge' : 'Upload badge'}
                   inputProps={{ accept: 'image/*' }}
+                  testName='channel-settings-badge-input'
                 />
 
                 {badgeUrl ? (
@@ -206,6 +209,7 @@ export function ChannelSettingsDialog({
               rows={4}
               maxRows={4}
               inputProps={{ tabIndex: 0 }}
+              testName='channel-settings-description-input'
             />
             <TextField
               {...bindInput('topic')}
@@ -213,16 +217,25 @@ export function ChannelSettingsDialog({
               allowErrors={false}
               floatingLabel={true}
               inputProps={{ tabIndex: 0 }}
+              testName='channel-settings-topic-input'
             />
           </StyledForm>
         </FormContainer>
 
         <ChannelCardRoot>
           <ChannelBannerAndBadge>
-            {bannerUrl ? <ChannelBanner src={bannerUrl} /> : <ChannelBannerPlaceholderImage />}
+            {bannerUrl ? (
+              <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
+            ) : (
+              <ChannelBannerPlaceholderImage />
+            )}
             {basicChannelInfo ? (
               <ChannelCardBadge>
-                <ChannelBadge src={badgeUrl} channelName={basicChannelInfo.name} />
+                <ChannelBadge
+                  src={badgeUrl}
+                  channelName={basicChannelInfo.name}
+                  testName='channel-settings-badge-image'
+                />
               </ChannelCardBadge>
             ) : null}
           </ChannelBannerAndBadge>

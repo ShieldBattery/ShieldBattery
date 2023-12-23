@@ -1,6 +1,22 @@
 import { ImageAnnotatorClient } from '@google-cloud/vision'
+import { ChannelCredentials, ClientOptions } from 'google-gax'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+
+let imageAnnotatorClientOptions: ClientOptions
+
+// NOTE(2Pac): These options are only really meant to be used for testing.
+if (
+  process.env.SB_USE_FAKE_GOOGLE_CLOUD === 'true' &&
+  process.env.SB_GOOGLE_CLOUD_DOMAIN &&
+  process.env.SB_GOOGLE_CLOUD_PORT
+) {
+  imageAnnotatorClientOptions = {
+    apiEndpoint: process.env.SB_GOOGLE_CLOUD_DOMAIN,
+    port: Number(process.env.SB_GOOGLE_CLOUD_PORT),
+    sslCreds: ChannelCredentials.createInsecure(),
+  }
+}
 
 /**
  * All possible likelihood values that Google can return for each safe search category.
@@ -84,7 +100,7 @@ function categoryToMaxLikelihood(category: SafeSearchCategory): OrderedLikelihoo
 
 @singleton()
 export class ImageService {
-  private visionClient = new ImageAnnotatorClient()
+  private visionClient = new ImageAnnotatorClient(imageAnnotatorClientOptions)
 
   /**
    * Checks the given image (either as a filename, URL, or a buffer) for our safety standards. If
@@ -93,8 +109,8 @@ export class ImageService {
    * @returns true if the image is safe to be used on our platform, false otherwise.
    */
   async isImageSafe(image: string | Buffer): Promise<boolean> {
-    const [result] = await this.visionClient.safeSearchDetection(image)
-    const detections = result?.safeSearchAnnotation
+    const result = await this.visionClient.safeSearchDetection(image)
+    const detections = result[0]?.safeSearchAnnotation
     if (!detections) {
       return true
     }
