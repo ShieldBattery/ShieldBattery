@@ -199,7 +199,7 @@ services:
       - backend
     volumes:
       - ./db/init-scripts:/docker-entrypoint-initdb.d:ro
-      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - db_data:/var/lib/postgresql/data
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
 

@@ -6,6 +6,7 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 cd ..
 
+NODE_ENV=production
 echo "Running DB migrations"
 yarn run migrate-up || exit 1
 echo "DB migrations complete"

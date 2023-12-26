@@ -100,7 +100,7 @@
     "migrate-up": "db-migrate -m ./server/migrations up && yarn run sqlx-prepare",
     "pack": "yarn run clean && yarn run build-app-client && yarn run build-game && electron-builder build --dir --win --x64 -c prod.yml",
     "packstaging": "yarn run clean && cross-env SB_SERVER=https://staging.shieldbattery.net yarn run build-app-client && yarn run build-game && electron-builder build --dir --win --x64 -c staging.yml",
-    "sqlx-prepare": "cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features",
+    "sqlx-prepare": "cross-env-test NODE_ENV=production || cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features",
     "start-server": "node ./server/index.js | pino-pretty -c -t",
     "test": "jest",
     "test:integration": "playwright test",

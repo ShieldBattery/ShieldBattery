@@ -92,6 +92,8 @@ services:
       - SB_DB_PASSWORD=shieldbattery_pass
     volumes:
       - ../deployment/appserver/db/init-scripts:/docker-entrypoint-initdb.d:ro
+      - ../deployment/appserver/db/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
 
   # This is a service used to run the server migrations before the server actually starts. It uses
   # the same image as the server, but overrides its startup command to only run migrations and exit.
