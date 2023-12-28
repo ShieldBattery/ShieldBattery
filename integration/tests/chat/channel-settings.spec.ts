@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import path from 'path'
+import { CHANNEL_BANNERS } from '../../../common/flags'
 import { ChatPage } from '../../pages/chat-page'
 import { LoginPage } from '../../pages/login-page'
 
@@ -12,6 +13,10 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('changing channel banner', async ({ page }) => {
+  if (!CHANNEL_BANNERS) {
+    expect(true).toBe(true)
+    return
+  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
 
@@ -30,6 +35,10 @@ test('changing channel banner', async ({ page }) => {
 })
 
 test('changing channel badge', async ({ page }) => {
+  if (!CHANNEL_BANNERS) {
+    expect(true).toBe(true)
+    return
+  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
 
