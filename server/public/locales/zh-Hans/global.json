@@ -141,10 +141,17 @@
                 "title": "图像"
             },
             "starcraft": {
+                "title": "星际争霸",
+                "browseManually": "手动浏览",
+                "currentPathLabel": "当前游戏路径：",
+                "detectionFailed": "检测您的安装路径失败。请确保您已安装《星际争霸：重制版》并重试，或手动设置路径。",
+                "detectPath": "检测安装",
                 "instructions": {
-                    "bottomPart": "星际争霸目录通常是<1>C:\\Program Files (x86)\\StarCraft</1>，但如果您在战网启动器中指定了安装目录，则可能位于其他位置。"
+                    "advanced": "如果检测失败，可以手动设置路径。单击下面的按钮并选择包含《星际争霸：重制版》安装的目录。",
+                    "description": "ShieldBattery 需要有效且最新的《星际争霸：重制版》安装。单击下面的按钮将自动检测安装文件夹。"
                 },
-                "title": "星际争霸"
+                "pathInvalid": "此路径不指向有效的《星际争霸：重制版》安装。请确保您的安装是最新的或尝试不同的路径。",
+                "pathValid": "该游戏路径似乎是有效的安装。"
             },
             "title": "游戏"
         },
