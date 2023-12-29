@@ -638,7 +638,8 @@
             "title": "Присоединиться к лобби",
             "openSlotCount_one": "{{count}} слот открыт",
             "openSlotCount_few": "{{count}} слота открыты",
-            "openSlotCount_many": "{{count}} слотов открыто"
+            "openSlotCount_many": "{{count}} слотов открыто",
+            "action": "Присоединиться к лобби"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> на </1><2>{{mapName}}</2>"
