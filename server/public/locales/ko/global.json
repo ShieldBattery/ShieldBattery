@@ -24,7 +24,6 @@
             "search": "찾기",
             "accept": "수락",
             "decline": "감소",
-            "browse": "검색",
             "download": "다운로드",
             "hide": "숨기기",
             "next": "다음",
@@ -119,10 +118,8 @@
                 "unitAcknowledgements": "단위 승인"
             },
             "starcraft": {
-                "folderPath": "스타크래프트 폴더 경로",
                 "instructions": {
-                    "bottomPart": "일반적으로 <1>C:\\Program Files (x86)\\StarCraft</1>이지만 Battle.net 런처에서 사용자 정의한 경우 다른 위치에 있을 수도 있습니다.",
-                    "topPart": "스타크래프트: 리마스터를 설치한 디렉토리를 선택하세요."
+                    "bottomPart": "일반적으로 <1>C:\\Program Files (x86)\\StarCraft</1>이지만 Battle.net 런처에서 사용자 정의한 경우 다른 위치에 있을 수도 있습니다."
                 },
                 "title": "스타 크래프트"
             },

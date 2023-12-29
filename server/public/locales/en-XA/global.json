@@ -32,7 +32,6 @@
             "unblock": "$🗡Unblock🗡!",
             "stop": "$🗡Stop🗡!",
             "test": "$🗡Test🗡!",
-            "browse": "$🗡Browse🗡!",
             "edit": "$🗡Edit🗡!",
             "reveal": "$🗡Reveal🗡!"
         },
@@ -120,10 +119,8 @@
                 "title": "$🗡Sound🗡!"
             },
             "starcraft": {
-                "folderPath": "$🗡StarCraft folder path🗡!",
                 "instructions": {
-                    "bottomPart": "$🗡This is usually <1>C:\\Program Files (x86)\\StarCraft</1> but may be elsewhere if you have customized it in the Battle.net launcher.🗡!",
-                    "topPart": "$🗡Please select the directory where you have installed StarCraft: Remastered.🗡!"
+                    "bottomPart": "$🗡This is usually <1>C:\\Program Files (x86)\\StarCraft</1> but may be elsewhere if you have customized it in the Battle.net launcher.🗡!"
                 },
                 "title": "$🗡StarCraft🗡!"
             },

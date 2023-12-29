@@ -32,7 +32,6 @@
             "accept": "Aceptar",
             "block": "Bloquear",
             "unblock": "Desatascar",
-            "browse": "Navegar",
             "stop": "Detener",
             "test": "Prueba",
             "edit": "Editar",
@@ -47,11 +46,9 @@
         "game": {
             "starcraft": {
                 "instructions": {
-                    "bottomPart": "Suele ser <1>C:\\Archivos de programa (x86)\\StarCraft</1>, pero puede estar en otro lugar si lo has personalizado en el menú de Battle.net.",
                     "topPart": "Selecciona el directorio donde has instalado StarCraft: Remastered."
                 },
-                "title": "Barco de estrellas",
-                "folderPath": "Ruta de la carpeta de StarCraft"
+                "title": "Barco de estrellas"
             },
             "title": "Juego",
             "video": {

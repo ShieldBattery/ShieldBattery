@@ -32,7 +32,6 @@
             "accept": "Принимать",
             "decline": "Отклонить",
             "previous": "Предыдущий",
-            "browse": "Просматривать",
             "stop": "Останавливаться",
             "test": "Тест",
             "edit": "Редактировать",
@@ -113,10 +112,8 @@
                 "music": "Музыка"
             },
             "starcraft": {
-                "folderPath": "Путь к папке StarCraft",
                 "instructions": {
-                    "bottomPart": "Обычно это <1>C:\\Program Files (x86)\\StarCraft</1>, но может быть и в другом месте, если вы настроили его в программе запуска Battle.net.",
-                    "topPart": "Выберите каталог, в который вы установили StarCraft: Remastered."
+                    "bottomPart": "Обычно это <1>C:\\Program Files (x86)\\StarCraft</1>, но может быть и в другом месте, если вы настроили его в программе запуска Battle.net."
                 },
                 "title": "Стар Крафт"
             },

@@ -12,7 +12,6 @@
             "okay": "好的",
             "save": "保存",
             "clear": "清除",
-            "browse": "浏览",
             "download": "下载",
             "hide": "隐藏",
             "join": "加入",
@@ -142,10 +141,8 @@
                 "title": "图像"
             },
             "starcraft": {
-                "folderPath": "星际争霸目录",
                 "instructions": {
-                    "bottomPart": "星际争霸目录通常是<1>C:\\Program Files (x86)\\StarCraft</1>，但如果您在战网启动器中指定了安装目录，则可能位于其他位置。",
-                    "topPart": "请选择您安装《星际争霸：重制版》的目录。"
+                    "bottomPart": "星际争霸目录通常是<1>C:\\Program Files (x86)\\StarCraft</1>，但如果您在战网启动器中指定了安装目录，则可能位于其他位置。"
                 },
                 "title": "星际争霸"
             },
