@@ -711,7 +711,8 @@
             "disabledInPartyTitle": "组队时不可加入房间",
             "noActiveLobbies": "目前没有活跃的房间",
             "noOpenLobbies": "目前没有开放的房间",
-            "title": "加入房间"
+            "title": "加入房间",
+            "action": "加入房间"
         },
         "messageLayout": {
             "kickPlayer": "<0><0></0></0>已被踢出房间",
