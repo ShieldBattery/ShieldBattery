@@ -87,6 +87,7 @@ class Snackbar extends React.Component {
       }
       return null
     },
+    testName: PropTypes.string,
   }
 
   constructor(props) {
@@ -105,7 +106,7 @@ class Snackbar extends React.Component {
     return (
       <Container>
         <Content>
-          <MessageContainer>{this.props.message}</MessageContainer>
+          <MessageContainer data-test={this.props.testName}>{this.props.message}</MessageContainer>
           {actionButton}
         </Content>
       </Container>

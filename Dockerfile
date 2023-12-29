@@ -83,10 +83,7 @@ COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldba
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run (necessary when building on Linux)
-RUN chmod +x ./server/update_server.sh
-RUN chmod +x ./server/testing/run_mailgun.sh
-RUN chmod +x ./server/testing/run_google_cloud.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)

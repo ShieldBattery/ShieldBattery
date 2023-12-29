@@ -111,7 +111,13 @@ export function ChannelSettingsDialog({
               )
             }
 
-            dispatch(openSnackbar({ message, time: TIMING_LONG }))
+            dispatch(
+              openSnackbar({
+                message,
+                time: TIMING_LONG,
+                testName: 'channel-settings-snackbar',
+              }),
+            )
           },
         },
       }),

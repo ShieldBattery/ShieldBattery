@@ -15,6 +15,8 @@ export class ChatPage extends LeftNav {
   private readonly imageChannelBanner: Locator
   private readonly imageChannelBadge: Locator
 
+  private readonly snackbarChannelSettings: Locator
+
   constructor(page: Page) {
     super(page)
 
@@ -34,6 +36,8 @@ export class ChatPage extends LeftNav {
 
     this.imageChannelBanner = page.locator('img[data-test="channel-settings-banner-image"]')
     this.imageChannelBadge = page.locator('img[data-test="channel-settings-badge-image"]')
+
+    this.snackbarChannelSettings = page.locator('div[data-test="channel-settings-snackbar"]')
   }
 
   async openChannelSettings(): Promise<void> {
@@ -89,5 +93,12 @@ export class ChatPage extends LeftNav {
 
   async getChannelTopic(): Promise<string> {
     return await this.inputChannelTopic.inputValue()
+  }
+
+  async getChannelSettingsSnackbarError(): Promise<string | null> {
+    if (!(await this.snackbarChannelSettings.isVisible())) {
+      return null
+    }
+    return await this.snackbarChannelSettings.innerText()
   }
 }

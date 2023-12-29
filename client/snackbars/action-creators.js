@@ -10,6 +10,7 @@ export function openSnackbar({
   time = TIMING_SHORT,
   actionLabel = null,
   action = null,
+  testName = '',
 }) {
   return (dispatch, getState) => {
     dispatch({
@@ -20,6 +21,7 @@ export function openSnackbar({
         time,
         actionLabel,
         action,
+        testName,
       },
     })
   }

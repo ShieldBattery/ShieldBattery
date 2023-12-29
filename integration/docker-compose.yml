@@ -42,7 +42,7 @@ services:
       - 'SB_GOOGLE_CLOUD_DOMAIN=google-cloud'
       - SB_GOOGLE_CLOUD_PORT=5530
     volumes:
-      - ./google-fake-credentials.json:/google-fake-credentials.json
+      - ./google-fake-credentials.json:/google-fake-credentials.json:ro
 
     depends_on:
       - _app-server-build

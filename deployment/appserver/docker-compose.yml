@@ -59,7 +59,7 @@ services:
       - backend
     volumes:
       - app_logs:/home/node/shieldbattery/server/logs:rw
-      - ./google-credentials.json:/google-credentials.json
+      - ./google-credentials.json:/google-credentials.json:ro
       - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
       - type: bind
         source: ./bw_sprite_data
