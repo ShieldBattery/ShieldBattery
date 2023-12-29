@@ -16,7 +16,7 @@ const SCR_VERSION = 5
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
   if (!starcraftPath) {
-    log.warning('No Starcraft path found in registry, defaulting to standard install location')
+    log.warning('No Starcraft path found in search, defaulting to standard install location')
     starcraftPath = process.env['ProgramFiles(x86)']
       ? `${process.env['ProgramFiles(x86)']}\\Starcraft`
       : `${process.env.ProgramFiles}\\Starcraft`

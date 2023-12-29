@@ -18,6 +18,7 @@ import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { registerCurrentProgram } from './file-association'
+import { findInstallPath } from './find-install-path'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
@@ -368,6 +369,19 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('securityGetClientIds', async event => {
     await cacheIdsIfNeeded((await localSettings.get()).starcraftPath)
     return cachedIds
+  })
+
+  ipcMain.handle('settingsAutoPickStarcraftPath', async event => {
+    let starcraftPath = await findInstallPath()
+    const found = !!starcraftPath
+    if (!starcraftPath) {
+      starcraftPath = process.env['ProgramFiles(x86)']
+        ? `${process.env['ProgramFiles(x86)']}\\Starcraft`
+        : `${process.env.ProgramFiles}\\Starcraft`
+    }
+    localSettings.merge({ starcraftPath }).catch(swallowNonBuiltins)
+
+    return found
   })
 
   ipcMain.handle('settingsCheckStarcraftPath', async (event, path) => {

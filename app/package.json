@@ -22,7 +22,9 @@
     "electron-updater": "^6.1.7",
     "jssuh": "^1.5.0",
     "lodash": "^4.17.21",
+    "long": "^5.2.3",
     "mkdirp": "^3.0.1",
+    "protobufjs": "^7.2.5",
     "sanitize-filename": "^1.6.3",
     "winreg": "^1.2.2"
   }

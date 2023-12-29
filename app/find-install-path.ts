@@ -1,13 +1,40 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import logger from './logger'
 import { HKCU, HKLM, readRegistryValue } from './registry'
+import { ProductDb } from './vendor/blizzard/product_db'
 
-// Attempts to find the StarCraft install path from the registry, using a combination of possible
-// locations for the information. The possible locations are:
-// HKCU\SOFTWARE\Blizzard Entertertainment\Starcraft\InstallPath
-// HKLM\SOFTWARE\Blizzard Entertertainment\Starcraft\InstallPath
-// HKCU\SOFTWARE\Blizzard Entertertainment\Starcraft\Recent Maps
-// HKLM\SOFTWARE\Blizzard Entertertainment\Starcraft\Recent Maps
-// (including WOW64 variants for all of the above keys)
+/**
+ * Attempts to find the StarCraft install path from various locations. First we check for the
+ * Product DB from the Blizzard launcher (which is the most reliable source). If that can't be
+ * found, we fall back to the registry, using a combination of possible locations for the
+ * information. The possible locations are:
+ *
+ * - `HKCU\SOFTWARE\Blizzard Entertertainment\Starcraft\InstallPath`
+ * - `HKLM\SOFTWARE\Blizzard Entertertainment\Starcraft\InstallPath`
+ * - `HKCU\SOFTWARE\Blizzard Entertertainment\Starcraft\Recent Maps`
+ * - `HKLM\SOFTWARE\Blizzard Entertertainment\Starcraft\Recent Maps`
+ *
+ * We also check WOW64 variants for all of the above keys.
+ */
 export async function findInstallPath() {
+  const programDataPath = process.env.ProgramData ?? 'C:\\ProgramData'
+  const productDbPath = path.join(programDataPath, 'Battle.net', 'Agent', 'product.db')
+  try {
+    const productDbData = await readFile(productDbPath)
+    const productDb = ProductDb.decode(productDbData)
+    const scrInstall = productDb?.productInstalls?.find(
+      i => i.uid === 's1' || i.productCode === 's1',
+    )
+    if (scrInstall && scrInstall.settings?.installPath) {
+      return scrInstall.settings.installPath
+    } else {
+      logger.warn("product.db didn't contain a StarCraft install path")
+    }
+  } catch (err: any) {
+    logger.warn(`Error while trying to read product.db: ${err?.stack ?? err}`)
+  }
+
   const normalRegPath = '\\SOFTWARE\\Blizzard Entertainment\\Starcraft'
   const _6432RegPath = '\\SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Starcraft'
   const regValueName = 'InstallPath'
@@ -19,9 +46,9 @@ export async function findInstallPath() {
     [HKLM, _6432RegPath],
   ]
 
-  for (const [hive, path] of attempts) {
+  for (const [hive, regPath] of attempts) {
     try {
-      const result = await readRegistryValue(hive, path, regValueName)
+      const result = await readRegistryValue(hive, regPath, regValueName)
       if (result) {
         return result
       }
@@ -52,11 +79,11 @@ export async function findInstallPath() {
   // path must have the 'maps' folder.
   const localAppData = (process.env.LocalAppData || '').toLowerCase()
   const paths = recentMaps.split('\\0').filter(p => {
-    const path = p.toLowerCase()
+    const mapPath = p.toLowerCase()
     return (
-      path.includes('\\maps\\') &&
-      !/\\shieldbattery(|-dev|-local)\\maps\\/i.test(path) &&
-      (!localAppData || !path.includes(localAppData))
+      mapPath.includes('\\maps\\') &&
+      !/\\shieldbattery(|-dev|-local)\\maps\\/i.test(mapPath) &&
+      (!localAppData || !mapPath.includes(localAppData))
     )
   })
   if (!paths.length) {
@@ -65,7 +92,7 @@ export async function findInstallPath() {
 
   // We make a reasonable guess that the remaining paths are all inside Starcraft folder. For now
   // we're not taking into account multiple different install paths, so just pick the first one.
-  const path = paths[0]
-  const mapsIndex = path.toLowerCase().lastIndexOf('\\maps\\')
-  return path.slice(0, mapsIndex)
+  const resolvedPath = paths[0]
+  const mapsIndex = resolvedPath.toLowerCase().lastIndexOf('\\maps\\')
+  return resolvedPath.slice(0, mapsIndex)
 }
