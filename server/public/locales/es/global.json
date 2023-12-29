@@ -1188,7 +1188,8 @@
             "noActiveLobbies": "No hay grupos de presión activos.",
             "openSlotCount_one": "{{count}} ranura abierta",
             "openSlotCount_many": "{{count}} de ranuras abiertas",
-            "openSlotCount_other": "{{count}} ranuras abiertas"
+            "openSlotCount_other": "{{count}} ranuras abiertas",
+            "action": "Unirse al lobby"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> en </1><2>{{mapName}}</2>"
