@@ -119,10 +119,17 @@
                 "title": "$🗡Sound🗡!"
             },
             "starcraft": {
+                "title": "$🗡StarCraft🗡!",
+                "browseManually": "$🗡Browse manually🗡!",
+                "currentPathLabel": "$🗡Current game path:🗡!",
+                "detectPath": "$🗡Detect installation🗡!",
                 "instructions": {
-                    "bottomPart": "$🗡This is usually <1>C:\\Program Files (x86)\\StarCraft</1> but may be elsewhere if you have customized it in the Battle.net launcher.🗡!"
+                    "advanced": "$🗡If detection fails, you can set the path manually. Click the button below and select the directory that contains your StarCraft: Remastered installation.🗡!",
+                    "description": "$🗡ShieldBattery requires a valid, up-to-date installation of StarCraft: Remastered. Click the button below to automatically detect the installation folder.🗡!"
                 },
-                "title": "$🗡StarCraft🗡!"
+                "pathInvalid": "$🗡This path does not point to a valid StarCraft: Remastered installation. Please ensure your installation is up to date or try a different path.🗡!",
+                "pathValid": "$🗡This game path appears to be a valid installation.🗡!",
+                "detectionFailed": "$🗡Detecting your installation path failed. Please ensure you have StarCraft: Remastered installed and try again, or set the path manually.🗡!"
             },
             "title": "$🗡Game🗡!",
             "video": {
