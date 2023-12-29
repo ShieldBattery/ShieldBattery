@@ -295,6 +295,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
 )
 
 export interface CreateLobbyProps {
+  initName?: string
   mapId?: string
   onNavigateToList: () => void
 }
@@ -304,7 +305,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   const dispatch = useAppDispatch()
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
   const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
-  const name = useAppSelector(s => s.lobbyPreferences.name)
+  const prefsName = useAppSelector(s => s.lobbyPreferences.name)
   const gameType = useAppSelector(s => s.lobbyPreferences.gameType)
   const gameSubType = useAppSelector(s => s.lobbyPreferences.gameSubType)
   const turnRate = useAppSelector(s => s.lobbyPreferences.turnRate)
@@ -314,19 +315,20 @@ export function CreateLobby(props: CreateLobbyProps) {
   const storeRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
   const initialMapId = props.mapId
+  const initialName = props.initName ?? prefsName ?? ''
 
   const selectedMap = initialMapId ?? storeSelectedMap
   const model = useMemo(
     () =>
       ({
-        name,
+        name: initialName,
         gameType: gameType ?? 'melee',
         gameSubType,
         selectedMap,
         turnRate: turnRate ?? null,
         useLegacyLimits: useLegacyLimits ?? false,
       }) satisfies CreateLobbyModel,
-    [name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits],
+    [initialName, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits],
   )
 
   const recentMaps = useMemo(() => {

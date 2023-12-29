@@ -1,6 +1,6 @@
-import { Immutable } from 'immer'
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
 import { useTrackPageView } from '../analytics/analytics'
 import { CreateLobby } from './create-lobby'
@@ -14,10 +14,15 @@ const Container = styled.div`
 
 export interface LobbyActivityOverlayProps {
   creating?: boolean
-  map?: Immutable<MapInfoJson>
+  initName?: string
+  map?: ReadonlyDeep<MapInfoJson>
 }
 
-export function LobbyActivityOverlay({ creating = false, map }: LobbyActivityOverlayProps) {
+export function LobbyActivityOverlay({
+  creating = false,
+  map,
+  initName,
+}: LobbyActivityOverlayProps) {
   const [isCreating, setIsCreating] = useState(creating)
   const onNavigateToList = useCallback(() => {
     setIsCreating(false)
@@ -31,7 +36,7 @@ export function LobbyActivityOverlay({ creating = false, map }: LobbyActivityOve
   return (
     <Container>
       {isCreating ? (
-        <CreateLobby mapId={map?.id} onNavigateToList={onNavigateToList} />
+        <CreateLobby mapId={map?.id} onNavigateToList={onNavigateToList} initName={initName} />
       ) : (
         <JoinLobby onNavigateToCreate={onNavigateToCreate} />
       )}

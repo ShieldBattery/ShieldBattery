@@ -563,6 +563,7 @@
       "kicked": "You have been kicked from the lobby."
     },
     "joinLobby": {
+      "action": "Join lobby",
       "disabledInPartyText": "Joining a lobby as a party is currently under development. Leave your party to continue.",
       "disabledInPartyTitle": "Disabled while in party",
       "noActiveLobbies": "There are no active lobbies",
@@ -610,9 +611,9 @@
       "slotActions": "Slot actions"
     },
     "state": {
-      "exists": "Lobby already exists. Join it?",
-      "nonexistent": "Lobby doesn't exist. Create it?",
-      "started": "Lobby already started."
+      "exists": "You're not currently in this lobby. Would you like to join it?",
+      "nonexistent": "Lobby not found. Would you like to create it?",
+      "started": "This lobby has already started and cannot be joined."
     }
   },
   "maps": {

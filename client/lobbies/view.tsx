@@ -5,14 +5,20 @@ import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
+import { openOverlay } from '../activities/action-creators'
+import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import { useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
+import { RaisedButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
+import { colorTextFaint } from '../styles/colors'
+import { Subtitle1 } from '../styles/typography'
 import {
   activateLobby,
   addComputer,
@@ -21,6 +27,7 @@ import {
   closeSlot,
   deactivateLobby,
   getLobbyState,
+  joinLobby,
   kickPlayer,
   leaveLobby,
   makeObserver,
@@ -265,7 +272,7 @@ function LobbyStateView({ routeLobby }: { routeLobby: string }) {
             <LoadingIndicator />
           </LoadingArea>
         ) : null}
-        <LobbyStateContent state={lobby.state} />
+        <LobbyStateContent state={lobby.state} routeLobby={routeLobby} />
       </>
     )
   } else if (lobby.error) {
@@ -284,16 +291,85 @@ function LobbyStateView({ routeLobby }: { routeLobby: string }) {
   return <PreLobbyArea>{preLobbyAreaContents}</PreLobbyArea>
 }
 
-function LobbyStateContent({ state }: { state: LobbyState }) {
+const StateMessageLayout = styled.div`
+  padding: 16px 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 16px;
+`
+
+const StateMessageIcon = styled(MaterialIcon).attrs({
+  size: 96,
+  filled: false,
+})`
+  color: ${colorTextFaint};
+`
+
+const StateMessageActionButton = styled(RaisedButton)`
+  margin-top: 32px;
+`
+
+function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobby: string }) {
+  const dispatch = useAppDispatch()
   const { t } = useTranslation()
   switch (state) {
     case 'nonexistent':
-      return <p>{t('lobbies.state.nonexistent', "Lobby doesn't exist. Create it?")}</p>
+      return (
+        <StateMessageLayout>
+          <StateMessageIcon icon='other_houses' />
+          <Subtitle1>
+            {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create it?')}
+          </Subtitle1>
+          <StateMessageActionButton
+            label={t('lobbies.createLobby.title', 'Create lobby')}
+            iconStart={<MaterialIcon icon='add' />}
+            onClick={() =>
+              dispatch(
+                openOverlay({
+                  type: ActivityOverlayType.Lobby,
+                  initData: { creating: true, initName: routeLobby },
+                }),
+              )
+            }
+          />
+        </StateMessageLayout>
+      )
     case 'exists':
-      return <p>{t('lobbies.state.exists', 'Lobby already exists. Join it?')}</p>
+      // TODO(tec27): Show a preview of the lobby (like what's shown in the lobby list). We don't
+      // have a way to retrieve info about a single lobby in the lobby service and I don't want to
+      // change that a bunch right now (it needs replacing), so just taking the simple approach for
+      // now.
+      // TODO(tec27): Also handle join errors better, we have no real way of responding to failure
+      // here (like if the lobby is full)
+      return (
+        <StateMessageLayout>
+          <StateMessageIcon icon='meeting_room' />
+          <Subtitle1>
+            {t(
+              'lobbies.state.exists',
+              "You're not currently in this lobby. Would you like to join it?",
+            )}
+          </Subtitle1>
+          <StateMessageActionButton
+            label={t('lobbies.joinLobby.action', 'Join lobby')}
+            iconStart={<MaterialIcon icon='add' />}
+            onClick={() => dispatch(joinLobby(routeLobby))}
+          />
+        </StateMessageLayout>
+      )
     case 'countingDown':
     case 'hasStarted':
-      return <p>{t('lobbies.state.started', 'Lobby already started.')}</p>
+      return (
+        <StateMessageLayout>
+          <StateMessageIcon icon='avg_pace' />
+          <Subtitle1>
+            {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
+          </Subtitle1>
+        </StateMessageLayout>
+      )
     default:
       return assertUnreachable(state)
   }

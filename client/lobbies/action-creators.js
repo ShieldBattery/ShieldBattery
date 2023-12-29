@@ -119,7 +119,6 @@ export const sendChat = text =>
 const STATE_CACHE_TIMEOUT = 20 * 1000
 export function getLobbyState(lobbyName) {
   return (dispatch, getState) => {
-    console.log('get lobby state!')
     const { lobbyState } = getState()
     const requestTime = window.performance.now()
     if (
@@ -127,7 +126,6 @@ export function getLobbyState(lobbyName) {
       (!lobbyState.get(lobbyName).time ||
         requestTime - lobbyState.get(lobbyName).time < STATE_CACHE_TIMEOUT)
     ) {
-      console.log('Using cached lobby state')
       return
     }
 
