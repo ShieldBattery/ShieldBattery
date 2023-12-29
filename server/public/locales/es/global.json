@@ -45,10 +45,17 @@
         "close": "Cerrar configuración",
         "game": {
             "starcraft": {
+                "title": "Barco de estrellas",
+                "browseManually": "Navegar manualmente",
+                "currentPathLabel": "Ruta de juego actual:",
+                "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
+                "detectPath": "Detectar instalación",
+                "pathValid": "Esta ruta del juego parece ser una instalación válida.",
                 "instructions": {
-                    "topPart": "Selecciona el directorio donde has instalado StarCraft: Remastered."
+                    "advanced": "Si la detección falla, puede configurar la ruta manualmente. Haz clic en el botón a continuación y selecciona el directorio que contiene tu instalación de StarCraft: Remastered.",
+                    "description": "ShieldBattery requiere una instalación válida y actualizada de StarCraft: Remastered. Haga clic en el botón a continuación para detectar automáticamente la carpeta de instalación."
                 },
-                "title": "Barco de estrellas"
+                "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente."
             },
             "title": "Juego",
             "video": {
