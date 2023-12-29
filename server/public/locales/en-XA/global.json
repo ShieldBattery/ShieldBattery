@@ -1182,7 +1182,8 @@
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",
             "title": "$🗡Join Lobby🗡!",
             "openSlotCount_one": "$🗡{{count}} slot open🗡!",
-            "openSlotCount_other": "$🗡{{count}} slots open🗡!"
+            "openSlotCount_other": "$🗡{{count}} slots open🗡!",
+            "action": "$🗡Join lobby🗡!"
         },
         "loading": {
             "content": "$🗡<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>🗡!"
@@ -1223,9 +1224,9 @@
             "slotActions": "$🗡Slot actions🗡!"
         },
         "state": {
-            "exists": "$🗡Lobby already exists. Join it?🗡!",
-            "nonexistent": "$🗡Lobby doesn't exist. Create it?🗡!",
-            "started": "$🗡Lobby already started.🗡!"
+            "exists": "$🗡You're not currently in this lobby. Would you like to join it?🗡!",
+            "nonexistent": "$🗡Lobby not found. Would you like to create it?🗡!",
+            "started": "$🗡This lobby has already started and cannot be joined.🗡!"
         },
         "activity": {
             "title": "$🗡Lobbies🗡!"
