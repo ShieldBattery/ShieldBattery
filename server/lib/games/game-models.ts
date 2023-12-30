@@ -55,7 +55,7 @@ export async function getGameRecord(gameId: string): Promise<GameRecord | undefi
         game_length, results
       FROM games
       WHERE id = ${gameId}`)
-    return result.rowCount > 0 ? convertFromDb(result.rows[0]) : undefined
+    return result.rowCount ? convertFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }

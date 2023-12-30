@@ -74,7 +74,7 @@ export async function consumeEmailVerificationCode(
         ev.verification_code = ${code} AND
         ev.request_time > (NOW() - INTERVAL '2 DAYS')
     `)
-    return result.rowCount > 0
+    return !!result.rowCount
   } finally {
     done()
   }

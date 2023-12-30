@@ -156,8 +156,6 @@ export function EmailButton(props: Parameters<typeof Button>[0]) {
   return (
     <Button
       {...props}
-      pX={24}
-      pY={10}
       style={{
         fontSize: '14px',
         textDecoration: 'none',
@@ -169,6 +167,7 @@ export function EmailButton(props: Parameters<typeof Button>[0]) {
         textAlign: 'center',
         cursor: 'pointer',
         display: 'inline-block',
+        padding: '10px 24px',
         ...props.style,
       }}
     />

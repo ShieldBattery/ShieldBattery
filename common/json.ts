@@ -8,12 +8,12 @@ import { Primitive } from 'type-fest'
 export type Jsonify<T> = T extends Primitive
   ? T
   : T extends Date
-  ? number
-  : T extends Map<infer Key, infer Value>
-  ? [key: Key, value: Value][]
-  : T extends Set<infer Value>
-  ? Value[]
-  : // eslint-disable-next-line @typescript-eslint/ban-types
-  T extends object
-  ? { [Key in keyof T]: Jsonify<T[Key]> }
-  : T
+    ? number
+    : T extends Map<infer Key, infer Value>
+      ? [key: Key, value: Value][]
+      : T extends Set<infer Value>
+        ? Value[]
+        : // eslint-disable-next-line @typescript-eslint/ban-types
+          T extends object
+          ? { [Key in keyof T]: Jsonify<T[Key]> }
+          : T

@@ -441,7 +441,7 @@ export async function removeFriendRequest(
         };
     `)
 
-    return result.rowCount > 0
+    return !!result.rowCount
   } finally {
     done()
   }
@@ -473,7 +473,7 @@ export async function removeFriend(
         AND user_high = ${highId};
     `)
 
-    return result.rowCount > 0
+    return !!result.rowCount
   } finally {
     done()
   }

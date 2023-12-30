@@ -398,7 +398,7 @@ export class TypedIpcRenderer {
     channel: K,
     listener: IpcMainSendables[K],
   ): this {
-    ipcRenderer?.removeListener(channel, listener)
+    ipcRenderer?.removeListener(channel, listener as any)
     return this
   }
 }

@@ -471,7 +471,7 @@ export async function removeUserFromChannel(
       WHERE id = ${channelId} AND official = false AND
         NOT EXISTS (SELECT 1 FROM channel_users WHERE channel_id = ${channelId});
     `)
-    if (deleteChannelResult.rowCount > 0) {
+    if (deleteChannelResult.rowCount) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
       return {}

@@ -57,7 +57,7 @@ export async function updateRallyPointServer(
       RETURNING id, enabled, description, hostname, port;
     `)
 
-    return result.rowCount > 0 ? result.rows[0] : undefined
+    return result.rowCount ? result.rows[0] : undefined
   } finally {
     done()
   }

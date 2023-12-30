@@ -153,7 +153,7 @@ export async function getMatchmakingRating(
         AND matchmaking_type = ${matchmakingType}
         AND season_id = ${seasonId};
     `)
-    return result.rowCount > 0 ? fromDbMatchmakingRating(result.rows[0]) : undefined
+    return result.rowCount ? fromDbMatchmakingRating(result.rows[0]) : undefined
   } finally {
     done()
   }

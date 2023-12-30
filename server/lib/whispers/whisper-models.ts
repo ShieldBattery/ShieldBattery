@@ -50,7 +50,7 @@ export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId):
       DELETE FROM whisper_sessions
       WHERE user_id = ${userId} AND target_user_id = ${targetId};
     `)
-    return result.rowCount > 0
+    return !!result.rowCount
   } finally {
     done()
   }

@@ -32,7 +32,7 @@ export async function createPermissions(
   `
 
   const result = await dbClient.query(query)
-  if (result.rowCount < 1) throw new Error('No rows returned')
+  if (!result.rowCount) throw new Error('No rows returned')
   return convertFromDb(result.rows[0])
 }
 

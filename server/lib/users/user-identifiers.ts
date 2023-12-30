@@ -267,7 +267,7 @@ export async function cleanupUnbannedIdentifiers(
       )
     `)
 
-    return result.rowCount
+    return result.rowCount ?? 0
   } finally {
     done()
   }
