@@ -1,9 +1,16 @@
+import createEmotionCache from '@emotion/cache'
+import { CacheProvider } from '@emotion/react'
 import { createDevTools } from '@redux-devtools/core'
 import { DockMonitor } from '@redux-devtools/dock-monitor'
 import { InspectorMonitor } from '@redux-devtools/inspector-monitor'
 import React from 'react'
 import styled from 'styled-components'
 import { useForceUpdate } from '../state-hooks'
+
+const emotionCache = createEmotionCache({
+  key: 'redux-dev',
+  nonce: (window as any).SB_CSP_NONCE,
+})
 
 const Container = styled.div<{ $hidden?: boolean }>`
   position: fixed !important;
@@ -83,8 +90,10 @@ export default function DevToolsContainer() {
   updateRoot = useForceUpdate()
 
   return (
-    <Container $hidden={!isVisible}>
-      <DevTools />
-    </Container>
+    <CacheProvider value={emotionCache}>
+      <Container $hidden={!isVisible}>
+        <DevTools />
+      </Container>
+    </CacheProvider>
   )
 }
