@@ -18,7 +18,7 @@ static PROTOS: &[&str] = &["src/proto/messages.proto"];
 fn main() {
     if std::env::var("PROTOC").is_err() {
         let protoc_path = protoc_bin_vendored_win32::protoc_bin_path();
-        std::env::set_var("PROTOC", &protoc_path);
+        std::env::set_var("PROTOC", protoc_path);
     }
 
     for &path in PROTOS {

@@ -372,7 +372,7 @@ impl<'e> Analysis<'e> {
         self.0
             .firegraft_addresses()
             .unit_status_funcs
-            .get(0)
+            .first()
             .copied()
     }
 
@@ -394,7 +394,7 @@ impl<'e> Analysis<'e> {
             .arrays
             .get(5)
             .filter(|x| x.len() == 1)
-            .and_then(|x| x.get(0))
+            .and_then(|x| x.first())
             .filter(|x| x.1 == 0 && x.2 == 0)
             .map(|x| self.2.mem32(x.0, u64::from(VirtualAddress::SIZE)))
     }
