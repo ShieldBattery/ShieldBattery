@@ -2782,7 +2782,6 @@ fn create_file_hook(
     ) -> *mut c_void,
 ) -> *mut c_void {
     use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW};
-    use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     use winapi::um::winnt::GENERIC_READ;
     unsafe {
         let mut is_replay = false;
@@ -2840,7 +2839,7 @@ fn create_file_hook(
                         panic!("Unable to read CASC archive, may have to repair installation");
                     } else {
                         SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
-                        return INVALID_HANDLE_VALUE;
+                        return -1isize as *mut c_void;
                     }
                 }
             }
@@ -2854,7 +2853,7 @@ fn create_file_hook(
             flags,
             template,
         );
-        if handle != INVALID_HANDLE_VALUE && is_replay {
+        if handle != -1isize as *mut c_void && is_replay {
             bw.register_possible_replay_handle(handle);
         }
         handle

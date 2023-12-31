@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use futures::prelude::*;
 use hashbrown::{HashMap, HashSet};
-use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
+use reqwest::header::{HeaderMap, ORIGIN};
 use smallvec::SmallVec;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};

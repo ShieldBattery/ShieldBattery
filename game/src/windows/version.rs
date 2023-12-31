@@ -1,8 +1,10 @@
 use std::path::Path;
 use std::ptr::null_mut;
 
-use libc::c_void;
-use winapi::um::winver::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
+use winapi::{
+    ctypes::c_void,
+    um::winver::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW},
+};
 
 use crate::windows::winapi_str;
 

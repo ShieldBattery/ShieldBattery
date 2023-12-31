@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
+use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
     Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
@@ -299,6 +300,7 @@ impl OverlayState {
         } else {
             1.0
         };
+        self.ctx.set_pixels_per_point(pixels_per_point);
 
         // This exists for the weird 3412x1920 render target, since
         // 3412.0 / (1920.0 / 1080.0) ~= 1919.25
@@ -334,7 +336,6 @@ impl OverlayState {
         let focused = true;
         let input = egui::RawInput {
             screen_rect: Some(screen_rect),
-            pixels_per_point: Some(pixels_per_point),
             // BW doesn't guarantee texture larger than 2048 pixels working
             // (But it depends on user's system)
             max_texture_side: Some(2048),
@@ -345,6 +346,7 @@ impl OverlayState {
             hovered_files: Vec::new(),
             dropped_files: Vec::new(),
             focused,
+            ..Default::default()
         };
         self.ui_rects.clear();
         self.ui_active = if let Some(dialog) = bw.first_dialog {
@@ -393,7 +395,7 @@ impl OverlayState {
         });
         StepOutput {
             textures_delta: output.textures_delta,
-            primitives: self.ctx.tessellate(output.shapes),
+            primitives: self.ctx.tessellate(output.shapes, pixels_per_point),
             replay_visions: self.out_state.replay_visions,
             select_unit: self.out_state.select_unit,
             draw_layer: self.draw_layer,
@@ -1043,7 +1045,11 @@ impl PlayerInfo {
         width: f32,
         color: Color32,
     ) {
-        let image = egui::Image::new(TextureId::User(icon.to_egui_id()), (24.0, 24.0)).tint(color);
+        let image = egui::Image::new(SizedTexture::new(
+            TextureId::User(icon.to_egui_id()),
+            (24.0, 24.0),
+        ))
+        .tint(color);
         ui.add(image);
         let label = Label::new(egui::RichText::new(text).strong());
         ui.add_fixed_width(label, width);
