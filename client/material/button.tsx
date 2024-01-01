@@ -350,14 +350,16 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
     box-shadow: ${shadowDef8dp};
   }
 
-  &:disabled {
+  &:disabled,
+  &[disabled] {
     background-color: rgba(255, 255, 255, 0.12);
     box-shadow: none;
     color: ${colorTextFaint};
   }
 
   ${CardLayer} && {
-    &:disabled {
+    &:disabled,
+    &[disabled] {
       background-color: rgba(255, 255, 255, 0.08);
     }
   }

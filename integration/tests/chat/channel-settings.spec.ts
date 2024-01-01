@@ -55,7 +55,7 @@ test('changing inappropriate channel banner', async ({ page }) => {
   await chatPage.setChannelBanner(path.join(TEST_IMAGE_PATH_INAPPROPRIATE))
   await chatPage.clickChannelSettingsSaveButton()
 
-  const errorMessage = await chatPage.getChannelSettingsSnackbarError()
+  const errorMessage = await chatPage.getChannelSettingsErrorMessage()
   expect(errorMessage).toBe('The selected image is inappropriate. Please select a different image.')
 })
 
@@ -94,7 +94,7 @@ test('changing inappropriate channel badge', async ({ page }) => {
   await chatPage.setChannelBanner(path.join(TEST_IMAGE_PATH_INAPPROPRIATE))
   await chatPage.clickChannelSettingsSaveButton()
 
-  const errorMessage = await chatPage.getChannelSettingsSnackbarError()
+  const errorMessage = await chatPage.getChannelSettingsErrorMessage()
   expect(errorMessage).toBe('The selected image is inappropriate. Please select a different image.')
 })
 

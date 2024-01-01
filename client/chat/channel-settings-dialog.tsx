@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -15,10 +15,12 @@ import { Dialog } from '../material/dialog'
 import { SingleFileInput } from '../material/file-input'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
+import { colorError } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
+import { subtitle1 } from '../styles/typography'
 import { updateChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
@@ -37,11 +39,18 @@ const StyledDialog = styled(Dialog)`
 
 const Root = styled.div`
   display: flex;
+  flex-direction: column;
+  gap: 24px;
+`
+
+const Content = styled.div`
+  display: flex;
   align-items: flex-start;
   gap: 24px;
 `
 
 const FormContainer = styled.div`
+  position: relative;
   flex-grow: 1;
 `
 
@@ -57,6 +66,24 @@ const BannerButtonsContainer = styled.div`
   grid-template-columns: auto auto;
   grid-column-gap: 16px;
   grid-row-gap: 24px;
+`
+
+const ErrorText = styled.span`
+  ${subtitle1};
+  color: ${colorError};
+`
+
+const DisabledOverlay = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 `
 
 interface ChannelSettingsModel {
@@ -81,6 +108,8 @@ export function ChannelSettingsDialog({
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)!)
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId)!)
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)!)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<Error>()
 
   const onFormSubmit = useStableCallback((model: Readonly<ChannelSettingsModel>) => {
     const patch: EditChannelRequest = {
@@ -91,6 +120,9 @@ export function ChannelSettingsDialog({
       deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
     }
 
+    setIsSaving(true)
+    setError(undefined)
+
     dispatch(
       updateChannel({
         channelId: basicChannelInfo.id,
@@ -98,26 +130,13 @@ export function ChannelSettingsDialog({
         channelBanner: model.banner,
         channelBadge: model.badge,
         spec: {
-          onSuccess: () => {},
+          onSuccess: () => {
+            setIsSaving(false)
+            dispatch(closeDialog(DialogType.ChannelSettings))
+          },
           onError: err => {
-            let message = t(
-              'chat.channelSettings.general.saveErrorMessage',
-              'Something went wrong saving the settings',
-            )
-            if (isFetchError(err) && err.code === ChatServiceErrorCode.InappropriateImage) {
-              message = t(
-                'chat.channelSettings.general.inappropriateImageErrorMessage',
-                'The selected image is inappropriate. Please select a different image.',
-              )
-            }
-
-            dispatch(
-              openSnackbar({
-                message,
-                time: TIMING_LONG,
-                testName: 'channel-settings-snackbar',
-              }),
-            )
+            setIsSaving(false)
+            setError(err)
           },
         },
       }),
@@ -149,114 +168,145 @@ export function ChannelSettingsDialog({
       label={t('common.actions.save', 'Save')}
       key='save'
       color='accent'
-      onClick={() => {
-        onSubmit()
-        dispatch(closeDialog(DialogType.ChannelSettings))
-      }}
+      disabled={isSaving}
+      onClick={() => onSubmit()}
       testName='channel-settings-save-button'
     />,
   ]
 
+  let errorMessage
+  if (error) {
+    if (isFetchError(error) && error.code === ChatServiceErrorCode.InappropriateImage) {
+      errorMessage = t(
+        'chat.channelSettings.general.inappropriateImageErrorMessage',
+        'The selected image is inappropriate. Please select a different image.',
+      )
+    } else {
+      errorMessage = t(
+        'chat.channelSettings.general.saveErrorMessage',
+        'Something went wrong saving the settings',
+      )
+    }
+  }
+
   return (
     <StyledDialog dialogRef={dialogRef} title={`#${basicChannelInfo?.name}`} buttons={buttons}>
       <Root>
-        <FormContainer>
-          <StyledForm noValidate={true} onSubmit={onSubmit}>
-            {CHANNEL_BANNERS ? (
-              <BannerButtonsContainer>
-                <SingleFileInput
-                  {...bindCustom('banner')}
-                  label={bannerUrl ? 'Change banner' : 'Upload banner'}
-                  inputProps={{ accept: 'image/*' }}
-                  testName='channel-settings-banner-input'
-                />
+        {errorMessage ? (
+          <ErrorText data-test='channel-settings-error-message'>{errorMessage}</ErrorText>
+        ) : null}
 
-                {bannerUrl ? (
-                  <TextButton
-                    label='Remove banner'
-                    iconStart={<MaterialIcon icon='clear' />}
-                    onClick={() => {
-                      setInputValue('uploadedBannerPath', undefined)
-                      setInputValue('banner', undefined)
-                    }}
+        <Content>
+          <FormContainer>
+            <StyledForm noValidate={true} onSubmit={onSubmit}>
+              {CHANNEL_BANNERS ? (
+                <BannerButtonsContainer>
+                  <SingleFileInput
+                    {...bindCustom('banner')}
+                    label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                    disabled={isSaving}
+                    inputProps={{ accept: 'image/*' }}
+                    testName='channel-settings-banner-input'
                   />
-                ) : (
-                  <div></div>
-                )}
 
-                <SingleFileInput
-                  {...bindCustom('badge')}
-                  label={badgeUrl ? 'Change badge' : 'Upload badge'}
-                  inputProps={{ accept: 'image/*' }}
-                  testName='channel-settings-badge-input'
-                />
+                  {bannerUrl ? (
+                    <TextButton
+                      label='Remove banner'
+                      disabled={isSaving}
+                      iconStart={<MaterialIcon icon='clear' />}
+                      onClick={() => {
+                        setInputValue('uploadedBannerPath', undefined)
+                        setInputValue('banner', undefined)
+                      }}
+                    />
+                  ) : (
+                    <div></div>
+                  )}
 
-                {badgeUrl ? (
-                  <TextButton
-                    label='Remove badge'
-                    iconStart={<MaterialIcon icon='clear' />}
-                    onClick={() => {
-                      setInputValue('uploadedBadgePath', undefined)
-                      setInputValue('badge', undefined)
-                    }}
+                  <SingleFileInput
+                    {...bindCustom('badge')}
+                    label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                    disabled={isSaving}
+                    inputProps={{ accept: 'image/*' }}
+                    testName='channel-settings-badge-input'
                   />
-                ) : (
-                  <div></div>
-                )}
-              </BannerButtonsContainer>
+
+                  {badgeUrl ? (
+                    <TextButton
+                      label='Remove badge'
+                      disabled={isSaving}
+                      iconStart={<MaterialIcon icon='clear' />}
+                      onClick={() => {
+                        setInputValue('uploadedBadgePath', undefined)
+                        setInputValue('badge', undefined)
+                      }}
+                    />
+                  ) : (
+                    <div></div>
+                  )}
+                </BannerButtonsContainer>
+              ) : null}
+
+              <TextField
+                {...bindInput('description')}
+                label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
+                disabled={isSaving}
+                allowErrors={false}
+                floatingLabel={true}
+                multiline={true}
+                rows={4}
+                maxRows={4}
+                inputProps={{ tabIndex: 0 }}
+                testName='channel-settings-description-input'
+              />
+              <TextField
+                {...bindInput('topic')}
+                label={t('chat.channelSettings.general.topicLabel', 'Topic')}
+                disabled={isSaving}
+                allowErrors={false}
+                floatingLabel={true}
+                inputProps={{ tabIndex: 0 }}
+                testName='channel-settings-topic-input'
+              />
+            </StyledForm>
+
+            {isSaving ? (
+              <DisabledOverlay>
+                <LoadingDotsArea />
+              </DisabledOverlay>
             ) : null}
+          </FormContainer>
 
-            <TextField
-              {...bindInput('description')}
-              label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
-              allowErrors={false}
-              floatingLabel={true}
-              multiline={true}
-              rows={4}
-              maxRows={4}
-              inputProps={{ tabIndex: 0 }}
-              testName='channel-settings-description-input'
-            />
-            <TextField
-              {...bindInput('topic')}
-              label={t('chat.channelSettings.general.topicLabel', 'Topic')}
-              allowErrors={false}
-              floatingLabel={true}
-              inputProps={{ tabIndex: 0 }}
-              testName='channel-settings-topic-input'
-            />
-          </StyledForm>
-        </FormContainer>
+          <ChannelCardRoot>
+            <ChannelBannerAndBadge>
+              {bannerUrl ? (
+                <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
+              ) : (
+                <ChannelBannerPlaceholderImage />
+              )}
+              {basicChannelInfo ? (
+                <ChannelCardBadge>
+                  <ChannelBadge
+                    src={badgeUrl}
+                    channelName={basicChannelInfo.name}
+                    testName='channel-settings-badge-image'
+                  />
+                </ChannelCardBadge>
+              ) : null}
+            </ChannelBannerAndBadge>
+            <ChannelName>{basicChannelInfo.name}</ChannelName>
 
-        <ChannelCardRoot>
-          <ChannelBannerAndBadge>
-            {bannerUrl ? (
-              <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
-            ) : (
-              <ChannelBannerPlaceholderImage />
-            )}
-            {basicChannelInfo ? (
-              <ChannelCardBadge>
-                <ChannelBadge
-                  src={badgeUrl}
-                  channelName={basicChannelInfo.name}
-                  testName='channel-settings-badge-image'
-                />
-              </ChannelCardBadge>
-            ) : null}
-          </ChannelBannerAndBadge>
-          <ChannelName>{basicChannelInfo.name}</ChannelName>
+            <ChannelDescriptionContainer>
+              <span>{getInputValue('description')}</span>
+            </ChannelDescriptionContainer>
 
-          <ChannelDescriptionContainer>
-            <span>{getInputValue('description')}</span>
-          </ChannelDescriptionContainer>
+            <FlexSpacer />
 
-          <FlexSpacer />
-
-          <ChannelActions>
-            <div />
-          </ChannelActions>
-        </ChannelCardRoot>
+            <ChannelActions>
+              <div />
+            </ChannelActions>
+          </ChannelCardRoot>
+        </Content>
       </Root>
     </StyledDialog>
   )

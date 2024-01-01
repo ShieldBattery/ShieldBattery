@@ -35,6 +35,7 @@ const InputContainer = styled.div`
 interface FileInputProps {
   value?: File | File[] | '' | null
   label?: string
+  disabled?: boolean
   allowErrors?: boolean
   errorText?: string
   className?: string
@@ -45,7 +46,17 @@ interface FileInputProps {
 
 export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
   (
-    { value, label, allowErrors = false, errorText, className, testName, inputProps, onChange },
+    {
+      value,
+      label,
+      disabled,
+      allowErrors = false,
+      errorText,
+      className,
+      testName,
+      inputProps,
+      onChange,
+    },
     ref,
   ) => {
     const { t } = useTranslation()
@@ -78,6 +89,7 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
 
     const internalInputProps = {
       ...inputProps,
+      disabled,
       type: 'file',
       onChange: onInputChange,
     }
@@ -88,6 +100,7 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
           <RaisedButton
             as='div'
             label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
+            disabled={disabled}
             tabIndex={-1}>
             <input ref={inputRef} data-test={testName} {...internalInputProps} />
           </RaisedButton>
