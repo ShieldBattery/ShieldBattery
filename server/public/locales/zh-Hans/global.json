@@ -704,7 +704,8 @@
             "general": {
                 "descriptionLabel": "描述",
                 "topicLabel": "话题",
-                "saveErrorMessage": "保存设置时出错"
+                "saveErrorMessage": "保存设置时出错",
+                "inappropriateImageErrorMessage": "所选图像不合适。请选择不同的图像。"
             }
         }
     },
