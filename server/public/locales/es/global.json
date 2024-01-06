@@ -667,7 +667,8 @@
             "general": {
                 "descriptionLabel": "Descripción",
                 "topicLabel": "Tema",
-                "saveErrorMessage": "Algo salió mal al guardar la configuración."
+                "saveErrorMessage": "Algo salió mal al guardar la configuración.",
+                "inappropriateImageErrorMessage": "La imagen seleccionada es inapropiada. Seleccione una imagen diferente."
             }
         }
     },
