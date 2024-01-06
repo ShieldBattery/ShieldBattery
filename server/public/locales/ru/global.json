@@ -1005,7 +1005,8 @@
             "general": {
                 "descriptionLabel": "Описание",
                 "topicLabel": "Тема",
-                "saveErrorMessage": "Что-то пошло не так при сохранении настроек"
+                "saveErrorMessage": "Что-то пошло не так при сохранении настроек",
+                "inappropriateImageErrorMessage": "Выбранное изображение не подходит. Пожалуйста, выберите другое изображение."
             }
         }
     },
