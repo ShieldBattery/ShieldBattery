@@ -7,6 +7,7 @@ export const Snackbar = Record({
   time: -1,
   actionLabel: null,
   action: null,
+  testName: '',
 })
 
 const initialState = List()

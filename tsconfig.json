@@ -27,5 +27,5 @@
     "*.ts"
   ],
 
-  "exclude": ["server/public", "app/dist", "app/node_modules"]
+  "exclude": ["server/public", "server/testing/google", "app/dist", "app/node_modules"]
 }

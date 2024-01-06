@@ -53,11 +53,13 @@ services:
       - SB_ANALYTICS_ID
       - SB_DATADOG_KEY
       - SB_DISABLE_CRAWLERS
+      - GOOGLE_APPLICATION_CREDENTIALS=/google-credentials.json
     networks:
       - frontend
       - backend
     volumes:
       - app_logs:/home/node/shieldbattery/server/logs:rw
+      - ./google-credentials.json:/google-credentials.json:ro
       - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
       - type: bind
         source: ./bw_sprite_data
@@ -112,8 +114,6 @@ services:
       - proxy_gen
       - redis
       - update_server
-
-
 
   nginx_proxy:
     image: nginx:stable-alpine

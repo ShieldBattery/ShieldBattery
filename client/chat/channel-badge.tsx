@@ -42,9 +42,10 @@ export interface ChannelBadgeProps {
   src?: string
   channelName: string
   className?: string
+  testName?: string
 }
 
-export function ChannelBadge({ src, channelName, className }: ChannelBadgeProps) {
+export function ChannelBadge({ src, channelName, className, testName }: ChannelBadgeProps) {
   if (src) {
     return (
       <ChannelBadgeImage
@@ -52,6 +53,7 @@ export function ChannelBadge({ src, channelName, className }: ChannelBadgeProps)
         className={className}
         alt={`${channelName} badge`}
         draggable={false}
+        data-test={testName}
       />
     )
   }

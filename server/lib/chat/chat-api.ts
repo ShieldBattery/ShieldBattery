@@ -116,6 +116,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotModerateYourself:
     case ChatServiceErrorCode.CannotLeaveShieldBattery:
     case ChatServiceErrorCode.CannotModerateShieldBattery:
+    case ChatServiceErrorCode.InappropriateImage:
     case ChatServiceErrorCode.NoInitialChannelData:
       throw asHttpError(400, err)
     case ChatServiceErrorCode.CannotChangeChannelOwner:

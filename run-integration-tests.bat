@@ -8,18 +8,16 @@ cd "%scriptroot%\integration"
 
 @rem Arguments
 set nobuild=
+set playwrightargs=
 
-:next-arg
-if "%1"=="" goto args-done
-if /i "%1"=="nobuild"         set nobuild=true&goto arg-ok
-
-echo Warning: ignoring invalid command line option `%1`.
-
-:arg-ok
-shift
-goto next-arg
-
-:args-done
+set var=0
+:nextarg
+set /A var=%var% + 1
+for /F "tokens=%var% delims= " %%A in ("%*") do (
+    if "%%~A"=="nobuild" set nobuild=true
+    if not "%%~A"=="nobuild" set "playwrightargs=%playwrightargs%%%A "
+    goto nextarg
+)
 
 docker-compose down -v
 if "%nobuild%" NEQ "true" (
@@ -30,7 +28,7 @@ docker-compose up -V -d
 if errorlevel 1 goto exit
 
 cd ..
-yarn run wait-on "http-get://localhost:5527" && yarn run test:integration
+yarn run wait-on "http-get://localhost:5527" && yarn run test:integration %playwrightargs%
 
 :exit
 cd "%startdir%"

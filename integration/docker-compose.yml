@@ -37,6 +37,13 @@ services:
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
       - SB_JWT_SECRET=SuperSecretJwtKey
+      - GOOGLE_APPLICATION_CREDENTIALS=/google-fake-credentials.json
+      - SB_USE_FAKE_GOOGLE_CLOUD=true
+      - 'SB_GOOGLE_CLOUD_DOMAIN=google-cloud'
+      - SB_GOOGLE_CLOUD_PORT=5530
+    volumes:
+      - ./google-fake-credentials.json:/google-fake-credentials.json:ro
+
     depends_on:
       - _app-server-build
       - db
@@ -72,8 +79,6 @@ services:
       - mailgun
       - migration
       - redis
-
-
 
   redis:
     image: redis:6.2.6-alpine
@@ -115,7 +120,7 @@ services:
       - db
       - redis
 
-  # Also just based on the main app_server image, but runninga different server script inside it to
+  # Also just based on the main app_server image, but running a different server script inside it to
   # bring up a fake mailgun API.
   mailgun:
     image: app_server
@@ -126,5 +131,19 @@ services:
     environment:
       - FAKE_MAILGUN_PORT=5528
     command: ['bash', '-c', './server/testing/run_mailgun.sh']
+    depends_on:
+      - _app-server-build
+
+  # Also just based on the main app_server image, but running a different server script inside it to
+  # bring up a fake google cloud API.
+  google-cloud:
+    image: app_server
+    restart: unless-stopped
+    init: true
+    ports:
+      - 5530:5530
+    environment:
+      - FAKE_GOOGLE_CLOUD_PORT=5530
+    command: ['bash', '-c', './server/testing/run_google_cloud.sh']
     depends_on:
       - _app-server-build

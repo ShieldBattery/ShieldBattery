@@ -17,6 +17,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
+import { ImageService } from '../images/image-service'
 import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RequestSessionLookup } from '../websockets/session-lookup'
@@ -399,8 +400,9 @@ describe('chat/chat-service', () => {
     const sessionLookup = new RequestSessionLookup()
     const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     const publisher = new TypedPublisher(nydus)
+    const imageService = new ImageService()
 
-    chatService = new ChatService(publisher, userSocketsManager)
+    chatService = new ChatService(publisher, userSocketsManager, imageService)
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)

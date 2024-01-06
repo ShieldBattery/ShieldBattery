@@ -102,6 +102,7 @@ class ConnectedSnackbar extends React.Component {
           dispatch={this.props.dispatch}
           onLeft={this._handleChildLeft}
           ref={this.elemRef}
+          testName={bar.testName}
         />
       )
     }

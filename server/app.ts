@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import 'abort-controller/polyfill' // TODO(tec27): Remove when min node version is >= 15.x
 import 'core-js/proposals/reflect-metadata'
+import { promises as fsPromises } from 'fs'
 import http from 'http'
 import Koa from 'koa'
 import koaBody from 'koa-body'
@@ -197,6 +198,21 @@ const rallyPointInitPromise = rallyPointService.initialize(
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
 ;(async () => {
+  if (!isDev) {
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      throw new Error('GOOGLE_APPLICATION_CREDENTIALS must be specified')
+    } else {
+      try {
+        await fsPromises.access(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      } catch (err) {
+        throw new Error(
+          'GOOGLE_APPLICATION_CREDENTIALS points to an invalid file: ' +
+            process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        )
+      }
+    }
+  }
+
   if (isDev) {
     const { webpackMiddleware } = require('./lib/webpack/middleware')
     const koaWebpackHot = require('koa-webpack-hot-middleware')
