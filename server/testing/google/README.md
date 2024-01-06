@@ -1,5 +1,6 @@
 This folder contains the code generated from
-[Google APIs](https://github.com/googleapis/googleapis) protobuf definitions. For now we're only enerating code pertaining to Google Cloud Vision API as that is the only API we're using.
+[Google APIs](https://github.com/googleapis/googleapis) protobuf definitions. For now we're only
+generating code pertaining to Google Cloud Vision API as that is the only API we're using.
 Unfortunately, the script that we use to generate code doesn't follow the `import` statements, so
 we had to painstakingly select the files by hand. Hopefully this process won't have to be repeated
 often, but in case you do need to do it, here are the steps.
@@ -43,3 +44,5 @@ folder. Keep in mind that this will only generate code for that specific protobu
 *not* follow the `import` statements that are in it. To generate the code for all of the imports,
 you will need to repeat the above command for everything you need. Thankfully, wildcard characters
 and glob patterns are also available to speed up the process.
+
+Once the code is generated, copy-paste everything to this folder, replacing the existing files.
