@@ -788,7 +788,8 @@
             "general": {
                 "descriptionLabel": "설명",
                 "topicLabel": "주제",
-                "saveErrorMessage": "설정을 저장하는 중에 문제가 발생했습니다."
+                "saveErrorMessage": "설정을 저장하는 중에 문제가 발생했습니다.",
+                "inappropriateImageErrorMessage": "선택한 이미지가 부적절합니다. 다른 이미지를 선택하세요."
             }
         }
     },
