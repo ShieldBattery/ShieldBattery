@@ -184,7 +184,7 @@ export function ChannelSettingsDialog({
     } else {
       errorMessage = t(
         'chat.channelSettings.general.saveErrorMessage',
-        'Something went wrong saving the settings',
+        'Something went wrong while saving the settings',
       )
     }
   }
