@@ -45,6 +45,7 @@ import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline, singleLine } from '../styles/typography'
 import { getBatchUserInfo, navigateToUserProfile } from '../users/action-creators'
@@ -428,18 +429,22 @@ export function ConnectedLeftNav() {
   useButtonHotkey({ ref: joinChannelButtonRef, hotkey: ALT_H })
   useButtonHotkey({ ref: startWhisperButtonRef, hotkey: ALT_W })
 
-  const onLogOutClick = useCallback(() => {
+  const onLogOutClick = useStableCallback(() => {
     closeProfileOverlay()
     dispatch(logOut().action)
-  }, [closeProfileOverlay, dispatch])
-  const onChangelogClick = useCallback(() => {
+  })
+  const onChangelogClick = useStableCallback(() => {
     closeProfileOverlay()
     dispatch(openChangelog())
-  }, [closeProfileOverlay, dispatch])
-  const onViewProfileClick = useCallback(() => {
+  })
+  const onViewProfileClick = useStableCallback(() => {
     closeProfileOverlay()
     navigateToUserProfile(selfUser.id, selfUser.name)
-  }, [closeProfileOverlay, selfUser.id, selfUser.name])
+  })
+  const onReportBugClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(openDialog({ type: DialogType.BugReport }))
+  })
 
   const footer = (
     <>
@@ -550,6 +555,11 @@ export function ConnectedLeftNav() {
           icon={<MaterialIcon icon='new_releases' />}
           text={t('navigation.leftNav.viewChangelog', 'View changelog')}
           onClick={onChangelogClick}
+        />
+        <MenuItem
+          icon={<MaterialIcon icon='bug_report' />}
+          text={t('navigation.leftNav.reportBug', 'Report a bug')}
+          onClick={onReportBugClick}
         />
         <MenuDivider />
         <MenuItem

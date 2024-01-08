@@ -3,6 +3,9 @@ import { Link, Redirect, Route, Switch } from 'wouter'
 import { SbPermissions } from '../../common/users/permissions'
 import { useSelfPermissions } from '../auth/auth-utils'
 
+const LoadableBugReports = React.lazy(async () => ({
+  default: (await import('../bugs/admin-bug-reports')).AdminBugReports,
+}))
 const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
 const LoadableMapPools = React.lazy(() => import('./map-pools'))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
@@ -20,6 +23,11 @@ interface AdminDashboardProps {
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
+  const bugReportsLink = perms?.manageBugReports ? (
+    <li>
+      <Link href='/admin/bug-reports'>Manage bug reports</Link>
+    </li>
+  ) : null
   const mapsLink =
     (perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
       <li>
@@ -49,6 +57,7 @@ function AdminDashboard(props: AdminDashboardProps) {
 
   return (
     <ul>
+      {bugReportsLink}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingSeasonsLink}
@@ -63,6 +72,9 @@ export default function AdminPanel() {
 
   return (
     <Switch>
+      <Route path='/admin/bug-reports/:rest*'>
+        {perms?.manageBugReports ? <LoadableBugReports /> : <Redirect to='/' />}
+      </Route>
       <Route path='/admin/map-manager/:rest*'>
         {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
           <LoadableMapManager />

@@ -401,7 +401,8 @@ impl UsersMutation {
                     manage_rally_point_servers = $10,
                     mass_delete_maps = $11,
                     moderate_chat_channels = $12,
-                    manage_news = $13
+                    manage_news = $13,
+                    manage_bug_reports = $14
                 WHERE user_id = $1
             "#,
             user_id,
@@ -417,6 +418,7 @@ impl UsersMutation {
             permissions.mass_delete_maps,
             permissions.moderate_chat_channels,
             permissions.manage_news,
+            permissions.manage_bug_reports,
         )
         .execute(ctx.data_unchecked::<PgPool>())
         .await?;
@@ -570,10 +572,10 @@ impl CurrentUserRepo {
             sqlx::query_as!(
                 SbPermissions,
                 r#"
-                    SELECT edit_permissions, debug, ban_users, manage_leagues, manage_maps,
-                        manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
-                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
-                        manage_news
+                    SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
+                        manage_maps, manage_map_pools, manage_matchmaking_seasons,
+                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
+                        moderate_chat_channels, manage_news, manage_bug_reports
                     FROM permissions
                     WHERE user_id = $1
                 "#,

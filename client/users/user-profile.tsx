@@ -20,7 +20,6 @@ import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { TabItem, Tabs } from '../material/tabs'
-import { selectableTextContainer } from '../material/text-selection'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -34,6 +33,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
+import { selectableTextContainer } from '../styles/text-selection'
 import {
   Subtitle2,
   caption,

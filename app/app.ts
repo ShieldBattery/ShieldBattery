@@ -1,12 +1,15 @@
+import archiver from 'archiver'
+import { BufferListStream } from 'bl'
 import crypto from 'crypto'
 import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
-import fs from 'fs'
-import fsPromises from 'fs/promises'
 import ReplayParser, { ReplayHeader } from 'jssuh'
-import path from 'path'
+import fs, { createReadStream } from 'node:fs'
+import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import { container } from 'tsyringe'
@@ -438,6 +441,73 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
     activeGameManager.setGameRoutes(gameId, routes),
   )
+  ipcMain.handle('bugReportCollectFiles', async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'sbat-'))
+    const logsDir = path.join(getUserDataPath(), 'logs')
+    const collectedFiles: Array<{ name: string; filePath: string }> = []
+    try {
+      const filePath = path.join(tempDir, 'app.log')
+      await copyFile(path.join(logsDir, 'app.0.log'), filePath)
+      collectedFiles.push({ name: 'app.log', filePath })
+    } catch (err) {
+      logger.warning('Error copying app log: ' + (err as any).stack ?? err)
+    }
+
+    try {
+      const filePath = path.join(tempDir, 'shieldbattery.log')
+      await copyFile(path.join(logsDir, 'shieldbattery.0.log'), filePath)
+      collectedFiles.push({ name: 'shieldbattery.log', filePath })
+    } catch (err) {
+      logger.warning('Error copying game log: ' + (err as any).stack ?? err)
+    }
+
+    try {
+      const dumpPath = path.join(logsDir, 'latest_crash.dmp')
+      const stats = await fsPromises.stat(dumpPath)
+      const dayAgo = Number(Date.now() - 24 * 60 * 60 * 1000)
+      if (stats.mtimeMs >= dayAgo) {
+        const filePath = path.join(tempDir, 'latest_crash.dmp')
+        await copyFile(path.join(logsDir, 'latest_crash.dmp'), filePath)
+        collectedFiles.push({ name: 'latest_crash.dmp', filePath })
+      }
+    } catch (err) {
+      if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
+        logger.warning('Error copying crash dump: ' + (err as any).stack ?? err)
+      }
+    }
+
+    if (!collectedFiles.length) {
+      throw new Error('No log files could be collected')
+    }
+
+    const zip = archiver('zip')
+    const result = new Promise<Uint8Array>((resolve, reject) => {
+      pipeline(
+        zip,
+        new BufferListStream((err, data) => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve(data)
+          }
+        }),
+      ).catch(err => reject(err))
+    })
+
+    for (const { name, filePath } of collectedFiles) {
+      zip.append(createReadStream(filePath), { name })
+    }
+
+    await zip.finalize()
+
+    try {
+      await fsPromises.rm(tempDir, { recursive: true, force: true, maxRetries: 1 })
+    } catch (err) {
+      logger.warning(`Error removing temp logs directory: ${(err as any).stack ?? err}`)
+    }
+
+    return await result
+  })
 
   ipcMain.handle('fsReadFile', async (_, filePath) => {
     return fsPromises.readFile(filePath)

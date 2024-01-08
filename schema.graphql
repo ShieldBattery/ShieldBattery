@@ -112,6 +112,7 @@ type Query {
 }
 
 type SbPermissions {
+	id: Int!
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -124,9 +125,11 @@ type SbPermissions {
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
+	manageBugReports: Boolean!
 }
 
 input SbPermissionsInput {
+	id: Int!
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -139,6 +142,7 @@ input SbPermissionsInput {
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
+	manageBugReports: Boolean!
 }
 
 type SbUser {

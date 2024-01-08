@@ -15,6 +15,7 @@ export interface SbPermissions {
   massDeleteMaps: boolean
   moderateChatChannels: boolean
   manageNews: boolean
+  manageBugReports: boolean
 }
 
 export type PublishedMessage = { type: 'user'; data: PublishedUserMessage }

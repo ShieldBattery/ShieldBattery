@@ -16,6 +16,7 @@ use crate::users::CurrentUser;
 #[serde(rename_all = "camelCase")]
 #[graphql(input_name = "SbPermissionsInput")]
 pub struct SbPermissions {
+    pub id: i32,
     pub edit_permissions: bool,
     pub debug: bool,
     pub ban_users: bool,
@@ -28,6 +29,7 @@ pub struct SbPermissions {
     pub mass_delete_maps: bool,
     pub moderate_chat_channels: bool,
     pub manage_news: bool,
+    pub manage_bug_reports: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -45,6 +47,7 @@ pub enum RequiredPermission {
     MassDeleteMaps,
     ModerateChatChannels,
     ManageNews,
+    ManageBugReports,
 }
 
 impl RequiredPermission {
@@ -62,6 +65,7 @@ impl RequiredPermission {
             Self::MassDeleteMaps => permissions.mass_delete_maps,
             Self::ModerateChatChannels => permissions.moderate_chat_channels,
             Self::ManageNews => permissions.manage_news,
+            Self::ManageBugReports => permissions.manage_bug_reports,
         }
     }
 }
@@ -100,7 +104,7 @@ impl Loader<i32> for PermissionsLoader {
                     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
                         manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
-                        manage_news
+                        manage_news, manage_bug_reports
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -111,6 +115,7 @@ impl Loader<i32> for PermissionsLoader {
             (
                 r.user_id,
                 SbPermissions {
+                    id: r.user_id,
                     edit_permissions: r.edit_permissions,
                     debug: r.debug,
                     ban_users: r.ban_users,
@@ -123,6 +128,7 @@ impl Loader<i32> for PermissionsLoader {
                     mass_delete_maps: r.mass_delete_maps,
                     moderate_chat_channels: r.moderate_chat_channels,
                     manage_news: r.manage_news,
+                    manage_bug_reports: r.manage_bug_reports,
                 },
             )
         })

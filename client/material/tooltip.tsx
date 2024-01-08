@@ -107,7 +107,7 @@ const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
-interface TooltipProps {
+export interface TooltipProps {
   /** The react node (usually string) that should be displayed in the Tooltip. */
   text: React.ReactNode
   /**

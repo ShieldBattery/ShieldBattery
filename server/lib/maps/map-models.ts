@@ -96,7 +96,7 @@ async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
   const hashString = info.map_hash.toString('hex')
 
   const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
-    getSignedUrl(mapPath(hashString, info.extension), true),
+    getSignedUrl(mapPath(hashString, info.extension)),
     getUrl(imagePath(hashString, 256)),
     getUrl(imagePath(hashString, 512)),
     getUrl(imagePath(hashString, 1024)),

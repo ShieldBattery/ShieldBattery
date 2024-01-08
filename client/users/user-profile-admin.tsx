@@ -91,6 +91,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
   fragment AdminUserProfile_Permissions on SbUser {
     id
     permissions {
+      id
       editPermissions
       debug
       banUsers
@@ -103,6 +104,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
       massDeleteMaps
       moderateChatChannels
       manageNews
+      manageBugReports
     }
   }
 `)
@@ -222,6 +224,12 @@ function PermissionsEditor({
         <CheckBox
           {...bindCheckable('manageNews')}
           label='Manage news'
+          inputProps={inputProps}
+          disabled={fetching}
+        />
+        <CheckBox
+          {...bindCheckable('manageBugReports')}
+          label='Manage bug reports'
           inputProps={inputProps}
           disabled={fetching}
         />

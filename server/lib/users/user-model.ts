@@ -358,6 +358,10 @@ export async function findUserByName(name: string): Promise<SbUser | undefined> 
  * be included in the result. The order of the result is not guaranteed.
  */
 export async function findUsersByName(names: string[]): Promise<SbUser[]> {
+  if (!names.length) {
+    return []
+  }
+
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
@@ -382,6 +386,10 @@ export async function findUsersByNameAsMap(names: string[]): Promise<Map<string,
  * be included in the result. The order of the result is not guaranteed.
  */
 export async function findUsersById(ids: SbUserId[]): Promise<SbUser[]> {
+  if (!ids.length) {
+    return []
+  }
+
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)

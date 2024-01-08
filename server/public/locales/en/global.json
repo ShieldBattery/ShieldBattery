@@ -102,6 +102,15 @@
       "required": "Enter a username"
     }
   },
+  "bugReport": {
+    "details": "Details",
+    "detailsDescription": "Please describe the bug and provide as much detail as possible about what you were doing when the bug occurred.",
+    "detailsRequired": "Bug reports must include details.",
+    "error": "Error: {{errorMessage}}",
+    "logUploadDescription": "Your bug report will include ShieldBattery logs from your machine to help diagnose the issue. Logs may be kept for up to 30 days and are viewable only by ShieldBattery staff.",
+    "reportSubmitted": "Bug report submitted.",
+    "title": "Report a bug"
+  },
   "chat": {
     "banUser": {
       "banAction": "Ban {{user}}",
@@ -256,6 +265,7 @@
       "show": "Show",
       "start": "Start",
       "stop": "Stop",
+      "submit": "Submit",
       "test": "Test",
       "unblock": "Unblock",
       "view": "View"
@@ -840,6 +850,7 @@
       "logIn": "Log in",
       "logOut": "Log out",
       "rankedGame": "Ranked {{matchmakingType}}",
+      "reportBug": "Report a bug",
       "startWhisper": "Start a whisper (Alt + W)",
       "viewChangelog": "View changelog",
       "viewProfile": "View profile",

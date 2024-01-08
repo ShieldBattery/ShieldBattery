@@ -11,6 +11,7 @@ import koaJwt from 'koa-jwt'
 import views from 'koa-views'
 import path from 'path'
 import { container } from 'tsyringe'
+import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
 import isDev from './lib/env/is-dev'
 import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
 import { addMiddleware as fileStoreMiddleware, setStore } from './lib/file-upload'
@@ -72,6 +73,10 @@ if (fileStoreSettings.filesystem) {
 } else {
   throw new Error('no valid key could be found in SB_FILE_STORE')
 }
+
+container.register(DISCORD_WEBHOOK_URL_TOKEN, {
+  useValue: process.env.SB_DISCORD_WEBHOOK_URL ?? '',
+})
 
 const app = new Koa()
 const port = process.env.SB_HTTP_PORT

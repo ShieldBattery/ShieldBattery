@@ -53,6 +53,7 @@ services:
       - SB_ANALYTICS_ID
       - SB_DATADOG_KEY
       - SB_DISABLE_CRAWLERS
+      - SB_DISCORD_WEBHOOK_URL
       - GOOGLE_APPLICATION_CREDENTIALS=/google-credentials.json
     networks:
       - frontend

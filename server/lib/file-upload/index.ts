@@ -37,7 +37,12 @@ export function getUrl(filename: string, options?: any) {
   return store!.url(filename, options)
 }
 
-export async function getSignedUrl(filename: string, options?: any) {
+export interface GetSignedUrlOptions {
+  /** How long the url should be valid for, in seconds. Defaults to `900` (15 minutes). */
+  expires?: number
+}
+
+export async function getSignedUrl(filename: string, options?: GetSignedUrlOptions) {
   return store!.signedUrl(filename, options)
 }
 

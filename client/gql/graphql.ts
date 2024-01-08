@@ -155,6 +155,8 @@ export type SbPermissions = {
   banUsers: Scalars['Boolean']['output']
   debug: Scalars['Boolean']['output']
   editPermissions: Scalars['Boolean']['output']
+  id: Scalars['Int']['output']
+  manageBugReports: Scalars['Boolean']['output']
   manageLeagues: Scalars['Boolean']['output']
   manageMapPools: Scalars['Boolean']['output']
   manageMaps: Scalars['Boolean']['output']
@@ -170,6 +172,8 @@ export type SbPermissionsInput = {
   banUsers: Scalars['Boolean']['input']
   debug: Scalars['Boolean']['input']
   editPermissions: Scalars['Boolean']['input']
+  id: Scalars['Int']['input']
+  manageBugReports: Scalars['Boolean']['input']
   manageLeagues: Scalars['Boolean']['input']
   manageMapPools: Scalars['Boolean']['input']
   manageMaps: Scalars['Boolean']['input']
@@ -261,6 +265,7 @@ export type AdminUserProfile_PermissionsFragment = {
   id: number
   permissions: {
     __typename?: 'SbPermissions'
+    id: number
     editPermissions: boolean
     debug: boolean
     banUsers: boolean
@@ -273,6 +278,7 @@ export type AdminUserProfile_PermissionsFragment = {
     massDeleteMaps: boolean
     moderateChatChannels: boolean
     manageNews: boolean
+    manageBugReports: boolean
   }
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
@@ -327,6 +333,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
@@ -339,6 +346,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
               ],
             },
           },
@@ -642,6 +650,7 @@ export const AdminUserProfileDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
@@ -654,6 +663,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
               ],
             },
           },
@@ -732,6 +742,7 @@ export const AdminUpdateUserPermissionsDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
@@ -744,6 +755,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
               ],
             },
           },

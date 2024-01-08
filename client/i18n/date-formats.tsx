@@ -1,3 +1,6 @@
+import React from 'react'
+import { Except } from 'type-fest'
+import { Tooltip, TooltipProps } from '../material/tooltip'
 import { RelativeTimeFormatter } from './relative-time'
 
 /** A formatter for short timestamps (e.g. things that just need to show the hour + minute). */
@@ -25,7 +28,30 @@ export const monthDay = new Intl.DateTimeFormat(navigator.language, {
   day: 'numeric',
 })
 
+/**
+ * A formatter for timestamps that show a short, relative time since something occurred,
+ * e.g. "5m ago", "1d ago".
+ */
 export const narrowDuration = new RelativeTimeFormatter(navigator.language, {
   style: 'narrow',
   numeric: 'always',
 })
+
+export interface NarrowDurationProps {
+  to: Date | number
+  from?: Date | number
+  className?: string
+  tooltipProps?: Except<TooltipProps, 'text' | 'children'>
+}
+
+/**
+ * A component that formats a timestamp as a short, relative time since something occurred,
+ * e.g. "5m ago", "1d ago". It also provides a tooltip to show the exact timestamp.
+ */
+export function NarrowDuration({ to, from, className, tooltipProps = {} }: NarrowDurationProps) {
+  return (
+    <Tooltip {...tooltipProps} text={longTimestamp.format(to)}>
+      <span className={className}>{narrowDuration.format(to, from)}</span>
+    </Tooltip>
+  )
+}
