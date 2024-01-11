@@ -9,9 +9,11 @@ import {
   SbChannelId,
   makeSbChannelId,
 } from '../../../common/chat'
+import { CHANNEL_BANNERS } from '../../../common/flags'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { ThunkAction } from '../../dispatch-registry'
+import { RaisedButton } from '../../material/button'
 import { DestructiveMenuItem } from '../../material/menu/item'
 import { ChatContext, ChatContextValue } from '../../messaging/chat'
 import MessageList from '../../messaging/message-list'
@@ -23,9 +25,10 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { colorError } from '../../styles/colors'
-import { headline5, headline6, subtitle1 } from '../../styles/typography'
-import { deleteMessageAsAdmin } from '../action-creators'
+import { background700, background800, colorError } from '../../styles/colors'
+import { FlexSpacer } from '../../styles/flex-spacer'
+import { headline6, subtitle1 } from '../../styles/typography'
+import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
 import { renderChannelMessage } from '../channel'
 import { ChannelUserList } from '../channel-user-list'
 
@@ -87,17 +90,26 @@ const Container = styled.div`
 
   display: flex;
   flex-direction: column;
+
+  background-color: ${background700};
 `
 
-const PageHeadline = styled.div`
-  ${headline5};
-  margin-top: 16px;
-  margin-bottom: 8px;
+const ChannelHeaderContainer = styled.div`
+  width: 100%;
+  max-width: 960px;
+  height: 72px;
+  padding: 8px;
+  padding-right: 8px;
+  background-color: ${background700};
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 `
 
 const ChannelHeadline = styled.div`
   ${headline6};
-  margin-bottom: 8px;
 `
 
 const ChannelContainer = styled.div`
@@ -112,6 +124,8 @@ const StyledMessageList = styled(MessageList)`
   flex-grow: 1;
   max-width: 960px;
   min-width: 320px;
+
+  background-color: ${background800};
 `
 
 const ErrorText = styled.div`
@@ -134,6 +148,8 @@ export function AdminChannelView({
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
   const [isLoadingMoreChannelMessages, setIsLoadingMoreChannelMessages] = useState(false)
+  const [isRemovingBanner, setIsRemovingBanner] = useState(false)
+  const [isRemovingBadge, setIsRemovingBadge] = useState(false)
 
   const [channelUsers, setChannelUsers] = useState<SbUser[]>([])
 
@@ -215,6 +231,52 @@ export function AdminChannelView({
     )
   })
 
+  const onRemoveBannerClick = useStableCallback(() => {
+    setIsRemovingBanner(true)
+
+    dispatch(
+      updateChannel({
+        channelId: channelInfo!.id,
+        channelChanges: {
+          deleteBanner: true,
+        },
+        spec: {
+          onSuccess: () => {
+            setIsRemovingBanner(false)
+            dispatch(openSnackbar({ message: 'Banner successfully removed.' }))
+          },
+          onError: err => {
+            setIsRemovingBanner(false)
+            dispatch(openSnackbar({ message: 'Something went wrong while removing the banner.' }))
+          },
+        },
+      }),
+    )
+  })
+
+  const onRemoveBadgeClick = useStableCallback(() => {
+    setIsRemovingBadge(true)
+
+    dispatch(
+      updateChannel({
+        channelId: channelInfo!.id,
+        channelChanges: {
+          deleteBadge: true,
+        },
+        spec: {
+          onSuccess: () => {
+            setIsRemovingBadge(false)
+            dispatch(openSnackbar({ message: 'Badge successfully removed.' }))
+          },
+          onError: err => {
+            setIsRemovingBadge(false)
+            dispatch(openSnackbar({ message: 'Something went wrong while removing the badge.' }))
+          },
+        },
+      }),
+    )
+  })
+
   // We assume everyone is active in admin view, since tracking user activity is a hassle.
   const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
 
@@ -284,8 +346,27 @@ export function AdminChannelView({
     <Container>
       {channelInfo ? (
         <>
-          <PageHeadline>Channel view</PageHeadline>
-          <ChannelHeadline>{channelInfo.name}</ChannelHeadline>
+          <ChannelHeaderContainer>
+            <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
+
+            <FlexSpacer />
+
+            {CHANNEL_BANNERS ? (
+              <>
+                <RaisedButton
+                  label='Remove banner'
+                  disabled={isRemovingBanner}
+                  onClick={onRemoveBannerClick}
+                />
+                <RaisedButton
+                  label='Remove badge'
+                  disabled={isRemovingBadge}
+                  onClick={onRemoveBadgeClick}
+                />
+              </>
+            ) : null}
+          </ChannelHeaderContainer>
+
           <ChatContext.Provider value={chatContextValue}>
             <ChannelContainer>
               <StyledMessageList
