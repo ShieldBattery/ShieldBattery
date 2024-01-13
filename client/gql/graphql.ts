@@ -155,6 +155,10 @@ export type SbPermissions = {
   banUsers: Scalars['Boolean']['output']
   debug: Scalars['Boolean']['output']
   editPermissions: Scalars['Boolean']['output']
+  /**
+   * The user ID these permissions are for. This is mainly so the client has a key for caching
+   * purposes, and is not generally used elsewhere.
+   */
   id: Scalars['Int']['output']
   manageBugReports: Scalars['Boolean']['output']
   manageLeagues: Scalars['Boolean']['output']
@@ -172,6 +176,10 @@ export type SbPermissionsInput = {
   banUsers: Scalars['Boolean']['input']
   debug: Scalars['Boolean']['input']
   editPermissions: Scalars['Boolean']['input']
+  /**
+   * The user ID these permissions are for. This is mainly so the client has a key for caching
+   * purposes, and is not generally used elsewhere.
+   */
   id: Scalars['Int']['input']
   manageBugReports: Scalars['Boolean']['input']
   manageLeagues: Scalars['Boolean']['input']

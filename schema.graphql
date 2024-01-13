@@ -112,6 +112,10 @@ type Query {
 }
 
 type SbPermissions {
+	"""
+	The user ID these permissions are for. This is mainly so the client has a key for caching
+	purposes, and is not generally used elsewhere.
+	"""
 	id: Int!
 	editPermissions: Boolean!
 	debug: Boolean!
@@ -129,6 +133,10 @@ type SbPermissions {
 }
 
 input SbPermissionsInput {
+	"""
+	The user ID these permissions are for. This is mainly so the client has a key for caching
+	purposes, and is not generally used elsewhere.
+	"""
 	id: Int!
 	editPermissions: Boolean!
 	debug: Boolean!
