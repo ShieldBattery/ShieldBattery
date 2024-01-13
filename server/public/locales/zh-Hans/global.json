@@ -31,7 +31,8 @@
             "apply": "应用",
             "block": "屏蔽",
             "edit": "编辑",
-            "reveal": "显示"
+            "reveal": "显示",
+            "submit": "提交"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -901,7 +902,8 @@
             "viewChangelog": "查看更新日志",
             "viewProfile": "查看资料",
             "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
-            "home": "首页"
+            "home": "首页",
+            "reportBug": "报告错误"
         },
         "copyLink": {
             "copiedText": "已复制！",
@@ -1293,5 +1295,14 @@
         "fileInput": {
             "chooseFile": "选择文件"
         }
+    },
+    "bugReport": {
+        "details": "细节",
+        "detailsDescription": "请描述该错误并尽可能详细地说明该错误发生时您正在执行的操作。",
+        "detailsRequired": "错误报告必须包含详细信息。",
+        "error": "错误：{{errorMessage}}",
+        "logUploadDescription": "您的错误报告将包括您计算机上的 ShieldBattery 日志，以帮助诊断问题。日志最多可保存 30 天，并且只有 ShieldBattery 员工才能查看。",
+        "reportSubmitted": "已提交错误报告。",
+        "title": "报告错误"
     }
 }
