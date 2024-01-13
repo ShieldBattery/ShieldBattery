@@ -73,7 +73,7 @@ export async function updatePermissions(
       manage_rally_point_servers = ${!!perms.manageRallyPointServers},
       moderate_chat_channels=${!!perms.moderateChatChannels},
       manage_matchmaking_seasons=${!!perms.manageMatchmakingSeasons},
-      manage_news=${!!perms.manageNews}
+      manage_news=${!!perms.manageNews},
       manage_bug_reports=${!!perms.manageBugReports}
     WHERE user_id = ${userId}
     RETURNING *;
@@ -81,7 +81,7 @@ export async function updatePermissions(
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbPermissions>(query)
     return convertFromDb(result.rows[0])
   } finally {
     done()

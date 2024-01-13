@@ -46,5 +46,5 @@ function handlePgSyntaxError(queryText: string, error: DatabaseError): Error {
   if (error.hint) {
     messageLines.push(`hint: ${error.hint}`)
   }
-  return new Error(`${error.message} in query: \n${messageLines.join('\n')}`)
+  return new Error(`${error.message} in query: \n${messageLines.join('\n')}`, { cause: error })
 }
