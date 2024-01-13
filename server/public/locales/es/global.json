@@ -35,7 +35,8 @@
             "stop": "Detener",
             "test": "Prueba",
             "edit": "Editar",
-            "reveal": "Revelar"
+            "reveal": "Revelar",
+            "submit": "Entregar"
         },
         "lists": {
             "empty": "Nada que ver aqui"
@@ -931,7 +932,8 @@
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "susurros",
-            "home": "Hogar"
+            "home": "Hogar",
+            "reportBug": "Reportar un error"
         }
     },
     "notifications": {
@@ -1305,5 +1307,14 @@
         "fileInput": {
             "chooseFile": "Elija el archivo"
         }
+    },
+    "bugReport": {
+        "details": "Detalles",
+        "detailsDescription": "Describa el error y proporcione tantos detalles como sea posible sobre lo que estaba haciendo cuando se produjo el error.",
+        "detailsRequired": "Los informes de errores deben incluir detalles.",
+        "error": "Error: {{errorMessage}}",
+        "logUploadDescription": "Su informe de error incluirá registros de ShieldBattery de su máquina para ayudar a diagnosticar el problema. Los registros se pueden conservar hasta por 30 días y solo el personal de ShieldBattery puede verlos.",
+        "reportSubmitted": "Informe de error enviado.",
+        "title": "Reportar un error"
     }
 }
