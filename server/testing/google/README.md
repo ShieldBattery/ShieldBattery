@@ -13,7 +13,7 @@ Then, clone the [Google APIs](https://github.com/googleapis/googleapis) reposito
 In the cloned repository, run the following command:
 
 ```
-yarn add grpc-tools ts-protoc-gen
+pnpm add grpc-tools ts-protoc-gen
 ```
 
 Next, you need to download the `protoc-gen-js.exe` binary from _somewhere_. One way to do it is by
@@ -41,7 +41,7 @@ protoc \
 
 This will generate the code from `image_annotator.proto` definitions and save it to the `proto`
 folder. Keep in mind that this will only generate code for that specific protobuf file, it will
-*not* follow the `import` statements that are in it. To generate the code for all of the imports,
+_not_ follow the `import` statements that are in it. To generate the code for all of the imports,
 you will need to repeat the above command for everything you need. Thankfully, wildcard characters
 and glob patterns are also available to speed up the process.
 

@@ -3,6 +3,8 @@
 # the server dependencies
 FROM node:20-alpine as builder
 
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
 # multistage build to install the necessary tools, and build the dependencies which will then be
 # copied over to the next stage (this stage will be discarded, along with the installed tools, to
@@ -32,18 +34,21 @@ COPY . .
 # Install only the root folder's dependencies (`app` dependencies should be built into the
 # Electron app). Note that we specifically install non-production dependencies here so that we can
 # use them to build the client code. They will be pruned out in a later step.
-RUN yarn --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Prebuild the web client assets so we can simply copy them over
 ENV NODE_ENV=production
-RUN yarn run build-web-client
+RUN pnpm run build-web-client
 
 # Then prune the server deps to only the production ones
-RUN yarn --frozen-lockfile
+RUN pnpm prune --prod
 
 # ---------- 2nd stage ----------
 # Second stage copies the built dependencies from first stage and runs the app in production mode
 FROM node:20-alpine
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 ENV NODE_ENV=production
 # Tell the server not to try and run webpack
 ENV SB_PREBUILT_ASSETS=true

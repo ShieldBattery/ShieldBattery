@@ -10,7 +10,7 @@ export async function registerCurrentProgram() {
   if (isDev) {
     // NOTE(tec27): We don't run the single-instance code in dev, so it's tough to test the file
     // association stuff properly there. It's also hard to launch the app from the right location
-    // similar to how we do from yarn, so we just don't do this registration. If you need to test
+    // similar to how we do from pnpm, so we just don't do this registration. If you need to test
     // file associations, use an unpacked build.
     return
   }

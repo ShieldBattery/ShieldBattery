@@ -1,6 +1,6 @@
 [
   {
-    "command": ["yarn", "run", "start-server"],
+    "command": ["pnpm", "run", "start-server"],
     "title": "Node Web Server"
   },
   {
@@ -9,15 +9,15 @@
     "title": "Rust Web Server"
   },
   {
-    "command": ["yarn", "run", "dev"],
+    "command": ["pnpm", "run", "dev"],
     "title": "Dev Webpack Server"
   },
   {
-    "command": ["yarn", "run", "gen-graphql", "--watch"],
+    "command": ["pnpm", "run", "gen-graphql", "--watch"],
     "title": "GraphQL Codegen"
   },
   {
-    "command": ["yarn", "run", "app"],
+    "command": ["pnpm", "run", "app"],
     "title": "Electron App"
   }
 ]

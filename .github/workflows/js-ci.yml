@@ -14,39 +14,40 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Using pnpm v8.x
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
       - name: Using Node.js 20.x
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-          cache: 'yarn'
-
-      - name: Add global packages
-        run: yarn global add node-gyp
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Install app dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm install --frozen-lockfile
         working-directory: ./app
 
       - name: Run unit tests
-        run: yarn test
+        run: pnpm test
 
       - name: Check translation files
         id: check-translation-files
-        run: yarn gen-translations:app --fail-on-update && yarn gen-translations:email --fail-on-update
+        run: pnpm gen-translations:app --fail-on-update && pnpm gen-translations:email --fail-on-update
 
       - name: Display translation error
         if: ${{ failure() && steps.check-translation-files.conclusion == 'failure' }}
         uses: actions/github-script@v6
         with:
           script: |
-            core.setFailed('The translation files are not up to date. Please run "yarn gen-translations" in the directory root and commit the updated translation files.')
+            core.setFailed('The translation files are not up to date. Please run "pnpm gen-translations" in the directory root and commit the updated translation files.')
 
       - name: Generate email templates
         id: gen-email-templates
-        run: yarn gen-emails
+        run: pnpm gen-emails
 
       - name: Check email templates
         uses: tj-actions/verify-changed-files@v15
@@ -59,11 +60,11 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            core.setFailed('The email templates seem outdated. Please run "yarn gen-emails" in the directory root and commit the updated email templates.')
+            core.setFailed('The email templates seem outdated. Please run "pnpm gen-emails" in the directory root and commit the updated email templates.')
 
       - name: Generate graphql files
         id: gen-graphql
-        run: yarn gen-graphql
+        run: pnpm gen-graphql
 
       - name: Check graphql codegen
         uses: tj-actions/verify-changed-files@v15
@@ -76,7 +77,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            core.setFailed('The generated graphql files seem outdated. Please run `yarn gen-graphql` in the directory root and commit the updated files.')
+            core.setFailed('The generated graphql files seem outdated. Please run `pnpm gen-graphql` in the directory root and commit the updated files.')
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -89,27 +90,29 @@ jobs:
       - name: Running Docker containers
         run: cd ./integration && docker-compose up -V -d
 
+      - name: Using pnpm v8.x
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
       - name: Using Node.js 20.x
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-          cache: 'yarn'
-
-      - name: Add global packages
-        run: yarn global add node-gyp
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm --frozen-lockfile
 
       - name: Install app dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm --frozen-lockfile
         working-directory: ./app
 
       - name: Install playwright dependencies
         run: npx playwright install-deps && npx playwright install
 
       - name: Run integration tests
-        run: yarn test:integration
+        run: pnpm test:integration
 
       - name: View app-server logs
         if: ${{ failure() }}
@@ -122,6 +125,10 @@ jobs:
       - name: View mailgun logs
         if: ${{ failure() }}
         run: docker logs integration_mailgun_1
+
+      - name: View google-cloud logs
+        if: ${{ failure() }}
+        run: docker logs integration_google-cloud_1
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}

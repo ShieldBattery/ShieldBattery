@@ -31,7 +31,7 @@ See our [getting started](./docs/GETTING_STARTED.md) guide for information on in
 ### Running the server
 
 ```
-yarn run start-server
+pnpm run start-server
 ```
 
 The server will automatically rebuild the necessary client JavaScript files as they change. If you make
@@ -46,13 +46,13 @@ running for things to work correctly.
 To run the development server, use:
 
 ```
-yarn run dev
+pnpm run dev
 ```
 
 To run the app, use:
 
 ```
-yarn run app
+pnpm run app
 ```
 
 This setup will automatically rebuild and reload for any client changes you make. If you make changes to
@@ -88,11 +88,12 @@ The ShieldBattery project is broken down into four big pieces, located in these 
 - **client**: all of the client-side code which is used by the standalone application and the website client
 - **game**: Rust code related to the game.
 - **server**: the server-side code including all the HTTP API handlers and WebSocket API handlers.
+- **server-rs**: a Rust-based GraphQL server used for some APIs
 
 There are also some other important folders:
 
 - **assets**: contains source assets for our graphics
-- **test**: contains tests for various things (runnable with `yarn test`). Note that the server has its own
+- **test**: contains tests for various things (runnable with `pnpm test`). Note that the server has its own
   tests, which are located inside of the `server/test` directory.
 - **tools**: contains third-party tools we use for building and maintaining various parts of the
   project, such as generating diffs to patch between game versions

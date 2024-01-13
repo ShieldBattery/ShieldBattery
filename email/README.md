@@ -7,18 +7,18 @@ to the mailgun API on server start.
 When editing emails, you can get a nice preview server using:
 
 ```sh
-yarn email-dev
+pnpm email-dev
 ```
 
 Unlike with the normal dev server, translations will not be auto-updated, so make sure to run the
 translation process as necessary:
 
 ```sh
-yarn gen-translations
+pnpm gen-translations
 ```
 
 To update the compiled template files use by the server, you'll also need to run:
 
 ```sh
-yarn gen-emails
+pnpm gen-emails
 ```

@@ -5,5 +5,5 @@ These files are generated, and should not be edited manually.
 To regenerate them, run:
 
 ```
-yarn run gen-graphql
+pnpm run gen-graphql
 ```

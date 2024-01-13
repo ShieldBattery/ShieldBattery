@@ -16,11 +16,15 @@ of writing). On Windows, you'll be given the option to install dependencies for 
 modules (Visual Studio build tools + Python), you should take that option if you don't already have
 them installed separately.
 
-### Yarn
+### PNPM
 
-The various JavaScript components use [Yarn](https://yarnpkg.com/) to manage their dependencies.
-Install the latest version of it from their [downloads page](https://yarnpkg.com/en/docs/install).
-Note that we are currently using "Yarn Classic" (that is, 1.x).
+The various JavaScript components use [pnpm](https://pnpm.io/) to manage their dependencies.
+Install the latest version via `corepack` which is provided by Node:
+
+```sh
+corepack enable
+corepack prepare pnpm@latest --activate
+```
 
 ### C++
 
@@ -155,14 +159,14 @@ match your local configuration.
 
 ## Installing dependencies
 
-Every directory with a `yarn.lock` needs to have its dependencies installed with Yarn. You can do
-this manually, or simply run `yarnall` from the root directory:
+Every directory with a `pnpm-lock.yaml` needs to have its dependencies installed with pnpm. You can
+do this manually, or simply run `installall` from the root directory:
 
 ```
-yarn run yarnall
+pnpm run installall
 ```
 
-This should be done every time a `yarn.lock` file changes in the repository.
+This should be done every time a `pnpm-lock.yaml` file changes in the repository.
 
 ## Initialize the database structure
 
@@ -171,7 +175,7 @@ This should be done every time a `yarn.lock` file changes in the repository.
 From the root of this repository execute this to migrate the database to the latest structure:
 
 ```
-yarn run migrate-up
+pnpm run migrate-up
 ```
 
 You will need to run this command after pulling in commits that change the database structure as
@@ -203,7 +207,7 @@ structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 The standard way to run the server is (assuming you are in the project root directory):
 
 ```
-yarn run start-server
+pnpm run start-server
 ```
 
 This command will format and colorize the log output, but if you want/need the raw output you can
@@ -218,7 +222,7 @@ run all the servers together and also launch a single Electron app. This is the 
 command to use during development:
 
 ```
-yarn run local-dev
+pnpm run local-dev
 ```
 
 ### Overriding the server URL (optional)
@@ -228,7 +232,7 @@ It is possible to override the server's URL with environment variables. Two leve
 - **Build time**: `SB_SERVER` set in the environment that runs the webpack dev server will pick the
   "default" server for that build. If none is set, the default will be, in `NODE_ENV=production`,
   `https://shieldbattery.net`, or otherwise, the canonical URL set in your local server config.
-- **Run time**: `SB_SERVER` set in the environment that runs the app (`yarn run app` or just running the
+- **Run time**: `SB_SERVER` set in the environment that runs the app (`pnpm run app` or just running the
   actual packaged executable).
 
 Note: run time takes precedence over build time.
@@ -256,17 +260,24 @@ Our tests are split into two types:
 
 ### Running unit tests locally
 
-To run unit tests as well as lint and typechecking, do:
+To run unit tests, do:
 
 ```sh
-yarn run test
+pnpm run test
 ```
 
 If you're developing a new test or modifying an existing one, you can run only the tests and re-run
 on each change by doing:
 
 ```sh
-yarn run testonly --watch
+pnpm run test --watch
+```
+
+We also have lint and typechecking passes that will run on CI, you can run these locally by doing:
+
+```sh
+pnpm run lint
+pnpm run typecheck
 ```
 
 ### Running integration tests locally
@@ -307,5 +318,5 @@ docker-compose down -v && \
 docker-compose build && \
 docker-compose up -V -d && \
 cd .. && \
-yarn run test:integration
+pnpm run test:integration
 ```

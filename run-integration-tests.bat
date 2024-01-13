@@ -28,7 +28,7 @@ docker-compose up -V -d
 if errorlevel 1 goto exit
 
 cd ..
-yarn run wait-on "http-get://localhost:5527" && yarn run test:integration %playwrightargs%
+pnpm exec wait-on "http-get://localhost:5527" && pnpm run test:integration %playwrightargs%
 
 :exit
 cd "%startdir%"

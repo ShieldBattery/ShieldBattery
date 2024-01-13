@@ -683,10 +683,8 @@ function setupAnalytics(curSession: Session) {
 
 function registerHotkeys() {
   const isMac = process.platform === 'darwin'
-  localShortcut.register(
-    mainWindow!,
-    isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',
-    () => mainWindow?.webContents.toggleDevTools(),
+  localShortcut.register(mainWindow!, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I', () =>
+    mainWindow?.webContents.toggleDevTools(),
   )
   localShortcut.register(mainWindow!, 'F12', () => mainWindow?.webContents.toggleDevTools())
 

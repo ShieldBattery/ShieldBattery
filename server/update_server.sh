@@ -8,7 +8,7 @@ cd ..
 
 NODE_ENV=production
 echo "Running DB migrations"
-yarn run migrate-up || exit 1
+pnpm run migrate-up || exit 1
 echo "DB migrations complete"
 echo ""
 
