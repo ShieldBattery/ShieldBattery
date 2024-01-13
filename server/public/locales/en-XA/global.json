@@ -33,7 +33,8 @@
             "stop": "$🗡Stop🗡!",
             "test": "$🗡Test🗡!",
             "edit": "$🗡Edit🗡!",
-            "reveal": "$🗡Reveal🗡!"
+            "reveal": "$🗡Reveal🗡!",
+            "submit": "$🗡Submit🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -926,7 +927,8 @@
             "whispers": "$🗡Whispers🗡!",
             "loadingGame": "$🗡Loading…🗡!",
             "viewChangelog": "$🗡View changelog🗡!",
-            "home": "$🗡Home🗡!"
+            "home": "$🗡Home🗡!",
+            "reportBug": "$🗡Report a bug🗡!"
         }
     },
     "notifications": {
@@ -1299,5 +1301,14 @@
         "fileInput": {
             "chooseFile": "$🗡Choose file🗡!"
         }
+    },
+    "bugReport": {
+        "details": "$🗡Details🗡!",
+        "detailsDescription": "$🗡Please describe the bug and provide as much detail as possible about what you were doing when the bug occurred.🗡!",
+        "detailsRequired": "$🗡Bug reports must include details.🗡!",
+        "error": "$🗡Error: {{errorMessage}}🗡!",
+        "logUploadDescription": "$🗡Your bug report will include ShieldBattery logs from your machine to help diagnose the issue. Logs may be kept for up to 30 days and are viewable only by ShieldBattery staff.🗡!",
+        "reportSubmitted": "$🗡Bug report submitted.🗡!",
+        "title": "$🗡Report a bug🗡!"
     }
 }
