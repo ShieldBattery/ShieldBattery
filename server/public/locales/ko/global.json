@@ -31,7 +31,8 @@
             "stop": "멈추기",
             "test": "테스트",
             "edit": "편집",
-            "reveal": "노출"
+            "reveal": "노출",
+            "submit": "제출하다"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -1052,7 +1053,8 @@
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
             "loadingGame": "로드 중…",
-            "home": "집"
+            "home": "집",
+            "reportBug": "버그 신고"
         }
     },
     "users": {
@@ -1293,5 +1295,14 @@
         "fileInput": {
             "chooseFile": "파일을 선택"
         }
+    },
+    "bugReport": {
+        "details": "세부",
+        "detailsDescription": "버그에 대해 설명하고 버그가 발생했을 때 무엇을 하고 있었는지 최대한 자세히 알려주시기 바랍니다.",
+        "detailsRequired": "버그 신고에는 세부정보가 포함되어야 합니다.",
+        "error": "오류: {{errorMessage}}",
+        "logUploadDescription": "버그 보고서에는 문제 진단에 도움이 되는 컴퓨터의 ShieldBattery 로그가 포함됩니다. 로그는 최대 30일 동안 보관될 수 있으며 ShieldBattery 직원만 볼 수 있습니다.",
+        "reportSubmitted": "버그 보고서가 제출되었습니다.",
+        "title": "버그 신고"
     }
 }
