@@ -38,7 +38,7 @@ export class ChatPage extends LeftNav {
     this.imageChannelBadge = page.locator('img[data-test="channel-settings-badge-image"]')
 
     this.channelSettingsErrorMessage = page.locator(
-      'div[data-test="channel-settings-error-message"]',
+      'span[data-test="channel-settings-error-message"]',
     )
   }
 
