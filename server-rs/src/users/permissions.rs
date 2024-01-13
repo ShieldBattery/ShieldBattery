@@ -16,6 +16,9 @@ use crate::users::CurrentUser;
 #[serde(rename_all = "camelCase")]
 #[graphql(input_name = "SbPermissionsInput")]
 pub struct SbPermissions {
+    /// The user ID these permissions are for. This is mainly so the client has a key for caching
+    /// purposes, and is not generally used elsewhere.
+    #[typeshare(skip)]
     pub id: i32,
     pub edit_permissions: bool,
     pub debug: bool,
