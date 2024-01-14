@@ -915,7 +915,7 @@ app.on('ready', () => {
       })
     })
     .catch(err => {
-      logger.error('Error initializing: ' + err)
+      logger.error(`Error initializing: ${err.stack ?? err}`)
       console.error(err)
       dialog.showErrorBox(
         'ShieldBattery Error',

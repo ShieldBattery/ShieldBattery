@@ -22,14 +22,14 @@ export async function registerCurrentProgram() {
     key: `\\SOFTWARE\\Classes\\${appId}\\shell\\open\\command`,
     name: DEFAULT_VALUE,
     type: REG_SZ,
-    value: `"${process.execPath}" "%1"`,
+    value: `\\"${process.execPath}\\" \\"%1\\"`,
   })
   await setRegistryValue({
     hive: HKCU,
     key: `\\SOFTWARE\\Classes\\${appId}\\DefaultIcon`,
     name: DEFAULT_VALUE,
     type: REG_SZ,
-    value: `"${process.execPath}",0`,
+    value: `\\"${process.execPath}\\",0`,
   })
 
   await setRegistryValue({
