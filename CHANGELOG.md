@@ -1,3 +1,20 @@
+#### 9.4.0 (Jan 13, 2024)
+
+- Added a basic match history to user profiles (better filtering capabilities coming soon!)
+- Greatly improved Chinese translations. If you would like to help contribute translations for a
+  non-English language, please reach out to us in our Discord!
+- Chat channels are more customizable, with the option to upload banners, badges, and set a channel
+  description and topic
+- Improved StarCraft installation finder to use the Battle.net Launcher's settings. This will be
+  the default for new users, but existing users can re-run the detection in Settings -> StarCraft.
+- Reversed the sort order of replays (auto-saved replays should be sorted newest first now). An
+  improved UI with better sorting, searching, and filtering capabilities is coming soon.
+- Added in-client bug reporting. You can report bugs via the user menu in the bottom-left, which
+  will automatically upload log files to our servers to help us diagnose the issue.
+- Improved lobby error screens
+- Fixed language detection to choose better default languages
+- Various bug fixes
+
 #### 9.3.0 (Sep 5, 2023)
 
 - **Replay/Observer UI improvements.** We've added hotkeys for showing/hiding various parts of the
