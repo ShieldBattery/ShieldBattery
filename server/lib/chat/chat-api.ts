@@ -45,8 +45,8 @@ const joinThrottle = createThrottle('chatjoin', {
 })
 
 const editThrottle = createThrottle('chatedit', {
-  rate: 50,
-  burst: 80,
+  rate: 3,
+  burst: 12,
   window: 60000,
 })
 
@@ -75,8 +75,8 @@ const channelRetrievalThrottle = createThrottle('channelretrieval', {
 })
 
 const kickBanThrottle = createThrottle('chatkickban', {
-  rate: 50,
-  burst: 90,
+  rate: 20,
+  burst: 60,
   window: 60000,
 })
 
@@ -87,14 +87,14 @@ const getUserProfileThrottle = createThrottle('chatgetuserprofile', {
 })
 
 const userPermissionsThrottle = createThrottle('chatuserpermissions', {
-  rate: 30,
-  burst: 60,
+  rate: 20,
+  burst: 40,
   window: 60000,
 })
 
 const userPreferencesThrottle = createThrottle('chatuserpreferences', {
-  rate: 40,
-  burst: 70,
+  rate: 20,
+  burst: 40,
   window: 60000,
 })
 
