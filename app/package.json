@@ -28,6 +28,6 @@
     "mkdirp": "^3.0.1",
     "protobufjs": "^7.2.5",
     "sanitize-filename": "^1.6.3",
-    "winreg": "^1.2.2"
+    "winreg": "tec27/node-winreg#d9d5346573a46339b13f6b28ea16f8991e3e278e"
   }
 }

@@ -63,8 +63,8 @@ dependencies:
     specifier: ^1.6.3
     version: 1.6.3
   winreg:
-    specifier: ^1.2.2
-    version: 1.2.5
+    specifier: tec27/node-winreg#d9d5346573a46339b13f6b28ea16f8991e3e278e
+    version: github.com/tec27/node-winreg/d9d5346573a46339b13f6b28ea16f8991e3e278e
 
 packages:
 
@@ -2608,10 +2608,6 @@ packages:
       has-tostringtag: 1.0.0
     dev: false
 
-  /winreg@1.2.5:
-    resolution: {integrity: sha512-uf7tHf+tw0B1y+x+mKTLHkykBgK2KMs3g+KlzmyMbLvICSHQyB/xOFjTT8qZ3oeTFyU7Bbj4FzXitGG6jvKhYw==}
-    dev: false
-
   /wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: false
@@ -2631,4 +2627,10 @@ packages:
       archiver-utils: 4.0.1
       compress-commons: 5.0.1
       readable-stream: 3.6.2
+    dev: false
+
+  github.com/tec27/node-winreg/d9d5346573a46339b13f6b28ea16f8991e3e278e:
+    resolution: {tarball: https://codeload.github.com/tec27/node-winreg/tar.gz/d9d5346573a46339b13f6b28ea16f8991e3e278e}
+    name: winreg
+    version: 1.2.5
     dev: false
