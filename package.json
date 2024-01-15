@@ -101,7 +101,7 @@
     "migrate-up": "db-migrate -m ./server/migrations up && pnpm run sqlx-prepare",
     "pack": "pnpm run clean && pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c prod.yml",
     "packstaging": "pnpm run clean && cross-env SB_SERVER=https://staging.shieldbattery.net pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c staging.yml",
-    "sqlx-prepare": "cd ./server-rs && cross-env-test NODE_ENV=production || cargo sqlx prepare --workspace -- --all-targets --all-features",
+    "sqlx-prepare": "cross-env-test NODE_ENV!=production && cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features || echo In production, not sqlx-preparing",
     "start-server": "node ./server/index.js | pino-pretty -c -t",
     "test": "jest",
     "test:integration": "cross-env NODE_ENV=production playwright test",
