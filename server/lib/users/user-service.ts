@@ -73,7 +73,9 @@ export class UserService {
       throw new Error('failed to find user or permissions for id ' + userId)
     }
 
-    const result = { user, permissions }
+    // NOTE(tec27): The Rust side expects SbPermissions to contain this user ID field, so we add it
+    // here so it can deserialize things properly.
+    const result = { user, permissions: { id: user.id, ...permissions } }
     await this.redis.setex(userDataKey(userId), USER_CACHE_TIME_SECONDS, JSON.stringify(result))
 
     return result
