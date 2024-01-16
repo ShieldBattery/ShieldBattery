@@ -23,6 +23,9 @@ dependencies:
   '@shieldbattery/stimpack':
     specifier: ^1.0.0
     version: 1.0.0
+  '@shieldbattery/windows-registry':
+    specifier: ^1.0.0
+    version: 1.0.0
   archiver:
     specifier: ^6.0.1
     version: 6.0.1
@@ -62,9 +65,6 @@ dependencies:
   sanitize-filename:
     specifier: ^1.6.3
     version: 1.6.3
-  winreg:
-    specifier: tec27/node-winreg#d9d5346573a46339b13f6b28ea16f8991e3e278e
-    version: github.com/tec27/node-winreg/d9d5346573a46339b13f6b28ea16f8991e3e278e
 
 packages:
 
@@ -1354,6 +1354,10 @@ packages:
     resolution: {integrity: sha512-s7QHNjaEHWjfJpuLhctRvK+unMgNJY/OaH3ILq+sbh2rzqth3Oc7tu8VbrrJOYFJwyJp0VXy2GRk2F+dIATWNQ==}
     dev: false
 
+  /@shieldbattery/windows-registry@1.0.0:
+    resolution: {integrity: sha512-8I5260BYzFN/2wmrq7Rx61xi0iX+BbWpIl5RC/UCmJHGTL4z/r0PsKeuL1avwr9WsH4wwESK7+sQnA8igqQ7ow==}
+    dev: false
+
   /@types/node@20.11.0:
     resolution: {integrity: sha512-o9bjXmDNcF7GbM4CNQpmi+TutCgap/K3w1JyKgxAjqx41zp9qlIAVFi0IhCNsJcXolEqLWhbFbEeL0PvYm4pcQ==}
     dependencies:
@@ -2627,10 +2631,4 @@ packages:
       archiver-utils: 4.0.1
       compress-commons: 5.0.1
       readable-stream: 3.6.2
-    dev: false
-
-  github.com/tec27/node-winreg/d9d5346573a46339b13f6b28ea16f8991e3e278e:
-    resolution: {tarball: https://codeload.github.com/tec27/node-winreg/tar.gz/d9d5346573a46339b13f6b28ea16f8991e3e278e}
-    name: winreg
-    version: 1.2.5
     dev: false

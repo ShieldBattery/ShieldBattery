@@ -1,6 +1,14 @@
+import {
+  DEFAULT_VALUE,
+  HKCU,
+  REG_NONE,
+  REG_SZ,
+  WindowsRegistry,
+} from '@shieldbattery/windows-registry'
+import { dialog } from 'electron'
 import isDev from 'electron-is-dev'
 import { getAppId } from './app-id'
-import { DEFAULT_VALUE, HKCU, REG_NONE, REG_SZ, setRegistryValue } from './registry'
+import logger from './logger'
 
 /**
  * Registers the currently running process in the registry as the associated program for the current
@@ -17,26 +25,37 @@ export async function registerCurrentProgram() {
 
   const appId = getAppId()
 
-  await setRegistryValue({
-    hive: HKCU,
-    key: `\\SOFTWARE\\Classes\\${appId}\\shell\\open\\command`,
-    name: DEFAULT_VALUE,
-    type: REG_SZ,
-    value: `\\"${process.execPath}\\" \\"%1\\"`,
-  })
-  await setRegistryValue({
-    hive: HKCU,
-    key: `\\SOFTWARE\\Classes\\${appId}\\DefaultIcon`,
-    name: DEFAULT_VALUE,
-    type: REG_SZ,
-    value: `\\"${process.execPath}\\",0`,
-  })
-
-  await setRegistryValue({
-    hive: HKCU,
-    key: `\\SOFTWARE\\Classes\\.rep\\OpenWithProgids`,
-    name: appId,
-    type: REG_NONE,
-    value: '',
-  })
+  const registry = new WindowsRegistry()
+  try {
+    await registry.write(
+      HKCU,
+      `SOFTWARE\\Classes\\${appId}\\shell\\open\\command`,
+      DEFAULT_VALUE,
+      REG_SZ,
+      `"${process.execPath}" "%1"`,
+    )
+    await registry.write(
+      HKCU,
+      `SOFTWARE\\Classes\\${appId}\\DefaultIcon`,
+      DEFAULT_VALUE,
+      REG_SZ,
+      `"${process.execPath}",0`,
+    )
+    await registry.write(
+      HKCU,
+      `SOFTWARE\\Classes\\.rep\\OpenWithProgids`,
+      appId,
+      REG_NONE,
+      undefined,
+    )
+  } catch (err) {
+    logger.error(`error setting file associations: ${(err as any).stack ?? err}`)
+    dialog.showErrorBox(
+      'ShieldBattery Error',
+      `There was an error setting file associations: ${(err as any).stack ?? err}\r\n\r\n` +
+        'This is a bug, please report it.',
+    )
+  } finally {
+    registry.close()
+  }
 }

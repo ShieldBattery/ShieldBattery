@@ -15,6 +15,7 @@
     "@babel/preset-env": "^7.23.7",
     "@babel/register": "^7.23.7",
     "@shieldbattery/stimpack": "^1.0.0",
+    "@shieldbattery/windows-registry": "^1.0.0",
     "archiver": "^6.0.1",
     "bl": "^6.0.10",
     "core-js": "^3.22.0",
@@ -27,7 +28,6 @@
     "long": "^5.2.3",
     "mkdirp": "^3.0.1",
     "protobufjs": "^7.2.5",
-    "sanitize-filename": "^1.6.3",
-    "winreg": "tec27/node-winreg#d9d5346573a46339b13f6b28ea16f8991e3e278e"
+    "sanitize-filename": "^1.6.3"
   }
 }

@@ -1,7 +1,7 @@
+import { HKCU, HKLM, Hkey, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import logger from './logger'
-import { HKCU, HKLM, readRegistryValue } from './registry'
 import { ProductDb } from './vendor/blizzard/product_db'
 
 /**
@@ -17,7 +17,7 @@ import { ProductDb } from './vendor/blizzard/product_db'
  *
  * We also check WOW64 variants for all of the above keys.
  */
-export async function findInstallPath() {
+export async function findInstallPath(): Promise<string | undefined> {
   const programDataPath = process.env.ProgramData ?? 'C:\\ProgramData'
   const productDbPath = path.join(programDataPath, 'Battle.net', 'Agent', 'product.db')
   try {
@@ -35,21 +35,23 @@ export async function findInstallPath() {
     logger.warn(`Error while trying to read product.db: ${err?.stack ?? err}`)
   }
 
-  const normalRegPath = '\\SOFTWARE\\Blizzard Entertainment\\Starcraft'
-  const _6432RegPath = '\\SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Starcraft'
+  const normalRegPath = 'SOFTWARE\\Blizzard Entertainment\\Starcraft'
+  const _6432RegPath = 'SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Starcraft'
   const regValueName = 'InstallPath'
 
-  const attempts = [
+  const attempts: Array<[hive: Hkey, key: string]> = [
     [HKCU, normalRegPath],
     [HKCU, _6432RegPath],
     [HKLM, normalRegPath],
     [HKLM, _6432RegPath],
   ]
 
+  const registry = new WindowsRegistry()
+
   for (const [hive, regPath] of attempts) {
     try {
-      const result = await readRegistryValue(hive, regPath, regValueName)
-      if (result) {
+      const result = await registry.read(hive, regPath, regValueName)
+      if (result && typeof result === 'string') {
         return result
       }
     } catch (err) {
@@ -57,20 +59,20 @@ export async function findInstallPath() {
     }
   }
 
-  let recentMaps: string | undefined
+  let recentMaps: unknown
   try {
-    recentMaps = await readRegistryValue(HKCU, normalRegPath, 'Recent Maps')
+    recentMaps = await registry.read(HKCU, normalRegPath, 'Recent Maps')
   } catch (err) {
     // Intentionally empty
   }
   if (!recentMaps) {
     try {
-      recentMaps = await readRegistryValue(HKCU, _6432RegPath, 'Recent Maps')
+      recentMaps = await registry.read(HKCU, _6432RegPath, 'Recent Maps')
     } catch (err) {
       // Intentionally empty
     }
   }
-  if (!recentMaps) {
+  if (!recentMaps || typeof recentMaps !== 'string') {
     return undefined
   }
 
