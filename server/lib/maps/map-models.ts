@@ -428,7 +428,7 @@ export async function getMaps(
 
   if (searchStr) {
     const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    conditions.push(sql` AND um.name ILIKE ${escapedStr}`)
+    conditions.push(sql`um.name ILIKE ${escapedStr}`)
   }
 
   const whereCondition = sqlConcat(' AND ', conditions)
