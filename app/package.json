@@ -3,7 +3,7 @@
   "productName": "ShieldBattery-Local",
   "productFilename": "ShieldBattery-Local",
   "private": true,
-  "version": "9.4.1",
+  "version": "9.4.2",
   "description": "The standalone client for ShieldBattery",
   "main": "index.js",
   "license": "MIT",
