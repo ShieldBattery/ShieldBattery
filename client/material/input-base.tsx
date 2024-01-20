@@ -44,6 +44,7 @@ export const InputBase = styled.div<{
       return css`
         padding: 0;
         padding-bottom: ${paddingBottom}px;
+        padding-right: 12px;
         overflow-y: auto;
         resize: none;
         cursor: auto;
