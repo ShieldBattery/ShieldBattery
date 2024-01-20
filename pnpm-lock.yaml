@@ -260,6 +260,9 @@ devDependencies:
   '@graphql-codegen/introspection':
     specifier: ^4.0.0
     version: 4.0.0(graphql@16.8.1)
+  '@graphql-typed-document-node/core':
+    specifier: ^3.2.0
+    version: 3.2.0(graphql@16.8.1)
   '@parcel/watcher':
     specifier: ^2.2.0
     version: 2.3.0
@@ -302,15 +305,15 @@ devDependencies:
   '@types/body-parser':
     specifier: ^1.19.0
     version: 1.19.5
+  '@types/connect':
+    specifier: ^3.4.38
+    version: 3.4.38
   '@types/d3-time-format':
     specifier: ^4.0.0
     version: 4.0.3
   '@types/deep-equal':
     specifier: ^1.0.1
     version: 1.0.4
-  '@types/engine.io':
-    specifier: ^3.1.4
-    version: 3.1.10
   '@types/engine.io-client':
     specifier: ^3.1.4
     version: 3.1.8
@@ -320,6 +323,9 @@ devDependencies:
   '@types/google-protobuf':
     specifier: ^3.15.12
     version: 3.15.12
+  '@types/hoist-non-react-statics':
+    specifier: ^3.3.5
+    version: 3.3.5
   '@types/http-errors':
     specifier: ^2.0.1
     version: 2.0.4
@@ -353,6 +359,9 @@ devDependencies:
   '@types/loadable__component':
     specifier: ^5.13.4
     version: 5.13.8
+  '@types/lodash':
+    specifier: ^4.14.202
+    version: 4.14.202
   '@types/lodash-es':
     specifier: ^4.17.6
     version: 4.17.12
@@ -368,9 +377,15 @@ devDependencies:
   '@types/pg':
     specifier: ^8.6.0
     version: 8.10.9
+  '@types/prop-types':
+    specifier: ^15.7.11
+    version: 15.7.11
   '@types/react':
     specifier: ^18.0.6
     version: 18.2.47
+  '@types/react-dom':
+    specifier: ^18.2.18
+    version: 18.2.18
   '@types/react-helmet':
     specifier: ^6.1.6
     version: 6.1.11
@@ -389,6 +404,9 @@ devDependencies:
   '@types/redux-devtools-themes':
     specifier: ^1.0.0
     version: 1.0.3
+  '@types/semver':
+    specifier: ^7.5.6
+    version: 7.5.6
   '@types/semver-compare':
     specifier: ^1.0.1
     version: 1.0.3
@@ -458,6 +476,9 @@ devDependencies:
   electron-is-dev:
     specifier: ^2.0.0
     version: 2.0.0
+  engine.io:
+    specifier: ^6.5.4
+    version: 6.5.4
   eslint:
     specifier: ^8.14.0
     version: 8.56.0
@@ -5615,7 +5636,6 @@ packages:
 
   /@types/cookie@0.4.1:
     resolution: {integrity: sha512-XW/Aa8APYr6jSVVA1y/DEIZX0/GMKLEVekNG727R8cs56ahETkRAy/3DR7+fJyh7oUgGwNQaRfXCun0+KbWY7Q==}
-    dev: false
 
   /@types/cookies@0.7.10:
     resolution: {integrity: sha512-hmUCjAk2fwZVPPkkPBcI7jGLIR5mg4OVoNMBwU6aVsMm/iNPY7z9/R+x2fSwLt/ZXoGua6C5Zy2k5xOo9jUyhQ==}
@@ -5629,7 +5649,6 @@ packages:
     resolution: {integrity: sha512-8CGDvrBj1zgo2qE+oS3pOCyYNqCPryMWY2bGfwA0dcfopWGgxs+78df0Rs3rc9THP4JkOhLsAa+15VdpAqkcUA==}
     dependencies:
       '@types/node': 20.11.0
-    dev: false
 
   /@types/d3-array@3.0.3:
     resolution: {integrity: sha512-Reoy+pKnvsksN0lQUlcH6dOGjRZ/3WRwXR//m+/8lt1BXeI4xyaUZoqULNjyXXRuh0Mj4LNpkCvhUpQlY3X5xQ==}
@@ -5703,12 +5722,6 @@ packages:
 
   /@types/engine.io-client@3.1.8:
     resolution: {integrity: sha512-1GxDQdBYJUCtE9EnJzTLrcmiO+wxUsHZySbXIYPXRKVsVmxiVtKnrS4taYCsK6bByj0lZUfus2g55x4cMGI9DA==}
-    dependencies:
-      '@types/node': 20.11.0
-    dev: true
-
-  /@types/engine.io@3.1.10:
-    resolution: {integrity: sha512-tmuKBF+q3h0nZ075osSKJ55nmvL5lWDjU8+QS/8XZT1YQ4xrxNSW3wXbjeMs8RugGxVpHAEnf9kXiRf7G94acw==}
     dependencies:
       '@types/node': 20.11.0
     dev: true
@@ -7676,7 +7689,6 @@ packages:
   /base64id@2.0.0:
     resolution: {integrity: sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==}
     engines: {node: ^4.5.0 || >= 5.9}
-    dev: false
 
   /bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
@@ -8605,7 +8617,6 @@ packages:
   /cookie@0.4.2:
     resolution: {integrity: sha512-aSWTXFzaKWkvHO1Ny/s+ePFpvKsPnjc551iI41v3ny/ow6tBG5Vd+FuqGNhh1LxOmVzOlGUriIlOaokOvhaStA==}
     engines: {node: '>= 0.6'}
-    dev: false
 
   /cookie@0.5.0:
     resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
@@ -8650,7 +8661,6 @@ packages:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
-    dev: false
 
   /cosmiconfig@5.2.1:
     resolution: {integrity: sha512-H65gsXo1SKjf8zmrJ67eJk8aIRKV5ff2D4uKZIBZShbhGSpEmsQOPW/SKMKYhSTrqR7ufy6RP69rPogdaPh/kA==}
@@ -9635,7 +9645,6 @@ packages:
   /engine.io-parser@5.2.1:
     resolution: {integrity: sha512-9JktcM3u18nU9N2Lz3bWeBgxVgOKpw7yhRaoxQA3FUDZzzw+9WlA6p4G4u0RixNkg14fH7EfEc/RhpurtiROTQ==}
     engines: {node: '>=10.0.0'}
-    dev: false
 
   /engine.io@6.5.4:
     resolution: {integrity: sha512-KdVSDKhVKyOi+r5uEabrDLZw2qXStVvCsEB/LN3mw4WFi6Gx50jTyuxYVCwAAC0U46FdnzP/ScKRBTXb/NiEOg==}
@@ -9655,7 +9664,6 @@ packages:
       - bufferutil
       - supports-color
       - utf-8-validate
-    dev: false
 
   /enhanced-resolve@5.15.0:
     resolution: {integrity: sha512-LXYT42KJ7lpIKECr2mAXIaMldcNCh/7E0KBKOu4KSfkHmP+mZmSs+8V5gBAqisWBy0OO4W5Oyys0GO1Y8KtdKg==}
@@ -17150,6 +17158,7 @@ packages:
   /slice-ansi@3.0.0:
     resolution: {integrity: sha512-pSyv7bSTC7ig9Dcgbw9AuRNUb5k5V6oDudjZoMBSr13qpLBG7tB+zgCkARjq7xIUgdz5P1Qe8u+rSGdouOOIyQ==}
     engines: {node: '>=8'}
+    requiresBuild: true
     dependencies:
       ansi-styles: 4.3.0
       astral-regex: 2.0.0
@@ -19011,7 +19020,6 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
-    dev: false
 
   /ws@8.16.0:
     resolution: {integrity: sha512-HS0c//TP7Ina87TfiPUz1rQzMhHrl/SG2guqRcTOIUYD2q8uhUdNHZYJUaQ8aTGPzCh+c6oawMKW35nFl1dxyQ==}

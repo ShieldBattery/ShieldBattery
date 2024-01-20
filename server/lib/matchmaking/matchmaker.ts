@@ -217,10 +217,9 @@ const FILTERS: ReadonlyArray<EntityFilter> = [
     // Sort by rating difference (lowest difference first)
     const entityRating = getRatingFromEntity(entity)
     const sorted = potentials
-      .map<[potential: typeof entity, ratingDiff: number]>(p => [
-        p,
-        Math.abs(getRatingFromEntity(p) - entityRating),
-      ])
+      .map<
+        [potential: typeof entity, ratingDiff: number]
+      >(p => [p, Math.abs(getRatingFromEntity(p) - entityRating)])
       .sort((a, b) => a[1] - b[1])
 
     if (sorted.length < neededPlayers) {
