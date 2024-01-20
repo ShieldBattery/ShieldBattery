@@ -556,11 +556,13 @@ export function ConnectedLeftNav() {
           text={t('navigation.leftNav.viewChangelog', 'View changelog')}
           onClick={onChangelogClick}
         />
-        <MenuItem
-          icon={<MaterialIcon icon='bug_report' />}
-          text={t('navigation.leftNav.reportBug', 'Report a bug')}
-          onClick={onReportBugClick}
-        />
+        {IS_ELECTRON ? (
+          <MenuItem
+            icon={<MaterialIcon icon='bug_report' />}
+            text={t('navigation.leftNav.reportBug', 'Report a bug')}
+            onClick={onReportBugClick}
+          />
+        ) : undefined}
         <MenuDivider />
         <MenuItem
           icon={<MaterialIcon icon='logout' />}
