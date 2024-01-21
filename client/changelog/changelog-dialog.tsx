@@ -5,7 +5,7 @@ import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, headline6, subtitle1 } from '../styles/typography'
-import { KEY, VERSION, shouldShowChangelog } from './should-show-changelog'
+import { KEY, VERSION } from './should-show-changelog'
 
 const Content = styled.div`
   user-select: contain;
@@ -65,9 +65,7 @@ const ChangelogLoadable = React.lazy(async () => {
 
 export function ChangelogDialog(props: CommonDialogProps) {
   useEffect(() => {
-    if (shouldShowChangelog()) {
-      window.localStorage.setItem(KEY, VERSION)
-    }
+    window.localStorage.setItem(KEY, VERSION)
   }, [])
 
   return (
