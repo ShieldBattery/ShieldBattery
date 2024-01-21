@@ -1,4 +1,4 @@
-import React, { useCallback, useId, useState } from 'react'
+import React, { useCallback, useId, useLayoutEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiRef, useStableCallback } from '../state-hooks'
@@ -50,10 +50,16 @@ const TextFieldContainer = styled.div<{
   ${props => {
     if (!props.$multiline) return ''
 
+    // TODO(2Pac): Rework this if/when we move to a new version of TextFields without a floating
+    // label. The only reason why we're adding the padding here instead of to the `textarea` element
+    // itself is because the floating label overlaps the scrolled content, so we have to push the
+    // scrollable content down. But that also means that the area that this padding covers is not
+    // natively clickable to focus the `textarea`. I've added a click handler below which does that
+    // manually for now, but that can also be removed if/when we move to a new version of TextField.
     if (props.$floatingLabel) {
-      return props.$dense ? 'padding: 17px 0 2px 12px' : 'padding: 25px 0 2px 12px;'
+      return props.$dense ? 'padding: 17px 0 2px 12px;' : 'padding: 25px 0 2px 12px;'
     } else {
-      return props.$dense ? 'padding: 11px 0 2px 12px' : 'padding: 19px 0 2px 12px;'
+      return props.$dense ? 'padding: 11px 0 2px 12px;' : 'padding: 19px 0 2px 12px;'
     }
   }}
 
@@ -90,6 +96,7 @@ const TextFieldContainer = styled.div<{
   & textarea {
     -moz-appearance: none;
     -webkit-appearance: none;
+    appearance: none;
   }
 `
 
@@ -211,6 +218,12 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
       },
       [dense, rows],
     )
+
+    useLayoutEffect(() => {
+      if (multiline && inputRef.current) {
+        autoSize(inputRef.current)
+      }
+    }, [autoSize, inputRef, multiline])
 
     const onInputBlur = useCallback(
       (event: React.FocusEvent<HTMLInputElement>) => {
@@ -350,7 +363,8 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           $floatingLabel={floatingLabel}
           $dense={dense}
           $multiline={multiline}
-          $maxRows={maxRows}>
+          $maxRows={maxRows}
+          onClick={() => inputRef.current?.focus()}>
           {renderLabel}
           {leadingIconsElements.length > 0 ? leadingIconsElements : null}
           <InputBase
