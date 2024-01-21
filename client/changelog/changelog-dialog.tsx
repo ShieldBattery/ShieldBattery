@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import styled from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, headline6, subtitle1 } from '../styles/typography'
-import { KEY, VERSION, shouldShowChangelog } from './should-show-changelog'
+import { KEY, VERSION } from './should-show-changelog'
 
 const Content = styled.div`
   user-select: contain;
@@ -62,45 +63,20 @@ const ChangelogLoadable = React.lazy(async () => {
   return { default: () => <Content dangerouslySetInnerHTML={{ __html: html }} /> }
 })
 
-export default class ChangelogDialog extends React.Component {
-  _setting = false
-
-  componentDidMount() {
-    window.addEventListener('storage', this.onStorageChange)
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('storage', this.onStorageChange)
-  }
-
-  render() {
-    return (
-      <Dialog
-        title={"What's new"}
-        onCancel={this.onDismiss}
-        showCloseButton={true}
-        dialogRef={this.props.dialogRef}>
-        <React.Suspense fallback={<LoadingDotsArea />}>
-          <ChangelogLoadable />
-        </React.Suspense>
-      </Dialog>
-    )
-  }
-
-  onStorageChange = e => {
-    if (!this._setting && e.key === KEY) {
-      if (!shouldShowChangelog()) {
-        this.onDismiss()
-      }
-    }
-  }
-
-  onDismiss = () => {
-    this._setting = true
+export function ChangelogDialog(props: CommonDialogProps) {
+  useEffect(() => {
     window.localStorage.setItem(KEY, VERSION)
-    this._setting = false
-    if (this.props.onCancel) {
-      this.props.onCancel()
-    }
-  }
+  }, [])
+
+  return (
+    <Dialog
+      title={"What's new"}
+      onCancel={props.onCancel}
+      showCloseButton={true}
+      dialogRef={props.dialogRef}>
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <ChangelogLoadable />
+      </React.Suspense>
+    </Dialog>
+  )
 }
