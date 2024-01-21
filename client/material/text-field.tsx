@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useState } from 'react'
+import React, { useCallback, useId, useLayoutEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiRef, useStableCallback } from '../state-hooks'
@@ -96,6 +96,7 @@ const TextFieldContainer = styled.div<{
   & textarea {
     -moz-appearance: none;
     -webkit-appearance: none;
+    appearance: none;
   }
 `
 
@@ -218,7 +219,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
       [dense, rows],
     )
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (multiline && inputRef.current) {
         autoSize(inputRef.current)
       }
