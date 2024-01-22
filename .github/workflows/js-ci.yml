@@ -115,7 +115,7 @@ jobs:
         working-directory: ./app
 
       - name: Install playwright dependencies
-        run: pnpm exec playwright install-deps && pnpm exec playwright install
+        run: pnpm exec playwright install --with-deps
 
       - name: Run integration tests
         run: pnpm test:integration
