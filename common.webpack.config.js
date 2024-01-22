@@ -102,12 +102,6 @@ export default function ({
         },
       }),
       ...webpackOpts.plugins,
-      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
-      // that just exports whatever Promise babel is using
-      new webpack.NormalModuleReplacementPlugin(
-        /[\\/]any-promise[\\/]/,
-        require.resolve('./common/promise.js'),
-      ),
     ].concat(isProd ? [] : [new ReactRefreshWebpackPlugin()]),
 
     resolve: {
