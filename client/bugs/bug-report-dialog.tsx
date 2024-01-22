@@ -126,6 +126,7 @@ export function BugReportDialog(props: CommonDialogProps) {
             {...bindInput('details')}
             multiline={true}
             allowErrors={true}
+            rows={4}
             maxRows={12}
             floatingLabel={true}
             label={t('bugReport.details', 'Details')}
