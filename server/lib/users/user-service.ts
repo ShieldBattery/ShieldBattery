@@ -9,8 +9,12 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
 import { UserUpdatables, findSelfById, updateUser } from './user-model'
 
-/** How long to cache user info in redis. */
-const USER_CACHE_TIME_SECONDS = 60 * 60 * 1000 // 1 hour
+/**
+ * How long to cache user info in redis.
+ *
+ * This should always match the timeout in server-rs's code.
+ */
+const USER_CACHE_TIME_SECONDS = 60 * 60 // 1 hour
 
 function userDataKey(userId: SbUserId) {
   return `users:${userId}`
