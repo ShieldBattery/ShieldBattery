@@ -5,7 +5,7 @@ import path from 'path'
 let userDataPath = app.getPath('userData')
 let initialized = isDev
 
-export function getUserDataPath() {
+export function getUserDataPath(): string {
   if (initialized) {
     return userDataPath
   }

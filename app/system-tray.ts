@@ -1,5 +1,6 @@
-import { app, Menu, shell, Tray } from 'electron'
+import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
 import path from 'path'
+import logger from './logger'
 import { getUserDataPath } from './user-data-path'
 
 const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray.png')
@@ -8,9 +9,13 @@ const URGENT_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-urgent.pn
 const BALLOON_ICON = path.join(__dirname, 'assets', 'shieldbattery-64.png')
 
 export default class SystemTray {
-  constructor(mainWindow, quitAppFn) {
-    this.mainWindow = mainWindow
-    this.onQuitClick = quitAppFn
+  private isShowingUrgentIcon: boolean
+  private systemTray: Tray
+
+  constructor(
+    readonly mainWindow: BrowserWindow | null,
+    readonly onQuitClick: () => void,
+  ) {
     this.isShowingUrgentIcon = false
 
     this.systemTray = new Tray(NORMAL_ICON)
@@ -28,17 +33,19 @@ export default class SystemTray {
   }
 
   onOpenLogs = () => {
-    shell.openPath(path.join(getUserDataPath(), 'logs'))
+    shell.openPath(path.join(getUserDataPath(), 'logs')).catch(err => {
+      logger.error(`Failed to open logs folder: ${err.stack ?? err}`)
+    })
   }
 
   onTrayClick = () => {
-    if (this.mainWindow.isVisible()) {
+    if (this.mainWindow?.isVisible()) {
       if (this.mainWindow.isMinimized()) {
         this.mainWindow.restore()
       }
       this.mainWindow.focus()
     } else {
-      this.mainWindow.show()
+      this.mainWindow?.show()
     }
   }
 
