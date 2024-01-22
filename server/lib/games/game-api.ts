@@ -149,7 +149,7 @@ export class GameApi {
       t.filter(p => !p.isComputer).map(p => p.id),
     )
     const [mapArray, users, mmrChanges] = await Promise.all([
-      getMapInfo([game.mapId], ctx.session!.user!.id),
+      getMapInfo([game.mapId], ctx.session?.user?.id),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])
