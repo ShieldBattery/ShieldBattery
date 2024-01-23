@@ -3,7 +3,7 @@
  * aren't of a built-in type (e.g. SyntaxError). This is useful when you'd like to silence unhandled
  * rejections for a particular promise, but still allow programmer errors through.
  */
-export default function swallowNonBuiltins(err) {
+export default function swallowNonBuiltins(err: unknown) {
   if (
     err instanceof SyntaxError ||
     err instanceof TypeError ||
