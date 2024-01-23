@@ -1,6 +1,6 @@
 import { create, findIndex, insert } from './sorted-list'
 
-const alphaSort = (a, b) => a.localeCompare(b)
+const alphaSort = (a: string, b: string) => a.localeCompare(b)
 
 describe('sorted-list', function () {
   describe('create', () => {
