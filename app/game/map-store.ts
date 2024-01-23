@@ -3,13 +3,10 @@ import got from 'got'
 import { Map } from 'immutable'
 import { mkdirp } from 'mkdirp'
 import path from 'path'
-import { pipeline } from 'stream'
-import { promisify } from 'util'
+import { pipeline } from 'stream/promises'
 import HashThrough from '../../common/hash-through'
 import { MapExtension } from '../../common/maps'
 import log from '../logger'
-
-const pipelinePromise = promisify(pipeline)
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>
@@ -60,9 +57,10 @@ export class MapStore {
       if (exists) {
         const hasher = new HashThrough()
         hasher.hasher.update(mapFormat)
-        fs.createReadStream(mapPath).pipe(hasher)
+        const doneReading = pipeline(fs.createReadStream(mapPath), hasher)
         hasher.resume()
         try {
+          await doneReading
           const hash = await hasher.hashPromise
           if (hash === mapHash) {
             return true
@@ -76,7 +74,7 @@ export class MapStore {
 
       await mkdirp(path.dirname(mapPath))
       log.verbose(`Downloading map from ${mapUrl} to ${mapPath}`)
-      await pipelinePromise(got.stream(mapUrl), fs.createWriteStream(mapPath))
+      await pipeline(got.stream(mapUrl), fs.createWriteStream(mapPath))
       return true
     } catch (err) {
       log.error(`Error checking/downloading map: ${(err as any).stack ?? err}`)
