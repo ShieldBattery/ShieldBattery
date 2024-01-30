@@ -2,9 +2,6 @@ import styled, { css } from 'styled-components'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle1 } from '../styles/typography'
 
-export const TEXTAREA_BOTTOM_PADDING = 7
-export const TEXTAREA_BOTTOM_PADDING_DENSE = 1
-
 export const InputBase = styled.div<{
   $floatingLabel?: boolean
   $dense?: boolean
@@ -38,13 +35,26 @@ export const InputBase = styled.div<{
   }
 
   ${props => {
-    if (props.$multiline) {
-      const paddingBottom = props.$dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
+    if (!props.$multiline) {
+      return ''
+    }
 
+    if (props.$floatingLabel) {
       return css`
-        padding: 0;
-        padding-bottom: ${paddingBottom}px;
-        padding-right: 12px;
+        padding: 12px;
+        padding-top: 0;
+      `
+    } else {
+      return css`
+        padding: 12px;
+        padding-top: ${props.$dense ? 11 : 19}px;
+      `
+    }
+  }}
+
+  ${props => {
+    if (props.$multiline) {
+      return css`
         overflow-y: auto;
         resize: none;
         cursor: auto;

@@ -4,7 +4,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiRef, useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { IconButton } from './button'
-import { InputBase, TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base'
+import { InputBase } from './input-base'
 import { InputError } from './input-error'
 import { FloatingLabel } from './input-floating-label'
 import { Label } from './input-label'
@@ -57,9 +57,13 @@ const TextFieldContainer = styled.div<{
     // natively clickable to focus the `textarea`. I've added a click handler below which does that
     // manually for now, but that can also be removed if/when we move to a new version of TextField.
     if (props.$floatingLabel) {
-      return props.$dense ? 'padding: 17px 0 2px 12px;' : 'padding: 25px 0 2px 12px;'
+      // NOTE(2Pac): We only set the top padding here to keep the floating label above the
+      // scrollable area.
+      return props.$dense ? 'padding-top: 17px;' : 'padding-top: 25px;'
     } else {
-      return props.$dense ? 'padding: 11px 0 2px 12px;' : 'padding: 19px 0 2px 12px;'
+      // NOTE(2Pac): The padding for `textarea` without a floating label will be added to the input
+      // itself to avoid the issues described above.
+      return ''
     }
   }}
 
@@ -206,18 +210,14 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
     const [isFocused, setIsFocused] = useState(false)
     const [inputRef, setInputRef] = useMultiRef<HTMLInputElement>(ref)
 
-    const autoSize = useCallback(
-      (elem: HTMLInputElement) => {
-        const padding = dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
-        // Needed in order to lower the height when deleting text
-        elem.style.height = `${rows * 20 + padding}px`
-        elem.style.height = `${elem.scrollHeight}px`
-        // Textarea doesn't scroll completely to the end when adding a new line, just to the
-        // baseline of the added text it seems, so we scroll manually to the end here
-        elem.scrollTop = elem.scrollHeight
-      },
-      [dense, rows],
-    )
+    const autoSize = useCallback((elem: HTMLInputElement) => {
+      // Needed in order to lower the height when deleting text
+      elem.style.height = 'auto'
+      elem.style.height = `${elem.scrollHeight}px`
+      // Textarea doesn't scroll completely to the end when adding a new line, just to the
+      // baseline of the added text it seems, so we scroll manually to the end here
+      elem.scrollTop = elem.scrollHeight
+    }, [])
 
     useLayoutEffect(() => {
       if (multiline && inputRef.current) {
