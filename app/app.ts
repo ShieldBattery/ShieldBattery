@@ -5,12 +5,12 @@ import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } fr
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
+import { readFile } from 'fs/promises'
 import ReplayParser, { ReplayHeader } from 'jssuh'
 import fs, { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import { container } from 'tsyringe'
 import { URL } from 'url'
@@ -602,31 +602,23 @@ function setupCspProtocol(curSession: Session) {
   // - Add fake headers to the response such that we set up CSP with a nonce (necessary for
   //   styled-components to work properly), and unfortunately not really possible to do without
   //   HTTP headers
-  curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
+  curSession.protocol.handle('shieldbattery', async req => {
     const url = new URL(req.url)
 
     const pathname = path.posix.normalize(url.pathname)
 
-    if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
-      cb(fs.createReadStream(path.join(__dirname, pathname)))
-    } else {
-      fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
-        if (err) {
-          const dataStream = new Readable()
-          dataStream.push('Error reading index.html')
-          dataStream.push(null)
-          cb({
-            statusCode: 500,
-            data: dataStream,
-          })
-          return
-        }
-
+    try {
+      if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
+        const contents = await readFile(path.join(__dirname, pathname))
+        // TODO(tec27): ideally this would probably set a reasonable content type?
+        return new Response(contents)
+      } else {
+        const contents = await readFile(path.join(__dirname, 'index.html'), 'utf8')
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
         const hasReactDevTools = !!process.env.SB_REACT_DEV
         const analyticsId = process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID ?? ''
-        const result = data
+        const result = contents
           .replace(
             /%SCRIPT_URL%/g,
             isHot ? 'http://localhost:5566/dist/bundle.js' : '/dist/bundle.js',
@@ -640,17 +632,12 @@ function setupCspProtocol(curSession: Session) {
               : '',
           )
 
-        const dataStream = new Readable()
-        dataStream.push(result)
-        dataStream.push(null)
-
         // Allow loading extra chunks from the dev server in non-production
         const chunkPolicy = isHot ? 'http://localhost:5566' : ''
         // If hot-reloading is on, we have to allow eval so it can work
         const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
 
-        cb({
-          statusCode: 200,
+        return new Response(result, {
           headers: {
             'content-type': 'text/html',
             'content-security-policy':
@@ -661,8 +648,15 @@ function setupCspProtocol(curSession: Session) {
               "object-src 'none';" +
               "form-action 'none';",
           },
-          data: dataStream,
         })
+      }
+    } catch (err) {
+      logger.error(
+        `Error reading file for shieldbattery:// protocol: ${(err as any)?.stack ?? err}`,
+      )
+      return new Response('Internal Server Error', {
+        status: 500,
+        statusText: 'Internal Server Error',
       })
     }
   })
