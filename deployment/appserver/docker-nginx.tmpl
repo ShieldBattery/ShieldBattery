@@ -309,7 +309,12 @@ server {
 	include /etc/nginx/vhost.d/default;
 	{{ end }}
 
-  client_max_body_size 100m;
+  # Required for not buffering requests
+  proxy_http_version 1.1;
+  # Let the proxied server decide max size
+  client_max_body_size 0;
+  # Don't buffer requests, just send them directly to the proxied server
+  proxy_request_buffering off;
 
 	location / {
 		{{ if eq $proto "uwsgi" }}
