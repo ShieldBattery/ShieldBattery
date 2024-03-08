@@ -991,7 +991,7 @@ impl BwScr {
         let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
         let base = base as usize;
         let address = self.mainmenu_entry_hook.0 as usize - base;
-        exe.hook_closure_address(
+        exe.call_hook_closure_address(
             GameInit,
             move |_| {
                 debug!("SCR game init hook");

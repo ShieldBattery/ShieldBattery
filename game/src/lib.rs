@@ -305,7 +305,7 @@ fn wait_async_exit() -> ! {
 // This essentially just serves as a stopping point for "general initialization stuff" BW does
 // after its entry point. From here on we init the remaining parts ourselves and wait
 // for commands from the client.
-fn process_init_hook() {
+fn process_init_hook() -> ! {
     game_thread::run_event_loop()
 }
 
