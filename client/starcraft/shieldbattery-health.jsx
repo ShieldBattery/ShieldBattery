@@ -72,8 +72,8 @@ export class ShieldBatteryHealthDialog extends React.Component {
               </Trans>
             </Text>
             <FileList>
-              { initDescription }
-              { mainDescription }
+              {initDescription}
+              {mainDescription}
             </FileList>
 
             <Text>
