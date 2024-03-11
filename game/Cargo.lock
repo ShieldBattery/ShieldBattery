@@ -626,12 +626,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-
-[[package]]
-name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
@@ -798,7 +792,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d530e1a18b1cb4c484e6e34556a0d948706958449fca0cab753d649f2bce3d1f"
 dependencies = [
  "equivalent",
- "hashbrown 0.14.3",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1368,7 +1362,7 @@ checksum = "f98d2aa92eebf49b69786be48e4477826b256916e84a57ff2a4f21923b48eb4c"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf.git?rev=37583936643f03286febe22be8e761c2f32299b1#37583936643f03286febe22be8e761c2f32299b1"
+source = "git+https://github.com/neivv/samase_scarf.git?rev=932e117b40aeb40742ddca4f4fb51065e2e6fe15#932e117b40aeb40742ddca4f4fb51065e2e6fe15"
 dependencies = [
  "array-init",
  "arrayvec",
@@ -1384,14 +1378,14 @@ dependencies = [
 [[package]]
 name = "scarf"
 version = "0.3.0"
-source = "git+https://github.com/neivv/scarf?rev=550580dddfec9aae0b168a67885ffd8400844153#550580dddfec9aae0b168a67885ffd8400844153"
+source = "git+https://github.com/neivv/scarf?rev=d0e6193b847d21e0582c4bed7845da4d7341ba62#d0e6193b847d21e0582c4bed7845da4d7341ba62"
 dependencies = [
  "array-init",
  "arrayvec",
  "byteorder",
  "copyless",
  "fxhash",
- "hashbrown 0.12.3",
+ "hashbrown",
  "lde 0.3.0 (git+https://github.com/CasualX/lde?rev=6d8e287075eae41d0c6bae4c2f3a54268e0f8b4a)",
  "log",
  "quick-error",
@@ -1535,7 +1529,7 @@ dependencies = [
  "fern",
  "futures",
  "fxhash",
- "hashbrown 0.14.3",
+ "hashbrown",
  "http 1.0.0",
  "lazy_static",
  "libc",
