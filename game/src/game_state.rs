@@ -1757,7 +1757,17 @@ mod tests {
             fern::Dispatch::new()
                 .level(log::LevelFilter::Debug)
                 .level_for("tokio_reactor", log::LevelFilter::Warn) // Too spammy otherwise
-                .chain(io::stdout())
+                .chain(fern::Output::call(|record| {
+                    // Rust test runner's capturing of test prings works only through
+                    // println and related macros, not when writing directly to io::stdout,
+                    // so this is not same as just chain(stdout)
+                    println!(
+                        "{}:{} {}",
+                        record.file().unwrap_or("?"),
+                        record.line().unwrap_or(0),
+                        record.args(),
+                    );
+                }))
                 .apply()
                 .unwrap();
         });
