@@ -1168,7 +1168,7 @@ impl BwScr {
             move |orig| {
                 let ret = orig();
 
-                let in_stall = self.is_network_ready.resolve() == 0;
+                let in_stall = !self.is_network_ready();
                 let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
                 if in_stall && !was_in_stall {
                     let now = std::time::Instant::now();
@@ -1746,7 +1746,7 @@ impl BwScr {
                 }
 
                 let show_network_stalled = if self.visualize_network_stalls.load(Ordering::Relaxed)
-                    && self.is_network_ready.resolve() == 0
+                    && !self.is_network_ready()
                 {
                     1.0
                 } else {
@@ -2641,7 +2641,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn is_network_ready(&self) -> bool {
-        self.is_network_ready.resolve() == 1
+        self.is_network_ready.resolve() != 0
     }
 
     unsafe fn set_user_latency(&self, latency: UserLatency) {
