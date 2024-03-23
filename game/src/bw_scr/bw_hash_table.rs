@@ -28,29 +28,11 @@ pub trait BwMove {
 impl BwHash for scr::BwString {
     fn hash(&self) -> usize {
         let slice = unsafe { std::slice::from_raw_parts(self.pointer, self.length) };
-        let mut result = 0u32;
-        for chunk in slice.chunks(4) {
-            let mut val = 0u32;
-            for &byte in chunk.iter().rev() {
-                val = (val << 8) | (byte as u32);
-            }
-            result ^= val
-                .wrapping_mul(0xcc9e2d51)
-                .rotate_left(0xf)
-                .wrapping_mul(0x1b873593);
-            if chunk.len() == 4 {
-                result = result
-                    .rotate_left(0xd)
-                    .wrapping_add(0xfaddaf14)
-                    .wrapping_mul(5);
-            }
+        if cfg!(target_arch = "x86") {
+            hash_bytes_32(slice, 0)
+        } else {
+            hash_bytes_64(slice, 0).0 as usize
         }
-        result = result ^ (self.length as u32) ^ (result >> 0x10);
-        result = result.wrapping_mul(0x85ebca6b);
-        result = result ^ (result >> 0xd);
-        result = result.wrapping_mul(0xc2b2ae35);
-        result = result ^ (result >> 0x10);
-        result as usize
     }
 
     fn compare(&self, other: &Self) -> bool {
@@ -60,6 +42,100 @@ impl BwHash for scr::BwString {
             slice1 == slice2
         }
     }
+}
+
+fn hash_bytes_32(slice: &[u8], accum: u32) -> usize {
+    let mut result = accum;
+    for chunk in slice.chunks(4) {
+        let mut val = 0u32;
+        for &byte in chunk.iter().rev() {
+            val = (val << 8) | (byte as u32);
+        }
+        result ^= val
+            .wrapping_mul(0xcc9e2d51)
+            .rotate_left(0xf)
+            .wrapping_mul(0x1b873593);
+        if chunk.len() == 4 {
+            result = result
+                .rotate_left(0xd)
+                .wrapping_add(0xfaddaf14)
+                .wrapping_mul(5);
+        }
+    }
+    hash_u32_x86(result, slice.len() as u32) as usize
+}
+
+fn hash_bytes_64(slice: &[u8], accum: u64) -> (u64, u64) {
+    let mut result1 = accum;
+    let mut result2 = accum;
+    for chunk in slice.chunks(16) {
+        let mut val = 0u64;
+        for &byte in chunk.iter().rev() {
+            val = (val << 8) | (byte as u64);
+        }
+        result1 ^= val
+            .wrapping_mul(0x87c37b91114253d5)
+            .rotate_left(0x1f)
+            .wrapping_mul(0x4cf5ad432745937f);
+        if chunk.len() == 16 {
+            result1 = result1
+                .rotate_left(0x1b)
+                .wrapping_add(result2)
+                .wrapping_mul(5)
+                .wrapping_add(0x52dce729);
+        }
+        if chunk.len() > 8 {
+            let mut val = 0u64;
+            for &byte in chunk[8..].iter().rev() {
+                val = (val << 8) | (byte as u64);
+            }
+            result2 ^= val
+                .wrapping_mul(0x4cf5ad432745937f)
+                .rotate_right(0x1f)
+                .wrapping_mul(0x87c37b91114253d5);
+        }
+        if chunk.len() == 16 {
+            result2 = result2
+                .rotate_left(0x1f)
+                .wrapping_add(0xb41def1)
+                .wrapping_add(result1)
+                .wrapping_mul(5);
+        }
+    }
+    hash_u64_pair_x86_64(result1, result2, slice.len() as u64)
+}
+
+fn hash_u32_x86(mut accum: u32, next: u32) -> u32 {
+    accum = accum ^ (accum >> 0x10) ^ next;
+    accum = accum.wrapping_mul(0x85ebca6b);
+    accum = accum ^ (accum >> 0xd);
+    accum = accum.wrapping_mul(0xc2b2ae35);
+    accum = accum ^ (accum >> 0x10);
+    accum
+}
+
+fn hash_u64_pair_x86_64(mut accum1: u64, mut accum2: u64, next: u64) -> (u64, u64) {
+    accum1 = accum1 ^ next;
+    accum2 = accum2 ^ next;
+
+    accum1 = accum1.wrapping_add(accum2);
+    accum2 = accum1.wrapping_add(accum2);
+
+    accum1 = hash_u64_x86_64(accum1);
+    accum2 = hash_u64_x86_64(accum2);
+
+    accum1 = accum1.wrapping_add(accum2);
+    accum2 = accum1.wrapping_add(accum2);
+    (accum1, accum2)
+}
+
+fn hash_u64_x86_64(mut accum: u64) -> u64 {
+    accum = accum ^ (accum >> 0x21);
+    accum = accum.wrapping_mul(0xff51afd7ed558ccd);
+    accum = accum ^ (accum >> 0x21);
+    accum = accum.wrapping_mul(0xc4ceb9fe1a85ec53);
+    accum = accum ^ (accum >> 0x21);
+    accum
 }
 
 impl BwHash for scr::BwStringAlign8 {
@@ -207,9 +283,27 @@ impl<Key: BwHash + BwMove, Value: BwMove> Drop for HashTable<Key, Value> {
 
 #[test]
 fn test_bw_hash_string() {
-    unsafe {
-        let mut string: scr::BwString = mem::zeroed();
-        super::init_bw_string(&mut string, b"Debug.File");
-        assert_eq!(string.hash(), 0x3AA0824D);
-    }
+    assert_eq!(hash_bytes_32(b"Debug.File", 0), 0x3AA0824D);
+    assert_eq!(hash_bytes_64(b"Debug.File", 0), (0xB0BB5946489FEC5E, 0xD350933E370E503A));
+    assert_eq!(
+        hash_bytes_64(b"Debug.File.File.File", 0),
+        (0x6E05492A38DD240A, 0xCD21D6142ECB42F3),
+    );
+    assert_eq!(
+        hash_bytes_64(b"Debug.VeryLong.File.File", 0),
+        (0x410212F88830266C, 0x753A4E760502EEF7),
+    );
+}
+
+#[test]
+fn test_bw_hash_int() {
+    assert_eq!(hash_u32_x86(0, 0), 0);
+    assert_eq!(hash_u32_x86(0x77A96A68, 0), 0xE714CAF2);
+    assert_eq!(hash_u32_x86(0x88888888, 0), 0x1D6EF8AE);
+
+    assert_eq!(hash_u64_x86_64(0), 0);
+    assert_eq!(hash_u64_x86_64(0x77A96A68), 0x1246F150F558A4EF);
+    assert_eq!(hash_u64_x86_64(0x88888888), 0xF44D1EF7A8A4302C);
+    assert_eq!(hash_u64_x86_64(0x77A96A6877A96A68), 0xDB50A145449DFD7E);
+    assert_eq!(hash_u64_x86_64(0x8888888888888888), 0xB6CC53E034B6E8D0);
 }
