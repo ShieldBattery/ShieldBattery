@@ -284,7 +284,10 @@ impl<Key: BwHash + BwMove, Value: BwMove> Drop for HashTable<Key, Value> {
 #[test]
 fn test_bw_hash_string() {
     assert_eq!(hash_bytes_32(b"Debug.File", 0), 0x3AA0824D);
-    assert_eq!(hash_bytes_64(b"Debug.File", 0), (0xB0BB5946489FEC5E, 0xD350933E370E503A));
+    assert_eq!(
+        hash_bytes_64(b"Debug.File", 0),
+        (0xB0BB5946489FEC5E, 0xD350933E370E503A)
+    );
     assert_eq!(
         hash_bytes_64(b"Debug.File.File.File", 0),
         (0x6E05492A38DD240A, 0xCD21D6142ECB42F3),

@@ -2761,7 +2761,6 @@ fn create_event_hook(
     }
 }
 
-#[allow(clippy::too_many_arguments)] // Tell that to Bill Gates, clippy :)
 fn create_file_hook(
     bw: &BwScr,
     filename: *const u16,
@@ -3072,7 +3071,7 @@ unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFu
     1
 }
 
-#[allow(bad_style, clippy::ptr_offset_with_cast, clippy::unused_unit)]
+#[allow(bad_style)]
 mod hooks {
     use libc::c_void;
 

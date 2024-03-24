@@ -1,4 +1,12 @@
 #![recursion_limit = "1024"] // Required for futures::select
+#![allow(
+    clippy::assign_op_pattern,
+    clippy::bool_assert_comparison,
+    clippy::manual_range_patterns,
+    clippy::missing_safety_doc,
+    clippy::single_element_loop,
+    clippy::too_many_arguments
+)]
 
 #[macro_use]
 extern crate log;
@@ -242,7 +250,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
 
 #[no_mangle]
-#[allow(non_snake_case, clippy::missing_safety_doc)]
+#[allow(non_snake_case)]
 pub unsafe extern "system" fn DllMain(
     instance: usize,
     ul_reason_for_call: u32,

@@ -69,7 +69,6 @@ pub fn apply_sdf_cache_hooks(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>, ba
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 unsafe fn render_sdf(
     cache: &Arc<InitSdfCache>,
     fonts: *mut *mut scr::Font,

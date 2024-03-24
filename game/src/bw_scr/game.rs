@@ -12,7 +12,6 @@ use crate::game_thread;
 use super::BwScr;
 
 /// Change order allocation limits to be better what SC:R does.
-#[allow(clippy::too_many_arguments)] // Blizard's function, not ours
 pub unsafe fn prepare_issue_order(
     bw: &'static BwScr,
     unit: Unit,
@@ -162,7 +161,6 @@ fn is_low_order_supply(allocated: u32, limit: u32) -> bool {
 }
 
 #[test]
-#[allow(clippy::bool_assert_comparison)]
 fn test_is_low_order_supply() {
     // Verified that the original exe considers these values
     // to be false-true boundary for these limits.

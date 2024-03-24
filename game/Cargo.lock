@@ -1975,7 +1975,7 @@ checksum = "1778a42e8b3b90bff8d0f5032bf22250792889a5cdc752aa0020c84abe3aaf10"
 [[package]]
 name = "whack"
 version = "0.2.0"
-source = "git+https://github.com/neivv/whack.git?rev=e7b4db86697ce0837f6125b622be7b4a24482aea#e7b4db86697ce0837f6125b622be7b4a24482aea"
+source = "git+https://github.com/neivv/whack.git?rev=301c491f381d195882a70d78c1383e402c6bd9ed#301c491f381d195882a70d78c1383e402c6bd9ed"
 dependencies = [
  "byteorder",
  "lde 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",

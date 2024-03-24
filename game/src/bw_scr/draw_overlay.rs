@@ -438,7 +438,6 @@ impl OverlayState {
             ] {
                 ui.add(Slider::new(var, 0.0..=200.0).text(text));
             }
-            #[allow(clippy::single_element_loop)]
             for (var, text) in [(&mut v.production_max, "Production max")] {
                 ui.add(Slider::new(var, 0u32..=50).text(text));
             }

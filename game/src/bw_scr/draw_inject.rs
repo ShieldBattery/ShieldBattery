@@ -638,7 +638,6 @@ impl Drop for OwnedBwTexture {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 unsafe fn update_texture(
     renderer: *mut scr::Renderer,
     texture: *mut scr::RendererTexture,

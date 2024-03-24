@@ -216,7 +216,6 @@ impl GameType {
     }
 
     /// Whether the game type has shared control among one or more users, like Team Melee.
-    #[allow(clippy::manual_range_patterns)]
     pub fn is_team_game(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
     }

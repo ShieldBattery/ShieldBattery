@@ -36,7 +36,6 @@ pub unsafe fn init_crash_handler() {
     );
 }
 
-#[allow(clippy::ptr_offset_with_cast)] // TODO(tec27): Could probably fix this in the library
 mod hooks {
     system_hooks!(
         !0 => SetUnhandledExceptionFilterDecl(*mut libc::c_void) -> *mut libc::c_void;

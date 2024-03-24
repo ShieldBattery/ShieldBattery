@@ -14,7 +14,6 @@ use winapi::um::winuser::*;
 use crate::bw::{get_bw, Bw};
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 
-#[allow(clippy::ptr_offset_with_cast)] // TODO(tec27): Could probably fix this in the library
 mod scr_hooks {
     use super::{c_void, ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW};
 
@@ -38,7 +37,7 @@ const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 // Currently no nicer way to prevent us from hooking winapi calls we ourselves make
 // with remastered :/
 thread_local! {
-    static DISABLE_SCR_HOOKS: Cell<i32> = Cell::new(0);
+    static DISABLE_SCR_HOOKS: Cell<i32> = const { Cell::new(0) };
 }
 
 fn scr_hooks_disabled() -> bool {
@@ -267,7 +266,6 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
     }
 }
 
-#[allow(clippy::too_many_arguments)] // Not our function
 fn set_window_pos(
     hwnd: HWND,
     hwnd_after: HWND,
@@ -378,7 +376,6 @@ fn register_class_w(
 }
 
 /// Stores the window handle.
-#[allow(clippy::too_many_arguments)] // Not our function
 fn create_window_w(
     ex_style: u32,
     class_name: *const u16,

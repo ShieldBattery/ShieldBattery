@@ -319,7 +319,6 @@ impl<T: ExternCFn<Args = ArgCount6>> Thiscall<T> {
 }
 
 impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
-    #[allow(clippy::too_many_arguments)]
     pub unsafe fn call8(
         self,
         a1: T::A1,
@@ -348,7 +347,6 @@ impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
 }
 
 impl<T: ExternCFn<Args = ArgCount11>> Thiscall<T> {
-    #[allow(clippy::too_many_arguments)]
     pub unsafe fn call11(
         self,
         a1: T::A1,
