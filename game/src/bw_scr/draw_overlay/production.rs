@@ -316,7 +316,7 @@ impl OverlayState {
                     let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
                     let bg_color = ui.visuals().window_fill();
                     painter.rect_filled(text_rect, rounding, bg_color);
-                    painter.galley(text_pos, galley);
+                    painter.galley(text_pos, galley, bg_color);
                 }
                 // Progress bar
                 let mut progress_rect = Rect::from_min_size(

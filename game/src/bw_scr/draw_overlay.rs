@@ -206,6 +206,8 @@ impl OverlayState {
         let style = Arc::make_mut(&mut style_arc);
         // Make windows transparent
         style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
+        // Don't want select/copy on text labels
+        style.interaction.selectable_labels = false;
 
         // Increase default font sizes a bit.
         // 16.0 seems to give a size that roughly matches with the smallest text size BW uses.
@@ -846,6 +848,10 @@ impl OverlayState {
                     if !is_syskey && self.ctx.wants_keyboard_input() {
                         self.events.push(Event::Key {
                             key,
+                            // Probably fine to leave None, could also be Some(key) even
+                            // if it is not what it's supposed to mean. Properly figuring
+                            // out the physical key would be too much work.
+                            physical_key: None,
                             pressed,
                             // Could get repeat count from param, but egui docs say that
                             // it will be automatically done anyway by egui.
@@ -1190,7 +1196,7 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
         VK_PRIOR => PageUp,
         VK_NEXT => PageDown,
         VK_SUBTRACT => Minus,
-        VK_ADD => PlusEquals,
+        VK_ADD => Plus,
         0x30 | VK_NUMPAD0 => Num0,
         0x31 | VK_NUMPAD1 => Num1,
         0x32 | VK_NUMPAD2 => Num2,
