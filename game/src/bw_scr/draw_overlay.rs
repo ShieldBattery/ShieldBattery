@@ -29,7 +29,7 @@ pub struct OverlayState {
     /// Enables / disables UI interaction during OverlayState::step.
     /// Based on what BW dialogs are visible.
     ui_active: bool,
-    ui_rects: Vec<Rect>,
+    ui_rects: Vec<UiRect>,
     events: Vec<Event>,
     production: ProductionState,
     replay_panels: ReplayPanelState,
@@ -53,6 +53,12 @@ pub struct OverlayState {
     network_debug_state: network_manager::DebugState,
     network_debug_info: NetworkDebugInfo,
     dialog_debug_inspect_children: bool,
+}
+
+struct UiRect {
+    area: Rect,
+    /// Currently and probably forever only true for the debug window.
+    capture_mouse_scroll: bool,
 }
 
 struct ReplayUiValues {
@@ -419,7 +425,7 @@ impl OverlayState {
                         self.add_debug_ui_contents(bw, ctx, ui);
                     });
             });
-        self.force_add_ui_rect(&res);
+        self.force_add_ui_rect(&res, true);
     }
 
     fn add_debug_ui_contents(&mut self, bw: &BwVars, ctx: &egui::Context, ui: &mut egui::Ui) {
@@ -725,13 +731,20 @@ impl OverlayState {
     /// no higher-priority BW menus are active.
     fn add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
         if self.ui_active {
-            self.force_add_ui_rect(response);
+            self.force_add_ui_rect(response, false);
         }
     }
 
-    fn force_add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
+    fn force_add_ui_rect<T>(
+        &mut self,
+        response: &Option<egui::InnerResponse<T>>,
+        capture_mouse_scroll: bool,
+    ) {
         if let Some(res) = response {
-            self.ui_rects.push(res.response.rect);
+            self.ui_rects.push(UiRect {
+                area: res.response.rect,
+                capture_mouse_scroll,
+            });
         }
     }
 
@@ -749,7 +762,7 @@ impl OverlayState {
         let mouse_on_ui = self
             .ui_rects
             .iter()
-            .any(|rect| rect.contains(self.last_mouse_pos.1));
+            .any(|rect| rect.area.contains(self.last_mouse_pos.1));
         if mouse_on_ui {
             return Some(0);
         }
@@ -797,7 +810,7 @@ impl OverlayState {
                 let y = (lparam >> 16) as i16;
                 let pos = self.window_pos_to_egui(x as i32, y as i32);
                 let handle = if pressed {
-                    self.ui_rects.iter().any(|x| x.contains(pos))
+                    self.ui_rects.iter().any(|x| x.area.contains(pos))
                 } else {
                     self.captured_mouse_down[button_idx]
                 };
@@ -829,7 +842,10 @@ impl OverlayState {
                 };
                 ScreenToClient(window, &mut point);
                 let pos = self.window_pos_to_egui(point.x, point.y);
-                let handle = self.ui_rects.iter().any(|x| x.contains(pos));
+                let handle = self
+                    .ui_rects
+                    .iter()
+                    .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
                 if !handle {
                     return None;
                 }
