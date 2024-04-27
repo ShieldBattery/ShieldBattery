@@ -128,6 +128,7 @@ pub struct BwVars {
     pub first_player_unit: *mut *mut bw::Unit,
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
+    pub is_hd: bool,
 }
 
 #[derive(Copy, Clone)]

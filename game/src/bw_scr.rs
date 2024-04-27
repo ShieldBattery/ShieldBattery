@@ -1635,6 +1635,7 @@ impl BwScr {
                             first_player_unit,
                             first_dialog,
                             graphic_layers,
+                            is_hd,
                         },
                         apm,
                         size,

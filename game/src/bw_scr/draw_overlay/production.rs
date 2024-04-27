@@ -32,9 +32,18 @@ enum Production {
 }
 
 impl Production {
-    fn icon(&self) -> Texture {
+    fn icon(&self, is_hd: bool) -> Texture {
         match *self {
-            Production::Unit(id) => Texture::CmdIcon(id.0),
+            Production::Unit(id) => {
+                // SD cmdicons have lair and hive icons swapped.
+                if !is_hd && id == bw_dat::unit::LAIR {
+                    Texture::CmdIcon(bw_dat::unit::HIVE.0)
+                } else if !is_hd && id == bw_dat::unit::HIVE {
+                    Texture::CmdIcon(bw_dat::unit::LAIR.0)
+                } else {
+                    Texture::CmdIcon(id.0)
+                }
+            }
             Production::Upgrade(id) => Texture::CmdIcon(id.icon() as u16),
             Production::Tech(id) => Texture::CmdIcon(id.icon() as u16),
         }
@@ -286,7 +295,7 @@ impl OverlayState {
                 };
                 let amount = amount.saturating_mul(multiplier);
 
-                let icon = production.icon();
+                let icon = production.icon(bw.is_hd);
                 let size = (production_image_size, production_image_size);
                 let rect = Rect::from_min_size(ui.next_widget_position(), size.into())
                     .translate((0.0, margin).into());
