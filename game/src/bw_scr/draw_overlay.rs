@@ -10,7 +10,7 @@ use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
     Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
-    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, Vec2, Widget,
+    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, Vec2, Widget, WidgetText,
 };
 use winapi::shared::windef::{HWND, POINT};
 
@@ -727,7 +727,7 @@ impl OverlayState {
                 1 => bw_dat::unit::SCV.0,
                 _ => bw_dat::unit::PROBE.0,
             });
-            info.add_icon_text_color(
+            info.add_colored_icon_text(
                 ui,
                 worker_icon,
                 &info.workers.to_string(),
@@ -743,9 +743,37 @@ impl OverlayState {
                 .get(info.race as usize)
                 .copied()
                 .unwrap_or((0, 0));
-            let supply_text = format!("{} / {}", current, max);
+            // Supply text is slightly more complex as part of it is colored red when
+            // supply blocked.
+            let part1 = format!("{}", current);
+            let part2 = format!(" / {}", max);
+            // Didn't see any nice function to apply all style font overrides,
+            // but as long as those don't exist this should match other text.
+            let font_id = egui::style::FontSelection::Default.resolve(ui.style());
+            let strong_color = ui.visuals().strong_text_color();
+            let color = if current > max {
+                Color32::RED
+            } else {
+                strong_color
+            };
+            let mut text = egui::text::LayoutJob::simple_singleline(part1, font_id.clone(), color);
+            text.append(
+                &part2,
+                0.0,
+                egui::TextFormat {
+                    font_id,
+                    color: strong_color,
+                    ..Default::default()
+                },
+            );
             let supply_icon = Texture::StatRes(4 + info.race.min(2u8) as u16);
-            info.add_icon_text(ui, supply_icon, &supply_text, supply_width);
+            info.add_colored_icon_complex_text(
+                ui,
+                supply_icon,
+                text.into(),
+                supply_width,
+                Color32::WHITE,
+            );
 
             let label = Label::new(egui::RichText::new("APM "));
             ui.add(label);
@@ -1084,14 +1112,26 @@ struct PlayerInfo {
 
 impl PlayerInfo {
     fn add_icon_text(&self, ui: &mut egui::Ui, icon: Texture, text: &str, width: f32) {
-        self.add_icon_text_color(ui, icon, text, width, Color32::WHITE)
+        self.add_colored_icon_text(ui, icon, text, width, Color32::WHITE)
     }
 
-    fn add_icon_text_color(
+    fn add_colored_icon_text(
         &self,
         ui: &mut egui::Ui,
         icon: Texture,
         text: &str,
+        width: f32,
+        color: Color32,
+    ) {
+        let text = egui::RichText::new(text).strong();
+        self.add_colored_icon_complex_text(ui, icon, text.into(), width, color)
+    }
+
+    fn add_colored_icon_complex_text(
+        &self,
+        ui: &mut egui::Ui,
+        icon: Texture,
+        text: WidgetText,
         width: f32,
         color: Color32,
     ) {
@@ -1101,7 +1141,7 @@ impl PlayerInfo {
         ))
         .tint(color);
         ui.add(image);
-        let label = Label::new(egui::RichText::new(text).strong());
+        let label = Label::new(text);
         ui.add_fixed_width(label, width);
     }
 }
