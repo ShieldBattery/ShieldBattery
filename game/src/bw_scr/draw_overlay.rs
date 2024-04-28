@@ -168,6 +168,7 @@ impl Texture {
 trait UiExt {
     fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32);
     fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F);
+    fn advance_cursor_to_next_integer_point(&mut self);
 }
 
 impl UiExt for egui::Ui {
@@ -189,6 +190,31 @@ impl UiExt for egui::Ui {
         let mut final_child_rect = child_ui.min_rect();
         final_child_rect.set_width(width);
         self.allocate_rect(final_child_rect, Sense::hover());
+    }
+
+    /// egui windows seem to semi-unintentionally start with cursor on .5 offset;
+    /// this offset is mostly fine but causes some inconsistency when text gets
+    /// rounded to exact pixel boundary. (For unrelated reasons, text placed at .5 offset
+    /// sometimes ends up at .4999 offset instead, causing it to round down instead of up)
+    ///
+    /// This will actually only move in one direction even if it adds both x/y, the direction
+    /// depends on ui's direction.
+    fn advance_cursor_to_next_integer_point(&mut self) {
+        let cursor = self.cursor();
+        let pos = cursor.min;
+        // Only handling topleft-to-bottomright movement now..
+        if pos.x.is_finite() && pos.y.is_finite() {
+            let new_rect = Rect {
+                min: pos,
+                max: Pos2 {
+                    x: pos.x.ceil(),
+                    y: pos.y.ceil(),
+                },
+            };
+            if new_rect.width() != 0.0 || new_rect.height() != 0.0 {
+                self.advance_cursor_after_rect(new_rect);
+            }
+        }
     }
 }
 
@@ -600,6 +626,7 @@ impl OverlayState {
             .resizable(false)
             .title_bar(false)
             .show(ctx, |ui| {
+                ui.advance_cursor_to_next_integer_point();
                 // Add separators between teams
                 // So before first player of team but not before first player of all.
                 let mut players_shown = 0;
@@ -671,6 +698,7 @@ impl OverlayState {
     fn add_player_info(&self, ui: &mut egui::Ui, id: Id, info: &PlayerInfo) -> Response {
         let size = Vec2 { x: 300.0, y: 24.0 };
         ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Center), |ui| {
+            ui.advance_cursor_to_next_integer_point();
             let ReplayUiValues {
                 name_width,
                 resource_width,
