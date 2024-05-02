@@ -8,12 +8,15 @@ set scriptroot=%~dp0
 @rem Arguments
 set cargoflags=
 set sign=
+set target=
+set is64=0
 
 :next-arg
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set cargoflags=&goto arg-ok
 if /i "%1"=="release"       set cargoflags=--release&goto arg-ok
 if /i "%1"=="sign"          set sign=1&goto arg-ok
+if /i "%1"=="x86_64"        set target=--target x86_64-pc-windows-msvc&set is64=1&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
@@ -41,14 +44,28 @@ xcopy "%scriptroot%\..\tools\sb_init.dll" "%scriptroot%\dist" /y /f /c
 
 @rem build the DLL
 cd "%scriptroot%"
-cargo build %cargoflags%
-if errorlevel 1 goto exit
+cargo build %target% %cargoflags%
+if not errorlevel 0 goto exit
 
-if [%cargoflags%]==[--release] (
-  xcopy "%scriptroot%\target\i686-pc-windows-msvc\release\shieldbattery.dll" "%scriptroot%\dist" /y /f /c
+@rem this did xcopy before, but xcopy isn't good for renaming the 64-bit dll,
+@rem so mimicking xcopy with echo + copy
+if [%is64%]==[1] (
+    if [%cargoflags%]==[--release] (
+        set copysrc=%scriptroot%\target\x86_64-pc-windows-msvc\release\shieldbattery.dll
+    ) else (
+        set copysrc=%scriptroot%\target\x86_64-pc-windows-msvc\debug\shieldbattery.dll
+    )
+    set copytgt=%scriptroot%\dist\shieldbattery_64.dll
 ) else (
-  xcopy "%scriptroot%\target\i686-pc-windows-msvc\debug\shieldbattery.dll" "%scriptroot%\dist" /y /f /c
+    if [%cargoflags%]==[--release] (
+        set copysrc=%scriptroot%\target\i686-pc-windows-msvc\release\shieldbattery.dll
+    ) else (
+        set copysrc=%scriptroot%\target\i686-pc-windows-msvc\debug\shieldbattery.dll
+    )
+    set copytgt=%scriptroot%\dist\shieldbattery.dll
 )
+echo %copysrc% -^> %copytgt%
+copy "%copysrc%" "%copytgt%" /y
 
 if not defined sign goto skipsign
 @rem TODO(tec27): Make this find signtool better, this location works for me but I doubt it does for everyone.

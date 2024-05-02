@@ -1105,10 +1105,13 @@
         "currentPathLabel": "Current game path:",
         "detectionFailed": "Detecting your installation path failed. Please ensure you have StarCraft: Remastered installed and try again, or set the path manually.",
         "detectPath": "Detect installation",
+        "devOnlySettings": "Dev-only settings",
+        "disableHd": "Don't load HD graphics (Crashes if switching to HD in game)",
         "instructions": {
           "advanced": "If detection fails, you can set the path manually. Click the button below and select the directory that contains your StarCraft: Remastered installation.",
           "description": "ShieldBattery requires a valid, up-to-date installation of StarCraft: Remastered. Click the button below to automatically detect the installation folder."
         },
+        "launch64Bit": "Launch 64-bit executable",
         "pathInvalid": "This path does not point to a valid StarCraft: Remastered installation. Please ensure your installation is up to date or try a different path.",
         "pathValid": "This game path appears to be a valid installation.",
         "title": "StarCraft"

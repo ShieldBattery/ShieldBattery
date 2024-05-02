@@ -25,6 +25,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   quickOpenReplays: boolean
 
   visualizeNetworkStalls?: boolean
+  disableHd?: boolean
+  launch64Bit?: boolean
 }
 
 export interface ScrSettings {

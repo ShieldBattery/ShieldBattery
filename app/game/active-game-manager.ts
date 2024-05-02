@@ -391,7 +391,8 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   }
 }
 
-const injectPath = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
+const injectPath32 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
+const injectPath64 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery_64.dll')
 
 const initialCompatLayer = process.env.__COMPAT_LAYER
 
@@ -401,13 +402,13 @@ async function doLaunch(
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
 ) {
+  const settings = await localSettings.get()
+  const injectPath = settings.launch64Bit ? injectPath64 : injectPath32
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
   }
-
-  const settings = await localSettings.get()
 
   const { starcraftPath } = settings
   if (!starcraftPath) {
@@ -422,7 +423,9 @@ async function doLaunch(
   await scrSettings.writeGameSettingsFile()
 
   const userDataPath = app.getPath('userData')
-  const appPath = path.join(starcraftPath, 'x86', 'starcraft.exe')
+  const appPath = settings.launch64Bit
+    ? path.join(starcraftPath, 'x86_64', 'starcraft.exe')
+    : path.join(starcraftPath, 'x86', 'starcraft.exe')
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
 
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0

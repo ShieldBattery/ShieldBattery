@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { DEV_INDICATOR } from '../../../common/flags'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { RaisedButton } from '../../material/button'
+import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
@@ -14,7 +16,7 @@ import { background500, colorError, colorSuccess } from '../../styles/colors'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { Overline, Subtitle1, body1, subtitle1, subtitle2 } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+import { FormContainer, SectionOverline } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -71,6 +73,8 @@ const AdvancedOverline = styled(Overline)`
 
 interface StarcraftSettingsModel {
   starcraftPath: string
+  launch64Bit?: boolean
+  disableHd?: boolean
 }
 
 export function StarcraftSettings() {
@@ -84,7 +88,11 @@ export function StarcraftSettings() {
   const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
     dispatch(
       mergeLocalSettings(
-        { starcraftPath: model.starcraftPath },
+        {
+          starcraftPath: model.starcraftPath,
+          launch64Bit: model.launch64Bit || false,
+          disableHd: model.disableHd || false,
+        },
         {
           onSuccess: () => {},
           onError: () => {},
@@ -93,9 +101,11 @@ export function StarcraftSettings() {
     )
   })
 
-  const { getInputValue, setInputValue, onSubmit } = useForm(
+  const { bindCheckable, getInputValue, setInputValue, onSubmit } = useForm(
     {
       starcraftPath: localSettings.starcraftPath,
+      launch64Bit: localSettings.launch64Bit,
+      disableHd: localSettings.disableHd,
     },
     {},
     { onValidatedChange },
@@ -212,6 +222,26 @@ export function StarcraftSettings() {
             label={t('settings.game.starcraft.browseManually', 'Browse manually')}
             onClick={onBrowseClick}
           />
+          {DEV_INDICATOR ? (
+            <div>
+              <SectionOverline>
+                {t('settings.game.starcraft.devOnlySettings', 'Dev-only settings')}
+              </SectionOverline>
+              <CheckBox
+                {...bindCheckable('disableHd')}
+                label={t(
+                  'settings.game.starcraft.disableHd',
+                  "Don't load HD graphics (Crashes if switching to HD in game)",
+                )}
+                inputProps={{ tabIndex: 0 }}
+              />
+              <CheckBox
+                {...bindCheckable('launch64Bit')}
+                label={t('settings.game.starcraft.launch64Bit', 'Launch 64-bit executable')}
+                inputProps={{ tabIndex: 0 }}
+              />
+            </div>
+          ) : null}
         </Layout>
       </FormContainer>
     </form>
