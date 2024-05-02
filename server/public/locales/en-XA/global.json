@@ -130,7 +130,10 @@
                 },
                 "pathInvalid": "$🗡This path does not point to a valid StarCraft: Remastered installation. Please ensure your installation is up to date or try a different path.🗡!",
                 "pathValid": "$🗡This game path appears to be a valid installation.🗡!",
-                "detectionFailed": "$🗡Detecting your installation path failed. Please ensure you have StarCraft: Remastered installed and try again, or set the path manually.🗡!"
+                "detectionFailed": "$🗡Detecting your installation path failed. Please ensure you have StarCraft: Remastered installed and try again, or set the path manually.🗡!",
+                "disableHd": "$🗡Don't load HD graphics (Crashes if switching to HD in game)🗡!",
+                "launch64Bit": "$🗡Launch 64-bit executable🗡!",
+                "devOnlySettings": "$🗡Dev-only settings🗡!"
             },
             "title": "$🗡Game🗡!",
             "video": {
