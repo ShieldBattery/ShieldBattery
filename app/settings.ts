@@ -5,6 +5,7 @@ import debounce from 'lodash/debounce'
 import { ConditionalKeys } from 'type-fest'
 import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
+import { DEV_INDICATOR } from '../common/flags'
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
 import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
@@ -192,6 +193,18 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       winHeight: -1,
       winMaximized: false,
     }
+  }
+
+  override async get(): Promise<Partial<LocalSettings>> {
+    const settings = await super.get()
+    // Remove settings gated by flags, so that you don't have to start a dev client to reset them if
+    // they were left on.
+    if (!DEV_INDICATOR) {
+      delete settings.visualizeNetworkStalls
+      delete settings.disableHd
+      delete settings.launch64Bit
+    }
+    return settings
   }
 
   // TODO(tec27): Type the old settings files
