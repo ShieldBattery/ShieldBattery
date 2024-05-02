@@ -56,7 +56,10 @@
                     "advanced": "Si la detección falla, puede configurar la ruta manualmente. Haz clic en el botón a continuación y selecciona el directorio que contiene tu instalación de StarCraft: Remastered.",
                     "description": "ShieldBattery requiere una instalación válida y actualizada de StarCraft: Remastered. Haga clic en el botón a continuación para detectar automáticamente la carpeta de instalación."
                 },
-                "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente."
+                "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente.",
+                "devOnlySettings": "Configuración solo para desarrolladores",
+                "launch64Bit": "Iniciar ejecutable de 64 bits",
+                "disableHd": "No cargar gráficos HD (se bloquea si se cambia a HD en el juego)"
             },
             "title": "Juego",
             "video": {
