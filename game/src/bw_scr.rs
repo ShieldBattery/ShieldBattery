@@ -202,7 +202,7 @@ pub struct BwScr {
 
     // State
     exe_build: u32,
-    disable_hd: bool,
+    disable_hd: AtomicBool,
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
@@ -804,10 +804,6 @@ impl BwScr {
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
-        let disable_hd = match std::env::var_os("SB_NO_HD") {
-            Some(s) => s == "1",
-            None => false,
-        };
         let open_file = analysis
             .file_hook()
             .ok_or("open_file (Required due to SB_NO_HD)")?;
@@ -956,7 +952,7 @@ impl BwScr {
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
-            disable_hd,
+            disable_hd: AtomicBool::new(false),
             shader_replaces: ShaderReplaces::new(),
             renderer_state: Mutex::new(RendererState {
                 shader_inputs: Vec::with_capacity(0x30),
@@ -2191,10 +2187,22 @@ impl bw::Bw for BwScr {
             .get("visualizeNetworkStalls")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
+        let disable_hd = settings
+            .local
+            .get("disableHd")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Relaxed);
+        self.disable_hd.store(disable_hd, Ordering::Relaxed);
+        if disable_hd && settings.scr.get("hdGraphicsOn").and_then(|x| x.as_bool()) == Some(true) {
+            // Obviously would be nice to have to have the app settings to notice this but
+            // this check is trivial to add, and better than spending time on wondering why the
+            // game crashed.
+            panic!("Cannot disable HD and have HD graphics enabled at the same time");
+        }
 
         let mut settings_file_path = self.settings_file_path.write();
         settings_file_path.clear();
