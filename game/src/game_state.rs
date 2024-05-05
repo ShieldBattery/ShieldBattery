@@ -1229,7 +1229,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
         *players.add(i) = bw::Player {
             id: 128 + (i - 12) as u32,
             storm_id: u32::MAX,
-            player_type: bw::PLAYER_TYPE_HUMAN,
+            player_type: bw::PLAYER_TYPE_OBSERVER_NONE,
             race: bw::RACE_RANDOM,
             team: 0,
             name: [0; 25],

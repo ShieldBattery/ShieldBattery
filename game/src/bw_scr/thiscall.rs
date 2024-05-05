@@ -5,8 +5,10 @@
 use std::marker::PhantomData;
 use std::mem;
 
+#[cfg_attr(target_arch = "x86_64", allow(unused_imports))]
 use byteorder::{ByteOrder, LittleEndian};
 use lazy_static::lazy_static;
+#[cfg_attr(target_arch = "x86_64", allow(unused_imports))]
 use winapi::um::heapapi::{HeapAlloc, HeapCreate};
 use winapi::um::winnt::HEAP_CREATE_ENABLE_EXECUTE;
 
@@ -234,6 +236,7 @@ impl<A, B, C, D, E, F, G, H, I, J, K, R> ExternCFn
 impl<T: ExternCFn> Thiscall<T> {
     /// Creates a callable wrapper to a func that is extern "C"
     pub fn new(func: T) -> Thiscall<T> {
+        #[cfg(target_arch = "x86")]
         unsafe {
             let heap = *EXEC_HEAP;
             // Just allocating enough for the wrapper.
@@ -265,6 +268,8 @@ impl<T: ExternCFn> Thiscall<T> {
             slice[5..8].copy_from_slice(&[0xc2, (T::Args::N - 1) * 4, 0x00]);
             Thiscall(ptr as usize, PhantomData)
         }
+        #[cfg(target_arch = "x86_64")]
+        Thiscall(T::cast_usize(func), PhantomData)
     }
 
     /// Creates thiscall wrapper to a foreign function which already uses thiscall ABI,
@@ -279,30 +284,52 @@ impl<T: ExternCFn> Thiscall<T> {
 }
 
 impl<T: ExternCFn<Args = ArgCount1>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call1(self, a1: T::A1) -> T::Ret {
         let fnptr: unsafe extern "C" fn(usize, T::A1) -> T::Ret =
             mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1)
     }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call1(self, a1: T::A1) -> T::Ret {
+        let fnptr: unsafe extern "C" fn(T::A1) -> T::Ret = mem::transmute(self.0);
+        fnptr(a1)
+    }
 }
 
 impl<T: ExternCFn<Args = ArgCount2>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call2(self, a1: T::A1, a2: T::A2) -> T::Ret {
         let fnptr: unsafe extern "C" fn(usize, T::A1, T::A2) -> T::Ret =
             mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1, a2)
     }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call2(self, a1: T::A1, a2: T::A2) -> T::Ret {
+        let fnptr: unsafe extern "C" fn(T::A1, T::A2) -> T::Ret = mem::transmute(self.0);
+        fnptr(a1, a2)
+    }
 }
 
 impl<T: ExternCFn<Args = ArgCount3>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call3(self, a1: T::A1, a2: T::A2, a3: T::A3) -> T::Ret {
         let fnptr: unsafe extern "C" fn(usize, T::A1, T::A2, T::A3) -> T::Ret =
             mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1, a2, a3)
     }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call3(self, a1: T::A1, a2: T::A2, a3: T::A3) -> T::Ret {
+        let fnptr: unsafe extern "C" fn(T::A1, T::A2, T::A3) -> T::Ret = mem::transmute(self.0);
+        fnptr(a1, a2, a3)
+    }
 }
 
 impl<T: ExternCFn<Args = ArgCount6>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call6(
         self,
         a1: T::A1,
@@ -316,9 +343,25 @@ impl<T: ExternCFn<Args = ArgCount6>> Thiscall<T> {
             mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1, a2, a3, a4, a5, a6)
     }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call6(
+        self,
+        a1: T::A1,
+        a2: T::A2,
+        a3: T::A3,
+        a4: T::A4,
+        a5: T::A5,
+        a6: T::A6,
+    ) -> T::Ret {
+        let fnptr: unsafe extern "C" fn(T::A1, T::A2, T::A3, T::A4, T::A5, T::A6) -> T::Ret =
+            mem::transmute(self.0);
+        fnptr(a1, a2, a3, a4, a5, a6)
+    }
 }
 
 impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call8(
         self,
         a1: T::A1,
@@ -344,9 +387,36 @@ impl<T: ExternCFn<Args = ArgCount8>> Thiscall<T> {
         ) -> T::Ret = mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1, a2, a3, a4, a5, a6, a7, a8)
     }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call8(
+        self,
+        a1: T::A1,
+        a2: T::A2,
+        a3: T::A3,
+        a4: T::A4,
+        a5: T::A5,
+        a6: T::A6,
+        a7: T::A7,
+        a8: T::A8,
+    ) -> T::Ret {
+        #[allow(clippy::type_complexity)]
+        let fnptr: unsafe extern "C" fn(
+            T::A1,
+            T::A2,
+            T::A3,
+            T::A4,
+            T::A5,
+            T::A6,
+            T::A7,
+            T::A8,
+        ) -> T::Ret = mem::transmute(self.0);
+        fnptr(a1, a2, a3, a4, a5, a6, a7, a8)
+    }
 }
 
 impl<T: ExternCFn<Args = ArgCount11>> Thiscall<T> {
+    #[cfg(target_arch = "x86")]
     pub unsafe fn call11(
         self,
         a1: T::A1,
@@ -377,6 +447,38 @@ impl<T: ExternCFn<Args = ArgCount11>> Thiscall<T> {
             T::A11,
         ) -> T::Ret = mem::transmute(THISCALL_CALL.as_ptr());
         fnptr(self.0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub unsafe fn call11(
+        self,
+        a1: T::A1,
+        a2: T::A2,
+        a3: T::A3,
+        a4: T::A4,
+        a5: T::A5,
+        a6: T::A6,
+        a7: T::A7,
+        a8: T::A8,
+        a9: T::A9,
+        a10: T::A10,
+        a11: T::A11,
+    ) -> T::Ret {
+        #[allow(clippy::type_complexity)]
+        let fnptr: unsafe extern "C" fn(
+            T::A1,
+            T::A2,
+            T::A3,
+            T::A4,
+            T::A5,
+            T::A6,
+            T::A7,
+            T::A8,
+            T::A9,
+            T::A10,
+            T::A11,
+        ) -> T::Ret = mem::transmute(self.0);
+        fnptr(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
     }
 }
 

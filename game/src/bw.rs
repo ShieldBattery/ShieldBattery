@@ -285,6 +285,7 @@ pub const PLAYER_TYPE_NONE: u8 = 0x0;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
 pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
 pub const PLAYER_TYPE_OPEN: u8 = 0x6;
+pub const PLAYER_TYPE_OBSERVER_NONE: u8 = 0x8;
 pub const RACE_ZERG: u8 = 0x0;
 pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;

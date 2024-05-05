@@ -570,7 +570,14 @@ impl BwScr {
             let rdata = pe_image::get_section(base, b".rdata\0\0").unwrap();
             let data = pe_image::get_section(base, b".data\0\0\0").unwrap();
             let reloc = pe_image::get_section(base, b".reloc\0\0").unwrap();
+            #[cfg(target_arch = "x86_64")]
+            let pdata = pe_image::get_section(base, b".pdata\0\0").unwrap();
+
+            #[cfg(target_arch = "x86")]
             let sections = vec![pe_image::get_pe_header(base), text, rdata, data, reloc];
+            #[cfg(target_arch = "x86_64")]
+            let sections = vec![pe_image::get_pe_header(base), text, rdata, data, pdata, reloc];
+
             let base = VirtualAddress(base as _);
             #[allow(unused_mut)] // As mutation is needed only on the cfg(x86) part
             let mut binary = scarf::raw_bin(base, sections);
@@ -1836,7 +1843,12 @@ impl BwScr {
                 (*player).player_type,
                 (*player).storm_id
             );
+            // Note: We set obs slot player types also be PLAYER_TYPE_HUMAN while BW uses
+            // a separate value for them, so this if includes both players and observers.
+            // Not 100% sure why we do it differently from BW, probably ended up doing that since
+            // the existing code didn't account for it and BW doesn't seem to care?
             if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
+                assert!(storm_id < 16);
                 let game_id = match i < 12 {
                     true => i,
                     false => 128 + (i - 12),
@@ -3186,7 +3198,7 @@ static READ_FS_GS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
 #[cfg(target_arch = "x86_64")]
 #[link_section = ".text"]
 #[no_mangle] // Workaround for linker errors on opt-level 1 ??
-static READ_FS_GS: [u8; 5] = [0x65, 0x48, 0x8b, 0x00, 0xc3];
+static READ_FS_GS: [u8; 5] = [0x65, 0x48, 0x8b, 0x01, 0xc3];
 
 unsafe fn read_fs_gs(offset: usize) -> usize {
     let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS_GS.as_ptr());

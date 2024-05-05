@@ -249,9 +249,9 @@ impl<'e> Analysis<'e> {
             .filter(|&offset| offset != 0)?;
         let tls_address = base + tls_offset;
         let tls_ptr = binary
-            .read_u32(tls_address + 2 * VirtualAddress::SIZE)
+            .read_address(tls_address + 2 * VirtualAddress::SIZE)
             .ok()?;
-        Some(tls_ptr as *mut u32)
+        Some(tls_ptr.as_u64() as *mut u32)
     }
 
     pub fn prism_pixel_shaders(&mut self) -> Option<Vec<VirtualAddress>> {

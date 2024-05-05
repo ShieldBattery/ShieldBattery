@@ -152,7 +152,9 @@ fn panic_hook(info: &std::panic::PanicInfo) {
         },
     };
     writeln!(msg, "{}", panic_msg).unwrap();
-    if cfg!(debug_assertions) {
+    // Backtrace will crash in RtlVirtualUnwind if trying to get it too early in process
+    // initialization? Or maybe something is just broken with 64-bit backtraces in general..
+    if cfg!(debug_assertions) && PROCESS_INIT_HOOK_REACHED.load(Ordering::Relaxed) {
         write!(msg, "Backtrace:\n{}", backtrace()).unwrap();
     }
     error!("{}", msg);
@@ -248,6 +250,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
 }
 
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
+static PROCESS_INIT_HOOK_REACHED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 #[allow(non_snake_case)]
@@ -269,11 +272,15 @@ type InitHelperFn = unsafe extern "C" fn(InitHelperOnDone, InitHelperOnCrash);
 unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
     let self_handle = SELF_HANDLE.load(Ordering::Relaxed);
     assert_ne!(self_handle, 0);
+    let dll_filename = match cfg!(target_arch = "x86") {
+        true => Path::new("sb_init.dll"),
+        false => Path::new("sb_init_64.dll"),
+    };
     let dll_path = windows::module_name(self_handle as *mut _)
         .and_then(|path| {
             Path::new(&path)
                 .parent()
-                .map(|path| path.join("sb_init.dll"))
+                .map(|path| path.join(&dll_filename))
         })
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
     let dll = windows::load_library(dll_path)?;
@@ -314,6 +321,7 @@ fn wait_async_exit() -> ! {
 // after its entry point. From here on we init the remaining parts ourselves and wait
 // for commands from the client.
 fn process_init_hook() -> ! {
+    PROCESS_INIT_HOOK_REACHED.store(true, Ordering::Relaxed);
     game_thread::run_event_loop()
 }
 

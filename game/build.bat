@@ -41,6 +41,7 @@ if not exist "%scriptroot%\dist\d3dcompiler_47.dll" (
 )
 
 xcopy "%scriptroot%\..\tools\sb_init.dll" "%scriptroot%\dist" /y /f /c
+xcopy "%scriptroot%\..\tools\sb_init_64.dll" "%scriptroot%\dist" /y /f /c
 
 @rem build the DLL
 cd "%scriptroot%"
@@ -71,6 +72,7 @@ if not defined sign goto skipsign
 @rem TODO(tec27): Make this find signtool better, this location works for me but I doubt it does for everyone.
 "%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\shieldbattery.dll" > %temp%\sign_sbdll.txt 2>&1
 "%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\sb_init.dll" > %temp%\sign_init.txt 2>&1
+"%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\sb_init_64.dll" > %temp%\sign_init.txt 2>&1
 if errorlevel 1 (
   echo Signing the DLL failed.
   goto exit
