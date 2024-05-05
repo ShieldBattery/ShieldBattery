@@ -280,7 +280,7 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
         .and_then(|path| {
             Path::new(&path)
                 .parent()
-                .map(|path| path.join(&dll_filename))
+                .map(|path| path.join(dll_filename))
         })
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
     let dll = windows::load_library(dll_path)?;

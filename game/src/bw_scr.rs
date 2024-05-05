@@ -576,7 +576,14 @@ impl BwScr {
             #[cfg(target_arch = "x86")]
             let sections = vec![pe_image::get_pe_header(base), text, rdata, data, reloc];
             #[cfg(target_arch = "x86_64")]
-            let sections = vec![pe_image::get_pe_header(base), text, rdata, data, pdata, reloc];
+            let sections = vec![
+                pe_image::get_pe_header(base),
+                text,
+                rdata,
+                data,
+                pdata,
+                reloc,
+            ];
 
             let base = VirtualAddress(base as _);
             #[allow(unused_mut)] // As mutation is needed only on the cfg(x86) part
