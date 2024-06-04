@@ -191,7 +191,7 @@ const eventToAction: EventToActionMap = {
 
       // This is already logged to our file by the map store, so we just log it to the console for
       // easy visibility during development
-      console.error('Error downloading map: ' + err + '\n' + err.stack)
+      console.error('Error downloading map: ' + err.stack)
     })
 
     const totalPlayers = event.slots.length
