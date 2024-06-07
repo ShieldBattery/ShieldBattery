@@ -138,16 +138,6 @@ fn hash_u64_x86_64(mut accum: u64) -> u64 {
     accum
 }
 
-impl BwHash for scr::BwStringAlign8 {
-    fn hash(&self) -> usize {
-        self.inner.hash()
-    }
-
-    fn compare(&self, other: &Self) -> bool {
-        self.inner.compare(&other.inner)
-    }
-}
-
 impl BwMove for scr::BwString {
     unsafe fn move_construct(&mut self, dest: *mut Self) {
         ptr::copy_nonoverlapping(self, dest, 1);
@@ -158,19 +148,13 @@ impl BwMove for scr::BwString {
     }
 }
 
-impl BwMove for scr::BwStringAlign8 {
-    unsafe fn move_construct(&mut self, dest: *mut Self) {
-        self.inner.move_construct(ptr::addr_of_mut!((*dest).inner))
-    }
-}
-
 impl BwMove for scr::GameInfoValueOld {
     unsafe fn move_construct(&mut self, dest: *mut Self) {
         ptr::copy_nonoverlapping(self, dest, 1);
         if self.variant == 1 {
             // String
-            let self_string = self.data.var1.as_mut_ptr() as *mut scr::BwString;
-            let dest_string = (*dest).data.var1.as_mut_ptr() as *mut scr::BwString;
+            let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
+            let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
             (*self_string).move_construct(dest_string);
             self.variant = 0;
         }
@@ -182,8 +166,8 @@ impl BwMove for scr::GameInfoValue {
         ptr::copy_nonoverlapping(self, dest, 1);
         if self.variant == 1 {
             // String
-            let self_string = self.data.var1.as_mut_ptr() as *mut scr::BwString;
-            let dest_string = (*dest).data.var1.as_mut_ptr() as *mut scr::BwString;
+            let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
+            let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
             (*self_string).move_construct(dest_string);
             self.variant = 0;
         }
@@ -249,11 +233,11 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
     }
 
     unsafe fn key_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Key {
-        ptr::addr_of_mut!((*entry).key)
+        ptr::addr_of_mut!((*entry).pair.key)
     }
 
     unsafe fn value_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Value {
-        ptr::addr_of_mut!((*entry).value)
+        ptr::addr_of_mut!((*entry).pair.value)
     }
 }
 

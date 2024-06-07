@@ -512,7 +512,6 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
     unsafe fn from_u32(val: u32) -> Self {
         Self {
             variant: 2,
-            padding: 0,
             data: scr::GameInfoValueUnion { var2_3: val as u64 },
         }
     }
@@ -520,12 +519,11 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
     unsafe fn from_string(val: &[u8]) -> Self {
         let mut value = Self {
             variant: 1,
-            padding: 0,
             data: scr::GameInfoValueUnion {
                 var1: mem::zeroed(),
             },
         };
-        init_bw_string(value.data.var1.as_mut_ptr() as *mut scr::BwString, val);
+        init_bw_string(ptr::addr_of_mut!(value.data.var1) as *mut scr::BwString, val);
         value
     }
 }
@@ -545,7 +543,7 @@ impl GameInfoValueTrait for scr::GameInfoValue {
                 var1: mem::zeroed(),
             },
         };
-        init_bw_string(value.data.var1.as_mut_ptr() as *mut scr::BwString, val);
+        init_bw_string(ptr::addr_of_mut!(value.data.var1) as *mut scr::BwString, val);
         value
     }
 }
@@ -2068,11 +2066,11 @@ impl BwScr {
         input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         options: LobbyOptions,
-    ) -> bw_hash_table::HashTable<scr::BwStringAlign8, T> {
-        let mut params = bw_hash_table::HashTable::<scr::BwStringAlign8, T>::new(0x20);
+    ) -> bw_hash_table::HashTable<scr::BwString, T> {
+        let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20);
         let mut add_param = |key: &[u8], value: u32| {
-            let mut string: scr::BwStringAlign8 = mem::zeroed();
-            init_bw_string(ptr::addr_of_mut!(string.inner), key);
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
             let mut value = T::from_u32(value);
             params.insert(&mut string, &mut value);
         };
@@ -2102,8 +2100,8 @@ impl BwScr {
         add_param(b"flags", flags);
 
         let mut add_param_string = |key: &[u8], value_str: &[u8]| {
-            let mut string: scr::BwStringAlign8 = mem::zeroed();
-            init_bw_string(ptr::addr_of_mut!(string.inner), key);
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
             let mut value = T::from_string(value_str);
             params.insert(&mut string, &mut value);
         };
@@ -3221,7 +3219,7 @@ unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
         (*out).inline_buffer[value.len()] = 0;
         (*out).pointer = (*out).inline_buffer.as_mut_ptr();
         (*out).length = value.len();
-        (*out).capacity = 15 | (isize::min_value() as usize);
+        (*out).capacity = 15 | (isize::MIN as usize);
     } else {
         let mut vec = mem::ManuallyDrop::new(Vec::with_capacity(value.len() + 1));
         vec.extend(value.iter().cloned());

@@ -79,13 +79,6 @@ pub struct BwString {
     pub inline_buffer: [u8; 0x10],
 }
 
-// Not sure why this exists, but at least JoinableGameInfo hashtable has strings aligned
-// to 8 on 32-bit. Most of the other hashtables with string keys use normal BwString though.
-#[repr(C, align(8))]
-pub struct BwStringAlign8 {
-    pub inner: BwString,
-}
-
 impl BwString {
     /// Returns the capacity (with the bit signifying internal/external buffer removed).
     pub fn get_capacity(&self) -> usize {
@@ -273,9 +266,7 @@ pub struct TtfFont {
 
 #[repr(C)]
 pub struct JoinableGameInfo {
-    // Align 8 for some reason, but there is no any extra data in the key that would
-    // require it.
-    pub params: BwHashTable<BwStringAlign8, GameInfoValue>,
+    pub params: BwHashTable<BwString, GameInfoValue>,
     #[cfg(target_arch = "x86")]
     pub unk10: [u8; 0x24],
     #[cfg(target_arch = "x86_64")]
@@ -306,7 +297,6 @@ pub struct JoinableGameInfo {
 #[repr(C)]
 pub struct GameInfoValueOld {
     pub variant: u32,
-    pub padding: u32,
     pub data: GameInfoValueUnion,
 }
 
@@ -318,7 +308,7 @@ pub struct GameInfoValue {
 
 #[repr(C)]
 pub union GameInfoValueUnion {
-    pub var1: [u8; 0x1c], // Actually a string
+    pub var1: std::mem::ManuallyDrop<BwString>,
     pub var2_3: u64,
     pub var4: f64,
     pub var5: u8,
@@ -335,6 +325,11 @@ pub struct BwHashTable<K, V> {
 #[repr(C)]
 pub struct BwHashTableEntry<K, V> {
     pub next: *mut BwHashTableEntry<K, V>,
+    pub pair: Pair<K, V>,
+}
+
+#[repr(C)]
+pub struct Pair<K, V> {
     pub key: K,
     pub value: V,
 }
@@ -629,4 +624,5 @@ fn struct_sizes() {
     assert_eq!(size_of::<DdsGrpSet>(), size(0x28, 0x48));
     assert_eq!(size_of::<Font>(), size(0x18, 0x28));
     assert_eq!(size_of::<TtfFont>(), size(0xa0, 0xc8));
+    assert_eq!(size_of::<BwHashTableEntry<BwString, GameInfoValueOld>>(), size(0x50, 0x60));
 }

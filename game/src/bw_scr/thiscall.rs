@@ -28,6 +28,7 @@ fn init_exec_heap() -> usize {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Thiscall<T: ExternCFn>(usize, PhantomData<T>);
 
+#[cfg_attr(target_arch = "x86_64", allow(dead_code))]
 pub trait ExternCFnArgs {
     const N: u8;
 }
