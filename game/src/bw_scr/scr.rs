@@ -624,5 +624,8 @@ fn struct_sizes() {
     assert_eq!(size_of::<DdsGrpSet>(), size(0x28, 0x48));
     assert_eq!(size_of::<Font>(), size(0x18, 0x28));
     assert_eq!(size_of::<TtfFont>(), size(0xa0, 0xc8));
-    assert_eq!(size_of::<BwHashTableEntry<BwString, GameInfoValueOld>>(), size(0x50, 0x60));
+    assert_eq!(
+        size_of::<BwHashTableEntry<BwString, GameInfoValueOld>>(),
+        size(0x50, 0x60)
+    );
 }

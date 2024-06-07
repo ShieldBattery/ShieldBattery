@@ -4,6 +4,7 @@
     clippy::bool_assert_comparison,
     clippy::manual_range_patterns,
     clippy::missing_safety_doc,
+    clippy::needless_borrows_for_generic_args, // Will be fixed to be worth using in Rust 1.80?
     clippy::single_element_loop,
     clippy::too_many_arguments
 )]
