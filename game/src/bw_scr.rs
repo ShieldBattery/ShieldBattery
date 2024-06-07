@@ -505,7 +505,7 @@ impl<T> LinkedList<T> {
 /// For compatibility with two different struct layouts
 trait GameInfoValueTrait: bw_hash_table::BwMove {
     unsafe fn from_u32(val: u32) -> Self;
-    unsafe fn from_string(val: &[u8]) -> Self;
+    unsafe fn from_string(this: *mut Self, val: &[u8]);
 }
 
 impl GameInfoValueTrait for scr::GameInfoValueOld {
@@ -516,15 +516,12 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
         }
     }
 
-    unsafe fn from_string(val: &[u8]) -> Self {
-        let mut value = Self {
-            variant: 1,
-            data: scr::GameInfoValueUnion {
-                var1: mem::zeroed(),
-            },
-        };
-        init_bw_string(ptr::addr_of_mut!(value.data.var1) as *mut scr::BwString, val);
-        value
+    unsafe fn from_string(this: *mut Self, val: &[u8]) {
+        (*this).variant = 1;
+        init_bw_string(
+            ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
+            val,
+        );
     }
 }
 
@@ -536,15 +533,12 @@ impl GameInfoValueTrait for scr::GameInfoValue {
         }
     }
 
-    unsafe fn from_string(val: &[u8]) -> Self {
-        let mut value = Self {
-            variant: 1,
-            data: scr::GameInfoValueUnion {
-                var1: mem::zeroed(),
-            },
-        };
-        init_bw_string(ptr::addr_of_mut!(value.data.var1) as *mut scr::BwString, val);
-        value
+    unsafe fn from_string(this: *mut Self, val: &[u8]) {
+        (*this).variant = 1;
+        init_bw_string(
+            ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
+            val,
+        );
     }
 }
 
@@ -2102,7 +2096,8 @@ impl BwScr {
         let mut add_param_string = |key: &[u8], value_str: &[u8]| {
             let mut string: scr::BwString = mem::zeroed();
             init_bw_string(&mut string, key);
-            let mut value = T::from_string(value_str);
+            let mut value: T = mem::zeroed();
+            T::from_string(&mut value, value_str);
             params.insert(&mut string, &mut value);
         };
         let host_name_length = input_game_info
