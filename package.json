@@ -263,7 +263,7 @@
     "d3-time-format": "^4.1.0",
     "deep-equal": "^2.0.1",
     "electron": "^28.1.0",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^24.13.3",
     "electron-is-dev": "^2.0.0",
     "engine.io": "^6.5.4",
     "eslint": "^8.14.0",
