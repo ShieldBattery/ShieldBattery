@@ -1,3 +1,12 @@
+#### 9.5.0 (Jun 7, 2024)
+
+- Fix a rare issue that made some users unable to download map files and silently fail to launch
+  the game
+- Allow mouse scroll to zoom when above replay/observer UI elements
+- Fix hive and lair icons being swapped in replay/observer UI
+- Show supply numbers as red when over the max supply in replay/observer UI
+- Fixed an issue where some auto-saved replays contained a blank map name
+
 #### 9.4.0 (Jan 13, 2024)
 
 - Added a basic match history to user profiles (better filtering capabilities coming soon!)
