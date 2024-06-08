@@ -25,6 +25,8 @@ nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
   certificateSubjectName: Fast Expo Collective LLC
+  signingHashAlgorithms:
+    - sha256
   signDlls: true
   rfc3161TimeStampServer: http://ts.ssl.com
   icon: icon.ico
