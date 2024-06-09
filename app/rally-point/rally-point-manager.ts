@@ -164,6 +164,7 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
 
           if (!results.length) {
             logger.verbose(`could not ping rally-point server [${id}, ${server.description}]`)
+            return
           }
 
           // Sort the results and take the median
