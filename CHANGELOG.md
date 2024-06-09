@@ -1,3 +1,8 @@
+#### 9.5.1 (Jun 8, 2024)
+
+- Fixed a bug that caused some users to be unable to play games or have slow network routes when
+  one of the relay servers responded too slowly
+
 #### 9.5.0 (Jun 7, 2024)
 
 - Fix a rare issue that made some users unable to download map files and silently fail to launch
