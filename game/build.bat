@@ -1,4 +1,4 @@
-@rem Main ways to call this are "build.bat debug", "build.bat release" and "build.bat release sign"
+@rem Main ways to call this are "build.bat debug" and "build.bat release"
 @echo off
 
 SETLOCAL
@@ -7,7 +7,6 @@ set scriptroot=%~dp0
 
 @rem Arguments
 set cargoflags=
-set sign=
 set target=
 set is64=0
 
@@ -15,7 +14,6 @@ set is64=0
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set cargoflags=&goto arg-ok
 if /i "%1"=="release"       set cargoflags=--release&goto arg-ok
-if /i "%1"=="sign"          set sign=1&goto arg-ok
 if /i "%1"=="x86_64"        set target=--target x86_64-pc-windows-msvc&set is64=1&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
@@ -67,17 +65,6 @@ if [%is64%]==[1] (
 )
 echo %copysrc% -^> %copytgt%
 copy "%copysrc%" "%copytgt%" /y
-
-if not defined sign goto skipsign
-@rem TODO(tec27): Make this find signtool better, this location works for me but I doubt it does for everyone.
-"%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\shieldbattery.dll" > %temp%\sign_sbdll.txt 2>&1
-"%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\sb_init.dll" > %temp%\sign_init.txt 2>&1
-"%ProgramFiles(x86)%\Microsoft SDKs\ClickOnce\SignTool\signtool.exe" sign /n "Fast Expo Collective LLC" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /tr "http://ts.ssl.com" /fd SHA256 /td SHA256 "%scriptroot%\dist\sb_init_64.dll" > %temp%\sign_init.txt 2>&1
-if errorlevel 1 (
-  echo Signing the DLL failed.
-  goto exit
-)
-:skipsign
 
 :exit
 cd "%startdir%"

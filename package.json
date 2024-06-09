@@ -77,7 +77,7 @@
     "app": "cross-env SB_HOT=1 electron app",
     "build-app-client": "cross-env NODE_ENV=production webpack",
     "build-app-client-stats": "cross-env NODE_ENV=production webpack --profile --json > stats.json",
-    "build-game": "game\\build.bat release sign",
+    "build-game": "game\\build.bat release",
     "build-web-client": "cross-env NODE_ENV=production webpack --config ./server/webpack.config.js",
     "build-web-client-stats": "cross-env NODE_ENV=production webpack --profile --json --config ./server/webpack.config.js > stats.json",
     "clean": "rimraf app/dist && rimraf app/styles",
