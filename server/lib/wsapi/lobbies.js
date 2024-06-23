@@ -233,7 +233,7 @@ export class LobbyApi {
             client.name,
             client.userId,
             availableSlot.race,
-            true,
+            availableSlot.hasForcedRace,
             availableSlot.playerId,
           )
         : Slots.createHuman(client.name, client.userId)
