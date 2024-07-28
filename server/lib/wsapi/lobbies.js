@@ -632,9 +632,10 @@ export class LobbyApi {
   _removeClientFromLobby(lobby, client, removalType = REMOVAL_TYPE_NORMAL) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, client.name)
     const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
+    const isLobbyEmpty = !updatedLobby
 
-    if (!updatedLobby) {
-      // The lobby is now empty and needs to be removed the this list
+    if (isLobbyEmpty) {
+      // The lobby is now empty and needs to be removed from the list
 
       // Ensure the client's local state gets updated to confirm the leave
       this._publishTo(lobby, {
@@ -661,19 +662,8 @@ export class LobbyApi {
       lobby: null,
     })
 
-    this._maybeCancelCountdown(lobby)
-    // Send the leaving user a message to cancel the loading, before we unsubscribe them from the
-    // lobby routes.
-    if (this.loadingLobbies.has(lobby.name)) {
-      this._publishToUser(lobby, client.name, {
-        type: 'cancelLoading',
-      })
-
-      if (!updatedLobby) {
-        // Ensure that the lobby doesn't come back as a zombie loading lobby, ahhhhhhhhh! (#618)
-        this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
-      }
-    }
+    this._maybeCancelCountdown(lobby, isLobbyEmpty)
+    this._maybeCancelLoading(lobby, isLobbyEmpty)
 
     try {
       const user = this.getUserById(client.userId)
@@ -780,7 +770,7 @@ export class LobbyApi {
       if (this.lobbies.get(lobby.name) === lobby) {
         // This has been verified to be the same lobby, so sending cancel events is safe
         this._maybeCancelCountdown(lobby)
-        this._onLoadingCanceled(lobby)
+        this._maybeCancelLoading(lobby)
       }
     } finally {
       if (countdownTimerId) {
@@ -816,7 +806,7 @@ export class LobbyApi {
     })
   }
 
-  _onLoadingCanceled(lobby) {
+  _maybeCancelLoading(lobby, isLobbyEmpty) {
     if (!this.loadingLobbies.has(lobby.name)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
@@ -827,7 +817,9 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'cancelLoading',
     })
-    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    if (!isLobbyEmpty) {
+      this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    }
   }
 
   _onGameLoaded(lobby) {
@@ -852,7 +844,7 @@ export class LobbyApi {
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobby) {
+  _maybeCancelCountdown(lobby, isLobbyEmpty) {
     if (!this.lobbyCountdowns.has(lobby.name)) {
       return
     }
@@ -863,7 +855,9 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'cancelCountdown',
     })
-    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    if (!isLobbyEmpty) {
+      this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    }
   }
 
   @Api(
