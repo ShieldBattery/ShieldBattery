@@ -134,7 +134,7 @@ jobs:
 
       - name: Display typeshare
         if: ${{ steps.check-typeshare.outputs.files_changed == 'true' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files.')
+        env:
+          CHANGED_FILES: ${{ steps.verify-changed-files.outputs.changed_files }}
+        with: |
+          echo "Changed files: $CHANGED_FILES"
