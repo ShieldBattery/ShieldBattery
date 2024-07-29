@@ -806,7 +806,7 @@ export class LobbyApi {
     })
   }
 
-  _maybeCancelLoading(lobby, isLobbyEmpty) {
+  _maybeCancelLoading(lobby, isLobbyEmpty = false) {
     if (!this.loadingLobbies.has(lobby.name)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
@@ -844,7 +844,7 @@ export class LobbyApi {
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobby, isLobbyEmpty) {
+  _maybeCancelCountdown(lobby, isLobbyEmpty = false) {
     if (!this.lobbyCountdowns.has(lobby.name)) {
       return
     }
