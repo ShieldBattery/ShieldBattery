@@ -141,7 +141,7 @@ jobs:
         with:
           script: |
             const util = require('node:util')
-            const exec = util.promisify(require('node:child_process').exec)
+            const node_exec = util.promisify(require('node:child_process').exec)
 
             const { FILES_CHANGED, CHANGED_FILES } = process.env
 
@@ -149,7 +149,7 @@ jobs:
             console.log(`Changed files: ${CHANGED_FILES}`)
 
             async function runGitDiff() {
-              const { stdout, stderr } = await exec('git diff')
+              const { stdout, stderr } = await node_exec('git diff')
               console.log('stdout:', stdout)
               console.error('stderr:', stderr)
             }
