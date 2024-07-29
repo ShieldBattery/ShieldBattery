@@ -127,7 +127,7 @@ jobs:
         run: pnpm gen-typeshare
 
       - name: Check typeshare
-        uses: tj-actions/verify-changed-files@v15
+        uses: tj-actions/verify-changed-files@v20
         id: check-typeshare
         with:
           files: common/typeshare.ts
