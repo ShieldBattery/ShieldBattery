@@ -9,7 +9,7 @@ use bw_dat::{Race, Unit};
 use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
-    Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
+    pos2, vec2, Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
     PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, Vec2, Widget, WidgetText,
 };
 use winapi::shared::windef::{HWND, POINT};
@@ -179,8 +179,14 @@ impl UiExt for egui::Ui {
     }
 
     fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F) {
-        let child_rect = self.cursor();
-        let mut child_ui = self.child_ui(child_rect, *self.layout());
+        // egui doesn't like infinite sizes for ui rects (has a debug assertion),
+        // so just replace infinite sides with very large end..
+        // Not really sure what this should use anyway.
+        let child_rect = self.cursor().intersect(Rect::from_center_size(
+            pos2(0.0, 0.0),
+            vec2(10000.0, 10000.0),
+        ));
+        let mut child_ui = self.child_ui(child_rect, *self.layout(), None);
 
         let mut clip_rect = child_ui.cursor();
         clip_rect.set_width(width);
@@ -908,7 +914,12 @@ impl OverlayState {
                 }
                 // Scroll amount seems to be fine without any extra scaling
                 let amount = ((wparam >> 16) as i16) as f32;
-                self.events.push(Event::Scroll(Vec2 { x: 0.0, y: amount }));
+                let modifiers = current_egui_modifiers();
+                self.events.push(Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, amount),
+                    modifiers,
+                });
                 Some(0)
             }
             WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {

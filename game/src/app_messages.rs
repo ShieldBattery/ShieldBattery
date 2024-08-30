@@ -150,6 +150,7 @@ impl From<&GameSetupInfo> for LobbyOptions {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct MapInfo {
     // This object is literally completely different between playing a game and watching a replay
     pub is_replay: Option<bool>,
@@ -161,6 +162,7 @@ pub struct MapInfo {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct MapData {
     pub height: u16,
     pub width: u16,
@@ -251,6 +253,7 @@ pub struct Route {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct RallyPointServer {
     pub address4: Option<String>,
     pub address6: Option<String>,

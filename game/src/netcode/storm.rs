@@ -10,6 +10,7 @@ pub enum ResendType {
     /// packet).
     Request(Option<u8>),
     /// Contains the user the packet is from.
+    #[allow(dead_code)] // User is unused at the moment
     Response(u8),
 }
 

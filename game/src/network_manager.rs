@@ -717,8 +717,7 @@ impl State {
         let lobby_id_to_routes = host
             .into_iter()
             .chain(rest.clone())
-            .enumerate()
-            .filter_map(|(_, player)| {
+            .filter_map(|player| {
                 routes
                     .iter()
                     .find(|x| x.lobby_player_id == player.id)

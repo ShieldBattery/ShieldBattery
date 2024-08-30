@@ -4,6 +4,9 @@
     clippy::bool_assert_comparison,
     clippy::manual_range_patterns,
     clippy::missing_safety_doc,
+    // Mostly complains about int -> fnptr casts that rust requires transmute for,
+    // if those could be ignored this lint may be worth having active.
+    clippy::missing_transmute_annotations,
     clippy::needless_borrows_for_generic_args, // Will be fixed to be worth using in Rust 1.80?
     clippy::single_element_loop,
     clippy::too_many_arguments
