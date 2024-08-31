@@ -91,10 +91,10 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Building Docker containers
-        run: cd ./integration && docker-compose build
+        run: cd ./integration && docker compose build
 
       - name: Running Docker containers
-        run: cd ./integration && docker-compose up -V -d
+        run: cd ./integration && docker compose up -V -d
 
       - name: Using pnpm v8.x
         uses: pnpm/action-setup@v2
@@ -122,19 +122,19 @@ jobs:
 
       - name: View app-server logs
         if: ${{ failure() }}
-        run: docker logs integration_app-server_1
+        run: docker logs integration-app-server-1
 
       - name: View server-rs logs
         if: ${{ failure() }}
-        run: docker logs integration_server-rs_1
+        run: docker logs integration-server-rs-1
 
       - name: View mailgun logs
         if: ${{ failure() }}
-        run: docker logs integration_mailgun_1
+        run: docker logs integration-mailgun-1
 
       - name: View google-cloud logs
         if: ${{ failure() }}
-        run: docker logs integration_google-cloud_1
+        run: docker logs integration-google-cloud-1
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}
