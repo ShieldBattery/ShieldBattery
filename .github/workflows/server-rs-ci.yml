@@ -118,7 +118,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install typeshare-cli
-        uses: baptiste0928/cargo-install@v2
+        uses: baptiste0928/cargo-install@v3
         with:
           crate: typeshare-cli
 

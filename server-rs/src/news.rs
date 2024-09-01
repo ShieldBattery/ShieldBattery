@@ -59,8 +59,8 @@ impl NewsQuery {
                 } else {
                     first
                 };
-                let first = first.map(|f| f.max(1).min(100));
-                let last = last.map(|l| l.max(1).min(100));
+                let first = first.map(|f| f.clamp(1, 100));
+                let last = last.map(|l| l.clamp(1, 100));
 
                 let repo = ctx.data_unchecked::<NewsPostRepo>();
                 repo.load_many(

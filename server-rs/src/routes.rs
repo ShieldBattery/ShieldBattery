@@ -200,13 +200,13 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                         .on_response(|response: &Response<_>, latency: Duration, span: &Span| {
                             span.record("res.statusCode", response.status().as_u16());
                             span.record("res.responseTime", latency.as_millis());
-                            span.record("res.headers", &tracing::field::debug(response.headers()));
+                            span.record("res.headers", tracing::field::debug(response.headers()));
 
                             tracing::info!("request completed");
                         })
                         .on_failure(
                             |error: ServerErrorsFailureClass, latency: Duration, span: &Span| {
-                                span.record("errorMessage", &error.to_string());
+                                span.record("errorMessage", error.to_string());
                                 span.record("res.responseTime", latency.as_millis());
                                 tracing::error!(error = error.to_string(), "request failed");
                             },
