@@ -471,6 +471,9 @@ const eventToAction: EventToActionMap = {
     // the loading screen anyway, even after it's been canceled.
     clearCountdownTimer()
     dispatch({
+      // TODO(2Pac): This should probably be a different action than the countdown canceled one? As
+      // it is currently, this displays the same chat message twice in the lobby if someone leaves
+      // during countdown.
       type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
     } as any)
 
