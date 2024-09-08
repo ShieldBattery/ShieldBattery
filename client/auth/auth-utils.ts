@@ -12,8 +12,8 @@ export function useRedirectAfterLogin() {
   useEffect(() => {
     if (isLoggedIn) {
       const nextPath =
-        location && location.search ? queryString.parse(location.search).nextPath ?? '/' : '/'
-      replace(Array.isArray(nextPath) ? nextPath[0] ?? '/' : nextPath)
+        location && location.search ? (queryString.parse(location.search).nextPath ?? '/') : '/'
+      replace(Array.isArray(nextPath) ? (nextPath[0] ?? '/') : nextPath)
     }
   }, [isLoggedIn])
 }

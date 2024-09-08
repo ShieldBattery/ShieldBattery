@@ -678,7 +678,7 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>
-        {config.isComputer ? t('game.playerName.computer', 'Computer') : user?.name ?? ''}
+        {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
       </PlayerName>
       {mmrChange ? (
         <MmrChangeColumn>

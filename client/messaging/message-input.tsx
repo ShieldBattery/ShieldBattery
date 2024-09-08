@@ -34,7 +34,7 @@ function useStorageSyncedState(
   key?: string,
 ): [value: string, setValue: (value: SetStateAction<string>) => void] {
   const [value, setValue] = useState<string>(() =>
-    key ? messageInputMap.get(key) ?? defaultInitialValue : defaultInitialValue,
+    key ? (messageInputMap.get(key) ?? defaultInitialValue) : defaultInitialValue,
   )
   const syncedSetValue = useCallback(
     (value: SetStateAction<string>) => {

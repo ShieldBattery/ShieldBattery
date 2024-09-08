@@ -152,7 +152,8 @@ export function GamePlayersDisplay({
             <span>
               {p.isComputer
                 ? t('game.playerName.computer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
+                : (playersMapping.get(p.id)?.name ??
+                  t('game.playerName.unknown', 'Unknown player'))}
             </span>
           </GamePreviewPlayer>
         )
@@ -175,7 +176,8 @@ export function GamePlayersDisplay({
             <span>
               {p.isComputer
                 ? t('game.playerName.computer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
+                : (playersMapping.get(p.id)?.name ??
+                  t('game.playerName.unknown', 'Unknown player'))}
             </span>
           </GamePreviewPlayer>
         )
@@ -193,8 +195,8 @@ export function GamePlayersDisplay({
               <span>
                 {p.isComputer
                   ? t('game.playerName.computer', 'Computer')
-                  : playersMapping.get(p.id)?.name ??
-                    t('game.playerName.unknown', 'Unknown player')}
+                  : (playersMapping.get(p.id)?.name ??
+                    t('game.playerName.unknown', 'Unknown player'))}
               </span>
             </GamePreviewPlayer>
           )
