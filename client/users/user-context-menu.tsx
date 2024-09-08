@@ -102,17 +102,30 @@ function ConnectedUserContextMenuContents({
   const partyInvites = useAppSelector(s => s.party.current?.invites)
   const partyLeader = useAppSelector(s => s.party.current?.leader)
 
-  const [relationshipKind, isOutgoing] = useAppSelector(s => {
+  const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
-      return [UserRelationshipKind.Friend, false]
+      return UserRelationshipKind.Friend
     } else if (s.relationships.incomingRequests.has(userId)) {
-      return [UserRelationshipKind.FriendRequest, false]
+      return UserRelationshipKind.FriendRequest
     } else if (s.relationships.outgoingRequests.has(userId)) {
-      return [UserRelationshipKind.FriendRequest, true]
+      return UserRelationshipKind.FriendRequest
     } else if (s.relationships.blocks.has(userId)) {
-      return [UserRelationshipKind.Block, false]
+      return UserRelationshipKind.Block
     } else {
-      return [undefined, false]
+      return undefined
+    }
+  })
+  const isOutgoing = useAppSelector(s => {
+    if (s.relationships.friends.has(userId)) {
+      return false
+    } else if (s.relationships.incomingRequests.has(userId)) {
+      return false
+    } else if (s.relationships.outgoingRequests.has(userId)) {
+      return true
+    } else if (s.relationships.blocks.has(userId)) {
+      return false
+    } else {
+      return false
     }
   })
 
