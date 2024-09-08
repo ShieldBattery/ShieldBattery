@@ -1,7 +1,7 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import Koa from 'koa'
+import Koa, { ExtendableContext, Next } from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelPermissions,
@@ -33,7 +33,7 @@ import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/ro
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleMiddlewareFunc } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
 import ChatService, { ChatServiceError } from './chat-service'
@@ -45,6 +45,12 @@ const joinThrottle = createThrottle('chatjoin', {
 })
 
 const editThrottle = createThrottle('chatedit', {
+  rate: 20,
+  burst: 30,
+  window: 60000,
+})
+
+const editImageThrottle = createThrottle('chateditimage', {
   rate: 3,
   burst: 12,
   window: 60000,
@@ -174,10 +180,12 @@ export class ChatApi {
   }
 
   @httpPatch('/:channelId')
-  @httpBefore(
-    throttleMiddleware(editThrottle, ctx => String(ctx.session!.user!.id)),
-    handleMultipartFiles(MAX_IMAGE_SIZE),
-  )
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE), async (ctx: ExtendableContext, next: Next) => {
+    const throttle =
+      ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : editThrottle
+
+    await throttleMiddlewareFunc(throttle, ctx => String(ctx.session!.user!.id), ctx, next)
+  })
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
