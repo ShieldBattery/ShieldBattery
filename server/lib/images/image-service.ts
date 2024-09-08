@@ -15,6 +15,7 @@ if (
     apiEndpoint: process.env.SB_GOOGLE_CLOUD_DOMAIN,
     port: Number(process.env.SB_GOOGLE_CLOUD_PORT),
     sslCreds: ChannelCredentials.createInsecure(),
+    universeDomain: 'FAKE_UNIVERSE_DOMAIN',
   }
 }
 
