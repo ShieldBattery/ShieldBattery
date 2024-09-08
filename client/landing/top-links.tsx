@@ -12,14 +12,13 @@ import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { amberA400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 
@@ -75,9 +74,21 @@ const StyledTwitterLogo = styled(TwitterLogo)`
   margin-right: 8px;
 `
 
+const LanguageSelect = styled.div`
+  display: flex;
+  align-items: center;
+
+  color: ${amberA400};
+  cursor: pointer;
+`
+
+const LanguageText = styled.span`
+  margin-left: 8px;
+  margin-right: 4px;
+`
+
 const LanguageIcon = styled(MaterialIcon).attrs({ icon: 'language', size: 18 })`
   vertical-align: middle;
-  color: ${amberA400};
 `
 
 const Spacer = styled.div`
@@ -186,11 +197,13 @@ export function TopLinks({ className }: { className?: string }) {
       ) : null}
       <Spacer />
       <li>
-        <Tooltip
-          text={t('landing.topLinks.changeLanguage', 'Change language')}
-          disabled={languageMenuOpen}>
-          <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
-        </Tooltip>
+        <LanguageSelect ref={anchor} onClick={openLanguageMenu}>
+          <LanguageIcon />
+          <LanguageText>
+            {translationLanguageToLabel(i18n.language as TranslationLanguage)}
+          </LanguageText>
+          <AnimatedExpandIcon $pointUp={languageMenuOpen} />
+        </LanguageSelect>
       </li>
       <li>
         <NoBreakLink href='/login'>{t('landing.topLinks.login', 'Log in')}</NoBreakLink>
