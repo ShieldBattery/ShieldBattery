@@ -585,7 +585,7 @@ export async function unblockUser(
         SET
           kind = ${unblockerIsLow ? MutualKind.BlockHighToLow : MutualKind.BlockLowToHigh},
           low_created_at = ${unblockerIsLow ? undefined : row.lowCreatedAt},
-          high_created_at = ${unblockerIsLow ? row.highCreatedAt : undefined},
+          high_created_at = ${unblockerIsLow ? row.highCreatedAt : undefined}
         WHERE user_low = ${lowId} AND user_high = ${highId}
         RETURNING *;
       `)
