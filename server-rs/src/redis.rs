@@ -34,7 +34,7 @@ impl RedisPool {
         let channel = message.channel();
         let message = serde_json::to_string(&message).wrap_err("Failed to serialize message")?;
         redis
-            .publish(channel, &message)
+            .publish::<_, _, ()>(channel, &message)
             .await
             .wrap_err("Failed to publish message")
             .map_err(|e| {
