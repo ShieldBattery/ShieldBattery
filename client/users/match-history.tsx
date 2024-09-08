@@ -192,18 +192,24 @@ const MapNameAndGameTypeContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  min-width: 0;
 `
 
 const MapName = styled.div`
   ${body2};
   ${singleLine};
+
   min-width: 0;
+  width: 100%;
 `
 
 const GameType = styled.div`
   ${body1};
   ${singleLine};
   color: ${colorTextSecondary};
+
+  min-width: 0;
+  width: 100%;
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
