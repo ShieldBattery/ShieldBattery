@@ -103,10 +103,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Using pnpm v8.x
-        uses: pnpm/action-setup@v2
+      - name: Using pnpm v9.x
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 9
 
       - name: Using Node.js 20.x
         uses: actions/setup-node@v3
