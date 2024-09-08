@@ -1,4 +1,4 @@
-import pg from 'pg'
+import pg, { QueryConfigValues } from 'pg'
 import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
 import handlePgError from './pg-error-handler'
@@ -60,7 +60,7 @@ export class DbClient {
 
   async query<R extends pg.QueryResultRow = any, I extends any[] = any[]>(
     queryTextOrConfig: string | pg.QueryConfig<I>,
-    values?: I,
+    values?: QueryConfigValues<I>,
   ): Promise<pg.QueryResult<R>> {
     const queryText = isQueryConfig(queryTextOrConfig) ? queryTextOrConfig.text : queryTextOrConfig
     const startTime = Date.now()
