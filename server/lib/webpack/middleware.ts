@@ -1,4 +1,3 @@
-import { ServerResponse } from 'http'
 import { Middleware } from 'koa'
 import { Compiler } from 'webpack'
 import webpackDevMiddleware, { Options } from 'webpack-dev-middleware'
@@ -16,42 +15,50 @@ export function webpackMiddleware({
     throw new Error('compiler must be specified')
   }
 
-  devMiddleware = { ...devMiddleware }
+  const options = { ...devMiddleware }
 
-  if (!devMiddleware.publicPath) {
-    devMiddleware.publicPath = compiler.options.output.path
+  if (!options.publicPath) {
+    options.publicPath = compiler.options.output.path
   }
 
-  const middleware = webpackDevMiddleware(compiler, devMiddleware)
+  const middleware = webpackDevMiddleware(compiler, options)
 
   return async (ctx, next) => {
-    // Wait for a compilation result
-    const ready = new Promise<boolean>((resolve, reject) => {
-      compiler.hooks.failed.tap('KoaWebpack', error => {
-        reject(error)
-      })
+    const { req, res } = ctx
 
-      middleware.waitUntilValid(() => {
-        resolve(true)
+    ;(res as any).locals = ctx.state
+    ;(res as any).getStatusCode = () => ctx.status
+    ;(res as any).setStatusCode = (code: number) => {
+      ctx.status = code
+    }
+    ;(res as any).getReadyReadableStreamState = () => 'open'
+
+    let hadData = false
+    await new Promise((resolve, reject) => {
+      ;(res as any).stream = (stream: any) => {
+        ctx.body = stream
+        hadData = true
+      }
+      ;(res as any).send = (data: any) => {
+        ctx.body = data
+        hadData = true
+      }
+      ;(res as any).finish = (data: any) => {
+        ctx.body = data
+        hadData = true
+      }
+
+      middleware(req, res, err => {
+        if (err) {
+          reject(err)
+        } else {
+          if (!hadData) {
+            resolve(next())
+          } else {
+            resolve(undefined)
+          }
+        }
       })
     })
-    // Handle the request with webpack-dev-middleware
-    const init = new Promise<void>(resolve => {
-      middleware(
-        ctx.req,
-        {
-          end: (content: unknown) => {
-            ctx.body = content
-            resolve()
-          },
-          getHeader: ctx.get.bind(ctx),
-          setHeader: ctx.set.bind(ctx),
-          locals: ctx.state,
-        } as any as ServerResponse,
-        () => resolve(next()),
-      )
-    })
-
-    return Promise.all([ready, init])
   }
 }
