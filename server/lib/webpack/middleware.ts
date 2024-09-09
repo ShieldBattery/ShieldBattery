@@ -1,7 +1,6 @@
-import { ServerResponse } from 'http'
-import { Middleware } from 'koa'
+import { DefaultContext, Middleware } from 'koa'
 import { Compiler } from 'webpack'
-import webpackDevMiddleware, { Options } from 'webpack-dev-middleware'
+import wdm, { Options } from 'webpack-dev-middleware'
 
 export interface WebpackMiddlewareOptions {
   compiler: Compiler
@@ -16,42 +15,58 @@ export function webpackMiddleware({
     throw new Error('compiler must be specified')
   }
 
-  devMiddleware = { ...devMiddleware }
+  const middleware = wdm(compiler, devMiddleware)
 
-  if (!devMiddleware.publicPath) {
-    devMiddleware.publicPath = compiler.options.output.path
+  const wrapper = async function webpackDevMiddleware(ctx: DefaultContext, next: any) {
+    const { req, res } = ctx
+
+    res.locals = ctx.state
+
+    let { status } = ctx
+
+    res.getStatusCode = () => status
+
+    res.setStatusCode = (statusCode: number) => {
+      status = statusCode
+      ctx.status = statusCode
+    }
+
+    res.getReadyReadableStreamState = () => 'open'
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        res.stream = (stream: ReadableStream) => {
+          ctx.body = stream
+        }
+        res.send = (data: string | Buffer) => {
+          ctx.body = data
+        }
+
+        res.finish = (data: string | Buffer) => {
+          ctx.status = status
+          res.end(data)
+        }
+
+        middleware(req, res, err => {
+          if (err) {
+            reject(err)
+            return
+          }
+
+          resolve()
+        })
+      })
+    } catch (err: any) {
+      ctx.status = err.statusCode || err.status || 500
+      ctx.body = {
+        message: err.message,
+      }
+    }
+
+    next()
   }
 
-  const middleware = webpackDevMiddleware(compiler, devMiddleware)
+  wrapper.devMiddleware = devMiddleware
 
-  return async (ctx, next) => {
-    // Wait for a compilation result
-    const ready = new Promise<boolean>((resolve, reject) => {
-      compiler.hooks.failed.tap('KoaWebpack', error => {
-        reject(error)
-      })
-
-      middleware.waitUntilValid(() => {
-        resolve(true)
-      })
-    })
-    // Handle the request with webpack-dev-middleware
-    const init = new Promise<void>(resolve => {
-      middleware(
-        ctx.req,
-        {
-          end: (content: unknown) => {
-            ctx.body = content
-            resolve()
-          },
-          getHeader: ctx.get.bind(ctx),
-          setHeader: ctx.set.bind(ctx),
-          locals: ctx.state,
-        } as any as ServerResponse,
-        () => resolve(next()),
-      )
-    })
-
-    return Promise.all([ready, init])
-  }
+  return wrapper
 }
