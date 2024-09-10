@@ -1,4 +1,6 @@
-import aws from 'aws-sdk'
+import { GetObjectCommand, S3, S3ClientConfig } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import path from 'path'
 import { Readable } from 'stream'
 import { FileStore } from './store'
@@ -31,7 +33,7 @@ function formatOptions(options: any = {}) {
 export default class Aws implements FileStore {
   readonly endpoint: string
   readonly bucket: string
-  readonly client: aws.S3
+  readonly client: S3
   readonly cdnHost: string | undefined
 
   constructor({
@@ -49,14 +51,16 @@ export default class Aws implements FileStore {
     bucket: string
     cdnHost?: string
   }) {
-    const options: aws.S3.ClientConfiguration = {
-      accessKeyId,
-      secretAccessKey,
+    const options: S3ClientConfig = {
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
     }
 
     // DO Spaces use endpoints
     if (endpoint) {
-      options.endpoint = new aws.Endpoint(endpoint)
+      options.endpoint = endpoint
     }
     // Amazon S3 uses regions
     if (region) {
@@ -65,7 +69,7 @@ export default class Aws implements FileStore {
 
     this.endpoint = endpoint
     this.bucket = bucket
-    this.client = new aws.S3(options)
+    this.client = new S3(options)
     this.cdnHost = cdnHost
   }
 
@@ -91,7 +95,10 @@ export default class Aws implements FileStore {
       CacheControl: `max-age=${FILE_MAX_AGE_SECONDS}`,
       ...formatOptions(options),
     }
-    return this.client.upload(params).promise()
+    return new Upload({
+      client: this.client,
+      params,
+    }).done()
   }
 
   async read(filename: string, options: any = {}): Promise<Buffer> {
@@ -101,9 +108,11 @@ export default class Aws implements FileStore {
       Bucket: this.bucket,
     }
 
-    const result = await this.client.getObject(params).promise()
-    // NOTE(tec27): AWS docs say this will be a Buffer in Node, types are weird though
-    return (result.Body as Buffer) ?? Buffer.alloc(0)
+    const result = await this.client.getObject(params)
+    if (!result.Body) {
+      return Buffer.alloc(0)
+    }
+    return Buffer.from(await result.Body.transformToByteArray())
   }
 
   // Options object can contain any of the valid keys specified in the AWS SDK for the
@@ -111,19 +120,17 @@ export default class Aws implements FileStore {
   async delete(filename: string, options: any = {}) {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
-    return this.client.deleteObject(params).promise()
+    return this.client.deleteObject(params)
   }
 
   // Options object can contain any of the valid keys specified in the AWS SDK for the
   // `deleteObjects` function.
   async deleteFiles(prefix: string, options: any = {}) {
     const normalized = this.getNormalizedPath(prefix)
-    const files = await this.client
-      .listObjectsV2({ Prefix: normalized, Bucket: this.bucket })
-      .promise()
+    const files = await this.client.listObjectsV2({ Prefix: normalized, Bucket: this.bucket })
     const keys = (files.Contents ?? []).map(file => ({ Key: file.Key }))
     const params = { Delete: { Objects: keys }, Bucket: this.bucket, ...formatOptions(options) }
-    return this.client.deleteObjects(params).promise()
+    return this.client.deleteObjects(params)
   }
 
   url(filename: string, options: any = {}): string {
@@ -144,7 +151,9 @@ export default class Aws implements FileStore {
   async signedUrl(filename: string, options: any = {}): Promise<string> {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
-    const url = await this.client.getSignedUrlPromise('getObject', params)
+    const url = await getSignedUrl(this.client, new GetObjectCommand(params), {
+      expiresIn: options.expires,
+    })
     if (this.cdnHost) {
       const cdnUrl = new URL(url)
       cdnUrl.host = this.cdnHost
