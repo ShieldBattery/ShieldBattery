@@ -160,6 +160,13 @@ function getValidatedChannelId(ctx: RouterContext) {
   return channelId
 }
 
+async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
+  const throttle =
+    ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : editThrottle
+
+  await throttleMiddlewareFunc(throttle, ctx => String(ctx.session!.user!.id), ctx, next)
+}
+
 @httpApi('/chat')
 @httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
 export class ChatApi {
@@ -180,12 +187,7 @@ export class ChatApi {
   }
 
   @httpPatch('/:channelId')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE), async (ctx: ExtendableContext, next: Next) => {
-    const throttle =
-      ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : editThrottle
-
-    await throttleMiddlewareFunc(throttle, ctx => String(ctx.session!.user!.id), ctx, next)
-  })
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE), throttleEditChannel)
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
