@@ -37,7 +37,7 @@ function createMatchmakingService(matchmakerErrorQueue: Error[]) {
   return {
     findAsParty: jest.fn(async () => {
       if (matchmakerErrorQueue.length) {
-        throw matchmakerErrorQueue.shift()
+        throw matchmakerErrorQueue.shift()!
       }
     }),
     registerPartyLeave: jest.fn(),

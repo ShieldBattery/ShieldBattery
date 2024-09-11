@@ -11,7 +11,7 @@ export function initBrowserprint() {
       const promise = import('@fingerprintjs/fingerprintjs')
       promise
         .then(fpjs => fpjs.load({ monitoring: false }).then(fp => resolve(fp)))
-        .catch(err => {
+        .catch((err: Error) => {
           reject(err)
         })
       modulePromise = promise

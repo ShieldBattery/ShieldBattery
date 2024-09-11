@@ -48,7 +48,7 @@ export function webpackMiddleware({
         hadData = true
       }
 
-      middleware(req, res, err => {
+      middleware(req, res, (err?: Error) => {
         if (err) {
           reject(err)
         } else {

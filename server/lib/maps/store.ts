@@ -218,7 +218,7 @@ function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<Ch
       }
       childTimeout = setTimeout(() => {
         child.kill()
-        reject('Child process timeout')
+        reject(new Error('Child process timeout'))
         error = true
       }, 60000)
     }

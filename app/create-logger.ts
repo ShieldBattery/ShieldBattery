@@ -54,7 +54,7 @@ class Logger {
     let stats
     try {
       stats = fs.statSync(this.filename)
-    } catch (e) {
+    } catch (_e) {
       // file doesn't exist, so we can just create it
     }
 

@@ -492,7 +492,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
             resolve(data)
           }
         }),
-      ).catch(err => reject(err))
+      ).catch((err: Error) => reject(err))
     })
 
     for (const { name, filePath } of collectedFiles) {
@@ -570,7 +570,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       })
 
       const promise = pipeline(fs.createReadStream(replayPath), parser)
-      promise.catch(err => reject(err))
+      promise.catch((err: Error) => reject(err))
 
       parser.resume()
     })

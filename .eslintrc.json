@@ -38,8 +38,10 @@
       "extends": ["plugin:@typescript-eslint/recommended-type-checked"],
       "rules": {
         "@typescript-eslint/no-base-to-string": "off",
+        "@typescript-eslint/no-empty-object-type": ["error", { "allowInterfaces": "always" }],
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-redeclare": "error",
+        "@typescript-eslint/no-require-imports": "off",
         "@typescript-eslint/no-unnecessary-type-assertion": "off",
         "@typescript-eslint/no-unsafe-argument": "off",
         "@typescript-eslint/no-unsafe-assignment": "off",
@@ -49,7 +51,12 @@
         "@typescript-eslint/no-unsafe-return": "off",
         "@typescript-eslint/no-unused-vars": [
           "error",
-          { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }
+          {
+            "vars": "all",
+            "args": "none",
+            "caughtErrors": "none",
+            "varsIgnorePattern": "^_"
+          }
         ],
         "@typescript-eslint/no-var-requires": "off",
         "@typescript-eslint/require-await": "off",
@@ -198,11 +205,18 @@
     "react/no-unescaped-entities": "off",
     "react/prop-types": "off",
 
+    "@typescript-eslint/no-empty-object-type": ["error", { "allowInterfaces": "always" }],
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-redeclare": "error",
+    "@typescript-eslint/no-require-imports": "off",
     "@typescript-eslint/no-unused-vars": [
       "error",
-      { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }
+      {
+        "vars": "all",
+        "args": "none",
+        "caughtErrors": "none",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "@typescript-eslint/no-var-requires": "off"
   }

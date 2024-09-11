@@ -1,6 +1,6 @@
 /** A utility class for easily setting and retrieving a value from Reflect metadata. */
 // Lint disabled because that's what the API expects :(
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
 export class MetadataValue<V, Target extends Object = any> {
   constructor(readonly key: symbol) {}
 
@@ -17,7 +17,7 @@ export class MetadataValue<V, Target extends Object = any> {
 
 /** A utility class for easily setting and retrieving a list of values from Reflect metadata. */
 // Lint disabled because that's what the API expects :(
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
 export class MetadataListValue<V, Target extends Object = any> {
   constructor(readonly key: symbol) {}
 
@@ -54,7 +54,7 @@ export class MetadataListValue<V, Target extends Object = any> {
 
 /** A utility class for easily setting and retrieving a Map of entries from Reflect metadata. */
 // Lint disabled because that's what the API expects :(
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
 export class MetadataMapValue<K, V, Target extends Object = any> {
   constructor(readonly metadataKey: symbol) {}
 

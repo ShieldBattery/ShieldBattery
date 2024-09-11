@@ -11,7 +11,7 @@ export default function rejectOnTimeout(
         resolve(val)
         clearTimeout(timerId)
       },
-      err => {
+      (err: Error) => {
         reject(err)
         clearTimeout(timerId)
       },

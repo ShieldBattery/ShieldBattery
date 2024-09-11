@@ -13,7 +13,6 @@ export type Jsonify<T> = T extends Primitive
       ? [key: Key, value: Value][]
       : T extends Set<infer Value>
         ? Value[]
-        : // eslint-disable-next-line @typescript-eslint/ban-types
-          T extends object
+        : T extends object
           ? { [Key in keyof T]: Jsonify<T[Key]> }
           : T
