@@ -111,6 +111,7 @@
     "@babel/core": "^7.25.2",
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/plugin-transform-class-properties": "^7.25.4",
+    "@babel/plugin-transform-private-methods": "^7.25.4",
     "@babel/plugin-transform-private-property-in-object": "^7.24.7",
     "@babel/preset-env": "^7.25.4",
     "@babel/preset-typescript": "^7.24.7",

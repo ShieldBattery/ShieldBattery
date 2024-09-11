@@ -3,7 +3,7 @@ require('@babel/register')({
     [
       '@babel/preset-env',
       {
-        targets: { electron: '28.1' },
+        targets: { electron: '32' },
         useBuiltIns: 'usage',
         corejs: 3,
       },
@@ -14,6 +14,7 @@ require('@babel/register')({
   plugins: [
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-transform-private-methods', { loose: true }],
     ['babel-plugin-const-enum'],
   ],
 

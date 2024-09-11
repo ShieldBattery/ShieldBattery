@@ -21,6 +21,9 @@ importers:
       '@babel/plugin-transform-class-properties':
         specifier: ^7.25.4
         version: 7.25.4(@babel/core@7.25.2)
+      '@babel/plugin-transform-private-methods':
+        specifier: ^7.25.4
+        version: 7.25.4(@babel/core@7.25.2)
       '@babel/plugin-transform-private-property-in-object':
         specifier: ^7.24.7
         version: 7.24.7(@babel/core@7.25.2)
