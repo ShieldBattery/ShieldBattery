@@ -5,7 +5,7 @@ import { PromiseBasedThrottle } from './create-throttle'
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
 
-async function middlewareFunc(
+export async function throttleMiddlewareFunc(
   throttle: PromiseBasedThrottle,
   getId: (ctx: ExtendableContext) => string,
   ctx: ExtendableContext,
@@ -27,5 +27,5 @@ export default function throttleMiddleware(
   throttle: PromiseBasedThrottle,
   getId: (ctx: ExtendableContext) => string,
 ): Middleware {
-  return (ctx: ExtendableContext, next: Next) => middlewareFunc(throttle, getId, ctx, next)
+  return (ctx: ExtendableContext, next: Next) => throttleMiddlewareFunc(throttle, getId, ctx, next)
 }
