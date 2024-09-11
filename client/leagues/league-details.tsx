@@ -87,7 +87,9 @@ export function LeagueDetailsPage() {
   )
 
   const [match, params] = useRoute('/leagues/:routeId/:slugStr?/:subPage?')
-  const { routeId, slugStr } = params ?? {}
+  // TODO(tec27): Remove explicit typecast here once https://github.com/lukeed/regexparam/issues/31
+  // is fixed and wouter includes the fix
+  const { routeId, slugStr } = (params ?? {}) as { routeId?: string; slugStr?: string }
   const id = routeId ? fromRouteLeagueId(makeRouteLeagueId(routeId)) : undefined
   const leagueName = useAppSelector(s => (id ? s.leagues.byId.get(id)?.name : undefined))
 

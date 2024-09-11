@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { Simplify } from 'type-fest'
 import { Link, LinkProps } from 'wouter'
 
 /**
@@ -17,11 +18,15 @@ export const StyledAnchor = styled.a`
   }
 `
 
-export function LinkButton(props: LinkProps) {
-  const { children, ...rest } = props
+export function LinkButton(
+  props: Simplify<Omit<LinkProps, 'asChild' | 'to'> & { href: string; tabIndex?: number }>,
+) {
+  const { children, tabIndex, ...rest } = props
   return (
-    <Link {...rest}>
-      <StyledAnchor {...rest}>{children}</StyledAnchor>
+    <Link {...rest} asChild={true}>
+      <StyledAnchor {...rest} tabIndex={tabIndex}>
+        {children}
+      </StyledAnchor>
     </Link>
   )
 }

@@ -72,30 +72,30 @@ export default function AdminPanel() {
 
   return (
     <Switch>
-      <Route path='/admin/bug-reports/:rest*'>
+      <Route path='/admin/bug-reports/*?'>
         {perms?.manageBugReports ? <LoadableBugReports /> : <Redirect to='/' />}
       </Route>
-      <Route path='/admin/map-manager/:rest*'>
+      <Route path='/admin/map-manager/*?'>
         {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
           <LoadableMapManager />
         ) : (
           <Redirect to='/' />
         )}
       </Route>
-      <Route path='/admin/map-pools/:rest*'>
+      <Route path='/admin/map-pools/*?'>
         {perms?.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
       </Route>
-      <Route path='/admin/matchmaking-seasons/:rest*'>
+      <Route path='/admin/matchmaking-seasons/*?'>
         {perms?.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
       </Route>
-      <Route path='/admin/matchmaking-times/:rest*'>
+      <Route path='/admin/matchmaking-times/*?'>
         {perms?.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
       </Route>
-      <Route path='/admin/rally-point/:rest*'>
+      <Route path='/admin/rally-point/*?'>
         {perms?.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
       </Route>
 
-      <Route path='/admin/:rest*'>
+      <Route path='/admin/*?'>
         <AdminDashboard permissions={perms} />
       </Route>
     </Switch>

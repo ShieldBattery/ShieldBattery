@@ -1,4 +1,4 @@
-import { useLocationProperty } from 'wouter/use-location'
+import { useLocationProperty } from 'wouter/use-browser-location'
 import { useStableCallback } from '../state-hooks'
 import { replace } from './routing'
 

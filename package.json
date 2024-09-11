@@ -338,7 +338,7 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-middleware": "^7.4.2",
     "webpack-hot-middleware": "^2.26.1",
-    "wouter": "^2.12.1",
+    "wouter": "^3.3.5",
     "ws": "^8.18.0"
   },
   "pnpm": {

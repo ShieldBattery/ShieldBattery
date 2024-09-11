@@ -156,7 +156,7 @@ export default function App() {
                     <LoginRoute path='/reset-password' component={ResetPassword} />
                     <LoginRoute path='/signup' component={Signup} />
                     <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-                    {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+                    {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
                     <Route>
                       <MainContent />
                     </Route>

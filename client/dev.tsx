@@ -73,13 +73,13 @@ export default function Dev() {
       </HomeLink>
       <Content>
         <Switch>
-          <Route path='/dev/activities/:rest*' component={DevActivities} />
-          <Route path='/dev/download/:rest*' component={DevDownload} />
-          <Route path='/dev/ladder/:rest*' component={DevLadder} />
-          <Route path='/dev/lists/:rest*' component={DevLists} />
-          <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
-          <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
-          <Route path='/dev/material/:rest*' component={DevMaterial} />
+          <Route path='/dev/activities/*?' component={DevActivities} />
+          <Route path='/dev/download/*?' component={DevDownload} />
+          <Route path='/dev/ladder/*?' component={DevLadder} />
+          <Route path='/dev/lists/*?' component={DevLists} />
+          <Route path='/dev/lobbies/*?' component={DevLobbies} />
+          <Route path='/dev/matchmaking/*?' component={DevMatchmaking} />
+          <Route path='/dev/material/*?' component={DevMaterial} />
           <Route component={DevDashboard} />
         </Switch>
       </Content>

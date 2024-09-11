@@ -93,7 +93,7 @@ export function PartyNavEntry({
 
   const partyId = party.id
   const link = urlPath`/parties/${partyId}`
-  const [isActive] = useRoute('/parties/:partyId/:rest*')
+  const [isActive] = useRoute('/parties/:partyId/*?')
   const needsAttention = party.hasUnread
 
   const onInviteClick = useCallback(

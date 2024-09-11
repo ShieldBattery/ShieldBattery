@@ -56,10 +56,10 @@ export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
       <LoggedOutLeftNav />
       <Content>
         <Switch>
-          <Route path='/games/:rest*' component={GamesRouteComponent} />
-          <Route path='/ladder/:rest*' component={LadderRouteComponent} />
-          <Route path='/leagues/:rest*' component={LeagueRoot} />
-          <Route path='/users/:rest*' component={ProfileRouteComponent} />
+          <Route path='/games/*?' component={GamesRouteComponent} />
+          <Route path='/ladder/*?' component={LadderRouteComponent} />
+          <Route path='/leagues/*?' component={LeagueRoot} />
+          <Route path='/users/*?' component={ProfileRouteComponent} />
           <Route>{loggedInContent}</Route>
         </Switch>
       </Content>

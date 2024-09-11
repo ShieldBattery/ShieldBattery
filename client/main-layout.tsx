@@ -94,9 +94,9 @@ let matchmakingRoute = <></>
 let partyRoute = <></>
 if (IS_ELECTRON) {
   // TODO(2Pac): Remove `any` once the `LobbyView` is TS-ified
-  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView} />
-  matchmakingRoute = <Route path='/matchmaking/:rest*' component={MatchmakingView} />
-  partyRoute = <Route path='/parties/:partyId/:rest*' component={PartyView} />
+  lobbyRoute = <Route path='/lobbies/:lobby/*?' component={LobbyView} />
+  matchmakingRoute = <Route path='/matchmaking/*?' component={MatchmakingView} />
+  partyRoute = <Route path='/parties/:partyId/*?' component={PartyView} />
 }
 
 const AdminPanelComponent = React.lazy(() => import('./admin/panel'))
@@ -449,16 +449,16 @@ export function MainLayout() {
       <ConnectedLeftNav />
       <Content>
         <Switch>
-          {isAdmin ? <Route path='/admin/:rest*' component={LoadableAdminPanel} /> : null}
-          <Route path='/chat/:rest*' component={ChannelRouteComponent} />
-          <Route path='/games/:rest*' component={GamesRouteComponent} />
-          <Route path='/ladder/:rest*' component={LadderRouteComponent} />
-          <Route path='/leagues/:rest*' component={LeagueRoot} />
+          {isAdmin ? <Route path='/admin/*?' component={LoadableAdminPanel} /> : null}
+          <Route path='/chat/*?' component={ChannelRouteComponent} />
+          <Route path='/games/*?' component={GamesRouteComponent} />
+          <Route path='/ladder/*?' component={LadderRouteComponent} />
+          <Route path='/leagues/*?' component={LeagueRoot} />
           {lobbyRoute}
           {matchmakingRoute}
           {partyRoute}
-          <Route path='/users/:rest*' component={ProfileRouteComponent} />
-          <Route path='/whispers/:rest*' component={WhisperRouteComponent} />
+          <Route path='/users/*?' component={ProfileRouteComponent} />
+          <Route path='/whispers/*?' component={WhisperRouteComponent} />
           {NEWS_PAGE ? (
             <Route component={Home} />
           ) : (

@@ -39,8 +39,8 @@ export function LeagueRoot(props: { params: any }) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
-        {isAdmin ? <Route path='/leagues/admin/:rest*' component={LoadableLeagueAdmin} /> : <></>}
-        <Route path='/leagues/:id/:rest*' component={LeagueDetailsPage} />
+        {isAdmin ? <Route path='/leagues/admin/*?' component={LoadableLeagueAdmin} /> : <></>}
+        <Route path='/leagues/:id/*?' component={LeagueDetailsPage} />
         <Route component={LeagueList} />
       </Switch>
     </Suspense>

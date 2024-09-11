@@ -44,7 +44,7 @@ export function ChannelRouteComponent(props: { params: any }) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
-        <Route path='/chat/admin/:rest*'>
+        <Route path='/chat/admin/*?'>
           {isAdmin ? <LoadableChatAdminComponent /> : <NoPermissionsPage />}
         </Route>
         <Route path='/chat/new' component={CreateChannel} />
