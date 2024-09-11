@@ -15,6 +15,7 @@ import { pipeline } from 'stream/promises'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
+import { getErrorStack } from '../common/errors'
 import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { ReplayShieldBatteryData } from '../common/replays'
 import { setAppId } from './app-id'
@@ -434,7 +435,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     try {
       return activeGameManager.setGameConfig(config)
     } catch (err: any) {
-      logger.error(`Error setting game config: ${err?.stack ?? err}`)
+      logger.error(`Error setting game config: ${getErrorStack(err)}`)
       return null
     }
   })
@@ -450,7 +451,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       await copyFile(path.join(logsDir, 'app.0.log'), filePath)
       collectedFiles.push({ name: 'app.log', filePath })
     } catch (err) {
-      logger.warning('Error copying app log: ' + (err as any).stack ?? err)
+      logger.warning('Error copying app log: ' + getErrorStack(err))
     }
 
     try {
@@ -458,7 +459,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       await copyFile(path.join(logsDir, 'shieldbattery.0.log'), filePath)
       collectedFiles.push({ name: 'shieldbattery.log', filePath })
     } catch (err) {
-      logger.warning('Error copying game log: ' + (err as any).stack ?? err)
+      logger.warning('Error copying game log: ' + getErrorStack(err))
     }
 
     try {
@@ -472,7 +473,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       }
     } catch (err) {
       if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
-        logger.warning('Error copying crash dump: ' + (err as any).stack ?? err)
+        logger.warning('Error copying crash dump: ' + getErrorStack(err))
       }
     }
 

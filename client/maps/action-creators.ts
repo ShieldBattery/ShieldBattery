@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { getErrorStack } from '../../common/errors'
 import {
   GetBatchMapInfoResponse,
   GetMapDetailsResponse,
@@ -285,7 +286,7 @@ const mapsBatchRequester = new MicrotaskBatchRequester<string>(
     return promise
   },
   err => {
-    logger.error('error while batch requesting maps: ' + (err as Error)?.stack ?? err)
+    logger.error('error while batch requesting maps: ' + getErrorStack(err))
   },
 )
 

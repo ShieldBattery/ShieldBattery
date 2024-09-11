@@ -26,7 +26,7 @@ async function generateTemplates() {
     const Component = ((await import(file)) as any)
       .default as React.JSXElementConstructor<EmailProps>
     // TODO(tec27): Render in all supported languages
-    const html = render(<Component lang='en' dir='ltr' />)
+    const html = await render(<Component lang='en' dir='ltr' />)
 
     await fs.writeFile(outputFile, html, { encoding: 'utf-8' })
   }

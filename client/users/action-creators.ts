@@ -1,3 +1,4 @@
+import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import { GetRelationshipsResponse } from '../../common/users/relationships'
@@ -90,7 +91,7 @@ const infoBatchRequester = new MicrotaskBatchRequester<SbUserId>(
     return promise
   },
   err => {
-    logger.error('error while batch requesting user info: ' + (err as Error)?.stack ?? err)
+    logger.error('error while batch requesting user info: ' + getErrorStack(err))
   },
 )
 

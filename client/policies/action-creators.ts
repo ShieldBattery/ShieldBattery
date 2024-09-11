@@ -1,3 +1,4 @@
+import { getErrorStack } from '../../common/errors'
 import { NotificationType, PolicyUpdatedNotification } from '../../common/notifications'
 import { SbPolicyType } from '../../common/policies/policy-type'
 import {
@@ -32,7 +33,7 @@ const policyBatchRequester = new MicrotaskBatchRequester<
     return promise
   },
   err => {
-    logger.error('error while updating policy acceptance: ' + (err as Error)?.stack ?? err)
+    logger.error('error while updating policy acceptance: ' + getErrorStack(err))
   },
 )
 

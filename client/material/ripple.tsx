@@ -339,7 +339,7 @@ export const Ripple = React.memo(
           activationState.isActivated = true
           activationState.isProgrammatic = event === undefined
           activationState.activationEvent = event
-          activationState.wasActivatedByPointer = event?.type === 'mousedown' ?? false
+          activationState.wasActivatedByPointer = event?.type === 'mousedown'
 
           const hasActivatedDescendant = event && activatedTargets.length
           if (hasActivatedDescendant) {

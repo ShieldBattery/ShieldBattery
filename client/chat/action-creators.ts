@@ -14,6 +14,7 @@ import {
   SendChatMessageServerRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
+import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
@@ -333,7 +334,7 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
     return promise
   },
   err => {
-    logger.error('error while batch requesting channels: ' + (err as Error)?.stack ?? err)
+    logger.error('error while batch requesting channels: ' + getErrorStack(err))
   },
 )
 

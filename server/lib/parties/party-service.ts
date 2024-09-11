@@ -776,7 +776,7 @@ export default class PartyService implements InPartyChecker {
       // joined the party the earliest. However, there is no robust solution implemented to ensure
       // that the earliest member becomes a new leader, since the order in which the users accept
       // their invites is pretty arbitrary already.
-      const newLeader = party.members.values().next().value
+      const newLeader = party.members.values().next().value!
       party.leader = newLeader
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leaderChange',
