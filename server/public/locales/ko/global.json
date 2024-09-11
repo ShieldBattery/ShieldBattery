@@ -320,7 +320,6 @@
     },
     "landing": {
         "topLinks": {
-            "changeLanguage": "언어 변경",
             "faq": "자주하는 질문",
             "home": "홈",
             "login": "로그인"

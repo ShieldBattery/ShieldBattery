@@ -322,7 +322,6 @@
     },
     "landing": {
         "topLinks": {
-            "changeLanguage": "$🗡Change language🗡!",
             "faq": "$🗡FAQ🗡!",
             "home": "$🗡Home🗡!",
             "login": "$🗡Log in🗡!"

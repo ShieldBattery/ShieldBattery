@@ -324,7 +324,6 @@
     },
     "landing": {
         "topLinks": {
-            "changeLanguage": "Cambiar idioma",
             "faq": "Preguntas más frecuentes",
             "home": "Hogar",
             "login": "Acceso"

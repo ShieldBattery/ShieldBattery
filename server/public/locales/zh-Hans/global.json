@@ -218,7 +218,6 @@
     "landing": {
         "topLinks": {
             "home": "返回首页",
-            "changeLanguage": "更改语言",
             "login": "登录",
             "faq": "常见问题"
         },
