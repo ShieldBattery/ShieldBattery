@@ -2,10 +2,10 @@ import {
   GameClientPlayerResult,
   GameClientResult,
   ReconciledPlayerResult,
-} from '../../../common/games/results'
-import { AssignedRaceChar } from '../../../common/races'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
-import { reconcileResults } from './results'
+} from '../../../common/games/results.js'
+import { AssignedRaceChar } from '../../../common/races.js'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user.js'
+import { reconcileResults } from './results.js'
 
 function makePlayerResult(
   userId: number,

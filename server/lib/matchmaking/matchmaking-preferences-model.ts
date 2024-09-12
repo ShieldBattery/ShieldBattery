@@ -3,11 +3,11 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
   PartialMatchmakingPreferences,
-} from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
-import db from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+} from '../../../common/matchmaking.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 type DbMatchmakingPreferences = Dbify<MatchmakingPreferences>
 

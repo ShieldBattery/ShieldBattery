@@ -1,4 +1,4 @@
-import { matchLinks } from './links'
+import { matchLinks } from './links.js'
 
 function doMatch(text: string): string[] {
   return Array.from(matchLinks(text), match => match.text)

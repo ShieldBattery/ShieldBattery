@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { assertUnreachable } from '../assert-unreachable'
+import { assertUnreachable } from '../assert-unreachable.js'
 
 /**
  * Purchaseable/unlockable custom console skins (e.g. ingame UI). The values of these match the ones

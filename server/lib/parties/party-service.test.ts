@@ -1,30 +1,30 @@
 import { NydusServer } from 'nydus'
-import { makeSbChannelId } from '../../../common/chat'
+import { makeSbChannelId } from '../../../common/chat.js'
 import {
   MatchmakingPreferences,
   MatchmakingServiceErrorCode,
   MatchmakingType,
-} from '../../../common/matchmaking'
-import { NotificationType } from '../../../common/notifications'
-import { asMockedFunction } from '../../../common/testing/mocks'
-import { SbUser, makeSbUserId } from '../../../common/users/sb-user'
-import { FullChannelInfo, findChannelsByName, toBasicChannelInfo } from '../chat/chat-models'
-import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
-import NotificationService from '../notifications/notification-service'
-import { createFakeNotificationService } from '../notifications/testing/notification-service'
-import { FakeClock } from '../time/testing/fake-clock'
-import { findUsersByIdAsMap, findUsersByName } from '../users/user-model'
-import { RequestSessionLookup } from '../websockets/session-lookup'
-import { ClientSocketsManager } from '../websockets/socket-groups'
+} from '../../../common/matchmaking.js'
+import { NotificationType } from '../../../common/notifications.js'
+import { asMockedFunction } from '../../../common/testing/mocks.js'
+import { SbUser, makeSbUserId } from '../../../common/users/sb-user.js'
+import { FullChannelInfo, findChannelsByName, toBasicChannelInfo } from '../chat/chat-models.js'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry.js'
+import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error.js'
+import NotificationService from '../notifications/notification-service.js'
+import { createFakeNotificationService } from '../notifications/testing/notification-service.js'
+import { FakeClock } from '../time/testing/fake-clock.js'
+import { findUsersByIdAsMap, findUsersByName } from '../users/user-model.js'
+import { RequestSessionLookup } from '../websockets/session-lookup.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
 import {
   InspectableNydusClient,
   NydusConnector,
   clearTestLogs,
   createFakeNydusServer,
-} from '../websockets/testing/websockets'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import PartyService, { PartyRecord, getPartyPath, toPartyJson } from './party-service'
+} from '../websockets/testing/websockets.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import PartyService, { PartyRecord, getPartyPath, toPartyJson } from './party-service.js'
 
 jest.mock('../chat/chat-models')
 jest.mock('../users/user-model')

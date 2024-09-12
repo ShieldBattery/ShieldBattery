@@ -1,8 +1,8 @@
 import { HKCU, HKLM, Hkey, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import logger from './logger'
-import { ProductDb } from './vendor/blizzard/product_db'
+import logger from './logger.js'
+import { ProductDb } from './vendor/blizzard/product_db.js'
 
 /**
  * Attempts to find the StarCraft install path from various locations. First we check for the

@@ -1,5 +1,5 @@
-import { assertUnreachable } from '../../../../common/assert-unreachable'
-import { Clock, TimeoutId } from '../clock'
+import { assertUnreachable } from '../../../../common/assert-unreachable.js'
+import { Clock, TimeoutId } from '../clock.js'
 
 type ScheduledTimeout = [fn: () => void, timeoutMillis: number]
 

@@ -1,4 +1,4 @@
-import { SbPermissions } from '../typeshare'
+import { SbPermissions } from '../typeshare.js'
 
 export { SbPermissions }
 

@@ -6,8 +6,8 @@ import 'core-js/proposals/reflect-metadata'
 import { app } from 'electron'
 import isDev from 'electron-is-dev'
 import path from 'path'
-import ensureSingleInstance from './single-instance'
-import { getUserDataPath } from './user-data-path'
+import ensureSingleInstance from './single-instance.js'
+import { getUserDataPath } from './user-data-path.js'
 
 // Set a proper app name, since our build setup makes the one in our package.json innaccurate
 app.name = path.basename(getUserDataPath())
@@ -17,5 +17,5 @@ app.name = path.basename(getUserDataPath())
 if (!isDev) {
   ensureSingleInstance()
 } else {
-  require('./app')
+  await import('./app.js')
 }

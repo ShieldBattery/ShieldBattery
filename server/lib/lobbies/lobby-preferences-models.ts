@@ -1,8 +1,8 @@
 import { ReadonlyDeep } from 'type-fest'
-import { SbUserId } from '../../../common/users/sb-user'
-import db from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 export interface LobbyPreferences {
   userId: SbUserId

@@ -1,10 +1,10 @@
-import { ReconciledPlayerResult } from '../../../common/games/results'
-import { makeLeagueId } from '../../../common/leagues'
-import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user'
-import { LeagueUser } from '../leagues/league-models'
-import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
-import { calculateChangedRatings } from './rating'
+import { ReconciledPlayerResult } from '../../../common/games/results.js'
+import { makeLeagueId } from '../../../common/leagues/index.js'
+import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking.js'
+import { makeSbUserId } from '../../../common/users/sb-user.js'
+import { LeagueUser } from '../leagues/league-models.js'
+import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models.js'
+import { calculateChangedRatings } from './rating.js'
 
 const GAME_ID = 'asdfzxcv'
 const GAME_DATE = new Date('2022-05-02T00:00:00.000Z')

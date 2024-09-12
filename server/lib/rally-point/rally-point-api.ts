@@ -8,16 +8,16 @@ import {
   UpdateRallyPointClientPingBatchRequest,
   UpdateRallyPointServerRequest,
   UpdateRallyPointServerResponse,
-} from '../../../common/rally-point'
-import { SbUserId } from '../../../common/users/sb-user'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpGet, httpPost, httpPut } from '../http/route-decorators'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { validateRequest } from '../validation/joi-validator'
-import { ClientSocketsManager } from '../websockets/socket-groups'
-import { retrieveRallyPointServers } from './models'
-import { RallyPointService } from './rally-point-service'
+} from '../../../common/rally-point/index.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpGet, httpPost, httpPut } from '../http/route-decorators.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
+import { retrieveRallyPointServers } from './models.js'
+import { RallyPointService } from './rally-point-service.js'
 
 interface UpdateClientPingBatchParams {
   userId: SbUserId

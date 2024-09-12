@@ -2,7 +2,7 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -23,24 +23,24 @@ import {
   ServerAdminEditLeagueRequest,
   toClientLeagueUserJson,
   toLeagueJson,
-} from '../../../common/leagues'
-import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
-import { Patch } from '../../../common/patch'
-import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
-import transact from '../db/transaction'
-import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
-import { writeFile } from '../file-upload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
-import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/images'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import { Redis } from '../redis/redis'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { findUsersById } from '../users/user-model'
-import { validateRequest } from '../validation/joi-validator'
-import { getLeaderboard } from './leaderboard'
+} from '../../../common/leagues/index.js'
+import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking.js'
+import { Patch } from '../../../common/patch.js'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes.js'
+import transact from '../db/transaction.js'
+import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { handleMultipartFiles } from '../file-upload/handle-multipart-files.js'
+import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../file-upload/images.js'
+import { writeFile } from '../file-upload/index.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import { Redis } from '../redis/redis.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { findUsersById } from '../users/user-model.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { getLeaderboard } from './leaderboard.js'
 import {
   LeagueUser,
   adminGetAllLeagues,
@@ -55,7 +55,7 @@ import {
   getPastLeagues,
   joinLeagueForUser,
   updateLeague,
-} from './league-models'
+} from './league-models.js'
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 

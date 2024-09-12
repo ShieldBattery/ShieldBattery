@@ -1,9 +1,9 @@
 import { singleton } from 'tsyringe'
-import { NotificationEvent, NotificationServerInitEvent } from '../../../common/notifications'
-import { SbUserId } from '../../../common/users/sb-user'
-import logger from '../logging/logger'
-import { ClientSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
+import { NotificationEvent, NotificationServerInitEvent } from '../../../common/notifications.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import logger from '../logging/logger.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   NotificationData,
   SearchNotificationData,
@@ -12,7 +12,7 @@ import {
   clearById,
   markRead,
   retrieveNotifications,
-} from './notification-model'
+} from './notification-model.js'
 
 export function getNotificationsPath(userId: SbUserId): string {
   return `/notifications/${userId}`

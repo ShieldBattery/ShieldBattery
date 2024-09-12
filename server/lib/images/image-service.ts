@@ -1,7 +1,7 @@
 import { ImageAnnotatorClient } from '@google-cloud/vision'
 import { ChannelCredentials, ClientOptions } from 'google-gax'
 import { singleton } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 
 let imageAnnotatorClientOptions: ClientOptions
 

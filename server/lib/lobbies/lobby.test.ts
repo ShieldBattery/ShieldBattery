@@ -1,4 +1,4 @@
-import { GameType } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/configuration.js'
 import {
   findSlotById,
   findSlotByName,
@@ -6,11 +6,11 @@ import {
   humanSlotCount,
   Lobby,
   Team,
-} from '../../../common/lobbies'
-import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
-import { MapInfo, MapVisibility, Tileset } from '../../../common/maps'
-import { RaceChar } from '../../../common/races'
-import { makeSbUserId } from '../../../common/users/sb-user'
+} from '../../../common/lobbies/index.js'
+import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot.js'
+import { MapInfo, MapVisibility, Tileset } from '../../../common/maps.js'
+import { RaceChar } from '../../../common/races.js'
+import { makeSbUserId } from '../../../common/users/sb-user.js'
 import {
   addPlayer,
   closeSlot,
@@ -23,7 +23,7 @@ import {
   removePlayer,
   setRace,
   toSummaryJson,
-} from './lobby'
+} from './lobby.js'
 
 const BigGameHunters: MapInfo = {
   id: 'big-game-hunters',

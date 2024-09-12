@@ -1,8 +1,8 @@
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 import Koa from 'koa'
 import { container } from 'tsyringe'
-import isDev from '../env/is-dev'
-import { FileStoreType, PublicAssetsConfig } from '../file-upload/public-assets-config'
+import isDev from '../env/is-dev.js'
+import { FileStoreType, PublicAssetsConfig } from '../file-upload/public-assets-config.js'
 
 const CSP_NONCE_VALUE = Symbol('cspNonceValue')
 

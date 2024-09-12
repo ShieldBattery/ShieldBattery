@@ -7,8 +7,8 @@ import {
 } from '@shieldbattery/windows-registry'
 import { dialog } from 'electron'
 import isDev from 'electron-is-dev'
-import { getAppId } from './app-id'
-import logger from './logger'
+import { getAppId } from './app-id.js'
+import logger from './logger.js'
 
 /**
  * Registers the currently running process in the registry as the associated program for the current

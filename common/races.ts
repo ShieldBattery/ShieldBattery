@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { assertUnreachable } from './assert-unreachable'
+import { assertUnreachable } from './assert-unreachable.js'
 
 /** A single-character representation of a chosen StarCraft race. */
 export type RaceChar = 'p' | 'r' | 't' | 'z'

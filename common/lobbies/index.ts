@@ -1,8 +1,8 @@
 import { List, Record } from 'immutable'
-import { GameType, isTeamType } from '../games/configuration'
-import { MapInfo } from '../maps'
-import { BwTurnRate } from '../network'
-import { Slot, SlotType } from './slot'
+import { GameType, isTeamType } from '../games/configuration.js'
+import { MapInfo } from '../maps.js'
+import { BwTurnRate } from '../network.js'
+import { Slot, SlotType } from './slot.js'
 
 /**
  * The maximum number of observers allowed in a game, regardless of how many slots can be

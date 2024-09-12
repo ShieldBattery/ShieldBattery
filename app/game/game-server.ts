@@ -3,10 +3,10 @@ import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
-import { LocalSettings } from '../../common/settings/local-settings'
-import log from '../logger'
-import { LocalSettingsManager } from '../settings'
-import { ActiveGameManager } from './active-game-manager'
+import { LocalSettings } from '../../common/settings/local-settings.js'
+import log from '../logger.js'
+import { LocalSettingsManager } from '../settings.js'
+import { ActiveGameManager } from './active-game-manager.js'
 
 interface AuthorizeInfo {
   origin: string

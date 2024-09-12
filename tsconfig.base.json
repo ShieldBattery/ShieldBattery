@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "noImplicitOverride": true,
+    "strict": true,
+
+    "allowJs": true,
+    "allowSyntheticDefaultImports": false,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": false,
+    "experimentalDecorators": true,
+    "jsx": "react",
+    "preserveConstEnums": true,
+    "skipLibCheck": true
+  }
+}

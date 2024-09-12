@@ -1,9 +1,12 @@
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { CHANNEL_MENTION_REGEX, matchChannelMentions } from '../../../common/text/channel-mentions'
-import { USER_MENTION_REGEX, matchUserMentions } from '../../../common/text/user-mentions'
-import { SbUser } from '../../../common/users/sb-user'
-import { FullChannelInfo, findChannelsByName } from '../chat/chat-models'
-import { findUsersByName } from '../users/user-model'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import {
+  CHANNEL_MENTION_REGEX,
+  matchChannelMentions,
+} from '../../../common/text/channel-mentions.js'
+import { USER_MENTION_REGEX, matchUserMentions } from '../../../common/text/user-mentions.js'
+import { SbUser } from '../../../common/users/sb-user.js'
+import { FullChannelInfo, findChannelsByName } from '../chat/chat-models.js'
+import { findUsersByName } from '../users/user-model.js'
 
 function* getAllMatches(text: string) {
   yield* matchUserMentions(text)

@@ -1,8 +1,8 @@
 import { Immutable } from 'immer'
-import { BasicChannelInfo } from './chat'
-import { MatchmakingPreferences, MatchmakingType } from './matchmaking'
-import { RaceChar } from './races'
-import { SbUser, SbUserId } from './users/sb-user'
+import { BasicChannelInfo } from './chat.js'
+import { MatchmakingPreferences, MatchmakingType } from './matchmaking.js'
+import { RaceChar } from './races.js'
+import { SbUser, SbUserId } from './users/sb-user.js'
 
 /**
  * The maximum number of players allowed to be in the same party at once. Note that this only

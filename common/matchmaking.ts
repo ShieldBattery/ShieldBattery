@@ -1,14 +1,14 @@
 import { TFunction } from 'i18next'
 import { Opaque, SetRequired, Simplify } from 'type-fest'
-import { assertUnreachable } from './assert-unreachable'
-import { binarySearch } from './data-structures/arrays'
-import { GameRoute } from './game-launch-config'
-import { Jsonify } from './json'
-import { Slot } from './lobbies/slot'
-import { MapInfoJson } from './maps'
-import { BwTurnRate, BwUserLatency } from './network'
-import { AssignedRaceChar, RaceChar } from './races'
-import { SbUserId } from './users/sb-user'
+import { assertUnreachable } from './assert-unreachable.js'
+import { binarySearch } from './data-structures/arrays.js'
+import { GameRoute } from './game-launch-config.js'
+import { Jsonify } from './json.js'
+import { Slot } from './lobbies/slot.js'
+import { MapInfoJson } from './maps.js'
+import { BwTurnRate, BwUserLatency } from './network.js'
+import { AssignedRaceChar, RaceChar } from './races.js'
+import { SbUserId } from './users/sb-user.js'
 
 /**
  * A string representation of each of the matchmaking types that we support.

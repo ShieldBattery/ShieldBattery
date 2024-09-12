@@ -1,4 +1,4 @@
-import db, { DbClient, DbDone } from './index'
+import db, { DbClient, DbDone } from './index.js'
 
 export default async function transact<T>(next: (client: DbClient) => Promise<T>): Promise<T> {
   const { client, done } = await db()

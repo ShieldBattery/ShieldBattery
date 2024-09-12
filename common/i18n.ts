@@ -1,4 +1,4 @@
-import { assertUnreachable } from './assert-unreachable'
+import { assertUnreachable } from './assert-unreachable.js'
 
 /**
  * A string representation of each of the languages that we support and expect to have a translation

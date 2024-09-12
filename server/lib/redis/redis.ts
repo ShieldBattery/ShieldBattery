@@ -1,8 +1,8 @@
-import IoRedis from 'ioredis'
+import { Redis as IoRedis } from 'ioredis'
 import { singleton } from 'tsyringe'
-import { appendToMultimap } from '../../../common/data-structures/maps'
-import { PublishedMessage } from '../../../common/typeshare'
-import logger from '../logging/logger'
+import { appendToMultimap } from '../../../common/data-structures/maps.js'
+import { PublishedMessage } from '../../../common/typeshare.js'
+import logger from '../logging/logger.js'
 
 // TODO(tec27): provide some better wrapper around this that deals with connects/disconnects, etc.
 @singleton()

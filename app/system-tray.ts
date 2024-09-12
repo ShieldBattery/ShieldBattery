@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
 import path from 'path'
-import logger from './logger'
-import { getUserDataPath } from './user-data-path'
+import logger from './logger.js'
+import { getUserDataPath } from './user-data-path.js'
 
 const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray.png')
 const UNREAD_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-unread.png')

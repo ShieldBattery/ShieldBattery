@@ -19,6 +19,7 @@
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "main": "index.js",
+  "type": "module",
   "engines": {
     "node": ">= 20.0.0"
   },
@@ -105,7 +106,7 @@
     "start-server": "node ./server/index.js | pino-pretty -c -t",
     "test": "jest",
     "test:integration": "cross-env NODE_ENV=production playwright test",
-    "typecheck": "tsc --skipLibCheck false"
+    "typecheck": "tsc --skipLibCheck false --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.651.1",
@@ -123,7 +124,7 @@
     "@google-cloud/vision": "^4.3.2",
     "@grpc/grpc-js": "^1.11.2",
     "@koa/router": "^12.0.1",
-    "abort-controller": "^3.0.0",
+    "aws-sdk": "^2.1691.0",
     "babel-plugin-const-enum": "^1.2.0",
     "babel-plugin-transform-typescript-metadata": "^0.3.2",
     "bcrypt": "^5.1.1",
@@ -142,7 +143,7 @@
     "glob": "^11.0.0",
     "google-gax": "^4.4.1",
     "google-protobuf": "^3.21.4",
-    "got": "^11.8.6",
+    "got": "^14.4.2",
     "handlebars": "^4.7.8",
     "hoist-non-react-statics": "^3.3.2",
     "http-errors": "^2.0.0",
@@ -181,11 +182,11 @@
     "scm-extractor": "^1.1.0",
     "semver-compare": "^1.0.0",
     "sharp": "^0.33.5",
+    "tiny-typed-emitter": "^2.1.0",
     "tmp-promise": "^3.0.3",
     "tokenthrottle": "^1.3.0",
     "tokenthrottle-redis": "^1.2.0",
     "tsyringe": "^4.8.0",
-    "typed-emitter": "^2.1.0",
     "uid-safe": "^2.1.5",
     "vary": "^1.1.2"
   },

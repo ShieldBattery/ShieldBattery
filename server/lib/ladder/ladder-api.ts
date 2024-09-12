@@ -1,34 +1,38 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   GetRankForUserResponse,
   GetRankingsResponse,
   LadderErrorCode,
   LadderPlayer,
-} from '../../../common/ladder'
+} from '../../../common/ladder/index.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   toMatchmakingSeasonJson,
-} from '../../../common/matchmaking'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpGet } from '../http/route-decorators'
-import { JobScheduler } from '../jobs/job-scheduler'
-import logger from '../logging/logger'
-import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
-import { getInstantaneousRanksForUser, getRankings, refreshRankings } from '../matchmaking/models'
-import { Redis } from '../redis/redis'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { findUserById } from '../users/user-model'
-import { joiUserId } from '../users/user-validators'
-import { validateRequest } from '../validation/joi-validator'
+} from '../../../common/matchmaking.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpGet } from '../http/route-decorators.js'
+import { JobScheduler } from '../jobs/job-scheduler.js'
+import logger from '../logging/logger.js'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons.js'
+import {
+  getInstantaneousRanksForUser,
+  getRankings,
+  refreshRankings,
+} from '../matchmaking/models.js'
+import { Redis } from '../redis/redis.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { findUserById } from '../users/user-model.js'
+import { joiUserId } from '../users/user-validators.js'
+import { validateRequest } from '../validation/joi-validator.js'
 
 const UPDATE_RANKS_MINUTES = 5
 

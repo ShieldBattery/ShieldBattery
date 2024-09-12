@@ -1,10 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
-import { Announcer, ConsoleSkin, IngameSkin } from '../../common/settings/blizz-settings'
-import {
-  LocalSettings,
-  ScrSettings,
-  ShieldBatteryAppSettings,
-} from '../../common/settings/local-settings'
+import { Announcer, ConsoleSkin, IngameSkin } from './blizz-settings.js'
+import { LocalSettings, ScrSettings, ShieldBatteryAppSettings } from './local-settings.js'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>

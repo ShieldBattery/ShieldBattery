@@ -8,11 +8,11 @@ import {
   GetBatchMapInfoResponse,
   MapVisibility,
   toMapInfoJson,
-} from '../../../common/maps'
-import { deleteFiles } from '../file-upload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+} from '../../../common/maps.js'
+import { handleMultipartFiles } from '../file-upload/handle-multipart-files.js'
+import { deleteFiles } from '../file-upload/index.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators.js'
 import {
   addMapToFavorites,
   getFavoritedMaps,
@@ -23,14 +23,14 @@ import {
   updateMap,
   updateMapImages,
   veryDangerousDeleteAllMaps,
-} from '../maps/map-models'
-import { storeMap, storeRegeneratedImages } from '../maps/store'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { validateRequest } from '../validation/joi-validator'
-import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
+} from '../maps/map-models.js'
+import { storeMap, storeRegeneratedImages } from '../maps/store.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations.js'
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,

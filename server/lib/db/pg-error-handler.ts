@@ -1,5 +1,5 @@
 import { DatabaseError } from 'pg'
-import { SYNTAX_ERROR_OR_ACCESS_RULE_VIOLATION } from './pg-error-codes'
+import { SYNTAX_ERROR_OR_ACCESS_RULE_VIOLATION } from './pg-error-codes.js'
 
 export default function handlePgError(query: string, error: unknown): unknown {
   if (

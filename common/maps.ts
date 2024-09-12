@@ -1,9 +1,9 @@
 import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
-import { assertUnreachable } from './assert-unreachable'
-import { GameType } from './games/configuration'
-import { Jsonify } from './json'
-import { RaceChar } from './races'
+import { assertUnreachable } from './assert-unreachable.js'
+import { GameType } from './games/configuration.js'
+import { Jsonify } from './json.js'
+import { RaceChar } from './races.js'
 
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame

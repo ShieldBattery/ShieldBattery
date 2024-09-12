@@ -1,5 +1,5 @@
 import { List, Range } from 'immutable'
-import { GameType, isTeamType } from '../../../common/games/configuration'
+import { GameType, isTeamType } from '../../../common/games/configuration.js'
 import {
   Lobby,
   MAX_OBSERVERS,
@@ -17,7 +17,7 @@ import {
   slotCount,
   takenSlotCount,
   teamTakenSlotCount,
-} from '../../../common/lobbies'
+} from '../../../common/lobbies/index.js'
 import {
   Slot,
   SlotType,
@@ -28,11 +28,11 @@ import {
   createHuman,
   createOpen,
   createUmsComputer,
-} from '../../../common/lobbies/slot'
-import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps'
-import { BwTurnRate } from '../../../common/network'
-import { RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+} from '../../../common/lobbies/slot.js'
+import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps.js'
+import { BwTurnRate } from '../../../common/network.js'
+import { RaceChar } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
 
 export function hasControlledOpens(gameType: GameType) {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll

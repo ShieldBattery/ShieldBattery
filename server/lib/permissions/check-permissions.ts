@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { Context, Next } from 'koa'
-import { PermissionName } from '../../../common/users/permissions'
+import { PermissionName } from '../../../common/users/permissions.js'
 
 export function checkAllPermissions(...permissions: PermissionName[]) {
   return async function (ctx: Context, next: Next) {

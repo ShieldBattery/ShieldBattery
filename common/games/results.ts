@@ -1,7 +1,7 @@
 import { TFunction } from 'i18next'
-import { assertUnreachable } from '../assert-unreachable'
-import { AssignedRaceChar } from '../races'
-import { SbUserId } from '../users/sb-user'
+import { assertUnreachable } from '../assert-unreachable.js'
+import { AssignedRaceChar } from '../races.js'
+import { SbUserId } from '../users/sb-user.js'
 
 /**
  * The results of a game, as reported by the game client. These results have not yet been reconciled

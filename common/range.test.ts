@@ -1,4 +1,4 @@
-import { range } from './range'
+import { range } from './range.js'
 
 describe('common/range', () => {
   test('steps by 1', () => {

@@ -3,12 +3,12 @@ import {
   GameClientPlayerResult,
   ReconciledPlayerResult,
   ReconciledResult,
-} from '../../../common/games/results'
-import { AssignedRaceChar, RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
-import { ResultSubmission } from '../games/results'
+} from '../../../common/games/results.js'
+import { AssignedRaceChar, RaceChar } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { ResultSubmission } from '../games/results.js'
 
 export interface ReportedResultsData {
   userId: SbUserId

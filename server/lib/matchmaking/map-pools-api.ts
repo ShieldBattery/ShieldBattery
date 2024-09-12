@@ -1,26 +1,26 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
+import { MapInfoJson, toMapInfoJson } from '../../../common/maps.js'
 import {
   ALL_MATCHMAKING_TYPES,
   GetMatchmakingMapPoolBody,
   MatchmakingType,
-} from '../../../common/matchmaking'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { getMapInfo } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
+} from '../../../common/matchmaking.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators.js'
+import { getMapInfo } from '../maps/map-models.js'
+import { reparseMapsAsNeeded } from '../maps/map-operations.js'
 import {
   addMapPool,
   getCurrentMapPool,
   getMapPoolById,
   getMapPoolHistory,
   removeMapPool,
-} from '../models/matchmaking-map-pools'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { validateRequest } from '../validation/joi-validator'
+} from '../models/matchmaking-map-pools.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { validateRequest } from '../validation/joi-validator.js'
 
 // TODO(2Pac): Fix this type so the map infos are returned separately from the matchmaking pools
 interface GetMapPoolsHistoryResponse {

@@ -8,15 +8,15 @@ import {
   GameRoute,
   isReplayLaunchConfig,
   isReplayMapInfo,
-} from '../../common/game-launch-config'
-import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
-import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
-import { SbUserId, makeSbUserId } from '../../common/users/sb-user'
-import log from '../logger'
-import { LocalSettingsManager, ScrSettingsManager } from '../settings'
-import { checkStarcraftPath } from './check-starcraft-path'
-import { MapStore } from './map-store'
+} from '../../common/game-launch-config.js'
+import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status.js'
+import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results.js'
+import { EventMap, TypedEventEmitter } from '../../common/typed-emitter.js'
+import { SbUserId, makeSbUserId } from '../../common/users/sb-user.js'
+import log from '../logger.js'
+import { LocalSettingsManager, ScrSettingsManager } from '../settings.js'
+import { checkStarcraftPath } from './check-starcraft-path.js'
+import { MapStore } from './map-store.js'
 
 // Overrides the default rally-point bind port in the game. Not recommended for use outside of
 // specific development testing, as it can cause game processes to conflict with each other.
@@ -434,7 +434,7 @@ async function doLaunch(
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module
-  const { launchProcess } = await import('./native/process/index')
+  const { launchProcess } = await import('./native/process/index.js')
   // People sometimes turn on compatibility settings for the game process for misguided reasons,
   // which then cause issues that they blame on us. So, we turn off what we can (which seems to be
   // just the Run As Admin setting) to avoid those problems

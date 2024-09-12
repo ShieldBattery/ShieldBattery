@@ -1,4 +1,4 @@
-import { ExponentialSmoothValue } from './exponential-smoothing'
+import { ExponentialSmoothValue } from './exponential-smoothing.js'
 
 describe('common/statistics/exponential-smoothing', () => {
   test('smoothed constant value from 0 with alpha = 0.5', () => {

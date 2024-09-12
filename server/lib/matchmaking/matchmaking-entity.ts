@@ -1,10 +1,10 @@
 import { Immutable } from 'immer'
 import { Simplify } from 'type-fest'
-import { PreferenceData } from '../../../common/matchmaking'
-import { RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
-import { NEW_PLAYER_GAME_COUNT } from './constants'
-import { MatchmakingRating } from './models'
+import { PreferenceData } from '../../../common/matchmaking.js'
+import { RaceChar } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { NEW_PLAYER_GAME_COUNT } from './constants.js'
+import { MatchmakingRating } from './models.js'
 
 export interface MatchmakingInterval {
   low: number

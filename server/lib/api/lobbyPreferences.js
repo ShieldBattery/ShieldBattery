@@ -1,12 +1,12 @@
 import httpErrors from 'http-errors'
-import { isValidLobbyName } from '../../../common/constants'
-import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
-import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
-import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
-import { getMapInfo } from '../maps/map-models'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import { isValidLobbyName } from '../../../common/constants.js'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration.js'
+import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network.js'
+import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models.js'
+import { getMapInfo } from '../maps/map-models.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
 
 const throttle = createThrottle('lobbypreferences', {
   rate: 20,

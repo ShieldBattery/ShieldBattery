@@ -3,7 +3,7 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import path from 'path'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { FileStore } from './store.js'
 
 // How long browsers can cache resources for (in seconds). These resources should all be pretty
 // static, so this can be a long time

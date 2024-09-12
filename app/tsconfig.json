@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+
+  "compilerOptions": {
+    "outDir": "./out"
+  },
+
+  "include": ["./**/*", "../common/**/*", "../typings/**/*"],
+  "exclude": ["dist", "node_modules", "vendor", "out"]
+}

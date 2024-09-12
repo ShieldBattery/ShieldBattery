@@ -1,4 +1,4 @@
-import { GoogleLikelihood, ImageService } from './image-service'
+import { GoogleLikelihood, ImageService } from './image-service.js'
 
 const mockSafeSearchDetection = jest.fn().mockResolvedValue([])
 jest.mock('@google-cloud/vision', () => {

@@ -8,9 +8,9 @@ import {
   ALL_TRANSLATION_NAMESPACES,
   TranslationLanguage,
   TranslationNamespace,
-} from '../../../common/i18n'
-import logger from '../logging/logger'
-import { validateRequest } from '../validation/joi-validator'
+} from '../../../common/i18n.js'
+import logger from '../logging/logger.js'
+import { validateRequest } from '../validation/joi-validator.js'
 
 // NOTE(tec27): This sorting code matches what's in i18next-parser, it'd be nice if they exported it
 // but alas...

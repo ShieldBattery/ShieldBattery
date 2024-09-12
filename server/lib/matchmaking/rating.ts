@@ -1,4 +1,4 @@
-import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
+import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results.js'
 import {
   MATCHMAKING_BONUS_EARNED_PER_MS,
   MATCHMAKING_INACTIVE_TIME_MS,
@@ -6,10 +6,10 @@ import {
   arePointsConverged,
   getConvergencePoints,
   wasPlayerInactive,
-} from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
-import { LeagueUser, LeagueUserChange } from '../leagues/league-models'
-import { MatchmakingRating, MatchmakingRatingChange } from './models'
+} from '../../../common/matchmaking.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { LeagueUser, LeagueUserChange } from '../leagues/league-models.js'
+import { MatchmakingRating, MatchmakingRatingChange } from './models.js'
 
 export interface RatingChanges {
   matchmaking: MatchmakingRatingChange

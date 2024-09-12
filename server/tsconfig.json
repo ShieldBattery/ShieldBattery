@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+
+  "compilerOptions": {
+    "outDir": "./out"
+  },
+
+  "include": ["./**/*", "../common/**/*", "../typings/**/*"],
+  "exclude": ["server/public", "server/testing/google", "out"]
+}

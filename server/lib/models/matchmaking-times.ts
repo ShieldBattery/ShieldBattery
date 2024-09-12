@@ -1,6 +1,6 @@
-import { MatchmakingType } from '../../../common/matchmaking'
-import db from '../db'
-import { sql, sqlRaw } from '../db/sql'
+import { MatchmakingType } from '../../../common/matchmaking.js'
+import db from '../db/index.js'
+import { sql, sqlRaw } from '../db/sql.js'
 
 export interface MatchmakingTime {
   id: string

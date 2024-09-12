@@ -1,4 +1,4 @@
-import { escapeSearchString } from './escape-search-string'
+import { escapeSearchString } from './escape-search-string.js'
 
 describe('server/lib/db/escapeSearchString', () => {
   test('string without special characters', () => {

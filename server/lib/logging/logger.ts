@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import pino, { stdSerializers } from 'pino'
+import { pino, stdSerializers } from 'pino'
 
 const STDOUT_LEVEL = process.env.NODE_ENV === 'production' ? 'info' : 'debug'
 

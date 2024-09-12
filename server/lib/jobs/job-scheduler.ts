@@ -1,7 +1,7 @@
 import { exponentialBuckets, Histogram } from 'prom-client'
 import { singleton } from 'tsyringe'
-import logger from '../logging/logger'
-import { monotonicNow } from '../time/monotonic-now'
+import logger from '../logging/logger.js'
+import { monotonicNow } from '../time/monotonic-now.js'
 
 interface JobInfo {
   jobId: string

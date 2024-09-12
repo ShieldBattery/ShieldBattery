@@ -1,4 +1,4 @@
-import { MapForce } from '../../../common/maps'
+import { MapForce } from '../../../common/maps.js'
 
 export interface MapParseData {
   hash: string

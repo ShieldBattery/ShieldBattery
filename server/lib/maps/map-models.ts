@@ -6,15 +6,15 @@ import {
   MapSortType,
   MapVisibility,
   Tileset,
-} from '../../../common/maps'
-import { SbUserId } from '../../../common/users/sb-user'
-import db from '../db'
-import { SqlTemplate, sql, sqlConcat, sqlRaw } from '../db/sql'
-import transact from '../db/transaction'
-import { Dbify } from '../db/types'
-import { getSignedUrl, getUrl } from '../file-upload'
-import { MapParseData } from './parse-data'
-import { imagePath, mapPath } from './store'
+} from '../../../common/maps.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db from '../db/index.js'
+import { SqlTemplate, sql, sqlConcat, sqlRaw } from '../db/sql.js'
+import transact from '../db/transaction.js'
+import { Dbify } from '../db/types.js'
+import { getSignedUrl, getUrl } from '../file-upload/index.js'
+import { MapParseData } from './parse-data.js'
+import { imagePath, mapPath } from './store.js'
 
 // TODO(tec27): Make the MapInfo structure more closely align to what we store here?
 type DbMapInfo = Dbify<{

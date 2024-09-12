@@ -1,5 +1,5 @@
-import db from '../db'
-import { sql } from '../db/sql'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
 
 class MapPreferences {
   constructor(props) {

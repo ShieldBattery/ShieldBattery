@@ -7,8 +7,8 @@ import {
   AddMatchmakingTimeBody,
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
-} from '../../../common/matchmaking'
-import MatchmakingStatusService from '../matchmaking/matchmaking-status'
+} from '../../../common/matchmaking.js'
+import MatchmakingStatusService from '../matchmaking/matchmaking-status.js'
 import {
   addMatchmakingTime,
   getCurrentMatchmakingTime,
@@ -16,11 +16,11 @@ import {
   getMatchmakingTimeById,
   getPastMatchmakingTimes,
   removeMatchmakingTime,
-} from '../models/matchmaking-times'
-import { getSingleQueryParam } from '../network/query-param'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { joiValidator } from '../validation/joi-validator'
+} from '../models/matchmaking-times.js'
+import { getSingleQueryParam } from '../network/query-param.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { joiValidator } from '../validation/joi-validator.js'
 
 const matchmakingTypeSchema = Joi.object({
   matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),

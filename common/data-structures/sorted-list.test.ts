@@ -1,4 +1,4 @@
-import { create, findIndex, insert } from './sorted-list'
+import { create, findIndex, insert } from './sorted-list.js'
 
 const alphaSort = (a: string, b: string) => a.localeCompare(b)
 

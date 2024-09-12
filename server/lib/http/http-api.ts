@@ -1,9 +1,9 @@
 import Router, { RouterContext } from '@koa/router'
 import { container, singleton } from 'tsyringe'
 import { Class, Constructor } from 'type-fest'
-import logger from '../logging/logger'
-import { MetadataValue } from '../reflect/metadata'
-import { routeMiddlewareMetadata, routesMetadata } from './route-decorators'
+import logger from '../logging/logger.js'
+import { MetadataValue } from '../reflect/metadata.js'
+import { routeMiddlewareMetadata, routesMetadata } from './route-decorators.js'
 
 export const BASE_API_PATH = '/api/1'
 

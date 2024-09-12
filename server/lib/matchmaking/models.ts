@@ -4,13 +4,13 @@ import {
   MatchmakingSeason,
   MatchmakingType,
   SeasonId,
-} from '../../../common/matchmaking'
-import { RaceStats } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { escapeSearchString } from '../db/escape-search-string'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+} from '../../../common/matchmaking.js'
+import { RaceStats } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { escapeSearchString } from '../db/escape-search-string.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 export interface MatchmakingRating extends RaceStats {
   userId: SbUserId

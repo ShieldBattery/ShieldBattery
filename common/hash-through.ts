@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 import { Transform, TransformCallback, TransformOptions } from 'stream'
 
 // Transform stream that just passes data through, but hashes it using SHA-256 as it does.

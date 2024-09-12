@@ -1,4 +1,4 @@
-import { parseGameId } from './parse-shieldbattery-replay'
+import { parseGameId } from './parse-shieldbattery-replay.js'
 
 function gameIdAsBuffer(gameId: string): Buffer {
   return Buffer.from(gameId.replace(/-/g, ''), 'hex')

@@ -1,7 +1,7 @@
 import pg, { QueryConfigValues } from 'pg'
-import { isTestRun } from '../../../common/is-test-run'
-import log from '../logging/logger'
-import handlePgError from './pg-error-handler'
+import { isTestRun } from '../../../common/is-test-run.js'
+import log from '../logging/logger.js'
+import handlePgError from './pg-error-handler.js'
 
 /**
  * The amount of time queries are allowed to run for before they are considered "slow" and logged

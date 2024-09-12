@@ -7,18 +7,18 @@ import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
 import path from 'path'
 import { container } from 'tsyringe'
-import { ServerConfig } from '../common/server-config'
-import { ClientSessionInfo } from '../common/users/session'
-import './http-apis'
-import isDev from './lib/env/is-dev'
-import { getUrl, readFile } from './lib/file-upload'
-import { FileStoreType, PublicAssetsConfig } from './lib/file-upload/public-assets-config'
-import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
-import logger from './lib/logging/logger'
-import { getCspNonce } from './lib/security/csp'
-import { getJwt } from './lib/session/jwt-session-middleware'
-import { monotonicNow } from './lib/time/monotonic-now'
-import { WebsocketServer } from './websockets'
+import { ServerConfig } from '../common/server-config.js'
+import { ClientSessionInfo } from '../common/users/session.js'
+import './http-apis.js'
+import isDev from './lib/env/is-dev.js'
+import { getUrl, readFile } from './lib/file-upload/index.js'
+import { FileStoreType, PublicAssetsConfig } from './lib/file-upload/public-assets-config.js'
+import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api.js'
+import logger from './lib/logging/logger.js'
+import { getCspNonce } from './lib/security/csp.js'
+import { getJwt } from './lib/session/jwt-session-middleware.js'
+import { monotonicNow } from './lib/time/monotonic-now.js'
+import { WebsocketServer } from './websockets.js'
 
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 
@@ -35,7 +35,7 @@ interface LatestYaml {
   releaseDate: string
 }
 
-export default function applyRoutes(
+export default async function applyRoutes(
   app: Koa,
   websocketServer: WebsocketServer,
   graphqlOrigin: string,
@@ -53,13 +53,16 @@ export default function applyRoutes(
   // TODO(tec27): migrate these to injected HttpApis
   const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
   const baseApiPath = '/api/1/'
-  apiFiles.filter(jsOrTsFileMatcher).forEach(filename => {
-    const apiPath = baseApiPath + path.basename(filename, path.extname(filename))
-    const subRouter = new KoaRouter()
-    require('./lib/api/' + filename).default(subRouter, websocketServer)
-    router.use(apiPath, subRouter.routes())
-    logger.info('mounted ' + apiPath)
-  })
+  await Promise.all(
+    apiFiles.filter(jsOrTsFileMatcher).map(async filename => {
+      const apiPath = baseApiPath + path.basename(filename, path.extname(filename))
+      const subRouter = new KoaRouter()
+      const module = await import(`./lib/api/${filename}`)
+      module.default(subRouter, websocketServer)
+      router.use(apiPath, subRouter.routes())
+      logger.info('mounted ' + apiPath)
+    }),
+  )
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
   router.all('/api/:param*', send404)

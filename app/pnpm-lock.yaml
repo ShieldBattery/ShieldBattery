@@ -26,6 +26,9 @@ importers:
       '@babel/register':
         specifier: ^7.24.6
         version: 7.24.6(@babel/core@7.25.2)
+      '@bufbuild/protobuf':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@shieldbattery/stimpack':
         specifier: ^1.1.1
         version: 1.1.1
@@ -56,7 +59,7 @@ importers:
       jssuh:
         specifier: ^1.6.0
         version: 1.6.0
-      lodash:
+      lodash-es:
         specifier: ^4.17.21
         version: 4.17.21
       long:
@@ -65,12 +68,13 @@ importers:
       mkdirp:
         specifier: ^3.0.1
         version: 3.0.1
-      protobufjs:
-        specifier: ^7.4.0
-        version: 7.4.0
       sanitize-filename:
         specifier: ^1.6.3
         version: 1.6.3
+    devDependencies:
+      '@types/lodash-es':
+        specifier: ^4.17.12
+        version: 4.17.12
 
 packages:
 
@@ -668,6 +672,9 @@ packages:
     resolution: {integrity: sha512-/l42B1qxpG6RdfYf343Uw1vmDjeNhneUXtzhojE7pDgfpEypmRhI6j1kr17XCVv4Cgl9HdAiQY2x0GwKm7rWCw==}
     engines: {node: '>=6.9.0'}
 
+  '@bufbuild/protobuf@2.0.0':
+    resolution: {integrity: sha512-sw2JhwJyvyL0zlhG61aDzOVryEfJg2PDZFSV7i7IdC7nAE41WuXCru3QWLGiP87At0BMzKOoKO/FqEGoKygGZQ==}
+
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
@@ -694,41 +701,17 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@protobufjs/aspromise@1.1.2':
-    resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
-
-  '@protobufjs/base64@1.1.2':
-    resolution: {integrity: sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==}
-
-  '@protobufjs/codegen@2.0.4':
-    resolution: {integrity: sha512-YyFaikqM5sH0ziFZCN3xDC7zeGaB/d0IUb9CATugHWbd1FRFwWwt4ld4OYMPWu5a3Xe01mGAULCdqhMlPl29Jg==}
-
-  '@protobufjs/eventemitter@1.1.0':
-    resolution: {integrity: sha512-j9ednRT81vYJ9OfVuXG6ERSTdEL1xVsNgqpkxMsbIabzSo3goCjDIveeGv5d03om39ML71RdmrGNjG5SReBP/Q==}
-
-  '@protobufjs/fetch@1.1.0':
-    resolution: {integrity: sha512-lljVXpqXebpsijW71PZaCYeIcE5on1w5DlQy5WH6GLbFryLUrBD4932W/E2BSpfRJWseIL4v/KPgBFxDOIdKpQ==}
-
-  '@protobufjs/float@1.0.2':
-    resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
-
-  '@protobufjs/inquire@1.1.0':
-    resolution: {integrity: sha512-kdSefcPdruJiFMVSbn801t4vFK7KB/5gd2fYvrxhuJYg8ILrmn9SKSX2tZdV6V+ksulWqS7aXjBcRXl3wHoD9Q==}
-
-  '@protobufjs/path@1.1.2':
-    resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
-
-  '@protobufjs/pool@1.1.0':
-    resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
-
-  '@protobufjs/utf8@1.1.0':
-    resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
-
   '@shieldbattery/stimpack@1.1.1':
     resolution: {integrity: sha512-ARCnteIHIJCUiZrhZevEnBjQTM/k9VjDpmijUTPes4Q2giSpk8VpLEIxbtF8dsH9BLzBqphNEO2MybeRR+Q1pQ==}
 
   '@shieldbattery/windows-registry@1.0.0':
     resolution: {integrity: sha512-8I5260BYzFN/2wmrq7Rx61xi0iX+BbWpIl5RC/UCmJHGTL4z/r0PsKeuL1avwr9WsH4wwESK7+sQnA8igqQ7ow==}
+
+  '@types/lodash-es@4.17.12':
+    resolution: {integrity: sha512-0NgftHUcV4v34VhXm8QBSftKVXtbkBG3ViCjs6+eJ5a6y6Mi/jiFGPc1sC7QK+9BFhWrURE3EOggmWaSxL9OzQ==}
+
+  '@types/lodash@4.17.7':
+    resolution: {integrity: sha512-8wTvZawATi/lsmNu10/j2hk1KEP0IvjubqPE3cu1Xz7xfXXt5oCq3SNUz4fMIP4XGF9Ky+Ue2tBA3hcS7LSBlA==}
 
   '@types/node@22.5.4':
     resolution: {integrity: sha512-FDuKUJQm/ju9fT/SeX/6+gBzoPzlVCzfzmGkwKvRHQVxi4BntVbyIwf6a4Xn62mrvndLiml6z/UBXIdEVjQLXg==}
@@ -1202,6 +1185,9 @@ packages:
     resolution: {integrity: sha512-7AO748wWnIhNqAuaty2ZWHkQHRSNfPVIsPIfwEOWO22AmaoVrWavlOcMR5nzTLNYvp36X220/maaRsrec1G65A==}
     engines: {node: '>=6'}
 
+  lodash-es@4.17.21:
+    resolution: {integrity: sha512-mKnC+QJ9pWVzv+C4/U3rRsHapFfHvQFoFB92e52xeyGMcX6/OlIl78je1u8vePzYZSkkogMPJ2yjxxsb89cxyw==}
+
   lodash.debounce@4.0.8:
     resolution: {integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==}
 
@@ -1325,10 +1311,6 @@ packages:
   process@0.11.10:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
     engines: {node: '>= 0.6.0'}
-
-  protobufjs@7.4.0:
-    resolution: {integrity: sha512-mRUWCc3KUU4w1jU8sGxICXH/gNS94DvI1gxqDvBzhj1JpcsimQkYiOJfwsPUykUI5ZaspFbSgmBLER8IrQ3tqw==}
-    engines: {node: '>=12.0.0'}
 
   queue-tick@1.0.1:
     resolution: {integrity: sha512-kJt5qhMxoszgU/62PLP1CJytzd2NKetjSRnyuj31fDd3Rlcz3fzlFdFLD1SItunPwyqEOkca6GbV612BWfaBag==}
@@ -2345,6 +2327,8 @@ snapshots:
       '@babel/helper-validator-identifier': 7.24.7
       to-fast-properties: 2.0.0
 
+  '@bufbuild/protobuf@2.0.0': {}
+
   '@isaacs/cliui@8.0.2':
     dependencies:
       string-width: 5.1.2
@@ -2374,32 +2358,15 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@protobufjs/aspromise@1.1.2': {}
-
-  '@protobufjs/base64@1.1.2': {}
-
-  '@protobufjs/codegen@2.0.4': {}
-
-  '@protobufjs/eventemitter@1.1.0': {}
-
-  '@protobufjs/fetch@1.1.0':
-    dependencies:
-      '@protobufjs/aspromise': 1.1.2
-      '@protobufjs/inquire': 1.1.0
-
-  '@protobufjs/float@1.0.2': {}
-
-  '@protobufjs/inquire@1.1.0': {}
-
-  '@protobufjs/path@1.1.2': {}
-
-  '@protobufjs/pool@1.1.0': {}
-
-  '@protobufjs/utf8@1.1.0': {}
-
   '@shieldbattery/stimpack@1.1.1': {}
 
   '@shieldbattery/windows-registry@1.0.0': {}
+
+  '@types/lodash-es@4.17.12':
+    dependencies:
+      '@types/lodash': 4.17.7
+
+  '@types/lodash@4.17.7': {}
 
   '@types/node@22.5.4':
     dependencies:
@@ -2914,6 +2881,8 @@ snapshots:
       p-locate: 3.0.0
       path-exists: 3.0.0
 
+  lodash-es@4.17.21: {}
+
   lodash.debounce@4.0.8: {}
 
   lodash.escaperegexp@4.1.2: {}
@@ -3007,21 +2976,6 @@ snapshots:
   process-nextick-args@2.0.1: {}
 
   process@0.11.10: {}
-
-  protobufjs@7.4.0:
-    dependencies:
-      '@protobufjs/aspromise': 1.1.2
-      '@protobufjs/base64': 1.1.2
-      '@protobufjs/codegen': 2.0.4
-      '@protobufjs/eventemitter': 1.1.0
-      '@protobufjs/fetch': 1.1.0
-      '@protobufjs/float': 1.0.2
-      '@protobufjs/inquire': 1.1.0
-      '@protobufjs/path': 1.1.2
-      '@protobufjs/pool': 1.1.0
-      '@protobufjs/utf8': 1.1.0
-      '@types/node': 22.5.4
-      long: 5.2.3
 
   queue-tick@1.0.1: {}
 

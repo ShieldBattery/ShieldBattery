@@ -1,4 +1,4 @@
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user.js'
 
 /**
  * Utility for checking if a user is currently in a party.

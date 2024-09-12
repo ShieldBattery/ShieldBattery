@@ -4,9 +4,9 @@ import {
   ReconciledPlayerResult,
   ReconciledResult,
   ReconciledResults,
-} from '../../../common/games/results'
-import { AssignedRaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+} from '../../../common/games/results.js'
+import { AssignedRaceChar } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
 
 export interface ResultSubmission {
   /** The user ID of the player who reported these results. */

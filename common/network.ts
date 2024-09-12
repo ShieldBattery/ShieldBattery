@@ -1,4 +1,4 @@
-import { assertUnreachable } from './assert-unreachable'
+import { assertUnreachable } from './assert-unreachable.js'
 
 /** User-controllable ingame latency settings. */
 export enum BwUserLatency {

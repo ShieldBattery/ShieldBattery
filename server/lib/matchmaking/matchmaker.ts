@@ -1,15 +1,15 @@
 import { OrderedMap } from 'immutable'
-import IntervalTree from 'node-interval-tree'
+import NodeIntervalTree from 'node-interval-tree'
 import { Gauge } from 'prom-client'
 import { injectable } from 'tsyringe'
-import { MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
-import { multipleRandomItems, randomItem } from '../../../common/random'
-import { range } from '../../../common/range'
-import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
-import { SbUserId } from '../../../common/users/sb-user'
-import logger from '../logging/logger'
-import { LazyScheduler } from './lazy-scheduler'
-import { QueuedMatchmakingEntity } from './matchmaker-queue'
+import { MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking.js'
+import { multipleRandomItems, randomItem } from '../../../common/random.js'
+import { range } from '../../../common/range.js'
+import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import logger from '../logging/logger.js'
+import { LazyScheduler } from './lazy-scheduler.js'
+import { QueuedMatchmakingEntity } from './matchmaker-queue.js'
 import {
   MatchmakingEntity,
   MatchmakingInterval,
@@ -18,7 +18,9 @@ import {
   getPlayersFromEntity,
   isMatchmakingParty,
   isNewPlayer,
-} from './matchmaking-entity'
+} from './matchmaking-entity.js'
+
+const IntervalTree = NodeIntervalTree.default
 
 /** How often to run the matchmaker 'find match' process. */
 export const MATCHMAKING_INTERVAL_MS = 6 * 1000

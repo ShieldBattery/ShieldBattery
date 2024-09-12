@@ -1,4 +1,4 @@
-import { binarySearch, findLastIndex } from './arrays'
+import { binarySearch, findLastIndex } from './arrays.js'
 
 const makeCallbackFn = (searchValue: number) => (value: number) => value === searchValue
 

@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { assertUnreachable } from '../assert-unreachable'
+import { assertUnreachable } from '../assert-unreachable.js'
 
 /** The different types of legal/usage policies we provide. */
 export enum SbPolicyType {

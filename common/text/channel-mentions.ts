@@ -1,5 +1,5 @@
-import { CHANNEL_ALLOWED_CHARACTERS } from '../constants'
-import { TypedGroupRegExpMatchArray } from '../regex'
+import { CHANNEL_ALLOWED_CHARACTERS } from '../constants.js'
+import { TypedGroupRegExpMatchArray } from '../regex.js'
 
 const MENTION_PREFIX = String.raw`(?<prefix>\s|^)`
 const MENTION_POSTFIX = String.raw`(?=\s|$)`

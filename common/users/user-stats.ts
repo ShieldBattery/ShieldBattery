@@ -1,5 +1,5 @@
-import { RaceStats } from '../races'
-import { SbUserId } from './sb-user'
+import { RaceStats } from '../races.js'
+import { SbUserId } from './sb-user.js'
 
 /**
  * Aggregate statistics for a particular user. Contains wins and losses for particular race

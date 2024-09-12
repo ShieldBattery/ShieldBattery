@@ -1,4 +1,4 @@
-import { FileStoreType, PublicAssetsConfig } from './public-assets-config'
+import { FileStoreType, PublicAssetsConfig } from './public-assets-config.js'
 
 describe('publicAssetsConfig', () => {
   test('filesystem', () => {

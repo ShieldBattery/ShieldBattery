@@ -5,9 +5,9 @@ import { mkdirp } from 'mkdirp'
 import path from 'path'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
-import HashThrough from '../../common/hash-through'
-import { MapExtension } from '../../common/maps'
-import log from '../logger'
+import HashThrough from '../../common/hash-through.js'
+import { MapExtension } from '../../common/maps.js'
+import log from '../logger.js'
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>

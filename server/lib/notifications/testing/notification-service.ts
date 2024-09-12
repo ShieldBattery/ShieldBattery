@@ -1,4 +1,4 @@
-import NotificationService from '../notification-service'
+import NotificationService from '../notification-service.js'
 
 export class FakeNotificationService
   implements Omit<NotificationService, 'publisher' | 'clientSocketsManager'>

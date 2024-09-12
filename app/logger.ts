@@ -1,6 +1,6 @@
 import path from 'path'
-import logger from './create-logger'
-import { getUserDataPath } from './user-data-path'
+import logger from './create-logger.js'
+import { getUserDataPath } from './user-data-path.js'
 
 const logFile = path.join(getUserDataPath(), 'logs', 'app')
 // TODO(tec27): configure log levels based on build type

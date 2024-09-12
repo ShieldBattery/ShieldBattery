@@ -1,10 +1,10 @@
 import RallyPointPlayer from 'rally-point-player'
 import { singleton } from 'tsyringe'
-import { isAbortError, raceAbort } from '../../common/async/abort-signals'
-import { ResolvedRallyPointServer } from '../../common/rally-point'
-import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
-import logger from '../logger'
-import { monotonicNow } from '../time/monotonic-now'
+import { isAbortError, raceAbort } from '../../common/async/abort-signals.js'
+import { ResolvedRallyPointServer } from '../../common/rally-point/index.js'
+import { EventMap, TypedEventEmitter } from '../../common/typed-emitter.js'
+import logger from '../logger.js'
+import { monotonicNow } from '../time/monotonic-now.js'
 
 // Time until pings are considered "old" and recalculated when requested
 const OUTDATED_PING_TIME = 30 * 60 * 1000

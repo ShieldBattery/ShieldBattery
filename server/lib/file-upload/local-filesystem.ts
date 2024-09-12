@@ -6,7 +6,7 @@ import koaStatic from 'koa-static'
 import path from 'path'
 import { rimraf } from 'rimraf'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { FileStore } from './store.js'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time

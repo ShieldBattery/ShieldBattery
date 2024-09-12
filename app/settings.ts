@@ -1,15 +1,15 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
-import debounce from 'lodash/debounce'
+import { debounce } from 'lodash-es'
 import { ConditionalKeys } from 'type-fest'
-import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
-import swallowNonBuiltins from '../common/async/swallow-non-builtins'
-import { DEV_INDICATOR } from '../common/flags'
-import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
-import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
-import { findInstallPath } from './find-install-path'
-import log from './logger'
+import swallowNonBuiltins from '../common/async/swallow-non-builtins.js'
+import { DEV_INDICATOR } from '../common/flags.js'
+import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings.js'
+import { LocalSettings, ScrSettings } from '../common/settings/local-settings.js'
+import { EventMap, TypedEventEmitter } from '../common/typed-emitter.js'
+import { findInstallPath } from './find-install-path.js'
+import log from './logger.js'
 
 const VERSION = 11
 const SCR_VERSION = 5

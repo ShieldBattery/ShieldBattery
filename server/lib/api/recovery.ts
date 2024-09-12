@@ -1,12 +1,12 @@
 import Router, { RouterContext } from '@koa/router'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
-import { isValidEmail, isValidUsername } from '../../../common/constants'
-import { sendMailTemplate } from '../mail/mailer'
-import { addPasswordResetCode } from '../models/password-resets'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { findAllUsersWithEmail, findSelfById, findUserByName } from '../users/user-model'
+import { isValidEmail, isValidUsername } from '../../../common/constants.js'
+import { sendMailTemplate } from '../mail/mailer.js'
+import { addPasswordResetCode } from '../models/password-resets.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { findAllUsersWithEmail, findSelfById, findUserByName } from '../users/user-model.js'
 
 const forgotUserPassThrottle = createThrottle('forgotuserpass', {
   rate: 30,

@@ -1,5 +1,5 @@
-import { SbPermissions } from './permissions'
-import { SelfUser } from './sb-user'
+import { SbPermissions } from './permissions.js'
+import { SelfUser } from './sb-user.js'
 
 /**
  * Information about the current user's session, generally used to initialize the application. This

@@ -1,6 +1,6 @@
 import { singleton } from 'tsyringe'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { Redis } from '../redis/redis'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
+import { Redis } from '../redis/redis.js'
 
 // TODO(tec27): We probably need to broadcast these to the Rust server as well
 

@@ -1,4 +1,4 @@
-import { BwUserLatency, turnRateToMaxLatency } from './network'
+import { BwUserLatency, turnRateToMaxLatency } from './network.js'
 
 describe('common/network', () => {
   describe('turnRateToMaxLatency', () => {

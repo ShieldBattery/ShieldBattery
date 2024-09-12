@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { ExtendableContext, Middleware, Next } from 'koa'
-import { PromiseBasedThrottle } from './create-throttle'
+import { PromiseBasedThrottle } from './create-throttle.js'
 
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)

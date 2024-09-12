@@ -3,23 +3,23 @@ import { Immutable } from 'immer'
 import { Counter, exponentialBuckets, Histogram } from 'prom-client'
 import { container, inject, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
-import CancelToken from '../../../common/async/cancel-token'
-import createDeferred, { Deferred } from '../../../common/async/deferred'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { timeoutPromise } from '../../../common/async/timeout-promise'
-import { subtract } from '../../../common/data-structures/sets'
-import { GameRoute } from '../../../common/game-launch-config'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import { isAbortError, raceAbort } from '../../../common/async/abort-signals.js'
+import CancelToken from '../../../common/async/cancel-token.js'
+import createDeferred, { Deferred } from '../../../common/async/deferred.js'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
+import { timeoutPromise } from '../../../common/async/timeout-promise.js'
+import { subtract } from '../../../common/data-structures/sets.js'
+import { GameRoute } from '../../../common/game-launch-config.js'
 import {
   GameConfig,
   GameConfigPlayer,
   GameSource,
   GameType,
   MatchmakingExtra,
-} from '../../../common/games/configuration'
-import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
-import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
+} from '../../../common/games/configuration.js'
+import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot.js'
+import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
@@ -31,22 +31,22 @@ import {
   MatchmakingType,
   PreferenceData,
   TEAM_SIZES,
-} from '../../../common/matchmaking'
-import { BwTurnRate, BwUserLatency } from '../../../common/network'
-import { RaceChar } from '../../../common/races'
-import { randomInt, randomItem } from '../../../common/random'
-import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user'
-import { GameLoader, GameLoaderError } from '../games/game-loader'
-import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+} from '../../../common/matchmaking.js'
+import { BwTurnRate, BwUserLatency } from '../../../common/network.js'
+import { RaceChar } from '../../../common/races.js'
+import { randomInt, randomItem } from '../../../common/random.js'
+import { urlPath } from '../../../common/urls.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { GameLoader, GameLoaderError } from '../games/game-loader.js'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry.js'
+import logger from '../logging/logger.js'
+import { getMapInfo } from '../maps/map-models.js'
 import {
   calcEffectiveRating,
   Matchmaker,
   MATCHMAKING_INTERVAL_MS,
   OnMatchFoundFunc,
-} from '../matchmaking/matchmaker'
+} from '../matchmaking/matchmaker.js'
 import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
@@ -56,30 +56,30 @@ import {
   MatchmakingPlayer,
   MatchmakingPlayerData,
   matchmakingRatingToPlayerData,
-} from '../matchmaking/matchmaking-entity'
-import MatchmakingStatusService from '../matchmaking/matchmaking-status'
+} from '../matchmaking/matchmaking-entity.js'
+import MatchmakingStatusService from '../matchmaking/matchmaking-status.js'
 import {
   createInitialMatchmakingRating,
   getMatchmakingRating,
   insertMatchmakingCompletion,
   MatchmakingRating,
-} from '../matchmaking/models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import { IN_PARTY_CHECKER, InPartyChecker } from '../parties/in-party-checker'
-import { Clock } from '../time/clock'
-import { ClientIdentifierString } from '../users/client-ids'
-import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { findUsersByIdAsMap } from '../users/user-model'
+} from '../matchmaking/models.js'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools.js'
+import { IN_PARTY_CHECKER, InPartyChecker } from '../parties/in-party-checker.js'
+import { Clock } from '../time/clock.js'
+import { ClientIdentifierString } from '../users/client-ids.js'
+import { UserIdentifierManager } from '../users/user-identifier-manager.js'
+import { findUsersByIdAsMap } from '../users/user-model.js'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
   UserSocketsGroup,
   UserSocketsManager,
-} from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { MatchmakingSeasonsService } from './matchmaking-seasons'
-import { MatchmakingServiceError } from './matchmaking-service-error'
-import { adjustMatchmakingRatingForInactivity } from './rating'
+} from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import { MatchmakingSeasonsService } from './matchmaking-seasons.js'
+import { MatchmakingServiceError } from './matchmaking-service-error.js'
+import { adjustMatchmakingRatingForInactivity } from './rating.js'
 
 interface MatchmakerCallbacks {
   onMatchFound: OnMatchFoundFunc

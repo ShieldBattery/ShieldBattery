@@ -1,36 +1,42 @@
 import { RouterContext } from '@koa/router'
-import 'abort-controller/polyfill' // TODO(tec27): Remove when min node version is >= 15.x
 import 'core-js/proposals/reflect-metadata'
 import { promises as fsPromises } from 'fs'
 import http from 'http'
 import Koa from 'koa'
-import koaBody from 'koa-body'
+import { koaBody } from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
 import koaJwt from 'koa-jwt'
 import views from 'koa-views'
 import path from 'path'
 import { container } from 'tsyringe'
-import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
-import isDev from './lib/env/is-dev'
-import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
-import { addMiddleware as fileStoreMiddleware, setStore } from './lib/file-upload'
-import AwsStore from './lib/file-upload/aws'
-import LocalFileStore from './lib/file-upload/local-filesystem'
-import logMiddleware from './lib/logging/log-middleware'
-import log from './lib/logging/logger'
-import { updateEmailTemplates } from './lib/mail/update-templates'
-import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
-import { redirectToCanonical } from './lib/network/redirect-to-canonical'
-import userIpsMiddleware from './lib/network/user-ips-middleware'
-import { RallyPointService } from './lib/rally-point/rally-point-service'
-import { Redis } from './lib/redis/redis'
-import checkOrigin from './lib/security/check-origin'
-import { cors } from './lib/security/cors'
-import secureHeaders from './lib/security/headers'
-import { MIGRATION_COOKIE, StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
-import createRoutes from './routes'
-import { WebsocketServer } from './websockets'
+import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier.js'
+import isDev from './lib/env/is-dev.js'
+import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware.js'
+import { addMiddleware as fileStoreMiddleware, setStore } from './lib/file-upload.js'
+import AwsStore from './lib/file-upload/aws.js'
+import LocalFileStore from './lib/file-upload/local-filesystem.js'
+import logMiddleware from './lib/logging/log-middleware.js'
+import log from './lib/logging/logger.js'
+import { updateEmailTemplates } from './lib/mail/update-templates.js'
+import {
+  prometheusHttpMetrics,
+  prometheusMiddleware,
+} from './lib/monitoring/prometheus-middleware.js'
+import { redirectToCanonical } from './lib/network/redirect-to-canonical.js'
+import userIpsMiddleware from './lib/network/user-ips-middleware.js'
+import { RallyPointService } from './lib/rally-point/rally-point-service.js'
+import { Redis } from './lib/redis/redis.js'
+import checkOrigin from './lib/security/check-origin.js'
+import { cors } from './lib/security/cors.js'
+import secureHeaders from './lib/security/headers.js'
+import {
+  MIGRATION_COOKIE,
+  StateWithJwt,
+  jwtSessions,
+} from './lib/session/jwt-session-middleware.js'
+import createRoutes from './routes.js'
+import { WebsocketServer } from './websockets.js'
 
 if (!process.env.SB_GQL_ORIGIN) {
   throw new Error('SB_GQL_ORIGIN must be specified')
@@ -267,7 +273,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
 
   fileStoreMiddleware(app)
 
-  createRoutes(app, websocketServer, process.env.SB_GQL_ORIGIN!)
+  await createRoutes(app, websocketServer, process.env.SB_GQL_ORIGIN!)
 
   const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
   const compilePromise = needToBuild

@@ -1,10 +1,10 @@
 import { TFunction } from 'i18next'
 import { SetOptional } from 'type-fest'
-import { assertUnreachable } from '../assert-unreachable'
-import { MatchmakingType } from '../matchmaking'
-import { BwTurnRate } from '../network'
-import { RaceChar } from '../races'
-import { SbUserId } from '../users/sb-user'
+import { assertUnreachable } from '../assert-unreachable.js'
+import { MatchmakingType } from '../matchmaking.js'
+import { BwTurnRate } from '../network.js'
+import { RaceChar } from '../races.js'
+import { SbUserId } from '../users/sb-user.js'
 
 export enum GameSource {
   Lobby = 'LOBBY',

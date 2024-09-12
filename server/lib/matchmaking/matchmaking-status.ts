@@ -6,10 +6,10 @@ import {
   MatchmakingType,
   statusesEqual,
   toMatchmakingStatusJson,
-} from '../../../common/matchmaking'
-import log from '../logging/logger'
-import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
-import { ClientSocketsManager } from '../websockets/socket-groups'
+} from '../../../common/matchmaking.js'
+import log from '../logging/logger.js'
+import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
 
 @singleton()
 export default class MatchmakingStatusService {

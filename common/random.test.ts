@@ -1,5 +1,5 @@
 import { mockRandomForEach } from 'jest-mock-random'
-import { multipleRandomItems, multipleRandomItemsUntil } from './random'
+import { multipleRandomItems, multipleRandomItemsUntil } from './random.js'
 
 describe('common/random', () => {
   mockRandomForEach([0.1, 0.1, 0.3, 0.5, 0.7])

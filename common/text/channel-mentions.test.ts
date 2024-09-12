@@ -1,4 +1,4 @@
-import { matchChannelMentions, matchChannelMentionsMarkup } from './channel-mentions'
+import { matchChannelMentions, matchChannelMentionsMarkup } from './channel-mentions.js'
 
 describe('common/text/mentions/matchChannelMentions', () => {
   const doMatch = (text: string): string[] => {

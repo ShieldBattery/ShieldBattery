@@ -1,6 +1,6 @@
-import { RallyPointServer } from '../../../common/rally-point'
-import db from '../db/index'
-import { sql } from '../db/sql'
+import { RallyPointServer } from '../../../common/rally-point/index.js'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
 
 /**
  * Retrieves the complete list of rally-point servers, ordered by ID.

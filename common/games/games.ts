@@ -1,13 +1,13 @@
 import type { TFunction } from 'i18next'
 import { Immutable } from 'immer'
-import { assertUnreachable } from '../assert-unreachable'
-import { Jsonify } from '../json'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues'
-import { MapInfoJson } from '../maps'
-import { PublicMatchmakingRatingChangeJson, matchmakingTypeToLabel } from '../matchmaking'
-import { SbUser, SbUserId } from '../users/sb-user'
-import { GameConfig, GameSource } from './configuration'
-import { ReconciledPlayerResult } from './results'
+import { assertUnreachable } from '../assert-unreachable.js'
+import { Jsonify } from '../json.js'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues/index.js'
+import { MapInfoJson } from '../maps.js'
+import { PublicMatchmakingRatingChangeJson, matchmakingTypeToLabel } from '../matchmaking.js'
+import { SbUser, SbUserId } from '../users/sb-user.js'
+import { GameConfig, GameSource } from './configuration.js'
+import { ReconciledPlayerResult } from './results.js'
 
 export interface GameRecord {
   id: string

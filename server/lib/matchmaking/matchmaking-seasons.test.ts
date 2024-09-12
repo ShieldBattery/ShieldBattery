@@ -1,8 +1,8 @@
-import { makeSeasonId, MatchmakingSeason } from '../../../common/matchmaking'
-import { asMockedFunction } from '../../../common/testing/mocks'
-import { FakeClock } from '../time/testing/fake-clock'
-import { MatchmakingSeasonsService } from './matchmaking-seasons'
-import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models'
+import { makeSeasonId, MatchmakingSeason } from '../../../common/matchmaking.js'
+import { asMockedFunction } from '../../../common/testing/mocks.js'
+import { FakeClock } from '../time/testing/fake-clock.js'
+import { MatchmakingSeasonsService } from './matchmaking-seasons.js'
+import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models.js'
 
 jest.mock('./models', () => ({
   getMatchmakingSeasons: jest.fn(),

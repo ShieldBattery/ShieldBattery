@@ -1,7 +1,7 @@
 import Router, { RouterContext } from '@koa/router'
-import { PropKey, TypedMethodDecorator } from '../reflect/decorators'
-import { MetadataMapValue } from '../reflect/metadata'
-import { HttpMethod } from './http-method'
+import { PropKey, TypedMethodDecorator } from '../reflect/decorators.js'
+import { MetadataMapValue } from '../reflect/metadata.js'
+import { HttpMethod } from './http-method.js'
 
 interface RouteDefinition {
   method: HttpMethod

@@ -1,16 +1,16 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { container, delay, inject, instanceCachingFactory, singleton } from 'tsyringe'
-import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
-import { Deferred, createDeferred } from '../../../common/async/deferred'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import { isAbortError, raceAbort } from '../../../common/async/abort-signals.js'
+import { Deferred, createDeferred } from '../../../common/async/deferred.js'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
 import {
   MatchmakingPreferences,
   MatchmakingServiceErrorCode,
   MatchmakingType,
   TEAM_SIZES,
-} from '../../../common/matchmaking'
-import { NotificationType } from '../../../common/notifications'
+} from '../../../common/matchmaking.js'
+import { NotificationType } from '../../../common/notifications.js'
 import {
   MAX_PARTY_SIZE,
   PartyEvent,
@@ -18,25 +18,25 @@ import {
   PartyJson,
   PartyQueueCancelReason,
   PartyServiceErrorCode,
-} from '../../../common/parties'
-import { RaceChar } from '../../../common/races'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { toBasicChannelInfo } from '../chat/chat-models'
-import { CodedError } from '../errors/coded-error'
-import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import logger from '../logging/logger'
-import { MatchmakingService } from '../matchmaking/matchmaking-service'
-import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
-import filterChatMessage from '../messaging/filter-chat-message'
-import { processMessageContents } from '../messaging/process-chat-message'
-import NotificationService from '../notifications/notification-service'
-import { Clock } from '../time/clock'
-import { ClientIdentifierString } from '../users/client-ids'
-import { findUsersByIdAsMap } from '../users/user-model'
-import { UserRelationshipService } from '../users/user-relationship-service'
-import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { IN_PARTY_CHECKER, InPartyChecker } from './in-party-checker'
+} from '../../../common/parties.js'
+import { RaceChar } from '../../../common/races.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { toBasicChannelInfo } from '../chat/chat-models.js'
+import { CodedError } from '../errors/coded-error.js'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry.js'
+import logger from '../logging/logger.js'
+import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error.js'
+import { MatchmakingService } from '../matchmaking/matchmaking-service.js'
+import filterChatMessage from '../messaging/filter-chat-message.js'
+import { processMessageContents } from '../messaging/process-chat-message.js'
+import NotificationService from '../notifications/notification-service.js'
+import { Clock } from '../time/clock.js'
+import { ClientIdentifierString } from '../users/client-ids.js'
+import { findUsersByIdAsMap } from '../users/user-model.js'
+import { UserRelationshipService } from '../users/user-relationship-service.js'
+import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import { IN_PARTY_CHECKER, InPartyChecker } from './in-party-checker.js'
 
 export interface PartyRecord {
   id: string

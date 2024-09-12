@@ -8,23 +8,23 @@ import {
   ReportBugRequest,
   ReportBugResponse,
   toBugReportJson,
-} from '../../../common/bugs'
-import { SbUserId } from '../../../common/users/sb-user'
-import transact from '../db/transaction'
-import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
-import { deleteFile, getSignedUrl, writeFile } from '../file-upload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
-import { httpApi } from '../http/http-api'
-import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
-import { JobScheduler } from '../jobs/job-scheduler'
-import logger from '../logging/logger'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { Clock } from '../time/clock'
-import { findUsersById } from '../users/user-model'
-import { validateRequest } from '../validation/joi-validator'
+} from '../../../common/bugs.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import transact from '../db/transaction.js'
+import { DiscordWebhookNotifier } from '../discord/webhook-notifier.js'
+import { handleMultipartFiles } from '../file-upload/handle-multipart-files.js'
+import { deleteFile, getSignedUrl, writeFile } from '../file-upload/index.js'
+import { httpApi } from '../http/http-api.js'
+import { httpBefore, httpGet, httpPost } from '../http/route-decorators.js'
+import { JobScheduler } from '../jobs/job-scheduler.js'
+import logger from '../logging/logger.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { Clock } from '../time/clock.js'
+import { findUsersById } from '../users/user-model.js'
+import { validateRequest } from '../validation/joi-validator.js'
 import {
   createBugReport,
   findDeletableBugReports,
@@ -32,7 +32,7 @@ import {
   listBugReports,
   markBugReportFilesDeleted,
   resolveBugReport,
-} from './bugs-model'
+} from './bugs-model.js'
 
 const MAX_LOGS_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
 

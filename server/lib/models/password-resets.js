@@ -1,4 +1,4 @@
-import db from '../db'
+import db from '../db/index.js'
 
 export async function addPasswordResetCode(userId, code, ip) {
   const { client, done } = await db()

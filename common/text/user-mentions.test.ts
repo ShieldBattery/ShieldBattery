@@ -1,4 +1,4 @@
-import { matchUserMentions, matchUserMentionsMarkup } from './user-mentions'
+import { matchUserMentions, matchUserMentionsMarkup } from './user-mentions.js'
 
 describe('common/text/mentions/matchUserMentions', () => {
   const doMatch = (text: string): string[] => {

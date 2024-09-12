@@ -1,5 +1,5 @@
 import { NydusServer } from 'nydus'
-import createDeferred from '../../../common/async/deferred'
+import createDeferred from '../../../common/async/deferred.js'
 import {
   BasicChannelInfo,
   ChannelModerationAction,
@@ -11,24 +11,24 @@ import {
   makeSbChannelId,
   SbChannelId,
   ServerChatMessageType,
-} from '../../../common/chat'
-import * as flags from '../../../common/flags'
-import { asMockedFunction } from '../../../common/testing/mocks'
-import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
-import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
-import { DbClient } from '../db'
-import { ImageService } from '../images/image-service'
-import { getPermissions } from '../models/permissions'
-import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
-import { RequestSessionLookup } from '../websockets/session-lookup'
-import { UserSocketsManager } from '../websockets/socket-groups'
+} from '../../../common/chat.js'
+import * as flags from '../../../common/flags.js'
+import { asMockedFunction } from '../../../common/testing/mocks.js'
+import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions.js'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { DbClient } from '../db/index.js'
+import { ImageService } from '../images/image-service.js'
+import { getPermissions } from '../models/permissions.js'
+import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids.js'
+import { RequestSessionLookup } from '../websockets/session-lookup.js'
+import { UserSocketsManager } from '../websockets/socket-groups.js'
 import {
   clearTestLogs,
   createFakeNydusServer,
   InspectableNydusClient,
   NydusConnector,
-} from '../websockets/testing/websockets'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from '../websockets/testing/websockets.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -58,8 +58,8 @@ import {
   updateUserPermissions,
   updateUserPreferences,
   UserChannelEntry,
-} from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
+} from './chat-models.js'
+import ChatService, { getChannelPath, getChannelUserPath } from './chat-service.js'
 
 const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 

@@ -4,8 +4,8 @@ import KoaRouter from '@koa/router'
 import http from 'http'
 import httpErrors from 'http-errors'
 import Koa from 'koa'
-import koaBody from 'koa-body'
-import { SentEmail } from './sent-email'
+import { koaBody } from 'koa-body'
+import { SentEmail } from './sent-email.js'
 
 const port = Number(process.env.FAKE_MAILGUN_PORT ?? 5528)
 

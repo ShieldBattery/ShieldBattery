@@ -1,8 +1,8 @@
 import { app } from 'electron'
 import { access } from 'fs/promises'
 import path from 'path'
-import { ShieldBatteryFile, ShieldBatteryFileResult } from '../common/shieldbattery-file'
-import logger from './logger'
+import { ShieldBatteryFile, ShieldBatteryFileResult } from '../common/shieldbattery-file.js'
+import logger from './logger.js'
 
 const FILES_TO_CHECK: [ShieldBatteryFile, string][] = [
   [ShieldBatteryFile.Init, path.join('game', 'dist', 'sb_init.dll')],

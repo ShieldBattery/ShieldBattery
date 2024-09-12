@@ -4,7 +4,7 @@ import { readFile } from 'fs/promises'
 import { glob } from 'glob'
 import got from 'got'
 import path from 'path'
-import logger from '../logging/logger'
+import logger from '../logging/logger.js'
 
 const API_KEY = process.env.SB_MAILGUN_KEY
 const HOST = process.env.SB_CANONICAL_HOST!
@@ -89,7 +89,7 @@ async function getTemplateVersion(
         )}/versions/${encodeURIComponent(versionCode)}`,
         {
           headers: mailgunHeaders(),
-          timeout: 5000,
+          timeout: { request: 5000 },
         },
       )
       .json<Record<string, any>>()
@@ -107,7 +107,7 @@ async function getTemplate(templateName: string): Promise<Record<string, any> | 
     return await got
       .get(`${MAILGUN_URL}/${DOMAIN}/templates/${encodeURIComponent(templateName)}`, {
         headers: mailgunHeaders(),
-        timeout: 5000,
+        timeout: { request: 5000 },
       })
       .json<Record<string, any>>()
   } catch (err: any) {
@@ -136,7 +136,7 @@ async function createTemplate(
     .post(`${MAILGUN_URL}/${DOMAIN}/templates`, {
       headers: mailgunHeaders(),
       body,
-      timeout: 5000,
+      timeout: { request: 5000 },
     })
     .json<Record<string, any>>()
 }
@@ -155,7 +155,7 @@ async function createTemplateVersion(
     .post(`${MAILGUN_URL}/${DOMAIN}/templates/${templateName}/versions`, {
       headers: mailgunHeaders(),
       body,
-      timeout: 5000,
+      timeout: { request: 5000 },
     })
     .json<Record<string, any>>()
 }
@@ -177,7 +177,7 @@ async function updateTemplateVersion(
       {
         headers: mailgunHeaders(),
         body,
-        timeout: 5000,
+        timeout: { request: 5000 },
       },
     )
     .json<Record<string, any>>()

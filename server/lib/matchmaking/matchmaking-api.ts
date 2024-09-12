@@ -1,7 +1,7 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   AddMatchmakingSeasonResponse,
   FindMatchRequest,
@@ -12,24 +12,24 @@ import {
   SeasonId,
   ServerAddMatchmakingSeasonRequest,
   toMatchmakingSeasonJson,
-} from '../../../common/matchmaking'
-import { makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { joiClientIdentifiers } from '../users/client-ids'
-import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { validateRequest } from '../validation/joi-validator'
-import { filterVetoedMaps } from './map-vetoes'
-import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
-import { MatchmakingService } from './matchmaking-service'
-import { MatchmakingServiceError } from './matchmaking-service-error'
-import { matchmakingPreferencesValidator } from './matchmaking-validators'
+} from '../../../common/matchmaking.js'
+import { makeErrorConverterMiddleware } from '../errors/coded-error.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators.js'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { joiClientIdentifiers } from '../users/client-ids.js'
+import { UserIdentifierManager } from '../users/user-identifier-manager.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { filterVetoedMaps } from './map-vetoes.js'
+import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons.js'
+import { MatchmakingServiceError } from './matchmaking-service-error.js'
+import { MatchmakingService } from './matchmaking-service.js'
+import { matchmakingPreferencesValidator } from './matchmaking-validators.js'
 
 const matchmakingThrottle = createThrottle('matchmaking', {
   rate: 20,

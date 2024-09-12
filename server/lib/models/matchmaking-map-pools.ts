@@ -1,7 +1,7 @@
-import { MatchmakingMapPool, MatchmakingType } from '../../../common/matchmaking'
-import db from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+import { MatchmakingMapPool, MatchmakingType } from '../../../common/matchmaking.js'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 type DbMatchmakingMapPool = Dbify<MatchmakingMapPool>
 

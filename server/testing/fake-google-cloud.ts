@@ -4,14 +4,14 @@ import * as grpc from '@grpc/grpc-js'
 import {
   IImageAnnotatorServer,
   ImageAnnotatorService,
-} from './google/cloud/vision/v1/image_annotator_grpc_pb'
+} from './google/cloud/vision/v1/image_annotator_grpc_pb.js'
 import {
   AnnotateImageResponse,
   BatchAnnotateImagesRequest,
   BatchAnnotateImagesResponse,
   Likelihood,
   SafeSearchAnnotation,
-} from './google/cloud/vision/v1/image_annotator_pb'
+} from './google/cloud/vision/v1/image_annotator_pb.js'
 
 const port = Number(process.env.FAKE_GOOGLE_CLOUD_PORT ?? 5530)
 

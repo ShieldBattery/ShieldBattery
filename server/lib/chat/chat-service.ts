@@ -2,8 +2,8 @@ import formidable from 'formidable'
 import { Record as ImmutableRecord, Map, Set } from 'immutable'
 import mime from 'mime'
 import { singleton } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
 import {
   CHANNEL_BADGE_HEIGHT,
   CHANNEL_BADGE_WIDTH,
@@ -30,27 +30,27 @@ import {
   ServerChatMessageType,
   makeSbChannelId,
   toChatUserProfileJson,
-} from '../../../common/chat'
-import { subtract } from '../../../common/data-structures/sets'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
-import { Patch } from '../../../common/patch'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { DbClient } from '../db'
-import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
-import transact from '../db/transaction'
-import { CodedError } from '../errors/coded-error'
-import { writeFile } from '../file-upload'
-import { createImagePath, resizeImage } from '../file-upload/images'
-import { ImageService } from '../images/image-service'
-import logger from '../logging/logger'
-import filterChatMessage from '../messaging/filter-chat-message'
-import { processMessageContents } from '../messaging/process-chat-message'
-import { getPermissions } from '../models/permissions'
-import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
-import { findConnectedUsers } from '../users/user-identifiers'
-import { findUserById, findUsersById } from '../users/user-model'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from '../../../common/chat.js'
+import { subtract } from '../../../common/data-structures/sets.js'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags.js'
+import { Patch } from '../../../common/patch.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { DbClient } from '../db/index.js'
+import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes.js'
+import transact from '../db/transaction.js'
+import { CodedError } from '../errors/coded-error.js'
+import { createImagePath, resizeImage } from '../file-upload/images.js'
+import { writeFile } from '../file-upload/index.js'
+import { ImageService } from '../images/image-service.js'
+import logger from '../logging/logger.js'
+import filterChatMessage from '../messaging/filter-chat-message.js'
+import { processMessageContents } from '../messaging/process-chat-message.js'
+import { getPermissions } from '../models/permissions.js'
+import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids.js'
+import { findConnectedUsers } from '../users/user-identifiers.js'
+import { findUserById, findUsersById } from '../users/user-model.js'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   ChatMessage,
   EditableChannelFields,
@@ -80,7 +80,7 @@ import {
   updateChannel,
   updateUserPermissions,
   updateUserPreferences,
-} from './chat-models'
+} from './chat-models.js'
 
 class ChatState extends ImmutableRecord({
   /** Maps channel id -> Set of IDs of users in that channel. */

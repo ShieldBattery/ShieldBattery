@@ -3,10 +3,10 @@ import {
   MatchmakingSeason,
   MatchmakingSeasonsServiceErrorCode,
   SeasonId,
-} from '../../../common/matchmaking'
-import { CodedError } from '../errors/coded-error'
-import { Clock } from '../time/clock'
-import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models'
+} from '../../../common/matchmaking.js'
+import { CodedError } from '../errors/coded-error.js'
+import { Clock } from '../time/clock.js'
+import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models.js'
 
 export class MatchmakingSeasonsServiceError extends CodedError<MatchmakingSeasonsServiceErrorCode> {
   // prettier wants to put this brace on the preceding line which makes the line too long, *shrug*

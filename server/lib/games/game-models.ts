@@ -1,9 +1,9 @@
-import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
-import { ReconciledResults } from '../../../common/games/results'
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games.js'
+import { ReconciledResults } from '../../../common/games/results.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 type DbGameRecord = Dbify<GameRecord>
 

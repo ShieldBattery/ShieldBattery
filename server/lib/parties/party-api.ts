@@ -2,8 +2,12 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import {
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../../common/constants.js'
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
@@ -14,22 +18,22 @@ import {
   InviteToPartyRequest,
   PartyServiceErrorCode,
   SendPartyChatMessageRequest,
-} from '../../../common/parties'
-import { SbUser } from '../../../common/users/sb-user'
-import { asHttpError } from '../errors/error-with-payload'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
-import { filterVetoedMaps } from '../matchmaking/map-vetoes'
-import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { joiClientIdentifiers } from '../users/client-ids'
-import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { findUserById, findUserByName } from '../users/user-model'
-import { validateRequest } from '../validation/joi-validator'
-import PartyService, { PartyServiceError } from './party-service'
+} from '../../../common/parties.js'
+import { SbUser } from '../../../common/users/sb-user.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpPost } from '../http/route-decorators.js'
+import { filterVetoedMaps } from '../matchmaking/map-vetoes.js'
+import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators.js'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { joiClientIdentifiers } from '../users/client-ids.js'
+import { UserIdentifierManager } from '../users/user-identifier-manager.js'
+import { findUserById, findUserByName } from '../users/user-model.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import PartyService, { PartyServiceError } from './party-service.js'
 
 const invitesThrottle = createThrottle('partyInvites', {
   rate: 40,

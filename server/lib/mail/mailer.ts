@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import formData from 'form-data'
 import Mailgun, { MailgunMessageData } from 'mailgun.js'
-import log from '../logging/logger'
+import log from '../logging/logger.js'
 
 const enabled = !!process.env.SB_MAILGUN_KEY
 
@@ -9,7 +9,7 @@ const FROM = enabled ? process.env.SB_MAILGUN_FROM : ''
 const HOST = process.env.SB_CANONICAL_HOST!
 const DOMAIN = process.env.SB_MAILGUN_DOMAIN
 const mailgunClient = enabled
-  ? new Mailgun(formData).client({
+  ? new Mailgun.default(formData).client({
       username: 'api',
       key: process.env.SB_MAILGUN_KEY!,
       // NOTE(tec27): This is optional and only really meant to be used for testing

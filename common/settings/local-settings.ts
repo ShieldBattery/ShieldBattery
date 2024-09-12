@@ -1,4 +1,4 @@
-import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
+import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings.js'
 
 /**
  * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the

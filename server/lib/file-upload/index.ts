@@ -1,7 +1,7 @@
 import BufferList from 'bl'
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { FileStore } from './store.js'
 
 let store: FileStore | null = null
 

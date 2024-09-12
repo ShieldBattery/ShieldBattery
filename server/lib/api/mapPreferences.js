@@ -1,9 +1,9 @@
 import httpErrors from 'http-errors'
-import { ALL_MAP_SORT_TYPES, ALL_MAP_VISIBILITIES } from '../../../common/maps'
-import { getMapPreferences, upsertMapPreferences } from '../models/map-preferences'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import { ALL_MAP_SORT_TYPES, ALL_MAP_VISIBILITIES } from '../../../common/maps.js'
+import { getMapPreferences, upsertMapPreferences } from '../models/map-preferences.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
 
 const throttle = createThrottle('mappreferences', {
   rate: 20,

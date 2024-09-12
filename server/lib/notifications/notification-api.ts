@@ -4,12 +4,12 @@ import {
   ClearNotificationsServerRequest,
   ClearNotificationsServerResponse,
   MarkNotificationsReadServerRequest,
-} from '../../../common/notifications'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpPost } from '../http/route-decorators'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { validateRequest } from '../validation/joi-validator'
-import NotificationService from './notification-service'
+} from '../../../common/notifications.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpPost } from '../http/route-decorators.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import NotificationService from './notification-service.js'
 
 @httpApi('/notifications')
 @httpBeforeAll(ensureLoggedIn)

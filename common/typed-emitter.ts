@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
-import TypedEmitter, { EventMap } from 'typed-emitter'
+import { DefaultListener, TypedEmitter } from 'tiny-typed-emitter'
 
-export { EventMap }
+export type EventMap = DefaultListener
 
 /**
  * A typed version of the normal node EventEmitter class, such that emitted/handled events and

@@ -1,9 +1,9 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
-import { isValidUsername } from '../../../common/constants'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { isUsernameAvailable } from '../users/user-model'
+import { isValidUsername } from '../../../common/constants.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { isUsernameAvailable } from '../users/user-model.js'
 
 const throttle = createThrottle('usernameavailability', {
   rate: 10,

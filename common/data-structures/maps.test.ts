@@ -1,4 +1,4 @@
-import { appendToMultimap, prependToMultimap } from './maps'
+import { appendToMultimap, prependToMultimap } from './maps.js'
 
 describe('common/maps', () => {
   test('appendToMultimap', () => {

@@ -1,8 +1,8 @@
 import { TFunction } from 'i18next'
 import { ReplayRace } from 'jssuh'
-import { assertUnreachable } from './assert-unreachable'
-import { RaceChar } from './races'
-import { SbUserId } from './users/sb-user'
+import { assertUnreachable } from './assert-unreachable.js'
+import { RaceChar } from './races.js'
+import { SbUserId } from './users/sb-user.js'
 
 export function replayRaceToChar(name: ReplayRace): RaceChar {
   switch (name) {

@@ -4,6 +4,8 @@ import net from 'net'
 import os from 'os'
 import path from 'path'
 import sanitize from 'sanitize-filename'
+import { getErrorStack } from '../common/errors.js'
+import logger from './logger.js'
 
 export interface NewInstanceNotification {
   /** The command-line arguments for the new instance. */
@@ -47,13 +49,17 @@ export default function () {
 
       // This will only be executed by the first instance, because it will try to connect to a
       // socket on a server which is not running yet.
-      const notifyNewInstance = require('./app').notifyNewInstance
+      const notifyNewInstancePromise = import('./app.js').then(m => m.notifyNewInstance)
       net
         .createServer(connection => {
           connection.on('data', data => {
             try {
               const notification = JSON.parse(data.toString()) as NewInstanceNotification
-              notifyNewInstance(notification)
+              notifyNewInstancePromise
+                .then(notify => notify(notification))
+                .catch(err => {
+                  logger.error(`Error notifying new instance: ${getErrorStack(err)}`)
+                })
             } catch (e) {
               // Not much to do here, we must have gotten data that wasn't valid JSON?
             }

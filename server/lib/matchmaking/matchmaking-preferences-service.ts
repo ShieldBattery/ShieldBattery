@@ -1,21 +1,21 @@
 import { singleton } from 'tsyringe'
-import { toMapInfoJson } from '../../../common/maps'
+import { toMapInfoJson } from '../../../common/maps.js'
 import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingType,
   PartialMatchmakingPreferences,
-} from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
-import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import { ClientSocketsManager } from '../websockets/socket-groups'
+} from '../../../common/matchmaking.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import logger from '../logging/logger.js'
+import { getMapInfo } from '../maps/map-models.js'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
 import {
   getMatchmakingPreferences,
   upsertMatchmakingPreferences,
-} from './matchmaking-preferences-model'
+} from './matchmaking-preferences-model.js'
 
 export function getMatchmakingPreferencesPath(
   userId: SbUserId,

@@ -1,7 +1,7 @@
 import { unlink } from 'fs/promises'
 import Koa from 'koa'
-import koaBody from 'koa-body'
-import logger from '../logging/logger'
+import { koaBody } from 'koa-body'
+import logger from '../logging/logger.js'
 
 /**
  * A Koa middleware function that sets up multipart file handling and will clean up the files

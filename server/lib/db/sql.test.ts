@@ -1,4 +1,4 @@
-import { sql, sqlConcat, sqlRaw } from './sql'
+import { sql, sqlConcat, sqlRaw } from './sql.js'
 
 describe('server/lib/db/sql', () => {
   test('basic usage', () => {

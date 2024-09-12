@@ -2,7 +2,7 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa, { ExtendableContext, Next } from 'koa'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   ChannelPermissions,
   ChatServiceErrorCode,
@@ -21,22 +21,22 @@ import {
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
-} from '../../../common/chat'
-import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
-import { CHANNEL_BANNERS } from '../../../common/flags'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { asHttpError } from '../errors/error-with-payload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
-import { MAX_IMAGE_SIZE } from '../file-upload/images'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware, { throttleMiddlewareFunc } from '../throttle/middleware'
-import { validateRequest } from '../validation/joi-validator'
-import { json } from '../validation/json-validator'
-import ChatService, { ChatServiceError } from './chat-service'
+} from '../../../common/chat.js'
+import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants.js'
+import { CHANNEL_BANNERS } from '../../../common/flags.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { handleMultipartFiles } from '../file-upload/handle-multipart-files.js'
+import { MAX_IMAGE_SIZE } from '../file-upload/images.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators.js'
+import { checkAllPermissions } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware, { throttleMiddlewareFunc } from '../throttle/middleware.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { json } from '../validation/json-validator.js'
+import ChatService, { ChatServiceError } from './chat-service.js'
 
 const joinThrottle = createThrottle('chatjoin', {
   rate: 3,

@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { monotonicNow } from './monotonic-now'
+import { monotonicNow } from './monotonic-now.js'
 
 export type TimeoutId = ReturnType<typeof setTimeout>
 

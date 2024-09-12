@@ -1,6 +1,6 @@
 import { singleton } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
-import { ClientSocketsGroup } from '../websockets/socket-groups'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { ClientSocketsGroup } from '../websockets/socket-groups.js'
 
 @singleton()
 export class GameplayActivityRegistry {

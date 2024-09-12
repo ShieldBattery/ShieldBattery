@@ -1,5 +1,5 @@
 import { MergeExclusive } from 'type-fest'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   BasicChannelInfo,
   ChannelPermissions,
@@ -10,15 +10,15 @@ import {
   MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
-} from '../../../common/chat'
-import { Patch } from '../../../common/patch'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { escapeSearchString } from '../db/escape-search-string'
-import { sql, sqlConcat } from '../db/sql'
-import transact from '../db/transaction'
-import { Dbify } from '../db/types'
-import { getUrl } from '../file-upload'
+} from '../../../common/chat.js'
+import { Patch } from '../../../common/patch.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { escapeSearchString } from '../db/escape-search-string.js'
+import db, { DbClient } from '../db/index.js'
+import { sql, sqlConcat } from '../db/sql.js'
+import transact from '../db/transaction.js'
+import { Dbify } from '../db/types.js'
+import { getUrl } from '../file-upload/index.js'
 
 export interface UserChannelEntry {
   userId: SbUserId

@@ -1,8 +1,8 @@
 import { Opaque } from 'type-fest'
-import { Jsonify } from '../json'
-import { MatchmakingResult, MatchmakingType } from '../matchmaking'
-import { RaceStats } from '../races'
-import { SbUser, SbUserId } from '../users/sb-user'
+import { Jsonify } from '../json.js'
+import { MatchmakingResult, MatchmakingType } from '../matchmaking.js'
+import { RaceStats } from '../races.js'
+import { SbUser, SbUserId } from '../users/sb-user.js'
 
 export const LEAGUE_IMAGE_WIDTH = 704 * 2
 export const LEAGUE_IMAGE_HEIGHT = 288 * 2

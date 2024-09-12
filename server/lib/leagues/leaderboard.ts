@@ -1,7 +1,7 @@
-import { LeagueId } from '../../../common/leagues'
-import { makeSbUserId, SbUserId } from '../../../common/users/sb-user'
-import { Redis } from '../redis/redis'
-import { LeagueUser } from './league-models'
+import { LeagueId } from '../../../common/leagues/index.js'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user.js'
+import { Redis } from '../redis/redis.js'
+import { LeagueUser } from './league-models.js'
 
 function leaderboardKey(leagueId: LeagueId) {
   return `leaderboard:${leagueId}`

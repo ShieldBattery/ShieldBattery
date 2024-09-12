@@ -6,6 +6,7 @@
   "version": "9.5.1",
   "description": "The standalone client for ShieldBattery",
   "main": "index.js",
+  "type": "module",
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com)",
   "dependencies": {
@@ -15,6 +16,7 @@
     "@babel/plugin-transform-private-methods": "^7.25.4",
     "@babel/preset-env": "^7.25.4",
     "@babel/register": "^7.24.6",
+    "@bufbuild/protobuf": "^2.0.0",
     "@shieldbattery/stimpack": "^1.1.1",
     "@shieldbattery/windows-registry": "^1.0.0",
     "archiver": "^7.0.1",
@@ -25,10 +27,12 @@
     "electron-localshortcut": "^3.2.1",
     "electron-updater": "^6.3.4",
     "jssuh": "^1.6.0",
-    "lodash": "^4.17.21",
+    "lodash-es": "^4.17.21",
     "long": "^5.2.3",
     "mkdirp": "^3.0.1",
-    "protobufjs": "^7.4.0",
     "sanitize-filename": "^1.6.3"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.12"
   }
 }

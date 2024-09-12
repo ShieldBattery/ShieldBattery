@@ -1,21 +1,21 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { toMapInfoJson } from '../../../common/maps'
+import { toMapInfoJson } from '../../../common/maps.js'
 import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesResponse,
   MatchmakingType,
-} from '../../../common/matchmaking'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpPost } from '../http/route-decorators'
-import { getMapInfo } from '../maps/map-models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { validateRequest } from '../validation/joi-validator'
-import { filterVetoedMaps } from './map-vetoes'
-import MatchmakingPreferencesService from './matchmaking-preferences-service'
-import { matchmakingPreferencesValidator } from './matchmaking-validators'
+} from '../../../common/matchmaking.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpPost } from '../http/route-decorators.js'
+import { getMapInfo } from '../maps/map-models.js'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { filterVetoedMaps } from './map-vetoes.js'
+import MatchmakingPreferencesService from './matchmaking-preferences-service.js'
+import { matchmakingPreferencesValidator } from './matchmaking-validators.js'
 
 @httpApi('/matchmakingPreferences')
 @httpBeforeAll(ensureLoggedIn)

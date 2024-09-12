@@ -1,7 +1,7 @@
 import { Opaque } from 'type-fest'
-import { Jsonify } from './json'
-import { Patch } from './patch'
-import { SbUser, SbUserId } from './users/sb-user'
+import { Jsonify } from './json.js'
+import { Patch } from './patch.js'
+import { SbUser, SbUserId } from './users/sb-user.js'
 
 export const CHANNEL_BANNER_WIDTH = 736 * 2
 export const CHANNEL_BANNER_HEIGHT = 414 * 2

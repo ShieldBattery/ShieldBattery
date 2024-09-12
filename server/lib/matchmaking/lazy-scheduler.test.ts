@@ -1,5 +1,5 @@
-import { FakeClock } from '../time/testing/fake-clock'
-import { LazyScheduler } from './lazy-scheduler'
+import { FakeClock } from '../time/testing/fake-clock.js'
+import { LazyScheduler } from './lazy-scheduler.js'
 
 const DELAY_MILLIS = 1000
 

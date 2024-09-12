@@ -1,4 +1,4 @@
-import { intersection, subtract, union } from './sets'
+import { intersection, subtract, union } from './sets.js'
 
 const EMPTY = new Set<number>()
 const LOW = new Set([0, 1, 2, 3])

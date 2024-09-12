@@ -1,9 +1,9 @@
 import { SetRequired } from 'type-fest'
-import { NotificationType } from '../../../common/notifications'
-import { SbUserId } from '../../../common/users/sb-user'
-import db from '../db/index'
-import { sql, sqlConcat, sqlRaw } from '../db/sql'
-import { Dbify } from '../db/types'
+import { NotificationType } from '../../../common/notifications.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db from '../db/index.js'
+import { sql, sqlConcat, sqlRaw } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 export interface BaseNotificationData {
   readonly type: NotificationType

@@ -1,7 +1,7 @@
 import Chk from 'bw-chk'
 import fs from 'fs'
 import createScmExtractor from 'scm-extractor'
-import HashThrough from '../../../common/hash-through'
+import HashThrough from '../../../common/hash-through.js'
 
 export async function parseAndHashMap(filePath, extension) {
   const hasher = new HashThrough()

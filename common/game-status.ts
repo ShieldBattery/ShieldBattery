@@ -1,4 +1,4 @@
-import { assertUnreachable } from './assert-unreachable'
+import { assertUnreachable } from './assert-unreachable.js'
 
 /**
  * Represents the status of a game in progress. These are considered "ordered" (that is, a higher

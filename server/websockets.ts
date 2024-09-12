@@ -5,19 +5,22 @@ import Koa from 'koa'
 import { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
-import log from './lib/logging/logger'
-import { isElectronClient } from './lib/network/only-web-clients'
-import { getSingleQueryParam } from './lib/network/query-param'
-import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
-import { StateWithJwt } from './lib/session/jwt-session-middleware'
-import getAddress from './lib/websockets/get-address'
-import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
-import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
+import log from './lib/logging/logger.js'
+import { isElectronClient } from './lib/network/only-web-clients.js'
+import { getSingleQueryParam } from './lib/network/query-param.js'
+import { CORS_MAX_AGE_SECONDS } from './lib/security/cors.js'
+import { StateWithJwt } from './lib/session/jwt-session-middleware.js'
+import getAddress from './lib/websockets/get-address.js'
+import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup.js'
+import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups.js'
 
-const apiHandlers = fs
+const apiHandlersPromises = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
   .filter(filename => /\.(js|ts)$/.test(filename))
-  .map(filename => require('./lib/wsapi/' + filename).default)
+  .map(async filename => {
+    const module = await import('./lib/wsapi/' + filename)
+    return module.default
+  })
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {
@@ -87,10 +90,16 @@ export class WebsocketServer {
         log.error(`client ${client.id} send a message that was unparseable: ${msg}`)
       })
 
-    for (const handler of apiHandlers) {
-      if (handler) {
-        handler(this.nydus, this.userSockets, this.clientSockets)
-      }
+    for (const handlerPromise of apiHandlersPromises) {
+      handlerPromise
+        .then((handler: any) => {
+          if (handler) {
+            handler(this.nydus, this.userSockets, this.clientSockets)
+          }
+        })
+        .catch(err => {
+          log.error({ err }, 'Error loading websocket API handler')
+        })
     }
   }
 

@@ -1,8 +1,8 @@
-import { GameConfig } from '../../../common/games/configuration'
-import transact from '../db/transaction'
-import { createGameUserRecord } from '../models/games-users'
-import { createGameRecord } from './game-models'
-import { genResultCode } from './gen-result-code'
+import { GameConfig } from '../../../common/games/configuration.js'
+import transact from '../db/transaction.js'
+import { createGameUserRecord } from '../models/games-users.js'
+import { createGameRecord } from './game-models.js'
+import { genResultCode } from './gen-result-code.js'
 
 /**
  * Registers a game in the database so that results can be collected for it.

@@ -1,13 +1,13 @@
 import { Opaque } from 'type-fest'
-import { GameRecordJson } from '../games/games'
-import { TranslationLanguage } from '../i18n'
-import { Jsonify } from '../json'
-import { LadderPlayer } from '../ladder'
-import { MapInfoJson } from '../maps'
-import { MatchmakingType } from '../matchmaking'
-import { SbPolicyType } from '../policies/policy-type'
-import { SbPermissions } from './permissions'
-import { UserStats } from './user-stats'
+import { GameRecordJson } from '../games/games.js'
+import { TranslationLanguage } from '../i18n.js'
+import { Jsonify } from '../json.js'
+import { LadderPlayer } from '../ladder/index.js'
+import { MapInfoJson } from '../maps.js'
+import { MatchmakingType } from '../matchmaking.js'
+import { SbPolicyType } from '../policies/policy-type.js'
+import { SbPermissions } from './permissions.js'
+import { UserStats } from './user-stats.js'
 
 export const SEARCH_MATCH_HISTORY_LIMIT = 40
 

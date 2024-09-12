@@ -1,8 +1,8 @@
-import { BugReport } from '../../../common/bugs'
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+import { BugReport } from '../../../common/bugs.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 type DbBugReport = Dbify<BugReport>
 

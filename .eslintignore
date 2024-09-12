@@ -5,7 +5,9 @@ node_modules/*
 app/build/*
 app/dist/*
 app/node_modules/*
+app/out/*
 
 server/node_modules/*
+server/out/*
 server/public/scripts/*
 server/testing/google/*

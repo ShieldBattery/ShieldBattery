@@ -1,28 +1,35 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource, GameType } from '../../../common/games/configuration'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import { GameSource, GameType } from '../../../common/games/configuration.js'
 import {
   GameRecord,
   GameRecordUpdate,
   GameSubscriptionEvent,
   MatchmakingResultsEvent,
   toGameRecordJson,
-} from '../../../common/games/games'
-import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
-import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues'
-import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
-import { RaceChar } from '../../../common/races'
-import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user'
-import { UserStats } from '../../../common/users/user-stats'
-import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
-import transact from '../db/transaction'
-import { CodedError } from '../errors/coded-error'
-import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
-import { reconcileResults } from '../games/results'
-import { JobScheduler } from '../jobs/job-scheduler'
-import { updateLeaderboards } from '../leagues/leaderboard'
+} from '../../../common/games/games.js'
+import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results.js'
+import {
+  League,
+  toClientLeagueUserChangeJson,
+  toLeagueJson,
+} from '../../../common/leagues/index.js'
+import {
+  MatchmakingType,
+  toPublicMatchmakingRatingChangeJson,
+} from '../../../common/matchmaking.js'
+import { RaceChar } from '../../../common/races.js'
+import { urlPath } from '../../../common/urls.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { UserStats } from '../../../common/users/user-stats.js'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes.js'
+import transact from '../db/transaction.js'
+import { CodedError } from '../errors/coded-error.js'
+import { findUnreconciledGames, setReconciledResult } from '../games/game-models.js'
+import { reconcileResults } from '../games/results.js'
+import { JobScheduler } from '../jobs/job-scheduler.js'
+import { updateLeaderboards } from '../leagues/leaderboard.js'
 import {
   LeagueUser,
   LeagueUserChange,
@@ -31,9 +38,9 @@ import {
   getLeaguesById,
   insertLeagueUserChange,
   updateLeagueUser,
-} from '../leagues/league-models'
-import logger from '../logging/logger'
-import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
+} from '../leagues/league-models.js'
+import logger from '../logging/logger.js'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons.js'
 import {
   MatchmakingRating,
   MatchmakingRatingChange,
@@ -41,20 +48,20 @@ import {
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
   updateMatchmakingRating,
-} from '../matchmaking/models'
-import { calculateChangedRatings } from '../matchmaking/rating'
+} from '../matchmaking/models.js'
+import { calculateChangedRatings } from '../matchmaking/rating.js'
 import {
   getCurrentReportedResults,
   getUserGameRecord,
   setReportedResults,
   setUserReconciledResult,
-} from '../models/games-users'
-import { Redis } from '../redis/redis'
-import { Clock } from '../time/clock'
-import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
-import { ClientSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { getGameRecord } from './game-models'
+} from '../models/games-users.js'
+import { Redis } from '../redis/redis.js'
+import { Clock } from '../time/clock.js'
+import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model.js'
+import { ClientSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import { getGameRecord } from './game-models.js'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
 

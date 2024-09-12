@@ -4,9 +4,9 @@ import {
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   ratingToMatchmakingDivision,
-} from '../matchmaking'
-import { RaceStats } from '../races'
-import { SbUser, SbUserId } from '../users/sb-user'
+} from '../matchmaking.js'
+import { RaceStats } from '../races.js'
+import { SbUser, SbUserId } from '../users/sb-user.js'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play

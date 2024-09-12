@@ -1,7 +1,7 @@
 import { injectable } from 'tsyringe'
 import { Promisable } from 'type-fest'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { Clock, TimeoutId } from '../time/clock'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
+import { Clock, TimeoutId } from '../time/clock.js'
 
 /**
  * A method scheduled to run periodically.

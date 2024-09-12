@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { MatchmakingMapPool } from '../../../common/matchmaking'
+import { MatchmakingMapPool } from '../../../common/matchmaking.js'
 
 /**
  * Returns a list of vetoed map IDs filtered to match the current map pool (and within the limit of
