@@ -1,10 +1,10 @@
 import { Map as IMap, Set as ISet, OrderedSet } from 'immutable'
 import { singleton } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { SbChannelId } from '../../../common/chat'
-import { subtract } from '../../../common/data-structures/sets'
-import { urlPath } from '../../../common/urls'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import { SbChannelId } from '../../../common/chat.js'
+import { subtract } from '../../../common/data-structures/sets.js'
+import { urlPath } from '../../../common/urls.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
 import {
   GetSessionHistoryResponse,
   WhisperEvent,
@@ -13,21 +13,21 @@ import {
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
   WhispersReadyEvent,
-} from '../../../common/whispers'
-import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
-import logger from '../logging/logger'
-import filterChatMessage from '../messaging/filter-chat-message'
-import { processMessageContents } from '../messaging/process-chat-message'
-import { findUserById, findUsersById } from '../users/user-model'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from '../../../common/whispers.js'
+import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models.js'
+import logger from '../logging/logger.js'
+import filterChatMessage from '../messaging/filter-chat-message.js'
+import { processMessageContents } from '../messaging/process-chat-message.js'
+import { findUserById, findUsersById } from '../users/user-model.js'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   addMessageToWhisper,
   closeWhisperSession as dbCloseWhisperSession,
   startWhisperSession as dbStartWhisperSession,
   getMessagesForWhisperSession,
   getWhisperSessionsForUser,
-} from './whisper-models'
+} from './whisper-models.js'
 
 export class WhisperServiceError extends Error {
   constructor(

@@ -1,8 +1,8 @@
 import { singleton } from 'tsyringe'
-import { JobScheduler } from '../jobs/job-scheduler'
-import logger from '../logging/logger'
-import { Clock } from '../time/clock'
-import { cleanupUnbannedIdentifiers } from './user-identifiers'
+import { JobScheduler } from '../jobs/job-scheduler.js'
+import logger from '../logging/logger.js'
+import { Clock } from '../time/clock.js'
+import { cleanupUnbannedIdentifiers } from './user-identifiers.js'
 
 const OLD_IDENTIFIER_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 3 months
 const JOB_RUN_INTERVAL_MINUTES = 60 * 3 // 3 hours

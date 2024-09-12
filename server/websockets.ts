@@ -1,9 +1,9 @@
 import cuid from 'cuid'
-import fs from 'fs'
+import * as fs from 'fs'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
 import { NydusServer, NydusServerOptions } from 'nydus'
-import path from 'path'
+import * as path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
 import log from './lib/logging/logger.js'
 import { isElectronClient } from './lib/network/only-web-clients.js'
@@ -97,7 +97,7 @@ export class WebsocketServer {
             handler(this.nydus, this.userSockets, this.clientSockets)
           }
         })
-        .catch(err => {
+        .catch((err: any) => {
           log.error({ err }, 'Error loading websocket API handler')
         })
     }

@@ -1,9 +1,9 @@
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { UserRelationshipServiceErrorCode } from '../../../common/users/relationships'
-import { UserErrorCode } from '../../../common/users/sb-user'
-import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
-import { UserRelationshipServiceError } from './user-relationship-service'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import { UserRelationshipServiceErrorCode } from '../../../common/users/relationships.js'
+import { UserErrorCode } from '../../../common/users/sb-user.js'
+import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { UserRelationshipServiceError } from './user-relationship-service.js'
 
 export class UserApiError extends CodedError<UserErrorCode> {}
 

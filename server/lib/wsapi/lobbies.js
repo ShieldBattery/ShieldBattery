@@ -1,15 +1,15 @@
 import errors from 'http-errors'
 import { List, Map, Record, Set } from 'immutable'
 import { container } from 'tsyringe'
-import CancelToken from '../../../common/async/cancel-token'
-import createDeferred from '../../../common/async/deferred'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { isValidLobbyName, validRace } from '../../../common/constants'
+import CancelToken from '../../../common/async/cancel-token.js'
+import createDeferred from '../../../common/async/deferred.js'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
+import { isValidLobbyName, validRace } from '../../../common/constants.js'
 import {
   GameSource,
   isValidGameSubType,
   isValidGameType,
-} from '../../../common/games/configuration'
+} from '../../../common/games/configuration.js'
 import {
   findSlotById,
   findSlotByName,
@@ -19,19 +19,19 @@ import {
   getObserverTeam,
   hasOpposingSides,
   isUms,
-} from '../../../common/lobbies'
-import * as Slots from '../../../common/lobbies/slot'
-import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
-import { toBasicChannelInfo } from '../chat/chat-models'
-import { GameLoader } from '../games/game-loader'
-import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import * as Lobbies from '../lobbies/lobby'
-import { getMapInfo } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
-import filterChatMessage from '../messaging/filter-chat-message'
-import { processMessageContents } from '../messaging/process-chat-message'
-import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
-import validateBody from '../websockets/validate-body'
+} from '../../../common/lobbies.js'
+import * as Slots from '../../../common/lobbies/slot.js'
+import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network.js'
+import { toBasicChannelInfo } from '../chat/chat-models.js'
+import { GameLoader } from '../games/game-loader.js'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry.js'
+import * as Lobbies from '../lobbies/lobby.js'
+import { getMapInfo } from '../maps/map-models.js'
+import { reparseMapsAsNeeded } from '../maps/map-operations.js'
+import filterChatMessage from '../messaging/filter-chat-message.js'
+import { processMessageContents } from '../messaging/process-chat-message.js'
+import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators.js'
+import validateBody from '../websockets/validate-body.js'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1

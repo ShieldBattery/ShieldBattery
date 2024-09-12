@@ -4,7 +4,7 @@ import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import uid from 'uid-safe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   EMAIL_MAXLENGTH,
   EMAIL_MINLENGTH,
@@ -15,24 +15,24 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
-} from '../../../common/constants'
-import { toGameRecordJson } from '../../../common/games/games'
-import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
-import { LadderPlayer } from '../../../common/ladder'
-import { toMapInfoJson } from '../../../common/maps'
+} from '../../../common/constants.js'
+import { toGameRecordJson } from '../../../common/games/games.js'
+import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n.js'
+import { LadderPlayer } from '../../../common/ladder/index.js'
+import { toMapInfoJson } from '../../../common/maps.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
-} from '../../../common/matchmaking'
-import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
-import { SbPermissions } from '../../../common/users/permissions'
+} from '../../../common/matchmaking.js'
+import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type.js'
+import { SbPermissions } from '../../../common/users/permissions.js'
 import {
   GetRelationshipsResponse,
   ModifyRelationshipResponse,
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
-} from '../../../common/users/relationships'
+} from '../../../common/users/relationships.js'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
@@ -53,41 +53,44 @@ import {
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   UserErrorCode,
-} from '../../../common/users/sb-user'
-import { ClientSessionInfo } from '../../../common/users/session'
-import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
-import transact from '../db/transaction'
-import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { joiLocale } from '../i18n/locale-validator'
-import { sendMailTemplate } from '../mail/mailer'
-import { getMapInfo } from '../maps/map-models'
-import { getRankForUser } from '../matchmaking/models'
-import { usePasswordResetCode } from '../models/password-resets'
-import { updatePermissions } from '../models/permissions'
-import { isElectronClient } from '../network/only-web-clients'
-import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { getJwt } from '../session/jwt-session-middleware'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { Clock } from '../time/clock'
-import { validateRequest } from '../validation/joi-validator'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { BanEnacter } from './ban-enacter'
-import { retrieveBanHistory } from './ban-models'
-import { joiClientIdentifiers } from './client-ids'
-import { addEmailVerificationCode, getEmailVerificationsCount } from './email-verification-models'
-import { SuspiciousIpsService } from './suspicious-ips'
+} from '../../../common/users/sb-user.js'
+import { ClientSessionInfo } from '../../../common/users/session.js'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes.js'
+import transact from '../db/transaction.js'
+import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators.js'
+import { joiLocale } from '../i18n/locale-validator.js'
+import { sendMailTemplate } from '../mail/mailer.js'
+import { getMapInfo } from '../maps/map-models.js'
+import { getRankForUser } from '../matchmaking/models.js'
+import { usePasswordResetCode } from '../models/password-resets.js'
+import { updatePermissions } from '../models/permissions.js'
+import { isElectronClient } from '../network/only-web-clients.js'
+import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import { getJwt } from '../session/jwt-session-middleware.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { Clock } from '../time/clock.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import { BanEnacter } from './ban-enacter.js'
+import { retrieveBanHistory } from './ban-models.js'
+import { joiClientIdentifiers } from './client-ids.js'
+import {
+  addEmailVerificationCode,
+  getEmailVerificationsCount,
+} from './email-verification-models.js'
+import { SuspiciousIpsService } from './suspicious-ips.js'
 import {
   convertUserApiErrors,
   convertUserRelationshipServiceErrors,
   UserApiError,
-} from './user-api-errors'
-import { UserIdentifierCleanupJob } from './user-identifier-cleanup'
-import { UserIdentifierManager } from './user-identifier-manager'
-import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
+} from './user-api-errors.js'
+import { UserIdentifierCleanupJob } from './user-identifier-cleanup.js'
+import { UserIdentifierManager } from './user-identifier-manager.js'
+import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips.js'
 import {
   createUser,
   findSelfById,
@@ -96,11 +99,11 @@ import {
   findUsersById,
   retrieveUserCreatedDate,
   UserUpdatables,
-} from './user-model'
-import { UserRelationshipService } from './user-relationship-service'
-import { UserService } from './user-service'
-import { getUserStats } from './user-stats-model'
-import { joiUserId } from './user-validators'
+} from './user-model.js'
+import { UserRelationshipService } from './user-relationship-service.js'
+import { UserService } from './user-service.js'
+import { getUserStats } from './user-stats-model.js'
+import { joiUserId } from './user-validators.js'
 
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)

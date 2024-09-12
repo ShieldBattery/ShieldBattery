@@ -1,8 +1,8 @@
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql, sqlConcat } from '../db/sql'
-import { Dbify } from '../db/types'
-import { ClientIdentifierBuffer } from './client-ids'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql, sqlConcat } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
+import { ClientIdentifierBuffer } from './client-ids.js'
 
 interface UserIdentifier {
   userId: SbUserId

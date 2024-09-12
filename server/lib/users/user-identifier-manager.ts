@@ -1,19 +1,19 @@
-import crypto from 'crypto'
+import * as crypto from 'crypto'
 import { injectable } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
-import { DbClient } from '../db'
-import { BanEnacter } from './ban-enacter'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { DbClient } from '../db/index.js'
+import { BanEnacter } from './ban-enacter.js'
 import {
   ClientIdentifierBuffer,
   ClientIdentifierString,
   MIN_IDENTIFIER_MATCHES,
-} from './client-ids'
+} from './client-ids.js'
 import {
   countBannedIdentifiers,
   countBannedUserIdentifiers,
   findUsersWithIdentifiers,
   upsertUserIdentifiers,
-} from './user-identifiers'
+} from './user-identifiers.js'
 
 const PERMANENT_BAN_TIME = new Date('9001-01-01T23:00:00')
 

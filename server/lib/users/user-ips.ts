@@ -1,9 +1,9 @@
 import { container } from 'tsyringe'
-import { SbUserId, UserIpInfo } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
-import { UpsertUserIp } from '../network/user-ips-type'
+import { SbUserId, UserIpInfo } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
+import { UpsertUserIp } from '../network/user-ips-type.js'
 
 /**
  * Updates information about this user's IP address stored in the database. This information is used

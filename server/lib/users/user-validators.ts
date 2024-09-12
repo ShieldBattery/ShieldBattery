@@ -1,5 +1,9 @@
 import Joi from 'joi'
-import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
+import {
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../../common/constants.js'
 
 export const joiUserId = () => Joi.number().min(1)
 

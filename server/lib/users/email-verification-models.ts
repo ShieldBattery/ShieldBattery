@@ -1,6 +1,6 @@
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
 
 export async function addEmailVerificationCode(
   {

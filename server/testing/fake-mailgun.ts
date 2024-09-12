@@ -1,7 +1,7 @@
 // An extremely basic implementation of the mailgun API (well, the parts we actually use) that
 // allows sent emails to be retrieved in integration tests.
 import KoaRouter from '@koa/router'
-import http from 'http'
+import * as http from 'http'
 import httpErrors from 'http-errors'
 import Koa from 'koa'
 import { koaBody } from 'koa-body'

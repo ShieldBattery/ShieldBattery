@@ -1,13 +1,13 @@
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
-import { EventMap, TypedEventEmitter } from '../../../common/typed-emitter'
-import { SbUserId } from '../../../common/users/sb-user'
-import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets'
-import log from '../logging/logger'
-import { UpsertUserIp } from '../network/user-ips-type'
-import getAddress from './get-address'
-import { RequestSessionLookup, SessionInfo } from './session-lookup'
+import { EventMap, TypedEventEmitter } from '../../../common/typed-emitter.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets.js'
+import log from '../logging/logger.js'
+import { UpsertUserIp } from '../network/user-ips-type.js'
+import getAddress from './get-address.js'
+import { RequestSessionLookup, SessionInfo } from './session-lookup.js'
 
 export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D | undefined>
 export type CleanupFunc<T> = (socketGroup: T) => void

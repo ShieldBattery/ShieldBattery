@@ -1,9 +1,9 @@
-import { SbChannelId } from '../../../common/chat'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { WhisperMessageType } from '../../../common/whispers'
-import db from '../db'
-import { sql } from '../db/sql'
-import { Dbify } from '../db/types'
+import { SbChannelId } from '../../../common/chat.js'
+import { SbUser, SbUserId } from '../../../common/users/sb-user.js'
+import { WhisperMessageType } from '../../../common/whispers.js'
+import db from '../db/index.js'
+import { sql } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 export interface WhisperSessionEntry {
   targetId: SbUserId

@@ -1,9 +1,9 @@
-import { AssignedRaceChar, RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
-import { UserStats } from '../../../common/users/user-stats'
-import db, { DbClient } from '../db'
-import { sql, sqlRaw } from '../db/sql'
-import { Dbify } from '../db/types'
+import { AssignedRaceChar, RaceChar } from '../../../common/races.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { UserStats } from '../../../common/users/user-stats.js'
+import db, { DbClient } from '../db/index.js'
+import { sql, sqlRaw } from '../db/sql.js'
+import { Dbify } from '../db/types.js'
 
 type DbUserStats = Dbify<UserStats>
 

@@ -1,6 +1,6 @@
 import { NydusServer } from 'nydus'
-import { NotificationType } from '../../../common/notifications'
-import { asMockedFunction } from '../../../common/testing/mocks'
+import { NotificationType } from '../../../common/notifications.js'
+import { asMockedFunction } from '../../../common/testing/mocks.js'
 import {
   FriendActivityStatus,
   MAX_BLOCKS,
@@ -8,25 +8,25 @@ import {
   UserRelationship,
   UserRelationshipKind,
   UserRelationshipSummary,
-} from '../../../common/users/relationships'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
-import NotificationService from '../notifications/notification-service'
-import { createFakeNotificationService } from '../notifications/testing/notification-service'
-import { FakeClock } from '../time/testing/fake-clock'
-import { RequestSessionLookup } from '../websockets/session-lookup'
-import { UserSocketsManager } from '../websockets/socket-groups'
+} from '../../../common/users/relationships.js'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user.js'
+import NotificationService from '../notifications/notification-service.js'
+import { createFakeNotificationService } from '../notifications/testing/notification-service.js'
+import { FakeClock } from '../time/testing/fake-clock.js'
+import { RequestSessionLookup } from '../websockets/session-lookup.js'
+import { UserSocketsManager } from '../websockets/socket-groups.js'
 import {
   InspectableNydusClient,
   NydusConnector,
   clearTestLogs,
   createFakeNydusServer,
-} from '../websockets/testing/websockets'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from '../websockets/testing/websockets.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   UserRelationshipService,
   getFriendActivityStatusPath,
   getRelationshipsPath,
-} from './user-relationship-service'
+} from './user-relationship-service.js'
 
 function clearFakeDb() {
   ;(global as any).__TESTONLY_CLEAR_DB()
@@ -52,7 +52,7 @@ jest.mock('./user-relationship-models', () => {
   // NOTE(tec27): We can't reference the actual import in this file here because this whole block
   // is going to be hoisted (and run before) all of that, so instead we do the import async-ly.
   // (Thankfully all the db functions are async anyway, so it works out)
-  const userRelationshipTypePromise = import('../../../common/users/relationships').then(
+  const userRelationshipTypePromise = import('../../../common/users/relationships.js').then(
     m => m.UserRelationshipKind,
   )
 

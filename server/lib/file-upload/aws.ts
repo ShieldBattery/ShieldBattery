@@ -1,7 +1,7 @@
 import { GetObjectCommand, S3, S3ClientConfig } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import path from 'path'
+import * as path from 'path'
 import { Readable } from 'stream'
 import { FileStore } from './store.js'
 

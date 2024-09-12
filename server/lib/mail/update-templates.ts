@@ -3,7 +3,7 @@ import FormData from 'form-data'
 import { readFile } from 'fs/promises'
 import { glob } from 'glob'
 import got from 'got'
-import path from 'path'
+import * as path from 'path'
 import logger from '../logging/logger.js'
 
 const API_KEY = process.env.SB_MAILGUN_KEY

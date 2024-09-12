@@ -1,5 +1,5 @@
 import { singleton } from 'tsyringe'
-import { NotificationType } from '../../../common/notifications'
+import { NotificationType } from '../../../common/notifications.js'
 import {
   FriendActivityStatus,
   FriendActivityStatusUpdateEvent,
@@ -11,14 +11,14 @@ import {
   UserRelationshipKind,
   UserRelationshipServiceErrorCode,
   UserRelationshipSummary,
-} from '../../../common/users/relationships'
-import { SbUserId } from '../../../common/users/sb-user'
-import { CodedError } from '../errors/coded-error'
-import logger from '../logging/logger'
-import NotificationService from '../notifications/notification-service'
-import { Clock } from '../time/clock'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from '../../../common/users/relationships.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import { CodedError } from '../errors/coded-error.js'
+import logger from '../logging/logger.js'
+import NotificationService from '../notifications/notification-service.js'
+import { Clock } from '../time/clock.js'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
 import {
   acceptFriendRequest,
   blockUser,
@@ -30,7 +30,7 @@ import {
   removeFriendRequest,
   sendFriendRequest,
   unblockUser,
-} from './user-relationship-models'
+} from './user-relationship-models.js'
 
 export class UserRelationshipServiceError extends CodedError<UserRelationshipServiceErrorCode> {}
 

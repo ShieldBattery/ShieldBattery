@@ -1,6 +1,6 @@
 import { singleton } from 'tsyringe'
-import { UserIpInfo } from '../../../common/users/sb-user'
-import { Redis } from '../redis/redis'
+import { UserIpInfo } from '../../../common/users/sb-user.js'
+import { Redis } from '../redis/redis.js'
 
 // Don't mark IPs as suspicious for longer than we'd track them in the DB (60 days)
 const MAX_SUSPICIOUS_TIME_SECONDS = 60 * 24 * 60 * 60

@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { json } from './json-validator'
+import { json } from './json-validator.js'
 
 describe('server/lib/json/json-validator', () => {
   test('throws an error if the root value is not a valid JSON', () => {

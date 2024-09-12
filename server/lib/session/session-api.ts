@@ -159,6 +159,12 @@ export class SessionApi {
 
     await ctx.beginSession(user.id, !!remember)
     user = ctx.session!.user
+    if (!user) {
+      // This should really never happen, but typescript seems to be unable to infer that this is
+      // not undefined even if I ! it above
+      throw new Error('Beginning session failed')
+    }
+
     await maybeMigrateSignupIp(user.id, ctx.ip)
 
     if (locale && !user.locale) {

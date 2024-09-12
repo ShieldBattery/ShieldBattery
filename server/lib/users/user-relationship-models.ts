@@ -1,14 +1,14 @@
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
 import {
   UserRelationship,
   UserRelationshipKind,
   UserRelationshipSummary,
-} from '../../../common/users/relationships'
-import { SbUserId } from '../../../common/users/sb-user'
-import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
-import transact from '../db/transaction'
-import { Dbify } from '../db/types'
+} from '../../../common/users/relationships.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
+import db, { DbClient } from '../db/index.js'
+import { sql } from '../db/sql.js'
+import transact from '../db/transaction.js'
+import { Dbify } from '../db/types.js'
 
 // NOTE(tec27): Relationships in the database are stored in a way where every relationship between
 // 2 users can be represented by 1 row. This allows us to better ensure data integrity around

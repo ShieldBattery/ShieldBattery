@@ -4,8 +4,8 @@ import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
 import { Map as IMap } from 'immutable'
 import { NydusClient, NydusServer, RouteHandler } from 'nydus'
-import { SbUser } from '../../../../common/users/sb-user'
-import { RequestSessionLookup, SessionInfo } from '../session-lookup'
+import { SbUser } from '../../../../common/users/sb-user.js'
+import { RequestSessionLookup, SessionInfo } from '../session-lookup.js'
 
 // Used to auto-increment for easy value comparison in tests
 let clientIdCounter = 0

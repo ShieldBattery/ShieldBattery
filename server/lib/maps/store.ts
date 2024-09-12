@@ -1,6 +1,6 @@
 import BufferList from 'bl'
-import childProcess from 'child_process'
-import fs from 'fs'
+import * as childProcess from 'child_process'
+import * as fs from 'fs'
 import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue.js'
 import { isTestRun } from '../../../common/is-test-run.js'

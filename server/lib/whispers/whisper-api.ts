@@ -1,24 +1,24 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { container } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import { SbUserId } from '../../../common/users/sb-user'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import { SbUserId } from '../../../common/users/sb-user.js'
 import {
   GetSessionHistoryResponse,
   SendWhisperMessageRequest,
   WhisperServiceErrorCode,
-} from '../../../common/whispers'
-import { makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import { findUserByName } from '../users/user-model'
-import { joiUserId, joiUsername } from '../users/user-validators'
-import { validateRequest } from '../validation/joi-validator'
-import WhisperService, { WhisperServiceError } from './whisper-service'
+} from '../../../common/whispers.js'
+import { makeErrorConverterMiddleware } from '../errors/coded-error.js'
+import { asHttpError } from '../errors/error-with-payload.js'
+import { httpApi, httpBeforeAll } from '../http/http-api.js'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators.js'
+import ensureLoggedIn from '../session/ensure-logged-in.js'
+import createThrottle from '../throttle/create-throttle.js'
+import throttleMiddleware from '../throttle/middleware.js'
+import { findUserByName } from '../users/user-model.js'
+import { joiUserId, joiUsername } from '../users/user-validators.js'
+import { validateRequest } from '../validation/joi-validator.js'
+import WhisperService, { WhisperServiceError } from './whisper-service.js'
 
 const startThrottle = createThrottle('whisperstart', {
   rate: 3,

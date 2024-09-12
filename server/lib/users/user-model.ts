@@ -1,23 +1,23 @@
 import bcrypt from 'bcrypt'
 import { container } from 'tsyringe'
-import { assertUnreachable } from '../../../common/assert-unreachable'
-import createDeferred from '../../../common/async/deferred'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import { assertUnreachable } from '../../../common/assert-unreachable.js'
+import createDeferred from '../../../common/async/deferred.js'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins.js'
 import {
   ACCEPTABLE_USE_VERSION,
   PRIVACY_POLICY_VERSION,
   TERMS_OF_SERVICE_VERSION,
-} from '../../../common/policies/versions'
-import { SbPermissions } from '../../../common/users/permissions'
-import { SbUser, SbUserId, SelfUser } from '../../../common/users/sb-user'
-import ChatService from '../chat/chat-service'
-import db, { DbClient } from '../db'
-import { sql, sqlConcat, sqlRaw } from '../db/sql'
-import transact from '../db/transaction'
-import { Dbify } from '../db/types'
-import { createPermissions } from '../models/permissions'
-import { UserIdentifierManager } from './user-identifier-manager'
-import { createUserStats } from './user-stats-model'
+} from '../../../common/policies/versions.js'
+import { SbPermissions } from '../../../common/users/permissions.js'
+import { SbUser, SbUserId, SelfUser } from '../../../common/users/sb-user.js'
+import ChatService from '../chat/chat-service.js'
+import db, { DbClient } from '../db/index.js'
+import { sql, sqlConcat, sqlRaw } from '../db/sql.js'
+import transact from '../db/transaction.js'
+import { Dbify } from '../db/types.js'
+import { createPermissions } from '../models/permissions.js'
+import { UserIdentifierManager } from './user-identifier-manager.js'
+import { createUserStats } from './user-stats-model.js'
 
 /**
  * A user in the database. This is meant to be used internally by functions in this file, and

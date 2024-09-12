@@ -1,13 +1,13 @@
 import Koa, { AppSession } from 'koa'
 import { delay, inject, singleton } from 'tsyringe'
-import { SbPermissions } from '../../../common/users/permissions'
-import { AuthEvent, SbUserId, SelfUser, makeSbUserId } from '../../../common/users/sb-user'
-import logger from '../logging/logger'
-import { getPermissions } from '../models/permissions'
-import { Redis, RedisSubscriber } from '../redis/redis'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { consumeEmailVerificationCode } from './email-verification-models'
-import { UserUpdatables, findSelfById, updateUser } from './user-model'
+import { SbPermissions } from '../../../common/users/permissions.js'
+import { AuthEvent, SbUserId, SelfUser, makeSbUserId } from '../../../common/users/sb-user.js'
+import logger from '../logging/logger.js'
+import { getPermissions } from '../models/permissions.js'
+import { Redis, RedisSubscriber } from '../redis/redis.js'
+import { TypedPublisher } from '../websockets/typed-publisher.js'
+import { consumeEmailVerificationCode } from './email-verification-models.js'
+import { UserUpdatables, findSelfById, updateUser } from './user-model.js'
 
 /**
  * How long to cache user info in redis.

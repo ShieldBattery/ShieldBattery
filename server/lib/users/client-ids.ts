@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import isDev from '../env/is-dev'
+import isDev from '../env/is-dev.js'
 
 export function joiClientIdentifiers() {
   return Joi.array()
