@@ -1,9 +1,9 @@
 import { rgba } from 'polished'
 import React, { useCallback } from 'react'
-import styled from 'styled-components'
-import { amberA400 } from '../../styles/colors'
-import { MenuItem } from '../menu/item'
-import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol'
+import { styled } from 'styled-components'
+import { amberA400 } from '../../styles/colors.js'
+import { MenuItem } from '../menu/item.js'
+import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol.js'
 
 const StyledMenuItem = styled(MenuItem)<{
   $selected?: boolean

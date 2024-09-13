@@ -1,9 +1,9 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-import ActiveTest from './active-test'
-import LoadingTest from './loading-test'
-import LobbyTest from './lobby-test'
-import RacePickerTest from './race-picker-test'
+import ActiveTest from './active-test.js'
+import LoadingTest from './loading-test.js'
+import LobbyTest from './lobby-test.js'
+import RacePickerTest from './race-picker-test.js'
 
 const BASE_URL = '/dev/lobbies'
 

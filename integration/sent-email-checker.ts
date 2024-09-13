@@ -1,5 +1,5 @@
 import { APIRequestContext, test } from '@playwright/test'
-import { SentEmail } from '../server/testing/sent-email'
+import { SentEmail } from '../server/testing/sent-email.js'
 
 /**
  * Retrieves all emails that have been sent to particular addresses on a fake Mailgun server.

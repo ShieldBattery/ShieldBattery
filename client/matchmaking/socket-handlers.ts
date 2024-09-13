@@ -1,26 +1,26 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
-import { GameType } from '../../common/games/configuration'
-import { MatchmakingResultsEvent } from '../../common/games/games'
-import { TypedIpcRenderer } from '../../common/ipc'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config.js'
+import { GameType } from '../../common/games/configuration.js'
+import { MatchmakingResultsEvent } from '../../common/games/games.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
 import {
   GetPreferencesResponse,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingEvent,
   MatchmakingStatusJson,
   MatchmakingType,
-} from '../../common/matchmaking'
-import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { Dispatchable, dispatch } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
-import { push, replace } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
-import { openSnackbar } from '../snackbars/action-creators'
-import { getCurrentMapPool } from './action-creators'
+} from '../../common/matchmaking.js'
+import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager.js'
+import { closeDialog, openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import logger from '../logging/logger.js'
+import { push, replace } from '../navigation/routing.js'
+import { makeServerUrl } from '../network/server-url.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { getCurrentMapPool } from './action-creators.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

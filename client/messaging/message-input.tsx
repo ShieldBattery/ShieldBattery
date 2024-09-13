@@ -1,11 +1,11 @@
 import React, { SetStateAction, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { useSelfUser } from '../auth/auth-utils'
-import { useKeyListener } from '../keyboard/key-listener'
-import { TextField } from '../material/text-field'
-import { useStableCallback } from '../state-hooks'
-import { colorDividers } from '../styles/colors'
+import { styled } from 'styled-components'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { useKeyListener } from '../keyboard/key-listener.js'
+import { TextField } from '../material/text-field.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorDividers } from '../styles/colors.js'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;

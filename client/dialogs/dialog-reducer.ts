@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { findLastIndex } from '../../common/data-structures/arrays'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { DialogPayload, DialogType } from './dialog-type'
+import { findLastIndex } from '../../common/data-structures/arrays.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
+import { DialogPayload, DialogType } from './dialog-type.js'
 
 export interface DialogState<T extends DialogType = DialogType> {
   type: T

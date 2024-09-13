@@ -1,9 +1,9 @@
 import React from 'react'
 import { useRoute } from 'wouter'
-import { makeSbUserId } from '../../common/users/sb-user'
-import { replace } from '../navigation/routing'
-import { ConnectedUserProfilePage } from './user-profile'
-import { ALL_USER_PROFILE_SUB_PAGES, UserProfileSubPage } from './user-profile-sub-page'
+import { makeSbUserId } from '../../common/users/sb-user.js'
+import { replace } from '../navigation/routing.js'
+import { ALL_USER_PROFILE_SUB_PAGES, UserProfileSubPage } from './user-profile-sub-page.js'
+import { ConnectedUserProfilePage } from './user-profile.js'
 
 export function ProfileRouteComponent(props: { params: any }) {
   const [matches, params] = useRoute<{ userId: string; username: string; subPage?: string }>(

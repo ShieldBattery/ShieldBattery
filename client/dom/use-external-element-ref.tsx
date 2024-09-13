@@ -1,5 +1,5 @@
 import { MutableRefObject, useEffect, useRef } from 'react'
-import { useValueAsRef } from '../state-hooks'
+import { useValueAsRef } from '../state-hooks.js'
 
 /**
  * A React hook that creates an external (outside the React root) element on mount and returns a ref

@@ -1,5 +1,5 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { useValueAsRef } from '../state-hooks'
+import { useValueAsRef } from '../state-hooks.js'
 
 export type DimensionsHookResult<T extends Element> = [
   ref: React.RefCallback<T>,

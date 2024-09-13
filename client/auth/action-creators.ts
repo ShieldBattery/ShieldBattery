@@ -1,21 +1,21 @@
 import cuid from 'cuid'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
-import { ClientSessionInfo } from '../../common/users/session'
-import type { PromisifiedAction, ReduxAction } from '../action-types'
-import { dispatch, type ThunkAction } from '../dispatch-registry'
-import { maybeChangeLanguageLocally } from '../i18n/action-creators'
-import logger from '../logging/logger'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { ClientSessionInfo } from '../../common/users/session.js'
+import type { PromisifiedAction, ReduxAction } from '../action-types.js'
+import { dispatch, type ThunkAction } from '../dispatch-registry.js'
+import { maybeChangeLanguageLocally } from '../i18n/action-creators.js'
+import logger from '../logging/logger.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
 import {
   CREDENTIAL_STORAGE,
   CredentialStorageType,
   encodeBodyAsParams,
   fetchJson,
-} from '../network/fetch'
-import { AuthChangeBegin } from './actions'
-import { getBrowserprint } from './browserprint'
+} from '../network/fetch.js'
+import { AuthChangeBegin } from './actions.js'
+import { getBrowserprint } from './browserprint.js'
 
 const typedIpc = new TypedIpcRenderer()
 

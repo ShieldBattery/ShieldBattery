@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { ActivityOverlayPayload, ActivityOverlayType } from './activity-overlay-type'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
+import { ActivityOverlayPayload, ActivityOverlayType } from './activity-overlay-type.js'
 
 export interface ActivityOverlayState<T extends ActivityOverlayType = ActivityOverlayType> {
   type: T

@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { CheckBox } from '../../material/check-box'
-import Slider from '../../material/slider'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { CheckBox } from '../../material/check-box.js'
+import Slider from '../../material/slider.js'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { mergeScrSettings } from '../action-creators.js'
+import { FormContainer } from '../settings-content.js'
 
 interface GameInputSettingsModel {
   keyboardScrollSpeed: number

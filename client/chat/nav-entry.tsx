@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { SbChannelId } from '../../common/chat'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
-import { urlPath } from '../../common/urls'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { Entry } from '../material/left-nav/entry'
-import { useStableCallback } from '../state-hooks'
+import { styled } from 'styled-components'
+import { SbChannelId } from '../../common/chat.js'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags.js'
+import { urlPath } from '../../common/urls.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { Entry } from '../material/left-nav/entry.js'
+import { useStableCallback } from '../state-hooks.js'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;

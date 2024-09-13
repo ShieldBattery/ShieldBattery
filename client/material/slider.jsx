@@ -3,10 +3,10 @@ import { darken, rgba } from 'polished'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
-import styled from 'styled-components'
-import { amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body1, caption } from '../styles/typography'
-import { fastOutSlowIn } from './curve-constants'
+import { styled } from 'styled-components'
+import { amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors.js'
+import { body1, caption } from '../styles/typography.js'
+import { fastOutSlowIn } from './curve-constants.js'
 
 const transitionNames = {
   enter: 'enter',

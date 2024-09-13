@@ -1,10 +1,10 @@
 import React, { Suspense } from 'react'
 import type { Components } from 'react-markdown'
-import styled from 'styled-components'
-import { ExternalLink } from '../navigation/external-link'
-import { LoadingDotsArea } from '../progress/dots'
-import { colorDividers } from '../styles/colors'
-import { headline5, headline6, subtitle1, subtitle2 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { ExternalLink } from '../navigation/external-link.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { colorDividers } from '../styles/colors.js'
+import { headline5, headline6, subtitle1, subtitle2 } from '../styles/typography.js'
 
 const LoadableMarkdown = React.lazy(() => import('react-markdown'))
 

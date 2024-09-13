@@ -1,4 +1,4 @@
-import siteSocket from '../network/site-socket'
+import siteSocket from '../network/site-socket.js'
 
 // An action creator that creates standard site socket actions. The parameters are:
 // `beginAction` - an action that is dispatched before any network request to let the client know

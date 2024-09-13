@@ -1,13 +1,13 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
+import { MapInfoJson } from '../../common/maps.js'
 import {
   MatchmakingPlayer,
   MatchmakingServiceErrorCode,
   MatchmakingType,
-} from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import { isFetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+} from '../../common/matchmaking.js'
+import { RaceChar } from '../../common/races.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface MatchmakingSearchInfo {
   matchmakingType: MatchmakingType

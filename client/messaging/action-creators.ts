@@ -1,9 +1,9 @@
 import { MouseEvent } from 'react'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { ThunkAction } from '../dispatch-registry'
-import { JsonLocalStorageValue } from '../local-storage'
-import { getServerOrigin } from '../network/server-url'
+import { openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { JsonLocalStorageValue } from '../local-storage.js'
+import { getServerOrigin } from '../network/server-url.js'
 
 const trustedDomainsValue = new JsonLocalStorageValue<string[]>('trustedDomains')
 

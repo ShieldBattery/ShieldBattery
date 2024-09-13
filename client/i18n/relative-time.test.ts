@@ -1,4 +1,4 @@
-import { RelativeTimeFormatter } from './relative-time'
+import { RelativeTimeFormatter } from './relative-time.js'
 
 describe('RelativeTimeFormatter', () => {
   let formatter: RelativeTimeFormatter

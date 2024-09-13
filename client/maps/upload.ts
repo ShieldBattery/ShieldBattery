@@ -1,5 +1,5 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { fetchJson } from '../network/fetch'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { fetchJson } from '../network/fetch.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

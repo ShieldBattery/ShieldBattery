@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-import DevCarousels from './carousel-test'
+import DevCarousels from './carousel-test.js'
 
 const BASE_URL = '/dev/lists'
 

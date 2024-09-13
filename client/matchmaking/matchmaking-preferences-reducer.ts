@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
-import { FetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking.js'
+import { FetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface FetchedMatchmakingPreferences {
   preferences?: MatchmakingPreferences | Record<string, never>

@@ -1,11 +1,11 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { Entry } from '../material/left-nav/entry'
+import { styled } from 'styled-components'
+import { urlPath } from '../../common/urls.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { Entry } from '../material/left-nav/entry.js'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;

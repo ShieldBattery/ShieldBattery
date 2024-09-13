@@ -1,12 +1,12 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import PlayerCard from '../lobbies/player-card'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors'
-import { Headline1, Headline3, Headline4, headline5 } from '../styles/typography'
+import { styled } from 'styled-components'
+import PlayerCard from '../lobbies/player-card.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { shadowDef2dp } from '../material/shadow-constants.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { Headline1, Headline3, Headline4, headline5 } from '../styles/typography.js'
 
 const Container = styled.div`
   display: flex;

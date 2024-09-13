@@ -1,6 +1,6 @@
 import React from 'react'
 import { Redirect } from 'wouter'
-import { createNextPath, useIsLoggedIn } from './auth-utils'
+import { createNextPath, useIsLoggedIn } from './auth-utils.js'
 
 export function LoggedInFilter({ children }: { children: JSX.Element }) {
   const isLoggedIn = useIsLoggedIn()

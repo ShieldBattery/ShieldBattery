@@ -1,9 +1,9 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
-import { Subtitle1, subtitle2 } from '../styles/typography'
-import { ConnectedUsername } from '../users/connected-username'
+import { styled } from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { Subtitle1, subtitle2 } from '../styles/typography.js'
+import { ConnectedUsername } from '../users/connected-username.js'
 
 const UserList = styled.ul``
 

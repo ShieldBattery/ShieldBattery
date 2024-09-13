@@ -1,4 +1,4 @@
-import { ReportedGameStatus } from '../../common/game-status'
+import { ReportedGameStatus } from '../../common/game-status.js'
 
 export type ActiveGameActions = ActiveGameLaunch | ActiveGameStatus | ActiveGameReplaySaved
 

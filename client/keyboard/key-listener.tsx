@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef } from 'react'
-import { useStableCallback, useValueAsRef } from '../state-hooks'
+import { useStableCallback, useValueAsRef } from '../state-hooks.js'
 
 interface KeyHandler {
   keydown: (event: KeyboardEvent) => boolean

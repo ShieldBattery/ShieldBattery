@@ -8,8 +8,8 @@ import {
   colorBackground,
   colorTextFaint,
   colorTextPrimary,
-} from './colors'
-import { body1 } from './typography'
+} from './colors.js'
+import { body1 } from './typography.js'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {

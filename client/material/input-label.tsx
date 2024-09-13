@@ -1,5 +1,5 @@
-import styled from 'styled-components'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { styled } from 'styled-components'
+import { colorTextFaint, colorTextSecondary } from '../styles/colors.js'
 
 export const Label = styled.label<{
   $dense?: boolean

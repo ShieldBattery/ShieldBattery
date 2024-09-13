@@ -2,26 +2,26 @@ import { Immutable } from 'immer'
 import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { OverrideProperties } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
-import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { MapInfoJson } from '../../common/maps.js'
+import { IconRoot, MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MenuList } from '../material/menu/menu.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   amberA100,
   background700,
   background900,
   colorTextFaint,
   colorTextPrimary,
-} from '../styles/colors'
-import { singleLine, subtitle2 } from '../styles/typography'
-import { batchGetMapInfo } from './action-creators'
-import MapImage from './map-image'
+} from '../styles/colors.js'
+import { singleLine, subtitle2 } from '../styles/typography.js'
+import { batchGetMapInfo } from './action-creators.js'
+import MapImage from './map-image.js'
 
 const Container = styled.div`
   position: relative;

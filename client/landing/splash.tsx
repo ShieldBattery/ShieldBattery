@@ -1,23 +1,23 @@
 import { rgba } from 'polished'
 import React, { ReactNode, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
-import { DISCORD_URL } from '../../common/url-constants'
-import { apiUrl } from '../../common/urls'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { css, styled } from 'styled-components'
+import { DISCORD_URL } from '../../common/url-constants.js'
+import { apiUrl } from '../../common/urls.js'
+import { openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
 import DiscordIcon from '../icons/brands/discord-lockup.svg'
 import GithubIcon from '../icons/brands/github.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import TwitterIcon from '../icons/brands/twitter.svg'
-import { AutoSizeMaterialIcon } from '../icons/material/material-icon'
+import { AutoSizeMaterialIcon } from '../icons/material/material-icon.js'
 import LogoText from '../logos/logotext-640x100.svg'
-import { Label, RaisedButton } from '../material/button'
-import Card from '../material/card'
-import { linearOutSlowIn } from '../material/curve-constants'
-import { push } from '../navigation/routing'
-import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
-import { useAppDispatch } from '../redux-hooks'
+import { Label, RaisedButton } from '../material/button.js'
+import Card from '../material/card.js'
+import { linearOutSlowIn } from '../material/curve-constants.js'
+import { push } from '../navigation/routing.js'
+import { makePublicAssetUrl, makeServerUrl } from '../network/server-url.js'
+import { useAppDispatch } from '../redux-hooks.js'
 import {
   amberA400,
   background700,
@@ -25,12 +25,12 @@ import {
   background900,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
-import { BottomLinks } from './bottom-links'
+} from '../styles/colors.js'
+import { headline3, headline4, headline5, subtitle1 } from '../styles/typography.js'
+import { BottomLinks } from './bottom-links.js'
 import ChatImage from './chat.svg'
 import TacticallyFaithfulImage from './tactically-faithful.svg'
-import { TopLinks } from './top-links'
+import { TopLinks } from './top-links.js'
 
 const SplashContainer = styled.div`
   position: relative;

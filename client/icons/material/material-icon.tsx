@@ -1,7 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
-import { useObservedDimensions } from '../../dom/dimension-hooks'
-import { fastOutSlowIn } from '../../material/curve-constants'
+import { styled } from 'styled-components'
+import { useObservedDimensions } from '../../dom/dimension-hooks.js'
+import { fastOutSlowIn } from '../../material/curve-constants.js'
 
 export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
   font-family: 'Material Symbols Outlined';

@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
-import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
-import { isFetchError } from '../network/fetch-errors'
+import { UserRelationshipServiceErrorCode } from '../../common/users/relationships.js'
+import { isFetchError } from '../network/fetch-errors.js'
 
 /**
  * Returns a string intended for showing to users for a given `UserRelationshipServiceError`.

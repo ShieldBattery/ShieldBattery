@@ -1,8 +1,8 @@
 import React from 'react'
 import { useRoute } from 'wouter'
-import { makeSbUserId } from '../../common/users/sb-user'
-import { replace } from '../navigation/routing'
-import { ConnectedWhisper } from './whisper'
+import { makeSbUserId } from '../../common/users/sb-user.js'
+import { replace } from '../navigation/routing.js'
+import { ConnectedWhisper } from './whisper.js'
 
 export function WhisperRouteComponent(props: { params: any }) {
   const [matches, params] = useRoute<{ targetId: string; username: string }>(

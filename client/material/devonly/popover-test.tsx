@@ -1,17 +1,17 @@
 import React, { useState } from 'react'
-import styled from 'styled-components'
-import { MaterialIcon } from '../../icons/material/material-icon'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../../icons/material/material-icon.js'
 import {
   OriginX,
   OriginY,
   Popover,
   useAnchorPosition,
   usePopoverController,
-} from '../../material/popover'
-import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
-import { IconButton } from '../button'
-import { SelectOption } from '../select/option'
-import { Select } from '../select/select'
+} from '../../material/popover.js'
+import { Headline4, Headline5, Subtitle1 } from '../../styles/typography.js'
+import { IconButton } from '../button.js'
+import { SelectOption } from '../select/option.js'
+import { Select } from '../select/select.js'
 
 const Container = styled.div`
   width: 100%;

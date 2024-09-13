@@ -1,7 +1,7 @@
 import { app } from 'electron'
-import fs from 'fs'
 import { mkdirp } from 'mkdirp'
-import path from 'path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
 interface LoggerOptions {
   /** How many bytes should be written to the log file before it is rolled over. */

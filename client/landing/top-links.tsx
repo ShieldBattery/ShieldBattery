@@ -1,26 +1,26 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link } from 'wouter'
 import {
   ALL_TRANSLATION_LANGUAGES,
   TranslationLanguage,
   translationLanguageToLabel,
-} from '../../common/i18n'
-import { detectedLocale } from '../i18n/i18next'
+} from '../../common/i18n.js'
+import { detectedLocale } from '../i18n/i18next.js'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
-import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { useStableCallback } from '../state-hooks'
-import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
-import { amberA400 } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import logger from '../logging/logger.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MenuList } from '../material/menu/menu.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { useStableCallback } from '../state-hooks.js'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon.js'
+import { amberA400 } from '../styles/colors.js'
+import { body2 } from '../styles/typography.js'
 
 const TopLinksList = styled.ul`
   ${body2};

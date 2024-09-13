@@ -1,10 +1,10 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { Dialog } from '../material/dialog'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Subtitle1, subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { Dialog } from '../material/dialog.js'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { Subtitle1, subtitle1 } from '../styles/typography.js'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;

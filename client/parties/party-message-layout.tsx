@@ -1,13 +1,13 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
-import { PartyQueueCancelReason } from '../../common/parties'
-import { SbUserId } from '../../common/users/sb-user'
-import { TransInterpolation } from '../i18n/i18next'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
-import { SystemImportant, SystemMessage } from '../messaging/message-layout'
-import { ConnectedUsername } from '../users/connected-username'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking.js'
+import { PartyQueueCancelReason } from '../../common/parties.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks.js'
+import { SystemImportant, SystemMessage } from '../messaging/message-layout.js'
+import { ConnectedUsername } from '../users/connected-username.js'
 
 export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props

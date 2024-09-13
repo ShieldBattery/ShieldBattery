@@ -1,8 +1,8 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
-import { ChatReadyEvent } from '../../common/chat'
-import { SubscribedClientEvent, SubscribedUserEvent } from '../../common/websockets'
-import { WhispersReadyEvent } from '../../common/whispers'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { ChatReadyEvent } from '../../common/chat.js'
+import { SubscribedClientEvent, SubscribedUserEvent } from '../../common/websockets.js'
+import { WhispersReadyEvent } from '../../common/whispers.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
 
 type LoadingEvent =
   | ChatReadyEvent

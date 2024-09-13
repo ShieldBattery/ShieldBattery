@@ -1,19 +1,19 @@
 import React from 'react'
 import { Link, Redirect, Route, Switch } from 'wouter'
-import { SbPermissions } from '../../common/users/permissions'
-import { useSelfPermissions } from '../auth/auth-utils'
+import { SbPermissions } from '../../common/users/permissions.js'
+import { useSelfPermissions } from '../auth/auth-utils.js'
 
 const LoadableBugReports = React.lazy(async () => ({
-  default: (await import('../bugs/admin-bug-reports')).AdminBugReports,
+  default: (await import('../bugs/admin-bug-reports.js')).AdminBugReports,
 }))
-const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
-const LoadableMapPools = React.lazy(() => import('./map-pools'))
+const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager.js')) : () => null
+const LoadableMapPools = React.lazy(() => import('./map-pools.js'))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
-  default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,
+  default: (await import('./matchmaking-seasons.js')).AdminMatchmakingSeasons,
 }))
-const LoadableMatchmakingTimes = React.lazy(() => import('./matchmaking-times'))
+const LoadableMatchmakingTimes = React.lazy(() => import('./matchmaking-times.js'))
 const LoadableRallyPoint = React.lazy(async () => ({
-  default: (await import('./rally-point')).AdminRallyPoint,
+  default: (await import('./rally-point.js')).AdminRallyPoint,
 }))
 
 interface AdminDashboardProps {

@@ -1,11 +1,11 @@
 import React from 'react'
-import styled from 'styled-components'
-import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
-import { overline, singleLine } from '../../styles/typography'
-import { useButtonState } from '../button'
-import { LinkButton } from '../link-button'
-import { Ripple } from '../ripple'
-import SubheaderButton from './subheader-button'
+import { styled } from 'styled-components'
+import { colorTextPrimary, colorTextSecondary } from '../../styles/colors.js'
+import { overline, singleLine } from '../../styles/typography.js'
+import { useButtonState } from '../button.js'
+import { LinkButton } from '../link-button.js'
+import { Ripple } from '../ripple.js'
+import SubheaderButton from './subheader-button.js'
 
 const Container = styled.div`
   position: relative;

@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
-import { FetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MapInfoJson } from '../../common/maps.js'
+import { FetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 /** @deprecated Do not add new things here, use maps2-reducer */
 export interface MapsState {

@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import logger from '../logging/logger'
-import LoadingIndicator from '../progress/dots'
-import { useAppSelector } from '../redux-hooks'
-import { colorTextSecondary } from '../styles/colors'
-import { headline5 } from '../styles/typography'
-import siteSocket from './site-socket'
+import { styled } from 'styled-components'
+import logger from '../logging/logger.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { headline5 } from '../styles/typography.js'
+import siteSocket from './site-socket.js'
 
 const LoadingArea = styled.div`
   display: flex;

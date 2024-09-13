@@ -1,22 +1,22 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
-import { MatchmakingType } from '../../common/matchmaking'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { TabItem, Tabs } from '../material/tabs'
-import LoadingIndicator from '../progress/dots'
-import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { Body1Old, SubheadingOld } from '../styles/typography'
+import { styled } from 'styled-components'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { RaisedButton, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import LoadingIndicator from '../progress/dots.js'
+import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors.js'
+import { Body1Old, SubheadingOld } from '../styles/typography.js'
 import {
   addMatchmakingTime,
   deleteMatchmakingTime,
   getMatchmakingTimesFuture,
   getMatchmakingTimesHistory,
   getMatchmakingTimesPast,
-} from './action-creators'
+} from './action-creators.js'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 

@@ -1,9 +1,9 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/index.js'
 import {
   MATCHMAKING_BONUS_EARNED_PER_MS,
   MatchmakingDivision,
@@ -12,23 +12,23 @@ import {
   NUM_PLACEMENT_MATCHES,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { urlPath } from '../../common/urls'
-import { closeOverlay } from '../activities/action-creators'
-import { DisabledOverlay } from '../activities/disabled-content'
-import { useTrackPageView } from '../analytics/analytics'
-import { useSelfUser } from '../auth/auth-utils'
-import { ComingSoon } from '../coming-soon/coming-soon'
-import { useKeyListener } from '../keyboard/key-listener'
-import { getInstantaneousSelfRank } from '../ladder/action-creators'
-import { JsonLocalStorageValue } from '../local-storage'
-import { RaisedButton } from '../material/button'
-import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
-import { findMatchAsParty } from '../parties/action-creators'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+} from '../../common/matchmaking.js'
+import { urlPath } from '../../common/urls.js'
+import { closeOverlay } from '../activities/action-creators.js'
+import { DisabledOverlay } from '../activities/disabled-content.js'
+import { useTrackPageView } from '../analytics/analytics.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { ComingSoon } from '../coming-soon/coming-soon.js'
+import { useKeyListener } from '../keyboard/key-listener.js'
+import { getInstantaneousSelfRank } from '../ladder/action-creators.js'
+import { JsonLocalStorageValue } from '../local-storage.js'
+import { RaisedButton } from '../material/button.js'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { Tooltip } from '../material/tooltip.js'
+import { findMatchAsParty } from '../parties/action-creators.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   amberA400,
   background600,
@@ -36,7 +36,7 @@ import {
   colorError,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
+} from '../styles/colors.js'
 import {
   Headline5,
   body1,
@@ -45,16 +45,16 @@ import {
   headline6,
   singleLine,
   subtitle1,
-} from '../styles/typography'
-import { findMatch, getCurrentMapPool } from './action-creators'
-import { Contents1v1 } from './find-1v1'
-import { Contents2v2 } from './find-2v2'
-import { FindMatchFormRef } from './find-match-forms'
+} from '../styles/typography.js'
+import { findMatch, getCurrentMapPool } from './action-creators.js'
+import { Contents1v1 } from './find-1v1.js'
+import { Contents2v2 } from './find-2v2.js'
+import { FindMatchFormRef } from './find-match-forms.js'
 import {
   ConnectedMatchmakingDisabledCard,
   ConnectedPartyDisabledCard,
-} from './matchmaking-disabled-card'
-import { LadderPlayerIcon } from './rank-icon'
+} from './matchmaking-disabled-card.js'
+import { LadderPlayerIcon } from './rank-icon.js'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

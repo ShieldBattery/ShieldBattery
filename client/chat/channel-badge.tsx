@@ -1,9 +1,9 @@
 import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
-import styled, { css } from 'styled-components'
-import { randomColorForString } from '../avatars/colors'
-import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
-import { headline3 } from '../styles/typography'
+import { css, styled } from 'styled-components'
+import { randomColorForString } from '../avatars/colors.js'
+import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors.js'
+import { headline3 } from '../styles/typography.js'
 
 const badgeCommon = css`
   width: 40px;

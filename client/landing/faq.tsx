@@ -1,22 +1,22 @@
 import React, { useLayoutEffect, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { DISCORD_URL } from '../../common/url-constants'
-import { MaterialIcon } from '../icons/material/material-icon'
+import { css, styled } from 'styled-components'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants.js'
+import { DISCORD_URL } from '../../common/url-constants.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
 import LogoText from '../logos/logotext-640x100.svg'
-import { shadowDef4dp } from '../material/shadow-constants'
-import { makePublicAssetUrl } from '../network/server-url'
+import { shadowDef4dp } from '../material/shadow-constants.js'
+import { makePublicAssetUrl } from '../network/server-url.js'
 import {
   background700,
   background800,
   blue400,
   colorDividers,
   colorTextSecondary,
-} from '../styles/colors'
-import { headline1, headline4, headline5 } from '../styles/typography'
-import { BottomLinks } from './bottom-links'
-import { TopLinks } from './top-links'
+} from '../styles/colors.js'
+import { headline1, headline4, headline5 } from '../styles/typography.js'
+import { BottomLinks } from './bottom-links.js'
+import { TopLinks } from './top-links.js'
 
 const makeQuestionId = (question: string) => {
   return encodeURIComponent(question.replace(/\s/g, '-').replace('?', ''))

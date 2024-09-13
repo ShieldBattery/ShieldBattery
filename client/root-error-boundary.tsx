@@ -1,14 +1,14 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { DISCORD_URL } from '../common/url-constants'
-import logger from './logging/logger'
-import { RaisedButton } from './material/button'
-import { colorTextSecondary } from './styles/colors'
-import GlobalStyle from './styles/global'
-import ResetStyle from './styles/reset'
-import { Headline5, subtitle1 } from './styles/typography'
-import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
+import { styled } from 'styled-components'
+import { DISCORD_URL } from '../common/url-constants.js'
+import logger from './logging/logger.js'
+import { RaisedButton } from './material/button.js'
+import { colorTextSecondary } from './styles/colors.js'
+import GlobalStyle from './styles/global.js'
+import ResetStyle from './styles/reset.js'
+import { Headline5, subtitle1 } from './styles/typography.js'
+import { WindowControls, WindowControlsStyle } from './system-bar/window-controls.js'
 
 export interface RootErrorBoundaryProps {
   /** A class name that will be applied to the root container that displays errors. */

@@ -1,5 +1,5 @@
 import { css } from 'styled-components'
-import { fastOutSlowIn } from './curve-constants'
+import { fastOutSlowIn } from './curve-constants.js'
 
 export const fastOutSlowInShort = css`
   transition: all 250ms ${fastOutSlowIn};

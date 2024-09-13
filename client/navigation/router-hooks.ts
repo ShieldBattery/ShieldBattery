@@ -1,6 +1,6 @@
 import { useLocationProperty } from 'wouter/use-browser-location'
-import { useStableCallback } from '../state-hooks'
-import { replace } from './routing'
+import { useStableCallback } from '../state-hooks.js'
+import { replace } from './routing.js'
 
 /**
  * A hook that reads a search param with a given name from `window.location`, and allows changing

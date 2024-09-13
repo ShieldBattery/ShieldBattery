@@ -1,4 +1,4 @@
-import { useResizeObserver } from './dimension-hooks'
+import { useResizeObserver } from './dimension-hooks.js'
 
 /**
  * A hook that will measure a specific element on a resize and return whether the element is

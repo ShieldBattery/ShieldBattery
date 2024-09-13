@@ -1,7 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
-import { caption } from '../styles/typography'
+import { styled } from 'styled-components'
+import { colorTextSecondary } from '../styles/colors.js'
+import { caption } from '../styles/typography.js'
 
 const VersionTextRoot = styled.div`
   ${caption};

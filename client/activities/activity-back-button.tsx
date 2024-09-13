@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { goBack } from './action-creators'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { goBack } from './action-creators.js'
 
 const BackButton = styled(IconButton)`
   margin-right: 16px;

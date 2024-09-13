@@ -7,8 +7,8 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import styled from 'styled-components'
-import { background800, colorDividers } from '../styles/colors'
+import { styled } from 'styled-components'
+import { background800, colorDividers } from '../styles/colors.js'
 
 const ScrollObserved = styled.div`
   width: 0px;

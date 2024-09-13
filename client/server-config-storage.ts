@@ -1,6 +1,6 @@
-import { ServerConfig } from '../common/server-config'
-import { JsonLocalStorageValue } from './local-storage'
-import { baseUrl } from './network/server-base-url'
+import { ServerConfig } from '../common/server-config.js'
+import { JsonLocalStorageValue } from './local-storage.js'
+import { baseUrl } from './network/server-base-url.js'
 
 const FALLBACK_SERVER_CONFIG: ServerConfig = {
   publicAssetsUrl: 'https://cdn.shieldbattery.net/public/',

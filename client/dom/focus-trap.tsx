@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../state-hooks.js'
 
 export interface FocusTrapProps {
   children: React.ReactNode

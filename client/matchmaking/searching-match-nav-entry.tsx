@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { SubheaderButton } from '../material/left-nav/subheader-button'
-import { useStableCallback } from '../state-hooks'
-import { colorTextSecondary } from '../styles/colors'
-import { TitleOld, body2, cabin } from '../styles/typography'
-import { ElapsedTime } from './elapsed-time'
+import { styled } from 'styled-components'
+import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { SubheaderButton } from '../material/left-nav/subheader-button.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { TitleOld, body2, cabin } from '../styles/typography.js'
+import { ElapsedTime } from './elapsed-time.js'
 
 const SearchingContainer = styled.div`
   display: flex;

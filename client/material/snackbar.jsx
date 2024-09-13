@@ -1,11 +1,11 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import styled from 'styled-components'
-import { background700 } from '../styles/colors'
-import { TextButton } from './button'
-import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
-import { shadow6dp } from './shadows'
-import { zIndexSnackbar } from './zindex'
+import { styled } from 'styled-components'
+import { background700 } from '../styles/colors.js'
+import { TextButton } from './button.js'
+import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants.js'
+import { shadow6dp } from './shadows.js'
+import { zIndexSnackbar } from './zindex.js'
 
 const MessageContainer = styled.div`
   line-height: 20px;

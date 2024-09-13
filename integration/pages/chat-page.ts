@@ -1,5 +1,5 @@
 import { Locator, Page } from '@playwright/test'
-import { LeftNav } from './left-nav'
+import { LeftNav } from './left-nav.js'
 
 export class ChatPage extends LeftNav {
   private readonly buttonHeaderActions: Locator

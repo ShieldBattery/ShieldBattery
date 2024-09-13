@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useForceUpdate } from '../state-hooks'
+import { useForceUpdate } from '../state-hooks.js'
 
 /**
  * A hook which creates an object URL out of the received file, while also making sure that stale

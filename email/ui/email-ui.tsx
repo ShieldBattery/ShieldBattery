@@ -14,9 +14,9 @@ import {
 } from '@react-email/components'
 import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
-import { blue500 } from '../../client/styles/colors'
-import { EmailProps } from '../email-props'
-import { t } from '../i18n/i18next'
+import { blue500 } from '../../client/styles/colors.js'
+import { EmailProps } from '../email-props.js'
+import { t } from '../i18n/i18next.js'
 
 export interface SbEmailProps extends EmailProps {
   children: React.ReactNode

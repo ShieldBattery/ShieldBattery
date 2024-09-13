@@ -1,10 +1,10 @@
 import React from 'react'
-import styled from 'styled-components'
-import Card from '../card'
-import { CheckBox } from '../check-box'
-import { SelectOption } from '../select/option'
-import { Select } from '../select/select'
-import { TextField } from '../text-field'
+import { styled } from 'styled-components'
+import Card from '../card.js'
+import { CheckBox } from '../check-box.js'
+import { SelectOption } from '../select/option.js'
+import { Select } from '../select/select.js'
+import { TextField } from '../text-field.js'
 
 const Container = styled.div`
   display: flex;

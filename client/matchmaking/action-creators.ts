@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { TypedIpcRenderer } from '../../common/ipc'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
 import {
   defaultPreferences,
   FindMatchRequest,
@@ -12,17 +12,17 @@ import {
   MatchmakingServiceErrorCode,
   MatchmakingType,
   PartialMatchmakingPreferences,
-} from '../../common/matchmaking'
-import { apiUrl } from '../../common/urls'
-import { openSimpleDialog } from '../dialogs/action-creators'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
-import { clientId } from '../network/client-id'
-import { fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
-import { UpdateLastQueuedMatchmakingType } from './actions'
+} from '../../common/matchmaking.js'
+import { apiUrl } from '../../common/urls.js'
+import { openSimpleDialog } from '../dialogs/action-creators.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import logger from '../logging/logger.js'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk.js'
+import { clientId } from '../network/client-id.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { fetchJson } from '../network/fetch.js'
+import { UpdateLastQueuedMatchmakingType } from './actions.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

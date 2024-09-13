@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { intersection, union } from '../../common/data-structures/sets'
-import { SbNotification } from '../../common/notifications'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { intersection, union } from '../../common/data-structures/sets.js'
+import { SbNotification } from '../../common/notifications.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface ClearRequest {
   byId: Map<string, SbNotification>

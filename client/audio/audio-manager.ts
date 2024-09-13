@@ -1,5 +1,5 @@
-import { urlPath } from '../../common/urls'
-import { fetchRaw } from '../network/fetch'
+import { urlPath } from '../../common/urls.js'
+import { fetchRaw } from '../network/fetch.js'
 
 export enum AvailableSound {
   Atmosphere = 'atmosphere.opus',

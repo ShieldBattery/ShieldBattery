@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-import { TableTest } from './table-test'
+import { TableTest } from './table-test.js'
 
 export function DevLadder() {
   return (

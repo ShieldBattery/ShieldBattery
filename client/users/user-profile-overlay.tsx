@@ -1,22 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { styled } from 'styled-components'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/index.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
-import { UserStats } from '../../common/users/user-stats'
-import { ConnectedAvatar } from '../avatars/avatar'
-import { longTimestamp } from '../i18n/date-formats'
-import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { Popover, PopoverProps } from '../material/popover'
-import { Tooltip } from '../material/tooltip'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+} from '../../common/matchmaking.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { UserStats } from '../../common/users/user-stats.js'
+import { ConnectedAvatar } from '../avatars/avatar.js'
+import { longTimestamp } from '../i18n/date-formats.js'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon.js'
+import { Popover, PopoverProps } from '../material/popover.js'
+import { Tooltip } from '../material/tooltip.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   background500,
   background900,
@@ -25,7 +25,7 @@ import {
   colorDividers,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
+} from '../styles/colors.js'
 import {
   Body1,
   body1,
@@ -36,8 +36,8 @@ import {
   overline,
   singleLine,
   subtitle1,
-} from '../styles/typography'
-import { navigateToUserProfile, viewUserProfile } from './action-creators'
+} from '../styles/typography.js'
+import { navigateToUserProfile, viewUserProfile } from './action-creators.js'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',

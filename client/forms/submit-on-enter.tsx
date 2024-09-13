@@ -1,4 +1,4 @@
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 
 /** Place inside a form to make pressing enter on inputs submit the form. */
 export const SubmitOnEnter = styled.button.attrs({ type: 'submit', value: 'Submit' })`

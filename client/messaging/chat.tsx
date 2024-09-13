@@ -1,14 +1,14 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { appendToMultimap } from '../../common/data-structures/maps'
-import { SbUserId } from '../../common/users/sb-user'
-import { MenuItem } from '../material/menu/item'
-import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
-import MessageList, { MessageListProps } from '../messaging/message-list'
-import { useAppDispatch } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
-import { MenuItemCategory } from '../users/user-context-menu'
+import { styled } from 'styled-components'
+import { appendToMultimap } from '../../common/data-structures/maps.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input.js'
+import MessageList, { MessageListProps } from '../messaging/message-list.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { useStableCallback } from '../state-hooks.js'
+import { MenuItemCategory } from '../users/user-context-menu.js'
 
 const MessagesAndInput = styled.div`
   position: relative;

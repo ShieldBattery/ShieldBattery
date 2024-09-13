@@ -4,13 +4,13 @@ import {
   ClearNotificationsServerResponse,
   MarkNotificationsReadServerRequest,
   SbNotification,
-} from '../../common/notifications'
-import { apiUrl } from '../../common/urls'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
-import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
+} from '../../common/notifications.js'
+import { apiUrl } from '../../common/urls.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import { fetchJson } from '../network/fetch.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions.js'
 
 export function clearNotifications(): ThunkAction {
   return (dispatch, getState) => {

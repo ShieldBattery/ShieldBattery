@@ -1,14 +1,14 @@
 import React, { useCallback } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
-import { ActionlessNotification } from '../notifications/notifications'
-import { useAppDispatch } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { amberA400 } from '../styles/colors'
-import { sendVerificationEmail } from './action-creators'
-import { useSelfUser } from './auth-utils'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import logger from '../logging/logger.js'
+import { ActionlessNotification } from '../notifications/notifications.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import { amberA400 } from '../styles/colors.js'
+import { sendVerificationEmail } from './action-creators.js'
+import { useSelfUser } from './auth-utils.js'
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;

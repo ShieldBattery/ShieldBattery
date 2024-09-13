@@ -1,4 +1,4 @@
-import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n.js'
 
 /**
  * Choose the preferred language from the list of given languages. If no languages are given, we

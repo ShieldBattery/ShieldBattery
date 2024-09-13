@@ -1,6 +1,6 @@
 import React from 'react'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
-import { RacePicker, RacePickerProps } from '../lobbies/race-picker'
+import { AssignedRaceChar, RaceChar } from '../../common/races.js'
+import { RacePicker, RacePickerProps } from '../lobbies/race-picker.js'
 
 export type RaceSelectOnChangeFunc<AllowRandom extends boolean | undefined> =
   AllowRandom extends false ? (race: AssignedRaceChar) => void : (race: RaceChar) => void

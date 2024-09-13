@@ -1,9 +1,9 @@
 import React from 'react'
-import styled from 'styled-components'
-import { range } from '../../../common/range'
-import Card from '../../material/card'
-import { background400, background700, colorTextSecondary } from '../../styles/colors'
-import Carousel from '../carousel'
+import { styled } from 'styled-components'
+import { range } from '../../../common/range.js'
+import Card from '../../material/card.js'
+import { background400, background700, colorTextSecondary } from '../../styles/colors.js'
+import Carousel from '../carousel.js'
 
 const Container = styled.div`
   display: flex;

@@ -1,5 +1,5 @@
 import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
-import path from 'path'
+import * as path from 'node:path'
 import logger from './logger.js'
 import { getUserDataPath } from './user-data-path.js'
 

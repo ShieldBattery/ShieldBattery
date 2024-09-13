@@ -13,14 +13,14 @@ import {
   JoinLeagueResponse,
   LeagueId,
   LeagueJson,
-} from '../../common/leagues'
-import { apiUrl, urlPath } from '../../common/urls'
-import { ThunkAction } from '../dispatch-registry'
-import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { fetchJson } from '../network/fetch'
-import { DetailsSubPage } from './details-sub-page'
-import { toRouteLeagueId } from './route-league-id'
+} from '../../common/leagues.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { push, replace } from '../navigation/routing.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { fetchJson } from '../network/fetch.js'
+import { DetailsSubPage } from './details-sub-page.js'
+import { toRouteLeagueId } from './route-league-id.js'
 
 /** Navigates to the leagues list. */
 export function navigateToLeaguesList(transitionFn = push) {

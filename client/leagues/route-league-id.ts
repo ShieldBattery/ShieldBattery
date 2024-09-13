@@ -1,6 +1,6 @@
 import { Opaque } from 'type-fest'
-import { LeagueId } from '../../common/leagues'
-import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
+import { LeagueId } from '../../common/leagues.js'
+import { decodePrettyId, encodePrettyId } from '../../common/pretty-id.js'
 
 /**
  * The ID of a league as used in routes (equivalent to the DB one, just encoded in a way that

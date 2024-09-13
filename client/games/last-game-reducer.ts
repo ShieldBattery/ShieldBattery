@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface LastGameState {
   /**

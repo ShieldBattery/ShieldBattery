@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { ReadonlyDeep } from 'type-fest'
-import { SbPermissions } from '../../common/users/permissions'
-import { useSelfPermissions } from '../auth/auth-utils'
+import { SbPermissions } from '../../common/users/permissions.js'
+import { useSelfPermissions } from '../auth/auth-utils.js'
 
 function isAdminFromPermissions(permissions?: ReadonlyDeep<SbPermissions>) {
   return permissions && Object.values(permissions).some(p => p === true)

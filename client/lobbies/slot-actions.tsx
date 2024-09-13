@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MenuList } from '../material/menu/menu.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
 
 interface SlotActionsProps {
   slotActions: Array<[text: string, handler: () => void]>

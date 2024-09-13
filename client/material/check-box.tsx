@@ -1,6 +1,6 @@
 import { rgba } from 'polished'
 import React, { useCallback, useId, useRef, useState } from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   alphaDisabled,
   alphaDividers,
@@ -10,8 +10,8 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { fastOutSlowIn } from './curve-constants'
+} from '../styles/colors.js'
+import { fastOutSlowIn } from './curve-constants.js'
 
 const BOX_WIDTH = 18
 const BOX_HEIGHT = 18

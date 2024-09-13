@@ -1,8 +1,8 @@
 import React from 'react'
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline6 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { headline6 } from '../styles/typography.js'
 
 const BreadcrumbPiece = styled.span<{ $active: boolean }>`
   ${headline6};

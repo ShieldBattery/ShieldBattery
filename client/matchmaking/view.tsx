@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react'
 import { Route, Switch } from 'wouter'
-import { navigateToGameResults } from '../games/action-creators'
-import { ResultsSubPage } from '../games/results-sub-page'
-import { GoToIndex } from '../navigation/index'
-import { replace } from '../navigation/routing'
-import { useAppSelector } from '../redux-hooks'
-import { usePrevious } from '../state-hooks'
-import MatchmakingMatch from './matchmaking-match'
-import { isMatchmakingLoading } from './matchmaking-reducer'
+import { navigateToGameResults } from '../games/action-creators.js'
+import { ResultsSubPage } from '../games/results-sub-page.js'
+import { GoToIndex } from '../navigation/index.js'
+import { replace } from '../navigation/routing.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { usePrevious } from '../state-hooks.js'
+import MatchmakingMatch from './matchmaking-match.js'
+import { isMatchmakingLoading } from './matchmaking-reducer.js'
 
 function MatchmakingMatchHolder() {
   const activeGame = useAppSelector(s => s.activeGame)

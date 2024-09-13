@@ -1,10 +1,10 @@
-import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder'
-import { MatchmakingType } from '../../common/matchmaking'
-import { apiUrl, urlPath } from '../../common/urls'
-import { ThunkAction } from '../dispatch-registry'
-import { push } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { fetchJson } from '../network/fetch'
+import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder.js'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { push } from '../navigation/routing.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { fetchJson } from '../network/fetch.js'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000
 

@@ -1,23 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   ChatServiceErrorCode,
   ClientChatMessageType,
   SbChannelId,
   ServerChatMessageType,
-} from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
-import { Chat } from '../messaging/chat'
-import { SbMessage } from '../messaging/message-records'
-import { push } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious, useStableCallback } from '../state-hooks'
-import { background700, background800, colorError } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
-import { MenuItemCategory } from '../users/user-context-menu'
+} from '../../common/chat.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { Chat } from '../messaging/chat.js'
+import { SbMessage } from '../messaging/message-records.js'
+import { push } from '../navigation/routing.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { usePrevious, useStableCallback } from '../state-hooks.js'
+import { background700, background800, colorError } from '../styles/colors.js'
+import { headline5, subtitle1 } from '../styles/typography.js'
+import { MenuItemCategory } from '../users/user-context-menu.js'
 import {
   activateChannel,
   correctChannelNameForChat,
@@ -27,11 +27,11 @@ import {
   leaveChannel,
   retrieveUserList,
   sendMessage,
-} from './action-creators'
-import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
-import { ConnectedChannelInfoCard } from './channel-info-card'
-import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
-import { ChannelUserList } from './channel-user-list'
+} from './action-creators.js'
+import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header.js'
+import { ConnectedChannelInfoCard } from './channel-info-card.js'
+import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items.js'
+import { ChannelUserList } from './channel-user-list.js'
 import {
   BanUserMessage,
   JoinChannelMessage,
@@ -39,7 +39,7 @@ import {
   LeaveChannelMessage,
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
-} from './chat-message-layout'
+} from './chat-message-layout.js'
 
 const MESSAGES_LIMIT = 50
 

@@ -1,10 +1,10 @@
 import { Immutable } from 'immer'
 import { Record } from 'immutable'
-import { LOBBY_UPDATE_GAME_STARTED } from '../actions'
-import { LobbyRecord } from '../lobbies/lobby-reducer'
-import { MatchmakingMatch } from '../matchmaking/matchmaking-reducer'
-import { keyedReducer } from '../reducers/keyed-reducer'
-import { ActiveGameStatus } from './actions'
+import { LOBBY_UPDATE_GAME_STARTED } from '../actions.js'
+import { LobbyRecord } from '../lobbies/lobby-reducer.js'
+import { MatchmakingMatch } from '../matchmaking/matchmaking-reducer.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
+import { ActiveGameStatus } from './actions.js'
 
 export type GameInfo = LobbyGameInfo | MatchmakingGameInfo
 

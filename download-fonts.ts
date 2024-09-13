@@ -1,5 +1,5 @@
 import { download } from 'google-fonts-helper'
-import path from 'path'
+import * as path from 'node:path'
 
 /**
  * A URL for all the Google fonts used in the app. This will be used at build time to download the

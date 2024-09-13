@@ -1,11 +1,11 @@
-import { SbPermissions } from '../../common/users/permissions'
+import { SbPermissions } from '../../common/users/permissions.js'
 import {
   AcceptPoliciesResponse,
   ChangeLanguagesResponse,
   SbUserId,
-} from '../../common/users/sb-user'
-import { ClientSessionInfo } from '../../common/users/session'
-import { BaseFetchFailure } from '../network/fetch-errors'
+} from '../../common/users/sb-user.js'
+import { ClientSessionInfo } from '../../common/users/session.js'
+import { BaseFetchFailure } from '../network/fetch-errors.js'
 
 export type AuthActions =
   | AuthChangeBegin

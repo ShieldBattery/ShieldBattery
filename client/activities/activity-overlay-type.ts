@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
-import { LobbyActivityOverlayProps } from '../lobbies/lobby-activity-overlay'
+import { MapInfoJson } from '../../common/maps.js'
+import { LobbyActivityOverlayProps } from '../lobbies/lobby-activity-overlay.js'
 
 export enum ActivityOverlayType {
   FindMatch = 'findMatch',

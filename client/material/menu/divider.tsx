@@ -1,5 +1,5 @@
-import styled from 'styled-components'
-import { colorDividers } from '../../styles/colors'
+import { styled } from 'styled-components'
+import { colorDividers } from '../../styles/colors.js'
 
 export const Divider = styled.div<{ $dense?: boolean }>`
   width: 100%;

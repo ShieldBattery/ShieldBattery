@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { closeOverlay } from '../activities/action-creators'
-import { FileBrowser } from '../file-browser/file-browser'
+import { styled } from 'styled-components'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { closeOverlay } from '../activities/action-creators.js'
 import {
   ExpansionPanelProps,
   FileBrowserEntry,
@@ -12,12 +11,13 @@ import {
   FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
   FileBrowserType,
-} from '../file-browser/file-browser-types'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { useAppDispatch } from '../redux-hooks'
-import { background400 } from '../styles/colors'
-import { startReplay } from './action-creators'
-import { ReplayInfoDisplay } from './replay-info-display'
+} from '../file-browser/file-browser-types.js'
+import { FileBrowser } from '../file-browser/file-browser.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { background400 } from '../styles/colors.js'
+import { startReplay } from './action-creators.js'
+import { ReplayInfoDisplay } from './replay-info-display.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

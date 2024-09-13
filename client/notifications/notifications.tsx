@@ -1,7 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
-import { colorDividers } from '../styles/colors'
-import { body1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { colorDividers } from '../styles/colors.js'
+import { body1 } from '../styles/typography.js'
 
 const Container = styled.div<{ $read: boolean }>`
   position: relative;

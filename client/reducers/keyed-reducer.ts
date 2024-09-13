@@ -1,6 +1,6 @@
 import { Draft, Immutable, produce } from 'immer'
-import { ReduxAction } from '../action-types'
-import { ActionWithSystemInfo } from '../redux-system-info'
+import { ReduxAction } from '../action-types.js'
+import { ActionWithSystemInfo } from '../redux-system-info.js'
 
 type ReducerFunc<ActionType extends ReduxAction, S> = (state: S, action: ActionType) => S
 

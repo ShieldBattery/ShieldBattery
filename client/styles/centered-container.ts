@@ -1,4 +1,4 @@
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 
 /**
  * A container with normal horizontal padding intended for use as the "root" of application content

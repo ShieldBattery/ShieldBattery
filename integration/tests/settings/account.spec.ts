@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { suppressChangelog } from '../../changelog-utils'
-import { clearLocalState } from '../../clear-local-state'
-import { LoginPage } from '../../pages/login-page'
-import { SentEmailChecker } from '../../sent-email-checker'
-import { generateUsername } from '../../username-generator'
-import { getVerificationLink, signupWith } from '../signup/utils'
+import { suppressChangelog } from '../../changelog-utils.js'
+import { clearLocalState } from '../../clear-local-state.js'
+import { LoginPage } from '../../pages/login-page.js'
+import { SentEmailChecker } from '../../sent-email-checker.js'
+import { generateUsername } from '../../username-generator.js'
+import { getVerificationLink, signupWith } from '../signup/utils.js'
 
 const sentEmailChecker = new SentEmailChecker()
 let loginPage: LoginPage

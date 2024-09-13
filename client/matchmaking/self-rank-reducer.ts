@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { LadderPlayer } from '../../common/ladder'
-import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { LadderPlayer } from '../../common/ladder.js'
+import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 // NOTE(tec27): This feels like a dumb thing to make a reducer for, but it doesn't really fit
 // elsewhere atm :(

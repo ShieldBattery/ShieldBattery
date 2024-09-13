@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { BottomLinks } from '../landing/bottom-links'
-import TopLinks from '../landing/top-links'
-import { Dialog } from '../material/dialog'
-import { LoadingDotsArea } from '../progress/dots'
-import { body1, body2, headline3, headline5, subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type.js'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { BottomLinks } from '../landing/bottom-links.js'
+import TopLinks from '../landing/top-links.js'
+import { Dialog } from '../material/dialog.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { body1, body2, headline3, headline5, subtitle1 } from '../styles/typography.js'
 
 const PolicyRoot = styled.div`
   ${body1};

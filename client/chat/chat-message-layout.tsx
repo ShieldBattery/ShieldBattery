@@ -1,16 +1,16 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { SbChannelId } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { SbChannelId } from '../../common/chat.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks.js'
 import {
   InfoImportant,
   SeparatedInfoMessage,
   SystemImportant,
   SystemMessage,
-} from '../messaging/message-layout'
-import { ConnectedUsername } from '../users/connected-username'
-import { ConnectedChannelName } from './connected-channel-name'
+} from '../messaging/message-layout.js'
+import { ConnectedUsername } from '../users/connected-username.js'
+import { ConnectedChannelName } from './connected-channel-name.js'
 
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props

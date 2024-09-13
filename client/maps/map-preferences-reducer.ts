@@ -1,6 +1,12 @@
 import { Immutable } from 'immer'
-import { MapPreferences, MapSortType, MapVisibility, NumPlayers, Tileset } from '../../common/maps'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import {
+  MapPreferences,
+  MapSortType,
+  MapVisibility,
+  NumPlayers,
+  Tileset,
+} from '../../common/maps.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface MapPreferencesState {
   /** The last saved visibility in the maps browser. Can be either official, private, or public.  */

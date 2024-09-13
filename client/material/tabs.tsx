@@ -1,14 +1,14 @@
 import keycode from 'keycode'
 import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
-import styled from 'styled-components'
-import { useKeyListener } from '../keyboard/key-listener'
-import { useMultiRef } from '../state-hooks'
-import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { buttonText, singleLine } from '../styles/typography'
-import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
-import { buttonReset } from './button-reset'
-import { Ripple } from './ripple'
+import { styled } from 'styled-components'
+import { useKeyListener } from '../keyboard/key-listener.js'
+import { useMultiRef } from '../state-hooks.js'
+import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors.js'
+import { buttonText, singleLine } from '../styles/typography.js'
+import { buttonReset } from './button-reset.js'
+import { HotkeyProp, useButtonHotkey, useButtonState } from './button.js'
+import { Ripple } from './ripple.js'
 
 const KEY_NUMBERS = [
   keycode('1'),

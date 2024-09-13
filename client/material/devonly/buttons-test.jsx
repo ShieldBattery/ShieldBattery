@@ -1,9 +1,9 @@
 import React from 'react'
-import styled from 'styled-components'
-import { MaterialIcon } from '../../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../button'
-import Card from '../card'
-import { FloatingActionButton } from '../floating-action-button'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../../icons/material/material-icon.js'
+import { IconButton, RaisedButton, TextButton } from '../button.js'
+import Card from '../card.js'
+import { FloatingActionButton } from '../floating-action-button.js'
 
 const Container = styled.div`
   display: flex;

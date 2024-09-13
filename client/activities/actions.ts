@@ -1,4 +1,4 @@
-import { ActivityOverlayPayload } from './activity-overlay-type'
+import { ActivityOverlayPayload } from './activity-overlay-type.js'
 
 export type ActivityOverlayActions =
   | OpenActivityOverlay

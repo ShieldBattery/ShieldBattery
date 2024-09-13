@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react'
-import styled from 'styled-components'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { Dialog } from '../material/dialog'
-import { LoadingDotsArea } from '../progress/dots'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline5, headline6, subtitle1 } from '../styles/typography'
-import { KEY, VERSION } from './should-show-changelog'
+import { styled } from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { Dialog } from '../material/dialog.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { headline5, headline6, subtitle1 } from '../styles/typography.js'
+import { KEY, VERSION } from './should-show-changelog.js'
 
 const Content = styled.div`
   user-select: contain;

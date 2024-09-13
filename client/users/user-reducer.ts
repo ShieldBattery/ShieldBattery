@@ -1,8 +1,8 @@
 import { Immutable } from 'immer'
-import { GameRecordJson } from '../../common/games/games'
-import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
-import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { GameRecordJson } from '../../common/games/games.js'
+import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user.js'
+import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE, LOBBY_UPDATE_SLOT_CREATE } from '../actions.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface UserRequestInfo {
   /** Should be set to the current value of `window.performance.now()` when the request is made. */

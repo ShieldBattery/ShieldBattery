@@ -1,6 +1,6 @@
 import React from 'react'
-import styled from 'styled-components'
-import { background700 } from '../../styles/colors'
+import { styled } from 'styled-components'
+import { background700 } from '../../styles/colors.js'
 
 const Header = styled.div``
 const Footer = styled.div``

@@ -1,24 +1,24 @@
 import React, { useMemo, useState } from 'react'
-import styled from 'styled-components'
-import { GameSource, GameType } from '../../../common/games/configuration'
-import { GameRecordJson } from '../../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
+import { styled } from 'styled-components'
+import { GameSource, GameType } from '../../../common/games/configuration.js'
+import { GameRecordJson } from '../../../common/games/games.js'
+import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues.js'
 import {
   MatchmakingResult,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
-} from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user'
-import { openDialog } from '../../dialogs/action-creators'
-import { DialogType } from '../../dialogs/dialog-type'
-import { RaisedButton } from '../../material/button'
-import Card from '../../material/card'
-import { CheckBox } from '../../material/check-box'
-import { NumberTextField } from '../../material/number-text-field'
-import { useAppDispatch } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { Body1 } from '../../styles/typography'
+} from '../../../common/matchmaking.js'
+import { makeSbUserId } from '../../../common/users/sb-user.js'
+import { openDialog } from '../../dialogs/action-creators.js'
+import { DialogType } from '../../dialogs/dialog-type.js'
+import { RaisedButton } from '../../material/button.js'
+import Card from '../../material/card.js'
+import { CheckBox } from '../../material/check-box.js'
+import { NumberTextField } from '../../material/number-text-field.js'
+import { useAppDispatch } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { Body1 } from '../../styles/typography.js'
 
 const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)

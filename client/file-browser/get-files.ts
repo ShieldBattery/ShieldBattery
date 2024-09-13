@@ -1,5 +1,5 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { FileBrowserEntry, FileBrowserEntryType } from './file-browser-types'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { FileBrowserEntry, FileBrowserEntryType } from './file-browser-types.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

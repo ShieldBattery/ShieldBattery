@@ -1,16 +1,16 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MapInfoJson } from '../../common/maps'
-import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
-import { TransInterpolation } from '../i18n/i18next'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { batchGetMapInfo } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadow4dp } from '../material/shadows'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useValueAsRef } from '../state-hooks'
+import { styled } from 'styled-components'
+import { MapInfoJson } from '../../common/maps.js'
+import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { batchGetMapInfo } from '../maps/action-creators.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { shadow4dp } from '../material/shadows.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { useValueAsRef } from '../state-hooks.js'
 import {
   amberA400,
   colorDividers,
@@ -18,9 +18,9 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, subtitle1 } from '../styles/typography'
-import { RaceSelect } from './race-select'
+} from '../styles/colors.js'
+import { body1, body2, subtitle1 } from '../styles/typography.js'
+import { RaceSelect } from './race-select.js'
 
 export interface FindMatchFormRef {
   submit: () => void

@@ -1,24 +1,24 @@
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Route, Switch } from 'wouter'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { LobbyState } from '../../common/lobbies'
-import { RaceChar } from '../../common/races'
-import { openOverlay } from '../activities/action-creators'
-import { ActivityOverlayType } from '../activities/activity-overlay-type'
-import { useSelfUser } from '../auth/auth-utils'
-import { navigateToGameResults } from '../games/action-creators'
-import { ResultsSubPage } from '../games/results-sub-page'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
-import { RaisedButton } from '../material/button'
-import { push, replace } from '../navigation/routing'
-import LoadingIndicator from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { LobbyState } from '../../common/lobbies/index.js'
+import { RaceChar } from '../../common/races.js'
+import { openOverlay } from '../activities/action-creators.js'
+import { ActivityOverlayType } from '../activities/activity-overlay-type.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { navigateToGameResults } from '../games/action-creators.js'
+import { ResultsSubPage } from '../games/results-sub-page.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators.js'
+import { RaisedButton } from '../material/button.js'
+import { push, replace } from '../navigation/routing.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { usePrevious, useStableCallback } from '../state-hooks.js'
+import { colorTextFaint } from '../styles/colors.js'
+import { Subtitle1 } from '../styles/typography.js'
 import {
   activateLobby,
   addComputer,
@@ -36,10 +36,10 @@ import {
   sendChat,
   setRace,
   startCountdown,
-} from './action-creators'
-import ActiveLobby from './active-lobby'
-import LoadingScreen from './loading'
-import Lobby from './lobby'
+} from './action-creators.js'
+import ActiveLobby from './active-lobby.js'
+import LoadingScreen from './loading.js'
+import Lobby from './lobby.js'
 
 const LoadingArea = styled.div`
   height: 32px;

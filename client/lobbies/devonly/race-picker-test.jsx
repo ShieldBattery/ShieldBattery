@@ -1,9 +1,9 @@
 import React from 'react'
-import styled from 'styled-components'
-import Card from '../../material/card'
-import { background500 } from '../../styles/colors'
-import { RacePicker } from '../race-picker'
-import SelectedRace from '../selected-race'
+import { styled } from 'styled-components'
+import Card from '../../material/card.js'
+import { background500 } from '../../styles/colors.js'
+import { RacePicker } from '../race-picker.js'
+import SelectedRace from '../selected-race.js'
 
 const Container = styled.div`
   display: flex;

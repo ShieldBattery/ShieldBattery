@@ -1,12 +1,12 @@
 import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
-import styled, { css } from 'styled-components'
+import { css, styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LeagueId, LeagueJson } from '../../common/leagues'
-import { randomColorForString } from '../avatars/colors'
-import { useAppSelector } from '../redux-hooks'
-import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
-import { headline3 } from '../styles/typography'
+import { LeagueId, LeagueJson } from '../../common/leagues/index.js'
+import { randomColorForString } from '../avatars/colors.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors.js'
+import { headline3 } from '../styles/typography.js'
 
 const badgeCommon = css`
   width: 40px;

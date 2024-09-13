@@ -1,12 +1,12 @@
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { stringToStatus } from '../../common/game-status'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { apiUrl } from '../../common/urls'
-import { dispatch } from '../dispatch-registry'
-import logger from '../logging/logger'
-import { fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
-import { updateActiveGame } from './wait-for-active-game'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { stringToStatus } from '../../common/game-status.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { apiUrl } from '../../common/urls.js'
+import { dispatch } from '../dispatch-registry.js'
+import logger from '../logging/logger.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { fetchJson } from '../network/fetch.js'
+import { updateActiveGame } from './wait-for-active-game.js'
 
 export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   ipcRenderer

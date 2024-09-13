@@ -3,12 +3,12 @@ import {
   ListBugReportsResponseJson,
   ReportBugRequest,
   ReportBugResponse,
-} from '../../common/bugs'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { apiUrl } from '../../common/urls'
-import { ThunkAction } from '../dispatch-registry'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { fetchJson } from '../network/fetch'
+} from '../../common/bugs.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { apiUrl } from '../../common/urls.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { fetchJson } from '../network/fetch.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

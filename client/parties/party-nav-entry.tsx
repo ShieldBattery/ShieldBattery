@@ -1,15 +1,15 @@
 import { Immutable } from 'immer'
 import React, { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link, useRoute } from 'wouter'
-import { urlPath } from '../../common/urls'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import AttentionIndicator from '../material/left-nav/attention-indicator'
-import { amberA200, colorTextFaint } from '../styles/colors'
-import { singleLine, subtitle2 } from '../styles/typography'
-import { CurrentPartyState } from './party-reducer'
+import { urlPath } from '../../common/urls.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import AttentionIndicator from '../material/left-nav/attention-indicator.js'
+import { amberA200, colorTextFaint } from '../styles/colors.js'
+import { singleLine, subtitle2 } from '../styles/typography.js'
+import { CurrentPartyState } from './party-reducer.js'
 
 const Container = styled.li<{ isActive: boolean }>`
   position: relative;

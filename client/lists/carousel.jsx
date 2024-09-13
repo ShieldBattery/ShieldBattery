@@ -1,13 +1,13 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import WindowListener from '../dom/window-listener'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, Label } from '../material/button'
-import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextSecondary } from '../styles/colors'
-import InfiniteScrollList from './infinite-scroll-list'
+import { styled } from 'styled-components'
+import WindowListener from '../dom/window-listener.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton, Label } from '../material/button.js'
+import { fastOutSlowIn } from '../material/curve-constants.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import InfiniteScrollList from './infinite-scroll-list.js'
 
 const BUTTON_WIDTH = 64
 const LOADER_WIDTH = 98

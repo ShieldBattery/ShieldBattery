@@ -1,21 +1,21 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { appendToMultimap } from '../../common/data-structures/maps'
-import { UserRelationshipKind } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { Divider } from '../material/menu/divider'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
-import { Popover, PopoverProps } from '../material/popover'
-import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
-import { navigateToWhisper } from '../whispers/action-creators'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { appendToMultimap } from '../../common/data-structures/maps.js'
+import { UserRelationshipKind } from '../../common/users/relationships.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { Divider } from '../material/menu/divider.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MenuList } from '../material/menu/menu.js'
+import { Popover, PopoverProps } from '../material/popover.js'
+import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorTextFaint } from '../styles/colors.js'
+import { navigateToWhisper } from '../whispers/action-creators.js'
 import {
   acceptFriendRequest,
   blockUser,
@@ -24,8 +24,8 @@ import {
   removeFriendRequest,
   sendFriendRequest,
   unblockUser,
-} from './action-creators'
-import { userRelationshipErrorToString } from './relationship-errors'
+} from './action-creators.js'
+import { userRelationshipErrorToString } from './relationship-errors.js'
 
 const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};

@@ -1,22 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
-import { ReconciledResult, getResultLabel } from '../../common/games/results'
-import { SbUserId } from '../../common/users/sb-user'
-import { navigateToGameResults } from '../games/action-creators'
-import { GamePlayersDisplay } from '../games/game-players-display'
-import { longTimestamp, narrowDuration } from '../i18n/date-formats'
-import { MaterialIcon } from '../icons/material/material-icon'
-import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { shadow1dp } from '../material/shadows'
-import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
+import { styled } from 'styled-components'
+import {
+  GameRecordJson,
+  getGameDurationString,
+  getGameTypeLabel,
+} from '../../common/games/games.js'
+import { ReconciledResult, getResultLabel } from '../../common/games/results.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { navigateToGameResults } from '../games/action-creators.js'
+import { GamePlayersDisplay } from '../games/game-players-display.js'
+import { longTimestamp, narrowDuration } from '../i18n/date-formats.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import InfiniteScrollList from '../lists/infinite-scroll-list.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { buttonReset } from '../material/button-reset.js'
+import { useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { shadow1dp } from '../material/shadows.js'
+import { Tooltip } from '../material/tooltip.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { useStableCallback } from '../state-hooks.js'
 import {
   background500,
   colorError,
@@ -24,9 +28,9 @@ import {
   colorPositive,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, caption, headline4, singleLine, subtitle1 } from '../styles/typography'
-import { searchMatchHistory } from './action-creators'
+} from '../styles/colors.js'
+import { body1, body2, caption, headline4, singleLine, subtitle1 } from '../styles/typography.js'
+import { searchMatchHistory } from './action-creators.js'
 
 const NoResults = styled.div`
   ${subtitle1};

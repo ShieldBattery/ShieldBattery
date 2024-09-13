@@ -1,6 +1,6 @@
-import http from 'http'
 import { Map } from 'immutable'
-import { AddressInfo } from 'net'
+import * as http from 'node:http'
+import { AddressInfo } from 'node:net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
 import { LocalSettings } from '../../common/settings/local-settings.js'

@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { CheckBox } from '../../material/check-box'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { mergeLocalSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+import { styled } from 'styled-components'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { CheckBox } from '../../material/check-box.js'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { mergeLocalSettings } from '../action-creators.js'
+import { FormContainer, SectionOverline } from '../settings-content.js'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;

@@ -1,19 +1,19 @@
 import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import {
   EMAIL_MAXLENGTH,
   EMAIL_MINLENGTH,
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
-} from '../../../common/constants'
-import { EmailVerificationWarningContent } from '../../auth/email-verification-notification-ui'
-import { openDialog } from '../../dialogs/action-creators'
-import { CommonDialogProps } from '../../dialogs/common-dialog-props'
-import { DialogType } from '../../dialogs/dialog-type'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
+} from '../../../common/constants.js'
+import { EmailVerificationWarningContent } from '../../auth/email-verification-notification-ui.js'
+import { openDialog } from '../../dialogs/action-creators.js'
+import { CommonDialogProps } from '../../dialogs/common-dialog-props.js'
+import { DialogType } from '../../dialogs/dialog-type.js'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
 import {
   composeValidators,
   matchesOther,
@@ -21,20 +21,20 @@ import {
   minLength,
   regex,
   required,
-} from '../../forms/validators'
-import { graphql, useFragment } from '../../gql'
-import { MaterialIcon } from '../../icons/material/material-icon'
-import logger from '../../logging/logger'
-import { useAutoFocusRef } from '../../material/auto-focus'
-import { RaisedButton, TextButton } from '../../material/button'
-import Card from '../../material/card'
-import { Dialog } from '../../material/dialog'
-import { PasswordTextField } from '../../material/password-text-field'
-import { TextField } from '../../material/text-field'
-import { useAppDispatch } from '../../redux-hooks'
-import { openSnackbar } from '../../snackbars/action-creators'
-import { useStableCallback } from '../../state-hooks'
-import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
+} from '../../forms/validators.js'
+import { graphql, useFragment } from '../../gql/index.js'
+import { MaterialIcon } from '../../icons/material/material-icon.js'
+import logger from '../../logging/logger.js'
+import { useAutoFocusRef } from '../../material/auto-focus.js'
+import { RaisedButton, TextButton } from '../../material/button.js'
+import Card from '../../material/card.js'
+import { Dialog } from '../../material/dialog.js'
+import { PasswordTextField } from '../../material/password-text-field.js'
+import { TextField } from '../../material/text-field.js'
+import { useAppDispatch } from '../../redux-hooks.js'
+import { openSnackbar } from '../../snackbars/action-creators.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors.js'
 import {
   Body1,
   Subtitle1,
@@ -42,7 +42,7 @@ import {
   headline5,
   overline,
   subtitle1,
-} from '../../styles/typography'
+} from '../../styles/typography.js'
 
 const Root = styled.div`
   display: flex;

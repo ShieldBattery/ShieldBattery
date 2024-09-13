@@ -1,5 +1,5 @@
-import { SbUser, SbUserId } from '../../common/users/sb-user'
-import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
+import { SbUser, SbUserId } from '../../common/users/sb-user.js'
+import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers.js'
 
 export type WhisperActions =
   | LoadMessageHistory

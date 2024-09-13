@@ -1,28 +1,28 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameRecordJson } from '../../common/games/games'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { GameRecordJson } from '../../common/games/games.js'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/index.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
   MatchmakingType,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
-import { useHasAnyPermission } from '../admin/admin-permissions'
-import { ConnectedAvatar } from '../avatars/avatar'
-import { ComingSoon } from '../coming-soon/coming-soon'
-import { RaceIcon } from '../lobbies/race-icon'
-import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { TabItem, Tabs } from '../material/tabs'
-import { replace } from '../navigation/routing'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+} from '../../common/matchmaking.js'
+import { RaceChar } from '../../common/races.js'
+import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user.js'
+import { useHasAnyPermission } from '../admin/admin-permissions.js'
+import { ConnectedAvatar } from '../avatars/avatar.js'
+import { ComingSoon } from '../coming-soon/coming-soon.js'
+import { RaceIcon } from '../lobbies/race-icon.js'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { replace } from '../navigation/routing.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   amberA400,
   background700,
@@ -32,8 +32,8 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { selectableTextContainer } from '../styles/text-selection'
+} from '../styles/colors.js'
+import { selectableTextContainer } from '../styles/text-selection.js'
 import {
   Subtitle2,
   caption,
@@ -43,18 +43,18 @@ import {
   singleLine,
   subtitle1,
   subtitle2,
-} from '../styles/typography'
+} from '../styles/typography.js'
 import {
   correctUsernameForProfile,
   navigateToUserProfile,
   viewUserProfile,
-} from './action-creators'
-import { ConnectedMatchHistory } from './match-history'
-import { MiniMatchHistory } from './mini-match-history'
-import { UserProfileSubPage } from './user-profile-sub-page'
+} from './action-creators.js'
+import { ConnectedMatchHistory } from './match-history.js'
+import { MiniMatchHistory } from './mini-match-history.js'
+import { UserProfileSubPage } from './user-profile-sub-page.js'
 
 const LoadableAdminUserPage = React.lazy(async () => ({
-  default: (await import('./user-profile-admin')).AdminUserPage,
+  default: (await import('./user-profile-admin.js')).AdminUserPage,
 }))
 
 const Container = styled.div`

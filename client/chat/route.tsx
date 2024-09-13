@@ -1,13 +1,13 @@
 import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
-import { SbChannelId, makeSbChannelId } from '../../common/chat'
-import { useHasAnyPermission } from '../admin/admin-permissions'
-import { NoPermissionsPage } from '../auth/no-permissions-page'
-import { replace } from '../navigation/routing'
-import { LoadingDotsArea } from '../progress/dots'
-import { ConnectedChatChannel } from './channel'
-import { ChannelList } from './channel-list'
-import { CreateChannel } from './create-channel'
+import { SbChannelId, makeSbChannelId } from '../../common/chat.js'
+import { useHasAnyPermission } from '../admin/admin-permissions.js'
+import { NoPermissionsPage } from '../auth/no-permissions-page.js'
+import { replace } from '../navigation/routing.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { ChannelList } from './channel-list.js'
+import { ConnectedChatChannel } from './channel.js'
+import { CreateChannel } from './create-channel.js'
 
 const LoadableChatAdminComponent = React.lazy(async () => ({
   default: (await import('./admin')).ChatAdmin,

@@ -2,20 +2,20 @@ import { Immutable } from 'immer'
 import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
-import { ReconciledResult, getResultLabel } from '../../common/games/results'
-import { SbUserId } from '../../common/users/sb-user'
-import { navigateToGameResults } from '../games/action-creators'
-import { GamePlayersDisplay } from '../games/game-players-display'
-import { longTimestamp, narrowDuration } from '../i18n/date-formats'
-import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { TextButton, useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { styled } from 'styled-components'
+import { GameRecordJson, getGameTypeLabel } from '../../common/games/games.js'
+import { ReconciledResult, getResultLabel } from '../../common/games/results.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { navigateToGameResults } from '../games/action-creators.js'
+import { GamePlayersDisplay } from '../games/game-players-display.js'
+import { longTimestamp, narrowDuration } from '../i18n/date-formats.js'
+import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { buttonReset } from '../material/button-reset.js'
+import { TextButton, useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { Tooltip } from '../material/tooltip.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   background700,
   colorNegative,
@@ -23,8 +23,8 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { Body1, body2, singleLine, subtitle1 } from '../styles/typography'
+} from '../styles/colors.js'
+import { Body1, body2, singleLine, subtitle1 } from '../styles/typography.js'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;

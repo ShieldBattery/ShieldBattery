@@ -1,6 +1,6 @@
-import styled from 'styled-components'
-import { shadow3dp } from '../material/shadows'
-import { background500 } from '../styles/colors'
+import { styled } from 'styled-components'
+import { shadow3dp } from '../material/shadows.js'
+import { background500 } from '../styles/colors.js'
 
 export default styled.div`
   ${shadow3dp};

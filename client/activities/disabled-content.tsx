@@ -1,9 +1,9 @@
 import { rgba } from 'polished'
-import styled from 'styled-components'
-import Card from '../material/card'
-import { shadow8dp } from '../material/shadows'
-import { dialogScrim } from '../styles/colors'
-import { body1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import Card from '../material/card.js'
+import { shadow8dp } from '../material/shadows.js'
+import { dialogScrim } from '../styles/colors.js'
+import { body1 } from '../styles/typography.js'
 
 export const DisabledOverlay = styled.div`
   position: absolute;

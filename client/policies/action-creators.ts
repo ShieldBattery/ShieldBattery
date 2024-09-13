@@ -1,18 +1,22 @@
-import { getErrorStack } from '../../common/errors'
-import { NotificationType, PolicyUpdatedNotification } from '../../common/notifications'
-import { SbPolicyType } from '../../common/policies/policy-type'
+import { getErrorStack } from '../../common/errors.js'
+import { NotificationType, PolicyUpdatedNotification } from '../../common/notifications.js'
+import { SbPolicyType } from '../../common/policies/policy-type.js'
 import {
   ACCEPTABLE_USE_VERSION,
   PRIVACY_POLICY_VERSION,
   TERMS_OF_SERVICE_VERSION,
-} from '../../common/policies/versions'
-import { apiUrl } from '../../common/urls'
-import { AcceptPoliciesRequest, AcceptPoliciesResponse, SbUserId } from '../../common/users/sb-user'
-import { ThunkAction } from '../dispatch-registry'
-import logger from '../logging/logger'
-import { MicrotaskBatchRequester } from '../network/batch-requests'
-import { fetchJson } from '../network/fetch'
-import { addLocalNotification } from '../notifications/action-creators'
+} from '../../common/policies/versions.js'
+import { apiUrl } from '../../common/urls.js'
+import {
+  AcceptPoliciesRequest,
+  AcceptPoliciesResponse,
+  SbUserId,
+} from '../../common/users/sb-user.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import logger from '../logging/logger.js'
+import { MicrotaskBatchRequester } from '../network/batch-requests.js'
+import { fetchJson } from '../network/fetch.js'
+import { addLocalNotification } from '../notifications/action-creators.js'
 
 const policyBatchRequester = new MicrotaskBatchRequester<
   [userId: SbUserId, policyType: SbPolicyType, version: number]

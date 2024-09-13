@@ -2,9 +2,9 @@ import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LeagueJson } from '../../common/leagues'
+import { LeagueJson } from '../../common/leagues.js'
 import {
   MatchmakingDivision,
   MatchmakingDivisionWithBounds,
@@ -14,23 +14,23 @@ import {
   getDivisionsForRatingChange,
   matchmakingDivisionToLabel,
   ratingToMatchmakingDivisionAndBounds,
-} from '../../common/matchmaking'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { PostMatchDialogPayload } from '../dialogs/dialog-type'
-import { searchAgainFromGame } from '../games/action-creators'
-import { MaterialIcon } from '../icons/material/material-icon'
+} from '../../common/matchmaking.js'
+import audioManager, { AvailableSound } from '../audio/audio-manager.js'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { PostMatchDialogPayload } from '../dialogs/dialog-type.js'
+import { searchAgainFromGame } from '../games/action-creators.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
-import { LeagueBadge } from '../leagues/league-badge'
-import { RaisedButton } from '../material/button'
-import { Body, Dialog } from '../material/dialog'
-import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { defaultSpring } from '../material/springs'
-import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { startReplay } from '../replays/action-creators'
-import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { LeagueBadge } from '../leagues/league-badge.js'
+import { RaisedButton } from '../material/button.js'
+import { Body, Dialog } from '../material/dialog.js'
+import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { defaultSpring } from '../material/springs.js'
+import { Tooltip } from '../material/tooltip.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { startReplay } from '../replays/action-creators.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
 import {
   caption,
   headline4,
@@ -38,8 +38,8 @@ import {
   headline6,
   overline,
   singleLine,
-} from '../styles/typography'
-import { DivisionIcon } from './rank-icon'
+} from '../styles/typography.js'
+import { DivisionIcon } from './rank-icon.js'
 
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
   max-width: ${props => (props.$hasLeagues ? '632px' : '432px')};

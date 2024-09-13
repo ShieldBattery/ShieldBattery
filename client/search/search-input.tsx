@@ -1,9 +1,9 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { useKeyListener } from '../keyboard/key-listener'
-import { TextField } from '../material/text-field'
-import { usePrevious, useStableCallback } from '../state-hooks'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { useKeyListener } from '../keyboard/key-listener.js'
+import { TextField } from '../material/text-field.js'
+import { usePrevious, useStableCallback } from '../state-hooks.js'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'

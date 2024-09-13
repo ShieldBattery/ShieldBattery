@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { getErrorStack } from '../../common/errors'
+import { getErrorStack } from '../../common/errors.js'
 import {
   GetBatchMapInfoResponse,
   GetMapDetailsResponse,
@@ -12,18 +12,18 @@ import {
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
-} from '../../common/maps'
-import { apiUrl, urlPath } from '../../common/urls'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
-import { MicrotaskBatchRequester } from '../network/batch-requests'
-import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
-import { ClearMaps } from './actions'
-import { upload } from './upload'
+} from '../../common/maps.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import logger from '../logging/logger.js'
+import { MicrotaskBatchRequester } from '../network/batch-requests.js'
+import { fetchJson } from '../network/fetch.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { ClearMaps } from './actions.js'
+import { upload } from './upload.js'
 
 async function uploadMap(filePath: string) {
   if (IS_ELECTRON) {

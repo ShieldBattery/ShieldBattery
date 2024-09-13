@@ -3,33 +3,38 @@ import { Helmet } from 'react-helmet'
 import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, useRoute } from 'wouter'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
-import { RaceChar, raceCharToLabel } from '../../common/races'
-import { urlPath } from '../../common/urls'
-import { useTrackPageView } from '../analytics/analytics'
-import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
-import { ConnectedAvatar } from '../avatars/avatar'
-import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
-import logger from '../logging/logger'
-import { Markdown } from '../markdown/markdown'
-import { RaisedButton } from '../material/button'
-import { useScrollIndicatorState } from '../material/scroll-indicator'
-import { shadow4dp } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
-import { CopyLinkButton } from '../navigation/copy-link-button'
-import { ExternalLink } from '../navigation/external-link'
-import { replace } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { useForceUpdate, useStableCallback } from '../state-hooks'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import {
+  ClientLeagueUserJson,
+  LeagueErrorCode,
+  LeagueId,
+  LeagueJson,
+} from '../../common/leagues/index.js'
+import { matchmakingTypeToLabel } from '../../common/matchmaking.js'
+import { RaceChar, raceCharToLabel } from '../../common/races.js'
+import { urlPath } from '../../common/urls.js'
+import { useTrackPageView } from '../analytics/analytics.js'
+import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils.js'
+import { ConnectedAvatar } from '../avatars/avatar.js'
+import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats.js'
+import logger from '../logging/logger.js'
+import { Markdown } from '../markdown/markdown.js'
+import { RaisedButton } from '../material/button.js'
+import { useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { shadow4dp } from '../material/shadows.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { Tooltip } from '../material/tooltip.js'
+import { CopyLinkButton } from '../navigation/copy-link-button.js'
+import { ExternalLink } from '../navigation/external-link.js'
+import { replace } from '../navigation/routing.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { useForceUpdate, useStableCallback } from '../state-hooks.js'
 import {
   background800,
   colorDividers,
@@ -37,8 +42,8 @@ import {
   colorTextFaint,
   colorTextSecondary,
   getRaceColor,
-} from '../styles/colors'
-import { FlexSpacer } from '../styles/flex-spacer'
+} from '../styles/colors.js'
+import { FlexSpacer } from '../styles/flex-spacer.js'
 import {
   caption,
   headline3,
@@ -47,19 +52,19 @@ import {
   singleLine,
   subtitle1,
   subtitle2,
-} from '../styles/typography'
-import { ConnectedUsername } from '../users/connected-username'
+} from '../styles/typography.js'
+import { ConnectedUsername } from '../users/connected-username.js'
 import {
   correctSlugForLeague,
   getLeagueById,
   getLeagueLeaderboard,
   joinLeague,
   navigateToLeague,
-} from './action-creators'
-import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
-import { LeagueBadge } from './league-badge'
-import { LeagueImage, LeaguePlaceholderImage } from './league-image'
-import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
+} from './action-creators.js'
+import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page.js'
+import { LeagueBadge } from './league-badge.js'
+import { LeagueImage, LeaguePlaceholderImage } from './league-image.js'
+import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id.js'
 
 const PageRoot = styled.div`
   position: relative;

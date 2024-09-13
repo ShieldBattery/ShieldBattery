@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
-import { SbUserId } from '../../common/users/sb-user'
-import { BaseMessage } from '../messaging/message-records'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { BaseMessage } from '../messaging/message-records.js'
 
 export enum LobbyMessageType {
   JoinLobby = 'joinLobby',

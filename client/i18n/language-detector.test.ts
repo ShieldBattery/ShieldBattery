@@ -1,5 +1,5 @@
-import { TranslationLanguage } from '../../common/i18n'
-import { getBestLanguage } from './language-detector'
+import { TranslationLanguage } from '../../common/i18n.js'
+import { getBestLanguage } from './language-detector.js'
 
 const SUPPORTED_LANGUAGES = ['zh-Hans', 'en', 'ko', 'ru', 'es']
 

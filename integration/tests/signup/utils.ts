@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test'
-import { urlPath } from '../../../common/urls'
+import { urlPath } from '../../../common/urls.js'
 
 export async function signupWith(
   page: Page,

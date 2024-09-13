@@ -1,9 +1,9 @@
 import React from 'react'
-import styled, { css } from 'styled-components'
-import { CHANNEL_BANNER_HEIGHT, CHANNEL_BANNER_WIDTH } from '../../common/chat'
-import { useObservedDimensions } from '../dom/dimension-hooks'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { background600, colorTextFaint } from '../styles/colors'
+import { css, styled } from 'styled-components'
+import { CHANNEL_BANNER_HEIGHT, CHANNEL_BANNER_WIDTH } from '../../common/chat.js'
+import { useObservedDimensions } from '../dom/dimension-hooks.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { background600, colorTextFaint } from '../styles/colors.js'
 
 const channelBannerCommon = css`
   width: 100%;

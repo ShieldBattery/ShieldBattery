@@ -1,10 +1,15 @@
 import React, { InputHTMLAttributes, useId } from 'react'
-import styled from 'styled-components'
-import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { body1, overline } from '../styles/typography'
-import { useButtonState } from './button'
-import { fastOutSlowIn } from './curve-constants'
-import { Ripple } from './ripple'
+import { styled } from 'styled-components'
+import {
+  amberA400,
+  colorTextFaint,
+  colorTextPrimary,
+  colorTextSecondary,
+} from '../styles/colors.js'
+import { body1, overline } from '../styles/typography.js'
+import { useButtonState } from './button.js'
+import { fastOutSlowIn } from './curve-constants.js'
+import { Ripple } from './ripple.js'
 
 const noop = () => {}
 

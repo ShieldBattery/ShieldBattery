@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo } from 'react'
-import styled from 'styled-components'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { background400 } from '../styles/colors'
-import { batchGetMapInfo } from './action-creators'
-import MapImage from './map-image'
+import { styled } from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { Dialog } from '../material/dialog.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { background400 } from '../styles/colors.js'
+import { batchGetMapInfo } from './action-creators.js'
+import MapImage from './map-image.js'
 
 const StyledDialog = styled(Dialog)`
   --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));

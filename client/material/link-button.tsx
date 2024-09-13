@@ -1,5 +1,5 @@
 import React from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Simplify } from 'type-fest'
 import { Link, LinkProps } from 'wouter'
 

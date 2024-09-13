@@ -1,8 +1,8 @@
 import { Record } from 'immutable'
-import { MatchmakingType } from '../../common/matchmaking'
-import { PartyQueueCancelReason } from '../../common/parties'
-import { SbUserId } from '../../common/users/sb-user'
-import { BaseMessage } from '../messaging/message-records'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { PartyQueueCancelReason } from '../../common/parties.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { BaseMessage } from '../messaging/message-records.js'
 
 export enum PartyMessageType {
   SelfJoinParty = 'selfJoinParty',

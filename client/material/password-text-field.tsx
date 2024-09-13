@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from './button'
-import { TextField, TextFieldProps } from './text-field'
+import { css, styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from './button.js'
+import { TextField, TextFieldProps } from './text-field.js'
 
 const VisibilityButton = styled(IconButton)<{ $dense?: boolean }>`
   ${props => {

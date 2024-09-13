@@ -5,14 +5,14 @@ import {
   ALL_TRANSLATION_LANGUAGES,
   TranslationLanguage,
   translationLanguageToLabel,
-} from '../../../common/i18n'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { changeUserLanguage } from '../../i18n/action-creators'
-import { RadioButton, RadioGroup } from '../../material/radio'
-import { useAppDispatch } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { FormContainer } from '../settings-content'
+} from '../../../common/i18n.js'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { changeUserLanguage } from '../../i18n/action-creators.js'
+import { RadioButton, RadioGroup } from '../../material/radio.js'
+import { useAppDispatch } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { FormContainer } from '../settings-content.js'
 
 interface UserLanguageSettingsModel {
   language: TranslationLanguage

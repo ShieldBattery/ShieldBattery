@@ -5,10 +5,10 @@ import {
   MatchmakingStatusJson,
   MatchmakingType,
   MatchReadyEvent,
-} from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import { BaseFetchFailure } from '../network/fetch-errors'
-import { MatchmakingMatch } from './matchmaking-reducer'
+} from '../../common/matchmaking.js'
+import { RaceChar } from '../../common/races.js'
+import { BaseFetchFailure } from '../network/fetch-errors.js'
+import { MatchmakingMatch } from './matchmaking-reducer.js'
 
 export type MatchmakingActions =
   | GetCurrentMapPoolBegin

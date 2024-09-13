@@ -1,6 +1,6 @@
 import { test as setup } from '@playwright/test'
-import { setAdminJwt } from './admin-utils'
-import { LoginPage } from './pages/login-page'
+import { setAdminJwt } from './admin-utils.js'
+import { LoginPage } from './pages/login-page.js'
 
 setup('create admin account', async ({ page, request, baseURL }) => {
   const response = await request.post(`/api/1/users`, {

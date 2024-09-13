@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import path from 'path'
-import { CHANNEL_BANNERS } from '../../../common/flags'
-import { ChatPage } from '../../pages/chat-page'
-import { LoginPage } from '../../pages/login-page'
+import * as path from 'node:path'
+import { CHANNEL_BANNERS } from '../../../common/flags.js'
+import { ChatPage } from '../../pages/chat-page.js'
+import { LoginPage } from '../../pages/login-page.js'
 
 let loginPage: LoginPage
 let chatPage: ChatPage

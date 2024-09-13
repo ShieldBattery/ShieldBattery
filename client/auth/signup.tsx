@@ -1,7 +1,7 @@
 import queryString from 'query-string'
 import React, { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   EMAIL_MAXLENGTH,
   EMAIL_MINLENGTH,
@@ -10,11 +10,11 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
-} from '../../common/constants'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { Validator, useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
+} from '../../common/constants.js'
+import { openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { Validator, useForm } from '../forms/form-hook.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
 import {
   composeValidators,
   debounceValidator,
@@ -24,17 +24,17 @@ import {
   regex,
   requireChecked,
   required,
-} from '../forms/validators'
-import { detectedLocale } from '../i18n/i18next'
-import { RaisedButton } from '../material/button'
-import { CheckBox, CheckBoxProps } from '../material/check-box'
-import { InputError } from '../material/input-error'
-import { push } from '../navigation/routing'
-import { fetchJson } from '../network/fetch'
-import LoadingIndicator from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
-import { signUp } from './action-creators'
+} from '../forms/validators.js'
+import { detectedLocale } from '../i18n/i18next.js'
+import { RaisedButton } from '../material/button.js'
+import { CheckBox, CheckBoxProps } from '../material/check-box.js'
+import { InputError } from '../material/input-error.js'
+import { push } from '../navigation/routing.js'
+import { fetchJson } from '../network/fetch.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { useStableCallback } from '../state-hooks.js'
+import { signUp } from './action-creators.js'
 import {
   AuthBody,
   AuthBottomAction,
@@ -46,9 +46,9 @@ import {
   BottomActionButton,
   FieldRow,
   LoadingArea,
-} from './auth-content'
-import { useRedirectAfterLogin } from './auth-utils'
-import { UserErrorDisplay } from './user-error-display'
+} from './auth-content.js'
+import { useRedirectAfterLogin } from './auth-utils.js'
+import { UserErrorDisplay } from './user-error-display.js'
 
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;

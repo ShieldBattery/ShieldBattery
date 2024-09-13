@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import React from 'react'
-import { CloseDialog, OpenDialog } from './actions'
-import { DialogPayload, DialogType } from './dialog-type'
+import { CloseDialog, OpenDialog } from './actions.js'
+import { DialogPayload, DialogType } from './dialog-type.js'
 
 export function openDialog(payload: DialogPayload): OpenDialog {
   return {

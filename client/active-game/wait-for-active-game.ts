@@ -1,5 +1,5 @@
-import createDeferred, { Deferred } from '../../common/async/deferred'
-import { ReportedGameStatus } from '../../common/game-status'
+import createDeferred, { Deferred } from '../../common/async/deferred.js'
+import { ReportedGameStatus } from '../../common/game-status.js'
 
 const waitingGames = new Map<string, Deferred<void>>()
 

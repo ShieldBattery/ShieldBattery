@@ -1,10 +1,10 @@
 import queryString from 'query-string'
 import { useEffect } from 'react'
 import { ReadonlyDeep } from 'type-fest'
-import { SbPermissions } from '../../common/users/permissions'
-import { SelfUser } from '../../common/users/sb-user'
-import { makePathString, replace } from '../navigation/routing'
-import { useAppSelector } from '../redux-hooks'
+import { SbPermissions } from '../../common/users/permissions.js'
+import { SelfUser } from '../../common/users/sb-user.js'
+import { makePathString, replace } from '../navigation/routing.js'
+import { useAppSelector } from '../redux-hooks.js'
 
 /** Redirects to the current `nextPath` query string parameter once the client has logged in. */
 export function useRedirectAfterLogin() {

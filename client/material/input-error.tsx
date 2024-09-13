@@ -1,8 +1,8 @@
 import React, { useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
-import styled from 'styled-components'
-import { colorError } from '../styles/colors'
-import { fastOutLinearIn, linearOutSlowIn } from './curve-constants'
+import { styled } from 'styled-components'
+import { colorError } from '../styles/colors.js'
+import { fastOutLinearIn, linearOutSlowIn } from './curve-constants.js'
 
 const StyledTransitionGroup = styled(TransitionGroup)`
   display: flex;

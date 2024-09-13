@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import isDev from 'electron-is-dev'
-import path from 'path'
+import * as path from 'node:path'
 
 let userDataPath = app.getPath('userData')
 let initialized = isDev

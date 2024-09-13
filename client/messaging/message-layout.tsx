@@ -1,7 +1,7 @@
 import React from 'react'
-import styled, { css } from 'styled-components'
-import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
-import { Tooltip } from '../material/tooltip'
+import { css, styled } from 'styled-components'
+import { longTimestamp, shortTimestamp } from '../i18n/date-formats.js'
+import { Tooltip } from '../material/tooltip.js'
 import {
   amberA100,
   blue100,
@@ -9,8 +9,8 @@ import {
   colorDividers,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, caption } from '../styles/typography'
+} from '../styles/colors.js'
+import { body1, body2, caption } from '../styles/typography.js'
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`

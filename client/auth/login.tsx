@@ -7,17 +7,17 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
-} from '../../common/constants'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
-import { detectedLocale } from '../i18n/i18next'
-import { RaisedButton } from '../material/button'
-import { push } from '../navigation/routing'
-import LoadingIndicator from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
-import { logIn } from './action-creators'
+} from '../../common/constants.js'
+import { useForm } from '../forms/form-hook.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
+import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators.js'
+import { detectedLocale } from '../i18n/i18next.js'
+import { RaisedButton } from '../material/button.js'
+import { push } from '../navigation/routing.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { useStableCallback } from '../state-hooks.js'
+import { logIn } from './action-creators.js'
 import {
   AuthBody,
   AuthBottomAction,
@@ -33,9 +33,9 @@ import {
   LoadingArea,
   RowEdge,
   Spacer,
-} from './auth-content'
-import { useRedirectAfterLogin } from './auth-utils'
-import { UserErrorDisplay } from './user-error-display'
+} from './auth-content.js'
+import { useRedirectAfterLogin } from './auth-utils.js'
+import { UserErrorDisplay } from './user-error-display.js'
 
 interface LoginModel {
   username: string

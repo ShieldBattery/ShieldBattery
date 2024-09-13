@@ -3,8 +3,8 @@ import {
   fromMatchmakingMapPoolJson,
   MatchmakingMapPool,
   MatchmakingType,
-} from '../../common/matchmaking'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+} from '../../common/matchmaking.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface MapPoolState {
   byType: Map<MatchmakingType, MatchmakingMapPool>

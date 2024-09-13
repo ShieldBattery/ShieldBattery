@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { RaisedButton } from './button'
-import { InputError } from './input-error'
+import { styled } from 'styled-components'
+import { RaisedButton } from './button.js'
+import { InputError } from './input-error.js'
 
 function isValueAndFileListSame(value: File | File[], fileList: FileList): boolean {
   if (Array.isArray(value)) {

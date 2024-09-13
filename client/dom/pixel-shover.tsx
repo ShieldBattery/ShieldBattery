@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState } from 'react'
-import { useWindowListener } from './window-listener'
+import { useWindowListener } from './window-listener.js'
 
 /**
  * A hook that will measure a specific element on a resize and return how many pixels centered items

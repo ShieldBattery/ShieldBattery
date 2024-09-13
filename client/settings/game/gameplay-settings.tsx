@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { DEV_INDICATOR } from '../../../common/flags'
+import { styled } from 'styled-components'
+import { DEV_INDICATOR } from '../../../common/flags.js'
 import {
   ALL_CONSOLE_SKINS,
   ALL_INGAME_SKINS,
@@ -9,17 +9,17 @@ import {
   getConsoleSkinName,
   getIngameSkinName,
   IngameSkin,
-} from '../../../common/settings/blizz-settings'
-import { useForm, Validator } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { CheckBox } from '../../material/check-box'
-import { NumberTextField } from '../../material/number-text-field'
-import { SelectOption } from '../../material/select/option'
-import { Select } from '../../material/select/select'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+} from '../../../common/settings/blizz-settings.js'
+import { useForm, Validator } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { CheckBox } from '../../material/check-box.js'
+import { NumberTextField } from '../../material/number-text-field.js'
+import { SelectOption } from '../../material/select/option.js'
+import { Select } from '../../material/select/select.js'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { mergeLocalSettings, mergeScrSettings } from '../action-creators.js'
+import { FormContainer, SectionOverline } from '../settings-content.js'
 
 const BonusSkinsCheckBox = styled(CheckBox)`
   margin-bottom: 8px;

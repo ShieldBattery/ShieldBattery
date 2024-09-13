@@ -1,11 +1,11 @@
-import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
-import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
-import { ThunkAction } from '../dispatch-registry'
-import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { push, replace } from '../navigation/routing.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch.js'
+import { ActivateWhisperSession, DeactivateWhisperSession } from './actions.js'
 
 export function startWhisperSessionByName(
   target: string,

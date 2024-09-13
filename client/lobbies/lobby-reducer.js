@@ -1,8 +1,8 @@
 import cuid from 'cuid'
 import { List, Record } from 'immutable'
-import { GameType } from '../../common/games/configuration'
-import { Team } from '../../common/lobbies/index'
-import { Slot } from '../../common/lobbies/slot'
+import { GameType } from '../../common/games/configuration.js'
+import { Team } from '../../common/lobbies/index.js'
+import { Slot } from '../../common/lobbies/slot.js'
 import {
   LOBBY_ACTIVATE,
   LOBBY_DEACTIVATE,
@@ -25,9 +25,9 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_SLOT_DELETED,
-} from '../actions'
-import { TextMessageRecord } from '../messaging/message-records'
-import { keyedReducer } from '../reducers/keyed-reducer'
+} from '../actions.js'
+import { TextMessageRecord } from '../messaging/message-records.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
 import {
   BanLobbyPlayerMessageRecord,
   JoinLobbyMessageRecord,
@@ -39,7 +39,7 @@ import {
   LobbyHostChangeMessageRecord,
   LobbyLoadingCanceledMessageRecord,
   SelfJoinLobbyMessageRecord,
-} from './lobby-message-records'
+} from './lobby-message-records.js'
 
 export class LobbyInfo extends Record({
   name: '',

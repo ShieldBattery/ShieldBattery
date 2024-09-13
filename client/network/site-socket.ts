@@ -1,7 +1,7 @@
 import createNydus, { NydusClientOptions } from 'nydus-client'
-import { clientId } from './client-id'
-import { CREDENTIAL_STORAGE } from './fetch'
-import { makeServerUrl } from './server-url'
+import { clientId } from './client-id.js'
+import { CREDENTIAL_STORAGE } from './fetch.js'
+import { makeServerUrl } from './server-url.js'
 
 const location = !IS_ELECTRON ? window.location : new window.URL(makeServerUrl(''))
 const protocol = location.protocol === 'https:' ? 'wss' : 'ws'

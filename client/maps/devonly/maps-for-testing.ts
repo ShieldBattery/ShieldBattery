@@ -1,5 +1,5 @@
-import { MapForcePlayer, MapInfoJson, MapVisibility, Tileset } from '../../../common/maps'
-import { range } from '../../../common/range'
+import { MapForcePlayer, MapInfoJson, MapVisibility, Tileset } from '../../../common/maps.js'
+import { range } from '../../../common/range.js'
 
 export const FightingSpirit: MapInfoJson = {
   id: 'fighting-spirit',

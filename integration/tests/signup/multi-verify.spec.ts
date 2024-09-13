@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { suppressChangelog } from '../../changelog-utils'
-import { SentEmailChecker } from '../../sent-email-checker'
-import { generateUsername } from '../../username-generator'
-import { getVerificationLink, signupWith } from './utils'
+import { suppressChangelog } from '../../changelog-utils.js'
+import { SentEmailChecker } from '../../sent-email-checker.js'
+import { generateUsername } from '../../username-generator.js'
+import { getVerificationLink, signupWith } from './utils.js'
 
 const sentEmailChecker = new SentEmailChecker()
 

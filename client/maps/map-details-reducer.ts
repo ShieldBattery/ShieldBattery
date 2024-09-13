@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
-import { FetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MapInfoJson } from '../../common/maps.js'
+import { FetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 // TODO(2Pac): Figure out if this reducer is even needed. I have no idea what was I thinking when I
 // initially made it, but now it seems to me that we can just use the maps-reducer instead.

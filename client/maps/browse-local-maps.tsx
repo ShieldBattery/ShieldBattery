@@ -1,22 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { MapInfoJson } from '../../common/maps'
-import { ActivityBackButton } from '../activities/activity-back-button'
-import { FileBrowser } from '../file-browser/file-browser'
+import { styled } from 'styled-components'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { MapInfoJson } from '../../common/maps.js'
+import { ActivityBackButton } from '../activities/activity-back-button.js'
 import {
   FileBrowserFileEntry,
   FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
   FileBrowserType,
-} from '../file-browser/file-browser-types'
-import { MaterialIcon } from '../icons/material/material-icon'
-import LoadingIndicator from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { uploadLocalMap } from './action-creators'
+} from '../file-browser/file-browser-types.js'
+import { FileBrowser } from '../file-browser/file-browser.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import { uploadLocalMap } from './action-creators.js'
 
 const LoadingArea = styled.div`
   display: flex;

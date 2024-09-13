@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
-import { FetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { FetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface LocalMapsState {
   /** A flag indicating whether we're currently uploading a local map. */

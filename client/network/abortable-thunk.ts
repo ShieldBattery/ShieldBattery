@@ -1,7 +1,7 @@
 import { batch } from 'react-redux'
-import { ReduxAction } from '../action-types'
-import { DispatchFunction, ThunkAction } from '../dispatch-registry'
-import { RootState } from '../root-reducer'
+import { ReduxAction } from '../action-types.js'
+import { DispatchFunction, ThunkAction } from '../dispatch-registry.js'
+import { RootState } from '../root-reducer.js'
 
 /**
  * Configures the handling of a particular request, allowing a caller to be notified when it is

@@ -2,8 +2,8 @@ import type { NydusClient, RouteInfo } from 'nydus-client'
 import {
   FriendActivityStatusUpdateEvent,
   UserRelationshipEvent,
-} from '../../common/users/relationships'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+} from '../../common/users/relationships.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
 
 type EventToActionMap = {
   [E in UserRelationshipEvent['type']]?: (

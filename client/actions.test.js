@@ -1,4 +1,4 @@
-import * as actions from './actions'
+import * as actions from './actions.js'
 
 describe('actions', () => {
   test('should have matching keys and values', () => {

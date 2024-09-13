@@ -1,11 +1,11 @@
 import { Record } from 'immutable'
-import { ShieldBatteryFile } from '../../common/shieldbattery-file'
+import { ShieldBatteryFile } from '../../common/shieldbattery-file.js'
 import {
   SHIELDBATTERY_FILES_VALIDITY,
   STARCRAFT_PATH_VALIDITY,
   STARCRAFT_VERSION_VALIDITY,
-} from '../actions'
-import { keyedReducer } from '../reducers/keyed-reducer'
+} from '../actions.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
 
 export class ShieldBatteryFileStatus extends Record({
   init: false,

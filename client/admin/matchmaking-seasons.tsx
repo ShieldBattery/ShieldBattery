@@ -1,25 +1,25 @@
 import React, { useEffect, useState } from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   AddMatchmakingSeasonRequest,
   GetMatchmakingSeasonsResponse,
   MatchmakingSeasonJson,
   SeasonId,
   makeSeasonId,
-} from '../../common/matchmaking'
-import { apiUrl } from '../../common/urls'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import { longTimestamp } from '../i18n/date-formats'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { TextField } from '../material/text-field'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { useRefreshToken } from '../network/refresh-token'
-import { useStableCallback } from '../state-hooks'
-import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle2, headline5, headline6, subtitle1 } from '../styles/typography'
+} from '../../common/matchmaking.js'
+import { apiUrl } from '../../common/urls.js'
+import { useForm } from '../forms/form-hook.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
+import { longTimestamp } from '../i18n/date-formats.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton, RaisedButton, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { TextField } from '../material/text-field.js'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch.js'
+import { useRefreshToken } from '../network/refresh-token.js'
+import { useStableCallback } from '../state-hooks.js'
+import { amberA400, colorError, colorTextSecondary } from '../styles/colors.js'
+import { Subtitle2, headline5, headline6, subtitle1 } from '../styles/typography.js'
 
 const Container = styled.div`
   height: 100%;

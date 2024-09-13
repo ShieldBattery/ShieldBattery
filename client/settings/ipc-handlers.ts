@@ -1,10 +1,10 @@
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { LocalSettings } from '../../common/settings/local-settings'
-import { SHIELDBATTERY_FILES_VALIDITY } from '../actions'
-import audioManager from '../audio/audio-manager'
-import { dispatch } from '../dispatch-registry'
-import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { LocalSettings } from '../../common/settings/local-settings.js'
+import { SHIELDBATTERY_FILES_VALIDITY } from '../actions.js'
+import audioManager from '../audio/audio-manager.js'
+import { dispatch } from '../dispatch-registry.js'
+import { handleCheckStarcraftPathResult } from '../starcraft/action-creators.js'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   let lastMasterVolume: number | undefined

@@ -1,17 +1,17 @@
 import React from 'react'
-import styled, { css } from 'styled-components'
-import { longTimestamp } from '../i18n/date-formats'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { TextButton } from '../material/button'
-import { useStableCallback } from '../state-hooks'
-import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Caption, Subtitle1 } from '../styles/typography'
+import { css, styled } from 'styled-components'
+import { longTimestamp } from '../i18n/date-formats.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { TextButton } from '../material/button.js'
+import { useStableCallback } from '../state-hooks.js'
+import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { Caption, Subtitle1 } from '../styles/typography.js'
 import {
   FileBrowserFileEntry,
   FileBrowserFileEntryConfig,
   FileBrowserFolderEntry,
   FileBrowserUpEntry,
-} from './file-browser-types'
+} from './file-browser-types.js'
 
 export const ENTRY_HEIGHT = 60
 

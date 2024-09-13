@@ -1,15 +1,15 @@
 import i18n, { TFunction } from 'i18next'
 import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend'
 import { initReactI18next } from 'react-i18next'
-import createDeferred from '../../common/async/deferred'
+import createDeferred from '../../common/async/deferred.js'
 import {
   ALL_TRANSLATION_LANGUAGES,
   TranslationLanguage,
   TranslationNamespace,
-} from '../../common/i18n'
-import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
-import { JsonSessionStorageValue } from '../session-storage'
-import { getBestLanguage } from './language-detector'
+} from '../../common/i18n.js'
+import { makePublicAssetUrl, makeServerUrl } from '../network/server-url.js'
+import { JsonSessionStorageValue } from '../session-storage.js'
+import { getBestLanguage } from './language-detector.js'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 const CUR_VERSION = __WEBPACK_ENV.VERSION

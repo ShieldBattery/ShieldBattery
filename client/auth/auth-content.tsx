@@ -1,10 +1,10 @@
-import styled from 'styled-components'
-import { Label, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { PasswordTextField } from '../material/password-text-field'
-import { TextField } from '../material/text-field'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { headline4 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { Label, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { PasswordTextField } from '../material/password-text-field.js'
+import { TextField } from '../material/text-field.js'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors.js'
+import { headline4 } from '../styles/typography.js'
 
 export const AuthContent = styled.div`
   position: relative;

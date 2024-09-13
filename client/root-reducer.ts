@@ -1,5 +1,5 @@
 import { combineReducers } from 'redux'
-import * as reducers from './reducers'
+import * as reducers from './reducers.js'
 
 export default function createRootReducer() {
   return combineReducers({

@@ -1,14 +1,14 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { gameTypeToLabel } from '../../common/games/configuration'
-import { getPlayerSlots } from '../../common/lobbies'
-import MapImage from '../maps/map-image'
-import { shadow1dp } from '../material/shadows'
-import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, TitleOld } from '../styles/typography'
-import PlayerCard from './player-card'
+import { styled } from 'styled-components'
+import { gameTypeToLabel } from '../../common/games/configuration.js'
+import { getPlayerSlots } from '../../common/lobbies.js'
+import MapImage from '../maps/map-image.js'
+import { shadow1dp } from '../material/shadows.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { Display1Old, TitleOld } from '../styles/typography.js'
+import PlayerCard from './player-card.js'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',

@@ -1,13 +1,13 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { Avatar } from '../avatars/avatar'
-import ComputerAvatar from '../avatars/computer-avatar'
-import { RacePicker } from './race-picker'
-import SelectedRace from './selected-race'
-import { Slot, SlotLeft, SlotName, SlotProfile, SlotRight } from './slot'
-import { SlotActions } from './slot-actions'
+import { styled } from 'styled-components'
+import { Avatar } from '../avatars/avatar.js'
+import ComputerAvatar from '../avatars/computer-avatar.js'
+import { RacePicker } from './race-picker.js'
+import SelectedRace from './selected-race.js'
+import { SlotActions } from './slot-actions.js'
+import { Slot, SlotLeft, SlotName, SlotProfile, SlotRight } from './slot.js'
 
 const StyledAvatar = styled(Avatar)`
   flex-grow: 0;

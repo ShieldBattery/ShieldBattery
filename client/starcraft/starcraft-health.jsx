@@ -1,20 +1,20 @@
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { closeDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { Dialog } from '../material/dialog'
-import { openSettings } from '../settings/action-creators'
-import { GameSettingsSubPage } from '../settings/settings-sub-page'
-import { openSnackbar } from '../snackbars/action-creators'
-import { SubheadingOld } from '../styles/typography'
+import { styled } from 'styled-components'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants.js'
+import { closeDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { Dialog } from '../material/dialog.js'
+import { openSettings } from '../settings/action-creators.js'
+import { GameSettingsSubPage } from '../settings/settings-sub-page.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { SubheadingOld } from '../styles/typography.js'
 import {
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
   isStarcraftHealthy,
-} from './is-starcraft-healthy'
+} from './is-starcraft-healthy.js'
 
 const HeaderText = styled(SubheadingOld)`
   margin-top: 0;

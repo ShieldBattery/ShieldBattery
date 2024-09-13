@@ -1,29 +1,34 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useMutation, useQuery } from 'urql'
-import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../common/users/sb-user'
-import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
-import { graphql, useFragment } from '../gql'
-import { AdminUserProfile_PermissionsFragment } from '../gql/graphql'
-import { logger } from '../logging/logger'
-import { RaisedButton, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { TextField } from '../material/text-field'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
+import {
+  BanHistoryEntryJson,
+  SbUser,
+  SelfUser,
+  UserIpInfoJson,
+} from '../../common/users/sb-user.js'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils.js'
+import { useForm } from '../forms/form-hook.js'
+import { AdminUserProfile_PermissionsFragment } from '../gql/graphql.js'
+import { graphql, useFragment } from '../gql/index.js'
+import { logger } from '../logging/logger.js'
+import { RaisedButton, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { SelectOption } from '../material/select/option.js'
+import { Select } from '../material/select/select.js'
+import { TextField } from '../material/text-field.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch } from '../redux-hooks.js'
 import {
   colorDividers,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography'
-import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
-import { ConnectedUsername } from './connected-username'
+} from '../styles/colors.js'
+import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography.js'
+import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators.js'
+import { ConnectedUsername } from './connected-username.js'
 
 const AdminUserPageRoot = styled.div`
   width: 100%;

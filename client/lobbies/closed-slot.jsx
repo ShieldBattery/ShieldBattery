@@ -1,10 +1,10 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
-import { RacePicker } from './race-picker'
-import SelectedRace from './selected-race'
-import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
-import { SlotActions } from './slot-actions'
+import { RacePicker } from './race-picker.js'
+import SelectedRace from './selected-race.js'
+import { SlotActions } from './slot-actions.js'
+import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot.js'
 
 @withTranslation()
 export default class slots extends React.Component {

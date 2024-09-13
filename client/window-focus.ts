@@ -1,4 +1,4 @@
-import { TypedIpcRenderer } from '../common/ipc'
+import { TypedIpcRenderer } from '../common/ipc.js'
 
 /**
  * Tracks the current focus state of the window (using either browser events, or IPC from the

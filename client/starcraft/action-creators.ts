@@ -1,5 +1,5 @@
-import { STARCRAFT_PATH_VALIDITY, STARCRAFT_VERSION_VALIDITY } from '../actions'
-import { ThunkAction } from '../dispatch-registry'
+import { STARCRAFT_PATH_VALIDITY, STARCRAFT_VERSION_VALIDITY } from '../actions.js'
+import { ThunkAction } from '../dispatch-registry.js'
 
 export function handleCheckStarcraftPathResult(result: {
   path: boolean

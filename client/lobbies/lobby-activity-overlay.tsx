@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
-import { useTrackPageView } from '../analytics/analytics'
-import { CreateLobby } from './create-lobby'
-import JoinLobby from './join-lobby'
+import { MapInfoJson } from '../../common/maps.js'
+import { useTrackPageView } from '../analytics/analytics.js'
+import { CreateLobby } from './create-lobby.js'
+import JoinLobby from './join-lobby.js'
 
 const Container = styled.div`
   display: flex;

@@ -1,10 +1,10 @@
 import React from 'react'
 import { UseTransitionProps } from 'react-spring'
-import styled from 'styled-components'
-import { Avatar } from '../avatars/avatar'
-import { Popover, PopoverProps, useAnchorPosition } from '../material/popover'
-import { defaultSpring } from '../material/springs'
-import { body1, headline6, singleLine } from '../styles/typography'
+import { styled } from 'styled-components'
+import { Avatar } from '../avatars/avatar.js'
+import { Popover, PopoverProps, useAnchorPosition } from '../material/popover.js'
+import { defaultSpring } from '../material/springs.js'
+import { body1, headline6, singleLine } from '../styles/typography.js'
 
 const PopoverContents = styled.div`
   min-width: 240px;

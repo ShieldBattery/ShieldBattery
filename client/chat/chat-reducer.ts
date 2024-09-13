@@ -12,10 +12,10 @@ import {
   InitialChannelData,
   JoinedChannelInfo,
   SbChannelId,
-} from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
-import { LOBBY_UPDATE_CHAT_MESSAGE } from '../actions'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+} from '../../common/chat.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { LOBBY_UPDATE_CHAT_MESSAGE } from '../actions.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150

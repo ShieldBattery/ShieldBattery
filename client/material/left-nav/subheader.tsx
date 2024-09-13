@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import styled from 'styled-components'
-import { colorTextSecondary } from '../../styles/colors'
-import { overline, singleLine } from '../../styles/typography'
+import { styled } from 'styled-components'
+import { colorTextSecondary } from '../../styles/colors.js'
+import { overline, singleLine } from '../../styles/typography.js'
 
 const Container = styled.div`
   display: flex;

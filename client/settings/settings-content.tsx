@@ -1,6 +1,6 @@
-import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
+import { styled } from 'styled-components'
+import { colorTextSecondary } from '../styles/colors.js'
+import { overline } from '../styles/typography.js'
 
 export const FormContainer = styled.div`
   width: 100%;

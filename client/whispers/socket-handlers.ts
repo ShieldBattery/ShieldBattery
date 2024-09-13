@@ -1,9 +1,9 @@
 import { NydusClient } from 'nydus-client'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { WhisperEvent } from '../../common/whispers'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
-import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
-import windowFocus from '../window-focus'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { WhisperEvent } from '../../common/whispers.js'
+import audioManager, { AvailableSound } from '../audio/audio-manager.js'
+import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry.js'
+import windowFocus from '../window-focus.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

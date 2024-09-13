@@ -1,7 +1,7 @@
 import { applyMiddleware, compose, createStore } from 'redux'
 import { thunk } from 'redux-thunk'
-import { addSystemMiddleware } from './redux-system-info'
-import createRootReducer from './root-reducer'
+import { addSystemMiddleware } from './redux-system-info.js'
+import createRootReducer from './root-reducer.js'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 

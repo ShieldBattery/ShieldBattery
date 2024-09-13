@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { promises as fsPromises } from 'fs'
 import { Set } from 'immutable'
-import path from 'path'
+import * as path from 'node:path'
 import { singleton } from 'tsyringe'
 import {
   GameLaunchConfig,

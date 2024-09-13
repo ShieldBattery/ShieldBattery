@@ -2,37 +2,42 @@ import keycode from 'keycode'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
-import styled, { css } from 'styled-components'
-import { appendToMultimap } from '../../common/data-structures/maps'
-import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { ConnectedAvatar } from '../avatars/avatar'
-import { useObservedDimensions } from '../dom/dimension-hooks'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { JsonLocalStorageValue } from '../local-storage'
-import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSettings } from '../settings/action-creators'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { useForceUpdate, useStableCallback } from '../state-hooks'
-import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body2, headline6, overline, singleLine, subtitle1 } from '../styles/typography'
+import { css, styled } from 'styled-components'
+import { appendToMultimap } from '../../common/data-structures/maps.js'
+import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { ConnectedAvatar } from '../avatars/avatar.js'
+import { useObservedDimensions } from '../dom/dimension-hooks.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { JsonLocalStorageValue } from '../local-storage.js'
+import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { Tooltip } from '../material/tooltip.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { openSettings } from '../settings/action-creators.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import { useForceUpdate, useStableCallback } from '../state-hooks.js'
+import {
+  alphaDisabled,
+  colorDividers,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors.js'
+import { body2, headline6, overline, singleLine, subtitle1 } from '../styles/typography.js'
 import {
   acceptFriendRequest,
   declineFriendRequest,
   getRelationshipsIfNeeded,
   removeFriendRequest,
-} from './action-creators'
-import { userRelationshipErrorToString } from './relationship-errors'
-import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './sorted-user-ids'
-import { ConnectedUserContextMenu } from './user-context-menu'
-import { useUserOverlays } from './user-overlays'
-import { ConnectedUserProfileOverlay } from './user-profile-overlay'
+} from './action-creators.js'
+import { userRelationshipErrorToString } from './relationship-errors.js'
+import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './sorted-user-ids.js'
+import { ConnectedUserContextMenu } from './user-context-menu.js'
+import { useUserOverlays } from './user-overlays.js'
+import { ConnectedUserProfileOverlay } from './user-profile-overlay.js'
 
 const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
 

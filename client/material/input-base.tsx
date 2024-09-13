@@ -1,6 +1,6 @@
-import styled, { css } from 'styled-components'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { singleLine, subtitle1 } from '../styles/typography'
+import { css, styled } from 'styled-components'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors.js'
+import { singleLine, subtitle1 } from '../styles/typography.js'
 
 export const InputBase = styled.div<{
   $floatingLabel?: boolean

@@ -4,17 +4,17 @@ import {
   ALL_DISPLAY_MODES,
   DisplayMode,
   getDisplayModeName,
-} from '../../../common/settings/blizz-settings'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { CheckBox } from '../../material/check-box'
-import { SelectOption } from '../../material/select/option'
-import { Select } from '../../material/select/select'
-import Slider from '../../material/slider'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+} from '../../../common/settings/blizz-settings.js'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { CheckBox } from '../../material/check-box.js'
+import { SelectOption } from '../../material/select/option.js'
+import { Select } from '../../material/select/select.js'
+import Slider from '../../material/slider.js'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { mergeScrSettings } from '../action-creators.js'
+import { FormContainer } from '../settings-content.js'
 
 // NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
 // component just acts as a custom one and does the conversion

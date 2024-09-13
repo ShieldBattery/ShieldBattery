@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { SbUserId } from '../../common/users/sb-user'
-import { TextMessageRecord } from '../messaging/message-records'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { TextMessageRecord } from '../messaging/message-records.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_SESSION_MAX_HISTORY = 150

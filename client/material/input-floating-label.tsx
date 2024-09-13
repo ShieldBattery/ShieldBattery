@@ -1,6 +1,6 @@
-import styled from 'styled-components'
-import { amberA400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { fastOutSlowInShort } from './curves'
+import { styled } from 'styled-components'
+import { amberA400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors.js'
+import { fastOutSlowInShort } from './curves.js'
 
 export const FloatingLabel = styled.label<{
   $hasValue?: boolean

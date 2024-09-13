@@ -1,7 +1,7 @@
-import { getErrorStack } from '../../common/errors'
-import { apiUrl, urlPath } from '../../common/urls'
-import { SbPermissions } from '../../common/users/permissions'
-import { GetRelationshipsResponse } from '../../common/users/relationships'
+import { getErrorStack } from '../../common/errors.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { SbPermissions } from '../../common/users/permissions.js'
+import { GetRelationshipsResponse } from '../../common/users/relationships.js'
 import {
   AdminBanUserRequest,
   AdminBanUserResponse,
@@ -13,14 +13,14 @@ import {
   GetUserProfileResponse,
   SbUserId,
   SearchMatchHistoryResponse,
-} from '../../common/users/sb-user'
-import { ThunkAction } from '../dispatch-registry'
-import logger from '../logging/logger'
-import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { MicrotaskBatchRequester } from '../network/batch-requests'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { UserProfileSubPage } from './user-profile-sub-page'
+} from '../../common/users/sb-user.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import logger from '../logging/logger.js'
+import { push, replace } from '../navigation/routing.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { MicrotaskBatchRequester } from '../network/batch-requests.js'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch.js'
+import { UserProfileSubPage } from './user-profile-sub-page.js'
 
 /**
  * Navigates to a specific user's profile (and optionally, a specific tab within that).

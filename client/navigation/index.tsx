@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { useAppDispatch } from '../redux-hooks'
-import { goToIndex } from './action-creators'
-import { push } from './routing'
+import { useAppDispatch } from '../redux-hooks.js'
+import { goToIndex } from './action-creators.js'
+import { push } from './routing.js'
 
 export interface GoToIndexProps {
   transitionFn?: typeof push

@@ -1,11 +1,11 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
-import { ChatEvent, ChatUserEvent, SbChannelId, makeSbChannelId } from '../../common/chat'
-import { TypedIpcRenderer } from '../../common/ipc'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
-import { Dispatchable, dispatch } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import windowFocus from '../window-focus'
+import { ChatEvent, ChatUserEvent, SbChannelId, makeSbChannelId } from '../../common/chat.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import audioManager, { AvailableSound } from '../audio/audio-manager.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import windowFocus from '../window-focus.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

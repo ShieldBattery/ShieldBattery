@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react'
-import styled from 'styled-components'
-import i18n from '../i18n/i18next'
-import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
-import { IconButton } from '../material/button'
-import { Tooltip, TooltipPosition } from '../material/tooltip'
-import { makeServerUrl } from '../network/server-url'
-import { useStableCallback } from '../state-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { styled } from 'styled-components'
+import i18n from '../i18n/i18next.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import logger from '../logging/logger.js'
+import { IconButton } from '../material/button.js'
+import { Tooltip, TooltipPosition } from '../material/tooltip.js'
+import { makeServerUrl } from '../network/server-url.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorTextFaint, colorTextSecondary } from '../styles/colors.js'
 
 const StyledIconButton = styled(IconButton)`
   color: ${colorTextFaint};

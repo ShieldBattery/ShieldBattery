@@ -1,10 +1,10 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
-import { MatchmakingType } from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import { SbUserId } from '../../common/users/sb-user'
-import { SbMessage, TextMessageRecord } from '../messaging/message-records'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { RaceChar } from '../../common/races.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { SbMessage, TextMessageRecord } from '../messaging/message-records.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 import {
   InviteToPartyMessageRecord,
   JoinPartyMessageRecord,
@@ -15,7 +15,7 @@ import {
   PartyQueueReadyMessageRecord,
   PartyQueueStartMessageRecord,
   SelfJoinPartyMessageRecord,
-} from './party-message-records'
+} from './party-message-records.js'
 
 // How many messages should be kept when a party is inactive
 const INACTIVE_PARTY_MAX_HISTORY = 500

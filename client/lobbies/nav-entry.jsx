@@ -1,10 +1,10 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
-import { Entry } from '../material/left-nav/entry'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton } from '../material/button.js'
+import { Entry } from '../material/left-nav/entry.js'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;

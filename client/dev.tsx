@@ -1,14 +1,14 @@
 import React from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
-import DevActivities from './activities/devonly/routes'
-import { DevDownload } from './download/devonly/routes'
-import { DevLadder } from './ladder/devonly/routes'
-import DevLists from './lists/devonly/routes'
-import DevLobbies from './lobbies/devonly/routes'
-import DevMatchmaking from './matchmaking/devonly/routes'
-import DevMaterial from './material/devonly/routes'
-import { colorDividers } from './styles/colors'
+import DevActivities from './activities/devonly/routes.js'
+import { DevDownload } from './download/devonly/routes.js'
+import { DevLadder } from './ladder/devonly/routes.js'
+import DevLists from './lists/devonly/routes.js'
+import DevLobbies from './lobbies/devonly/routes.js'
+import DevMatchmaking from './matchmaking/devonly/routes.js'
+import DevMaterial from './material/devonly/routes.js'
+import { colorDividers } from './styles/colors.js'
 
 const Container = styled.div`
   padding: 0 !important;

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react'
-import logger from '../logging/logger'
-import { maybeOpenExternalLinkDialog } from '../messaging/action-creators'
-import { getServerOrigin, makeServerUrl } from '../network/server-url'
-import { useAppDispatch } from '../redux-hooks'
-import { push } from './routing'
+import logger from '../logging/logger.js'
+import { maybeOpenExternalLinkDialog } from '../messaging/action-creators.js'
+import { getServerOrigin, makeServerUrl } from '../network/server-url.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { push } from './routing.js'
 
 export interface ExternalLinkProps {
   href: string

@@ -1,5 +1,5 @@
-import { getServerConfig } from '../server-config-storage'
-import { baseUrl } from './server-base-url'
+import { getServerConfig } from '../server-config-storage.js'
+import { baseUrl } from './server-base-url.js'
 
 /**
  * Returns an absolute server URL for a path, if necessary (if running in Electron). If it's not

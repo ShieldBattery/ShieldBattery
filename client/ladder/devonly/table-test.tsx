@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { LadderPlayer } from '../../../common/ladder'
-import { SbUser, SbUserId, makeSbUserId } from '../../../common/users/sb-user'
-import { DivisionFilter, LadderTable } from '../ladder'
+import { LadderPlayer } from '../../../common/ladder.js'
+import { SbUser, SbUserId, makeSbUserId } from '../../../common/users/sb-user.js'
+import { DivisionFilter, LadderTable } from '../ladder.js'
 
 const PLAYERS: LadderPlayer[] = []
 const usersById: Map<SbUserId, SbUser> = new Map()

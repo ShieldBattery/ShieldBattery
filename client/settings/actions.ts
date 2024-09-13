@@ -1,5 +1,5 @@
-import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
-import { SettingsSubPage } from './settings-sub-page'
+import { LocalSettings, ScrSettings } from '../../common/settings/local-settings.js'
+import { SettingsSubPage } from './settings-sub-page.js'
 
 export type SettingsActions =
   | ChangeSettingsSubPage

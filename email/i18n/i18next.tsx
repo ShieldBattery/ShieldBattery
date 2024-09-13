@@ -1,9 +1,9 @@
 import i18n from 'i18next'
 import FsBackend, { FsBackendOptions } from 'i18next-fs-backend'
-import path from 'path'
+import * as path from 'node:path'
 import React from 'react'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
-import { ALL_TRANSLATION_LANGUAGES } from '../../common/i18n'
+import { ALL_TRANSLATION_LANGUAGES } from '../../common/i18n.js'
 
 export { t } from 'i18next'
 

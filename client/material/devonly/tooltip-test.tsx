@@ -1,6 +1,6 @@
 import React from 'react'
-import styled from 'styled-components'
-import { Tooltip } from '../tooltip'
+import { styled } from 'styled-components'
+import { Tooltip } from '../tooltip.js'
 
 const Container = styled.div`
   width: 100%;

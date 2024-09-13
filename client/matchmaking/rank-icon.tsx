@@ -1,14 +1,14 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { LadderPlayer } from '../../common/ladder'
+import { styled } from 'styled-components'
+import { LadderPlayer } from '../../common/ladder/index.js'
 import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   NUM_PLACEMENT_MATCHES,
   ratingToMatchmakingDivision,
-} from '../../common/matchmaking'
-import { makePublicAssetUrl } from '../network/server-url'
+} from '../../common/matchmaking.js'
+import { makePublicAssetUrl } from '../network/server-url.js'
 
 export interface RankIconProps {
   rating: number

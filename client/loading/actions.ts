@@ -1,6 +1,6 @@
-import { ChatReadyEvent } from '../../common/chat'
-import { SubscribedClientEvent, SubscribedUserEvent } from '../../common/websockets'
-import { WhispersReadyEvent } from '../../common/whispers'
+import { ChatReadyEvent } from '../../common/chat.js'
+import { SubscribedClientEvent, SubscribedUserEvent } from '../../common/websockets.js'
+import { WhispersReadyEvent } from '../../common/whispers.js'
 
 export type LoadingActions =
   | ChatLoadingComplete

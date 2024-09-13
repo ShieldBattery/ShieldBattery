@@ -1,14 +1,14 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { Avatar } from '../avatars/avatar'
-import ComputerAvatar from '../avatars/computer-avatar'
-import { RaceIcon } from '../lobbies/race-icon'
-import Card from '../material/card'
-import { fastOutSlowInShort } from '../material/curves'
-import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { HeadlineOld, cabin, singleLine } from '../styles/typography'
+import { styled } from 'styled-components'
+import { Avatar } from '../avatars/avatar.js'
+import ComputerAvatar from '../avatars/computer-avatar.js'
+import { RaceIcon } from '../lobbies/race-icon.js'
+import Card from '../material/card.js'
+import { fastOutSlowInShort } from '../material/curves.js'
+import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors.js'
+import { HeadlineOld, cabin, singleLine } from '../styles/typography.js'
 
 const Container = styled(Card)`
   display: flex;

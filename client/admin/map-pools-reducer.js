@@ -7,8 +7,8 @@ import {
   ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
   ADMIN_MAP_POOL_SEARCH_MAPS,
   ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
-} from '../actions'
-import { keyedReducer } from '../reducers/keyed-reducer'
+} from '../actions.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
 
 export const MapPool = Record({
   id: null,

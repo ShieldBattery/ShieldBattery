@@ -4,8 +4,8 @@ import { createDevTools } from '@redux-devtools/core'
 import { DockMonitor } from '@redux-devtools/dock-monitor'
 import { InspectorMonitor } from '@redux-devtools/inspector-monitor'
 import React from 'react'
-import styled from 'styled-components'
-import { useForceUpdate } from '../state-hooks'
+import { styled } from 'styled-components'
+import { useForceUpdate } from '../state-hooks.js'
 
 const emotionCache = createEmotionCache({
   key: 'redux-dev',

@@ -1,13 +1,13 @@
 import { List, Record } from 'immutable'
-import { GameType } from '../../common/games/configuration'
-import { MapInfoJson } from '../../common/maps'
-import { BwTurnRate } from '../../common/network'
+import { GameType } from '../../common/games/configuration.js'
+import { MapInfoJson } from '../../common/maps.js'
+import { BwTurnRate } from '../../common/network.js'
 import {
   LOBBY_PREFERENCES_GET,
   LOBBY_PREFERENCES_GET_BEGIN,
   LOBBY_PREFERENCES_UPDATE,
-} from '../actions'
-import { keyedReducer } from '../reducers/keyed-reducer'
+} from '../actions.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
 
 export class LobbyPreferences extends Record({
   name: '',

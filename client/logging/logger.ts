@@ -1,4 +1,4 @@
-import { TypedIpcRenderer } from '../../common/ipc'
+import { TypedIpcRenderer } from '../../common/ipc.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

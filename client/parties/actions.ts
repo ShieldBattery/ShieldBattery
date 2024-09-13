@@ -1,9 +1,9 @@
 import { Immutable } from 'immer'
-import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
-import { PartyChatMessageEvent, PartyJson, PartyQueueCancelReason } from '../../common/parties'
-import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
-import { BaseFetchFailure } from '../network/fetch-errors'
+import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking.js'
+import { PartyChatMessageEvent, PartyJson, PartyQueueCancelReason } from '../../common/parties.js'
+import { RaceChar } from '../../common/races.js'
+import { SbUser, SbUserId } from '../../common/users/sb-user.js'
+import { BaseFetchFailure } from '../network/fetch-errors.js'
 
 export type PartyActions =
   | DeclinePartyInviteBegin

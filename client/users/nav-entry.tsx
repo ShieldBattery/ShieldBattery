@@ -1,13 +1,13 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import styled from 'styled-components'
-import { Avatar } from '../avatars/avatar'
-import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { cabin, singleLine } from '../styles/typography'
+import { styled } from 'styled-components'
+import { Avatar } from '../avatars/avatar.js'
+import { buttonReset } from '../material/button-reset.js'
+import { useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon.js'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors.js'
+import { cabin, singleLine } from '../styles/typography.js'
 
 const Container = styled.button`
   ${buttonReset};

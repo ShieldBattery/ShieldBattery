@@ -1,9 +1,9 @@
 import React from 'react'
 import { Switch } from 'wouter'
-import { useHasAnyPermission } from '../../admin/admin-permissions'
-import { NoPermissionsPage } from '../../auth/no-permissions-page'
-import { ChannelRoute } from '../route'
-import { AdminChannelView } from './channel-view'
+import { useHasAnyPermission } from '../../admin/admin-permissions.js'
+import { NoPermissionsPage } from '../../auth/no-permissions-page.js'
+import { ChannelRoute } from '../route.js'
+import { AdminChannelView } from './channel-view.js'
 
 export function ChatAdmin() {
   const canModerateChannels = useHasAnyPermission('moderateChatChannels')

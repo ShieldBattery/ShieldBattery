@@ -3,9 +3,9 @@ import { TFunction } from 'i18next'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { ConditionalKeys } from 'type-fest'
-import createDeferred, { Deferred } from '../../common/async/deferred'
-import shallowEquals from '../../common/shallow-equals'
-import logger from '../logging/logger'
+import createDeferred, { Deferred } from '../../common/async/deferred.js'
+import shallowEquals from '../../common/shallow-equals.js'
+import logger from '../logging/logger.js'
 
 function getDisplayName(WrappedComponent: React.ComponentType<any>): string {
   return (WrappedComponent as any).displayName || (WrappedComponent as any).name || 'Component'

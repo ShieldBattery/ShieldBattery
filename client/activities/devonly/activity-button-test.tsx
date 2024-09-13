@@ -1,11 +1,11 @@
 import keycode from 'keycode'
 import React from 'react'
-import styled from 'styled-components'
-import { MaterialIcon } from '../../icons/material/material-icon'
-import Card from '../../material/card'
-import { background700 } from '../../styles/colors'
-import ActivityBar from '../activity-bar'
-import { ActivityButton } from '../activity-button'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../../icons/material/material-icon.js'
+import Card from '../../material/card.js'
+import { background700 } from '../../styles/colors.js'
+import ActivityBar from '../activity-bar.js'
+import { ActivityButton } from '../activity-button.js'
 
 const ALT_1 = { keyCode: keycode('1'), altKey: true }
 const ALT_2 = { keyCode: keycode('2'), altKey: true }

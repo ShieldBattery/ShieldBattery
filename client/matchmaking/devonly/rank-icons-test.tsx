@@ -1,6 +1,6 @@
 import React from 'react'
-import styled from 'styled-components'
-import { RankIcon, UnratedIcon } from '../rank-icon'
+import { styled } from 'styled-components'
+import { RankIcon, UnratedIcon } from '../rank-icon.js'
 
 const Container = styled.div`
   display: flex;

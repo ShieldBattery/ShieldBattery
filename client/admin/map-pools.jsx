@@ -2,30 +2,30 @@ import { List, OrderedMap } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { useCallback } from 'react'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
-import { MapVisibility } from '../../common/maps'
-import { MatchmakingType } from '../../common/matchmaking'
-import { MaterialIcon } from '../icons/material/material-icon'
-import KeyListener from '../keyboard/key-listener'
-import Carousel from '../lists/carousel'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
-import { NumberTextField } from '../material/number-text-field'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { TabItem, Tabs } from '../material/tabs'
-import { TextField } from '../material/text-field'
-import LoadingIndicator from '../progress/dots'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { body1, subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { MapVisibility } from '../../common/maps.js'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import KeyListener from '../keyboard/key-listener.js'
+import Carousel from '../lists/carousel.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { IconButton, RaisedButton, TextButton } from '../material/button.js'
+import { MenuItem } from '../material/menu/item.js'
+import { MenuList } from '../material/menu/menu.js'
+import { NumberTextField } from '../material/number-text-field.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { TextField } from '../material/text-field.js'
+import LoadingIndicator from '../progress/dots.js'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors.js'
+import { body1, subtitle1 } from '../styles/typography.js'
 import {
   clearSearch,
   createMapPool,
   deleteMapPool,
   getMapPoolHistory,
   searchMaps,
-} from './action-creators'
+} from './action-creators.js'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30

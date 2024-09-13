@@ -1,45 +1,49 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
-import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration.js'
+import {
+  GameRecordJson,
+  getGameDurationString,
+  getGameTypeLabel,
+} from '../../common/games/games.js'
 import {
   ReconciledPlayerResult,
   ReconciledResult,
   getResultLabel,
-} from '../../common/games/results'
-import { getTeamNames } from '../../common/maps'
-import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { Avatar } from '../avatars/avatar'
-import ComputerAvatar from '../avatars/computer-avatar'
-import { ComingSoon } from '../coming-soon/coming-soon'
-import { longTimestamp } from '../i18n/date-formats'
+} from '../../common/games/results.js'
+import { getTeamNames } from '../../common/maps.js'
+import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { Avatar } from '../avatars/avatar.js'
+import ComputerAvatar from '../avatars/computer-avatar.js'
+import { ComingSoon } from '../coming-soon/coming-soon.js'
+import { longTimestamp } from '../i18n/date-formats.js'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
-import { RaceIcon } from '../lobbies/race-icon'
-import { batchGetMapInfo } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton, useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import Card from '../material/card'
-import { Ripple } from '../material/ripple'
-import { shadow2dp } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
-import { CopyLinkButton } from '../navigation/copy-link-button'
-import { replace } from '../navigation/routing'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { RaceIcon } from '../lobbies/race-icon.js'
+import { batchGetMapInfo } from '../maps/action-creators.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { buttonReset } from '../material/button-reset.js'
+import { RaisedButton, useButtonState } from '../material/button.js'
+import Card from '../material/card.js'
+import { Ripple } from '../material/ripple.js'
+import { shadow2dp } from '../material/shadows.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip.js'
+import { CopyLinkButton } from '../navigation/copy-link-button.js'
+import { replace } from '../navigation/routing.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import {
   amberA200,
   colorNegative,
   colorPositive,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
+} from '../styles/colors.js'
 import {
   Headline3,
   body1,
@@ -48,16 +52,16 @@ import {
   overline,
   singleLine,
   subtitle1,
-} from '../styles/typography'
-import { navigateToUserProfile } from '../users/action-creators'
+} from '../styles/typography.js'
+import { navigateToUserProfile } from '../users/action-creators.js'
 import {
   navigateToGameResults,
   searchAgainFromGame,
   subscribeToGame,
   unsubscribeFromGame,
   viewGame,
-} from './action-creators'
-import { ResultsSubPage } from './results-sub-page'
+} from './action-creators.js'
+import { ResultsSubPage } from './results-sub-page.js'
 
 const Container = styled.div`
   min-width: 640px;

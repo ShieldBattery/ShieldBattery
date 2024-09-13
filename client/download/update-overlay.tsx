@@ -3,24 +3,24 @@ import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { animated, useTransition } from 'react-spring'
-import styled from 'styled-components'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { FocusTrap } from '../dom/focus-trap'
-import { RaisedButton } from '../material/button'
-import { Dialog } from '../material/dialog'
-import { Portal } from '../material/portal'
-import { defaultSpring } from '../material/springs'
-import { zIndexDialogScrim } from '../material/zindex'
-import { makeServerUrl } from '../network/server-url'
-import { LoadingDotsArea } from '../progress/dots'
-import { amberA400, dialogScrim } from '../styles/colors'
-import { Body1, Subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { FocusTrap } from '../dom/focus-trap.js'
+import { RaisedButton } from '../material/button.js'
+import { Dialog } from '../material/dialog.js'
+import { Portal } from '../material/portal.js'
+import { defaultSpring } from '../material/springs.js'
+import { zIndexDialogScrim } from '../material/zindex.js'
+import { makeServerUrl } from '../network/server-url.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { amberA400, dialogScrim } from '../styles/colors.js'
+import { Body1, Subtitle1 } from '../styles/typography.js'
 import {
   UpdateProgress,
   UpdateStateChangeHandler,
   addChangeHandler,
   removeChangeHandler,
-} from './updater-state'
+} from './updater-state.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

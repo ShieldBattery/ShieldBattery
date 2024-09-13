@@ -1,8 +1,8 @@
 // eslint-disable-next-line no-restricted-imports
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux'
-import { ReduxAction } from './action-types'
-import { DispatchFunction } from './dispatch-registry'
-import { RootState } from './root-reducer'
+import { ReduxAction } from './action-types.js'
+import { DispatchFunction } from './dispatch-registry.js'
+import { RootState } from './root-reducer.js'
 
 /**
  * A hook to access the Redux `dispatch` function.

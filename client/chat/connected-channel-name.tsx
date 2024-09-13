@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { SbChannelId } from '../../common/chat'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
-import { getBatchChannelInfo } from './action-creators'
-import { ConnectedChannelInfoCard } from './channel-info-card'
+import { styled } from 'styled-components'
+import { SbChannelId } from '../../common/chat.js'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { colorDividers } from '../styles/colors.js'
+import { getBatchChannelInfo } from './action-creators.js'
+import { ConnectedChannelInfoCard } from './channel-info-card.js'
 
 const ChannelName = styled.span`
   &:hover {

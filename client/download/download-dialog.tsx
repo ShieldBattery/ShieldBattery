@@ -1,8 +1,8 @@
 import React from 'react'
-import styled from 'styled-components'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { Dialog } from '../material/dialog'
-import Download from './download'
+import { styled } from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props.js'
+import { Dialog } from '../material/dialog.js'
+import Download from './download.js'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;

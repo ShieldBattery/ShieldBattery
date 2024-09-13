@@ -1,11 +1,11 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Headline5, Subtitle1 } from '../styles/typography'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { Headline5, Subtitle1 } from '../styles/typography.js'
 
 const FundingSection = styled.div`
   margin-top: 48px;

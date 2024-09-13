@@ -1,10 +1,10 @@
 import React from 'react'
-import styled, { css, keyframes } from 'styled-components'
-import { HotkeyProp, HotkeyedText, useButtonHotkey, useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { useMultiRef } from '../state-hooks'
-import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { css, keyframes, styled } from 'styled-components'
+import { buttonReset } from '../material/button-reset.js'
+import { HotkeyProp, HotkeyedText, useButtonHotkey, useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { useMultiRef } from '../state-hooks.js'
+import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors.js'
 
 const Container = styled.button`
   ${buttonReset}

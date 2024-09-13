@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link } from 'wouter'
-import { colorTextSecondary } from '../styles/colors'
-import { headline6, singleLine, subtitle1 } from '../styles/typography'
+import { colorTextSecondary } from '../styles/colors.js'
+import { headline6, singleLine, subtitle1 } from '../styles/typography.js'
 
 const Container = styled.li`
   height: 72px;

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MatchmakingType } from '../../common/matchmaking'
-import { DisabledCard, DisabledText } from '../activities/disabled-content'
-import { useSelfUser } from '../auth/auth-utils'
-import { TransInterpolation } from '../i18n/i18next'
-import { useAppSelector } from '../redux-hooks'
-import { colorTextSecondary } from '../styles/colors'
-import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
+import { styled } from 'styled-components'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { DisabledCard, DisabledText } from '../activities/disabled-content.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography.js'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',

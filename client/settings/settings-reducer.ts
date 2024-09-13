@@ -3,10 +3,10 @@ import {
   LocalSettings,
   ScrSettings,
   ShieldBatteryAppSettings,
-} from '../../common/settings/local-settings'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SCR_SETTINGS } from './default-settings'
-import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
+} from '../../common/settings/local-settings.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
+import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SCR_SETTINGS } from './default-settings.js'
+import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page.js'
 
 export interface SettingsState {
   open: boolean

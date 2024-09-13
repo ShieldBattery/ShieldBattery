@@ -1,8 +1,8 @@
-import { SbChannelId } from '../../common/chat'
-import { GameRecordJson } from '../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues'
-import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbChannelId } from '../../common/chat.js'
+import { GameRecordJson } from '../../common/games/games.js'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues.js'
+import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking.js'
+import { SbUserId } from '../../common/users/sb-user.js'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',

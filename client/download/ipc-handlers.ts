@@ -1,5 +1,5 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { changeUpdateState } from './updater-state'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { changeUpdateState } from './updater-state.js'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   if (!ipcRenderer) {

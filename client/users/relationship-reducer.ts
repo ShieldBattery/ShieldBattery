@@ -1,12 +1,12 @@
 import { Immutable } from 'immer'
-import { assertUnreachable } from '../../common/assert-unreachable'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
 import {
   FriendActivityStatus,
   UserRelationshipJson,
   UserRelationshipKind,
-} from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+} from '../../common/users/relationships.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface RelationshipState {
   friends: Map<SbUserId, UserRelationshipJson>

@@ -1,12 +1,12 @@
 import React from 'react'
-import styled from 'styled-components'
-import { amberA400, colorTextFaint } from '../styles/colors'
-import { useButtonState } from './button'
-import { buttonReset } from './button-reset'
-import { fastOutSlowInShort } from './curves'
-import { Ripple } from './ripple'
-import { shadowDef12dp, shadowDef8dp } from './shadow-constants'
-import { shadow6dp } from './shadows'
+import { styled } from 'styled-components'
+import { amberA400, colorTextFaint } from '../styles/colors.js'
+import { buttonReset } from './button-reset.js'
+import { useButtonState } from './button.js'
+import { fastOutSlowInShort } from './curves.js'
+import { Ripple } from './ripple.js'
+import { shadowDef12dp, shadowDef8dp } from './shadow-constants.js'
+import { shadow6dp } from './shadows.js'
 
 const Root = styled.button`
   ${buttonReset};

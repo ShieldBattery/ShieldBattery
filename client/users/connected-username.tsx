@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
-import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
-import { getBatchUserInfo } from './action-creators'
-import { ConnectedUserContextMenu, MenuItemCategory } from './user-context-menu'
-import { useUserOverlays } from './user-overlays'
-import { ConnectedUserProfileOverlay } from './user-profile-overlay'
+import { styled } from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { colorDividers } from '../styles/colors.js'
+import { getBatchUserInfo } from './action-creators.js'
+import { ConnectedUserContextMenu, MenuItemCategory } from './user-context-menu.js'
+import { useUserOverlays } from './user-overlays.js'
+import { ConnectedUserProfileOverlay } from './user-profile-overlay.js'
 
 const Username = styled.span`
   &:hover {

@@ -1,8 +1,8 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
-import { EMAIL_VERIFICATION_ID } from '../../common/notifications'
-import { AuthEvent } from '../../common/users/sb-user'
-import { Dispatchable, ThunkAction, dispatch } from '../dispatch-registry'
-import { clearNotificationById } from '../notifications/action-creators'
+import { EMAIL_VERIFICATION_ID } from '../../common/notifications.js'
+import { AuthEvent } from '../../common/users/sb-user.js'
+import { Dispatchable, ThunkAction, dispatch } from '../dispatch-registry.js'
+import { clearNotificationById } from '../notifications/action-creators.js'
 
 type EventToActionMap = {
   [E in AuthEvent['action']]: (event: Extract<AuthEvent, { action: E }>) => Dispatchable | undefined

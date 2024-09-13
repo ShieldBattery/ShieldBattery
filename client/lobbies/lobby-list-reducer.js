@@ -1,5 +1,5 @@
 import { List, Map, Record } from 'immutable'
-import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
+import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions.js'
 
 export const HostRecord = Record({
   name: null,

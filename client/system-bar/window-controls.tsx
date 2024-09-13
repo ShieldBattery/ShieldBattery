@@ -2,14 +2,14 @@ import React, { useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled, { createGlobalStyle, css } from 'styled-components'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { useExternalElementRef } from '../dom/use-external-element-ref.js'
 import CloseIcon from '../icons/codicons/chrome-close.svg'
 import MaximizeIcon from '../icons/codicons/chrome-maximize.svg'
 import MinimizeIcon from '../icons/codicons/chrome-minimize.svg'
 import RestoreIcon from '../icons/codicons/chrome-restore.svg'
-import { buttonReset } from '../material/button-reset'
-import { zIndexWindowControls } from '../material/zindex'
+import { buttonReset } from '../material/button-reset.js'
+import { zIndexWindowControls } from '../material/zindex.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

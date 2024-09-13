@@ -1,10 +1,11 @@
 import { net } from 'electron'
-import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
 import { mkdirp } from 'mkdirp'
-import path from 'path'
-import { Readable } from 'stream'
-import { pipeline } from 'stream/promises'
+import { createReadStream, createWriteStream } from 'node:fs'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import HashThrough from '../../common/hash-through.js'
 import { MapExtension } from '../../common/maps.js'
 import log from '../logger.js'
@@ -48,7 +49,7 @@ export class MapStore {
 
     let exists = false
     try {
-      await fsPromises.stat(mapPath)
+      await fs.stat(mapPath)
       exists = true
     } catch (ignored) {
       // error just means the file doesn't exist (most likely)
@@ -58,7 +59,7 @@ export class MapStore {
       if (exists) {
         const hasher = new HashThrough()
         hasher.hasher.update(mapFormat)
-        const doneReading = pipeline(fs.createReadStream(mapPath), hasher)
+        const doneReading = pipeline(createReadStream(mapPath), hasher)
         hasher.resume()
         try {
           await doneReading
@@ -90,7 +91,7 @@ export class MapStore {
       const doneWriting = pipeline(
         Readable.fromWeb(res.body as any),
         hasher,
-        fs.createWriteStream(mapPath),
+        createWriteStream(mapPath),
       )
       hasher.resume()
       await doneWriting

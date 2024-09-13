@@ -1,5 +1,5 @@
 import { css } from 'styled-components'
-import { shadowsByDepth } from './shadow-constants'
+import { shadowsByDepth } from './shadow-constants.js'
 
 export const shadowKeyUmbraOpacity = 0.2
 export const shadowKeyPenumbraOpacity = 0.14

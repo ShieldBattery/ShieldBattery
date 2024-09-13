@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react'
-import styled from 'styled-components'
-import { colorError } from '../../styles/colors'
-import { singleLine } from '../../styles/typography'
-import { useButtonState } from '../button'
-import { buttonReset } from '../button-reset'
-import { Ripple } from '../ripple'
-import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
-import { MenuItemSymbol, MenuItemType } from './menu-item-symbol'
+import { styled } from 'styled-components'
+import { colorError } from '../../styles/colors.js'
+import { singleLine } from '../../styles/typography.js'
+import { buttonReset } from '../button-reset.js'
+import { useButtonState } from '../button.js'
+import { Ripple } from '../ripple.js'
+import { MenuItemSymbol, MenuItemType } from './menu-item-symbol.js'
+import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu.js'
 
 const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   ${buttonReset};

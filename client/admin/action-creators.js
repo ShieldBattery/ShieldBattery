@@ -1,4 +1,4 @@
-import { apiUrl } from '../../common/urls'
+import { apiUrl } from '../../common/urls.js'
 import {
   ADMIN_MAP_POOL_CLEAR_SEARCH,
   ADMIN_MAP_POOL_CREATE,
@@ -19,9 +19,9 @@ import {
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
   ADMIN_MATCHMAKING_TIMES_GET_PAST,
   ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
-} from '../actions'
-import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
+} from '../actions.js'
+import { fetchJson } from '../network/fetch.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
 
 export async function fetchUserId(username) {
   const value = await fetchJson(apiUrl`admin/users/${username}`)

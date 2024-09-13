@@ -17,9 +17,9 @@ import {
   GetChatUserProfileResponse,
   SbChannelId,
   SearchChannelsResponse,
-} from '../../common/chat'
-import { SbUser } from '../../common/users/sb-user'
-import { BaseFetchFailure } from '../network/fetch-errors'
+} from '../../common/chat.js'
+import { SbUser } from '../../common/users/sb-user.js'
+import { BaseFetchFailure } from '../network/fetch-errors.js'
 
 export type ChatActions =
   | JoinChannelBegin

@@ -3,10 +3,10 @@ import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { useRoute } from 'wouter'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/index.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
@@ -14,30 +14,30 @@ import {
   NUM_PLACEMENT_MATCHES,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { RaceChar, raceCharToLabel } from '../../common/races'
-import { urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
-import { useTrackPageView } from '../analytics/analytics'
-import { Avatar } from '../avatars/avatar'
-import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
-import { JsonLocalStorageValue } from '../local-storage'
-import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { shadow4dp } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
-import { useLocationSearchParam } from '../navigation/router-hooks'
-import { push } from '../navigation/routing'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { SearchInput, SearchInputHandle } from '../search/search-input'
-import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks'
+} from '../../common/matchmaking.js'
+import { RaceChar, raceCharToLabel } from '../../common/races.js'
+import { urlPath } from '../../common/urls.js'
+import { SbUser, SbUserId } from '../../common/users/sb-user.js'
+import { useTrackPageView } from '../analytics/analytics.js'
+import { Avatar } from '../avatars/avatar.js'
+import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats.js'
+import { JsonLocalStorageValue } from '../local-storage.js'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon.js'
+import { buttonReset } from '../material/button-reset.js'
+import { useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { SelectOption } from '../material/select/option.js'
+import { Select } from '../material/select/select.js'
+import { shadow4dp } from '../material/shadows.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import { Tooltip } from '../material/tooltip.js'
+import { useLocationSearchParam } from '../navigation/router-hooks.js'
+import { push } from '../navigation/routing.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { SearchInput, SearchInputHandle } from '../search/search-input.js'
+import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks.js'
 import {
   background800,
   colorDividers,
@@ -45,7 +45,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
   getRaceColor,
-} from '../styles/colors'
+} from '../styles/colors.js'
 import {
   Headline6,
   body1,
@@ -54,9 +54,9 @@ import {
   singleLine,
   subtitle1,
   subtitle2,
-} from '../styles/typography'
-import { navigateToUserProfile } from '../users/action-creators'
-import { getRankings, navigateToLadder, searchRankings } from './action-creators'
+} from '../styles/typography.js'
+import { navigateToUserProfile } from '../users/action-creators.js'
+import { getRankings, navigateToLadder, searchRankings } from './action-creators.js'
 
 const LadderPage = styled.div`
   width: 100%;

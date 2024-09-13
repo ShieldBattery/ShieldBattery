@@ -1,10 +1,10 @@
 import { ReadonlyDeep } from 'type-fest'
-import { SbPermissions } from '../../common/users/permissions'
-import { SelfUser } from '../../common/users/sb-user'
-import { ClientSessionInfo } from '../../common/users/session'
-import { isFetchError } from '../network/fetch-errors'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { AuthActions, AuthChangeBegin, LogOutSuccess, VerifyEmailSuccess } from './actions'
+import { SbPermissions } from '../../common/users/permissions.js'
+import { SelfUser } from '../../common/users/sb-user.js'
+import { ClientSessionInfo } from '../../common/users/session.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
+import { AuthActions, AuthChangeBegin, LogOutSuccess, VerifyEmailSuccess } from './actions.js'
 
 type AuthErrors = Extract<AuthActions, { error: true }>
 type AuthErrorable = Extract<AuthActions, { error: true } | { error?: false }>

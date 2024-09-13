@@ -1,6 +1,6 @@
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { RaceChar } from '../../common/races'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { RaceChar } from '../../common/races.js'
 
 /* Primary color */
 export const blue50 = '#e3f2fd'

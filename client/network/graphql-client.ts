@@ -1,8 +1,8 @@
 import { cacheExchange } from '@urql/exchange-graphcache'
 import { requestPolicyExchange } from '@urql/exchange-request-policy'
 import { Client, fetchExchange } from 'urql'
-import { ServerConfig } from '../../common/server-config'
-import { CREDENTIAL_STORAGE } from './fetch'
+import { ServerConfig } from '../../common/server-config.js'
+import { CREDENTIAL_STORAGE } from './fetch.js'
 
 export function createGraphqlClient(serverConfig: ServerConfig) {
   const url = new URL(serverConfig.graphqlOrigin)

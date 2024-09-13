@@ -1,6 +1,6 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { dispatch } from '../dispatch-registry'
-import { showReplayInfo, startReplay } from './action-creators'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { dispatch } from '../dispatch-registry.js'
+import { showReplayInfo, startReplay } from './action-creators.js'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   ipcRenderer.on('replaysOpen', (event, replayPaths) => {

@@ -1,6 +1,6 @@
-import { urlPath } from '../../common/urls'
-import { ThunkAction } from '../dispatch-registry'
-import { push } from './routing'
+import { urlPath } from '../../common/urls.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import { push } from './routing.js'
 
 // Pick a location to direct the user to given data from the store, used as an "index" page since we
 // don't really have a root content page

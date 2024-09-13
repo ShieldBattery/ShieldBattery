@@ -1,13 +1,11 @@
-import fs, { promises as fsPromises } from 'fs'
-import path from 'path'
+import * as fs from 'node:fs/promises'
+import * as path from 'path'
 
 async function checkRemasteredPath(dirPath: string): Promise<boolean> {
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
 
   try {
-    await Promise.all(
-      requiredFiles.map(f => fsPromises.access(path.join(dirPath, f), fs.constants.R_OK)),
-    )
+    await Promise.all(requiredFiles.map(f => fs.access(path.join(dirPath, f), fs.constants.R_OK)))
     return true
   } catch (err) {
     return false

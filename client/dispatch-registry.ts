@@ -1,5 +1,5 @@
-import type { PromisifiedAction, ReduxAction } from './action-types'
-import { RootState } from './root-reducer'
+import type { PromisifiedAction, ReduxAction } from './action-types.js'
+import { RootState } from './root-reducer.js'
 
 export type ThunkAction<T extends ReduxAction = ReduxAction> = (
   dispatch: DispatchFunction<T>,

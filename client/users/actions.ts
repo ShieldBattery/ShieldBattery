@@ -2,7 +2,7 @@ import {
   FriendActivityStatusUpdateEvent,
   GetRelationshipsResponse,
   UserRelationshipJson,
-} from '../../common/users/relationships'
+} from '../../common/users/relationships.js'
 import {
   AdminBanUserResponse,
   AdminGetBansResponse,
@@ -12,7 +12,7 @@ import {
   SbUser,
   SbUserId,
   SearchMatchHistoryResponse,
-} from '../../common/users/sb-user'
+} from '../../common/users/sb-user.js'
 
 export type UserActions =
   | GetUserProfile

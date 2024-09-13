@@ -1,6 +1,6 @@
 import cuid from 'cuid'
-import { CloseActivityOverlay, OpenActivityOverlay, PreviousActivityOverlay } from './actions'
-import { ActivityOverlayPayload } from './activity-overlay-type'
+import { CloseActivityOverlay, OpenActivityOverlay, PreviousActivityOverlay } from './actions.js'
+import { ActivityOverlayPayload } from './activity-overlay-type.js'
 
 export function openOverlay(payload: ActivityOverlayPayload): OpenActivityOverlay {
   return {

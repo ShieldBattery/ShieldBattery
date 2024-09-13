@@ -2,42 +2,42 @@ import React, { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch, useRoute } from 'wouter'
-import { revokeSession } from './auth/action-creators'
-import { useIsLoggedIn } from './auth/auth-utils'
-import { EmailVerificationUi } from './auth/email-verification'
-import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
-import { LoggedInFilter } from './auth/logged-in-filter'
-import { Login } from './auth/login'
-import { Signup } from './auth/signup'
-import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
-import { usePixelShover } from './dom/pixel-shover'
-import { DownloadPage } from './download/download-page'
-import { UpdateOverlay } from './download/update-overlay'
-import { FileDropZoneProvider } from './file-browser/file-drop-zone'
-import { KeyListenerBoundary } from './keyboard/key-listener'
-import { Faq } from './landing/faq'
-import { Splash } from './landing/splash'
-import { LoadingFilter } from './loading/loading-filter'
-import { LoggedOutContent } from './logged-out-content'
-import { logger } from './logging/logger'
-import { MainLayout } from './main-layout'
-import { LoginRoute } from './navigation/custom-routes'
-import { UNAUTHORIZED_EMITTER } from './network/fetch'
-import { createGraphqlClient } from './network/graphql-client'
-import { SiteConnectedFilter } from './network/site-connected-filter'
+import { revokeSession } from './auth/action-creators.js'
+import { useIsLoggedIn } from './auth/auth-utils.js'
+import { EmailVerificationUi } from './auth/email-verification.js'
+import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot.js'
+import { LoggedInFilter } from './auth/logged-in-filter.js'
+import { Login } from './auth/login.js'
+import { Signup } from './auth/signup.js'
+import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay.js'
+import { usePixelShover } from './dom/pixel-shover.js'
+import { DownloadPage } from './download/download-page.js'
+import { UpdateOverlay } from './download/update-overlay.js'
+import { FileDropZoneProvider } from './file-browser/file-drop-zone.js'
+import { KeyListenerBoundary } from './keyboard/key-listener.js'
+import { Faq } from './landing/faq.js'
+import { Splash } from './landing/splash.js'
+import { LoadingFilter } from './loading/loading-filter.js'
+import { LoggedOutContent } from './logged-out-content.js'
+import { logger } from './logging/logger.js'
+import { MainLayout } from './main-layout.js'
+import { LoginRoute } from './navigation/custom-routes.js'
+import { UNAUTHORIZED_EMITTER } from './network/fetch.js'
+import { createGraphqlClient } from './network/graphql-client.js'
+import { SiteConnectedFilter } from './network/site-connected-filter.js'
 import {
   AcceptableUsePage,
   PrivacyPolicyPage,
   TermsOfServicePage,
-} from './policies/policy-displays'
-import { LoadingDotsArea } from './progress/dots'
-import { useAppDispatch, useAppSelector } from './redux-hooks'
-import { RootErrorBoundary } from './root-error-boundary'
-import { getServerConfig } from './server-config-storage'
-import { ConnectedSettings } from './settings/settings'
-import ConnectedSnackbar from './snackbars/connected-snackbar'
-import GlobalStyle from './styles/global'
-import ResetStyle from './styles/reset'
+} from './policies/policy-displays.js'
+import { LoadingDotsArea } from './progress/dots.js'
+import { useAppDispatch, useAppSelector } from './redux-hooks.js'
+import { RootErrorBoundary } from './root-error-boundary.js'
+import { getServerConfig } from './server-config-storage.js'
+import { ConnectedSettings } from './settings/settings.js'
+import ConnectedSnackbar from './snackbars/connected-snackbar.js'
+import GlobalStyle from './styles/global.js'
+import ResetStyle from './styles/reset.js'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
@@ -53,12 +53,12 @@ function LoadableDev() {
 
 const LoadableWindowControls = IS_ELECTRON
   ? React.lazy(async () => ({
-      default: (await import('./system-bar/window-controls')).WindowControls,
+      default: (await import('./system-bar/window-controls.js')).WindowControls,
     }))
   : () => null
 
 const LoadableSystemBar = IS_ELECTRON
-  ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar')).SystemBar }))
+  ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar.js')).SystemBar }))
   : () => null
 
 function RedirectOnUnauthorized() {

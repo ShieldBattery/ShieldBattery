@@ -1,10 +1,10 @@
 import React from 'react'
-import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
-import { useAppSelector } from '../redux-hooks'
-import { amberA400, colorDividers } from '../styles/colors'
+import { styled } from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { amberA400, colorDividers } from '../styles/colors.js'
 import PlaceholderIcon from './avatar-placeholder.svg'
-import { randomColorForString } from './colors'
+import { randomColorForString } from './colors.js'
 
 export const ImageAvatar = styled.img<{ $glowing?: boolean }>`
   width: 40px;

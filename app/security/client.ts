@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+import * as crypto from 'node:crypto'
 
 type LogErrorFn = (msg: string) => void
 export type ClientId = [type: number, hash: string]

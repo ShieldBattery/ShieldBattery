@@ -1,4 +1,4 @@
-import { DialogPayload, DialogType } from './dialog-type'
+import { DialogPayload, DialogType } from './dialog-type.js'
 
 export type DialogActions = OpenDialog | CloseDialog
 

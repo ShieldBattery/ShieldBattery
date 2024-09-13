@@ -1,23 +1,23 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   ALL_ANNOUNCERS,
   Announcer,
   getAnnouncerName,
-} from '../../../common/settings/blizz-settings'
-import { useForm } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
-import { CheckBox } from '../../material/check-box'
-import { SelectOption } from '../../material/select/option'
-import { Select } from '../../material/select/select'
-import Slider from '../../material/slider'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
-import { colorTextSecondary } from '../../styles/colors'
-import { overline } from '../../styles/typography'
-import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+} from '../../../common/settings/blizz-settings.js'
+import { useForm } from '../../forms/form-hook.js'
+import SubmitOnEnter from '../../forms/submit-on-enter.js'
+import { CheckBox } from '../../material/check-box.js'
+import { SelectOption } from '../../material/select/option.js'
+import { Select } from '../../material/select/select.js'
+import Slider from '../../material/slider.js'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
+import { useStableCallback } from '../../state-hooks.js'
+import { colorTextSecondary } from '../../styles/colors.js'
+import { overline } from '../../styles/typography.js'
+import { mergeScrSettings } from '../action-creators.js'
+import { FormContainer } from '../settings-content.js'
 
 const AnnouncerOverline = styled.div`
   ${overline};

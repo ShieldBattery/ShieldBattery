@@ -1,12 +1,12 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
-import { audioManager } from '../audio/audio-manager'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { openSnackbar } from '../snackbars/action-creators'
-import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions'
-import { SettingsSubPage } from './settings-sub-page'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { LocalSettings, ScrSettings } from '../../common/settings/local-settings.js'
+import { audioManager } from '../audio/audio-manager.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions.js'
+import { SettingsSubPage } from './settings-sub-page.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

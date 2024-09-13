@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import styled from 'styled-components'
-import { range } from '../../../common/range'
-import { colorTextFaint } from '../../styles/colors'
-import { RadioButton, RadioGroup } from '../radio'
+import { styled } from 'styled-components'
+import { range } from '../../../common/range.js'
+import { colorTextFaint } from '../../styles/colors.js'
+import { RadioButton, RadioGroup } from '../radio.js'
 
 const Container = styled.div`
   width: 100%;

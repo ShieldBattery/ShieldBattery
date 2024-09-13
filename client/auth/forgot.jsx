@@ -8,9 +8,9 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
-} from '../../common/constants'
-import form from '../forms/form'
-import SubmitOnEnter from '../forms/submit-on-enter'
+} from '../../common/constants.js'
+import form from '../forms/form.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
 import {
   composeValidators,
   matchesOther,
@@ -18,11 +18,11 @@ import {
   minLength,
   regex,
   required,
-} from '../forms/validators'
-import { RaisedButton } from '../material/button'
-import { push } from '../navigation/routing'
-import LoadingIndicator from '../progress/dots'
-import { recoverUsername, resetPassword, startPasswordReset } from './action-creators'
+} from '../forms/validators.js'
+import { RaisedButton } from '../material/button.js'
+import { push } from '../navigation/routing.js'
+import LoadingIndicator from '../progress/dots.js'
+import { recoverUsername, resetPassword, startPasswordReset } from './action-creators.js'
 import {
   AuthBody,
   AuthBottomAction,
@@ -36,7 +36,7 @@ import {
   FieldRow,
   LoadingArea,
   SuccessContainer,
-} from './auth-content'
+} from './auth-content.js'
 
 // TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
 // that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
@@ -44,8 +44,8 @@ import {
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
 import { Trans, useTranslation } from 'react-i18next'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious, useStableCallback } from '../state-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { usePrevious, useStableCallback } from '../state-hooks.js'
 
 const emailValidator = composeValidators(
   required(t => t('auth.emailValidator.required', 'Enter an email address')),

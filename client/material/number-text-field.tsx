@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import { TextField, TextFieldProps } from './text-field'
+import { TextField, TextFieldProps } from './text-field.js'
 
 export function NumberTextField({
   value,

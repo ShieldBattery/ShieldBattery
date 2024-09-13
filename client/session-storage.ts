@@ -1,4 +1,4 @@
-import logger from './logging/logger'
+import logger from './logging/logger.js'
 
 /**
  * A manager for a JSON value stored in session storage. Provides easy methods to set and retrieve

@@ -1,10 +1,10 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { background700, colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { background700, colorTextFaint } from '../styles/colors.js'
+import { Subtitle1 } from '../styles/typography.js'
 
 const ImgContainer = styled.div`
   position: relative;

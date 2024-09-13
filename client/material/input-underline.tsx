@@ -1,7 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
-import { amberA400, colorDividers, colorError } from '../styles/colors'
-import { fastOutSlowInShort } from './curves'
+import { styled } from 'styled-components'
+import { amberA400, colorDividers, colorError } from '../styles/colors.js'
+import { fastOutSlowInShort } from './curves.js'
 
 const UnderlineContainer = styled.div<{ $error?: boolean }>`
   order: 3;

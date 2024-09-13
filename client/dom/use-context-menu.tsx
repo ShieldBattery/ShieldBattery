@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { OriginX, OriginY, PopoverProps, usePopoverController } from '../material/popover'
+import { OriginX, OriginY, PopoverProps, usePopoverController } from '../material/popover.js'
 
 interface UseContextMenuProps {
   originX?: OriginX

@@ -1,10 +1,10 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { SbUserId } from '../../common/users/sb-user'
-import { TransInterpolation } from '../i18n/i18next'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
-import { SystemImportant, SystemMessage } from '../messaging/message-layout'
-import { ConnectedUsername } from '../users/connected-username'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks.js'
+import { SystemImportant, SystemMessage } from '../messaging/message-layout.js'
+import { ConnectedUsername } from '../users/connected-username.js'
 
 export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props

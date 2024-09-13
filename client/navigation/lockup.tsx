@@ -1,12 +1,12 @@
 import React from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import Logo from '../logos/logo-no-bg.svg'
 import LogoText from '../logos/logotext-white-154x56.svg'
-import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
-import { Ripple } from '../material/ripple'
-import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { buttonReset } from '../material/button-reset.js'
+import { useButtonState } from '../material/button.js'
+import { Ripple } from '../material/ripple.js'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon.js'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors.js'
 
 const Container = styled.button`
   ${buttonReset};

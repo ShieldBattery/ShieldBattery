@@ -1,6 +1,6 @@
-import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { fastOutSlowIn } from '../material/curve-constants'
+import { styled } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { fastOutSlowIn } from '../material/curve-constants.js'
 
 /**
  * An expand icon which can be rotated by a 180 degrees. Usually used in accordion-like components.

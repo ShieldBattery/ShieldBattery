@@ -1,27 +1,27 @@
 import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
-import styled, { css } from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
-import { ConnectedAvatar } from '../avatars/avatar'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
-import { useAppSelector } from '../redux-hooks'
+import { css, styled } from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { ConnectedAvatar } from '../avatars/avatar.js'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks.js'
+import { useAppSelector } from '../redux-hooks.js'
 import {
   alphaDisabled,
   background700,
   colorDividers,
   colorTextFaint,
   colorTextSecondary,
-} from '../styles/colors'
-import { body2, overline, singleLine } from '../styles/typography'
+} from '../styles/colors.js'
+import { body2, overline, singleLine } from '../styles/typography.js'
 import {
   areUserEntriesEqual,
   sortUserEntries,
   useUserEntriesSelector,
-} from '../users/sorted-user-ids'
-import { ConnectedUserContextMenu } from '../users/user-context-menu'
-import { useUserOverlays } from '../users/user-overlays'
-import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+} from '../users/sorted-user-ids.js'
+import { ConnectedUserContextMenu } from '../users/user-context-menu.js'
+import { useUserOverlays } from '../users/user-overlays.js'
+import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay.js'
 
 const UserListContainer = styled.div`
   width: 256px;

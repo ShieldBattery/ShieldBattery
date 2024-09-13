@@ -1,9 +1,9 @@
 import { Section } from '@react-email/components'
 import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
-import { EmailProps } from '../email-props'
-import { TransInterpolation, t } from '../i18n/i18next'
-import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
+import { EmailProps } from '../email-props.js'
+import { TransInterpolation, t } from '../i18n/i18next.js'
+import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui.js'
 
 export default function UsernameRecovery(props: EmailProps) {
   const title = t('emailChange.title', 'ShieldBattery Email Changed')

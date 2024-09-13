@@ -13,20 +13,20 @@ import {
   SearchChannelsResponse,
   SendChatMessageServerRequest,
   UpdateChannelUserPreferencesRequest,
-} from '../../common/chat'
-import { getErrorStack } from '../../common/errors'
-import { apiUrl, urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
-import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
-import { MicrotaskBatchRequester } from '../network/batch-requests'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { ActivateChannel, DeactivateChannel } from './actions'
+} from '../../common/chat.js'
+import { getErrorStack } from '../../common/errors.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { SbUser, SbUserId } from '../../common/users/sb-user.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import logger from '../logging/logger.js'
+import { push, replace } from '../navigation/routing.js'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk.js'
+import { MicrotaskBatchRequester } from '../network/batch-requests.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import { ActivateChannel, DeactivateChannel } from './actions.js'
 
 /**
  * Makes a request to join a user to the channel. The caller is expected to handle errors.

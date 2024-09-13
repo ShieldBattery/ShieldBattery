@@ -5,15 +5,15 @@ import {
   MatchmakingMapPool,
   MatchmakingPreferences2v2,
   MatchmakingType,
-} from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
-import { RacePickerSize } from '../lobbies/race-picker'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { updateMatchmakingPreferences } from './action-creators'
+} from '../../common/matchmaking.js'
+import { RaceChar } from '../../common/races.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { useForm } from '../forms/form-hook.js'
+import { RacePickerSize } from '../lobbies/race-picker.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { updateMatchmakingPreferences } from './action-creators.js'
 import {
   FindMatchContentsProps,
   FindMatchFormRef,
@@ -23,7 +23,7 @@ import {
   SectionTitle,
   StyledRaceSelect,
   VetoDescriptionText,
-} from './find-match-forms'
+} from './find-match-forms.js'
 
 interface Model2v2 {
   race: RaceChar

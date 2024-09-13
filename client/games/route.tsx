@@ -1,8 +1,8 @@
 import React from 'react'
 import { useRoute } from 'wouter'
-import { ConnectedGameResultsPage } from './results'
-import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from './results-sub-page'
-import { fromRouteGameId, makeRouteGameId } from './route-game-id'
+import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from './results-sub-page.js'
+import { ConnectedGameResultsPage } from './results.js'
+import { fromRouteGameId, makeRouteGameId } from './route-game-id.js'
 
 export function GamesRouteComponent() {
   const [matches, params] = useRoute('/games/:routeId/:subPage?')

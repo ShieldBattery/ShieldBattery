@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { UserErrorCode } from '../../common/users/sb-user'
-import logger from '../logging/logger'
-import { push } from '../navigation/routing'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { logOut, sendVerificationEmail, verifyEmail } from './action-creators'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { UserErrorCode } from '../../common/users/sb-user.js'
+import logger from '../logging/logger.js'
+import { push } from '../navigation/routing.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { logOut, sendVerificationEmail, verifyEmail } from './action-creators.js'
 import {
   AuthBody,
   AuthBottomAction,
@@ -16,8 +16,8 @@ import {
   BottomActionButton,
   ErrorsContainer,
   SuccessContainer,
-} from './auth-content'
-import { createNextPath, useIsLoggedIn, useSelfUser } from './auth-utils'
+} from './auth-content.js'
+import { createNextPath, useIsLoggedIn, useSelfUser } from './auth-utils.js'
 
 export function EmailVerificationUi() {
   const { t } = useTranslation()

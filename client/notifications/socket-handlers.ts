@@ -1,7 +1,7 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
-import { NotificationEvent, NotificationType } from '../../common/notifications'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { NotificationEvent, NotificationType } from '../../common/notifications.js'
+import audioManager, { AvailableSound } from '../audio/audio-manager.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
 
 /**
  * Sounds to play when receiving an `add` for a notification of a particular type. If a type is not

@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { AdminBanUserRequest, SbUserId } from '../../common/users/sb-user'
-import { ClientSessionInfo } from '../../common/users/session'
-import { adminRequestContext } from '../admin-utils'
-import { suppressChangelog } from '../changelog-utils'
-import { LoginPage } from '../pages/login-page'
-import { generateUsername } from '../username-generator'
-import { signupWith } from './signup/utils'
+import { AdminBanUserRequest, SbUserId } from '../../common/users/sb-user.js'
+import { ClientSessionInfo } from '../../common/users/session.js'
+import { adminRequestContext } from '../admin-utils.js'
+import { suppressChangelog } from '../changelog-utils.js'
+import { LoginPage } from '../pages/login-page.js'
+import { generateUsername } from '../username-generator.js'
+import { signupWith } from './signup/utils.js'
 
 let loginPage: LoginPage
 

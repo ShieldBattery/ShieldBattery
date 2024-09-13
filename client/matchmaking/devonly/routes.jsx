@@ -1,8 +1,8 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-import MatchTest from './match-test'
-import { PostMatchDialogTest } from './post-match-dialog-test'
-import { RankIconsTest } from './rank-icons-test'
+import MatchTest from './match-test.js'
+import { PostMatchDialogTest } from './post-match-dialog-test.js'
+import { RankIconsTest } from './rank-icons-test.js'
 
 const BASE_URL = '/dev/matchmaking'
 

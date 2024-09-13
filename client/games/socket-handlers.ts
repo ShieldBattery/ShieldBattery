@@ -1,11 +1,11 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameSubscriptionEvent } from '../../common/games/games'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { apiUrl } from '../../common/urls'
-import { dispatch } from '../dispatch-registry'
-import logger from '../logging/logger'
-import { fetchJson } from '../network/fetch'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { GameSubscriptionEvent } from '../../common/games/games.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { apiUrl } from '../../common/urls.js'
+import { dispatch } from '../dispatch-registry.js'
+import logger from '../logging/logger.js'
+import { fetchJson } from '../network/fetch.js'
 
 export default function ({
   ipcRenderer,

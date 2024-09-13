@@ -1,7 +1,7 @@
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
-import { FetchError } from './fetch-errors'
-import { makeServerUrl } from './server-url'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { EventMap, TypedEventEmitter } from '../../common/typed-emitter.js'
+import { FetchError } from './fetch-errors.js'
+import { makeServerUrl } from './server-url.js'
 
 const fetch = window.fetch
 

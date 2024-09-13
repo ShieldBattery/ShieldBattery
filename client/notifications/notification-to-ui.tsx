@@ -1,14 +1,14 @@
 import React from 'react'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { NotificationType, SbNotification } from '../../common/notifications'
-import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
-import { logger } from '../logging/logger'
-import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
-import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { NotificationType, SbNotification } from '../../common/notifications.js'
+import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui.js'
+import { logger } from '../logging/logger.js'
+import { PartyInviteNotificationUi } from '../parties/party-notification-ui.js'
+import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui.js'
 import {
   FriendRequestNotificationUi,
   FriendStartNotificationUi,
-} from '../users/relationship-notifications'
+} from '../users/relationship-notifications.js'
 
 /**
  * Converts a notification entry into the relevant UI elements for displaying in a list or as a

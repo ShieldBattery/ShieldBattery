@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next'
-import { AsyncValidator, Validator } from './form-hook'
+import { AsyncValidator, Validator } from './form-hook.js'
 
 /**
  * Returns a validator that executes multiple validators in sequence, returning the first error

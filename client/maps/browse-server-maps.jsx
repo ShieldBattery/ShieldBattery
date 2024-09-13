@@ -4,17 +4,17 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
-import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
-import { openOverlay } from '../activities/action-creators'
-import { ActivityBackButton } from '../activities/activity-back-button'
-import { ActivityOverlayType } from '../activities/activity-overlay-type'
-import InfiniteScrollList from '../lists/infinite-scroll-list'
-import ImageList from '../material/image-list'
-import { TabItem, Tabs } from '../material/tabs'
-import LoadingIndicator from '../progress/dots'
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Headline5, Subtitle1, subtitle1 } from '../styles/typography'
+import { styled } from 'styled-components'
+import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps.js'
+import { openOverlay } from '../activities/action-creators.js'
+import { ActivityBackButton } from '../activities/activity-back-button.js'
+import { ActivityOverlayType } from '../activities/activity-overlay-type.js'
+import InfiniteScrollList from '../lists/infinite-scroll-list.js'
+import ImageList from '../material/image-list.js'
+import { TabItem, Tabs } from '../material/tabs.js'
+import LoadingIndicator from '../progress/dots.js'
+import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.js'
+import { Headline5, Subtitle1, subtitle1 } from '../styles/typography.js'
 import {
   clearMapsList,
   getMapPreferences,
@@ -22,9 +22,9 @@ import {
   openMapPreviewDialog,
   toggleFavoriteMap,
   updateMapPreferences,
-} from './action-creators'
-import { BrowserFooter as Footer } from './browser-footer'
-import { MapThumbnail } from './map-thumbnail'
+} from './action-creators.js'
+import { BrowserFooter as Footer } from './browser-footer.js'
+import { MapThumbnail } from './map-thumbnail.js'
 
 const MAPS_LIMIT = 30
 

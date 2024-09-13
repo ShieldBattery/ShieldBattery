@@ -1,43 +1,43 @@
 import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
+import { LOBBY_NAME_MAXLENGTH } from '../../common/constants.js'
 import {
   ALL_GAME_TYPES,
   GameType,
   gameTypeToLabel,
   isTeamType,
-} from '../../common/games/configuration'
-import { MapInfoJson } from '../../common/maps'
-import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
-import { range } from '../../common/range'
-import { closeOverlay, openOverlay } from '../activities/action-creators'
-import { ActivityOverlayType } from '../activities/activity-overlay-type'
-import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
-import { useForm } from '../forms/form-hook'
-import { SubmitOnEnter } from '../forms/submit-on-enter'
-import { composeValidators, maxLength, required } from '../forms/validators'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { MapSelect } from '../maps/map-select'
-import { useAutoFocusRef } from '../material/auto-focus'
-import { RaisedButton, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { TextField } from '../material/text-field'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useValueAsRef } from '../state-hooks'
-import { Headline5, headline5, subtitle1 } from '../styles/typography'
+} from '../../common/games/configuration.js'
+import { MapInfoJson } from '../../common/maps.js'
+import { ALL_TURN_RATES, BwTurnRate } from '../../common/network.js'
+import { range } from '../../common/range.js'
+import { closeOverlay, openOverlay } from '../activities/action-creators.js'
+import { ActivityOverlayType } from '../activities/activity-overlay-type.js'
+import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content.js'
+import { useForm } from '../forms/form-hook.js'
+import { SubmitOnEnter } from '../forms/submit-on-enter.js'
+import { composeValidators, maxLength, required } from '../forms/validators.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { MapSelect } from '../maps/map-select.js'
+import { useAutoFocusRef } from '../material/auto-focus.js'
+import { RaisedButton, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator.js'
+import { SelectOption } from '../material/select/option.js'
+import { Select } from '../material/select/select.js'
+import { TextField } from '../material/text-field.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { useValueAsRef } from '../state-hooks.js'
+import { Headline5, headline5, subtitle1 } from '../styles/typography.js'
 import {
   createLobby,
   getLobbyPreferences,
   navigateToLobby,
   updateLobbyPreferences,
-} from './action-creators'
+} from './action-creators.js'
 
 const Container = styled.div`
   display: flex;

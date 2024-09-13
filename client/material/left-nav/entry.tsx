@@ -1,9 +1,9 @@
 import React from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link } from 'wouter'
-import { amberA200 } from '../../styles/colors'
-import { body2, singleLine } from '../../styles/typography'
-import AttentionIndicator from './attention-indicator'
+import { amberA200 } from '../../styles/colors.js'
+import { body2, singleLine } from '../../styles/typography.js'
+import AttentionIndicator from './attention-indicator.js'
 
 const Container = styled.li<{ $isActive: boolean }>`
   position: relative;

@@ -1,32 +1,32 @@
 import React, { useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { makeSbChannelId } from '../../common/chat'
-import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
-import { matchLinks } from '../../common/text/links'
-import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
-import { SbUserId, makeSbUserId } from '../../common/users/sb-user'
-import { ConnectedChannelName } from '../chat/connected-channel-name'
-import { useContextMenu } from '../dom/use-context-menu'
-import { TransInterpolation } from '../i18n/i18next'
-import { MenuList } from '../material/menu/menu'
-import { Popover } from '../material/popover'
-import { ExternalLink } from '../navigation/external-link'
-import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
-import { body2 } from '../styles/typography'
-import { ConnectedUsername } from '../users/connected-username'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { makeSbChannelId } from '../../common/chat.js'
+import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions.js'
+import { matchLinks } from '../../common/text/links.js'
+import { matchUserMentionsMarkup } from '../../common/text/user-mentions.js'
+import { SbUserId, makeSbUserId } from '../../common/users/sb-user.js'
+import { ConnectedChannelName } from '../chat/connected-channel-name.js'
+import { useContextMenu } from '../dom/use-context-menu.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { MenuList } from '../material/menu/menu.js'
+import { Popover } from '../material/popover.js'
+import { ExternalLink } from '../navigation/external-link.js'
+import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors.js'
+import { body2 } from '../styles/typography.js'
+import { ConnectedUsername } from '../users/connected-username.js'
 import {
   useChatMessageMenuItems,
   useChatUserMenuItems,
   useMentionFilterClick,
-} from './mention-hooks'
+} from './mention-hooks.js'
 import {
   InfoImportant,
   SeparatedInfoMessage,
   Separator,
   TimestampMessageLayout,
-} from './message-layout'
+} from './message-layout.js'
 
 const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',

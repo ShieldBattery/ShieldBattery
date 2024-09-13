@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { ChatPage } from '../pages/chat-page'
-import { LoginPage } from '../pages/login-page'
+import { ChatPage } from '../pages/chat-page.js'
+import { LoginPage } from '../pages/login-page.js'
 
 const ERROR_INCORRECT_CREDENTIALS = 'Incorrect username or password'
 

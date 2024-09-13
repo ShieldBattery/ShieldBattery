@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
-import { LOBBY_UPDATE_STATUS } from '../actions'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { LOBBY_UPDATE_STATUS } from '../actions.js'
+import { keyedReducer } from '../reducers/keyed-reducer.js'
 
 const BaseGameplayActivity = Record({
   gameplayActivity: null,

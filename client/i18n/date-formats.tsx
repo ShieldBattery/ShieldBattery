@@ -1,7 +1,7 @@
 import React from 'react'
 import { Except } from 'type-fest'
-import { Tooltip, TooltipProps } from '../material/tooltip'
-import { RelativeTimeFormatter } from './relative-time'
+import { Tooltip, TooltipProps } from '../material/tooltip.js'
+import { RelativeTimeFormatter } from './relative-time.js'
 
 /** A formatter for short timestamps (e.g. things that just need to show the hour + minute). */
 export const shortTimestamp = new Intl.DateTimeFormat(navigator.language, {

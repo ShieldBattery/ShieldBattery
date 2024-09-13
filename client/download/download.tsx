@@ -1,13 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { RaisedButton } from '../material/button.js'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { headline5, subtitle1 } from '../styles/typography.js'
 
 const Blurb = styled.div`
   ${headline5};

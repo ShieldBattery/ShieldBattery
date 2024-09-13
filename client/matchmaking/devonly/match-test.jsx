@@ -1,6 +1,6 @@
 import React from 'react'
-import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
-import MatchmakingMatch from '../matchmaking-match'
+import { FightingSpirit } from '../../maps/devonly/maps-for-testing.js'
+import MatchmakingMatch from '../matchmaking-match.js'
 
 export default class MapSelectionTest extends React.Component {
   state = {

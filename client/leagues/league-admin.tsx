@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Route, RouteComponentProps, Switch } from 'wouter'
 import {
   AdminEditLeagueRequest,
@@ -10,39 +10,39 @@ import {
   LEAGUE_IMAGE_WIDTH,
   LeagueJson,
   makeLeagueId,
-} from '../../common/leagues'
+} from '../../common/leagues.js'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   matchmakingTypeToLabel,
-} from '../../common/matchmaking'
-import { urlPath } from '../../common/urls'
-import { FormHook, useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import { required } from '../forms/validators'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { FileInput } from '../material/file-input'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { TextField } from '../material/text-field'
-import { push } from '../navigation/routing'
-import { useRefreshToken } from '../network/refresh-token'
-import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { body1, headline4, subtitle1 } from '../styles/typography'
+} from '../../common/matchmaking.js'
+import { urlPath } from '../../common/urls.js'
+import { FormHook, useForm } from '../forms/form-hook.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
+import { required } from '../forms/validators.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { RaisedButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { FileInput } from '../material/file-input.js'
+import { SelectOption } from '../material/select/option.js'
+import { Select } from '../material/select/select.js'
+import { TextField } from '../material/text-field.js'
+import { push } from '../navigation/routing.js'
+import { useRefreshToken } from '../network/refresh-token.js'
+import { LoadingDotsArea } from '../progress/dots.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { useStableCallback } from '../state-hooks.js'
+import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.js'
+import { body1, headline4, subtitle1 } from '../styles/typography.js'
 import {
   adminAddLeague,
   adminGetLeague,
   adminGetLeagues,
   adminUpdateLeague,
-} from './action-creators'
-import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
-import { LeagueCard, LeagueSectionType } from './league-list'
-import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
+} from './action-creators.js'
+import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details.js'
+import { LeagueCard, LeagueSectionType } from './league-list.js'
+import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id.js'
 
 const Root = styled.div`
   padding: 12px 24px;

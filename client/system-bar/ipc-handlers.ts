@@ -1,4 +1,4 @@
-import { TypedIpcRenderer } from '../../common/ipc'
+import { TypedIpcRenderer } from '../../common/ipc.js'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   ipcRenderer.on('windowMaximizedState', (event, isMaximized) => {

@@ -1,8 +1,8 @@
 import React from 'react'
-import styled from 'styled-components'
-import { TopLinks } from '../landing/top-links'
+import { styled } from 'styled-components'
+import { TopLinks } from '../landing/top-links.js'
 import LogoText from '../logos/logotext-640x100.svg'
-import { makePublicAssetUrl } from '../network/server-url'
+import { makePublicAssetUrl } from '../network/server-url.js'
 
 const Wrapper = styled.div`
   width: 100%;

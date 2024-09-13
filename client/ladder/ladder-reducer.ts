@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { LadderPlayer } from '../../common/ladder'
-import { MatchmakingType } from '../../common/matchmaking'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { LadderPlayer } from '../../common/ladder/index.js'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface RetrievedRankings {
   players: LadderPlayer[]

@@ -1,5 +1,5 @@
-import { ReduxAction } from '../action-types'
-import { DispatchFunction } from '../dispatch-registry'
+import { ReduxAction } from '../action-types.js'
+import { DispatchFunction } from '../dispatch-registry.js'
 
 /**
  * Generic request queue that batches requests to the next microtask. This is useful if you might

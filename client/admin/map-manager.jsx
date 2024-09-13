@@ -1,22 +1,22 @@
 import { List, Map } from 'immutable'
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
-import form from '../forms/form'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { upload as uploadMap } from '../maps/upload'
-import { RaisedButton, TextButton } from '../material/button'
-import { FileInput } from '../material/file-input'
-import { fetchJson } from '../network/fetch'
-import LoadingIndicator from '../progress/dots'
+import { styled } from 'styled-components'
+import form from '../forms/form.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { upload as uploadMap } from '../maps/upload.js'
+import { RaisedButton, TextButton } from '../material/button.js'
+import { FileInput } from '../material/file-input.js'
+import { fetchJson } from '../network/fetch.js'
+import LoadingIndicator from '../progress/dots.js'
 import {
   amberA400,
   background600,
   colorError,
   colorSuccess,
   colorTextSecondary,
-} from '../styles/colors'
-import { SubheadingOld, singleLine, subtitle1 } from '../styles/typography'
+} from '../styles/colors.js'
+import { SubheadingOld, singleLine, subtitle1 } from '../styles/typography.js'
 
 const Container = styled.div`
   max-width: 600px;

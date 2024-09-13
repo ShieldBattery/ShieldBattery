@@ -1,5 +1,5 @@
-import { GameRecordUpdate, GetGameResponse } from '../../common/games/games'
-import { GameClientPlayerResult } from '../../common/games/results'
+import { GameRecordUpdate, GetGameResponse } from '../../common/games/games.js'
+import { GameClientPlayerResult } from '../../common/games/results.js'
 
 export type GamesActions = DeliverLocalResults | GetGameRecord | GameUpdate
 

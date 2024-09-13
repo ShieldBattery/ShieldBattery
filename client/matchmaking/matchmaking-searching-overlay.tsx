@@ -1,14 +1,14 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { MatchmakingType } from '../../common/matchmaking'
-import { RaceIcon } from '../lobbies/race-icon'
-import { RaisedButton } from '../material/button'
-import { Popover, PopoverOpenState, useAnchorPosition } from '../material/popover'
-import { useAppSelector } from '../redux-hooks'
-import { Headline6, headline3 } from '../styles/typography'
-import { ElapsedTime } from './elapsed-time'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { MatchmakingType } from '../../common/matchmaking.js'
+import { RaceIcon } from '../lobbies/race-icon.js'
+import { RaisedButton } from '../material/button.js'
+import { Popover, PopoverOpenState, useAnchorPosition } from '../material/popover.js'
+import { useAppSelector } from '../redux-hooks.js'
+import { Headline6, headline3 } from '../styles/typography.js'
+import { ElapsedTime } from './elapsed-time.js'
 
 // TODO(2Pac): Move this to a common folder if we decide to use this text elsewhere
 function matchmakingTypeToText(type: MatchmakingType) {

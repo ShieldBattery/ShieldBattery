@@ -2,8 +2,8 @@ import { TFunction } from 'i18next'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ConditionalKeys } from 'type-fest'
-import createDeferred, { Deferred } from '../../common/async/deferred'
-import shallowEquals from '../../common/shallow-equals'
+import createDeferred, { Deferred } from '../../common/async/deferred.js'
+import shallowEquals from '../../common/shallow-equals.js'
 
 export interface FormHook<ModelType> {
   /**

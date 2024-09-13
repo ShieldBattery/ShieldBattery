@@ -1,6 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
-import { ReportedGameStatus } from '../../common/game-status'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { ReportedGameStatus } from '../../common/game-status.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface GameClientState {
   gameId?: string

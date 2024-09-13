@@ -1,12 +1,12 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { UserErrorCode } from '../../common/users/sb-user'
-import { longTimestamp } from '../i18n/date-formats'
-import { TransInterpolation } from '../i18n/i18next'
-import { FetchError, isFetchError } from '../network/fetch-errors'
-import { Subtitle2 } from '../styles/typography'
-import { ErrorsContainer } from './auth-content'
+import { styled } from 'styled-components'
+import { UserErrorCode } from '../../common/users/sb-user.js'
+import { longTimestamp } from '../i18n/date-formats.js'
+import { TransInterpolation } from '../i18n/i18next.js'
+import { FetchError, isFetchError } from '../network/fetch-errors.js'
+import { Subtitle2 } from '../styles/typography.js'
+import { ErrorsContainer } from './auth-content.js'
 
 const BanReason = styled.div`
   margin-top: 8px;

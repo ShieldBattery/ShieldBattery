@@ -2,10 +2,10 @@ import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
 import { WithTranslation, withTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { gameTypeToLabel, isTeamType } from '../../common/games/configuration.js'
 import {
   Team,
   canAddObservers,
@@ -13,21 +13,21 @@ import {
   findSlotByName,
   hasOpposingSides,
   isUms,
-} from '../../common/lobbies'
-import { Slot, SlotType } from '../../common/lobbies/slot'
-import { MapInfoJson } from '../../common/maps'
-import { BwTurnRate } from '../../common/network'
-import { RaceChar } from '../../common/races'
-import { SelfUser } from '../../common/users/sb-user'
-import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton } from '../material/button'
-import Card from '../material/card'
-import { shadow2dp } from '../material/shadows'
-import { Chat } from '../messaging/chat'
-import { SbMessage } from '../messaging/message-records'
-import { colorTextSecondary } from '../styles/colors'
-import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
-import ClosedSlot from './closed-slot'
+} from '../../common/lobbies/index.js'
+import { Slot, SlotType } from '../../common/lobbies/slot.js'
+import { MapInfoJson } from '../../common/maps.js'
+import { BwTurnRate } from '../../common/network.js'
+import { RaceChar } from '../../common/races.js'
+import { SelfUser } from '../../common/users/sb-user.js'
+import { MapThumbnail } from '../maps/map-thumbnail.js'
+import { RaisedButton } from '../material/button.js'
+import Card from '../material/card.js'
+import { shadow2dp } from '../material/shadows.js'
+import { Chat } from '../messaging/chat.js'
+import { SbMessage } from '../messaging/message-records.js'
+import { colorTextSecondary } from '../styles/colors.js'
+import { body1, headline4, headline6, subtitle1 } from '../styles/typography.js'
+import ClosedSlot from './closed-slot.js'
 import {
   BanLobbyPlayerMessage,
   JoinLobbyMessage,
@@ -39,12 +39,12 @@ import {
   LobbyHostChangeMessage,
   LobbyLoadingCanceledMessage,
   SelfJoinLobbyMessage,
-} from './lobby-message-layout'
-import { LobbyMessageType } from './lobby-message-records'
-import { LobbyInfo } from './lobby-reducer'
-import OpenSlot from './open-slot'
-import PlayerSlot from './player-slot'
-import { ObserverSlots, RegularSlots, TeamName } from './slot'
+} from './lobby-message-layout.js'
+import { LobbyMessageType } from './lobby-message-records.js'
+import { LobbyInfo } from './lobby-reducer.js'
+import OpenSlot from './open-slot.js'
+import PlayerSlot from './player-slot.js'
+import { ObserverSlots, RegularSlots, TeamName } from './slot.js'
 
 const StyledChat = styled(Chat)`
   flex-grow: 1;

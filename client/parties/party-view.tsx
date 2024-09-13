@@ -1,25 +1,25 @@
 import React, { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { MAX_PARTY_SIZE } from '../../common/parties'
-import { range } from '../../common/range'
-import { urlPath } from '../../common/urls'
-import { SbUserId, SelfUser } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { Avatar } from '../avatars/avatar'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot'
-import { SlotActions } from '../lobbies/slot-actions'
-import { TextButton } from '../material/button'
-import { Chat } from '../messaging/chat'
-import { SbMessage } from '../messaging/message-records'
-import { replace } from '../navigation/routing'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { background700, background800 } from '../styles/colors'
+import { MAX_PARTY_SIZE } from '../../common/parties.js'
+import { range } from '../../common/range.js'
+import { urlPath } from '../../common/urls.js'
+import { SbUserId, SelfUser } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { Avatar } from '../avatars/avatar.js'
+import { openDialog } from '../dialogs/action-creators.js'
+import { DialogType } from '../dialogs/dialog-type.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { SlotActions } from '../lobbies/slot-actions.js'
+import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot.js'
+import { TextButton } from '../material/button.js'
+import { Chat } from '../messaging/chat.js'
+import { SbMessage } from '../messaging/message-records.js'
+import { replace } from '../navigation/routing.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { background700, background800 } from '../styles/colors.js'
 import {
   activateParty,
   cancelFindMatchAsParty,
@@ -28,7 +28,7 @@ import {
   kickPlayer,
   leaveParty,
   sendChatMessage,
-} from './action-creators'
+} from './action-creators.js'
 import {
   InviteToPartyMessage,
   JoinPartyMessage,
@@ -39,9 +39,9 @@ import {
   PartyQueueReadyMessage,
   PartyQueueStartMessage,
   SelfJoinPartyMessage,
-} from './party-message-layout'
-import { PartyMessageType } from './party-message-records'
-import { CurrentPartyState } from './party-reducer'
+} from './party-message-layout.js'
+import { PartyMessageType } from './party-message-records.js'
+import { CurrentPartyState } from './party-reducer.js'
 
 const UserListContainer = styled.div`
   width: 100%;

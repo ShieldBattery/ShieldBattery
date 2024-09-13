@@ -1,6 +1,6 @@
 import { app } from 'electron'
-import { access } from 'fs/promises'
-import path from 'path'
+import { access } from 'node:fs/promises'
+import * as path from 'node:path'
 import { ShieldBatteryFile, ShieldBatteryFileResult } from '../common/shieldbattery-file.js'
 import logger from './logger.js'
 

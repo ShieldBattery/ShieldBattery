@@ -5,7 +5,7 @@ import {
   TypedDocumentNode,
 } from '@graphql-typed-document-node/core'
 import { FragmentDefinitionNode } from 'graphql'
-import { Incremental } from './graphql'
+import { Incremental } from './graphql.js'
 
 export type FragmentType<TDocumentType extends DocumentTypeDecoration<any, any>> =
   TDocumentType extends DocumentTypeDecoration<infer TType, any>

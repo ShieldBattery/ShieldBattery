@@ -1,9 +1,9 @@
 import React, { useCallback, useRef } from 'react'
-import { SbUserId } from '../../common/users/sb-user'
-import { useContextMenu } from '../dom/use-context-menu'
-import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
-import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'
-import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useContextMenu } from '../dom/use-context-menu.js'
+import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover.js'
+import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu.js'
+import { ConnectedUserProfileOverlayProps } from './user-profile-overlay.js'
 
 /**
  * Returns nodes to render various types of user overlay UIs, and event handlers to attach to

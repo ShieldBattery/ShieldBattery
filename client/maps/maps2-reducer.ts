@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
-import { LOBBY_PREFERENCES_GET, LOBBY_PREFERENCES_UPDATE } from '../actions'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MapInfoJson } from '../../common/maps.js'
+import { LOBBY_PREFERENCES_GET, LOBBY_PREFERENCES_UPDATE } from '../actions.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface MapsState {
   /** A map of map ID -> information about the map. */

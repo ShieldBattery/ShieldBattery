@@ -1,5 +1,5 @@
-import styled from 'styled-components'
-import { IconButton } from '../button'
+import { styled } from 'styled-components'
+import { IconButton } from '../button.js'
 
 export const SubheaderButton = styled(IconButton)`
   width: 36px;

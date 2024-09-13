@@ -7,8 +7,8 @@ import React, {
   useState,
 } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks'
-import { fastOutSlowIn } from './curve-constants'
+import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks.js'
+import { fastOutSlowIn } from './curve-constants.js'
 
 const RIPPLE_PADDING = 8
 const INITIAL_ORIGIN_SCALE = 0.1

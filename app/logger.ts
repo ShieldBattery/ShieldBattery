@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'node:path'
 import logger from './create-logger.js'
 import { getUserDataPath } from './user-data-path.js'
 

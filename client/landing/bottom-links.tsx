@@ -1,8 +1,8 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import { Link } from 'wouter'
-import { body2 } from '../styles/typography'
+import { body2 } from '../styles/typography.js'
 
 const BottomLinksList = styled.ul`
   ${body2};

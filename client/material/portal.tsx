@@ -1,8 +1,8 @@
 import React, { useContext, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
-import { useStableCallback } from '../state-hooks'
-import { markEventAsHandledDismissal } from './dismissal-events'
+import { useExternalElementRef } from '../dom/use-external-element-ref.js'
+import { useStableCallback } from '../state-hooks.js'
+import { markEventAsHandledDismissal } from './dismissal-events.js'
 
 function useDismissalClickHandler(
   onDismiss?: (event?: MouseEvent) => void,

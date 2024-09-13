@@ -1,13 +1,13 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { BasicChannelInfo } from '../../common/chat'
-import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
-import { MapExtension, MapInfoJson } from '../../common/maps'
-import { BwTurnRate, BwUserLatency } from '../../common/network'
-import { urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins.js'
+import { BasicChannelInfo } from '../../common/chat.js'
+import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config.js'
+import { TypedIpcRenderer } from '../../common/ipc.js'
+import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies/index.js'
+import { MapExtension, MapInfoJson } from '../../common/maps.js'
+import { BwTurnRate, BwUserLatency } from '../../common/network.js'
+import { urlPath } from '../../common/urls.js'
+import { SbUser, SbUserId } from '../../common/users/sb-user.js'
 import {
   LOBBIES_COUNT_UPDATE,
   LOBBIES_LIST_UPDATE,
@@ -31,14 +31,14 @@ import {
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
-} from '../actions'
-import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
-import { Dispatchable, dispatch } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import { replace } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
-import { openSnackbar } from '../snackbars/action-creators'
-import windowFocus from '../window-focus'
+} from '../actions.js'
+import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager.js'
+import { Dispatchable, dispatch } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import { replace } from '../navigation/routing.js'
+import { makeServerUrl } from '../network/server-url.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import windowFocus from '../window-focus.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

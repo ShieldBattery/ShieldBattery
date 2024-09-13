@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react'
-import styled from 'styled-components'
-import Card from '../../material/card'
-import { CheckBox } from '../../material/check-box'
-import { TextField } from '../../material/text-field'
-import { Subtitle1 } from '../../styles/typography'
-import { UpdateDialog } from '../update-overlay'
-import { UpdateProgress } from '../updater-state'
+import { styled } from 'styled-components'
+import Card from '../../material/card.js'
+import { CheckBox } from '../../material/check-box.js'
+import { TextField } from '../../material/text-field.js'
+import { Subtitle1 } from '../../styles/typography.js'
+import { UpdateDialog } from '../update-overlay.js'
+import { UpdateProgress } from '../updater-state.js'
 
 const SettingsCard = styled(Card)`
   max-width: 400px;

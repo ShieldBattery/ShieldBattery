@@ -1,7 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
-import LoadingIndicator from '../progress/dots'
-import { useAppSelector } from '../redux-hooks'
+import { styled } from 'styled-components'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppSelector } from '../redux-hooks.js'
 
 const Container = styled.div`
   display: flex;

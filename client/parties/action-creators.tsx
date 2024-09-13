@@ -1,12 +1,12 @@
 import { Immutable } from 'immer'
 import React from 'react'
-import { TypedIpcRenderer } from '../../common/ipc'
+import { TypedIpcRenderer } from '../../common/ipc.js'
 import {
   defaultPreferences,
   MatchmakingPreferences,
   MatchmakingType,
   PartialMatchmakingPreferences,
-} from '../../common/matchmaking'
+} from '../../common/matchmaking.js'
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
@@ -15,23 +15,23 @@ import {
   InviteToPartyRequest,
   PartyServiceErrorCode,
   SendPartyChatMessageRequest,
-} from '../../common/parties'
-import { RaceChar } from '../../common/races'
-import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
-import { openSimpleDialog } from '../dialogs/action-creators'
-import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
-import { updateMatchmakingPreferences } from '../matchmaking/action-creators'
-import { push } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
-import { clientId } from '../network/client-id'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { ActivateParty, DeactivateParty } from './actions'
-import { AlreadySearchingErrorContent } from './find-match-error-content'
+} from '../../common/parties.js'
+import { RaceChar } from '../../common/races.js'
+import { apiUrl, urlPath } from '../../common/urls.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { openSimpleDialog } from '../dialogs/action-creators.js'
+import { ThunkAction } from '../dispatch-registry.js'
+import i18n from '../i18n/i18next.js'
+import logger from '../logging/logger.js'
+import { updateMatchmakingPreferences } from '../matchmaking/action-creators.js'
+import { push } from '../navigation/routing.js'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk.js'
+import { clientId } from '../network/client-id.js'
+import { isFetchError } from '../network/fetch-errors.js'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch.js'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators.js'
+import { ActivateParty, DeactivateParty } from './actions.js'
+import { AlreadySearchingErrorContent } from './find-match-error-content.js'
 
 const ipcRenderer = new TypedIpcRenderer()
 

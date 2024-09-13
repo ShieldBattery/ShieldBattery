@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import styled from 'styled-components'
+import { styled } from 'styled-components'
 import {
   AddRallyPointServerRequest,
   AddRallyPointServerResponse,
@@ -7,21 +7,21 @@ import {
   RallyPointServer,
   UpdateRallyPointServerRequest,
   UpdateRallyPointServerResponse,
-} from '../../common/rally-point'
-import { apiUrl } from '../../common/urls'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
-import { CheckBox } from '../material/check-box'
-import { NumberTextField } from '../material/number-text-field'
-import { TextField } from '../material/text-field'
-import { fetchJson } from '../network/fetch'
-import { useRefreshToken } from '../network/refresh-token'
-import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { CenteredContentContainer } from '../styles/centered-container'
-import { headline5, subtitle1 } from '../styles/typography'
+} from '../../common/rally-point/index.js'
+import { apiUrl } from '../../common/urls.js'
+import { useForm } from '../forms/form-hook.js'
+import SubmitOnEnter from '../forms/submit-on-enter.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { IconButton, RaisedButton, TextButton } from '../material/button.js'
+import { CheckBox } from '../material/check-box.js'
+import { NumberTextField } from '../material/number-text-field.js'
+import { TextField } from '../material/text-field.js'
+import { fetchJson } from '../network/fetch.js'
+import { useRefreshToken } from '../network/refresh-token.js'
+import { useAppDispatch } from '../redux-hooks.js'
+import { openSnackbar } from '../snackbars/action-creators.js'
+import { CenteredContentContainer } from '../styles/centered-container.js'
+import { headline5, subtitle1 } from '../styles/typography.js'
 
 const Content = styled.div`
   max-width: 960px;

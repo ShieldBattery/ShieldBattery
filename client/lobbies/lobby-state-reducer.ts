@@ -1,7 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
-import { LobbyState } from '../../common/lobbies'
-import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN } from '../actions'
-import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { LobbyState } from '../../common/lobbies.js'
+import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN } from '../actions.js'
+import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 
 export interface RetrievedLobbyState {
   state?: LobbyState

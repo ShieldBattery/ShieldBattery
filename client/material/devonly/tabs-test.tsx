@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import styled from 'styled-components'
-import { Body1, headline5 } from '../../styles/typography'
-import Card from '../card'
-import { TabItem, Tabs } from '../tabs'
+import { styled } from 'styled-components'
+import { Body1, headline5 } from '../../styles/typography.js'
+import Card from '../card.js'
+import { TabItem, Tabs } from '../tabs.js'
 
 const Container = styled.div`
   display: flex;

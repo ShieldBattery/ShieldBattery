@@ -1,5 +1,5 @@
 import { Opaque } from 'type-fest'
-import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
+import { decodePrettyId, encodePrettyId } from '../../common/pretty-id.js'
 
 /**
  * The ID of a game as used in routes (equivalent to the DB one, just encoded in a way that

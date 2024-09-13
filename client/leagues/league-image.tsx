@@ -1,9 +1,9 @@
 import React from 'react'
-import styled, { css } from 'styled-components'
-import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues'
-import { useObservedDimensions } from '../dom/dimension-hooks'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { background600, colorTextFaint } from '../styles/colors'
+import { css, styled } from 'styled-components'
+import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues/index.js'
+import { useObservedDimensions } from '../dom/dimension-hooks.js'
+import { MaterialIcon } from '../icons/material/material-icon.js'
+import { background600, colorTextFaint } from '../styles/colors.js'
 
 const leagueImageCommon = css`
   width: 100%;

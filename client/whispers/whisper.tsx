@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
-import { useSelfUser } from '../auth/auth-utils'
-import { Chat } from '../messaging/chat'
-import { push, replace } from '../navigation/routing'
-import LoadingIndicator from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { usePrevious, useStableCallback } from '../state-hooks'
+import { styled } from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { useSelfUser } from '../auth/auth-utils.js'
+import { Chat } from '../messaging/chat.js'
+import { push, replace } from '../navigation/routing.js'
+import LoadingIndicator from '../progress/dots.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators.js'
+import { usePrevious, useStableCallback } from '../state-hooks.js'
 import {
   activateWhisperSession,
   correctUsernameForWhisper,
@@ -16,7 +16,7 @@ import {
   getMessageHistory,
   sendMessage,
   startWhisperSessionById,
-} from './action-creators'
+} from './action-creators.js'
 
 const MESSAGES_LIMIT = 50
 

@@ -1,8 +1,8 @@
 import { Record } from 'immutable'
-import { ChatMessage } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
-import { LobbyMessage } from '../lobbies/lobby-message-records'
-import { PartyMessage } from '../parties/party-message-records'
+import { ChatMessage } from '../../common/chat.js'
+import { SbUserId } from '../../common/users/sb-user.js'
+import { LobbyMessage } from '../lobbies/lobby-message-records.js'
+import { PartyMessage } from '../parties/party-message-records.js'
 
 // TODO(2Pac): Move all the messaging-related services to immer like the chat service already is,
 // and remove this file.

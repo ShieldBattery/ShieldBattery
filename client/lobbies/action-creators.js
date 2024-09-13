@@ -1,4 +1,4 @@
-import createSiteSocketAction from '../action-creators/site-socket-action-creator'
+import createSiteSocketAction from '../action-creators/site-socket-action-creator.js'
 import {
   LOBBIES_GET_STATE,
   LOBBIES_GET_STATE_BEGIN,
@@ -36,10 +36,10 @@ import {
   LOBBY_SET_RACE_BEGIN,
   LOBBY_START_COUNTDOWN,
   LOBBY_START_COUNTDOWN_BEGIN,
-} from '../actions'
-import { push } from '../navigation/routing'
-import { fetchJson } from '../network/fetch'
-import siteSocket from '../network/site-socket'
+} from '../actions.js'
+import { push } from '../navigation/routing.js'
+import { fetchJson } from '../network/fetch.js'
+import siteSocket from '../network/site-socket.js'
 
 export const createLobby = ({
   name,

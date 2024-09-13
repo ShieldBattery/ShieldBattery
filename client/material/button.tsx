@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react'
-import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { useKeyListener } from '../keyboard/key-listener'
+import { styled } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable.js'
+import { useKeyListener } from '../keyboard/key-listener.js'
 import {
   CardLayer,
   amberA400,
@@ -10,13 +10,13 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
-import { buttonText } from '../styles/typography'
-import { buttonReset } from './button-reset'
-import { fastOutSlowInShort } from './curves'
-import { Ripple, RippleController } from './ripple'
-import { shadowDef4dp, shadowDef8dp } from './shadow-constants'
-import { shadow2dp } from './shadows'
+} from '../styles/colors.js'
+import { buttonText } from '../styles/typography.js'
+import { buttonReset } from './button-reset.js'
+import { fastOutSlowInShort } from './curves.js'
+import { Ripple, RippleController } from './ripple.js'
+import { shadowDef4dp, shadowDef8dp } from './shadow-constants.js'
+import { shadow2dp } from './shadows.js'
 
 export const Label = styled.span`
   ${buttonText};

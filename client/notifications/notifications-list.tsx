@@ -1,14 +1,14 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { SbNotification } from '../../common/notifications'
-import { TextButton } from '../material/button'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { headline6, subtitle1 } from '../styles/typography'
-import { clearNotifications } from './action-creators'
-import { notificationToUi } from './notification-to-ui'
+import { styled } from 'styled-components'
+import { SbNotification } from '../../common/notifications.js'
+import { TextButton } from '../material/button.js'
+import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
+import { colorTextFaint, colorTextSecondary } from '../styles/colors.js'
+import { headline6, subtitle1 } from '../styles/typography.js'
+import { clearNotifications } from './action-creators.js'
+import { notificationToUi } from './notification-to-ui.js'
 
 const ListContainer = styled.div`
   width: 100%;
