@@ -31,7 +31,7 @@ function formatOptions(options: any = {}) {
 // This is a generic implementation of a file-store using the aws-sdk. Note however, that it can be
 // used by any compatible storage provider, e.g. DigitalOcean Spaces or Amazon S3.
 export default class Aws implements FileStore {
-  readonly endpoint: string
+  readonly baseUrl?: string
   readonly bucket: string
   readonly client: S3
   readonly cdnHost: string | undefined
@@ -61,16 +61,21 @@ export default class Aws implements FileStore {
     // DO Spaces use endpoints
     if (endpoint) {
       // AWS SDK v3 constructs a new URL() out of this, so it needs to have a "https://" prefix.
-      options.endpoint = endpoint
+      const endpointWithPrefix = endpoint.startsWith('https://') ? endpoint : `https://${endpoint}`
+      options.endpoint = endpointWithPrefix
       // AWS SDK v3 requires `region` to be set, even if it's not used.
       options.region = 'us-east-1'
+
+      const hostname = new URL(endpointWithPrefix).hostname
+      this.baseUrl = `https://${bucket}.${hostname}`
     }
     // Amazon S3 uses regions
     if (region) {
       options.region = region
+
+      // TODO(2Pac): Calculate `baseUrl` for Amazon S3 if we ever use that.
     }
 
-    this.endpoint = endpoint
     this.bucket = bucket
     this.client = new S3(options)
     this.cdnHost = cdnHost
@@ -137,8 +142,10 @@ export default class Aws implements FileStore {
   }
 
   url(filename: string, options: any = {}): string {
-    const hostname = new URL(this.endpoint).hostname
-    const url = `https://${this.bucket}.${hostname}/${filename}`
+    if (!this.baseUrl) {
+      throw new Error('`baseUrl` needs to be set to get the URL')
+    }
+    const url = `${this.baseUrl}/${filename}`
     if (this.cdnHost) {
       const cdnUrl = new URL(url)
       cdnUrl.host = this.cdnHost
