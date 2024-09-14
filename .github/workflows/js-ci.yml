@@ -133,7 +133,7 @@ jobs:
         if: ${{ failure() }}
         run: docker logs integration-google-cloud-1
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ failure() || success() }}
         with:
           name: test-results
