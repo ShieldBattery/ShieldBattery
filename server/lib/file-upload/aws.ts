@@ -60,7 +60,10 @@ export default class Aws implements FileStore {
 
     // DO Spaces use endpoints
     if (endpoint) {
+      // AWS SDK v3 constructs a new URL() out of this, so it needs to have a "https://" prefix.
       options.endpoint = endpoint
+      // AWS SDK v3 requires `region` to be set, even if it's not used.
+      options.region = 'us-east-1'
     }
     // Amazon S3 uses regions
     if (region) {
@@ -134,7 +137,8 @@ export default class Aws implements FileStore {
   }
 
   url(filename: string, options: any = {}): string {
-    const url = `https://${this.bucket}.${this.endpoint}/${filename}`
+    const hostname = new URL(this.endpoint).hostname
+    const url = `https://${this.bucket}.${hostname}/${filename}`
     if (this.cdnHost) {
       const cdnUrl = new URL(url)
       cdnUrl.host = this.cdnHost
