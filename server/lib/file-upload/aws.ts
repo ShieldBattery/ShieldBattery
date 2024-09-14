@@ -61,7 +61,7 @@ export default class Aws implements FileStore {
     // DO Spaces use endpoints
     if (endpoint) {
       // AWS SDK v3 constructs a new URL() out of this, so it needs to have a "https://" prefix.
-      const endpointWithPrefix = endpoint.startsWith('https://') ? endpoint : `https://${endpoint}`
+      const endpointWithPrefix = /^[^:/]+:\/\//.test(endpoint) ? endpoint : `https://${endpoint}`
       options.endpoint = endpointWithPrefix
       // AWS SDK v3 requires `region` to be set, even if it's not used.
       options.region = 'us-east-1'
