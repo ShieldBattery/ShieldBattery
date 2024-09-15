@@ -56,25 +56,25 @@ export async function storeMap(
     { mapData, extension, uploadedBy, visibility, parserVersion: MAP_PARSER_VERSION },
     async () => {
       const image256Promise = image256Stream
-        ? writeFile(imagePath(hash, 256), image256Stream as any, {
+        ? writeFile(imagePath(hash, 256), image256Stream, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
       const image512Promise = image512Stream
-        ? writeFile(imagePath(hash, 512), image512Stream as any, {
+        ? writeFile(imagePath(hash, 512), image512Stream, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
       const image1024Promise = image1024Stream
-        ? writeFile(imagePath(hash, 1024), image1024Stream as any, {
+        ? writeFile(imagePath(hash, 1024), image1024Stream, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
       const image2048Promise = image2048Stream
-        ? writeFile(imagePath(hash, 2048), image2048Stream as any, {
+        ? writeFile(imagePath(hash, 2048), image2048Stream, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
@@ -100,25 +100,25 @@ export async function storeRegeneratedImages(path: string, extension: MapExtensi
   const { hash } = mapData
 
   const image256Promise = image256Stream
-    ? writeFile(imagePath(hash, 256), image256Stream as any, {
+    ? writeFile(imagePath(hash, 256), image256Stream, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
   const image512Promise = image512Stream
-    ? writeFile(imagePath(hash, 512), image512Stream as any, {
+    ? writeFile(imagePath(hash, 512), image512Stream, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
   const image1024Promise = image1024Stream
-    ? writeFile(imagePath(hash, 1024), image1024Stream as any, {
+    ? writeFile(imagePath(hash, 1024), image1024Stream, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
   const image2048Promise = image2048Stream
-    ? writeFile(imagePath(hash, 2048), image2048Stream as any, {
+    ? writeFile(imagePath(hash, 2048), image2048Stream, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
