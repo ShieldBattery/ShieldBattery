@@ -6,7 +6,11 @@ import { useSelfPermissions } from '../auth/auth-utils'
 const LoadableBugReports = React.lazy(async () => ({
   default: (await import('../bugs/admin-bug-reports')).AdminBugReports,
 }))
-const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
+const LoadableMapManager = IS_ELECTRON
+  ? React.lazy(async () => ({
+      default: (await import('./map-manager')).AdminMapManager,
+    }))
+  : () => null
 const LoadableMapPools = React.lazy(() => import('./map-pools'))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
   default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,

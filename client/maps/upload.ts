@@ -3,7 +3,7 @@ import { fetchJson } from '../network/fetch'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-function getExtension(filePath: string) {
+export function getExtension(filePath: string) {
   const index = filePath.lastIndexOf('.')
   if (index === -1) {
     return filePath.toLowerCase()

@@ -250,6 +250,9 @@ importers:
       uid-safe:
         specifier: ^2.1.5
         version: 2.1.5
+      use-immer:
+        specifier: ^0.10.0
+        version: 0.10.0(immer@10.1.1)(react@18.3.1)
       vary:
         specifier: ^1.1.2
         version: 1.1.2
@@ -10348,6 +10351,12 @@ packages:
     peerDependencies:
       '@urql/core': ^5.0.0
       react: '>= 16.8.0'
+
+  use-immer@0.10.0:
+    resolution: {integrity: sha512-/eVwNR4TG9Tm/dd+aHYLLaI0FLfYKlkTqKMkn78Ah/EYVzWd/zJIgpkdoFEKbhQJOGo8XN7/mWrTx0exp1c+Ug==}
+    peerDependencies:
+      immer: '>=8.0.0'
+      react: ^16.8.0 || ^17.0.1 || ^18.0.0
 
   use-sync-external-store@1.2.2:
     resolution: {integrity: sha512-PElTlVMwpblvbNqQ82d2n6RjStvdSoNe9FG28kNfz3WiXilJm4DdNkEzRhCZuIDwY8U08WVihhGR5iRqAwfDiw==}
@@ -23209,6 +23218,11 @@ snapshots:
       '@urql/core': 5.0.6(graphql@16.9.0)
       react: 18.3.1
       wonka: 6.3.4
+
+  use-immer@0.10.0(immer@10.1.1)(react@18.3.1):
+    dependencies:
+      immer: 10.1.1
+      react: 18.3.1
 
   use-sync-external-store@1.2.2(react@18.3.1):
     dependencies:
