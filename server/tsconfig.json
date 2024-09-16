@@ -6,5 +6,5 @@
   },
 
   "include": ["./**/*", "../common/**/*", "../typings/**/*"],
-  "exclude": ["server/public", "server/testing/google", "out"]
+  "exclude": ["public", "testing/google", "out"]
 }
