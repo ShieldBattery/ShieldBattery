@@ -33,8 +33,17 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
-      - name: Typecheck
-        run: pnpm run typecheck
+      - name: Typecheck app
+        run: pnpm run typecheck:app
+
+      - name: Typecheck client
+        run: pnpm run typecheck:client
+
+      - name: Typecheck server
+        run: pnpm run typecheck:server
+
+      - name: Typecheck testing
+        run: pnpm run typecheck:testing
 
       - name: Lint
         run: pnpm run lint
