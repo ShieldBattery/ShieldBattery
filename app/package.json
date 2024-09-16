@@ -33,5 +33,11 @@
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.12"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/node": "^20.10.5",
+      "@types/unist": "^3.0.0"
+    }
   }
 }
