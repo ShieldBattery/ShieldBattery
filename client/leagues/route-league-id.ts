@@ -1,5 +1,5 @@
 import { Opaque } from 'type-fest'
-import { LeagueId } from '../../common/leagues.js'
+import { LeagueId } from '../../common/leagues/index.js'
 import { decodePrettyId, encodePrettyId } from '../../common/pretty-id.js'
 
 /**

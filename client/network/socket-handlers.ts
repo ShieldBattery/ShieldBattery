@@ -1,7 +1,7 @@
 import { NydusClient } from 'nydus-client'
 import { batch } from 'react-redux'
 import { TypedIpcRenderer } from '../../common/ipc.js'
-import { UpdateRallyPointClientPingBatchRequest } from '../../common/rally-point.js'
+import { UpdateRallyPointClientPingBatchRequest } from '../../common/rally-point/index.js'
 import { apiUrl } from '../../common/urls.js'
 import auth from '../auth/socket-handlers.js'
 import chat from '../chat/socket-handlers.js'

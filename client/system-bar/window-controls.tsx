@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import styled, { createGlobalStyle, css } from 'styled-components'
+import { createGlobalStyle, css, styled } from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc.js'
 import { useExternalElementRef } from '../dom/use-external-element-ref.js'
 import CloseIcon from '../icons/codicons/chrome-close.svg'

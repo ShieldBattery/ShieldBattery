@@ -26,6 +26,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography.js'
 import { BottomLinks } from './bottom-links.js'
 import ChatImage from './chat.svg'
@@ -177,7 +178,10 @@ const StyledChatImage = styled(ChatImage)`
   ${benefitIconCss};
 `
 
-const StyledLockOpenIcon = styled(AutoSizeMaterialIcon).attrs({ icon: 'lock_open', filled: false })`
+const StyledLockOpenIcon = styledWithAttrs(AutoSizeMaterialIcon)({
+  icon: 'lock_open',
+  filled: false,
+})`
   ${benefitIconCss};
   width: 80%; /* give this even visual weight with the other icons */
   color: ${amberA400};

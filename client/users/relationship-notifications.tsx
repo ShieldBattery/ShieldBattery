@@ -10,10 +10,11 @@ import { ActionableNotification, ActionlessNotification } from '../notifications
 import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import { openSnackbar } from '../snackbars/action-creators.js'
 import { blue300 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body2 } from '../styles/typography.js'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators.js'
 
-const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 })`
+const ColoredAddIcon = styledWithAttrs(MaterialIcon)({ icon: 'group_add', size: 36 })`
   flex-shrink: 0;
   color: ${blue300};
 `
@@ -107,7 +108,7 @@ export const FriendRequestNotificationUi = React.memo(
   }),
 )
 
-const ColoredFriendStartIcon = styled(MaterialIcon).attrs({ icon: 'group', size: 36 })`
+const ColoredFriendStartIcon = styledWithAttrs(MaterialIcon)({ icon: 'group', size: 36 })`
   flex-shrink: 0;
   color: ${blue300};
 `

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useState } from 'react'
-import { UseTransitionProps, useTransition } from 'react-spring'
-import { FlattenSimpleInterpolation, css, styled } from 'styled-components'
+import { useTransition, UseTransitionProps } from 'react-spring'
+import { css, RuleSet, styled } from 'styled-components'
 import { KeyListenerBoundary } from '../keyboard/key-listener.js'
 import { background900 } from '../styles/colors.js'
 import { caption } from '../styles/typography.js'
@@ -22,7 +22,7 @@ const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
-const marginStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+const marginStyle: Readonly<Record<TooltipPosition, RuleSet>> = {
   left: css`
     margin-right: 8px;
   `,
@@ -37,7 +37,7 @@ const marginStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+const arrowStyle: Readonly<Record<TooltipPosition, RuleSet>> = {
   left: css`
     top: 50%;
     right: 0px;

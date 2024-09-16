@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import { styled } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LeagueJson } from '../../common/leagues.js'
+import { LeagueJson } from '../../common/leagues/index.js'
 import {
   MatchmakingDivision,
   MatchmakingDivisionWithBounds,

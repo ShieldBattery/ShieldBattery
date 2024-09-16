@@ -26,6 +26,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body2, headline6, overline, singleLine, subtitle1 } from '../styles/typography.js'
 import {
   acceptFriendRequest,
@@ -41,15 +42,15 @@ import { ConnectedUserProfileOverlay } from './user-profile-overlay.js'
 
 const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
 
-const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
+const FadedFriendsIcon = styledWithAttrs(MaterialIcon)({ icon: 'group' })`
   color: ${colorTextSecondary};
 `
 
-const FadedFriendAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
+const FadedFriendAddIcon = styledWithAttrs(MaterialIcon)({ icon: 'group_add' })`
   color: ${colorTextSecondary};
 `
 
-const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accounts' })`
+const FadedFriendSettingsIcon = styledWithAttrs(MaterialIcon)({ icon: 'manage_accounts' })`
   color: ${colorTextSecondary};
 `
 

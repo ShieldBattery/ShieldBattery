@@ -29,6 +29,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body1, body2, caption, headline4, singleLine, subtitle1 } from '../styles/typography.js'
 import { searchMatchHistory } from './action-creators.js'
 
@@ -237,7 +238,7 @@ const MapNoImageContainer = styled.div`
   background-color: ${background500};
 `
 
-const MapNoImageIcon = styled(MaterialIcon).attrs({ icon: 'question_mark', size: 36 })`
+const MapNoImageIcon = styledWithAttrs(MaterialIcon)({ icon: 'question_mark', size: 36 })`
   opacity: 0.5;
 `
 

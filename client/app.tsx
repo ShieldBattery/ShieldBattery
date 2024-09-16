@@ -41,7 +41,7 @@ import ResetStyle from './styles/reset.js'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
-const DevComponent = IS_PRODUCTION ? () => null : React.lazy(() => import('./dev'))
+const DevComponent = IS_PRODUCTION ? () => null : React.lazy(() => import('./dev.js'))
 
 function LoadableDev() {
   return (
@@ -132,7 +132,7 @@ export default function App() {
   const graphqlClient = useUserSpecificGraphqlClient()
 
   return (
-    <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
+    <StyleSheetManager enableVendorPrefixes={!IS_ELECTRON}>
       <>
         <ResetStyle />
         <GlobalStyle />

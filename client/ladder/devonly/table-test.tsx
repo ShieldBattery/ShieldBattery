@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { LadderPlayer } from '../../../common/ladder.js'
+import { LadderPlayer } from '../../../common/ladder/index.js'
 import { SbUser, SbUserId, makeSbUserId } from '../../../common/users/sb-user.js'
 import { DivisionFilter, LadderTable } from '../ladder.js'
 

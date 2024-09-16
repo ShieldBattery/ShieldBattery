@@ -1,6 +1,5 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { styled } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable.js'
 import { SbPolicyType, policyTypeToLabel } from '../../common/policies/policy-type.js'
 import { openDialog } from '../dialogs/action-creators.js'
@@ -10,8 +9,9 @@ import { MaterialIcon } from '../icons/material/material-icon.js'
 import { ActionlessNotification } from '../notifications/notifications.js'
 import { useAppDispatch } from '../redux-hooks.js'
 import { amberA400 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 
-const ColoredPolicyIcon = styled(MaterialIcon).attrs({ icon: 'policy', size: 36 })`
+const ColoredPolicyIcon = styledWithAttrs(MaterialIcon)({ icon: 'policy', size: 36 })`
   flex-shrink: 0;
   color: ${amberA400};
 `

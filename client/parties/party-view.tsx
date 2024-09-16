@@ -20,6 +20,7 @@ import { replace } from '../navigation/routing.js'
 import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import { openSnackbar } from '../snackbars/action-creators.js'
 import { background700, background800 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import {
   activateParty,
   cancelFindMatchAsParty,
@@ -187,7 +188,7 @@ const RightSide = styled.div`
   align-items: center;
 `
 
-const StyledInviteIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
+const StyledInviteIcon = styledWithAttrs(MaterialIcon)({ icon: 'group_add' })`
   margin-right: 4px /* account for lack of internal padding, so it lines up with others */;
 `
 

@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { LadderPlayer } from '../../common/ladder.js'
+import { LadderPlayer } from '../../common/ladder/index.js'
 import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking.js'
 import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 

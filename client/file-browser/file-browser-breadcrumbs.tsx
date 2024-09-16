@@ -2,6 +2,7 @@ import React from 'react'
 import { styled } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon.js'
 import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { headline6 } from '../styles/typography.js'
 
 const BreadcrumbPiece = styled.span<{ $active: boolean }>`
@@ -15,7 +16,7 @@ const BreadcrumbPiece = styled.span<{ $active: boolean }>`
   cursor: ${props => (props.$active ? 'auto' : 'pointer')};
 `
 
-const BreadcrumbSeparator = styled(MaterialIcon).attrs({ icon: 'chevron_right' })`
+const BreadcrumbSeparator = styledWithAttrs(MaterialIcon)({ icon: 'chevron_right' })`
   display: inline-block;
   flex-grow: 0;
   flex-shrink: 0;

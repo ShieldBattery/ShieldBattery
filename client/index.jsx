@@ -44,13 +44,6 @@ window.addEventListener('unhandledrejection', event => {
   )
 })
 
-let ReduxDevTools, ReduxDevToolsContainer
-if (IS_ELECTRON && isDev) {
-  const devtools = require('./debug/redux-devtools')
-  ReduxDevToolsContainer = devtools.default
-  ReduxDevTools = devtools.DevTools
-}
-
 if (module.hot) {
   // Dumb hack to make HMR work with CSP. The webpack-hot-middleware runtime blindly inserts scripts
   // into the head without adding the nonce, with no real way to catch this easily. Anyway, we
@@ -181,7 +174,6 @@ rootElemPromise
           <Router>
             <>
               <App />
-              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
             </>
           </Router>
         </ReduxProvider>

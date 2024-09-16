@@ -9,11 +9,15 @@ import { markNotificationsRead } from '../notifications/action-creators.js'
 import { ActionableNotification } from '../notifications/notifications.js'
 import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import { blue300 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body2 } from '../styles/typography.js'
 import { getBatchUserInfo } from '../users/action-creators.js'
 import { acceptPartyInvite, declinePartyInvite } from './action-creators.js'
 
-const ColoredPartyIcon = styled(MaterialIcon).attrs({ icon: 'supervised_user_circle', size: 36 })`
+const ColoredPartyIcon = styledWithAttrs(MaterialIcon)({
+  icon: 'supervised_user_circle',
+  size: 36,
+})`
   color: ${blue300};
   flex-shrink: 0;
 `

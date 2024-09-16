@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { LobbyState } from '../../common/lobbies.js'
+import { LobbyState } from '../../common/lobbies/index.js'
 import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN } from '../actions.js'
 import { immerKeyedReducer } from '../reducers/keyed-reducer.js'
 

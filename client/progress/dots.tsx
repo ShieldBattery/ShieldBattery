@@ -1,5 +1,5 @@
 import React from 'react'
-import styled, { css, keyframes } from 'styled-components'
+import { css, keyframes, styled } from 'styled-components'
 import { colorTextSecondary } from '../styles/colors.js'
 
 const bounce = keyframes`

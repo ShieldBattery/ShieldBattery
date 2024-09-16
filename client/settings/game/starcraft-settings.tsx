@@ -13,6 +13,7 @@ import { Tooltip } from '../../material/tooltip.js'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks.js'
 import { useStableCallback } from '../../state-hooks.js'
 import { background500, colorError, colorSuccess } from '../../styles/colors.js'
+import { styledWithAttrs } from '../../styles/styled-with-attrs.js'
 import { selectableTextContainer } from '../../styles/text-selection.js'
 import { Overline, Subtitle1, body1, subtitle1, subtitle2 } from '../../styles/typography.js'
 import { mergeLocalSettings } from '../action-creators.js'
@@ -50,11 +51,11 @@ const CurrentPathValue = styled.div`
   border-radius: 2px;
 `
 
-const ValidIcon = styled(MaterialIcon).attrs({ icon: 'check' })`
+const ValidIcon = styledWithAttrs(MaterialIcon)({ icon: 'check' })`
   color: ${colorSuccess};
 `
 
-const InvalidIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
+const InvalidIcon = styledWithAttrs(MaterialIcon)({ icon: 'error' })`
   color: ${colorError};
 `
 

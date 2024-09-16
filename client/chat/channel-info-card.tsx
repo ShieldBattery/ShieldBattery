@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks.js'
 import { useStableCallback } from '../state-hooks.js'
 import { colorTextFaint } from '../styles/colors.js'
 import { FlexSpacer } from '../styles/flex-spacer.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body1, caption, headline6 } from '../styles/typography.js'
 import {
   getBatchChannelInfo,
@@ -82,7 +83,7 @@ const PrivateChannelDescriptionContainer = styled.div`
   padding: 0 16px;
 `
 
-const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
+const PrivateChannelIcon = styledWithAttrs(MaterialIcon)({ icon: 'lock' })`
   margin-bottom: 8px;
   color: ${colorTextFaint};
 `

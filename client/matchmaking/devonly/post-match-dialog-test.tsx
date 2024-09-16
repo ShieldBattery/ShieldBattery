@@ -2,7 +2,11 @@ import React, { useMemo, useState } from 'react'
 import { styled } from 'styled-components'
 import { GameSource, GameType } from '../../../common/games/configuration.js'
 import { GameRecordJson } from '../../../common/games/games.js'
-import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues.js'
+import {
+  ClientLeagueUserChangeJson,
+  LeagueJson,
+  makeLeagueId,
+} from '../../../common/leagues/index.js'
 import {
   MatchmakingResult,
   MatchmakingType,

@@ -19,6 +19,7 @@ import {
   colorTextFaint,
   colorTextPrimary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { singleLine, subtitle2 } from '../styles/typography.js'
 import { batchGetMapInfo } from './action-creators.js'
 import MapImage from './map-image.js'
@@ -167,7 +168,7 @@ const NoImageContainer = styled.div`
   color: ${colorTextFaint};
 `
 
-const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 96 })`
+const NoImageIcon = styledWithAttrs(MaterialIcon)({ icon: 'image', size: 96 })`
   margin-bottom: 24px;
 `
 

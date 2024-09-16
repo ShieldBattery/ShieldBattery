@@ -27,6 +27,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body2, caption, headline4, overline, singleLine } from '../styles/typography.js'
 import { changeSettingsSubPage, closeSettings } from './action-creators.js'
 import { AppSoundSettings } from './app/sound-settings.js'
@@ -248,12 +249,9 @@ const NavEntryText = styled(SettingsSubPageTitle)`
   line-height: 36px;
 `
 
-const NavEntryIcon = styled(MaterialIcon).attrs({ size: 16 })`
-  margin-right: 4px;
-`
-
-const ErrorIcon = styled(NavEntryIcon).attrs({ icon: 'error', filled: false })`
+const ErrorIcon = styledWithAttrs(MaterialIcon)({ size: 16, icon: 'error', filled: false })`
   color: ${colorError};
+  margin-right: 4px;
 `
 
 const ErrorText = styled(NavEntryText)`

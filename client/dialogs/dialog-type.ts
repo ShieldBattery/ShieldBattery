@@ -1,6 +1,6 @@
 import { SbChannelId } from '../../common/chat.js'
 import { GameRecordJson } from '../../common/games/games.js'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues.js'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/index.js'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking.js'
 import { SbUserId } from '../../common/users/sb-user.js'
 

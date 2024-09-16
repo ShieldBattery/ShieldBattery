@@ -35,6 +35,7 @@ import { useAppDispatch } from '../../redux-hooks.js'
 import { openSnackbar } from '../../snackbars/action-creators.js'
 import { useStableCallback } from '../../state-hooks.js'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors.js'
+import { styledWithAttrs } from '../../styles/styled-with-attrs.js'
 import {
   Body1,
   Subtitle1,
@@ -57,7 +58,7 @@ const SectionHeader = styled.div`
   margin-bottom: 16px;
 `
 
-const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
+const ColoredWarningIcon = styledWithAttrs(MaterialIcon)({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
   color: ${amberA400};
 `

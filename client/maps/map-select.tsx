@@ -7,6 +7,7 @@ import ImageList from '../material/image-list.js'
 import { shadow2dp, shadow8dp } from '../material/shadows.js'
 import { useStableCallback } from '../state-hooks.js'
 import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { subtitle1 } from '../styles/typography.js'
 import { ConnectedMapThumbnail } from './map-thumbnail.js'
 
@@ -24,7 +25,7 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`
+const StyledSelectedIcon = styledWithAttrs(MaterialIcon)({ icon: 'check_circle', size: 64 })`
   text-shadow: 0 0 8px #000;
 `
 
@@ -64,7 +65,7 @@ export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   }
 `
 
-const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
+const BrowseIcon = styledWithAttrs(MaterialIcon)({ icon: 'map', size: 96 })`
   color: ${colorTextFaint};
 `
 

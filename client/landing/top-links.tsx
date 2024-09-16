@@ -20,6 +20,7 @@ import { openSnackbar } from '../snackbars/action-creators.js'
 import { useStableCallback } from '../state-hooks.js'
 import { AnimatedExpandIcon } from '../styles/animated-expand-icon.js'
 import { amberA400 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { body2 } from '../styles/typography.js'
 
 const TopLinksList = styled.ul`
@@ -87,7 +88,7 @@ const LanguageText = styled.span`
   margin-right: 4px;
 `
 
-const LanguageIcon = styled(MaterialIcon).attrs({ icon: 'language', size: 18 })`
+const LanguageIcon = styledWithAttrs(MaterialIcon)({ icon: 'language', size: 18 })`
   vertical-align: middle;
 `
 

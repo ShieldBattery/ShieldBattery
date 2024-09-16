@@ -8,6 +8,7 @@ import { MaterialIcon } from '../icons/material/material-icon.js'
 import { IconButton } from '../material/button.js'
 import AttentionIndicator from '../material/left-nav/attention-indicator.js'
 import { amberA200, colorTextFaint } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { singleLine, subtitle2 } from '../styles/typography.js'
 import { CurrentPartyState } from './party-reducer.js'
 
@@ -40,7 +41,7 @@ const StyledLink = styled(Link)`
   }
 `
 
-const StyledPartyIcon = styled(MaterialIcon).attrs({ icon: 'supervised_user_circle', size: 36 })`
+const StyledPartyIcon = styledWithAttrs(MaterialIcon)({ icon: 'supervised_user_circle', size: 36 })`
   flex-shrink: 0;
   margin-right: 8px;
 

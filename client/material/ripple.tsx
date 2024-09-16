@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import styled, { css, keyframes } from 'styled-components'
+import { css, keyframes, styled } from 'styled-components'
 import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks.js'
 import { fastOutSlowIn } from './curve-constants.js'
 

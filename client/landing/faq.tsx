@@ -14,6 +14,7 @@ import {
   colorDividers,
   colorTextSecondary,
 } from '../styles/colors.js'
+import { styledWithAttrs } from '../styles/styled-with-attrs.js'
 import { headline1, headline4, headline5 } from '../styles/typography.js'
 import { BottomLinks } from './bottom-links.js'
 import { TopLinks } from './top-links.js'
@@ -42,7 +43,7 @@ const QuestionContainer = styled.div`
   flex-direction: row;
 `
 
-const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, filled: false })`
+const StyledQuestionIcon = styledWithAttrs(MaterialIcon)({ icon: 'help', size: 48, filled: false })`
   flex-shrink: 0;
   margin-left: 16px;
   margin-right: 16px;

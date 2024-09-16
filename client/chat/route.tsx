@@ -10,7 +10,7 @@ import { ConnectedChatChannel } from './channel.js'
 import { CreateChannel } from './create-channel.js'
 
 const LoadableChatAdminComponent = React.lazy(async () => ({
-  default: (await import('./admin')).ChatAdmin,
+  default: (await import('./admin/index.js')).ChatAdmin,
 }))
 
 export function ChannelRoute({
