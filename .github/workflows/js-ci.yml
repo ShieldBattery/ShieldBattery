@@ -34,21 +34,27 @@ jobs:
         run: pnpm test
 
       - name: Typecheck app
+        if: success() || failure()
         run: pnpm run typecheck:app
 
       - name: Typecheck client
+        if: success() || failure()
         run: pnpm run typecheck:client
 
       - name: Typecheck server
+        if: success() || failure()
         run: pnpm run typecheck:server
 
       - name: Typecheck testing
+        if: success() || failure()
         run: pnpm run typecheck:testing
 
       - name: Lint
+        if: success() || failure()
         run: pnpm run lint
 
       - name: Check translation files
+        if: success() || failure()
         id: check-translation-files
         run: pnpm gen-translations:app --fail-on-update && pnpm gen-translations:email --fail-on-update
 
@@ -60,11 +66,13 @@ jobs:
             core.setFailed('The translation files are not up to date. Please run "pnpm gen-translations" in the directory root and commit the updated translation files.')
 
       - name: Generate email templates
+        if: success() || failure()
         id: gen-email-templates
         run: pnpm gen-emails
 
       - name: Check email templates
         uses: tj-actions/verify-changed-files@v15
+        if: success() || failure()
         id: check-email-templates
         with:
           files: server/email/*.html
@@ -77,11 +85,13 @@ jobs:
             core.setFailed('The email templates seem outdated. Please run "pnpm gen-emails" in the directory root and commit the updated email templates.')
 
       - name: Generate graphql files
+        if: success() || failure()
         id: gen-graphql
         run: pnpm gen-graphql
 
       - name: Check graphql codegen
         uses: tj-actions/verify-changed-files@v15
+        if: success() || failure()
         id: check-graphql
         with:
           files: client/gql/*
