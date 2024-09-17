@@ -132,7 +132,7 @@
     "babel-plugin-transform-typescript-metadata": "^0.3.2",
     "bcrypt": "^5.1.1",
     "bl": "^6.0.15",
-    "bw-chk": "^1.4.0",
+    "bw-chk": "^1.4.1",
     "core-js": "^3.38.1",
     "cross-env": "^7.0.3",
     "cross-env-test": "^0.1.1",

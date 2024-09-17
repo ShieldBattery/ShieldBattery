@@ -1,30 +1,24 @@
-process.env.BABEL_ENV = 'node'
+import ChkModule, { ForcePlayerRace } from 'bw-chk'
+import jpeg from 'jpeg-js'
+import * as fs from 'node:fs'
+import { getErrorStack } from '../../../common/errors.js'
+import { filterColorCodes } from '../../../common/maps.js'
+import { parseAndHashMap } from './parse-map.js'
 
-require('@babel/register')({
-  extensions: ['.es6', '.es', '.jsx', '.js', '.mjs', '.ts', '.tsx'],
-  // This is necessary to make babel compile stuff outside the "working directory".
-  // See this issue for more info: https://github.com/babel/babel/issues/8321
-  ignore: [/node_modules/],
-})
-
-const fs = require('fs')
-const Chk = require('bw-chk')
-const jpeg = require('jpeg-js')
-const { filterColorCodes } = require('../../../common/maps')
-const { parseAndHashMap } = require('./parse-map')
+type Chk = ChkModule.default
 
 // A map parsing script that runs in a separate process
 
 const [path, extension, bwDataPath] = process.argv.slice(2)
 
-function createLobbyInitData(chk) {
-  const raceIdToName = {
-    0: 'z',
-    1: 't',
-    2: 'p',
-    5: 'any',
-  }
+const raceIdToName: Partial<Record<ForcePlayerRace, string>> = {
+  [ForcePlayerRace.Zerg]: 'z',
+  [ForcePlayerRace.Terran]: 't',
+  [ForcePlayerRace.Protoss]: 'p',
+  [ForcePlayerRace.UserSelectable]: 'any',
+}
 
+function createLobbyInitData(chk: Chk) {
   return {
     // Convert race ids to strings, set force's teamId and filter out empty ones.
     forces: chk.forces
@@ -45,7 +39,7 @@ function createLobbyInitData(chk) {
           // get any preplaced units, and spawn with that race's starting units.
           //
           // So choosing terran here is fine as a fallback.
-          const raceName = raceIdToName[race] || 't'
+          const raceName = raceIdToName[race] ?? 't'
           return {
             id,
             computer,
@@ -59,33 +53,35 @@ function createLobbyInitData(chk) {
 }
 
 // Creates an image with the provided width and calculates height so the aspect ratio is preserved.
-function generateImage(map, bwDataPath, width = 1024) {
+function generateImage(map: Chk, bwDataPath: string, width = 1024): Promise<Buffer | void> {
   if (!bwDataPath) {
     return Promise.resolve()
   }
 
   const height = Math.round((width * map.size[1]) / map.size[0])
 
-  return map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true }).then(imageRgb => {
-    const rgbaBuffer = Buffer.alloc(width * height * 4)
-    for (let i = 0; i < width * height; i++) {
-      rgbaBuffer[i * 4] = imageRgb[i * 3]
-      rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]
-      rgbaBuffer[i * 4 + 2] = imageRgb[i * 3 + 2]
-    }
-    const { data } = jpeg.encode(
-      {
-        data: rgbaBuffer,
-        width,
-        height,
-      },
-      90,
-    )
-    return data
-  })
+  return map
+    .image(ChkModule.default.fsFileAccess(bwDataPath), width, height, { melee: true })
+    .then(imageRgb => {
+      const rgbaBuffer = Buffer.alloc(width * height * 4)
+      for (let i = 0; i < width * height; i++) {
+        rgbaBuffer[i * 4] = imageRgb[i * 3]
+        rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]
+        rgbaBuffer[i * 4 + 2] = imageRgb[i * 3 + 2]
+      }
+      const { data } = jpeg.encode(
+        {
+          data: rgbaBuffer,
+          width,
+          height,
+        },
+        90,
+      )
+      return data
+    })
 }
 
-function createStreamPromise(data, fd) {
+function createStreamPromise(data: Buffer, fd: number) {
   return new Promise((resolve, reject) => {
     const stream = fs.createWriteStream('', { fd, flags: 'w' })
     stream.on('error', reject).on('finish', resolve)
@@ -95,7 +91,12 @@ function createStreamPromise(data, fd) {
 }
 
 process.once('message', async msg => {
-  console.assert(msg === 'init')
+  if (msg !== 'init') {
+    throw new Error('Unexpected process message: ' + msg)
+  }
+  if (!process.send) {
+    throw new Error('Map parse worker must be run as a child process')
+  }
   process.send('init')
 
   try {
@@ -116,7 +117,7 @@ process.once('message', async msg => {
       : Promise.resolve()
 
     const sendPromise = new Promise(resolve =>
-      process.send(
+      process.send!(
         {
           hash,
           title: filterColorCodes(map.title),
@@ -142,7 +143,7 @@ process.once('message', async msg => {
     ])
   } catch (err) {
     Promise.resolve().then(() => {
-      process.send({ error: err.stack ?? err.message }, () => {
+      process.send!({ error: getErrorStack(err) }, () => {
         setImmediate(() => {
           process.exit(1)
         })

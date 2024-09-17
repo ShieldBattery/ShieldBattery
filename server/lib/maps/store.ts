@@ -128,14 +128,14 @@ export async function storeRegeneratedImages(path: string, extension: MapExtensi
 }
 
 export function mapPath(hash: string, extension: MapExtension) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
+  const firstByte = hash.slice(0, 2)
+  const secondByte = hash.slice(2, 4)
   return `maps/${firstByte}/${secondByte}/${hash}.${extension}`
 }
 
 export function imagePath(hash: string, size: 256 | 512 | 1024 | 2048) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
+  const firstByte = hash.slice(0, 2)
+  const secondByte = hash.slice(2, 4)
   return `map_images/${firstByte}/${secondByte}/${hash}-${size}.jpg`
 }
 
@@ -153,7 +153,7 @@ async function mapParseWorker(
   generateImages = true,
 ): Promise<MapParseResult> {
   const { messages, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await runChildProcess(require.resolve('./map-parse-worker'), [
+    await runChildProcess(import.meta.resolve('./map-parse-worker.js'), [
       path,
       extension,
       generateImages ? BW_DATA_PATH : '',

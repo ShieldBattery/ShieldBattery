@@ -71,8 +71,8 @@ importers:
         specifier: ^6.0.15
         version: 6.0.15
       bw-chk:
-        specifier: ^1.4.0
-        version: 1.4.0
+        specifier: ^1.4.1
+        version: 1.4.1
       core-js:
         specifier: ^3.38.1
         version: 3.38.1
@@ -4810,8 +4810,8 @@ packages:
     resolution: {integrity: sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==}
     engines: {node: '>=10.16.0'}
 
-  bw-chk@1.4.0:
-    resolution: {integrity: sha512-0K9CuP96JoTJJiIBwvIDIAN3y4IO8dgQfCNKQAXQHc1gxbWUOYURl0+j3ueNp5ld1aLmZpHpFU6B8BjadJ1QoQ==}
+  bw-chk@1.4.1:
+    resolution: {integrity: sha512-8vviKRRG7YIEEMb0k2pAFWmfUG41HwLtG91d2ZppwRWZh49mFXW/WlBo41zZT74sXmk9MG/Y4Wg2U0gzHBFjiQ==}
     engines: {node: '>= 12.17.0'}
 
   bytes@3.0.0:
@@ -16194,7 +16194,7 @@ snapshots:
     dependencies:
       streamsearch: 1.1.0
 
-  bw-chk@1.4.0:
+  bw-chk@1.4.1:
     dependencies:
       bl: 6.0.15
       iconv-lite: 0.6.3
