@@ -180,7 +180,7 @@
     "prom-client": "^15.1.3",
     "pug": "^3.0.3",
     "rally-point-creator": "^3.0.0",
-    "rally-point-server": "^3.0.0",
+    "rally-point-server": "^3.0.1",
     "rimraf": "^6.0.1",
     "scm-extractor": "^1.1.0",
     "semver-compare": "^1.0.0",
