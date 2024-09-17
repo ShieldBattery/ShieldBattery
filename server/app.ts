@@ -35,6 +35,7 @@ import {
   jwtSessions,
 } from './lib/session/jwt-session-middleware.js'
 import createRoutes from './routes.js'
+import { getServerRoot } from './server-root.js'
 import { WebsocketServer } from './websockets.js'
 
 if (!process.env.SB_GQL_ORIGIN) {
@@ -153,7 +154,7 @@ app
       br: false,
     }),
   )
-  .use(views(path.join(import.meta.dirname, 'views'), { extension: 'pug' }))
+  .use(views(path.join(getServerRoot(), 'views'), { extension: 'pug' }))
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())

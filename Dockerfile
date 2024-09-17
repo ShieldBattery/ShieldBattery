@@ -84,7 +84,6 @@ COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
 COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
-COPY --chown=node:node --from=builder /shieldbattery/server/out ./
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run (necessary when building on Linux)

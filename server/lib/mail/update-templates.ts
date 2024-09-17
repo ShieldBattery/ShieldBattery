@@ -4,6 +4,7 @@ import { readFile } from 'fs/promises'
 import { glob } from 'glob'
 import got from 'got'
 import * as path from 'path'
+import { getServerRoot } from '../../server-root.js'
 import logger from '../logging/logger.js'
 
 const API_KEY = process.env.SB_MAILGUN_KEY
@@ -23,7 +24,7 @@ export async function updateEmailTemplates() {
     return
   }
 
-  const templatesGlob = path.resolve(import.meta.dirname, '..', '..', 'email', '*.html')
+  const templatesGlob = path.resolve(getServerRoot(), 'email', '*.html')
   const templateFiles = await glob(templatesGlob, { windowsPathsNoEscape: true })
 
   // We base our version code on the canonical URL so different servers on the same mail domain

@@ -18,6 +18,7 @@ import logger from './lib/logging/logger.js'
 import { getCspNonce } from './lib/security/csp.js'
 import { getJwt } from './lib/session/jwt-session-middleware.js'
 import { monotonicNow } from './lib/time/monotonic-now.js'
+import { getServerRoot } from './server-root.js'
 import { WebsocketServer } from './websockets.js'
 
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
@@ -65,7 +66,7 @@ export default async function applyRoutes(
   )
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  router.all('/api/*param', send404)
+  router.all('/api{/*param}', send404)
 
   // common requests that we don't want to return the regular page for
   const crawlersDisabled = (process.env.SB_DISABLE_CRAWLERS ?? '').toLowerCase() === 'true'
@@ -125,8 +126,8 @@ export default async function applyRoutes(
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(
-    '/*param',
-    koaConvert(koaStatic(path.join(import.meta.dirname, 'public'))),
+    '{/*param}',
+    koaConvert(koaStatic(path.join(getServerRoot(), 'public'))),
     async (ctx: RouterContext) => {
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
         serverConfig,
