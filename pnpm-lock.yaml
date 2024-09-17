@@ -369,7 +369,7 @@ importers:
         specifier: ^0.3.7
         version: 0.3.7
       '@types/node':
-        specifier: ^20.16.5
+        specifier: ^20.10.5
         version: 20.16.5
       '@types/pg':
         specifier: ^8.11.10
@@ -417,7 +417,7 @@ importers:
         specifier: ^2.1.5
         version: 2.1.5
       '@types/unist':
-        specifier: ^3.0.3
+        specifier: ^3.0.0
         version: 3.0.3
       '@types/vary':
         specifier: ^1.1.3
