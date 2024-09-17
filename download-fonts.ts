@@ -21,7 +21,7 @@ async function doDownload() {
   const electronDownloader = download(GOOGLE_FONTS_URL, {
     base64: false,
     overwriting: true,
-    outputDir: path.join(__dirname, 'app', 'assets', 'fonts'),
+    outputDir: path.join(import.meta.dirname, 'app', 'assets', 'fonts'),
     stylePath: 'fonts.css',
     fontsDir: '',
     fontsPath: '.',
@@ -32,7 +32,7 @@ async function doDownload() {
   const electronIconDownloader = download(ICON_FONT_URL, {
     base64: false,
     overwriting: false,
-    outputDir: path.join(__dirname, 'app', 'assets', 'fonts'),
+    outputDir: path.join(import.meta.dirname, 'app', 'assets', 'fonts'),
     stylePath: 'icons.css',
     fontsDir: '',
     fontsPath: '.',
@@ -49,7 +49,7 @@ async function doDownload() {
   const webDownloader = download(GOOGLE_FONTS_URL, {
     base64: false,
     overwriting: true,
-    outputDir: path.join(__dirname, 'server', 'public', 'fonts'),
+    outputDir: path.join(import.meta.dirname, 'server', 'public', 'fonts'),
     stylePath: 'fonts.css',
     fontsDir: '',
     fontsPath: '.',
@@ -60,7 +60,7 @@ async function doDownload() {
   const webIconDownloader = download(ICON_FONT_URL, {
     base64: false,
     overwriting: false,
-    outputDir: path.join(__dirname, 'server', 'public', 'fonts'),
+    outputDir: path.join(import.meta.dirname, 'server', 'public', 'fonts'),
     stylePath: 'icons.css',
     fontsDir: '',
     fontsPath: '.',

@@ -19,7 +19,7 @@ import {
   getObserverTeam,
   hasOpposingSides,
   isUms,
-} from '../../../common/lobbies.js'
+} from '../../../common/lobbies/index.js'
 import * as Slots from '../../../common/lobbies/slot.js'
 import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network.js'
 import { toBasicChannelInfo } from '../chat/chat-models.js'

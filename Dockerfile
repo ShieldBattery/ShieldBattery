@@ -39,6 +39,7 @@ RUN pnpm install --frozen-lockfile
 # Prebuild the web client assets so we can simply copy them over
 ENV NODE_ENV=production
 RUN pnpm run build-web-client
+RUN pnpm run build-server
 
 # Then prune the server deps to only the production ones
 RUN pnpm prune --prod
@@ -83,8 +84,7 @@ COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
 COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
-COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
-COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
+COPY --chown=node:node --from=builder /shieldbattery/server/out ./
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run (necessary when building on Linux)

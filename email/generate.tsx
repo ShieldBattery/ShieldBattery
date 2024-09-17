@@ -5,12 +5,12 @@ import * as path from 'node:path'
 import React from 'react'
 import { EmailProps } from './email-props.js'
 
-const OUTPUT_DIR = path.resolve(__dirname, '..', 'server', 'email')
+const OUTPUT_DIR = path.resolve(import.meta.dirname, '..', 'server', 'email')
 
 async function generateTemplates() {
   console.log('Generating email templates...\n')
 
-  const templateGlob = path.resolve(__dirname, 'templates', '*.tsx')
+  const templateGlob = path.resolve(import.meta.dirname, 'templates', '*.tsx')
   const templateFiles = await glob(templateGlob, { windowsPathsNoEscape: true })
 
   const oldTemplatesGlob = path.resolve(OUTPUT_DIR, '*.html')

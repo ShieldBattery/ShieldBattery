@@ -7,9 +7,9 @@ import { LoginPage } from '../../pages/login-page.js'
 let loginPage: LoginPage
 let chatPage: ChatPage
 
-const TEST_IMAGE_PATH = path.join(__dirname, '..', '..', 'test-image.png')
+const TEST_IMAGE_PATH = path.join(import.meta.dirname, '..', '..', 'test-image.png')
 const TEST_IMAGE_PATH_INAPPROPRIATE = path.join(
-  __dirname,
+  import.meta.dirname,
   '..',
   '..',
   'test-image-inappropriate.png',

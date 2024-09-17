@@ -15,7 +15,7 @@ import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-look
 import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups.js'
 
 const apiHandlersPromises = fs
-  .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
+  .readdirSync(path.join(import.meta.dirname, 'lib', 'wsapi'))
   .filter(filename => /\.(js|ts)$/.test(filename))
   .map(async filename => {
     const module = await import('./lib/wsapi/' + filename)

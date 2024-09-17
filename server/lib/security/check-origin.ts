@@ -1,4 +1,4 @@
-import { Forbidden } from 'http-errors'
+import httpErrors from 'http-errors'
 import Koa from 'koa'
 
 export default function (canonicalHost: string) {
@@ -10,7 +10,7 @@ export default function (canonicalHost: string) {
       const allowed = origin.startsWith('shieldbattery://') || origin === canonicalHost
 
       if (!allowed) {
-        throw new Forbidden('Invalid origin for this request')
+        throw new httpErrors.Forbidden('Invalid origin for this request')
       }
     }
 

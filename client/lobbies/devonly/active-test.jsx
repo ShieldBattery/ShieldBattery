@@ -1,6 +1,6 @@
 import { List } from 'immutable'
 import React from 'react'
-import { Team } from '../../../common/lobbies.js'
+import { Team } from '../../../common/lobbies/index.js'
 import { Slot } from '../../../common/lobbies/slot.js'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing.js'
 import { TabItem, Tabs } from '../../material/tabs.js'

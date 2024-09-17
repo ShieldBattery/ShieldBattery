@@ -1,11 +1,10 @@
 import { RouterContext } from '@koa/router'
-import 'core-js/proposals/reflect-metadata'
+import 'core-js/proposals/reflect-metadata.js'
 import { promises as fsPromises } from 'fs'
 import * as http from 'http'
 import Koa from 'koa'
 import { koaBody } from 'koa-body'
 import koaCompress from 'koa-compress'
-import koaConvert from 'koa-convert'
 import koaJwt from 'koa-jwt'
 import views from 'koa-views'
 import * as path from 'path'
@@ -89,18 +88,6 @@ const port = process.env.SB_HTTP_PORT
 
 container.register<Koa>(Koa, { useValue: app })
 
-let webpackCompiler: any
-
-function getWebpackCompiler() {
-  if (!webpackCompiler) {
-    const webpack = require('webpack')
-    const webpackConfig = require('./webpack.config.js')
-    webpackCompiler = webpack(webpackConfig)
-  }
-
-  return webpackCompiler
-}
-
 app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
 
 interface PossibleHttpError extends Error {
@@ -166,7 +153,7 @@ app
       br: false,
     }),
   )
-  .use(views(path.join(__dirname, 'views'), { extension: 'pug' }))
+  .use(views(path.join(import.meta.dirname, 'views'), { extension: 'pug' }))
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
@@ -224,21 +211,6 @@ const rallyPointInitPromise = rallyPointService.initialize(
     }
   }
 
-  if (isDev) {
-    const { webpackMiddleware } = require('./lib/webpack/middleware')
-    const koaWebpackHot = require('koa-webpack-hot-middleware')
-
-    app.use(
-      webpackMiddleware({
-        compiler: getWebpackCompiler(),
-        devMiddleware: {
-          publicPath: require('./webpack.config.js').output.publicPath,
-        },
-      }),
-    )
-    app.use(koaConvert(koaWebpackHot(getWebpackCompiler())))
-  }
-
   log.info('Testing connection to redis.')
   const redis = container.resolve(Redis)
   try {
@@ -275,37 +247,11 @@ const rallyPointInitPromise = rallyPointService.initialize(
 
   await createRoutes(app, websocketServer, process.env.SB_GQL_ORIGIN!)
 
-  const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
-  const compilePromise = needToBuild
-    ? new Promise((resolve, reject) =>
-        getWebpackCompiler().run((err: Error, stats: any) => (err ? reject(err) : resolve(stats))),
-      )
-    : Promise.resolve()
-  if (needToBuild) {
-    log.info('In production mode, building assets...')
-  }
+  await rallyPointInitPromise
 
-  try {
-    await rallyPointInitPromise
-
-    const stats: any = await compilePromise
-
-    if (stats) {
-      if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
-        throw new Error(stats.toString())
-      }
-
-      const statStr = stats.toString({ colors: true })
-      log.info(`Webpack stats:\n${statStr}`)
-    }
-
-    mainServer.listen(port, function () {
-      log.info('Server listening on port ' + port)
-    })
-  } catch (err) {
-    log.error({ err }, 'Error building assets')
-    process.exit(1)
-  }
+  mainServer.listen(port, function () {
+    log.info('Server listening on port ' + port)
+  })
 })().catch(err => {
   log.error({ err }, 'Error initializing app')
   process.exit(1)

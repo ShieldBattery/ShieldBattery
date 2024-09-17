@@ -107,7 +107,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openSettings(GameSettingsSubPage.StarCraftPath))
+    this.props.dispatch(openSettings(GameSettingsSubPage.StarCraft))
     this.props.dispatch(closeDialog(DialogType.StarcraftHealth))
   }
 }

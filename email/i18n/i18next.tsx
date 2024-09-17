@@ -21,7 +21,7 @@ export const i18nextPromise = i18n
   .use(initReactI18next)
   .init<FsBackendOptions>({
     backend: {
-      loadPath: path.resolve(__dirname, '..', '/locales/{{lng}}/{{ns}}.json'),
+      loadPath: path.resolve(import.meta.dirname, '..', '/locales/{{lng}}/{{ns}}.json'),
     },
 
     // Load the files synchronously

@@ -2,7 +2,7 @@ import * as childProcess from 'child_process'
 import { LookupAddress, promises as dns } from 'dns'
 import { NydusServer } from 'nydus'
 import * as path from 'path'
-import RallyPointCreator, { CreatedRoute } from 'rally-point-creator'
+import { CreatedRoute, RallyPointCreator } from 'rally-point-creator'
 import { singleton } from 'tsyringe'
 import createDeferred, { Deferred } from '../../../common/async/deferred.js'
 import { RallyPointServer, ResolvedRallyPointServer } from '../../../common/rally-point/index.js'
@@ -82,7 +82,7 @@ export class RallyPointService {
     if (!servers.length) {
       if (isDev) {
         log.info('creating local rally-point process')
-        const rallyPoint = childProcess.fork(path.join(__dirname, 'run-local-server.js'))
+        const rallyPoint = childProcess.fork(path.join(import.meta.dirname, 'local-server.js'))
         rallyPoint
           .on('error', err => {
             log.error('rally-point process error: ' + err)

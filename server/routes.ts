@@ -51,7 +51,7 @@ export default async function applyRoutes(
 
   // api methods (through HTTP)
   // TODO(tec27): migrate these to injected HttpApis
-  const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
+  const apiFiles = fs.readdirSync(path.join(import.meta.dirname, 'lib', 'api'))
   const baseApiPath = '/api/1/'
   await Promise.all(
     apiFiles.filter(jsOrTsFileMatcher).map(async filename => {
@@ -65,7 +65,7 @@ export default async function applyRoutes(
   )
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  router.all('/api/:param*', send404)
+  router.all('/api/*param', send404)
 
   // common requests that we don't want to return the regular page for
   const crawlersDisabled = (process.env.SB_DISABLE_CRAWLERS ?? '').toLowerCase() === 'true'
@@ -118,15 +118,15 @@ export default async function applyRoutes(
   })
 
   if (isDev) {
-    const { handleMissingTranslationKeys } = require('./lib/i18n/i18next')
+    const { handleMissingTranslationKeys } = await import('./lib/i18n/i18next.js')
     router.post('/locales/add/:lng/:ns', handleMissingTranslationKeys)
   }
 
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(
-    '/:param*',
-    koaConvert(koaStatic(path.join(__dirname, 'public'))),
+    '/*param',
+    koaConvert(koaStatic(path.join(import.meta.dirname, 'public'))),
     async (ctx: RouterContext) => {
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
         serverConfig,

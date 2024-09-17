@@ -610,11 +610,11 @@ function setupCspProtocol(curSession: Session) {
 
     try {
       if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
-        const contents = await readFile(path.join(__dirname, pathname))
+        const contents = await readFile(path.join(import.meta.dirname, pathname))
         // TODO(tec27): ideally this would probably set a reasonable content type?
         return new Response(contents)
       } else {
-        const contents = await readFile(path.join(__dirname, 'index.html'), 'utf8')
+        const contents = await readFile(path.join(import.meta.dirname, 'index.html'), 'utf8')
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
         const hasReactDevTools = !!process.env.SB_REACT_DEV

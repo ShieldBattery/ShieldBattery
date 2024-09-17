@@ -419,7 +419,9 @@ export class ChatApi {
     return await this.chatService.getChannelInfos(channelIds, ctx.session!.user!.id)
   }
 
-  @httpGet('/:channelId(\\d+)')
+  // NOTE(tec27): Make sure this route is below all the other things on / (e.g. /batch-info) so that
+  // it only gets matched if none of them do
+  @httpGet('/:channelId')
   @httpBefore(throttleMiddleware(channelRetrievalThrottle, ctx => String(ctx.session!.user!.id)))
   async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
     const channelId = getValidatedChannelId(ctx)

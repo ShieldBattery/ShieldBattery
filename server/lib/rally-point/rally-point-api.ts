@@ -1,5 +1,5 @@
 import { RouterContext } from '@koa/router'
-import { BadRequest, NotFound } from 'http-errors'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import {
   AddRallyPointServerRequest,
@@ -54,7 +54,7 @@ export class RallyPointPingApi {
     const client = this.clientSocketsManager.getById(params.userId, params.clientId)
 
     if (!client) {
-      throw new NotFound(`could not find a client with id ${params.clientId}`)
+      throw new httpErrors.NotFound(`could not find a client with id ${params.clientId}`)
     }
 
     for (const [serverId, ping] of body.pings) {
@@ -112,7 +112,7 @@ export class RallyPointAdminApi {
     })
 
     if (params.serverId !== body.id) {
-      throw new BadRequest('url and body id must match')
+      throw new httpErrors.BadRequest('url and body id must match')
     }
 
     const server = await this.rallyPointService.updateServer({
@@ -124,7 +124,7 @@ export class RallyPointAdminApi {
     })
 
     if (!server) {
-      throw new NotFound('the specified server does not exist')
+      throw new httpErrors.NotFound('the specified server does not exist')
     }
 
     return { server }

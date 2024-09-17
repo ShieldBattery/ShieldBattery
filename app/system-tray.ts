@@ -3,10 +3,10 @@ import * as path from 'node:path'
 import logger from './logger.js'
 import { getUserDataPath } from './user-data-path.js'
 
-const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray.png')
-const UNREAD_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-unread.png')
-const URGENT_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-urgent.png')
-const BALLOON_ICON = path.join(__dirname, 'assets', 'shieldbattery-64.png')
+const NORMAL_ICON = path.join(import.meta.dirname, 'assets', 'shieldbattery-tray.png')
+const UNREAD_ICON = path.join(import.meta.dirname, 'assets', 'shieldbattery-tray-unread.png')
+const URGENT_ICON = path.join(import.meta.dirname, 'assets', 'shieldbattery-tray-urgent.png')
+const BALLOON_ICON = path.join(import.meta.dirname, 'assets', 'shieldbattery-64.png')
 
 export default class SystemTray {
   private isShowingUrgentIcon: boolean
