@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
-import { useImmer } from 'use-immer'
 import { getErrorStack } from '../../common/errors'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
@@ -10,7 +9,7 @@ import { RaisedButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
-import { useStableCallback } from '../state-hooks'
+import { useImmerState, useStableCallback } from '../state-hooks'
 import {
   amberA400,
   background600,
@@ -18,15 +17,21 @@ import {
   colorSuccess,
   colorTextSecondary,
 } from '../styles/colors'
-import { SubheadingOld, singleLine, subtitle1 } from '../styles/typography'
+import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
 
 export function AdminMapManager() {
   const permissions = useSelfPermissions()
 
   return (
     <Container>
-      {permissions?.manageMaps && <UploadMaps />}
-      {permissions?.massDeleteMaps && <MassDeleteMaps />}
+      <HeadlineContainer>
+        <PageHeadline>Manage maps</PageHeadline>
+      </HeadlineContainer>
+
+      <Content>
+        {permissions?.manageMaps && <UploadMaps />}
+        {permissions?.massDeleteMaps && <MassDeleteMaps />}
+      </Content>
     </Container>
   )
 }
@@ -43,7 +48,9 @@ interface UploadMapsModel {
 }
 
 function UploadMaps() {
-  const [nameToUploadStatus, setNameToUploadStatus] = useImmer<Map<File, UploadStatus>>(new Map())
+  const [nameToUploadStatus, setNameToUploadStatus] = useImmerState<Map<File, UploadStatus>>(
+    new Map(),
+  )
 
   const onFormSubmit = useStableCallback((model: Readonly<UploadMapsModel>) => {
     setNameToUploadStatus(new Map(model.maps.map(m => [m, UploadStatus.Uploading])))
@@ -91,33 +98,35 @@ function UploadMaps() {
     u => u !== UploadStatus.Pending,
   )
   return (
-    <>
-      <Underline>Select maps to upload</Underline>
+    <SectionContainer>
+      <SectionTitle>Select maps to upload</SectionTitle>
 
       <form noValidate={true} onSubmit={onSubmit}>
         <MultiFileInput {...bindCustom('maps')} inputProps={{ accept: '.scm,.scx' }} />
       </form>
 
-      <SelectedFiles>
-        {maps.map(map => {
-          const uploadStatus = nameToUploadStatus.get(map)!
+      {maps.length > 0 && (
+        <SelectedFiles>
+          {maps.map(map => {
+            const uploadStatus = nameToUploadStatus.get(map)!
 
-          return (
-            <SelectedFileEntry key={map.name}>
-              <FileName>{map.name}</FileName>
+            return (
+              <SelectedFileEntry key={map.name}>
+                <FileName>{map.name}</FileName>
 
-              {uploadStatus !== UploadStatus.Pending ? (
-                <UploadStatusIndicator status={uploadStatus} />
-              ) : null}
-            </SelectedFileEntry>
-          )
-        })}
-      </SelectedFiles>
+                {uploadStatus !== UploadStatus.Pending ? (
+                  <UploadStatusIndicator status={uploadStatus} />
+                ) : null}
+              </SelectedFileEntry>
+            )
+          })}
+        </SelectedFiles>
+      )}
 
       {maps.length > 0 ? (
         <RaisedButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
       ) : null}
-    </>
+    </SectionContainer>
   )
 }
 
@@ -161,8 +170,8 @@ function MassDeleteMaps() {
   }
 
   return (
-    <>
-      <Underline>Delete all maps</Underline>
+    <SectionContainer>
+      <SectionTitle>Delete all maps</SectionTitle>
 
       <RaisedButton
         label='Delete all maps'
@@ -183,20 +192,47 @@ function MassDeleteMaps() {
         </div>
       ) : null}
 
-      {isDeleting ? <LoadingIndicator /> : null}
+      {isDeleting ? <StyledLoadingIndicator /> : null}
 
       {deleteError ? <ErrorText>Something went wrong: {deleteError.message}</ErrorText> : null}
-    </>
+    </SectionContainer>
   )
 }
 
 const Container = styled.div`
-  max-width: 600px;
-  padding: 0 16px;
+  max-width: 960px;
+  margin: 0 16px;
   overflow-y: auto;
 `
 
+const HeadlineContainer = styled.div`
+  height: 48px;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-bottom: 8px;
+`
+
+const PageHeadline = styled.div`
+  ${headline5};
+`
+
+const Content = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+`
+
+const SectionContainer = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+`
+
 const SelectedFiles = styled.ul`
+  width: 100%;
   margin: 8px 0;
   padding: 8px 0;
   background-color: ${background600};
@@ -231,15 +267,23 @@ const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
   color: ${colorError};
 `
 
-const Underline = styled.div`
-  ${subtitle1};
+const SectionTitle = styled.div`
+  ${overline};
   color: ${colorTextSecondary};
+
+  padding: 4px 0;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const StyledLoadingIndicator = styled(LoadingIndicator)`
+  margin: 8px 0;
+`
+
+const ErrorText = styled.div`
+  ${subtitle1}
   color: ${colorError};
 `
 
-const WarningText = styled(SubheadingOld)`
+const WarningText = styled.p`
+  ${subtitle1}
   color: ${amberA400};
 `
