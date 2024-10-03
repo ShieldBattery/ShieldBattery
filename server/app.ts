@@ -6,8 +6,6 @@ import Koa from 'koa'
 import { koaBody } from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaJwt from 'koa-jwt'
-import views from 'koa-views'
-import * as path from 'path'
 import { container } from 'tsyringe'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier.js'
 import isDev from './lib/env/is-dev.js'
@@ -35,7 +33,6 @@ import {
   jwtSessions,
 } from './lib/session/jwt-session-middleware.js'
 import createRoutes from './routes.js'
-import { getServerRoot } from './server-root.js'
 import { WebsocketServer } from './websockets.js'
 
 if (!process.env.SB_GQL_ORIGIN) {
@@ -154,7 +151,6 @@ app
       br: false,
     }),
   )
-  .use(views(path.join(getServerRoot(), 'views'), { extension: 'pug' }))
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
