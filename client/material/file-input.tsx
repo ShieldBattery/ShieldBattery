@@ -129,3 +129,25 @@ export const SingleFileInput = React.forwardRef<
     />
   )
 })
+
+export const MultiFileInput = React.forwardRef<
+  HTMLInputElement,
+  Omit<FileInputProps, 'onChange'> & { onChange?: (files: File[]) => void }
+>((props, ref) => {
+  const onInputChange = (file?: File | File[]) => {
+    if (!file) {
+      props.onChange?.([])
+      return
+    }
+    props.onChange?.(Array.isArray(file) ? file : [file])
+  }
+
+  return (
+    <FileInput
+      ref={ref}
+      {...props}
+      inputProps={{ ...props.inputProps, multiple: true }}
+      onChange={onInputChange}
+    />
+  )
+})

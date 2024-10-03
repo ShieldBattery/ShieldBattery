@@ -1,3 +1,4 @@
+import { freeze, produce, Producer } from 'immer'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
@@ -116,4 +117,28 @@ export function useStableCallback<A extends any[], R>(fn: (...args: A) => R): (.
     ref.current = fn
   })
   return useCallback((...args: A) => ref.current(...args), [])
+}
+
+/**
+ * Similar to the `useState` hook, but using immer under the hood which allows you to provide a
+ * producer function in the setter to change the state in an immutable way. Mostly useful if you
+ * want to use Map or Set as state.
+ *
+ * If you pass a non-function value to the setter, this hook behaves the same as `useState` and just
+ * updates the state with that value.
+ */
+export function useImmerState<T>(initialState: T): [T, (updater: Producer<T> | T) => void] {
+  const [value, setValue] = useState(() =>
+    freeze(initialState instanceof Function ? initialState() : initialState, true),
+  )
+  return [
+    value,
+    useCallback((updater: Producer<T> | T) => {
+      if (updater instanceof Function) {
+        setValue(produce(updater))
+      } else {
+        setValue(freeze(updater))
+      }
+    }, []),
+  ]
 }
