@@ -7,7 +7,7 @@ settings:
 overrides:
   '@types/node': ^20.10.5
   '@types/unist': ^3.0.0
-  long: github:tec27/long.js#f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1
+  long: github:tec27/long.js#9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41
 
 importers:
 
@@ -215,11 +215,11 @@ importers:
         specifier: ^3.0.3
         version: 3.0.3
       rally-point-creator:
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^2.2.1
+        version: 2.2.1
       rally-point-server:
-        specifier: ^3.0.1
-        version: 3.0.1
+        specifier: ^2.2.1
+        version: 2.2.1
       rimraf:
         specifier: ^6.0.1
         version: 6.0.1
@@ -283,7 +283,7 @@ importers:
         version: 1.47.2
       '@pmmmwh/react-refresh-webpack-plugin':
         specifier: ^0.5.15
-        version: 0.5.15(react-refresh@0.14.2)(type-fest@4.26.1)(webpack-hot-middleware@2.26.1)(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 0.5.15(react-refresh@0.14.2)(type-fest@4.26.1)(webpack-hot-middleware@2.26.1)(webpack@5.95.0)
       '@react-email/components':
         specifier: ^0.0.25
         version: 0.0.25(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -472,7 +472,7 @@ importers:
         version: 29.7.0(@babel/core@7.25.7)
       babel-loader:
         specifier: ^9.2.1
-        version: 9.2.1(@babel/core@7.25.7)(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 9.2.1(@babel/core@7.25.7)(webpack@5.95.0)
       babel-plugin-styled-components:
         specifier: ^2.1.4
         version: 2.1.4(@babel/core@7.25.7)(styled-components@5.3.11(@babel/core@7.25.7)(react-dom@18.3.1(react@18.3.1))(react-is@18.3.1)(react@18.3.1))(supports-color@5.5.0)
@@ -490,7 +490,7 @@ importers:
         version: 32.1.2
       electron-builder:
         specifier: ^25.0.5
-        version: 25.0.5(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5))
+        version: 25.0.5(electron-builder-squirrel-windows@25.0.5)
       electron-is-dev:
         specifier: ^2.0.0
         version: 2.0.0
@@ -538,7 +538,7 @@ importers:
         version: 2.12.6(graphql@16.9.0)
       html-loader:
         specifier: ^5.1.0
-        version: 5.1.0(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 5.1.0(webpack@5.95.0)
       i18next:
         specifier: ^23.15.1
         version: 23.15.1
@@ -581,9 +581,12 @@ importers:
       loglevel:
         specifier: ^1.9.2
         version: 1.9.2
+      long:
+        specifier: github:tec27/long.js#9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41
+        version: https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41
       markdown-loader:
         specifier: ^8.0.0
-        version: 8.0.0(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 8.0.0(webpack@5.95.0)
       memoize-one:
         specifier: ^6.0.0
         version: 6.0.0
@@ -612,8 +615,8 @@ importers:
         specifier: ^7.1.3
         version: 7.1.3
       rally-point-player:
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^2.2.1
+        version: 2.2.1
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -679,7 +682,7 @@ importers:
         version: 3.4.13
       terser-webpack-plugin:
         specifier: ^5.3.10
-        version: 5.3.10(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 5.3.10(webpack@5.95.0)
       ts-proto:
         specifier: ^2.2.1
         version: 2.2.1
@@ -703,7 +706,7 @@ importers:
         version: 5.1.4(webpack@5.95.0)
       webpack-dev-middleware:
         specifier: ^7.4.2
-        version: 7.4.2(webpack@5.95.0(webpack-cli@5.1.4))
+        version: 7.4.2(webpack@5.95.0)
       webpack-hot-middleware:
         specifier: ^2.26.1
         version: 2.26.1
@@ -7627,8 +7630,8 @@ packages:
     resolution: {integrity: sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg==}
     engines: {node: '>= 0.6.0'}
 
-  long@https://codeload.github.com/tec27/long.js/tar.gz/f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1:
-    resolution: {tarball: https://codeload.github.com/tec27/long.js/tar.gz/f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1}
+  long@https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41:
+    resolution: {tarball: https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41}
     version: 0.0.0
 
   longest-streak@3.1.0:
@@ -8950,17 +8953,17 @@ packages:
   quick-temp@0.1.8:
     resolution: {integrity: sha512-YsmIFfD9j2zaFwJkzI6eMG7y0lQP7YeWzgtFgNl38pGWZBSXJooZbOWwkcRot7Vt0Fg9L23pX0tqWU3VvLDsiA==}
 
-  rally-point-creator@3.0.0:
-    resolution: {integrity: sha512-JT/2/9SPa0csc73NmL+djknWhoPjjJ2BCKI1fAdDL4/iqrrMDZ3InADm2tTrXf3mIVNb1OoGSKGNUbiWcbhlrA==}
-    engines: {node: '>= 20.0.0'}
+  rally-point-creator@2.2.1:
+    resolution: {integrity: sha512-+hLby1Vh5xvD9WHxyvXB4d8+GQaIYffHWOkEe0y4Z2HSmfkE3BIaKZ5k5vGGM+K3A0vJoPr6iRh3xlXYLSAC6A==}
+    engines: {node: '>= 16.0.0'}
 
-  rally-point-player@3.0.0:
-    resolution: {integrity: sha512-GsFrmq1VmxISt0aMqp9eGOiNF8rwNmpp2LJjFPYb7fXXlvNirAOnE3PY9PIcIkTY6WUSqcv8SInQBIGJXu34xQ==}
-    engines: {node: '>= 20.0.0'}
+  rally-point-player@2.2.1:
+    resolution: {integrity: sha512-DP/f2ywsGBnipx5ZS7Dkayc7f6wKYPhVKjlKrDDVtXwgZrPpaGggzHkbEsrCLDBj/lAWkB3fCNgW2e4dd7syAw==}
+    engines: {node: '>= 16.0.0'}
 
-  rally-point-server@3.0.1:
-    resolution: {integrity: sha512-jc7movc02Vz3UFpXO8E+3Nn0c2TuW8aXJ14ibUZ3zER+tSrV47BVljEWecD+BJigU6wuDGWaYyKjI80YzJ9UtA==}
-    engines: {node: '>= 20.0.0'}
+  rally-point-server@2.2.1:
+    resolution: {integrity: sha512-lRbhzkCcf3qU54rg67OptEeFypLmGDND4uehO1Nfb5Tw+MRtlA/34fgSYHtpW6zDch1c2X61Cd5EJgOZdinPjA==}
+    engines: {node: '>= 16.0.0'}
 
   random-bytes@1.0.0:
     resolution: {integrity: sha512-iv7LhNVO047HzYR3InF6pUcUsPQiHTM1Qal51DcGSuZFBil1aBBWG5eHPNek7bvILMaYJ/8RU1e8w1AMdHmLQQ==}
@@ -13133,7 +13136,7 @@ snapshots:
   '@grpc/proto-loader@0.7.13':
     dependencies:
       lodash.camelcase: 4.3.0
-      long: https://codeload.github.com/tec27/long.js/tar.gz/f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1
+      long: https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41
       protobufjs: 7.4.0
       yargs: 17.7.2
 
@@ -13684,7 +13687,7 @@ snapshots:
     dependencies:
       playwright: 1.47.2
 
-  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.26.1)(webpack-hot-middleware@2.26.1)(webpack@5.95.0(webpack-cli@5.1.4))':
+  '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.26.1)(webpack-hot-middleware@2.26.1)(webpack@5.95.0)':
     dependencies:
       ansi-html: 0.0.9
       core-js-pure: 3.38.1
@@ -15451,17 +15454,17 @@ snapshots:
       '@webassemblyjs/ast': 1.12.1
       '@xtuc/long': 4.2.2
 
-  '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))':
+  '@webpack-cli/configtest@2.1.1(webpack-cli@5.1.4)(webpack@5.95.0)':
     dependencies:
       webpack: 5.95.0(webpack-cli@5.1.4)
       webpack-cli: 5.1.4(webpack@5.95.0)
 
-  '@webpack-cli/info@2.0.2(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))':
+  '@webpack-cli/info@2.0.2(webpack-cli@5.1.4)(webpack@5.95.0)':
     dependencies:
       webpack: 5.95.0(webpack-cli@5.1.4)
       webpack-cli: 5.1.4(webpack@5.95.0)
 
-  '@webpack-cli/serve@2.0.5(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))':
+  '@webpack-cli/serve@2.0.5(webpack-cli@5.1.4)(webpack@5.95.0)':
     dependencies:
       webpack: 5.95.0(webpack-cli@5.1.4)
       webpack-cli: 5.1.4(webpack@5.95.0)
@@ -15629,7 +15632,7 @@ snapshots:
 
   app-builder-bin@5.0.0-alpha.7: {}
 
-  app-builder-lib@25.0.5(dmg-builder@25.0.5(electron-builder-squirrel-windows@25.0.5))(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5)):
+  app-builder-lib@25.0.5(dmg-builder@25.0.5)(electron-builder-squirrel-windows@25.0.5):
     dependencies:
       '@develar/schema-utils': 2.6.5
       '@electron/notarize': 2.3.2
@@ -15869,7 +15872,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  babel-loader@9.2.1(@babel/core@7.25.7)(webpack@5.95.0(webpack-cli@5.1.4)):
+  babel-loader@9.2.1(@babel/core@7.25.7)(webpack@5.95.0):
     dependencies:
       '@babel/core': 7.25.7
       find-cache-dir: 4.0.0
@@ -16299,7 +16302,7 @@ snapshots:
   capital-case@1.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
       upper-case-first: 2.0.2
 
   case-anything@2.1.13: {}
@@ -16345,7 +16348,7 @@ snapshots:
       path-case: 3.0.4
       sentence-case: 3.0.4
       snake-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   char-regex@1.0.2: {}
 
@@ -16631,7 +16634,7 @@ snapshots:
   constant-case@3.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
       upper-case: 2.0.2
 
   constantinople@4.0.1:
@@ -17110,7 +17113,7 @@ snapshots:
 
   dmg-builder@25.0.5(electron-builder-squirrel-windows@25.0.5):
     dependencies:
-      app-builder-lib: 25.0.5(dmg-builder@25.0.5(electron-builder-squirrel-windows@25.0.5))(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5))
+      app-builder-lib: 25.0.5(dmg-builder@25.0.5)(electron-builder-squirrel-windows@25.0.5)
       builder-util: 25.0.3
       builder-util-runtime: 9.2.5
       fs-extra: 10.1.0
@@ -17233,7 +17236,7 @@ snapshots:
 
   electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5):
     dependencies:
-      app-builder-lib: 25.0.5(dmg-builder@25.0.5(electron-builder-squirrel-windows@25.0.5))(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5))
+      app-builder-lib: 25.0.5(dmg-builder@25.0.5)(electron-builder-squirrel-windows@25.0.5)
       archiver: 5.3.2
       builder-util: 25.0.3
       fs-extra: 10.1.0
@@ -17242,9 +17245,9 @@ snapshots:
       - dmg-builder
       - supports-color
 
-  electron-builder@25.0.5(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5)):
+  electron-builder@25.0.5(electron-builder-squirrel-windows@25.0.5):
     dependencies:
-      app-builder-lib: 25.0.5(dmg-builder@25.0.5(electron-builder-squirrel-windows@25.0.5))(electron-builder-squirrel-windows@25.0.5(dmg-builder@25.0.5))
+      app-builder-lib: 25.0.5(dmg-builder@25.0.5)(electron-builder-squirrel-windows@25.0.5)
       builder-util: 25.0.3
       builder-util-runtime: 9.2.5
       chalk: 4.1.2
@@ -18436,7 +18439,7 @@ snapshots:
   header-case@2.0.4:
     dependencies:
       capital-case: 1.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   heimdalljs-logger@0.1.10:
     dependencies:
@@ -18485,7 +18488,7 @@ snapshots:
 
   html-escaper@2.0.2: {}
 
-  html-loader@5.1.0(webpack@5.95.0(webpack-cli@5.1.4)):
+  html-loader@5.1.0(webpack@5.95.0):
     dependencies:
       html-minifier-terser: 7.2.0
       parse5: 7.1.2
@@ -18864,7 +18867,7 @@ snapshots:
 
   is-lower-case@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   is-map@2.0.3: {}
 
@@ -18929,7 +18932,7 @@ snapshots:
 
   is-upper-case@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   is-valid-glob@1.0.0: {}
 
@@ -19900,7 +19903,7 @@ snapshots:
 
   loglevel@1.9.2: {}
 
-  long@https://codeload.github.com/tec27/long.js/tar.gz/f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1: {}
+  long@https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41: {}
 
   longest-streak@3.1.0: {}
 
@@ -19910,11 +19913,11 @@ snapshots:
 
   lower-case-first@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   lower-case@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   lowercase-keys@2.0.0: {}
 
@@ -19986,7 +19989,7 @@ snapshots:
 
   map-cache@0.2.2: {}
 
-  markdown-loader@8.0.0(webpack@5.95.0(webpack-cli@5.1.4)):
+  markdown-loader@8.0.0(webpack@5.95.0):
     dependencies:
       marked: 4.3.0
       webpack: 5.95.0(webpack-cli@5.1.4)
@@ -20990,7 +20993,7 @@ snapshots:
   path-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   path-exists@3.0.0: {}
 
@@ -21403,7 +21406,7 @@ snapshots:
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
       '@types/node': 20.16.10
-      long: https://codeload.github.com/tec27/long.js/tar.gz/f7baf188dd4f437f5d1526dbd5ffa2ba0583d3b1
+      long: https://codeload.github.com/tec27/long.js/tar.gz/9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41
 
   proxy-addr@2.0.7:
     dependencies:
@@ -21542,11 +21545,11 @@ snapshots:
       rimraf: 2.7.1
       underscore.string: 3.3.6
 
-  rally-point-creator@3.0.0: {}
+  rally-point-creator@2.2.1: {}
 
-  rally-point-player@3.0.0: {}
+  rally-point-player@2.2.1: {}
 
-  rally-point-server@3.0.1: {}
+  rally-point-server@2.2.1: {}
 
   random-bytes@1.0.0: {}
 
@@ -22272,7 +22275,7 @@ snapshots:
   sentence-case@3.0.4:
     dependencies:
       no-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
       upper-case-first: 2.0.2
 
   serialize-error@2.1.0: {}
@@ -22409,7 +22412,7 @@ snapshots:
   snake-case@3.0.4:
     dependencies:
       dot-case: 3.0.4
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   socket.io-adapter@2.5.5:
     dependencies:
@@ -22496,7 +22499,7 @@ snapshots:
 
   sponge-case@1.0.1:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   sprintf-js@1.0.3: {}
 
@@ -22753,7 +22756,7 @@ snapshots:
 
   swap-case@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   symbol-tree@3.2.4: {}
 
@@ -22838,7 +22841,7 @@ snapshots:
     dependencies:
       rimraf: 2.6.3
 
-  terser-webpack-plugin@5.3.10(webpack@5.95.0(webpack-cli@5.1.4)):
+  terser-webpack-plugin@5.3.10(webpack@5.95.0):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.25
       jest-worker: 27.5.1
@@ -22901,7 +22904,7 @@ snapshots:
 
   title-case@3.0.3:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   tmp-promise@3.0.3:
     dependencies:
@@ -23180,11 +23183,11 @@ snapshots:
 
   upper-case-first@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   upper-case@2.0.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.6.3
 
   uri-js@4.4.1:
     dependencies:
@@ -23349,9 +23352,9 @@ snapshots:
   webpack-cli@5.1.4(webpack@5.95.0):
     dependencies:
       '@discoveryjs/json-ext': 0.5.7
-      '@webpack-cli/configtest': 2.1.1(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))
-      '@webpack-cli/info': 2.0.2(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))
-      '@webpack-cli/serve': 2.0.5(webpack-cli@5.1.4(webpack@5.95.0))(webpack@5.95.0(webpack-cli@5.1.4))
+      '@webpack-cli/configtest': 2.1.1(webpack-cli@5.1.4)(webpack@5.95.0)
+      '@webpack-cli/info': 2.0.2(webpack-cli@5.1.4)(webpack@5.95.0)
+      '@webpack-cli/serve': 2.0.5(webpack-cli@5.1.4)(webpack@5.95.0)
       colorette: 2.0.20
       commander: 10.0.1
       cross-spawn: 7.0.3
@@ -23363,7 +23366,7 @@ snapshots:
       webpack: 5.95.0(webpack-cli@5.1.4)
       webpack-merge: 5.10.0
 
-  webpack-dev-middleware@7.4.2(webpack@5.95.0(webpack-cli@5.1.4)):
+  webpack-dev-middleware@7.4.2(webpack@5.95.0):
     dependencies:
       colorette: 2.0.20
       memfs: 4.12.0
@@ -23410,7 +23413,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 3.3.0
       tapable: 2.2.1
-      terser-webpack-plugin: 5.3.10(webpack@5.95.0(webpack-cli@5.1.4))
+      terser-webpack-plugin: 5.3.10(webpack@5.95.0)
       watchpack: 2.4.2
       webpack-sources: 3.2.3
     optionalDependencies:
