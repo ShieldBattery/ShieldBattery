@@ -3,7 +3,7 @@ import { animated } from '@react-spring/web'
 import React, { useCallback, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import { Opaque } from 'type-fest'
+import { Tagged } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
@@ -18,7 +18,7 @@ import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
 
-export type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
+export type PopoverOpenState = Tagged<boolean, 'PopoverOpenState'>
 
 const OPENING_EVENTS = new WeakSet<Event>()
 

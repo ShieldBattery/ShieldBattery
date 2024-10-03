@@ -1,4 +1,4 @@
-import { Opaque } from 'type-fest'
+import { Tagged } from 'type-fest'
 import { Jsonify } from '../json'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { RaceStats } from '../races'
@@ -10,7 +10,7 @@ export const LEAGUE_BADGE_WIDTH = 80 * 4
 export const LEAGUE_BADGE_HEIGHT = 80 * 4
 
 /** The ID of a league as stored in the database. */
-export type LeagueId = Opaque<string, 'LeagueId'>
+export type LeagueId = Tagged<string, 'LeagueId'>
 
 /**
  * Converts a league ID string to a properly typed version. Prefer better ways of getting a typed

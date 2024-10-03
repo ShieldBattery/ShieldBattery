@@ -1,4 +1,4 @@
-import { Opaque } from 'type-fest'
+import { Tagged } from 'type-fest'
 import { GameRecordJson } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
@@ -11,7 +11,7 @@ import { UserStats } from './user-stats'
 
 export const SEARCH_MATCH_HISTORY_LIMIT = 40
 
-export type SbUserId = Opaque<number, 'SbUser'>
+export type SbUserId = Tagged<number, 'SbUser'>
 
 /**
  * Information about any user in the system, mainly things that represent the "identity" of the

@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { Opaque, SetRequired, Simplify } from 'type-fest'
+import { SetRequired, Simplify, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './game-launch-config'
@@ -327,7 +327,7 @@ export function arePointsConverged(rating: number, points: number): boolean {
 /** How many matches a user must play before we calculate a division for them. */
 export const NUM_PLACEMENT_MATCHES = 5
 
-export type SeasonId = Opaque<number, 'SeasonId'>
+export type SeasonId = Tagged<number, 'SeasonId'>
 
 /**
  * Converts a season ID number into a properly typed version. Alternative methods of retrieving a

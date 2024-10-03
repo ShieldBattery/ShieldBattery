@@ -1,4 +1,4 @@
-import { Opaque } from 'type-fest'
+import { Tagged } from 'type-fest'
 import { Jsonify } from './json'
 import { Patch } from './patch'
 import { SbUser, SbUserId } from './users/sb-user'
@@ -13,7 +13,7 @@ export const MAXIMUM_OWNED_CHANNELS = 20
 
 export const SEARCH_CHANNELS_LIMIT = 40
 
-export type SbChannelId = Opaque<number, 'SbChannelId'>
+export type SbChannelId = Tagged<number, 'SbChannelId'>
 
 /**
  * Converts a channel ID number into a properly typed version. Alternative methods of retrieving an

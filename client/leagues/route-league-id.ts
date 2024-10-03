@@ -1,4 +1,4 @@
-import { Opaque } from 'type-fest'
+import { Tagged } from 'type-fest'
 import { LeagueId } from '../../common/leagues'
 import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
 
@@ -6,7 +6,7 @@ import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
  * The ID of a league as used in routes (equivalent to the DB one, just encoded in a way that
  * looks more friendly in URLs).
  */
-export type RouteLeagueId = Opaque<string, 'RouteLeagueId'>
+export type RouteLeagueId = Tagged<string, 'RouteLeagueId'>
 
 export function toRouteLeagueId(id: LeagueId): RouteLeagueId {
   return encodePrettyId(id) as RouteLeagueId
