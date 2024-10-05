@@ -131,10 +131,12 @@ function ConnectedUserContextMenuContents({
 
   const onViewProfileClick = useStableCallback(() => {
     navigateToUserProfile(user!.id, user!.name)
+    onDismiss()
   })
 
   const onWhisperClick = useStableCallback(() => {
     navigateToWhisper(user!.id, user!.name)
+    onDismiss()
   })
 
   const onInviteToPartyClick = useStableCallback(() => {

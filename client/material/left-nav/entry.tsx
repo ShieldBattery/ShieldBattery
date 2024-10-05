@@ -5,7 +5,7 @@ import { amberA200 } from '../../styles/colors'
 import { body2, singleLine } from '../../styles/typography'
 import AttentionIndicator from './attention-indicator'
 
-const Container = styled.li<{ $isActive: boolean }>`
+const Container = styled.li<{ $isCurrentPath: boolean; $isActive?: boolean }>`
   position: relative;
   height: 36px;
   margin: 0;
@@ -15,9 +15,10 @@ const Container = styled.li<{ $isActive: boolean }>`
   justify-content: space-between;
   align-items: center;
 
-  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+  background-color: ${props =>
+    props.$isCurrentPath || props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent'};
   line-height: 36px;
-  color: ${props => (props.$isActive ? amberA200 : 'currentColor')};
+  color: ${props => (props.$isCurrentPath ? amberA200 : 'currentColor')};
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.12);
@@ -59,7 +60,9 @@ export interface EntryProps {
   title?: string
   button?: React.ReactNode
   needsAttention?: boolean
+  isActive?: boolean
   className?: string
+  onContextMenu?: (event: React.MouseEvent) => void
 }
 
 // TODO(2Pac): Try to rework this component to make it more customizable, so it could be used in all
@@ -72,14 +75,20 @@ export function Entry({
   title,
   button,
   needsAttention,
+  isActive,
   className,
   children,
+  onContextMenu,
 }: EntryProps) {
-  const isActive = link.toLowerCase() === currentPath.toLowerCase()
+  const isCurrentPath = link.toLowerCase() === currentPath.toLowerCase()
 
   // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
   return (
-    <Container $isActive={isActive} className={className}>
+    <Container
+      $isCurrentPath={isCurrentPath}
+      $isActive={isActive}
+      className={className}
+      onContextMenu={onContextMenu}>
       {needsAttention ? <AttentionIndicator /> : null}
       <EntryLink to={link} title={title}>
         {children}
