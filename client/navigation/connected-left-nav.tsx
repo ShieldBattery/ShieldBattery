@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
@@ -48,11 +48,11 @@ import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline, singleLine } from '../styles/typography'
-import { getBatchUserInfo, navigateToUserProfile } from '../users/action-creators'
+import { navigateToUserProfile } from '../users/action-creators'
 import ProfileNavEntry from '../users/nav-entry'
 import { SelfProfileOverlay } from '../users/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
-import { WhisperNavEntry } from '../whispers/nav-entry'
+import { ConnectedWhisperNavEntry } from '../whispers/nav-entry'
 import Lockup from './lockup'
 import { push } from './routing'
 
@@ -371,34 +371,6 @@ function ConnectedChatNavEntry({
       currentPath={pathname}
       hasUnread={hasUnread}
       onLeave={onLeave}
-    />
-  )
-}
-
-function ConnectedWhisperNavEntry({
-  userId,
-  onClose,
-}: {
-  userId: SbUserId
-  onClose: (userId: SbUserId) => void
-}) {
-  const dispatch = useAppDispatch()
-  const username = useAppSelector(s => s.users.byId.get(userId)?.name)
-  const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
-  const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
-  const [pathname] = useLocation()
-
-  useEffect(() => {
-    dispatch(getBatchUserInfo(userId))
-  }, [dispatch, userId])
-
-  return isBlocked ? null : (
-    <WhisperNavEntry
-      userId={userId}
-      username={username}
-      currentPath={pathname}
-      hasUnread={hasUnread}
-      onClose={onClose}
     />
   )
 }
