@@ -108,7 +108,9 @@ export function matchmakingRatingToPlayerData({
   }
 }
 
-export function isMatchmakingParty(entity: MatchmakingEntity): entity is MatchmakingParty {
+export function isMatchmakingParty(
+  entity: Immutable<MatchmakingEntity>,
+): entity is Immutable<MatchmakingParty> {
   return 'players' in entity
 }
 

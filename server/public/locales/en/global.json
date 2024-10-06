@@ -767,6 +767,7 @@
         "somethingWentWrong": "Something went wrong :("
       },
       "mapPool": "Map pool",
+      "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
       "points": "Points",
       "race": "Race",
       "rating": "Rating",
@@ -807,6 +808,7 @@
     },
     "type": {
       "1v1": "1v1",
+      "1v1_fastest": "1v1 Fastest",
       "2v2": "2v2",
       "3v3": "3v3"
     }

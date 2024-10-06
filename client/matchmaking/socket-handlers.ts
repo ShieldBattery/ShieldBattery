@@ -205,7 +205,12 @@ const eventToAction: EventToActionMap = {
       name: slot.name,
       race: slot.race,
       playerId: slot.playerId,
-      teamId: event.matchmakingType === MatchmakingType.Match1v1 || i < teamSize ? 0 : 1,
+      teamId:
+        event.matchmakingType === MatchmakingType.Match1v1 ||
+        event.matchmakingType === MatchmakingType.Match1v1Fastest ||
+        i < teamSize
+          ? 0
+          : 1,
       type: slot.type,
       typeId: slot.typeId,
       userId: slot.userId,
@@ -221,10 +226,10 @@ const eventToAction: EventToActionMap = {
         name: 'Matchmaking game',
         map: event.chosenMap,
         gameType:
-          event.matchmakingType === MatchmakingType.Match1v1
-            ? GameType.OneVsOne
-            : GameType.TopVsBottom,
-        gameSubType: event.matchmakingType === MatchmakingType.Match1v1 ? 0 : teamSize,
+          event.matchmakingType === MatchmakingType.Match2v2
+            ? GameType.TopVsBottom
+            : GameType.OneVsOne,
+        gameSubType: event.matchmakingType === MatchmakingType.Match2v2 ? teamSize : 0,
         slots,
         host: slots[0], // Arbitrarily set first player as host
         disableAllianceChanges: true,

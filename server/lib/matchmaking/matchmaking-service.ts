@@ -9,7 +9,7 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
-import { subtract } from '../../../common/data-structures/sets'
+import { intersection, subtract } from '../../../common/data-structures/sets'
 import { GameRoute } from '../../../common/game-launch-config'
 import {
   GameConfig,
@@ -22,6 +22,7 @@ import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
+  hasVetoes,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
   MatchmakingEvent,
@@ -51,6 +52,7 @@ import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
+  isMatchmakingParty,
   MatchmakingEntity,
   MatchmakingParty,
   MatchmakingPlayer,
@@ -235,45 +237,56 @@ async function pickMap(
     )
   }
 
-  // TODO(tec27): Handle parties in 2v2: only the leader's selections should be used
-
-  // The algorithm for selecting maps is:
-  // 1) All players' map selections are treated as vetoes, and removed from the available map pool.
-  //    We also track how many times each map was vetoed.
-  // 2a) If any maps are remaining, select a random map from the remaining ones
-  // 2b) If no maps are remaining, select a random map from the least vetoed maps
-
   const fullMapPool = new Set(currentMapPool.maps)
-  const vetoCount = new Map<string, number>()
   let mapPool = fullMapPool
-  for (const e of entities) {
-    let mapSelections: ReadonlyArray<string>
-    if ('players' in e) {
-      mapSelections = e.players.find(p => p.id === e.leaderId)!.mapSelections
-    } else {
-      mapSelections = e.mapSelections
-    }
-    mapPool = subtract(mapPool, mapSelections)
-    for (const map of mapSelections) {
-      vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
-    }
-  }
+  if (hasVetoes(matchmakingType)) {
+    // The algorithm for selecting maps in a veto system is:
+    // 1) All players' map selections are treated as vetoes, and removed from the available map
+    //    pool. We also track how many times each map was vetoed.
+    // 2a) If any maps are remaining, select a random map from the remaining ones
+    // 2b) If no maps are remaining, select a random map from the least vetoed maps
 
-  if (!mapPool.size) {
-    // All available maps were vetoed, create a final pool from the least vetoed maps
-    // NOTE(tec27): We know since the whole pool was vetoed, each map in the pool will have an entry
-    // here, even though we didn't initialize the Map directly
-    const sortedByVetoCount = Array.from(vetoCount.entries()).sort((a, b) => a[1] - b[1])
-    const leastVetoCount = sortedByVetoCount[0][1]
-    let lastElem = 1
-    while (
-      lastElem < sortedByVetoCount.length &&
-      sortedByVetoCount[lastElem][1] <= leastVetoCount
-    ) {
-      lastElem += 1
+    const vetoCount = new Map<string, number>()
+    for (const e of entities) {
+      let mapSelections: ReadonlyArray<string>
+      if (isMatchmakingParty(e)) {
+        mapSelections = e.players.find(p => p.id === e.leaderId)!.mapSelections
+      } else {
+        mapSelections = e.mapSelections
+      }
+      mapPool = subtract(mapPool, mapSelections)
+      for (const map of mapSelections) {
+        vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
+      }
     }
 
-    mapPool = new Set(sortedByVetoCount.slice(0, lastElem).map(e => e[0]))
+    if (!mapPool.size) {
+      // All available maps were vetoed, create a final pool from the least vetoed maps
+      // NOTE(tec27): We know since the whole pool was vetoed, each map in the pool will have an
+      // entry here, even though we didn't initialize the Map directly
+      const sortedByVetoCount = Array.from(vetoCount.entries()).sort((a, b) => a[1] - b[1])
+      const leastVetoCount = sortedByVetoCount[0][1]
+      let lastElem = 1
+      while (
+        lastElem < sortedByVetoCount.length &&
+        sortedByVetoCount[lastElem][1] <= leastVetoCount
+      ) {
+        lastElem += 1
+      }
+
+      mapPool = new Set(sortedByVetoCount.slice(0, lastElem).map(e => e[0]))
+    }
+  } else {
+    // For a positive map selection system, we just intersect all players' map selections to find
+    // the pool
+    for (const e of entities) {
+      const mapSelections = new Set(
+        isMatchmakingParty(e)
+          ? e.players.find(p => p.id === e.leaderId)!.mapSelections
+          : e.mapSelections,
+      )
+      mapPool = intersection(mapPool, mapSelections)
+    }
   }
 
   const chosenMapId = randomItem(Array.from(mapPool))
@@ -942,10 +955,7 @@ export class MatchmakingService {
       )
     }
 
-    if (match.type === MatchmakingType.Match1v1) {
-      // NOTE(tec27): Type inference here is kinda bad, it should know that Match is a Match1v1 at
-      // this point and thus preferenceData has certain things, but it doesn't =/
-
+    if (match.type === MatchmakingType.Match1v1 || match.type === MatchmakingType.Match1v1Fastest) {
       const firstPlayer = players[0]
       // NOTE(tec27): alternate race selection is not available for random users. We block this
       // from being set elsewhere, but ignore it here just in case
@@ -1010,6 +1020,7 @@ export class MatchmakingService {
     let gameSourceExtra: MatchmakingExtra
     switch (match.type) {
       case MatchmakingType.Match1v1:
+      case MatchmakingType.Match1v1Fastest:
         gameSourceExtra = {
           type: match.type,
         }
@@ -1024,9 +1035,26 @@ export class MatchmakingService {
         gameSourceExtra = assertUnreachable(match.type)
     }
 
+    let gameType: GameType
+    let gameSubType: number
+    switch (match.type) {
+      case MatchmakingType.Match1v1:
+      case MatchmakingType.Match1v1Fastest:
+        gameType = GameType.OneVsOne
+        gameSubType = 0
+        break
+      case MatchmakingType.Match2v2:
+        gameType = GameType.TopVsBottom
+        gameSubType = TEAM_SIZES[match.type]
+        break
+      default:
+        gameType = assertUnreachable(match.type)
+        gameSubType = 0
+    }
+
     const gameConfig: GameConfig = {
-      gameType: match.type === MatchmakingType.Match1v1 ? GameType.OneVsOne : GameType.TopVsBottom,
-      gameSubType: match.type === MatchmakingType.Match1v1 ? 0 : TEAM_SIZES[match.type],
+      gameType,
+      gameSubType,
       gameSource: GameSource.Matchmaking,
       gameSourceExtra,
       teams,

@@ -371,7 +371,10 @@ export default class GameResultService {
         } = gameRecord
 
         let teams: [teamA: SbUserId[], teamB: SbUserId[]]
-        if (gameSourceExtra.type === MatchmakingType.Match1v1) {
+        if (
+          gameSourceExtra.type === MatchmakingType.Match1v1 ||
+          gameSourceExtra.type === MatchmakingType.Match1v1Fastest
+        ) {
           teams = [[userIds[0]], [userIds[1]]]
         } else if (gameSourceExtra.type === MatchmakingType.Match2v2) {
           // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation

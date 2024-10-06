@@ -19,7 +19,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
-import { filterVetoedMaps } from '../matchmaking/map-vetoes'
+import { filterMapSelections } from '../matchmaking/map-vetoes'
 import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -315,7 +315,7 @@ export class PartyApi {
 
     await this.partyService.findMatch(partyId, ctx.session!.user!.id, identifiers, {
       ...preferences,
-      mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
+      mapSelections: filterMapSelections(currentMapPool, preferences.mapSelections),
     })
   }
 

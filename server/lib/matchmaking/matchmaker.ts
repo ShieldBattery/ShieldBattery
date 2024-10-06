@@ -2,7 +2,8 @@ import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
 import { Gauge } from 'prom-client'
 import { injectable } from 'tsyringe'
-import { MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
+import { intersection } from '../../../common/data-structures/sets'
+import { hasVetoes, MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
 import { multipleRandomItems, randomItem } from '../../../common/random'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
@@ -11,13 +12,13 @@ import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
 import {
-  MatchmakingEntity,
-  MatchmakingInterval,
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
   isMatchmakingParty,
   isNewPlayer,
+  MatchmakingEntity,
+  MatchmakingInterval,
 } from './matchmaking-entity'
 
 /** How often to run the matchmaker 'find match' process. */
@@ -236,13 +237,33 @@ function getTotalPlayersInPotentials(potentials: Readonly<QueuedMatchmakingEntit
   return potentials.reduce((total, entity) => total + getNumPlayersInEntity(entity), 0)
 }
 
-export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, entity, potentials) => {
+export const DEFAULT_MATCH_CHOOSER: MatchChooser = (
+  teamSize,
+  requireOverlappingMaps,
+  entity,
+  potentials,
+) => {
   const neededPlayers = teamSize * 2 - getNumPlayersInEntity(entity)
 
   const entityRating = getRatingFromEntity(entity)
   let filtered = potentials.filter(
     p => p.interval.low <= entityRating && entityRating <= p.interval.high,
   )
+
+  // If overlapping maps are required, filter out any players/parties that don't have overlapping
+  // maps.
+  if (requireOverlappingMaps) {
+    const entityMaps = isMatchmakingParty(entity)
+      ? new Set(entity.players.find(p => p.id === entity.leaderId)!.mapSelections)
+      : new Set(entity.mapSelections)
+    filtered = potentials.filter(p => {
+      const pMaps = isMatchmakingParty(p)
+        ? new Set(p.players.find(e => e.id === p.leaderId)!.mapSelections)
+        : new Set(p.mapSelections)
+      return intersection(entityMaps, pMaps).size > 0
+    })
+  }
+
   if (getTotalPlayersInPotentials(filtered) < neededPlayers) {
     // Not enough players in this player's search range
     return []
@@ -346,6 +367,7 @@ export type OnMatchFoundFunc = (
  */
 type MatchChooser = (
   teamSize: number,
+  requireOverlappingMaps: boolean,
   entity: Readonly<QueuedMatchmakingEntity>,
   potentialPlayers: Readonly<QueuedMatchmakingEntity>[],
 ) => MatchedTeams | []
@@ -376,6 +398,12 @@ export class Matchmaker {
     throw new Error('onMatchFound function must be set before use!')
   }
   private matchChooser: MatchChooser = DEFAULT_MATCH_CHOOSER
+  /**
+   * If true, the matchmaker will only match players that have at least one overlapping map in their
+   * map selections. This is generally used for matchmaking with positive map selections (e.g. "I
+   * want to play on these maps") rather than vetoes.
+   */
+  private requireOverlappingMaps = false
 
   constructor(private scheduler: LazyScheduler) {
     if (!Matchmaker.queueSizeMetric) {
@@ -421,6 +449,7 @@ export class Matchmaker {
   setMatchmakingType(matchmakingType: MatchmakingType): this {
     this.matchmakingType = matchmakingType
     this.teamSize = TEAM_SIZES[matchmakingType]
+    this.requireOverlappingMaps = !hasVetoes(matchmakingType)
     return this
   }
 
@@ -596,7 +625,12 @@ export class Matchmaker {
 
       let teamA, teamB: Array<Readonly<QueuedMatchmakingEntity>> | undefined
       if (results.length > 0) {
-        ;[teamA, teamB] = this.matchChooser(this.teamSize, entity, results)
+        ;[teamA, teamB] = this.matchChooser(
+          this.teamSize,
+          this.requireOverlappingMaps,
+          entity,
+          results,
+        )
       }
 
       if (teamA && teamB) {

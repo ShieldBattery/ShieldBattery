@@ -53,7 +53,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const player = createPlayer()
     const opponent = createPlayer({ name: 'ReallyBadDude' })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([[player], [opponent]])
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [opponent])).toEqual([[player], [opponent]])
   })
 
   test("1v1 - shouldn't return any opponents if they don't have the player in their range", () => {
@@ -64,7 +64,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
       interval: { low: 1310, high: 1490 },
     })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([])
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [opponent])).toEqual([])
   })
 
   test('1v1 - should pick the only new opponent if player is new', () => {
@@ -72,7 +72,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const newOpponent = createPlayer({ name: 'SuperChoboNewbie' })
     const oldOpponent = createPlayer({ name: 'GrizzledVet', numGamesPlayed: 9001 })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [oldOpponent, newOpponent])).toEqual([
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [oldOpponent, newOpponent])).toEqual([
       [player],
       [newOpponent],
     ])
@@ -83,7 +83,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const newOpponent = createPlayer({ name: 'SuperChoboNewbie' })
     const oldOpponent = createPlayer({ name: 'GrizzledVet', numGamesPlayed: 9001 })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [oldOpponent, newOpponent])).toEqual([
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [oldOpponent, newOpponent])).toEqual([
       [player],
       [oldOpponent],
     ])
@@ -99,7 +99,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     })
 
     expect(
-      DEFAULT_MATCH_CHOOSER(1, player, [
+      DEFAULT_MATCH_CHOOSER(1, false, player, [
         waitingABitOpponent,
         justJoinedOpponent,
         dyingOfOldAgeOpponent,
@@ -113,7 +113,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const gettingWarmer = createPlayer({ name: 'WarmPerson', rating: 1600 })
     const pickThis = createPlayer({ name: 'PickMePickMe', rating: 1730 })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, gettingWarmer, pickThis])).toEqual([
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [kindaFar, gettingWarmer, pickThis])).toEqual([
       [player],
       [pickThis],
     ])
@@ -125,7 +125,8 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const pickThis = createPlayer({ name: 'PickMe', rating: 1670 })
     const orThis = createPlayer({ name: 'OrMe', rating: 1730 })
 
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, pickThis, orThis])).toMatchInlineSnapshot(`
+    expect(DEFAULT_MATCH_CHOOSER(1, false, player, [kindaFar, pickThis, orThis]))
+      .toMatchInlineSnapshot(`
       [
         [
           "PLAYER 1 'tec27' @ 1700 mmr",
@@ -143,7 +144,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const p2 = createPlayer({ name: 'ReallyBadDude2' })
     const p3 = createPlayer({ name: 'ReallyBadDude3' })
 
-    expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3])).toMatchInlineSnapshot(`
+    expect(DEFAULT_MATCH_CHOOSER(2, false, player, [p1, p2, p3])).toMatchInlineSnapshot(`
       [
         [
           "PLAYER 1 'tec27' @ 1500 mmr",
@@ -168,7 +169,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const p7 = createPlayer({ name: 'ReallyBadDude7' })
     const p8 = createPlayer({ name: 'ReallyBadDude8' })
 
-    expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3, p4, p5, p6, p7, p8]))
+    expect(DEFAULT_MATCH_CHOOSER(2, false, player, [p1, p2, p3, p4, p5, p6, p7, p8]))
       .toMatchInlineSnapshot(`
       [
         [
@@ -201,7 +202,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
       interval: { low: 400, high: 2400 },
     })
 
-    expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, lowSkill, midSkill2]))
+    expect(DEFAULT_MATCH_CHOOSER(2, false, player, [midSkill, lowSkill, midSkill2]))
       .toMatchInlineSnapshot(`
       [
         [
@@ -216,7 +217,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     `)
     // NOTE(tec27): We throw some different orderings in here just to make sure it's picking based
     // on optimal rating difference, not order
-    expect(DEFAULT_MATCH_CHOOSER(2, player, [lowSkill, midSkill, midSkill2]))
+    expect(DEFAULT_MATCH_CHOOSER(2, false, player, [lowSkill, midSkill, midSkill2]))
       .toMatchInlineSnapshot(`
       [
         [
@@ -229,7 +230,7 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
         ],
       ]
     `)
-    expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, midSkill2, lowSkill]))
+    expect(DEFAULT_MATCH_CHOOSER(2, false, player, [midSkill, midSkill2, lowSkill]))
       .toMatchInlineSnapshot(`
       [
         [
@@ -242,5 +243,29 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
         ],
       ]
     `)
+  })
+
+  test("1v1 fastest - shouldn't return any opponents if they don't have overlapping maps", () => {
+    const player = createPlayer({
+      mapSelections: ['map1'],
+    })
+    const opponent = createPlayer({
+      name: 'ReallyBadDude',
+      mapSelections: ['map2'],
+    })
+
+    expect(DEFAULT_MATCH_CHOOSER(1, true, player, [opponent])).toEqual([])
+  })
+
+  test('1v1 fastest - should return opponent with matching rating and maps', () => {
+    const player = createPlayer({
+      mapSelections: ['map1', 'map2'],
+    })
+    const opponent = createPlayer({
+      name: 'ReallyBadDude',
+      mapSelections: ['map2', 'map3'],
+    })
+
+    expect(DEFAULT_MATCH_CHOOSER(1, true, player, [opponent])).toEqual([[player], [opponent]])
   })
 })

@@ -4,7 +4,12 @@ import React, { useCallback } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MapVisibility } from '../../common/maps'
-import { MatchmakingType } from '../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  hasVetoes,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+} from '../../common/matchmaking'
 import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
@@ -159,6 +164,7 @@ export class MapPoolEditor extends React.Component {
     onSearchClick: PropTypes.func.isRequired,
     onLoadMoreMaps: PropTypes.func.isRequired,
     onCreate: PropTypes.func.isRequired,
+    hasVetoes: PropTypes.bool,
   }
 
   state = {
@@ -265,12 +271,16 @@ export class MapPoolEditor extends React.Component {
         ) : (
           <p>Use the search above to find maps and select them to be used in the map pool</p>
         )}
-        <SectionTitle>Maximum veto count</SectionTitle>
-        <NumberTextField
-          dense={true}
-          value={this.state.maxVetoCount}
-          onChange={this.onMaxVetoCountChange}
-        />
+        {this.props.hasVetoes ? (
+          <>
+            <SectionTitle>Maximum veto count</SectionTitle>
+            <NumberTextField
+              dense={true}
+              value={this.state.maxVetoCount}
+              onChange={this.onMaxVetoCountChange}
+            />
+          </>
+        ) : undefined}
         <SectionTitle>Start date</SectionTitle>
         <p>Choose a date and time (in your local timezone) when the map pool will start</p>
         <DateInputContainer>
@@ -355,7 +365,7 @@ export class MapPoolEditor extends React.Component {
   onCreate = () => {
     this.props.onCreate(
       this.state.maps.keySeq().toArray(),
-      this.state.maxVetoCount,
+      this.props.hasVetoes ? this.state.maxVetoCount : 0,
       Date.parse(this.state.startDate),
     )
     this.setState({ maps: new OrderedMap(), startDate: '' })
@@ -522,8 +532,9 @@ export default class MapPools extends React.Component {
     return (
       <Container>
         <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
+          {ALL_MATCHMAKING_TYPES.map(type => (
+            <TabItem key={type} text={matchmakingTypeToLabel(type)} value={type} />
+          ))}
         </StyledTabs>
         <h3>Create a new map pool</h3>
         <MapPoolEditor
@@ -532,6 +543,7 @@ export default class MapPools extends React.Component {
           onSearchClick={this.onSearchClick}
           onLoadMoreMaps={this.onLoadMoreMaps}
           onCreate={this.onCreateNewMapPool}
+          hasVetoes={hasVetoes(activeTab)}
         />
         <h3>Map pool history</h3>
         <MapPoolHistory

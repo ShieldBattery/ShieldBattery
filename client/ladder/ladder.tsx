@@ -251,6 +251,10 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
               value={MatchmakingType.Match1v1}
             />
             <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, t)}
+              value={MatchmakingType.Match1v1Fastest}
+            />
+            <TabItem
               text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}
               value={MatchmakingType.Match2v2}
             />

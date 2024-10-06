@@ -15,6 +15,7 @@ import {
   amberA400,
   colorDividers,
   colorNegative,
+  colorPositive,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
@@ -76,11 +77,11 @@ export const MapSelections = styled.div`
   grid-template-columns: repeat(auto-fill, ${MAP_THUMB_SIZE_PX}px);
 `
 
-export const SelectableMap = styled.div<{ $vetoed?: boolean; $disabled?: boolean }>`
+export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boolean }>`
   ${shadow4dp};
 
-  --sb-selectable-map-border: ${props => (props.$vetoed ? colorNegative : colorDividers)};
-  --sb-map-thumbnail-selected-color: ${colorNegative};
+  --sb-selectable-map-border: ${props =>
+    props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : colorDividers};
   --sb-map-thumbnail-selected-icon-size: 48px;
 
   width: ${MAP_THUMB_SIZE_PX}px;
@@ -120,16 +121,18 @@ const VetoStatusValue = styled.span<{ $exhausted: boolean }>`
 
 interface ConnectedSelectableMapProps {
   mapId: string
-  isVetoed: boolean
+  isSelected: boolean
+  selectedIcon: React.ReactNode
   onClick: (mapId: string) => void
   disabled?: boolean
 }
 
 function ConnectedSelectableMap({
   mapId,
-  isVetoed,
+  isSelected: isVetoed,
   onClick,
   disabled,
+  selectedIcon,
 }: ConnectedSelectableMapProps) {
   const dispatch = useAppDispatch()
   const map = useAppSelector(s => s.maps2.byId.get(mapId))
@@ -146,7 +149,7 @@ function ConnectedSelectableMap({
   // TODO(tec27): allow these to be keyboard focused and vetoed via keypress
 
   return (
-    <SelectableMap $vetoed={isVetoed} $disabled={disabled}>
+    <SelectableMap $selected={isVetoed} $disabled={disabled}>
       {map ? (
         <MapThumbnail
           map={map}
@@ -155,7 +158,7 @@ function ConnectedSelectableMap({
           size={MAP_THUMB_SIZE_PX}
           isSelected={isVetoed}
           onClick={handleClick}
-          selectedIcon={<MaterialIcon icon='thumb_down' size={48} />}
+          selectedIcon={selectedIcon}
         />
       ) : null}
     </SelectableMap>
@@ -203,12 +206,13 @@ export function MapVetoesControl({
   const vetoesLeft = mapPool.maxVetoCount - (value?.length ?? 0)
   return (
     <div className={className}>
-      <MapSelections>
+      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorNegative } as any}>
         {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}
             mapId={id}
-            isVetoed={value?.includes(id) ?? false}
+            isSelected={value?.includes(id) ?? false}
+            selectedIcon={<MaterialIcon icon='thumb_down' size={48} />}
             onClick={onClick}
             disabled={disabled}
           />
@@ -256,5 +260,51 @@ export function VetoDescriptionText({
         maps.
       </Trans>
     </DescriptionText>
+  )
+}
+
+/** Control for doing positive map selection (e.g. "I want to play on these specific maps"). */
+export function MapSelectionControl({
+  onChange,
+  value,
+  mapPool,
+  disabled,
+  className,
+}: MapVetoesControlProps) {
+  const onChangeRef = useValueAsRef(onChange)
+  const valueRef = useValueAsRef(value)
+  const onClick = useCallback(
+    (id: string) => {
+      const newValue = [...(valueRef.current ?? [])]
+      for (let i = 0; i < newValue.length; i++) {
+        if (newValue[i] === id) {
+          newValue.splice(i, 1)
+          onChangeRef.current(newValue)
+          return
+        }
+      }
+
+      // value wasn't in the list, add it
+      newValue.push(id)
+      onChangeRef.current(newValue)
+    },
+    [onChangeRef, valueRef],
+  )
+
+  return (
+    <div className={className}>
+      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorPositive } as any}>
+        {mapPool?.maps.map(id => (
+          <ConnectedSelectableMap
+            key={id}
+            mapId={id}
+            isSelected={value?.includes(id) ?? false}
+            selectedIcon={<MaterialIcon icon='thumb_up' size={48} />}
+            onClick={onClick}
+            disabled={disabled}
+          />
+        ))}
+      </MapSelections>
+    </div>
   )
 }

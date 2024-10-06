@@ -2,7 +2,11 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { MatchmakingType } from '../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+} from '../../common/matchmaking'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -275,8 +279,9 @@ export default class MatchmakingTimes extends React.Component {
     return (
       <Container>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
+          {ALL_MATCHMAKING_TYPES.map(type => (
+            <TabItem key={type} text={matchmakingTypeToLabel(type)} value={type} />
+          ))}
         </Tabs>
         <h3>Add a new matchmaking time</h3>
         <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>

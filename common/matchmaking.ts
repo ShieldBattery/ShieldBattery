@@ -15,6 +15,7 @@ import { SbUserId } from './users/sb-user'
  */
 export enum MatchmakingType {
   Match1v1 = '1v1',
+  Match1v1Fastest = '1v1fastest',
   Match2v2 = '2v2',
 }
 
@@ -24,11 +25,21 @@ export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): str
   switch (type) {
     case MatchmakingType.Match1v1:
       return t ? t('matchmaking.type.1v1', '1v1') : '1v1'
+    case MatchmakingType.Match1v1Fastest:
+      return t ? t('matchmaking.type.1v1_fastest', '1v1 Fastest') : '1v1 Fastest'
     case MatchmakingType.Match2v2:
       return t ? t('matchmaking.type.2v2', '2v2') : '2v2'
     default:
       return assertUnreachable(type)
   }
+}
+
+/**
+ * Returns whether or not a given `MatchmakingType` has vetoes (versus positive map selections,
+ * e.g. select the maps you want to play on).
+ */
+export function hasVetoes(type: MatchmakingType): boolean {
+  return type !== MatchmakingType.Match1v1Fastest
 }
 
 /**
@@ -366,6 +377,7 @@ export const MATCHMAKING_BONUS_EARNED_PER_MS = 200 / (7 * 24 * 60 * 60 * 1000) /
  */
 export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
   [MatchmakingType.Match1v1]: 1,
+  [MatchmakingType.Match1v1Fastest]: 1,
   [MatchmakingType.Match2v2]: 2,
 }
 
@@ -540,12 +552,22 @@ export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
   Record<string, never>
 >
 
+// NOTE(tec27): At the moment we can share the data between 1v1 and 1v1Fastest but if need be we
+// could use a separate data type
+export type MatchmakingPreferences1v1Fastest = BaseMatchmakingPreferences<
+  MatchmakingType.Match1v1Fastest,
+  MatchmakingPreferencesData1v1
+>
+
 /**
  * Describes a user's preferences for finding a match in matchmaking. Each matchmaking type can have
  * its own custom data, with `race`, `mapPoolId`, and `mapSelections` being common among all
  * matchmaking types.
  */
-export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPreferences2v2
+export type MatchmakingPreferences =
+  | MatchmakingPreferences1v1
+  | MatchmakingPreferences1v1Fastest
+  | MatchmakingPreferences2v2
 
 export type PartialMatchmakingPreferences = SetRequired<
   Partial<MatchmakingPreferences>,
@@ -565,6 +587,7 @@ export function defaultPreferenceData<M extends MatchmakingType>(
 ): MatchmakingPreferencesOfType<M>['data'] {
   switch (matchmakingType) {
     case MatchmakingType.Match1v1:
+    case MatchmakingType.Match1v1Fastest:
       return {
         useAlternateRace: false,
         alternateRace: 'z',

@@ -25,7 +25,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
-import { filterVetoedMaps } from './map-vetoes'
+import { filterMapSelections } from './map-vetoes'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -123,7 +123,7 @@ export class MatchmakingApi {
 
     await this.matchmakingService.find(ctx.session!.user!.id, clientId, identifiers, {
       ...preferences,
-      mapSelections: filterVetoedMaps(currentMapPool, preferences.mapSelections),
+      mapSelections: filterMapSelections(currentMapPool, preferences.mapSelections),
     })
   }
 

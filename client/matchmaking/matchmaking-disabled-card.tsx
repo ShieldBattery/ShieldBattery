@@ -172,7 +172,8 @@ export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDi
       'Only the party leader can queue for matches.',
     )
   } else if (
-    (type === MatchmakingType.Match1v1 && partySize > 1) ||
+    ((type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
+      partySize > 1) ||
     (type === MatchmakingType.Match2v2 && partySize > 2)
   ) {
     disabledTitle = t('matchmaking.disabledCard.partyTooLargeTitle', 'Party too large')

@@ -1,26 +1,13 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { MatchmakingType } from '../../common/matchmaking'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceIcon } from '../lobbies/race-icon'
 import { RaisedButton } from '../material/button'
 import { Popover, PopoverOpenState, useAnchorPosition } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { Headline6, headline3 } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
-
-// TODO(2Pac): Move this to a common folder if we decide to use this text elsewhere
-function matchmakingTypeToText(type: MatchmakingType) {
-  switch (type) {
-    case MatchmakingType.Match1v1:
-      return 'Ranked 1v1'
-    case MatchmakingType.Match2v2:
-      return 'Ranked 2v2'
-    default:
-      return assertUnreachable(type)
-  }
-}
 
 const Contents = styled.div`
   position: relative;
@@ -93,7 +80,7 @@ export function MatchmakingSearchingOverlay({
       originX='right'
       originY='top'>
       <Contents>
-        <Headline6>{matchmakingTypeToText(searchInfo.matchmakingType)}</Headline6>
+        <Headline6>{matchmakingTypeToLabel(searchInfo.matchmakingType, t)}</Headline6>
         <InfoContainer>
           <InfoItem>
             <StyledRaceIcon race={searchInfo.race} />

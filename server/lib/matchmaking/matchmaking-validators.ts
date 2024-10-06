@@ -32,6 +32,13 @@ export function matchmakingPreferencesValidator<
           }),
         })
         .conditional('matchmakingType', {
+          is: MatchmakingType.Match1v1Fastest,
+          then: Joi.object<MatchmakingPreferencesData1v1>({
+            useAlternateRace: Joi.bool(),
+            alternateRace: Joi.string().valid('p', 't', 'z'),
+          }),
+        })
+        .conditional('matchmakingType', {
           is: MatchmakingType.Match2v2,
           then: Joi.object<Record<string, never>>(),
         }),

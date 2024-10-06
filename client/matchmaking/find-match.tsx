@@ -48,6 +48,7 @@ import {
 } from '../styles/typography'
 import { findMatch, getCurrentMapPool } from './action-creators'
 import { Contents1v1 } from './find-1v1'
+import { Contents1v1Fastest } from './find-1v1-fastest'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
 import {
@@ -136,6 +137,7 @@ const lastActiveTabStorage = new JsonLocalStorageValue<ExpandedMatchmakingType>(
 function normalizeExpandedMatchmakingType(type?: string): ExpandedMatchmakingType {
   switch (type) {
     case MatchmakingType.Match1v1:
+    case MatchmakingType.Match1v1Fastest:
     case MatchmakingType.Match2v2:
     case '3v3':
       return type
@@ -162,7 +164,8 @@ export function FindMatch() {
   const isMatchmakingPartyDisabled =
     isInParty &&
     (!isPartyLeader ||
-      (activeTab === MatchmakingType.Match1v1 && partySize > 1) ||
+      ((activeTab === MatchmakingType.Match1v1 || activeTab === MatchmakingType.Match1v1Fastest) &&
+        partySize > 1) ||
       (activeTab === MatchmakingType.Match2v2 && partySize > 2))
 
   const isMatchmakingDisabled = isMatchmakingStatusDisabled || isMatchmakingPartyDisabled
@@ -221,6 +224,15 @@ export function FindMatch() {
         <Contents1v1 formRef={formRef} onSubmit={onSubmit} disabled={isMatchmakingDisabled} />
       )
       break
+    case MatchmakingType.Match1v1Fastest:
+      contents = (
+        <Contents1v1Fastest
+          formRef={formRef}
+          onSubmit={onSubmit}
+          disabled={isMatchmakingDisabled}
+        />
+      )
+      break
     case MatchmakingType.Match2v2:
       contents = (
         <Contents2v2 formRef={formRef} onSubmit={onSubmit} disabled={isMatchmakingDisabled} />
@@ -243,6 +255,10 @@ export function FindMatch() {
             <TabItem
               text={matchmakingTypeToLabel(MatchmakingType.Match1v1, t)}
               value={MatchmakingType.Match1v1}
+            />
+            <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, t)}
+              value={MatchmakingType.Match1v1Fastest}
             />
             <TabItem
               text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}

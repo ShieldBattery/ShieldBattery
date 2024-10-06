@@ -13,7 +13,7 @@ import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
-import { filterVetoedMaps } from './map-vetoes'
+import { filterMapSelections } from './map-vetoes'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
@@ -40,7 +40,11 @@ export class MatchmakingPreferencesApi {
       throw new httpErrors.BadRequest('invalid matchmaking type')
     }
 
-    if (body.matchmakingType === MatchmakingType.Match1v1 && body.data) {
+    if (
+      (body.matchmakingType === MatchmakingType.Match1v1 ||
+        body.matchmakingType === MatchmakingType.Match1v1Fastest) &&
+      body.data
+    ) {
       const {
         race,
         data: { useAlternateRace },
@@ -56,7 +60,7 @@ export class MatchmakingPreferencesApi {
       race: body.race,
       mapPoolId: currentMapPool.id,
       mapSelections: body.mapSelections
-        ? filterVetoedMaps(currentMapPool, body.mapSelections)
+        ? filterMapSelections(currentMapPool, body.mapSelections)
         : undefined,
       data: body.data,
     })
