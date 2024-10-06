@@ -53,14 +53,26 @@ const userProfileLoadsInProgress = new Set<SbUserId>()
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
-export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
+export function viewUserProfile(
+  userId: SbUserId,
+  source: 'overlay' | 'profile',
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
+    await Promise.resolve()
+    console.log(
+      performance.now() + ' - abortableThunk start - ' + source,
+      userProfileLoadsInProgress.has(userId),
+    )
+
     if (userProfileLoadsInProgress.has(userId)) {
       return
     }
     userProfileLoadsInProgress.add(userId)
 
     try {
+      console.log(performance.now() + ' - before dispatch - ' + source)
+
       dispatch({
         type: '@users/getUserProfile',
         payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
@@ -68,6 +80,7 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void
         }),
       })
     } finally {
+      console.log(performance.now() + ' - finally - ' + source)
       userProfileLoadsInProgress.delete(userId)
     }
   })

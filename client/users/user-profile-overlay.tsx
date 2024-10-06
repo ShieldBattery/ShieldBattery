@@ -201,8 +201,9 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
+    console.log(performance.now() + ' - overlay starting request')
     dispatch(
-      viewUserProfile(userId, {
+      viewUserProfile(userId, 'overlay', {
         signal: abortController.signal,
         onSuccess: () => setLoadingError(undefined),
         onError: err => setLoadingError(err),
@@ -210,6 +211,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
     )
 
     return () => {
+      console.log(performance.now() + ' - overlay aborting request')
       abortController.abort()
     }
   }, [dispatch, userId])
