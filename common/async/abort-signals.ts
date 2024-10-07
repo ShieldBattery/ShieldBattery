@@ -33,3 +33,44 @@ export async function raceAbort<T>(signal: AbortSignal, promise: Promise<T>): Pr
     }),
   ]).finally(() => signal.removeEventListener('abort', onAbort))
 }
+
+/**
+ * A manager that references a number of `AbortSignal`s and only aborts if all of the signals have
+ * aborted. This is intended for use in cases where multiple outstanding requests for the same data
+ * are coalesced onto the original request.
+ *
+ * The `AbortSignal` reason will be set to the reason of the last signal that aborted.
+ */
+export class BatchedAbortSignals {
+  private signals = new Set<AbortSignal>()
+  private controller = new AbortController()
+
+  constructor(initialSignal?: AbortSignal) {
+    this.add(initialSignal)
+  }
+
+  add(signal?: AbortSignal) {
+    const addedSignal = signal ?? new AbortController().signal
+    addedSignal.addEventListener('abort', () => this.onAbort(addedSignal))
+    this.signals.add(addedSignal)
+
+    if (addedSignal.aborted) {
+      queueMicrotask(() => this.onAbort(addedSignal))
+    }
+  }
+
+  get signal() {
+    return this.controller.signal
+  }
+
+  get aborted() {
+    return this.controller.signal.aborted
+  }
+
+  private onAbort(signal: AbortSignal) {
+    this.signals.delete(signal)
+    if (this.signals.size === 0) {
+      this.controller.abort(signal.reason)
+    }
+  }
+}

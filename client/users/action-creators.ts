@@ -1,3 +1,4 @@
+import { BatchedAbortSignals } from '../../common/async/abort-signals'
 import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
@@ -47,7 +48,7 @@ export function correctUsernameForProfile(
   replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
 }
 
-const userProfileLoadsInProgress = new Set<SbUserId>()
+const userProfileLoadsInProgress = new Map<SbUserId, BatchedAbortSignals>()
 
 /**
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
@@ -59,29 +60,26 @@ export function viewUserProfile(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    await Promise.resolve()
-    console.log(
-      performance.now() + ' - abortableThunk start - ' + source,
-      userProfileLoadsInProgress.has(userId),
-    )
-
-    if (userProfileLoadsInProgress.has(userId)) {
+    let batchedSignals = userProfileLoadsInProgress.get(userId)
+    if (batchedSignals && !batchedSignals.aborted) {
+      userProfileLoadsInProgress.get(userId)?.add(spec.signal)
       return
     }
-    userProfileLoadsInProgress.add(userId)
+
+    batchedSignals = new BatchedAbortSignals(spec.signal)
+    userProfileLoadsInProgress.set(userId, batchedSignals)
 
     try {
-      console.log(performance.now() + ' - before dispatch - ' + source)
-
       dispatch({
         type: '@users/getUserProfile',
         payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
-          signal: spec.signal,
+          signal: batchedSignals.signal,
         }),
       })
     } finally {
-      console.log(performance.now() + ' - finally - ' + source)
-      userProfileLoadsInProgress.delete(userId)
+      if (userProfileLoadsInProgress.get(userId) === batchedSignals) {
+        userProfileLoadsInProgress.delete(userId)
+      }
     }
   })
 }

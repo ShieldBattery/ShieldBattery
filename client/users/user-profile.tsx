@@ -108,7 +108,6 @@ export function ConnectedUserProfilePage({
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
-    console.log(performance.now() + ' - profile starting request')
     dispatch(
       viewUserProfile(userId, 'profile', {
         signal: abortController.signal,
@@ -118,7 +117,6 @@ export function ConnectedUserProfilePage({
     )
 
     return () => {
-      console.log(performance.now() + ' - profile aborting request')
       abortController.abort()
     }
   }, [userId, user, dispatch])
