@@ -109,7 +109,7 @@ export function ConnectedUserProfilePage({
     cancelLoadRef.current = abortController
 
     dispatch(
-      viewUserProfile(userId, 'profile', {
+      viewUserProfile(userId, {
         signal: abortController.signal,
         onSuccess: () => setLoadingError(undefined),
         onError: err => setLoadingError(err),

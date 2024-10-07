@@ -202,7 +202,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
     cancelLoadRef.current = abortController
 
     dispatch(
-      viewUserProfile(userId, 'overlay', {
+      viewUserProfile(userId, {
         signal: abortController.signal,
         onSuccess: () => setLoadingError(undefined),
         onError: err => setLoadingError(err),

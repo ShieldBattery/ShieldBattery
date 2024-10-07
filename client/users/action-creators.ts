@@ -54,11 +54,7 @@ const userProfileLoadsInProgress = new Map<SbUserId, BatchedAbortSignals>()
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
-export function viewUserProfile(
-  userId: SbUserId,
-  source: 'overlay' | 'profile',
-  spec: RequestHandlingSpec<void>,
-): ThunkAction {
+export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     let batchedSignals = userProfileLoadsInProgress.get(userId)
     if (batchedSignals && !batchedSignals.aborted) {
