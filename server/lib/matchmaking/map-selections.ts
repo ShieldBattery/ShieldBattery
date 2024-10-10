@@ -2,8 +2,8 @@ import { ReadonlyDeep } from 'type-fest'
 import { hasVetoes, MatchmakingMapPool } from '../../../common/matchmaking'
 
 /**
- * Returns a list of vetoed map IDs filtered to match the current map pool (and within the limit of
- * the current pool's max veto count).
+ * Returns a list of selected map IDs filtered to match the current map pool (and within the limit
+ * of the current pool's max veto count if the selections are vetoes).
  */
 export function filterMapSelections(
   mapPool: ReadonlyDeep<MatchmakingMapPool>,

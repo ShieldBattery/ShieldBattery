@@ -13,7 +13,7 @@ import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
-import { filterMapSelections } from './map-vetoes'
+import { filterMapSelections } from './map-selections'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
