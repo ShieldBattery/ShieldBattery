@@ -510,7 +510,8 @@
             "race": "종족",
             "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} 배치",
             "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
-            "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다."
+            "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
+            "mapSelectionDescription": "플레이하고 싶은 맵을 선택하세요. 선택된 맵만 선택됩니다."
         },
         "match": {
             "gameInProgress": "게임 진행 중…",
@@ -554,7 +555,8 @@
         "type": {
             "1v1": "1v1",
             "2v2": "2v2",
-            "3v3": "3v3"
+            "3v3": "3v3",
+            "1v1_fastest": "1대1 가장 빠름"
         },
         "activity": {
             "finding": "찾는중…",
