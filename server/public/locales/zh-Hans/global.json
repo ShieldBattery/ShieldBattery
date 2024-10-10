@@ -543,7 +543,8 @@
         "type": {
             "1v1": "1v1",
             "3v3": "3v3",
-            "2v2": "2v2"
+            "2v2": "2v2",
+            "1v1fastest": "1v1 最快"
         },
         "match": {
             "gameFailedToLoad": "游戏加载失败。",
