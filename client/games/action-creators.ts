@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { RequestCoalescer } from '../../common/async/abort-signals'
 import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
@@ -33,25 +34,18 @@ export function navigateToGameResults(
   transitionFn(urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
 }
 
-const gameLoadsInProgress = new Set<string>()
-
 export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    if (gameLoadsInProgress.has(gameId)) {
-      return
-    }
-    gameLoadsInProgress.add(gameId)
+    const requestCoalescer = new RequestCoalescer()
 
-    try {
+    await requestCoalescer.makeRequest(gameId, spec.signal, async (batchedSignal: AbortSignal) => {
       dispatch({
         type: '@games/getGameRecord',
         payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
-          signal: spec.signal,
+          signal: batchedSignal,
         }),
       })
-    } finally {
-      gameLoadsInProgress.delete(gameId)
-    }
+    })
   })
 }
 
