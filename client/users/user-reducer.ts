@@ -12,32 +12,17 @@ export interface UserRequestInfo {
 export interface UserState {
   /** A map of user ID -> user information. */
   byId: Map<SbUserId, SbUser>
-  /** A map of username -> user ID. */
-  usernameToId: Map<string, SbUserId>
   // TODO(tec27): Make a reducer specifically to handle match history
   /** A map of user ID -> recent match history. */
   idToMatchHistory: Map<SbUserId, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
   idToProfile: Map<SbUserId, UserProfileJson>
-  /**
-   * The set of user IDs for which data is currently loading. This is intended to be used for
-   * showing loading indicators and deduping requests.
-   */
-  idLoadsInProgress: Map<SbUserId, UserRequestInfo>
-  /**
-   * The set of usernames for which data is currently loading. This is intended to be used for
-   * showing loading indicators and deduping requests.
-   */
-  usernameLoadsInProgress: Map<string, UserRequestInfo>
 }
 
 const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
-  usernameToId: new Map(),
   idToMatchHistory: new Map(),
   idToProfile: new Map(),
-  idLoadsInProgress: new Map(),
-  usernameLoadsInProgress: new Map(),
 }
 
 function updateUsers(state: UserState, users: SbUser[]) {
@@ -45,14 +30,11 @@ function updateUsers(state: UserState, users: SbUser[]) {
     const userState = state.byId.get(user.id)
     if (userState) {
       if (userState.name !== user.name) {
-        state.usernameToId.delete(userState.name)
         userState.name = user.name
       }
     } else {
       state.byId.set(user.id, { id: user.id, name: user.name })
     }
-
-    state.usernameToId.set(user.name, user.id)
   }
 }
 
@@ -63,7 +45,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     } = action
 
     state.byId.set(user.id, { id: user.id, name: user.name })
-    state.usernameToId.set(user.name, user.id)
   },
 
   ['@chat/loadMessageHistory'](state, action) {

@@ -1,3 +1,4 @@
+import { RequestCoalescer } from '../../common/async/abort-signals'
 import {
   ChannelModerationAction,
   ChatServiceErrorCode,
@@ -270,34 +271,32 @@ export function retrieveUserList(channelId: SbChannelId): ThunkAction {
   }
 }
 
-const chatUserProfileLoadsInProgress = new Set<`${SbChannelId}|${SbUserId}`>()
-
 export function getChatUserProfile(
   channelId: SbChannelId,
   targetId: SbUserId,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (dispatch, getStore) => {
-    const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
-    if (chatUserProfileLoadsInProgress.has(channelTargetId)) {
-      return
-    }
-    chatUserProfileLoadsInProgress.add(channelTargetId)
+    const requestCoalescer = new RequestCoalescer()
 
-    try {
-      dispatch({
-        type: '@chat/getChatUserProfile',
-        payload: await fetchJson<GetChatUserProfileResponse>(
-          apiUrl`chat/${channelId}/users/${targetId}`,
-          {
-            method: 'GET',
-            signal: spec.signal,
-          },
-        ),
-      })
-    } finally {
-      chatUserProfileLoadsInProgress.delete(channelTargetId)
-    }
+    const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
+
+    await requestCoalescer.makeRequest(
+      channelTargetId,
+      spec.signal,
+      async (batchedSignal: AbortSignal) => {
+        dispatch({
+          type: '@chat/getChatUserProfile',
+          payload: await fetchJson<GetChatUserProfileResponse>(
+            apiUrl`chat/${channelId}/users/${targetId}`,
+            {
+              method: 'GET',
+              signal: batchedSignal,
+            },
+          ),
+        })
+      },
+    )
   })
 }
 
