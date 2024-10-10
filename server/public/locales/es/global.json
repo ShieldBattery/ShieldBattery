@@ -474,7 +474,8 @@
         "type": {
             "1v1": "1v1",
             "2v2": "2v2",
-            "3v3": "3v3"
+            "3v3": "3v3",
+            "1v1fastest": "1v1 más rápido"
         },
         "acceptMatch": {
             "failedToAccept": "No se pudo aceptar",
