@@ -474,7 +474,8 @@
         "type": {
             "1v1": "1v1",
             "2v2": "2v2",
-            "3v3": "3v3"
+            "3v3": "3v3",
+            "1v1_fastest": "1v1 más rápido"
         },
         "acceptMatch": {
             "failedToAccept": "No se pudo aceptar",
@@ -526,7 +527,8 @@
             "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
             "vetoDescriptionWithOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-            "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas."
+            "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+            "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados."
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar.",
