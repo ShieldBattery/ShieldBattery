@@ -483,7 +483,8 @@
         "type": {
             "1v1": "$🗡1v1🗡!",
             "2v2": "$🗡2v2🗡!",
-            "3v3": "$🗡3v3🗡!"
+            "3v3": "$🗡3v3🗡!",
+            "1v1_fastest": "$🗡1v1 Fastest🗡!"
         },
         "acceptMatch": {
             "body": "$🗡All players must ready up for the match to start.🗡!",
@@ -533,7 +534,8 @@
             "vetoDescriptionWithOverlap_one": "$🗡Veto up to {{count}} map. Vetoed maps will be chosen significantly less often than other maps.🗡!",
             "vetoDescriptionWithOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.🗡!",
             "vetoDescriptionNoOverlap_one": "$🗡Veto up to {{count}} map. Vetoed maps will never be selected for play.🗡!",
-            "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!"
+            "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!",
+            "mapSelectionDescription": "$🗡Select the maps you would like to play on. Only selected maps will be chosen.🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
