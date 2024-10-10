@@ -808,7 +808,7 @@
     },
     "type": {
       "1v1": "1v1",
-      "1v1_fastest": "1v1 Fastest",
+      "1v1fastest": "1v1 Fastest",
       "2v2": "2v2",
       "3v3": "3v3"
     }

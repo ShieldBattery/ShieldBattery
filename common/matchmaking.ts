@@ -26,7 +26,7 @@ export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): str
     case MatchmakingType.Match1v1:
       return t ? t('matchmaking.type.1v1', '1v1') : '1v1'
     case MatchmakingType.Match1v1Fastest:
-      return t ? t('matchmaking.type.1v1_fastest', '1v1 Fastest') : '1v1 Fastest'
+      return t ? t('matchmaking.type.1v1fastest', '1v1 Fastest') : '1v1 Fastest'
     case MatchmakingType.Match2v2:
       return t ? t('matchmaking.type.2v2', '2v2') : '2v2'
     default:
