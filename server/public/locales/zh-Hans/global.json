@@ -528,7 +528,8 @@
             "points": "积分",
             "vetoesLeft": "<0>剩余否决权：</0><1>{{vetoesLeft}}</1>",
             "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
-            "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。"
+            "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。",
+            "mapSelectionDescription": "选择您想要玩的地图。仅选定的地图会被选择。"
         },
         "postMatchDialog": {
             "rating": "评分",
@@ -542,7 +543,8 @@
         "type": {
             "1v1": "1v1",
             "3v3": "3v3",
-            "2v2": "2v2"
+            "2v2": "2v2",
+            "1v1_fastest": "1v1 最快"
         },
         "match": {
             "gameFailedToLoad": "游戏加载失败。",
