@@ -9,6 +9,8 @@ import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { usePrevious, useStableCallback } from '../state-hooks'
+import { background700, background800 } from '../styles/colors'
+import { UserProfileOverlayContents } from '../users/user-profile-overlay'
 import {
   activateWhisperSession,
   correctUsernameForWhisper,
@@ -21,9 +23,18 @@ import {
 const MESSAGES_LIMIT = 50
 
 const Container = styled.div`
-  max-width: 884px;
+  width: 100%;
   height: 100%;
+  margin: 0;
   padding: 0;
+  display: flex;
+  background-color: ${background700};
+`
+
+const StyledChat = styled(Chat)`
+  max-width: 960px;
+  flex-grow: 1;
+  background-color: ${background800};
 `
 
 const LoadingArea = styled.div`
@@ -167,7 +178,11 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
 
   return (
     <Container>
-      <Chat listProps={listProps} inputProps={inputProps} />
+      <StyledChat
+        listProps={listProps}
+        inputProps={inputProps}
+        extraContent={<UserProfileOverlayContents userId={userId} showHintText={false} />}
+      />
     </Container>
   )
 }
