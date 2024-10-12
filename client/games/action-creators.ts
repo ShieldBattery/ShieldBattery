@@ -1,5 +1,4 @@
 import { ReadonlyDeep } from 'type-fest'
-import { RequestCoalescer } from '../../common/async/abort-signals'
 import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
@@ -10,6 +9,7 @@ import { push } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
+import { RequestCoalescer } from '../network/request-coalescer'
 import { findMatchAsParty } from '../parties/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ResultsSubPage } from './results-sub-page'
@@ -34,18 +34,22 @@ export function navigateToGameResults(
   transitionFn(urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
 }
 
+const viewGameRequestCoalescer = new RequestCoalescer<string>()
+
 export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const requestCoalescer = new RequestCoalescer()
-
-    await requestCoalescer.makeRequest(gameId, spec.signal, async (batchedSignal: AbortSignal) => {
-      dispatch({
-        type: '@games/getGameRecord',
-        payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
-          signal: batchedSignal,
-        }),
-      })
-    })
+    await viewGameRequestCoalescer.makeRequest(
+      gameId,
+      spec.signal,
+      async (batchedSignal: AbortSignal) => {
+        dispatch({
+          type: '@games/getGameRecord',
+          payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
+            signal: batchedSignal,
+          }),
+        })
+      },
+    )
   })
 }
 

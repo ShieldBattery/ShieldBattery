@@ -1,4 +1,3 @@
-import { RequestCoalescer } from '../../common/async/abort-signals'
 import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
@@ -21,6 +20,7 @@ import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { RequestCoalescer } from '../network/request-coalescer'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -48,22 +48,26 @@ export function correctUsernameForProfile(
   replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
 }
 
+const viewUserProfileRequestCoalescer = new RequestCoalescer<SbUserId>()
+
 /**
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
 export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const requestCoalescer = new RequestCoalescer()
-
-    await requestCoalescer.makeRequest(userId, spec.signal, async (batchedSignal: AbortSignal) => {
-      dispatch({
-        type: '@users/getUserProfile',
-        payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
-          signal: batchedSignal,
-        }),
-      })
-    })
+    await viewUserProfileRequestCoalescer.makeRequest(
+      userId,
+      spec.signal,
+      async (batchedSignal: AbortSignal) => {
+        dispatch({
+          type: '@users/getUserProfile',
+          payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
+            signal: batchedSignal,
+          }),
+        })
+      },
+    )
   })
 }
 

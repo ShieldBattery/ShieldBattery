@@ -1,4 +1,3 @@
-import { RequestCoalescer } from '../../common/async/abort-signals'
 import {
   ChannelModerationAction,
   ChatServiceErrorCode,
@@ -26,6 +25,7 @@ import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { RequestCoalescer } from '../network/request-coalescer'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
@@ -271,17 +271,17 @@ export function retrieveUserList(channelId: SbChannelId): ThunkAction {
   }
 }
 
+const getChatUserProfileRequestCoalescer = new RequestCoalescer<`${SbChannelId}|${SbUserId}`>()
+
 export function getChatUserProfile(
   channelId: SbChannelId,
   targetId: SbUserId,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (dispatch, getStore) => {
-    const requestCoalescer = new RequestCoalescer()
-
     const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
 
-    await requestCoalescer.makeRequest(
+    await getChatUserProfileRequestCoalescer.makeRequest(
       channelTargetId,
       spec.signal,
       async (batchedSignal: AbortSignal) => {
