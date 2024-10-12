@@ -38,18 +38,14 @@ const viewGameRequestCoalescer = new RequestCoalescer<string>()
 
 export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    await viewGameRequestCoalescer.makeRequest(
-      gameId,
-      spec.signal,
-      async (batchedSignal: AbortSignal) => {
-        dispatch({
-          type: '@games/getGameRecord',
-          payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
-            signal: batchedSignal,
-          }),
-        })
-      },
-    )
+    await viewGameRequestCoalescer.makeRequest(gameId, spec.signal, async (signal: AbortSignal) => {
+      dispatch({
+        type: '@games/getGameRecord',
+        payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
+          signal,
+        }),
+      })
+    })
   })
 }
 

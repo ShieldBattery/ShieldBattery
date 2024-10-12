@@ -279,19 +279,17 @@ export function getChatUserProfile(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (dispatch, getStore) => {
-    const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
-
     await getChatUserProfileRequestCoalescer.makeRequest(
-      channelTargetId,
+      `${channelId}|${targetId}`,
       spec.signal,
-      async (batchedSignal: AbortSignal) => {
+      async (signal: AbortSignal) => {
         dispatch({
           type: '@chat/getChatUserProfile',
           payload: await fetchJson<GetChatUserProfileResponse>(
             apiUrl`chat/${channelId}/users/${targetId}`,
             {
               method: 'GET',
-              signal: batchedSignal,
+              signal,
             },
           ),
         })

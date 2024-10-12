@@ -1,8 +1,7 @@
 import { BatchedAbortSignals } from '../../common/async/abort-signals'
 
 /**
- * A helper class which allows you to use `BatchedAbortSignals` more easily. See the description
- * of that class for more info.
+ * A class which coalesces API requests that take AbortedSignals.
  */
 export class RequestCoalescer<T> {
   private requestsInProgress = new Map<T, BatchedAbortSignals>()

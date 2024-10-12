@@ -59,11 +59,11 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void
     await viewUserProfileRequestCoalescer.makeRequest(
       userId,
       spec.signal,
-      async (batchedSignal: AbortSignal) => {
+      async (signal: AbortSignal) => {
         dispatch({
           type: '@users/getUserProfile',
           payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
-            signal: batchedSignal,
+            signal,
           }),
         })
       },
