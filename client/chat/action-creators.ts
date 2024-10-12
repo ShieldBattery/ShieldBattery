@@ -25,6 +25,7 @@ import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { RequestCoalescer } from '../network/request-coalescer'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
@@ -270,7 +271,7 @@ export function retrieveUserList(channelId: SbChannelId): ThunkAction {
   }
 }
 
-const chatUserProfileLoadsInProgress = new Set<`${SbChannelId}|${SbUserId}`>()
+const getChatUserProfileRequestCoalescer = new RequestCoalescer<`${SbChannelId}|${SbUserId}`>()
 
 export function getChatUserProfile(
   channelId: SbChannelId,
@@ -278,26 +279,22 @@ export function getChatUserProfile(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (dispatch, getStore) => {
-    const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
-    if (chatUserProfileLoadsInProgress.has(channelTargetId)) {
-      return
-    }
-    chatUserProfileLoadsInProgress.add(channelTargetId)
-
-    try {
-      dispatch({
-        type: '@chat/getChatUserProfile',
-        payload: await fetchJson<GetChatUserProfileResponse>(
-          apiUrl`chat/${channelId}/users/${targetId}`,
-          {
-            method: 'GET',
-            signal: spec.signal,
-          },
-        ),
-      })
-    } finally {
-      chatUserProfileLoadsInProgress.delete(channelTargetId)
-    }
+    await getChatUserProfileRequestCoalescer.makeRequest(
+      `${channelId}|${targetId}`,
+      spec.signal,
+      async (signal: AbortSignal) => {
+        dispatch({
+          type: '@chat/getChatUserProfile',
+          payload: await fetchJson<GetChatUserProfileResponse>(
+            apiUrl`chat/${channelId}/users/${targetId}`,
+            {
+              method: 'GET',
+              signal,
+            },
+          ),
+        })
+      },
+    )
   })
 }
 

@@ -9,6 +9,7 @@ import { push } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
+import { RequestCoalescer } from '../network/request-coalescer'
 import { findMatchAsParty } from '../parties/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ResultsSubPage } from './results-sub-page'
@@ -33,25 +34,18 @@ export function navigateToGameResults(
   transitionFn(urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
 }
 
-const gameLoadsInProgress = new Set<string>()
+const viewGameRequestCoalescer = new RequestCoalescer<string>()
 
 export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    if (gameLoadsInProgress.has(gameId)) {
-      return
-    }
-    gameLoadsInProgress.add(gameId)
-
-    try {
+    await viewGameRequestCoalescer.makeRequest(gameId, spec.signal, async (signal: AbortSignal) => {
       dispatch({
         type: '@games/getGameRecord',
         payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, {
-          signal: spec.signal,
+          signal,
         }),
       })
-    } finally {
-      gameLoadsInProgress.delete(gameId)
-    }
+    })
   })
 }
 
