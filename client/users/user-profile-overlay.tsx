@@ -57,7 +57,7 @@ export function ConnectedUserProfileOverlay({
 
   return (
     <Popover {...popoverProps}>
-      <OverlayContents userId={userId} onDismiss={onDismiss} />
+      <UserProfileOverlayContents userId={userId} onDismiss={onDismiss} />
     </Popover>
   )
 }
@@ -181,7 +181,15 @@ const RankDisplaySection = styled.div`
 // NOTE(tec27): We need to push this content down a level from the Popover so the hooks inside only
 // run when it's visible (otherwise we'd request all the user profiles once they e.g. appeared in
 // the user list)
-function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: () => void }) {
+export function UserProfileOverlayContents({
+  userId,
+  showHintText = true,
+  onDismiss,
+}: {
+  userId: SbUserId
+  showHintText?: boolean
+  onDismiss?: () => void
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const cancelLoadRef = useRef(new AbortController())
@@ -192,7 +200,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
 
   const username = user?.name
   const onIdentityClick = useCallback(() => {
-    onDismiss()
+    onDismiss?.()
     navigateToUserProfile(userId, username ?? '')
   }, [userId, username, onDismiss])
 
@@ -282,9 +290,11 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <LoadingDotsArea />
       )}
 
-      <HintText>
-        {t('users.profileOverlay.rightClick', 'Right-click user for more actions')}
-      </HintText>
+      {showHintText ? (
+        <HintText>
+          {t('users.profileOverlay.rightClick', 'Right-click user for more actions')}
+        </HintText>
+      ) : null}
     </PopoverContents>
   )
 }

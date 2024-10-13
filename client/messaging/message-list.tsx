@@ -1,6 +1,7 @@
 import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { ServerChatMessageType } from '../../common/chat'
@@ -10,7 +11,9 @@ import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
+import { colorTextFaint } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
+import { subtitle1 } from '../styles/typography'
 import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
 import { CommonMessageType, NewDayMessageRecord, SbMessage } from './message-records'
 
@@ -31,6 +34,14 @@ const AUTOSCROLL_LEEWAY_PX = 8
 const Scrollable = styled.div`
   padding: 8px 16px 0px 8px;
   overflow-y: auto;
+`
+
+const EmptyList = styled.div`
+  ${subtitle1};
+  padding: 32px 16px 48px;
+
+  color: ${colorTextFaint};
+  text-align: center;
 `
 
 const Messages = styled.div`
@@ -110,8 +121,14 @@ interface PureMessageListProps {
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
 const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
+  const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
+
+  const messagesLength = getMessagesLength(messages)
+  if (messagesLength < 1) {
+    return <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
+  }
 
   return (
     <Messages>
