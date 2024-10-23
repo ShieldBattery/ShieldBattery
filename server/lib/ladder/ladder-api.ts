@@ -13,26 +13,27 @@ import {
   NUM_PLACEMENT_MATCHES,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
-import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
-import { getInstantaneousRanksForUser, getRankings, refreshRankings } from '../matchmaking/models'
+import { getManyMatchmakingRatings, getMatchmakingRatingsForUser } from '../matchmaking/models'
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUserById } from '../users/user-model'
+import { findUserById, findUsersById } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
-
-const UPDATE_RANKS_MINUTES = 5
-
-const LAST_UPDATED_KEY = 'lib/ladder#updateRanks:lastRun'
+import {
+  doFullRankingsUpdate,
+  getRankings,
+  getRankingsForUser,
+  seasonNeedsFullRankingsUpdate,
+} from './rankings'
 
 const getRankingsThrottle = createThrottle('laddergetrankings', {
   rate: 50,
@@ -61,43 +62,28 @@ const convertLadderApiErrors = makeErrorConverterMiddleware(err => {
 @httpApi('/ladder')
 @httpBeforeAll(convertLadderApiErrors)
 export class LadderApi {
-  private lastUpdated = new Date()
   private runOnce = false
 
   constructor(
-    private jobScheduler: JobScheduler,
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {
-    const startTime = new Date()
-    const timeRemainder = UPDATE_RANKS_MINUTES - (startTime.getMinutes() % UPDATE_RANKS_MINUTES)
-    startTime.setMinutes(startTime.getMinutes() + timeRemainder, 0, 0)
-
-    this.redis
-      .get(LAST_UPDATED_KEY)
-      .then(lastUpdatedStr => {
-        if (!this.runOnce && lastUpdatedStr) {
-          this.lastUpdated = new Date(Number(lastUpdatedStr))
-        }
+    // Migrate rankings to Redis on startup if needed
+    Promise.resolve()
+      .then(async () => {
+        const currentSeason = await this.matchmakingSeasonsService.getCurrentSeason()
+        await Promise.all(
+          ALL_MATCHMAKING_TYPES.map(async type => {
+            if (await seasonNeedsFullRankingsUpdate(this.redis, type, currentSeason.id)) {
+              logger.info(`doing full rankings update for ${type}:${currentSeason.id}`)
+              await doFullRankingsUpdate(this.redis, type, currentSeason.id)
+            }
+          }),
+        )
       })
       .catch(err => {
-        logger.error({ err }, 'Error getting last updated time for ladder rankings')
+        logger.error({ err }, 'error migrating ladder rankings to redis')
       })
-
-    this.jobScheduler.scheduleJob(
-      'lib/ladder#updateRanks',
-      startTime,
-      UPDATE_RANKS_MINUTES * 60 * 1000,
-      async () => {
-        this.runOnce = true
-        const updatedAt = new Date()
-        this.redis.set(LAST_UPDATED_KEY, Number(updatedAt)).catch(err => {
-          logger.error({ err }, 'Error setting last updated time for ladder rankings')
-        })
-        await refreshRankings()
-        this.lastUpdated = updatedAt
-      },
-    )
   }
 
   @httpGet('/users/:id')
@@ -114,9 +100,10 @@ export class LadderApi {
     }
 
     const currentSeason = await this.matchmakingSeasonsService.getCurrentSeason()
-    const [result, user] = await Promise.all([
-      getInstantaneousRanksForUser(params.id, currentSeason.id),
+    const [user, ratings, ranks] = await Promise.all([
       findUserById(params.id),
+      getMatchmakingRatingsForUser(params.id, currentSeason.id),
+      getRankingsForUser(this.redis, params.id, currentSeason.id),
     ])
 
     if (!user) {
@@ -124,9 +111,9 @@ export class LadderApi {
     }
 
     return {
-      ranks: result.reduce<Partial<Record<MatchmakingType, LadderPlayer>>>((acc, r) => {
+      ranks: ratings.reduce<Partial<Record<MatchmakingType, LadderPlayer>>>((acc, r) => {
         acc[r.matchmakingType] = {
-          rank: r.rank,
+          rank: ranks.get(r.matchmakingType) ?? -2,
           userId: r.userId,
           rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
           points: r.points,
@@ -169,13 +156,30 @@ export class LadderApi {
       }),
     })
 
-    const rankings = await getRankings(params.matchmakingType, query.q)
+    const season = await this.matchmakingSeasonsService.getCurrentSeason()
+    let rankings = await getRankings(this.redis, params.matchmakingType, season.id)
+    const [ratings, unfilteredUsers] = await Promise.all([
+      getManyMatchmakingRatings(rankings, params.matchmakingType, season.id, query.q),
+      findUsersById(rankings),
+    ])
+    const ratingsMap = new Map(ratings.map(r => [r.userId, r]))
+    let users = unfilteredUsers
+    if (query.q && ratings.length < rankings.length) {
+      rankings = rankings.filter(r => ratingsMap.has(r))
+      users = unfilteredUsers.filter(u => ratingsMap.has(u.id))
+    }
 
     const players: LadderPlayer[] = []
-    const users: SbUser[] = []
-    for (const r of rankings) {
+    let lastRank = 0
+    let lastPoints = NaN
+    for (let i = 0; i < rankings.length; i++) {
+      const r = ratingsMap.get(rankings[i])!
+      if (r.points !== lastPoints) {
+        lastRank = i + 1
+        lastPoints = r.points
+      }
       players.push({
-        rank: r.rank,
+        rank: lastRank,
         userId: r.userId,
         rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
         points: r.points,
@@ -199,17 +203,13 @@ export class LadderApi {
         rZLosses: r.rZLosses,
         lastPlayedDate: Number(r.lastPlayedDate),
       })
-      users.push({
-        id: r.userId,
-        name: r.username,
-      })
     }
 
     return {
       totalCount: rankings.length,
       players,
       users,
-      lastUpdated: Number(this.lastUpdated),
+      lastUpdated: Date.now(),
     }
   }
 }

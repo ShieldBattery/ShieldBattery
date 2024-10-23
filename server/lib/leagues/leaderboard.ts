@@ -29,9 +29,10 @@ export async function updateLeaderboards(redis: Redis, changes: ReadonlyArray<Le
 export async function getLeaderboard(
   redis: Redis,
   leagueId: LeagueId,
-  limit?: number,
+  limit: number = 0,
+  offset: number = 0,
 ): Promise<SbUserId[]> {
   const key = leaderboardKey(leagueId)
-  const entries = await redis.zrange(key, 0, (limit ?? 0) - 1, 'REV')
+  const entries = await redis.zrange(key, offset, limit !== 0 ? offset + limit - 1 : -1, 'REV')
   return entries.map(entry => makeSbUserId(Number(entry)))
 }

@@ -20,11 +20,7 @@ import { toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingType,
-  NUM_PLACEMENT_MATCHES,
-} from '../../../common/matchmaking'
+import { MatchmakingType, NUM_PLACEMENT_MATCHES } from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
@@ -61,13 +57,16 @@ import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
+import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
-import { getRankForUser } from '../matchmaking/models'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
+import { getMatchmakingRatingsForUser } from '../matchmaking/models'
 import { usePasswordResetCode } from '../models/password-resets'
 import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
+import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { getJwt } from '../session/jwt-session-middleware'
 import createThrottle from '../throttle/create-throttle'
@@ -181,14 +180,19 @@ interface SignupRequestBody {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
 export class UserApi {
+  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
     private userRelationshipService: UserRelationshipService,
+    // NOTE(tec27): Don't delete this. It shouldn't get garbage collected anyway since it's a
+    // singleton, but better safe than sorry for future code changes :)
     private _userIdentifierCleanup: UserIdentifierCleanupJob,
     private userService: UserService,
     private clock: Clock,
+    private redis: Redis,
+    private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {}
 
   @httpPost('/')
@@ -299,38 +303,10 @@ export class UserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
-    // TODO(tec27): Make a function to get multiple types in one DB call?
-    const matchmakingPromises = ALL_MATCHMAKING_TYPES.map(async m => {
-      const r = await getRankForUser(user.id, m)
-      if (r) {
-        ladder[m] = {
-          rank: r.rank,
-          userId: r.userId,
-          rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
-          points: r.points,
-          bonusUsed: r.bonusUsed,
-          wins: r.wins,
-          losses: r.losses,
-          lifetimeGames: r.lifetimeGames,
-          pWins: r.pWins,
-          pLosses: r.pLosses,
-          tWins: r.tWins,
-          tLosses: r.tLosses,
-          zWins: r.zWins,
-          zLosses: r.zLosses,
-          rWins: r.rWins,
-          rLosses: r.rLosses,
-          rPWins: r.rPWins,
-          rPLosses: r.rPLosses,
-          rTWins: r.rTWins,
-          rTLosses: r.rTLosses,
-          rZWins: r.rZWins,
-          rZLosses: r.rZLosses,
-          lastPlayedDate: Number(r.lastPlayedDate),
-        }
-      }
-    })
+    const currentSeason = await this.matchmakingSeasonsService.getCurrentSeason()
+    const ratingsPromise = getMatchmakingRatingsForUser(user.id, currentSeason.id)
+    const rankingsPromise = getRankingsForUser(this.redis, user.id, currentSeason.id)
+
     const userStatsPromise = getUserStats(user.id)
     const createdDatePromise = retrieveUserCreatedDate(user.id)
 
@@ -362,14 +338,42 @@ export class UserApi {
       }
     })()
 
-    // TODO(tec27): I think these calls will be combine-able in later versions of TS, as of 4.3
-    // the inference doesn't work for destructuring the results
-    await Promise.all(matchmakingPromises)
-    const [userStats, matchHistory, createdDate] = await Promise.all([
+    const [userStats, matchHistory, createdDate, ratings, rankings] = await Promise.all([
       userStatsPromise,
       matchHistoryPromise,
       createdDatePromise,
+      ratingsPromise,
+      rankingsPromise,
     ])
+
+    const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
+    for (const r of ratings) {
+      ladder[r.matchmakingType] = {
+        rank: rankings.get(r.matchmakingType) ?? -1,
+        userId: r.userId,
+        rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
+        points: r.points,
+        bonusUsed: r.bonusUsed,
+        wins: r.wins,
+        losses: r.losses,
+        lifetimeGames: r.lifetimeGames,
+        pWins: r.pWins,
+        pLosses: r.pLosses,
+        tWins: r.tWins,
+        tLosses: r.tLosses,
+        zWins: r.zWins,
+        zLosses: r.zLosses,
+        rWins: r.rWins,
+        rLosses: r.rLosses,
+        rPWins: r.rPWins,
+        rPLosses: r.rPLosses,
+        rTWins: r.rTWins,
+        rTLosses: r.rTLosses,
+        rZWins: r.rZWins,
+        rZLosses: r.rZLosses,
+        lastPlayedDate: Number(r.lastPlayedDate),
+      }
+    }
 
     return {
       user,

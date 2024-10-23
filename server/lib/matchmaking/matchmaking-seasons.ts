@@ -28,23 +28,28 @@ export class MatchmakingSeasonsService {
 
   async getCurrentSeason(): Promise<MatchmakingSeason> {
     const now = this.clock.now()
-    return this.getSeasonForDate(new Date(now))
+    return (await this.getSeasonForDate(new Date(now)))[0]
   }
 
   /**
-   * Returns the applicable `MatchmakingSeason` for the given `Date`. If the date is before all
-   * available seasons, the first season is returned.
+   * Returns the applicable `MatchmakingSeason` and end date for the given `Date`. If the date is
+   * before all available seasons, the first season is returned. If it is the last season, the end
+   * date will be `undefined`.
    */
-  async getSeasonForDate(date: Date): Promise<MatchmakingSeason> {
+  async getSeasonForDate(
+    date: Date,
+  ): Promise<[season: MatchmakingSeason, endDate: Date | undefined]> {
     const seasons = await this.getAllSeasons()
     const dateNum = Number(date)
-    for (const s of seasons) {
+    for (let i = 0; i < seasons.length; i++) {
+      const s = seasons[i]
       if (Number(s.startDate) <= dateNum) {
-        return s
+        const nextSeasonStart = i > 0 ? seasons[i - 1].startDate : undefined
+        return [s, nextSeasonStart]
       }
     }
 
-    return seasons[0]
+    return [seasons[0], undefined]
   }
 
   async addSeason(season: Omit<MatchmakingSeason, 'id'>): Promise<MatchmakingSeason> {

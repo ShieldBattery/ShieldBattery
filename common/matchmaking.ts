@@ -11,6 +11,12 @@ import { AssignedRaceChar, RaceChar } from './races'
 import { SbUserId } from './users/sb-user'
 
 /**
+ * How long after a season has ended that rankings are considered "finalized" and will not be
+ * altered further.
+ */
+export const MATCHMAKING_SEASON_FINALIZED_TIME_MS = 6 * 60 * 60 * 1000 // 6 hours
+
+/**
  * A string representation of each of the matchmaking types that we support.
  */
 export enum MatchmakingType {

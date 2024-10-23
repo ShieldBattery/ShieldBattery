@@ -160,6 +160,28 @@ export async function getMatchmakingRating(
 }
 
 /**
+ * Retrieves the matchmaking ratings for every user for a given matchmaking type and season. This is
+ * intended to be used for refreshing the rankings and should be used sparingly.
+ */
+export async function getAllSeasonMatchmakingRatings(
+  matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
+): Promise<MatchmakingRating[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbMatchmakingRating>(sql`
+      SELECT *
+      FROM matchmaking_ratings
+      WHERE matchmaking_type = ${matchmakingType}
+        AND season_id = ${seasonId};
+    `)
+    return result.rows.map(r => fromDbMatchmakingRating(r))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Creates an initial matchmaking rating entry for a player, before they've played any games in that
  * matchmaking type for the season. This should only be used when we have some lock on this player
  * for that matchmaking type (for instance, they have been put in the game activity registry).
@@ -336,66 +358,22 @@ export async function updateMatchmakingRating(
   `)
 }
 
-// TODO(tec27): Remove username from this and get user data in another query
-export interface GetRankingsResult extends RaceStats {
-  matchmakingType: MatchmakingType
-  rank: number
-  userId: SbUserId
-  username: string
-  rating: number
-  points: number
-  bonusUsed: number
-  wins: number
-  losses: number
-  lifetimeGames: number
-  lastPlayedDate: Date
-}
-
-type DbGetRankingsResult = Dbify<GetRankingsResult>
-
-function fromDbGetRankingsResult(r: DbGetRankingsResult): GetRankingsResult {
-  return {
-    matchmakingType: r.matchmaking_type,
-    // NOTE(tec27): RANK() is a bigint so this is actually a string
-    rank: Number(r.rank),
-    userId: r.user_id,
-    username: r.username,
-    rating: r.rating,
-    points: r.points,
-    bonusUsed: r.bonus_used,
-    wins: r.wins,
-    losses: r.losses,
-    lifetimeGames: r.lifetime_games,
-    pWins: r.p_wins,
-    pLosses: r.p_losses,
-    tWins: r.t_wins,
-    tLosses: r.t_losses,
-    zWins: r.z_wins,
-    zLosses: r.z_losses,
-    rWins: r.r_wins,
-    rLosses: r.r_losses,
-    rPWins: r.r_p_wins,
-    rPLosses: r.r_p_losses,
-    rTWins: r.r_t_wins,
-    rTLosses: r.r_t_losses,
-    rZWins: r.r_z_wins,
-    rZLosses: r.r_z_losses,
-    lastPlayedDate: r.last_played_date,
-  }
-}
-
 /**
- * Returns a list of players sorted by rank, and optionally filtered by a search query, for a
+ * Returns a list of players's matchmaking ratings, and optionally filtered by a search query, for a
  * particular matchmaking type.
  */
-export async function getRankings(
+export async function getManyMatchmakingRatings(
+  userIds: SbUserId[],
   matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
   searchStr?: string,
-): Promise<GetRankingsResult[]> {
+): Promise<MatchmakingRating[]> {
   const { client, done } = await db()
   try {
+    const optionalJoin = searchStr ? sql`JOIN users u ON r.user_id = u.id` : sql``
+
     let query = sql`
-      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
+      SELECT r.matchmaking_type, r.user_id, r.rating, r.points,
         r.bonus_used, r.wins, r.losses, r.lifetime_games,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
@@ -403,9 +381,10 @@ export async function getRankings(
         r.r_wins, r.r_losses,
         r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
         r.last_played_date
-      FROM ranked_matchmaking_ratings_view r JOIN users u
-        ON r.user_id = u.id
+      FROM matchmaking_ratings r ${optionalJoin}
       WHERE r.matchmaking_type = ${matchmakingType}
+      AND r.season_id = ${seasonId}
+      AND r.user_id = ANY(${userIds})
     `
 
     if (searchStr) {
@@ -415,58 +394,26 @@ export async function getRankings(
       `)
     }
 
-    query = query.append(sql`
-      ORDER BY r.rank;
-    `)
+    const result = await client.query<DbMatchmakingRating>(query)
 
-    const result = await client.query<Dbify<GetRankingsResult>>(query)
-
-    return result.rows.map(r => fromDbGetRankingsResult(r))
-  } finally {
-    done()
-  }
-}
-
-// TODO(tec27): Just return all the ranks for a user instead?
-export async function getRankForUser(
-  userId: SbUserId,
-  matchmakingType: MatchmakingType,
-): Promise<GetRankingsResult | undefined> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
-        r.bonus_used, r.lifetime_games, r.wins, r.losses,
-        r.p_wins, r.p_losses,
-        r.t_wins, r.t_losses,
-        r.z_wins, r.z_losses,
-        r.r_wins, r.r_losses,
-        r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
-        r.last_played_date
-      FROM ranked_matchmaking_ratings_view r JOIN users u
-        ON r.user_id = u.id
-      WHERE r.matchmaking_type = ${matchmakingType} AND r.user_id = ${userId};
-    `)
-
-    return result.rows.length > 0 ? fromDbGetRankingsResult(result.rows[0]) : undefined
+    return result.rows.map(r => fromDbMatchmakingRating(r))
   } finally {
     done()
   }
 }
 
 /**
- * Returns a user's rating/rank info, with everything except for the rank calculated from "current"
- * data instead of the batch-updated rank info. Any matchmaking types that the user has not
+ * Returns a user's rating for all matchmaking types. Any matchmaking types that the user has not
  * completed a game in will not be included in the result.
  */
-export async function getInstantaneousRanksForUser(
+export async function getMatchmakingRatingsForUser(
   userId: SbUserId,
   seasonId: SeasonId,
-): Promise<GetRankingsResult[]> {
+): Promise<MatchmakingRating[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.matchmaking_type, v.rank, u.name AS username, r.user_id, r.rating, r.points,
+    const result = await client.query<DbMatchmakingRating>(sql`
+      SELECT r.matchmaking_type, r.user_id, r.rating, r.points,
         r.bonus_used, r.lifetime_games, r.wins, r.losses,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
@@ -474,29 +421,11 @@ export async function getInstantaneousRanksForUser(
         r.r_wins, r.r_losses,
         r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
         r.last_played_date
-      FROM ranked_matchmaking_ratings_view v
-        JOIN users u ON v.user_id = u.id
-        JOIN matchmaking_ratings r ON r.user_id = u.id
+      FROM matchmaking_ratings r
       WHERE r.season_id = ${seasonId} AND r.user_id = ${userId} AND r.num_games_played > 0;
     `)
 
-    return result.rows.map(r => fromDbGetRankingsResult(r))
-  } finally {
-    done()
-  }
-}
-
-/**
- * Triggers an updated to the pre-ranked view of matchmaking ratings. This should be run
- * periodically to make fresh data available to `getRankings` calls.
- */
-export async function refreshRankings(): Promise<void> {
-  const { client, done } = await db()
-  try {
-    // TODO(tec27): Store the refresh time so we can display it to clients
-    await client.query(sql`
-      REFRESH MATERIALIZED VIEW CONCURRENTLY ranked_matchmaking_ratings_view
-    `)
+    return result.rows.map(r => fromDbMatchmakingRating(r))
   } finally {
     done()
   }

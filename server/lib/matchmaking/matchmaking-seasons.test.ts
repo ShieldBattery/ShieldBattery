@@ -74,11 +74,12 @@ describe('matchmaking/matchmaking-seasons', () => {
   })
 
   test('should retrieve the right season for a given date', async () => {
-    let season = await service.getSeasonForDate(new Date('2022-05-01T00:00:00'))
+    let [season, seasonEnd] = await service.getSeasonForDate(new Date('2022-05-01T00:00:00'))
     expect(season.id).toBe(1)
-
-    season = await service.getSeasonForDate(new Date('2022-06-02T00:00:00'))
+    expect(seasonEnd).toEqual(new Date('2022-06-01'))
+    ;[season, seasonEnd] = await service.getSeasonForDate(new Date('2022-06-02T00:00:00'))
     expect(season.id).toBe(2)
+    expect(seasonEnd).toEqual(new Date('2023-01-01'))
   })
 
   test('should retrieve the right season for the current date', async () => {

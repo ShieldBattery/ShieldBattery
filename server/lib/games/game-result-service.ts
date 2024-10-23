@@ -11,7 +11,11 @@ import {
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
 import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues'
-import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
+import {
+  MATCHMAKING_SEASON_FINALIZED_TIME_MS,
+  MatchmakingType,
+  toPublicMatchmakingRatingChangeJson,
+} from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user'
@@ -22,6 +26,7 @@ import { CodedError } from '../errors/coded-error'
 import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
 import { reconcileResults } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
+import { doFullRankingsUpdate, updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
   LeagueUser,
@@ -327,20 +332,19 @@ export default class GameResultService {
           .flat(),
       )
 
-      const season = await this.matchmakingSeasonsService.getSeasonForDate(gameRecord.startTime)
-      const curSeason = await this.matchmakingSeasonsService.getCurrentSeason()
+      const [season, seasonEnd] = await this.matchmakingSeasonsService.getSeasonForDate(
+        gameRecord.startTime,
+      )
 
       const matchmakingDbPromises: Array<Promise<unknown>> = []
+      const matchmakingRankingChanges: MatchmakingRating[] = []
       const leagueLeaderboardChanges: LeagueUser[] = []
       if (
         gameRecord.config.gameSource === GameSource.Matchmaking &&
         !reconciled.disputed &&
-        // NOTE(tec27): In the case that results are reconciled after a new season has started, we
-        // disregard the MMR changes from this game. This does lead to some possible ways to avoid
-        // MMR changes through malicious action currently, however the alternative solution is also
-        // exploitable (in the opposite direction). Doing it in this way means the rankings we
-        // deliver at season end are "final" and never need to be updated again.
-        season.id === curSeason.id
+        // Only update matchmaking ratings if we're not past the point that the season is finalized
+        (seasonEnd === undefined ||
+          Number(seasonEnd) + MATCHMAKING_SEASON_FINALIZED_TIME_MS > Number(reconcileDate))
       ) {
         // Calculate and update the matchmaking ranks
 
@@ -446,6 +450,7 @@ export default class GameResultService {
             }
 
             matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
+            matchmakingRankingChanges.push(updatedMmr)
           }
 
           for (const leagueChange of leagueChanges) {
@@ -531,6 +536,24 @@ export default class GameResultService {
         setReconciledResult(client, gameId, reconciled),
       ])
 
+      if (matchmakingRankingChanges.length) {
+        // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
+        // cache and can be regenerated from the data at any time. We don't want to update them
+        // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
+        // as far as accepting the game results
+        updateRankings(this.redis, matchmakingRankingChanges).catch(err => {
+          logger.error({ err }, 'Error updating rankings, triggering full update')
+          // TODO(tec27): Should probably debounce this update in some way in case we get a ton of
+          // errors in a row for some reason
+          doFullRankingsUpdate(
+            this.redis,
+            matchmakingRankingChanges[0].matchmakingType,
+            season.id,
+          ).catch(err => {
+            logger.error({ err }, 'Error doing full rankings update')
+          })
+        })
+      }
       if (leagueLeaderboardChanges.length) {
         // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
         // cache and can be regenerated from the data at any time. We don't want to update them
