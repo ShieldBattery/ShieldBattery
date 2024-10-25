@@ -1,7 +1,7 @@
 import { SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues'
-import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
+import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
 
 export enum DialogType {
@@ -87,6 +87,7 @@ export type PostMatchDialogPayload = BaseDialogPayload<
     mmrChange: PublicMatchmakingRatingChangeJson
     leagueChanges: ClientLeagueUserChangeJson[]
     leagues: LeagueJson[]
+    season: MatchmakingSeasonJson
     replayPath?: string
   }
 >

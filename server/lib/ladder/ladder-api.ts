@@ -7,7 +7,7 @@ import {
   GetRankingsResponse,
   LadderErrorCode,
   LadderPlayer,
-} from '../../../common/ladder'
+} from '../../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
@@ -215,6 +215,7 @@ export class LadderApi {
       players,
       users,
       lastUpdated: Date.now(),
+      season: toMatchmakingSeasonJson(season),
     }
   }
 }

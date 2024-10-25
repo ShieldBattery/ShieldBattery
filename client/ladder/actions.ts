@@ -1,4 +1,4 @@
-import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder'
+import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 
 export type LadderActions = GetRankings | SearchRankings | GetInstantaneousSelfRank

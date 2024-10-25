@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { POINTS_FOR_RATING_TARGET_FACTOR } from '../../../common/matchmaking'
 import { RankIcon, UnratedIcon } from '../rank-icon'
 
 const Container = styled.div`
@@ -47,53 +48,53 @@ export function RankIconsTest() {
         </Row>
 
         <Row>
-          <RankIcon rating={1} />
-          <RankIcon rating={1000} />
-          <RankIcon rating={1060} />
-          <RankIcon rating={1160} />
+          <RankIcon points={1} bonusPool={0} />
+          <RankIcon points={1000 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1060 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1160 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
-          <RankIcon rating={1200} />
-          <RankIcon rating={1300} />
-          <RankIcon rating={1400} />
+          <RankIcon points={1200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1300 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1400 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
-          <RankIcon rating={1500} />
-          <RankIcon rating={1550} />
-          <RankIcon rating={1600} />
+          <RankIcon points={1500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1550 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1600 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
-          <RankIcon rating={1700} />
-          <RankIcon rating={1800} />
-          <RankIcon rating={1900} />
+          <RankIcon points={1700 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1800 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1900 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
-          <RankIcon rating={1980} />
-          <RankIcon rating={2000} />
-          <RankIcon rating={2200} />
-          <RankIcon rating={2800} />
+          <RankIcon points={1980 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2000 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2800 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
-          <RankIcon rating={2200} />
-          <RankIcon rating={2500} />
-          <RankIcon rating={2500} />
-          <RankIcon rating={2500} />
+          <RankIcon points={2200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
       </Column>
       <Column>
         <Row>
-          <TinyIcon rating={2500} size={22} />
+          <TinyIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={22} bonusPool={0} />
         </Row>
         <Row>
-          <SmallIcon rating={2500} size={44} />
+          <SmallIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={44} bonusPool={0} />
         </Row>
         <Row>
-          <LargeIcon rating={2500} size={176} />
+          <LargeIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={176} bonusPool={0} />
         </Row>
       </Column>
     </Container>

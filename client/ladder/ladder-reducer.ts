@@ -1,12 +1,13 @@
 import { Immutable } from 'immer'
-import { LadderPlayer } from '../../common/ladder'
-import { MatchmakingType } from '../../common/matchmaking'
+import { LadderPlayer } from '../../common/ladder/ladder'
+import { MatchmakingType, SeasonId } from '../../common/matchmaking'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface RetrievedRankings {
   players: LadderPlayer[]
   lastUpdated: number
   totalCount: number
+  seasonId: SeasonId
   fetchTime: Date
 }
 
@@ -28,12 +29,39 @@ export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
   ['@ladder/getRankings'](state, action) {
     const { matchmakingType, fetchTime } = action.meta
 
-    state.typeToRankings.set(matchmakingType, { ...action.payload, fetchTime })
+    const {
+      players,
+      lastUpdated,
+      totalCount,
+      season: { id: seasonId },
+    } = action.payload
+
+    state.typeToRankings.set(matchmakingType, {
+      players,
+      lastUpdated,
+      totalCount,
+      seasonId,
+      fetchTime,
+    })
   },
 
   ['@ladder/searchRankings'](state, action) {
     const { matchmakingType, searchQuery, fetchTime } = action.meta
 
-    state.typeToSearchResults.set(matchmakingType, { ...action.payload, searchQuery, fetchTime })
+    const {
+      players,
+      lastUpdated,
+      totalCount,
+      season: { id: seasonId },
+    } = action.payload
+
+    state.typeToSearchResults.set(matchmakingType, {
+      players,
+      lastUpdated,
+      totalCount,
+      seasonId,
+      searchQuery,
+      fetchTime,
+    })
   },
 })

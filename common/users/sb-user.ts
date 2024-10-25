@@ -2,9 +2,9 @@ import { Tagged } from 'type-fest'
 import { GameRecordJson } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
-import { LadderPlayer } from '../ladder'
+import { LadderPlayer } from '../ladder/ladder'
 import { MapInfoJson } from '../maps'
-import { MatchmakingType } from '../matchmaking'
+import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
 import { SbPermissions } from './permissions'
 import { UserStats } from './user-stats'
@@ -62,6 +62,7 @@ export interface UserProfile {
   userId: SbUserId
   created: Date
   ladder: Partial<Record<MatchmakingType, LadderPlayer>>
+  seasonId: SeasonId
   userStats: UserStats
 }
 
@@ -72,6 +73,7 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
     userId: userProfile.userId,
     created: Number(userProfile.created),
     ladder: userProfile.ladder,
+    seasonId: userProfile.seasonId,
     userStats: userProfile.userStats,
   }
 }
@@ -98,6 +100,7 @@ export interface GetUserProfileResponse {
     maps: MapInfoJson[]
     users: SbUser[]
   }
+  seasons: MatchmakingSeasonJson[]
 }
 
 /**

@@ -1,17 +1,18 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { LadderPlayer } from '../../common/ladder'
+import { LadderPlayer } from '../../common/ladder/ladder'
 import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   NUM_PLACEMENT_MATCHES,
-  ratingToMatchmakingDivision,
+  pointsToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { makePublicAssetUrl } from '../network/server-url'
 
 export interface RankIconProps {
-  rating: number
+  points: number
+  bonusPool: number
   className?: string
   /** The pixel size the icon will be displayed at. Defaults to 88px. */
   size?: number
@@ -28,8 +29,8 @@ const StyledImage = styled.img`
   height: auto;
 `
 
-export function RankIcon({ rating, className, size = 88 }: RankIconProps) {
-  const division = ratingToMatchmakingDivision(rating)
+export function RankIcon({ points, bonusPool, className, size = 88 }: RankIconProps) {
+  const division = pointsToMatchmakingDivision(points, bonusPool)
   return <DivisionIcon className={className} size={size} division={division} />
 }
 
@@ -77,15 +78,18 @@ export function DivisionIcon({ className, division, size }: DivisionIconProps) {
 
 export interface LadderPlayerIconProps {
   player: Readonly<LadderPlayer>
+  bonusPool: number
   className?: string
   /** The pixel size the icon will be displayed at. Defaults to 88px. */
   size?: number
 }
 
-export function LadderPlayerIcon({ player, className, size }: LadderPlayerIconProps) {
+export function LadderPlayerIcon({ player, bonusPool, className, size }: LadderPlayerIconProps) {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return <UnratedIcon className={className} size={size} />
   } else {
-    return <RankIcon rating={player.rating} className={className} size={size} />
+    return (
+      <RankIcon points={player.points} bonusPool={bonusPool} className={className} size={size} />
+    )
   }
 }

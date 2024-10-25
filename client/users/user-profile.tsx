@@ -2,13 +2,17 @@ import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
+  MatchmakingSeasonJson,
   MatchmakingType,
+  SeasonId,
+  getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -92,6 +96,7 @@ export function ConnectedUserProfilePage({
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
   const matchHistory = useAppSelector(s => s.users.idToMatchHistory.get(userId)) ?? []
   const isAdmin = useHasAnyPermission('editPermissions', 'banUsers')
+  const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
 
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
@@ -153,6 +158,7 @@ export function ConnectedUserProfilePage({
       subPage={subPage}
       onTabChange={onTabChange}
       isAdmin={isAdmin}
+      seasons={seasons}
     />
   )
 }
@@ -211,6 +217,7 @@ export interface UserProfilePageProps {
   subPage?: UserProfileSubPage
   onTabChange: (tab: UserProfileSubPage) => void
   isAdmin: boolean
+  seasons: ReadonlyDeep<Map<SeasonId, MatchmakingSeasonJson>>
 }
 
 export function UserProfilePage({
@@ -220,6 +227,7 @@ export function UserProfilePage({
   subPage = UserProfileSubPage.Summary,
   onTabChange,
   isAdmin,
+  seasons,
 }: UserProfilePageProps) {
   const { t } = useTranslation()
   // TODO(tec27): Build the title feature :)
@@ -228,7 +236,9 @@ export function UserProfilePage({
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
-      content = <SummaryPage user={user} profile={profile} matchHistory={matchHistory} />
+      content = (
+        <SummaryPage user={user} profile={profile} matchHistory={matchHistory} seasons={seasons} />
+      )
       break
 
     case UserProfileSubPage.MatchHistory:
@@ -347,10 +357,12 @@ function SummaryPage({
   user,
   profile,
   matchHistory,
+  seasons,
 }: {
   user: SbUser
   profile: UserProfileJson
   matchHistory: Immutable<GameRecordJson[]>
+  seasons: ReadonlyDeep<Map<SeasonId, MatchmakingSeasonJson>>
 }) {
   const { t } = useTranslation()
 
@@ -387,6 +399,7 @@ function SummaryPage({
                   key={matchmakingType}
                   matchmakingType={matchmakingType}
                   ladderPlayer={profile.ladder[matchmakingType]!}
+                  season={seasons.get(profile.seasonId)!}
                 />
               ) : null,
             )}
@@ -503,12 +516,15 @@ const RankDisplayPrefix = styled.span`
 function RankDisplay({
   matchmakingType,
   ladderPlayer,
+  season,
 }: {
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
+  season: ReadonlyDeep<MatchmakingSeasonJson>
 }) {
   const { t } = useTranslation()
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+  const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
 
   if (division === MatchmakingDivision.Unrated) {
     return null
@@ -519,7 +535,7 @@ function RankDisplay({
   return (
     <RankDisplayRoot>
       <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} size={88} />
+        <DivisionIcon player={ladderPlayer} size={88} bonusPool={bonusPool} />
         <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
         <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
       </DivisionInfo>

@@ -14,6 +14,7 @@ import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../com
 import {
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingType,
+  toMatchmakingSeasonJson,
   toPublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
@@ -253,9 +254,10 @@ export default class GameResultService {
       .then(() => this.maybeReconcileResults(gameRecord))
       .then(async () => {
         const game = await this.retrieveGame(gameId)
-        const [mmrChanges, leagueUserChanges] = await Promise.all([
+        const [mmrChanges, leagueUserChanges, season] = await Promise.all([
           this.retrieveMatchmakingRatingChanges(game),
           this.retrieveLeagueUserChanges(game),
+          this.matchmakingSeasonsService.getSeasonForDate(game.startTime).then(([s]) => s),
         ])
 
         let leagues: League[] = []
@@ -285,6 +287,7 @@ export default class GameResultService {
                 mmrChange: toPublicMatchmakingRatingChangeJson(change),
                 leagues: applicableLeagues.map(l => toLeagueJson(l)),
                 leagueChanges: leagueChanges.map(lu => toClientLeagueUserChangeJson(lu)),
+                season: toMatchmakingSeasonJson(season),
               },
             )
           }

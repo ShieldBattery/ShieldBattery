@@ -18,9 +18,13 @@ import {
 } from '../../../common/constants'
 import { toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
-import { LadderPlayer } from '../../../common/ladder'
+import { LadderPlayer } from '../../../common/ladder/ladder'
 import { toMapInfoJson } from '../../../common/maps'
-import { MatchmakingType, NUM_PLACEMENT_MATCHES } from '../../../common/matchmaking'
+import {
+  MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
+  toMatchmakingSeasonJson,
+} from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
@@ -377,8 +381,15 @@ export class UserApi {
 
     return {
       user,
-      profile: { userId: user.id, created: Number(createdDate), ladder, userStats },
+      profile: {
+        userId: user.id,
+        created: Number(createdDate),
+        ladder,
+        seasonId: currentSeason.id,
+        userStats,
+      },
       matchHistory,
+      seasons: [toMatchmakingSeasonJson(currentSeason)],
     }
   }
 

@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { ReadonlyDeep } from 'type-fest'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  MatchmakingSeasonJson,
   MatchmakingType,
+  getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -197,6 +200,9 @@ export function UserProfileOverlayContents({
 
   const user = useAppSelector(s => s.users.byId.get(userId))
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
+  const season = useAppSelector(s =>
+    profile ? s.matchmakingSeasons.byId.get(profile.seasonId) : undefined,
+  )
 
   const username = user?.name
   const onIdentityClick = useCallback(() => {
@@ -279,6 +285,7 @@ export function UserProfileOverlayContents({
                       key={matchmakingType}
                       matchmakingType={matchmakingType}
                       ladderPlayer={profile.ladder[matchmakingType]!}
+                      season={season!}
                     />
                   ) : null,
                 )}
@@ -353,18 +360,21 @@ const RankDisplayType = styled.div`
 function RankDisplay({
   matchmakingType,
   ladderPlayer,
+  season,
 }: {
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
+  season: ReadonlyDeep<MatchmakingSeasonJson>
 }) {
   const { t } = useTranslation()
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+  const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RankDisplayRoot>
       <Tooltip text={divisionLabel} position={'top'}>
-        <DivisionIcon player={ladderPlayer} size={88} />
+        <DivisionIcon player={ladderPlayer} size={88} bonusPool={bonusPool} />
       </Tooltip>
       <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
     </RankDisplayRoot>

@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { LadderPlayer } from '../../common/ladder'
+import { LadderPlayer } from '../../common/ladder/ladder'
 import { MatchmakingSeasonJson, MatchmakingType } from '../../common/matchmaking'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 

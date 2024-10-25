@@ -8,12 +8,15 @@ import { LeagueJson } from '../../common/leagues'
 import {
   MatchmakingDivision,
   MatchmakingDivisionWithBounds,
+  MatchmakingSeasonJson,
   NUM_PLACEMENT_MATCHES,
+  POINTS_FOR_RATING_TARGET_FACTOR,
   PublicMatchmakingRatingChangeJson,
   getDivisionColor,
-  getDivisionsForRatingChange,
+  getDivisionsForPointsChange,
+  getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
-  ratingToMatchmakingDivisionAndBounds,
+  pointsToMatchmakingDivisionAndBounds,
 } from '../../common/matchmaking'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -44,7 +47,7 @@ import { DivisionIcon } from './rank-icon'
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
   max-width: ${props => (props.$hasLeagues ? '632px' : '432px')};
   --sb-post-match-delta-gap: ${props => (props.$hasLeagues ? '8px' : '16px')};
-  --sb-post-match-rating-bar-width: ${props => (props.$hasLeagues ? '368px' : '100%')};
+  --sb-post-match-points-bar-width: ${props => (props.$hasLeagues ? '368px' : '100%')};
 
   & ${Body} {
     overflow-x: hidden;
@@ -148,6 +151,7 @@ export function PostMatchDialog({
   leagueChanges,
   leagues,
   replayPath,
+  season,
 }: PostMatchDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -194,7 +198,7 @@ export function PostMatchDialog({
       onCancel={onCancel}
       $hasLeagues={leagueValues.length > 0}>
       {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
-        <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} />
+        <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
       ) : (
         <UnratedUserContent mmrChange={mmrChange} leagueValues={leagueValues} />
       )}
@@ -217,27 +221,30 @@ export function PostMatchDialog({
 }
 
 function RatedUserContent({
+  season,
   mmrChange,
   leagueValues,
 }: {
+  season: ReadonlyDeep<MatchmakingSeasonJson>
   mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
   leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
   const { t } = useTranslation()
   const divisionTransitions = useMemo(() => {
     const placementPromotion = mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES
-    let startingRating: number
+    const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+    let startingPoints: number
     let divisions: Array<Readonly<MatchmakingDivisionWithBounds>>
     if (placementPromotion) {
-      startingRating = 0
-      const placedDivision = ratingToMatchmakingDivisionAndBounds(mmrChange.rating)
+      startingPoints = 0
+      const placedDivision = pointsToMatchmakingDivisionAndBounds(mmrChange.points, bonusPool)
       divisions = [[MatchmakingDivision.Unrated, 0, placedDivision[1]], placedDivision]
     } else {
-      startingRating = mmrChange.rating - mmrChange.ratingChange
-      divisions = getDivisionsForRatingChange(startingRating, mmrChange.rating)
+      startingPoints = mmrChange.points - mmrChange.pointsChange
+      divisions = getDivisionsForPointsChange(startingPoints, mmrChange.points, bonusPool)
     }
 
-    const isNegative = placementPromotion ? false : mmrChange.ratingChange < 0
+    const isNegative = placementPromotion ? false : mmrChange.pointsChange < 0
 
     return divisions.map((divisionWithBounds, i) => {
       const [div, low, high] = divisionWithBounds
@@ -249,10 +256,10 @@ function RatedUserContent({
       let to = isNegative ? low : high
 
       if (i === 0) {
-        from = startingRating
+        from = startingPoints
       }
       if (i === divisions.length - 1) {
-        to = mmrChange.rating
+        to = mmrChange.points
       }
 
       return { divisionWithBounds, from, to }
@@ -266,7 +273,7 @@ function RatedUserContent({
   // NOTE(tec27): We need this because the async spring method (below) will keep advancing even if
   // the spring has been stopped, and we want it to stop if the dialog has been closed
   const isMounted = useRef(true)
-  const ratingAnimAborter = useRef<AbortController | undefined>()
+  const pointsAnimAborter = useRef<AbortController | undefined>()
   const scoreSoundRef = useRef<AudioBufferSourceNode | undefined>()
   useEffect(() => {
     isMounted.current = true
@@ -276,23 +283,23 @@ function RatedUserContent({
       if (scoreSoundRef.current) {
         scoreSoundRef.current.loop = false
       }
-      ratingAnimAborter.current?.abort()
+      pointsAnimAborter.current?.abort()
     }
   }, [])
 
   const divisionSpringRef = useSpringRef()
-  const [{ rating }] = useSpring<{ rating: number }>(
+  const [{ points }] = useSpring<{ points: number }>(
     {
       ref: divisionSpringRef,
       config: { mass: 120, tension: 200, friction: 100, clamp: true },
       from: {
-        rating: divisionTransitions[0].from,
+        points: divisionTransitions[0].from,
       },
       to: useCallback(
         async (next: (props: any) => Promise<unknown>) => {
-          ratingAnimAborter.current?.abort()
-          ratingAnimAborter.current = new AbortController()
-          const { signal } = ratingAnimAborter.current
+          pointsAnimAborter.current?.abort()
+          pointsAnimAborter.current = new AbortController()
+          const { signal } = pointsAnimAborter.current
 
           scoreSoundRef.current?.stop()
 
@@ -307,7 +314,7 @@ function RatedUserContent({
             }
 
             await next({
-              rating: from,
+              points: from,
               reset: true,
               immediate: true,
               delay: first ? 0 : 675,
@@ -323,7 +330,7 @@ function RatedUserContent({
               })
             }
             await next({
-              rating: to,
+              points: to,
             })
 
             if (scoreSoundRef.current) {
@@ -413,7 +420,7 @@ function RatedUserContent({
             ))}
           </Deltas>
         </IconAndDeltas>
-        <RatingBarView rating={rating} divisionWithBounds={curDivisionWithBounds} />
+        <PointsBarView points={points} divisionWithBounds={curDivisionWithBounds} />
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
@@ -681,15 +688,15 @@ function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isW
   )
 }
 
-const RatingBarRoot = styled.div`
+const PointsBarRoot = styled.div`
   position: relative;
-  width: var(--sb-post-match-rating-bar-width);
+  width: var(--sb-post-match-points-bar-width);
   height: 72px;
   padding: 32px 0 24px;
   overflow-x: visible;
 `
 
-const RatingBar = styled.div`
+const PointsBar = styled.div`
   position: relative;
   width: 100%;
   height: 20px;
@@ -707,42 +714,43 @@ const RatingBar = styled.div`
     width: 100%;
     height: 100%;
 
-    background: var(--sb-rating-bar-bg, currentColor);
-    transform: translateX(calc(-100% + 100% * var(--sb-rating-bar-scale, 0)));
+    background: var(--sb-points-bar-bg, currentColor);
+    transform: translateX(calc(-100% + 100% * var(--sb-points-bar-scale, 0)));
     transform-origin: 100% 50%;
   }
 `
 
-const RatingLabelMover = styled.div`
+const PointsLabelMover = styled.div`
   position: absolute;
   left: 0;
   right: 0;
   top: 52px;
 
-  transform: translateX(var(--sb-rating-label-x, 0));
+  transform: translateX(var(--sb-points-label-x, 0));
 `
 
-const RatingLabel = styled.div`
+const PointsLabel = styled.div`
   ${caption};
   position: absolute;
   transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
 `
 
-const RatingBarView = animated(
+const PointsBarView = animated(
   ({
-    divisionWithBounds: [division, low, _high],
-    rating,
+    divisionWithBounds: [division, _low, _high],
+    points,
   }: {
     divisionWithBounds: Readonly<MatchmakingDivisionWithBounds>
-    rating: number
+    points: number
   }) => {
+    const low = Math.max(0, _low)
     const high =
       division === MatchmakingDivision.Champion
         ? // Champion runs forever, but that doesn't make for a particularly compelling bar, so we
-          // pick a rating that his finite but unlikely to be achieved.
-          Math.max(rating, 3000)
+          // pick a points that is finite but unlikely to be achieved.
+          Math.max(points, 3000 * POINTS_FOR_RATING_TARGET_FACTOR)
         : _high
-    const divPercent = Math.min((rating - low) / (high - low), 1)
+    const divPercent = Math.min((points - low) / (high - low), 1)
 
     const background = useMemo(() => {
       const divColor = getDivisionColor(division)
@@ -760,26 +768,26 @@ const RatingBarView = animated(
     }, [division])
 
     return (
-      <RatingBarRoot>
-        <RatingBar
+      <PointsBarRoot>
+        <PointsBar
           style={
             {
-              '--sb-rating-bar-bg': background,
-              '--sb-rating-bar-scale': divPercent,
+              '--sb-points-bar-bg': background,
+              '--sb-points-bar-scale': divPercent,
             } as any
           }
         />
-        <RatingLabelMover style={{ '--sb-rating-label-x': `${100 * divPercent}%` } as any}>
-          <RatingLabel>{Math.round(rating)}</RatingLabel>
-        </RatingLabelMover>
-      </RatingBarRoot>
+        <PointsLabelMover style={{ '--sb-points-label-x': `${100 * divPercent}%` } as any}>
+          <PointsLabel>{Math.round(points)}</PointsLabel>
+        </PointsLabelMover>
+      </PointsBarRoot>
     )
   },
 )
 
 const PlacementCountRoot = styled.div`
   ${headline5};
-  width: var(--sb-post-match-rating-bar-width);
+  width: var(--sb-post-match-points-bar-width);
   padding: 24px 0 8px;
 
   color: ${colorTextSecondary};

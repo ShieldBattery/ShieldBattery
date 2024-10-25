@@ -4,7 +4,9 @@ import { GameSource, GameType } from '../../../common/games/configuration'
 import { GameRecordJson } from '../../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
 import {
+  makeSeasonId,
   MatchmakingResult,
+  MatchmakingSeasonJson,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
@@ -50,6 +52,13 @@ const GAME: GameRecordJson = {
     [PLAYER_ID, { result: 'win', race: 'p', apm: 27 }],
     [OPPONENT_ID, { result: 'loss', race: 'z', apm: 350 }],
   ],
+}
+
+const SEASON: MatchmakingSeasonJson = {
+  id: makeSeasonId(1),
+  name: 'My Cool Season',
+  startDate: Date.now() - 1000 * 60 * 60 * 24 * 7,
+  resetMmr: true,
 }
 
 const LEAGUES: LeagueJson[] = [
@@ -102,7 +111,7 @@ export function PostMatchDialogTest() {
   const [outcome, setOutcome] = useState<MatchmakingResult>('win')
   const [startingRating, setStartingRating] = useState(1500)
   const [ratingChange, setRatingChange] = useState(75)
-  const [startingPoints, setStartingPoints] = useState(200)
+  const [startingPoints, setStartingPoints] = useState(6000)
   const [pointsChange, setPointsChange] = useState(96)
   const [bonusPointsUsed, setBonusPointsUsed] = useState(0)
   const [lifetimeGames, setLifetimeGames] = useState(10)
@@ -191,6 +200,7 @@ export function PostMatchDialogTest() {
           leagueChanges,
           leagues: LEAGUES,
           replayPath: undefined,
+          season: SEASON,
         },
       }),
     )

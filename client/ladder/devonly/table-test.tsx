@@ -1,8 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import { LadderPlayer } from '../../../common/ladder'
-import { SbUser, SbUserId, makeSbUserId } from '../../../common/users/sb-user'
+import { LadderPlayer } from '../../../common/ladder/ladder'
+import { makeSeasonId, MatchmakingSeasonJson } from '../../../common/matchmaking'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DivisionFilter, LadderTable } from '../ladder'
 
+const SEASON: MatchmakingSeasonJson = {
+  id: makeSeasonId(1),
+  name: 'My Cool Season',
+  startDate: Date.now() - 1000 * 60 * 60 * 24 * 7,
+  resetMmr: true,
+}
 const PLAYERS: LadderPlayer[] = []
 const usersById: Map<SbUserId, SbUser> = new Map()
 
@@ -15,7 +22,7 @@ for (let i = 0; i < 1000; i++) {
   ).substring(0, Math.floor(Math.random() * 14) + 3)
 
   const rating = curRating
-  curRating -= Math.random() * 4
+  curRating -= Math.random() * 5
 
   const wins = Math.floor(Math.random() * 100)
   const losses = Math.floor(Math.random() * 100)
@@ -86,6 +93,7 @@ export function TableTest() {
       players={players}
       usersById={usersById}
       curTime={Date.now()}
+      season={SEASON}
       searchQuery={searchQuery}
       onSearchChange={onSearchChange}
       filteredDivision={(filteredDivision || 'all') as DivisionFilter}

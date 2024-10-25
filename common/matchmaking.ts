@@ -49,7 +49,14 @@ export function hasVetoes(type: MatchmakingType): boolean {
 }
 
 /**
- * Divisions that players can place into, based on their MMR.
+ * The factor we use to determine the "target" points for a player of a given rating. For example, a
+ * player with rating `R` would be expected to achieve about `R * POINTS_FOR_RATING_TARGET_FACTOR`
+ * points.
+ */
+export const POINTS_FOR_RATING_TARGET_FACTOR = 4
+
+/**
+ * Divisions that players can place into, based on their points.
  *
  * NOTE(tec27): Be careful changing the values of these, they are expected to match image filenames.
  */
@@ -78,12 +85,12 @@ export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
 
 export type MatchmakingDivisionWithBounds = [
   division: MatchmakingDivision,
-  ratingLow: number,
-  ratingHigh: number,
+  low: number,
+  high: number,
 ]
 
 const DIVISIONS_TO_RATING: ReadonlyArray<MatchmakingDivisionWithBounds> = [
-  [MatchmakingDivision.Bronze1, 0, 1040],
+  [MatchmakingDivision.Bronze1, -Infinity, 1040],
   [MatchmakingDivision.Bronze2, 1040, 1120],
   [MatchmakingDivision.Bronze3, 1120, 1200],
   [MatchmakingDivision.Silver1, 1200, 1280],
@@ -99,6 +106,20 @@ const DIVISIONS_TO_RATING: ReadonlyArray<MatchmakingDivisionWithBounds> = [
   [MatchmakingDivision.Diamond2, 2000, 2080],
   [MatchmakingDivision.Diamond3, 2080, 2400],
   [MatchmakingDivision.Champion, 2400, Infinity],
+]
+
+const DIVISIONS_TO_POINTS: ReadonlyArray<MatchmakingDivisionWithBounds> = DIVISIONS_TO_RATING.map(
+  ([division, low, high]) => [
+    division,
+    low * POINTS_FOR_RATING_TARGET_FACTOR,
+    high * POINTS_FOR_RATING_TARGET_FACTOR,
+  ],
+)
+
+const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
+  MatchmakingDivision.Unrated,
+  -Infinity,
+  Infinity,
 ]
 
 export function matchmakingDivisionToLabel(rank: MatchmakingDivision, t: TFunction): string {
@@ -217,11 +238,11 @@ export function matchmakingDivisionToLabel(rank: MatchmakingDivision, t: TFuncti
   }
 }
 
-function binarySearchRating(rating: number): number {
-  return binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
-    if (low > rating) {
+function binarySearchPoints(points: number, bonusPool: number): number {
+  return binarySearch(DIVISIONS_TO_POINTS, points, ([_, low, high], points) => {
+    if (low + bonusPool > points) {
       return 1
-    } else if (high <= rating) {
+    } else if (high + bonusPool <= points) {
       return -1
     } else {
       return 0
@@ -229,48 +250,71 @@ function binarySearchRating(rating: number): number {
   })
 }
 
-/** Converts a given rating into a matching `MatchmakingDivision`. */
-export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision {
-  const index = binarySearchRating(rating)
-  return index >= 0 ? DIVISIONS_TO_RATING[index][0] : MatchmakingDivision.Unrated
+function addBonusPoolToDivisionBounds(
+  bounds: Readonly<MatchmakingDivisionWithBounds>,
+  bonusPool: number,
+): MatchmakingDivisionWithBounds {
+  return [bounds[0], bounds[1] + bonusPool, bounds[2] + bonusPool]
+}
+
+/** Converts a given points value into a matching `MatchmakingDivision`. */
+export function pointsToMatchmakingDivision(
+  points: number,
+  bonusPool: number,
+): MatchmakingDivision {
+  const index = binarySearchPoints(points, bonusPool)
+  return index >= 0 ? DIVISIONS_TO_POINTS[index][0] : MatchmakingDivision.Unrated
 }
 
 /**
- * Converts a given rating into a matching `MatchmakingDivision` and returns it, as well as the
- * low (inclusive) and high (exclusive) rating bound for the division.
+ * Converts a given points value into a matching `MatchmakingDivision` and returns it, as well as
+ * the low (inclusive) and high (exclusive) points bound for the division.
  */
-export function ratingToMatchmakingDivisionAndBounds(
-  rating: number,
+export function pointsToMatchmakingDivisionAndBounds(
+  points: number,
+  bonusPool: number,
 ): Readonly<MatchmakingDivisionWithBounds> {
-  const index = binarySearchRating(rating)
-  return index >= 0 ? DIVISIONS_TO_RATING[index] : [MatchmakingDivision.Unrated, 0, Infinity]
+  const index = binarySearchPoints(points, bonusPool)
+  return addBonusPoolToDivisionBounds(
+    index >= 0 ? DIVISIONS_TO_POINTS[index] : UNRATED_BOUNDS,
+    bonusPool,
+  )
 }
 
 /**
- * Retrieves all the relevant divisions for a rating change (that is, if a player goes from
+ * Retrieves all the relevant divisions for a points change (that is, if a player goes from
  * Silver 1 to Gold 2, it would return a list of [Silver 1, Silver 2, Silver 3, Gold 1, Gold 2]).
  * The resulting list will be ordered correctly such that the starting division is first, and ending
  * is last.
  */
-export function getDivisionsForRatingChange(
-  startingRating: number,
-  endingRating: number,
+export function getDivisionsForPointsChange(
+  startingPoints: number,
+  endingPoints: number,
+  bonusPool: number,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const startingIndex = binarySearchRating(startingRating)
-  const endingIndex = binarySearchRating(endingRating)
+  const startingIndex = binarySearchPoints(startingPoints, bonusPool)
+  const endingIndex = binarySearchPoints(endingPoints, bonusPool)
 
   if (startingIndex === -1 && endingIndex === -1) {
-    return [[MatchmakingDivision.Unrated, 0, Infinity]]
+    return [UNRATED_BOUNDS].map(b => addBonusPoolToDivisionBounds(b, bonusPool))
   } else if (startingIndex === -1) {
-    return [[MatchmakingDivision.Unrated, 0, Infinity], DIVISIONS_TO_RATING[endingIndex]]
+    return [UNRATED_BOUNDS, DIVISIONS_TO_POINTS[endingIndex]].map(b =>
+      addBonusPoolToDivisionBounds(b, bonusPool),
+    )
   } else if (endingIndex === -1) {
-    return [[MatchmakingDivision.Unrated, 0, Infinity], DIVISIONS_TO_RATING[startingIndex]]
+    return [UNRATED_BOUNDS, DIVISIONS_TO_POINTS[startingIndex]].map(b =>
+      addBonusPoolToDivisionBounds(b, bonusPool),
+    )
   }
 
   if (startingIndex > endingIndex) {
-    return DIVISIONS_TO_RATING.slice(endingIndex, startingIndex + 1).reverse()
+    return DIVISIONS_TO_POINTS.slice(endingIndex, startingIndex + 1)
+      .reverse()
+      .map(b => addBonusPoolToDivisionBounds(b, bonusPool))
   } else {
-    return DIVISIONS_TO_RATING.slice(startingIndex, endingIndex + 1)
+    return DIVISIONS_TO_POINTS.slice(startingIndex, endingIndex + 1).map(b =>
+      addBonusPoolToDivisionBounds(b, bonusPool),
+    )
   }
 }
 
@@ -399,6 +443,26 @@ export function getTotalBonusPool(at: Date, seasonStart: Date, seasonEnd?: Date)
   const time = Math.min(Number(at), freezeStart)
   const timeSinceSeasonStart = time - Number(seasonStart)
   return Math.max(0, Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS))
+}
+
+function isMatchmakingSeason(
+  season: MatchmakingSeason | MatchmakingSeasonJson,
+): season is MatchmakingSeason {
+  return typeof season.startDate !== 'number'
+}
+
+/**
+ * Returns the total number of bonus points in the pool so far for a season, taking into account the
+ * end-of-season bonus pool freeze.
+ */
+export function getTotalBonusPoolForSeason(
+  at: Date,
+  season: MatchmakingSeason | MatchmakingSeasonJson,
+): number {
+  const [start, end] = isMatchmakingSeason(season)
+    ? [season.startDate, season.endDate]
+    : [new Date(season.startDate), season.endDate ? new Date(season.endDate) : undefined]
+  return getTotalBonusPool(at, start, end)
 }
 
 /**

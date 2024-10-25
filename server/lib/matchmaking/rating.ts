@@ -2,9 +2,10 @@ import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/
 import {
   MATCHMAKING_INACTIVE_TIME_MS,
   MatchmakingSeason,
+  POINTS_FOR_RATING_TARGET_FACTOR,
   arePointsConverged,
   getConvergencePoints,
-  getTotalBonusPool,
+  getTotalBonusPoolForSeason,
   wasPlayerInactive,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
@@ -276,7 +277,7 @@ function makeRatingChanges({
   newUncertainty = Math.min(Math.max(173.7178 * newUncertainty, MIN_UNCERTAINTY), 350)
 
   // Calculate change in points
-  const totalBonusPool = getTotalBonusPool(gameDate, season.startDate, season.endDate)
+  const totalBonusPool = getTotalBonusPoolForSeason(gameDate, season)
   const [pointsChange, bonusApplied, pointsConverged] = calcPointsChange({
     rating: player.rating,
     points: player.points,
@@ -362,8 +363,14 @@ function calcPointsChange({
 
   const pointsWithoutBonus = bonusInfo ? Math.max(points - bonusInfo.bonusUsed, 0) : points
   const winProbability =
-    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
-  let pointsChange = 4 * POINTS_ELO_K_FACTOR * (outcome - winProbability)
+    1 /
+    (1 +
+      Math.pow(
+        10,
+        (POINTS_FOR_RATING_TARGET_FACTOR * opponentRatingGlicko - pointsWithoutBonus) / 1600,
+      ))
+  let pointsChange =
+    POINTS_FOR_RATING_TARGET_FACTOR * POINTS_ELO_K_FACTOR * (outcome - winProbability)
   if (result === 'win' && pointsChange < 1) {
     pointsChange = 1
   }

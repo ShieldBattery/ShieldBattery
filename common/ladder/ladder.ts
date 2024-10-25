@@ -3,7 +3,7 @@ import {
   MatchmakingSeasonJson,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
-  ratingToMatchmakingDivision,
+  pointsToMatchmakingDivision,
 } from '../matchmaking'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
@@ -26,11 +26,12 @@ export interface LadderPlayer extends RaceStats {
 
 export function ladderPlayerToMatchmakingDivision(
   player: Readonly<LadderPlayer>,
+  bonusPool: number,
 ): MatchmakingDivision {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return MatchmakingDivision.Unrated
   } else {
-    return ratingToMatchmakingDivision(player.rating)
+    return pointsToMatchmakingDivision(player.points, bonusPool)
   }
 }
 
@@ -52,6 +53,8 @@ export interface GetRankingsResponse {
   users: SbUser[]
   /** A unix timestamp of the last time the rankings were refreshed. */
   lastUpdated: number
+  /** The season these rankings are for. */
+  season: MatchmakingSeasonJson
 }
 
 /**

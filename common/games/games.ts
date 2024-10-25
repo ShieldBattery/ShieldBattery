@@ -4,7 +4,11 @@ import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues'
 import { MapInfoJson } from '../maps'
-import { PublicMatchmakingRatingChangeJson, matchmakingTypeToLabel } from '../matchmaking'
+import {
+  MatchmakingSeasonJson,
+  PublicMatchmakingRatingChangeJson,
+  matchmakingTypeToLabel,
+} from '../matchmaking'
 import { SbUser, SbUserId } from '../users/sb-user'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
@@ -83,6 +87,7 @@ export interface MatchmakingResultsEvent {
   mmrChange: PublicMatchmakingRatingChangeJson
   leagueChanges: ClientLeagueUserChangeJson[]
   leagues: LeagueJson[]
+  season: MatchmakingSeasonJson
 }
 
 export function getGameDurationString(durationMs: number): string {

@@ -6,12 +6,14 @@ import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
+  MatchmakingSeasonJson,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
+  getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -138,6 +140,13 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
+  const rankingsSeason = useAppSelector(s =>
+    rankings?.seasonId ? s.matchmakingSeasons.byId.get(rankings.seasonId) : undefined,
+  )
+  const searchResultsSeason = useAppSelector(s =>
+    searchResults?.seasonId ? s.matchmakingSeasons.byId.get(searchResults.seasonId) : undefined,
+  )
+
   const searchInputRef = useRef<SearchInputHandle>(null)
   const onTabChange = useCallback((tab: MatchmakingType) => {
     searchInputRef.current?.clear()
@@ -223,6 +232,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     totalCount: 0,
     players: [] as Immutable<LadderPlayer[]>,
     curTime: 0,
+    season: undefined as MatchmakingSeasonJson | undefined,
   }
   if (searchQuery && searchResults) {
     rankingsData = {
@@ -230,6 +240,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       totalCount: searchResults.totalCount,
       players: searchResults.players,
       curTime: Number(searchResults.fetchTime),
+      season: searchResultsSeason,
     }
   } else if (rankings) {
     rankingsData = {
@@ -237,6 +248,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       totalCount: rankings.totalCount,
       players: rankings.players,
       curTime: Number(rankings.fetchTime),
+      season: rankingsSeason,
     }
   }
 
@@ -479,6 +491,7 @@ export interface LadderTableProps {
   players?: ReadonlyArray<LadderPlayer>
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
+  season: MatchmakingSeasonJson | undefined
   lastError?: Error
   searchInputRef?: React.RefObject<SearchInputHandle>
   searchQuery: string
@@ -509,6 +522,7 @@ export function LadderTable(props: LadderTableProps) {
     usersById,
     lastError,
     curTime,
+    season,
     searchInputRef,
     searchQuery,
     onSearchChange,
@@ -520,6 +534,8 @@ export function LadderTable(props: LadderTableProps) {
   const [isHeaderUnstuck, , topHeaderNode, bottomHeaderNode] = useScrollIndicatorState({
     refreshToken: players,
   })
+
+  const bonusPool = season ? getTotalBonusPoolForSeason(new Date(curTime), season) : 0
 
   const onRowSelected = useCallback((userId: SbUserId, username: string) => {
     navigateToUserProfile(userId, username)
@@ -535,6 +551,7 @@ export function LadderTable(props: LadderTableProps) {
         player={player}
         username={username}
         curTime={curTime}
+        bonusPool={bonusPool}
         onSelected={onRowSelected}
       />
     )
@@ -557,8 +574,12 @@ export function LadderTable(props: LadderTableProps) {
       return players
     }
 
-    const playersWithDivs = players.map<[player: LadderPlayer, division: MatchmakingDivision]>(
-      p => [p, ladderPlayerToMatchmakingDivision(p)],
+    const playersWithDivs = players.map(
+      p =>
+        [p, ladderPlayerToMatchmakingDivision(p, bonusPool)] satisfies [
+          player: LadderPlayer,
+          division: MatchmakingDivision,
+        ],
     )
 
     switch (filteredDivision) {
@@ -735,10 +756,11 @@ interface RowProps {
   player: LadderPlayer
   username: string
   curTime: number
+  bonusPool: number
   onSelected?: (userId: SbUserId, username: string) => void
 }
 
-const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowProps) => {
+const Row = React.memo(({ isEven, player, username, curTime, bonusPool, onSelected }: RowProps) => {
   const { t } = useTranslation()
   const onClick = useCallback(() => {
     if (onSelected) {
@@ -756,14 +778,14 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
   raceStats.sort((a, b) => b[0] - a[0])
   const mostPlayedRace = raceStats[0][1]
 
-  const division = ladderPlayerToMatchmakingDivision(player)
+  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RowContainer $isEven={isEven} {...buttonProps}>
       <RankCell>
         <Tooltip text={divisionLabel} position='bottom'>
-          <DivisionIcon player={player} size={44} />
+          <DivisionIcon player={player} bonusPool={bonusPool} size={44} />
         </Tooltip>
         <span>{player.rank}</span>
       </RankCell>

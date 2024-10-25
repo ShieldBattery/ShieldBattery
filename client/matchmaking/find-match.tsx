@@ -3,14 +3,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   MATCHMAKING_BONUS_EARNED_PER_MS,
   MatchmakingDivision,
   MatchmakingPreferences,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
-  getTotalBonusPool,
+  getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -459,11 +459,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
       return 0
     }
 
-    return getTotalBonusPool(
-      new Date(),
-      new Date(season.startDate),
-      season.endDate ? new Date(season.endDate) : undefined,
-    )
+    return getTotalBonusPoolForSeason(new Date(), season)
   }, [season])
 
   useEffect(() => {
@@ -506,7 +502,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
     )
   }
 
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPoolSize)
 
   const bonusAvailable = Math.max(0, Math.floor(bonusPoolSize - ladderPlayer.bonusUsed))
   const bonusScale = Math.min(bonusAvailable / BONUS_PER_WEEK, 1)
@@ -514,7 +510,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   return (
     <RankInfoContainer>
       <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} size={88} />
+        <DivisionIcon player={ladderPlayer} bonusPool={bonusPoolSize} size={88} />
         <RankDisplayDivisionLabel>
           {matchmakingDivisionToLabel(division, t)}
         </RankDisplayDivisionLabel>

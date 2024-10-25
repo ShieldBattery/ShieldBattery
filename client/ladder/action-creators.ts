@@ -1,4 +1,4 @@
-import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder'
+import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
