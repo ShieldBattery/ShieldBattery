@@ -1,5 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   GetRankForUserResponse,
@@ -28,6 +29,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUserById, findUsersById } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { FinalizeRankingsJob } from './finalize-rankings-job'
 import {
   doFullRankingsUpdate,
   getRankings,
@@ -68,6 +70,9 @@ export class LadderApi {
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {
+    // Ensure the FinalizeRankingsJob is constructed/registered
+    container.resolve(FinalizeRankingsJob)
+
     // Migrate rankings to Redis on startup if needed
     Promise.resolve()
       .then(async () => {

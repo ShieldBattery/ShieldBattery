@@ -357,6 +357,7 @@ export function makeSeasonId(id: number): SeasonId {
 export interface MatchmakingSeason {
   id: SeasonId
   startDate: Date
+  endDate?: Date
   name: string
   resetMmr: boolean
 }
@@ -367,6 +368,7 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
   return {
     id: season.id,
     startDate: Number(season.startDate),
+    endDate: season.endDate ? Number(season.endDate) : undefined,
     name: season.name,
     resetMmr: season.resetMmr,
   }

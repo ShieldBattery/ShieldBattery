@@ -1,4 +1,5 @@
 import {
+  MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingCompletion,
   MatchmakingResult,
   MatchmakingSeason,
@@ -586,6 +587,7 @@ function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): Matchma
   return {
     id: result.id,
     startDate: result.start_date,
+    endDate: result.end_date,
     name: result.name,
     resetMmr: result.reset_mmr,
   }
@@ -597,7 +599,7 @@ export async function getMatchmakingSeasons(withClient?: DbClient): Promise<Matc
 
   try {
     const result = await client.query<DbMatchmakingSeason>(sql`
-      SELECT *
+      SELECT *, LEAD(start_date, 1) OVER (ORDER BY start_date) as end_date
       FROM matchmaking_seasons
       ORDER BY start_date DESC;
     `)
@@ -608,7 +610,7 @@ export async function getMatchmakingSeasons(withClient?: DbClient): Promise<Matc
 }
 
 export async function addMatchmakingSeason(
-  season: Omit<MatchmakingSeason, 'id'>,
+  season: Omit<MatchmakingSeason, 'id' | 'endDate'>,
   withClient?: DbClient,
 ): Promise<MatchmakingSeason> {
   const { client, done } = await db(withClient)
@@ -622,7 +624,17 @@ export async function addMatchmakingSeason(
       RETURNING *
     `)
 
-    return fromDbMatchmakingSeason(result.rows[0])
+    const seasonResult = await client.query<DbMatchmakingSeason>(sql`
+      WITH seasons AS (
+        SELECT *, LEAD(start_date, 1) OVER (ORDER BY start_date) as end_date
+        FROM matchmaking_seasons
+      )
+      SELECT *
+      FROM seasons s
+      WHERE s.id = ${result.rows[0].id}
+    `)
+
+    return fromDbMatchmakingSeason(seasonResult.rows[0])
   } finally {
     done()
   }
@@ -635,6 +647,64 @@ export async function deleteMatchmakingSeason(id: SeasonId, withClient?: DbClien
     await client.query(sql`
       DELETE FROM matchmaking_seasons
       WHERE id = ${id};
+    `)
+  } finally {
+    done()
+  }
+}
+
+export async function findUnfinalizedSeasons(withClient?: DbClient): Promise<MatchmakingSeason[]> {
+  const { client, done } = await db(withClient)
+
+  // We add 10 minutes to the finalized time just to account for time to reconcile a game given
+  // reports
+  const maxEndDate = new Date(Date.now() - (MATCHMAKING_SEASON_FINALIZED_TIME_MS + 10 * 60 * 1000))
+
+  try {
+    const result = await client.query<DbMatchmakingSeason>(sql`
+      WITH seasons AS (
+        SELECT *, LEAD(start_date, 1) OVER (ORDER BY start_date) as end_date
+        FROM matchmaking_seasons
+        ORDER BY start_date
+      )
+      SELECT *
+      FROM seasons s
+      WHERE
+        s.end_date < ${maxEndDate} AND
+        NOT EXISTS (
+          SELECT 1
+          FROM matchmaking_finalized_ranks r
+          WHERE r.season_id = s.id
+        )
+    `)
+
+    return result.rows.map(r => fromDbMatchmakingSeason(r))
+  } finally {
+    done()
+  }
+}
+
+export async function finalizeSeasonRankings(
+  seasonId: SeasonId,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+
+  try {
+    await client.query(sql`
+      WITH rankings AS (
+        SELECT RANK() OVER (
+          PARTITION BY r.matchmaking_type
+          ORDER BY r.points DESC, r.rating DESC
+        ) as rank,
+        r.user_id, r.matchmaking_type, r.season_id
+        FROM matchmaking_ratings r
+        WHERE r.num_games_played > 0
+        AND r.season_id = ${seasonId}
+      )
+      INSERT INTO matchmaking_finalized_ranks (season_id, matchmaking_type, user_id, rank)
+      SELECT season_id, matchmaking_type, user_id, rank
+      FROM rankings;
     `)
   } finally {
     done()
