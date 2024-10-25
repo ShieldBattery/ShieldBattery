@@ -104,6 +104,7 @@ export function PostMatchDialogTest() {
   const [ratingChange, setRatingChange] = useState(75)
   const [startingPoints, setStartingPoints] = useState(200)
   const [pointsChange, setPointsChange] = useState(96)
+  const [bonusPointsUsed, setBonusPointsUsed] = useState(0)
   const [lifetimeGames, setLifetimeGames] = useState(10)
   const [artoLeague, setArtoLeague] = useState(false)
   const [longLeague, setLongLeague] = useState(false)
@@ -127,8 +128,8 @@ export function PostMatchDialogTest() {
       ratingChange: lifetimeGames < NUM_PLACEMENT_MATCHES ? 0 : newRating - startingRating,
       points: newPoints,
       pointsChange: newPoints - startingPoints,
-      bonusUsed: 0,
-      bonusUsedChange: 0,
+      bonusUsed: bonusPointsUsed,
+      bonusUsedChange: -bonusPointsUsed,
       lifetimeGames,
     }
   }, [outcome, ratingChange, startingRating, pointsChange, startingPoints, lifetimeGames])
@@ -265,6 +266,12 @@ export function PostMatchDialogTest() {
           floatingLabel={true}
           value={pointsChange}
           onChange={setPointsChange}
+        />
+        <NumberTextField
+          label='Bonus points used'
+          floatingLabel={true}
+          value={bonusPointsUsed}
+          onChange={setBonusPointsUsed}
         />
         <NumberTextField
           label='Lifetime games'

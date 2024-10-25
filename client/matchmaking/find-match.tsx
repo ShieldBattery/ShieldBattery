@@ -10,6 +10,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
+  getTotalBonusPool,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -458,7 +459,11 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
       return 0
     }
 
-    return (Date.now() - season.startDate) * MATCHMAKING_BONUS_EARNED_PER_MS
+    return getTotalBonusPool(
+      new Date(),
+      new Date(season.startDate),
+      season.endDate ? new Date(season.endDate) : undefined,
+    )
   }, [season])
 
   useEffect(() => {

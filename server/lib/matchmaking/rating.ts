@@ -1,10 +1,10 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import {
-  MATCHMAKING_BONUS_EARNED_PER_MS,
   MATCHMAKING_INACTIVE_TIME_MS,
   MatchmakingSeason,
   arePointsConverged,
   getConvergencePoints,
+  getTotalBonusPool,
   wasPlayerInactive,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
@@ -276,17 +276,14 @@ function makeRatingChanges({
   newUncertainty = Math.min(Math.max(173.7178 * newUncertainty, MIN_UNCERTAINTY), 350)
 
   // Calculate change in points
-  const timeSinceSeasonStart = Number(gameDate) - Number(season.startDate)
+  const totalBonusPool = getTotalBonusPool(gameDate, season.startDate, season.endDate)
   const [pointsChange, bonusApplied, pointsConverged] = calcPointsChange({
     rating: player.rating,
     points: player.points,
     pointsConverged: player.pointsConverged,
     bonusInfo: {
       bonusUsed: player.bonusUsed,
-      bonusAvailable: Math.max(
-        Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS - player.bonusUsed),
-        0,
-      ),
+      bonusAvailable: Math.max(Math.floor(totalBonusPool - player.bonusUsed), 0),
     },
     opponentRatingGlicko,
     result,

@@ -381,6 +381,27 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
 export const MATCHMAKING_BONUS_EARNED_PER_MS = 200 / (7 * 24 * 60 * 60 * 1000) // 200 per week
 
 /**
+ * The amount of time before the end of the season that the bonus pool is frozen and does not
+ * continue accruing more points. This is intended to allow users to play out the rest of their
+ * bonus points and to not penalize players for not playing in the last couple days/hours of the
+ * season.
+ */
+export const MATCHMAKING_BONUS_FREEZE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+/**
+ * Returns the total number of bonus points in the pool so far, taking into account the
+ * end-of-season bonus pool freeze.
+ */
+export function getTotalBonusPool(at: Date, seasonStart: Date, seasonEnd?: Date): number {
+  const freezeStart = seasonEnd
+    ? Number(seasonEnd) - MATCHMAKING_BONUS_FREEZE_PERIOD_MS
+    : Number.MAX_SAFE_INTEGER
+  const time = Math.min(Number(at), freezeStart)
+  const timeSinceSeasonStart = time - Number(seasonStart)
+  return Math.max(0, Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS))
+}
+
+/**
  * A Record of MatchmakingType -> the size of a team within a match.
  */
 export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
