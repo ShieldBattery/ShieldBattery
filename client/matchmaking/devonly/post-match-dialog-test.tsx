@@ -141,7 +141,15 @@ export function PostMatchDialogTest() {
       bonusUsedChange: -bonusPointsUsed,
       lifetimeGames,
     }
-  }, [outcome, ratingChange, startingRating, pointsChange, startingPoints, lifetimeGames])
+  }, [
+    outcome,
+    ratingChange,
+    startingRating,
+    pointsChange,
+    startingPoints,
+    lifetimeGames,
+    bonusPointsUsed,
+  ])
 
   const onClick = useStableCallback(() => {
     const leagueChanges: ClientLeagueUserChangeJson[] = []

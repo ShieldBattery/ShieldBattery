@@ -264,7 +264,7 @@ function RatedUserContent({
 
       return { divisionWithBounds, from, to }
     })
-  }, [mmrChange])
+  }, [mmrChange, season])
 
   const [curDivisionWithBounds, setCurDivisionWithBounds] = useState(
     divisionTransitions[0].divisionWithBounds,

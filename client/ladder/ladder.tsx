@@ -640,7 +640,7 @@ export function LadderTable(props: LadderTableProps) {
       default:
         return assertUnreachable(filteredDivision)
     }
-  }, [players, filteredDivision])
+  }, [players, filteredDivision, bonusPool])
 
   return (
     <TableContainer ref={setContainerRef}>

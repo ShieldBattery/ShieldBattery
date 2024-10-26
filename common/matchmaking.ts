@@ -83,45 +83,6 @@ export enum MatchmakingDivision {
 export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
   Object.values(MatchmakingDivision)
 
-export type MatchmakingDivisionWithBounds = [
-  division: MatchmakingDivision,
-  low: number,
-  high: number,
-]
-
-const DIVISIONS_TO_RATING: ReadonlyArray<MatchmakingDivisionWithBounds> = [
-  [MatchmakingDivision.Bronze1, -Infinity, 1040],
-  [MatchmakingDivision.Bronze2, 1040, 1120],
-  [MatchmakingDivision.Bronze3, 1120, 1200],
-  [MatchmakingDivision.Silver1, 1200, 1280],
-  [MatchmakingDivision.Silver2, 1280, 1360],
-  [MatchmakingDivision.Silver3, 1360, 1440],
-  [MatchmakingDivision.Gold1, 1440, 1520],
-  [MatchmakingDivision.Gold2, 1520, 1600],
-  [MatchmakingDivision.Gold3, 1600, 1680],
-  [MatchmakingDivision.Platinum1, 1680, 1760],
-  [MatchmakingDivision.Platinum2, 1760, 1840],
-  [MatchmakingDivision.Platinum3, 1840, 1920],
-  [MatchmakingDivision.Diamond1, 1920, 2000],
-  [MatchmakingDivision.Diamond2, 2000, 2080],
-  [MatchmakingDivision.Diamond3, 2080, 2400],
-  [MatchmakingDivision.Champion, 2400, Infinity],
-]
-
-const DIVISIONS_TO_POINTS: ReadonlyArray<MatchmakingDivisionWithBounds> = DIVISIONS_TO_RATING.map(
-  ([division, low, high]) => [
-    division,
-    low * POINTS_FOR_RATING_TARGET_FACTOR,
-    high * POINTS_FOR_RATING_TARGET_FACTOR,
-  ],
-)
-
-const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
-  MatchmakingDivision.Unrated,
-  -Infinity,
-  Infinity,
-]
-
 export function matchmakingDivisionToLabel(rank: MatchmakingDivision, t: TFunction): string {
   switch (rank) {
     case MatchmakingDivision.Unrated:
@@ -238,23 +199,77 @@ export function matchmakingDivisionToLabel(rank: MatchmakingDivision, t: TFuncti
   }
 }
 
+export type MatchmakingDivisionWithBounds = [
+  division: MatchmakingDivision,
+  low: number,
+  high: number,
+]
+
+type MatchmakingDivisionWithBoundsAndBonusFactor = [
+  division: MatchmakingDivision,
+  low: number,
+  high: number,
+  bonusFactorLow: number,
+  bonusFactorHigh: number,
+]
+
+// Divisions have a specific range of points they cover and have a separate factor for how much the
+// bonus pool applies to them. This bonus pool factor allows us to let people progress at a similar
+// rate through the lower divisions throughout the season but makes it harder to progress through
+// the upper divisions as the season goes on. (It is divided into a low and high factor to ensure
+// the division bounds are continuous)
+const DIVISIONS_TO_POINTS: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+  [MatchmakingDivision.Bronze1, -Infinity, 750, 0, 0],
+  [MatchmakingDivision.Bronze2, 750, 1500, 0, 0],
+  [MatchmakingDivision.Bronze3, 1500, 2250, 0, 0],
+  [MatchmakingDivision.Silver1, 2250, 3000, 0, 0.3],
+  [MatchmakingDivision.Silver2, 3000, 3750, 0.3, 0.3],
+  [MatchmakingDivision.Silver3, 3750, 4500, 0.3, 0.3],
+  [MatchmakingDivision.Gold1, 4500, 5250, 0.3, 0.6],
+  [MatchmakingDivision.Gold2, 5250, 6000, 0.6, 0.6],
+  [MatchmakingDivision.Gold3, 6000, 6750, 0.6, 0.6],
+  [MatchmakingDivision.Platinum1, 6750, 7070, 0.6, 1],
+  [MatchmakingDivision.Platinum2, 7070, 7390, 1, 1],
+  [MatchmakingDivision.Platinum3, 7390, 7710, 1, 1],
+  [MatchmakingDivision.Diamond1, 7710, 8030, 1, 1],
+  [MatchmakingDivision.Diamond2, 8030, 8350, 1, 1],
+  [MatchmakingDivision.Diamond3, 8350, 9600, 1, 1],
+  [MatchmakingDivision.Champion, 9600, Infinity, 1, 1],
+]
+
+const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
+  MatchmakingDivision.Unrated,
+  -Infinity,
+  Infinity,
+]
+
 function binarySearchPoints(points: number, bonusPool: number): number {
-  return binarySearch(DIVISIONS_TO_POINTS, points, ([_, low, high], points) => {
-    if (low + bonusPool > points) {
-      return 1
-    } else if (high + bonusPool <= points) {
-      return -1
-    } else {
-      return 0
-    }
-  })
+  return binarySearch(
+    DIVISIONS_TO_POINTS,
+    points,
+    ([_, low, high, bonusFactorLow, bonusFactorHigh], points) => {
+      if (low + bonusPool * bonusFactorLow > points) {
+        return 1
+      } else if (high + bonusPool * bonusFactorHigh <= points) {
+        return -1
+      } else {
+        return 0
+      }
+    },
+  )
 }
 
 function addBonusPoolToDivisionBounds(
-  bounds: Readonly<MatchmakingDivisionWithBounds>,
+  [
+    division,
+    low,
+    high,
+    bonusFactorLow,
+    bonusFactorHigh,
+  ]: Readonly<MatchmakingDivisionWithBoundsAndBonusFactor>,
   bonusPool: number,
 ): MatchmakingDivisionWithBounds {
-  return [bounds[0], bounds[1] + bonusPool, bounds[2] + bonusPool]
+  return [division, low + bonusPool * bonusFactorLow, high + bonusPool * bonusFactorHigh]
 }
 
 /** Converts a given points value into a matching `MatchmakingDivision`. */
@@ -275,10 +290,9 @@ export function pointsToMatchmakingDivisionAndBounds(
   bonusPool: number,
 ): Readonly<MatchmakingDivisionWithBounds> {
   const index = binarySearchPoints(points, bonusPool)
-  return addBonusPoolToDivisionBounds(
-    index >= 0 ? DIVISIONS_TO_POINTS[index] : UNRATED_BOUNDS,
-    bonusPool,
-  )
+  return index >= 0
+    ? addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[index], bonusPool)
+    : UNRATED_BOUNDS
 }
 
 /**
@@ -296,15 +310,17 @@ export function getDivisionsForPointsChange(
   const endingIndex = binarySearchPoints(endingPoints, bonusPool)
 
   if (startingIndex === -1 && endingIndex === -1) {
-    return [UNRATED_BOUNDS].map(b => addBonusPoolToDivisionBounds(b, bonusPool))
+    return [UNRATED_BOUNDS]
   } else if (startingIndex === -1) {
-    return [UNRATED_BOUNDS, DIVISIONS_TO_POINTS[endingIndex]].map(b =>
-      addBonusPoolToDivisionBounds(b, bonusPool),
-    )
+    return [
+      UNRATED_BOUNDS,
+      addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[endingIndex], bonusPool),
+    ]
   } else if (endingIndex === -1) {
-    return [UNRATED_BOUNDS, DIVISIONS_TO_POINTS[startingIndex]].map(b =>
-      addBonusPoolToDivisionBounds(b, bonusPool),
-    )
+    return [
+      UNRATED_BOUNDS,
+      addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[startingIndex], bonusPool),
+    ]
   }
 
   if (startingIndex > endingIndex) {
