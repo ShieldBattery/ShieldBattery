@@ -520,7 +520,6 @@
             },
             "race": "种族",
             "rating": "评分",
-            "remainingPlacements": "剩余{{lifetimeGames}} / {{numPlacementMatches}}场定级赛",
             "title": "开始匹配",
             "updated": "更新",
             "useAlternateRace": "使用第二种族以避免镜像对抗",

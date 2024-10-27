@@ -484,7 +484,6 @@
             "points": "Точки",
             "race": "Раса",
             "rating": "Рейтинг",
-            "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} мест размещения",
             "title": "Найти совпадение",
             "updated": "Обновлено",
             "useAlternateRace": "Используйте альтернативную расу, чтобы избежать зеркального матчапа",
