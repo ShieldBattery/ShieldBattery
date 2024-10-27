@@ -118,7 +118,7 @@ fn log_file() -> File {
 // This somewhat just mimics the default Rust panic handler, but logs the error and shows a
 // message box instead of trying to print to stderr, which is going to not work properly in a
 // Windows GUI program like BW.
-fn panic_hook(info: &std::panic::PanicInfo) {
+fn panic_hook(info: &std::panic::PanicHookInfo) {
     use std::fmt::Write;
 
     static ALREADY_PANICKING: AtomicBool = AtomicBool::new(false);

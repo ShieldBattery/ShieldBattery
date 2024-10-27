@@ -36,8 +36,8 @@ fn main() {
     for &(out_name, source, defines) in SOURCES.iter() {
         let source_path = shader_dir.join(source);
         println!("cargo:rerun-if-changed={}", source_path.to_str().unwrap());
-        let bin_path = out_path.join(&format!("{}.sm5.bin", out_name));
-        let asm_path = out_path.join(&format!("{}.sm5.asm", out_name));
+        let bin_path = out_path.join(format!("{out_name}.sm5.bin"));
+        let asm_path = out_path.join(format!("{out_name}.sm5.asm"));
         compile_prism_shader(
             &source_path,
             &bin_path,
@@ -49,8 +49,8 @@ fn main() {
         )
         .unwrap_or_else(|e| panic!("Failed to compile {}: {:?}", out_name, e));
 
-        let bin_path = out_path.join(&format!("{}.sm4.bin", out_name));
-        let asm_path = out_path.join(&format!("{}.sm4.asm", out_name));
+        let bin_path = out_path.join(format!("{out_name}.sm4.bin"));
+        let asm_path = out_path.join(format!("{out_name}.sm4.asm"));
         compile_prism_shader(
             &source_path,
             &bin_path,

@@ -10,7 +10,8 @@ use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
     pos2, vec2, Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
-    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, Vec2, Widget, WidgetText,
+    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, UiBuilder, Vec2, Widget,
+    WidgetText,
 };
 use winapi::shared::windef::{HWND, POINT};
 
@@ -186,7 +187,8 @@ impl UiExt for egui::Ui {
             pos2(0.0, 0.0),
             vec2(10000.0, 10000.0),
         ));
-        let mut child_ui = self.child_ui(child_rect, *self.layout(), None);
+        let mut child_ui =
+            self.new_child(UiBuilder::new().max_rect(child_rect).layout(*self.layout()));
 
         let mut clip_rect = child_ui.cursor();
         clip_rect.set_width(width);
@@ -561,7 +563,7 @@ impl OverlayState {
                 // of the dialog. Maybe will have small issues with ones that
                 // get deleted and readded sometimes using same address?
                 egui::CollapsingHeader::new(name)
-                    .id_source(*dialog as usize)
+                    .id_salt(*dialog as usize)
                     .show(ui, |ui| {
                         for ctrl in dialog.children() {
                             let rect = ctrl.dialog_coords();
