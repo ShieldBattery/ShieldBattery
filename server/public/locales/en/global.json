@@ -768,6 +768,7 @@
       },
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
+      "mapSelectionValidation": "Select at least one map.",
       "points": "Points",
       "race": "Race",
       "rating": "Rating",

@@ -171,6 +171,7 @@ export interface MapVetoesControlProps {
   mapPool: Immutable<MatchmakingMapPool>
   disabled: boolean
   className?: string
+  errorText?: string
 }
 
 export function MapVetoesControl({
@@ -263,6 +264,11 @@ export function VetoDescriptionText({
   )
 }
 
+const ErrorText = styled.div`
+  ${body2};
+  color: ${colorNegative};
+`
+
 /** Control for doing positive map selection (e.g. "I want to play on these specific maps"). */
 export function MapSelectionControl({
   onChange,
@@ -270,6 +276,7 @@ export function MapSelectionControl({
   mapPool,
   disabled,
   className,
+  errorText,
 }: MapVetoesControlProps) {
   const onChangeRef = useValueAsRef(onChange)
   const valueRef = useValueAsRef(value)
@@ -305,6 +312,7 @@ export function MapSelectionControl({
           />
         ))}
       </MapSelections>
+      {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
     </div>
   )
 }

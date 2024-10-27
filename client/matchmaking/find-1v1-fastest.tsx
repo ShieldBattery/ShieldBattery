@@ -50,7 +50,19 @@ const Form1v1Fastest = React.forwardRef<FindMatchFormRef, Form1v1FastestProps>(
       bindCheckable,
       bindCustom,
       getInputValue,
-    } = useForm<Model1v1Fastest>(model, {}, { onChange, onSubmit })
+    } = useForm<Model1v1Fastest>(
+      model,
+      {
+        mapSelections: (value, model, dirty, t) => {
+          if (!value.length) {
+            return t('matchmaking.findMatch.mapSelectionValidation', 'Select at least one map.')
+          }
+
+          return undefined
+        },
+      },
+      { onChange, onSubmit },
+    )
 
     useImperativeHandle(ref, () => ({
       submit: handleSubmit,

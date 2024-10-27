@@ -7,6 +7,7 @@ import {
   FindMatchRequest,
   GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingSeasonsResponse,
+  hasVetoes,
   MatchmakingSeasonsServiceErrorCode,
   MatchmakingServiceErrorCode,
   SeasonId,
@@ -121,9 +122,14 @@ export class MatchmakingApi {
       throw new httpErrors.Unauthorized('This account is banned')
     }
 
+    const mapSelections = filterMapSelections(currentMapPool, preferences.mapSelections)
+    if (!hasVetoes(preferences.matchmakingType) && !mapSelections.length) {
+      throw new MatchmakingServiceError(MatchmakingServiceErrorCode.InvalidMaps, 'No maps selected')
+    }
+
     await this.matchmakingService.find(ctx.session!.user!.id, clientId, identifiers, {
       ...preferences,
-      mapSelections: filterMapSelections(currentMapPool, preferences.mapSelections),
+      mapSelections,
     })
   }
 
