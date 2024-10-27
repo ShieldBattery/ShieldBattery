@@ -527,7 +527,8 @@
             "vetoDescriptionWithOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-            "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados."
+            "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
+            "unratedText": "Sin calificación"
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar.",
