@@ -4,7 +4,6 @@ use crate::graphql::errors::graphql_error;
 use async_graphql::dataloader::Loader;
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{Context, Guard, InputObject, SimpleObject};
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use typeshare::typeshare;
@@ -73,7 +72,6 @@ impl RequiredPermission {
     }
 }
 
-#[async_trait]
 impl Guard for RequiredPermission {
     async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
         if let Some(ref user) = ctx.data_unchecked::<Option<CurrentUser>>() {
@@ -96,7 +94,6 @@ impl PermissionsLoader {
     }
 }
 
-#[async_trait]
 impl Loader<i32> for PermissionsLoader {
     type Value = SbPermissions;
     type Error = async_graphql::Error;

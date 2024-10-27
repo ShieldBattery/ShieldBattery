@@ -2,14 +2,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use axum::body::Body;
 use axum::extract::{FromRequestParts, State};
-use axum::headers::authorization::Bearer;
-use axum::headers::Authorization;
 use axum::http::request::Parts;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::{Extension, TypedHeader};
+use axum::Extension;
+use axum_extra::headers::authorization::Bearer;
+use axum_extra::headers::Authorization;
+use axum_extra::TypedHeader;
 use jsonwebtoken::DecodingKey;
 use mobc_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -129,13 +131,13 @@ async fn load_session(
     Ok(SbSession::Authenticated(AuthenticatedSession::new(claims)))
 }
 
-pub async fn jwt_middleware<B>(
+pub async fn jwt_middleware(
     State(settings): State<Arc<Settings>>,
     State(jwt_key): State<Arc<DecodingKey>>,
     State(redis_pool): State<RedisPool>,
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
-    mut request: Request<B>,
-    next: Next<B>,
+    mut request: Request<Body>,
+    next: Next,
 ) -> Response {
     let session = match load_session(&redis_pool, jwt_key, auth_header).await {
         Ok(s) => s,

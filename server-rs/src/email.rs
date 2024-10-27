@@ -2,14 +2,14 @@ use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
 use data_encoding::BASE64;
 use reqwest::Url;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone)]
 pub struct MailgunSettings {
     /// API key associated with the Mailgun account.
-    api_key: Secret<String>,
+    api_key: SecretString,
     /// Domain to send emails with (this is also configured on Mailgun).
     domain: String,
     /// Email address to send emails from.
@@ -24,8 +24,10 @@ impl MailgunSettings {
         from: impl Into<String>,
         api_url: Option<impl Into<Url>>,
     ) -> Self {
+        let api_key: String = api_key.into();
+
         Self {
-            api_key: Secret::new(api_key.into()),
+            api_key: api_key.into(),
             domain: domain.into(),
             from: from.into(),
             api_url: api_url.map_or_else(

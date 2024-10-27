@@ -81,7 +81,7 @@ async fn graphql_ws_handler(
         })
 }
 
-async fn only_unforwarded_clients<B>(request: Request<B>, next: Next<B>) -> Response {
+async fn only_unforwarded_clients(request: Request<Body>, next: Next) -> Response {
     if request
         .headers()
         .get(HeaderName::from_static("x-real-ip"))

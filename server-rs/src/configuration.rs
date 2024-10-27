@@ -2,7 +2,7 @@ use crate::email::MailgunSettings;
 use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
 use reqwest::Url;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use std::time::Duration;
 
 /// The environment the application is running in.
@@ -23,18 +23,18 @@ pub struct Settings {
     pub mailgun: Option<MailgunSettings>,
     pub canonical_host: String,
     pub reverse_proxied: bool,
-    pub datadog_api_key: Option<Secret<String>>,
-    pub jwt_secret: Secret<String>,
+    pub datadog_api_key: Option<SecretString>,
+    pub jwt_secret: SecretString,
     pub session_ttl: Duration,
 }
 
 #[derive(Debug, Clone)]
 pub struct DatabaseSettings {
     pub user: String,
-    password: Secret<String>,
+    password: SecretString,
     /// Super password, only used for maintenance tasks so it will not generally be passed to
     /// production servers.
-    super_password: Option<Secret<String>>,
+    super_password: Option<SecretString>,
     pub host: String,
     pub port: String,
     pub database_name: String,
@@ -47,34 +47,37 @@ pub struct RedisSettings {
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
+    pub fn connection_string(&self) -> SecretString {
+        format!(
             "postgres://{}:{}@{}:{}/{}",
             &self.user,
             &self.password.expose_secret(),
             &self.host,
             &self.port,
             &self.database_name
-        ))
+        )
+        .into()
     }
 
-    pub fn connection_string_super_without_db(&self) -> Secret<String> {
-        Secret::new(format!(
+    pub fn connection_string_super_without_db(&self) -> SecretString {
+        format!(
             "postgres://postgres:{}@{}:{}",
             &self.super_password.clone().unwrap().expose_secret(),
             &self.host,
             &self.port
-        ))
+        )
+        .into()
     }
 
-    pub fn connection_string_super(&self) -> Secret<String> {
-        Secret::new(format!(
+    pub fn connection_string_super(&self) -> SecretString {
+        format!(
             "postgres://postgres:{}@{}:{}/{}",
             &self.super_password.clone().unwrap().expose_secret(),
             &self.host,
             &self.port,
             &self.database_name
-        ))
+        )
+        .into()
     }
 }
 
@@ -121,12 +124,12 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         app_port: port.parse()?,
         database: DatabaseSettings {
             user: std::env::var("SB_DB_USER").wrap_err("SB_DB_USER is not set")?,
-            password: Secret::new(
-                std::env::var("SB_DB_PASSWORD").wrap_err("SB_DB_PASSWORD is not set")?,
-            ),
+            password: std::env::var("SB_DB_PASSWORD")
+                .wrap_err("SB_DB_PASSWORD is not set")?
+                .into(),
             super_password: std::env::var("POSTGRES_SUPER_PASSWORD")
                 .ok()
-                .map(Secret::new),
+                .map(Into::into),
             host: std::env::var("SB_DB_HOST").wrap_err("SB_DB_HOST is not set")?,
             port: std::env::var("SB_DB_PORT").wrap_err("SB_DB_PORT is not set")?,
             database_name: std::env::var("SB_DB").wrap_err("SB_DB is not set")?,
@@ -141,10 +144,10 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         reverse_proxied: std::env::var("SB_HTTPS_REVERSE_PROXY")
             .unwrap_or("false".into())
             .eq_ignore_ascii_case("true"),
-        datadog_api_key: std::env::var("SB_DATADOG_KEY").ok().map(Secret::new),
-        jwt_secret: Secret::new(
-            std::env::var("SB_JWT_SECRET").wrap_err("SB_JWT_SECRET is not set")?,
-        ),
+        datadog_api_key: std::env::var("SB_DATADOG_KEY").ok().map(Into::into),
+        jwt_secret: std::env::var("SB_JWT_SECRET")
+            .wrap_err("SB_JWT_SECRET is not set")?
+            .into(),
         session_ttl: Duration::from_secs(
             std::env::var("SB_SESSION_TTL")
                 .wrap_err("SB_SESSION_TTL is not set")?

@@ -69,14 +69,15 @@ async fn main() -> eyre::Result<()> {
         .parse::<SocketAddr>()
         .wrap_err_with(|| format!("Failed to parse address: {}", addr_string))?;
 
-    tracing::info!("listening on http://{}", addr);
-    axum::Server::bind(&addr)
-        .serve(
-            create_app(db_pool, redis_pool, settings)
-                .into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .await
-        .wrap_err("axum failure")?;
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    tracing::info!("listening on http://{}", listener.local_addr().unwrap());
+    axum::serve(
+        listener,
+        create_app(db_pool, redis_pool, settings)
+            .into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .wrap_err("axum failure")?;
 
     Ok(())
 }

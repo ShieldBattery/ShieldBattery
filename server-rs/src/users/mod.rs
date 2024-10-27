@@ -19,7 +19,7 @@ use ipnetwork::IpNetwork;
 use mobc_redis::redis::AsyncCommands;
 use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
 use tracing::error;
@@ -109,7 +109,6 @@ impl IsCurrentUser {
     }
 }
 
-#[async_trait]
 impl Guard for IsCurrentUser {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
         if let Some(ref user) = ctx.data_unchecked::<Option<CurrentUser>>() {
@@ -217,7 +216,7 @@ impl UsersMutation {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
 
-        let current_password = Secret::new(current_password);
+        let current_password: SecretString = current_password.into();
         let stored_credentials = get_stored_credentials(user.id, ctx.data_unchecked::<PgPool>())
             .await
             .wrap_err("Failed to get stored credentials")?;
@@ -241,7 +240,7 @@ impl UsersMutation {
             });
 
             async move {
-                let hash = hash_password(Secret::new(new_password))
+                let hash = hash_password(new_password.into())
                     .await
                     .wrap_err("Failed to hash password")?;
                 Result::<_, eyre::Error>::Ok(sqlx::query!(
@@ -457,7 +456,6 @@ impl UsersLoader {
     }
 }
 
-#[async_trait]
 impl Loader<i32> for UsersLoader {
     type Value = SbUser;
     type Error = async_graphql::Error;
@@ -475,7 +473,6 @@ impl Loader<i32> for UsersLoader {
     }
 }
 
-#[async_trait]
 impl Loader<String> for UsersLoader {
     type Value = SbUser;
     type Error = async_graphql::Error;

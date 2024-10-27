@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use serde_json::{json, Map, Value};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::sync::RwLock;
@@ -33,7 +33,7 @@ pub enum Region {
 
 #[derive(Debug, Clone)]
 pub struct DatadogOptions {
-    pub api_key: Secret<String>,
+    pub api_key: SecretString,
     pub service_name: String,
     pub region: Option<Region>,
     pub url: Option<String>,
@@ -43,7 +43,7 @@ pub struct DatadogOptions {
 impl Default for DatadogOptions {
     fn default() -> Self {
         Self {
-            api_key: Secret::new("".to_string()),
+            api_key: "".into(),
             service_name: "unknown".to_string(),
             region: None,
             url: None,
@@ -54,8 +54,9 @@ impl Default for DatadogOptions {
 
 impl DatadogOptions {
     pub fn new(service_name: impl Into<String>, api_key: impl Into<String>) -> Self {
+        let api_key: String = api_key.into();
         Self {
-            api_key: Secret::new(api_key.into()),
+            api_key: api_key.into(),
             service_name: service_name.into(),
             ..Default::default()
         }
@@ -217,7 +218,7 @@ where
 #[derive(Debug, Clone)]
 struct DatadogIngestor {
     url: String,
-    api_key: Secret<String>,
+    api_key: SecretString,
     client: reqwest::Client,
     queue: Arc<RwLock<VecDeque<LogEvent>>>,
 

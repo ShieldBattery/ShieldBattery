@@ -1,6 +1,6 @@
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::PgPool;
 
 use crate::telemetry::spawn_blocking_with_tracing;
@@ -11,7 +11,7 @@ pub enum AuthError {
     UnexpectedError(#[from] eyre::Error),
 }
 
-pub type Credentials = (i32, Secret<String>);
+pub type Credentials = (i32, SecretString);
 
 #[tracing::instrument(skip_all)]
 pub async fn get_stored_credentials(user_id: i32, pool: &PgPool) -> Result<Credentials, AuthError> {
@@ -26,7 +26,7 @@ pub async fn get_stored_credentials(user_id: i32, pool: &PgPool) -> Result<Crede
     .fetch_one(pool)
     .await
     .wrap_err("Failed to perform a query to retrieve stored credentials")
-    .map(|row| (row.user_id, Secret::new(row.password)))
+    .map(|row| (row.user_id, row.password.into()))
     .map_err(AuthError::UnexpectedError)?;
 
     Ok(result)
@@ -34,7 +34,7 @@ pub async fn get_stored_credentials(user_id: i32, pool: &PgPool) -> Result<Crede
 
 #[tracing::instrument(skip_all)]
 pub async fn validate_credentials(
-    entered_password: Secret<String>,
+    entered_password: SecretString,
     credentials: Credentials,
 ) -> Result<bool, eyre::Error> {
     let result =
@@ -48,8 +48,8 @@ pub async fn validate_credentials(
 
 #[tracing::instrument(skip_all)]
 fn verify_password_hash(
-    entered_password: Secret<String>,
-    expected_hash: Secret<String>,
+    entered_password: SecretString,
+    expected_hash: SecretString,
 ) -> Result<bool, AuthError> {
     bcrypt::verify(
         entered_password.expose_secret(),
@@ -60,9 +60,7 @@ fn verify_password_hash(
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn hash_password(
-    entered_password: Secret<String>,
-) -> Result<Secret<String>, eyre::Error> {
+pub async fn hash_password(entered_password: SecretString) -> Result<SecretString, eyre::Error> {
     let result = spawn_blocking_with_tracing(move || hash_password_work(entered_password))
         .await
         .wrap_err("Failed to spawn blocking task.")
@@ -72,12 +70,12 @@ pub async fn hash_password(
 }
 
 #[tracing::instrument(skip_all)]
-fn hash_password_work(entered_password: Secret<String>) -> Result<Secret<String>, AuthError> {
+fn hash_password_work(entered_password: SecretString) -> Result<SecretString, AuthError> {
     bcrypt::hash(
         entered_password.expose_secret(),
         11, /* This should ideally match what we use in the JS server */
     )
     .wrap_err("Bcrypt hashing failed.")
     .map_err(AuthError::UnexpectedError)
-    .map(Secret::new)
+    .map(Into::into)
 }
