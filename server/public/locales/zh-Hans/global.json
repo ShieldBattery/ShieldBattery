@@ -528,7 +528,8 @@
             "vetoesLeft": "<0>剩余否决权：</0><1>{{vetoesLeft}}</1>",
             "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
             "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。",
-            "mapSelectionDescription": "选择您想要玩的地图。仅选定的地图会被选择。"
+            "mapSelectionDescription": "选择您想要玩的地图。仅选定的地图会被选择。",
+            "unratedText": "沒有評分"
         },
         "postMatchDialog": {
             "rating": "评分",
