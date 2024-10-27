@@ -5,12 +5,12 @@ describe('common/matchmaking', () => {
     it('works without bonus', () => {
       expect(pointsToMatchmakingDivisionAndBounds(0, 0)).toEqual([
         MatchmakingDivision.Bronze1,
-        -Infinity,
+        0,
         750,
       ])
       expect(pointsToMatchmakingDivisionAndBounds(749, 0)).toEqual([
         MatchmakingDivision.Bronze1,
-        -Infinity,
+        0,
         750,
       ])
       expect(pointsToMatchmakingDivisionAndBounds(750, 0)).toEqual([
@@ -28,7 +28,7 @@ describe('common/matchmaking', () => {
     it('works with bonus', () => {
       expect(pointsToMatchmakingDivisionAndBounds(0, 2400)).toEqual([
         MatchmakingDivision.Bronze1,
-        -Infinity,
+        0,
         750,
       ])
       expect(pointsToMatchmakingDivisionAndBounds(750, 2400)).toEqual([

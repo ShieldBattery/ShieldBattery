@@ -5,7 +5,6 @@ import { LadderPlayer } from '../../common/ladder/ladder'
 import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
-  NUM_PLACEMENT_MATCHES,
   pointsToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { makePublicAssetUrl } from '../network/server-url'
@@ -85,7 +84,7 @@ export interface LadderPlayerIconProps {
 }
 
 export function LadderPlayerIcon({ player, bonusPool, className, size }: LadderPlayerIconProps) {
-  if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
+  if (player.wins + player.losses === 0) {
     return <UnratedIcon className={className} size={size} />
   } else {
     return (

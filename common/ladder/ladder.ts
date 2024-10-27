@@ -2,7 +2,6 @@ import {
   MatchmakingDivision,
   MatchmakingSeasonJson,
   MatchmakingType,
-  NUM_PLACEMENT_MATCHES,
   pointsToMatchmakingDivision,
 } from '../matchmaking'
 import { RaceStats } from '../races'
@@ -28,7 +27,7 @@ export function ladderPlayerToMatchmakingDivision(
   player: Readonly<LadderPlayer>,
   bonusPool: number,
 ): MatchmakingDivision {
-  if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
+  if (!player.points && player.wins + player.losses === 0) {
     return MatchmakingDivision.Unrated
   } else {
     return pointsToMatchmakingDivision(player.points, bonusPool)

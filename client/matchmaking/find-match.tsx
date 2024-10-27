@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
@@ -9,7 +9,6 @@ import {
   MatchmakingDivision,
   MatchmakingPreferences,
   MatchmakingType,
-  NUM_PLACEMENT_MATCHES,
   getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
@@ -550,12 +549,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
             </RankDisplayInfoRow>
           </>
         ) : (
-          <UnratedText>
-            <Trans t={t} i18nKey='matchmaking.findMatch.remainingPlacements'>
-              {{ lifetimeGames: ladderPlayer.lifetimeGames }} /{' '}
-              {{ numPlacementMatches: NUM_PLACEMENT_MATCHES }} placements
-            </Trans>
-          </UnratedText>
+          <UnratedText>{t('matchmaking.findMatch.unratedText', 'No rating')}</UnratedText>
         )}
       </RankDisplayInfo>
     </RankInfoContainer>

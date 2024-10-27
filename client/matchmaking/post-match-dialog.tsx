@@ -1,6 +1,6 @@
 import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -16,7 +16,6 @@ import {
   getDivisionsForPointsChange,
   getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
-  pointsToMatchmakingDivisionAndBounds,
 } from '../../common/matchmaking'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -197,11 +196,7 @@ export function PostMatchDialog({
       title={t('matchmaking.postMatchDialog.title', 'Match results')}
       onCancel={onCancel}
       $hasLeagues={leagueValues.length > 0}>
-      {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
-        <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
-      ) : (
-        <UnratedUserContent mmrChange={mmrChange} leagueValues={leagueValues} />
-      )}
+      <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
       <ButtonBar>
         <RaisedButton
           label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
@@ -231,20 +226,11 @@ function RatedUserContent({
 }) {
   const { t } = useTranslation()
   const divisionTransitions = useMemo(() => {
-    const placementPromotion = mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES
     const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
-    let startingPoints: number
-    let divisions: Array<Readonly<MatchmakingDivisionWithBounds>>
-    if (placementPromotion) {
-      startingPoints = 0
-      const placedDivision = pointsToMatchmakingDivisionAndBounds(mmrChange.points, bonusPool)
-      divisions = [[MatchmakingDivision.Unrated, 0, placedDivision[1]], placedDivision]
-    } else {
-      startingPoints = mmrChange.points - mmrChange.pointsChange
-      divisions = getDivisionsForPointsChange(startingPoints, mmrChange.points, bonusPool)
-    }
+    const startingPoints = mmrChange.points - mmrChange.pointsChange
+    const divisions = getDivisionsForPointsChange(startingPoints, mmrChange.points, bonusPool)
 
-    const isNegative = placementPromotion ? false : mmrChange.pointsChange < 0
+    const isNegative = mmrChange.pointsChange < 0
 
     return divisions.map((divisionWithBounds, i) => {
       const [div, low, high] = divisionWithBounds
@@ -347,11 +333,25 @@ function RatedUserContent({
   )
 
   const deltaValues = useMemo(
-    () => [
-      { label: t('matchmaking.postMatchDialog.points', 'Points'), value: mmrChange.pointsChange },
-      { label: t('matchmaking.postMatchDialog.rating', 'Rating'), value: mmrChange.ratingChange },
-    ],
-    [mmrChange.pointsChange, mmrChange.ratingChange, t],
+    () =>
+      mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES
+        ? [
+            {
+              label: t('matchmaking.postMatchDialog.points', 'Points'),
+              value: mmrChange.pointsChange,
+            },
+            {
+              label: t('matchmaking.postMatchDialog.rating', 'Rating'),
+              value: mmrChange.ratingChange,
+            },
+          ]
+        : [
+            {
+              label: t('matchmaking.postMatchDialog.points', 'Points'),
+              value: mmrChange.pointsChange,
+            },
+          ],
+    [mmrChange.lifetimeGames, mmrChange.pointsChange, mmrChange.ratingChange, t],
   )
 
   const lastPointRevealSoundRef = useRef(0)
@@ -421,109 +421,6 @@ function RatedUserContent({
           </Deltas>
         </IconAndDeltas>
         <PointsBarView points={points} divisionWithBounds={curDivisionWithBounds} />
-      </MatchmakingSide>
-      {leagueValues.length > 0 ? (
-        <LeagueSide>
-          <SideOverline>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</SideOverline>
-          <Leagues>
-            <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
-            <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
-              {topElem}
-              {leagueTransition((style, item) => (
-                <LeagueTooltip text={item.league.name} position={'left'}>
-                  <AnimatedLeagueDelta style={style} {...item} />
-                </LeagueTooltip>
-              ))}
-              {bottomElem}
-            </LeaguesScrollable>
-            <GradientScrollDivider $showAt='bottom' $heightPx={32} $show={!isAtBottom} />
-          </Leagues>
-        </LeagueSide>
-      ) : undefined}
-    </Content>
-  )
-}
-
-function UnratedUserContent({
-  mmrChange,
-  leagueValues,
-}: {
-  mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
-  leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
-}) {
-  const { t } = useTranslation()
-  const deltaValues = useMemo(
-    () => [
-      { label: t('matchmaking.postMatchDialog.points', 'Points'), value: mmrChange.pointsChange },
-    ],
-    [mmrChange.pointsChange, t],
-  )
-
-  const lastPointRevealSoundRef = useRef(0)
-  const playPointRevealSound = useCallback((...args: any[]) => {
-    // Debounce playing this sound so things like Leagues that start a bunch of animations at once
-    // don't play a super loud version of this sound :)
-    const now = window.performance.now()
-    if (now - lastPointRevealSoundRef.current > 50) {
-      audioManager.playSound(AvailableSound.PointReveal)
-      lastPointRevealSoundRef.current = now
-    }
-  }, [])
-  const deltaSpringRef = useSpringRef()
-  const deltaTransition = useTransition(deltaValues, {
-    ref: deltaSpringRef,
-    keys: deltaValues.map(d => d.label),
-    config: defaultSpring,
-    delay: 500,
-    trail: 750,
-    from: {
-      opacity: 0,
-      translateY: 32,
-    },
-    enter: {
-      opacity: 1,
-      translateY: 0,
-    },
-    onStart: playPointRevealSound,
-  })
-
-  const leagueSpringRef = useSpringRef()
-  const leagueTransition = useTransition(leagueValues, {
-    ref: leagueSpringRef,
-    keys: leagueValues.map(l => l.league.id),
-    config: defaultSpring,
-    delay: 500,
-    from: {
-      opacity: 0,
-      translateY: 32,
-    },
-    enter: {
-      opacity: 1,
-      translateY: 0,
-    },
-    onStart: playPointRevealSound,
-  })
-
-  useChain(leagueValues.length > 0 ? [deltaSpringRef, leagueSpringRef] : [deltaSpringRef])
-
-  const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
-
-  return (
-    <Content>
-      <MatchmakingSide>
-        <SideOverline>{t('matchmaking.postMatchDialog.matchmaking', 'Matchmaking')}</SideOverline>
-        <IconAndDeltas>
-          <IconWithLabel
-            division={MatchmakingDivision.Unrated}
-            isWin={mmrChange.outcome === 'win'}
-          />
-          <Deltas>
-            {deltaTransition((style, item) => (
-              <AnimatedDeltaItem style={style} {...item} />
-            ))}
-          </Deltas>
-        </IconAndDeltas>
-        <PlacementCount lifetimeGames={mmrChange.lifetimeGames} />
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
@@ -784,23 +681,3 @@ const PointsBarView = animated(
     )
   },
 )
-
-const PlacementCountRoot = styled.div`
-  ${headline5};
-  width: var(--sb-post-match-points-bar-width);
-  padding: 24px 0 8px;
-
-  color: ${colorTextSecondary};
-  text-align: center;
-`
-
-function PlacementCount({ lifetimeGames }: { lifetimeGames: number }) {
-  const { t } = useTranslation()
-  return (
-    <PlacementCountRoot>
-      <Trans t={t} i18nKey='matchmaking.findMatch.remainingPlacements'>
-        {{ lifetimeGames }} / {{ numPlacementMatches: NUM_PLACEMENT_MATCHES }} placements
-      </Trans>
-    </PlacementCountRoot>
-  )
-}

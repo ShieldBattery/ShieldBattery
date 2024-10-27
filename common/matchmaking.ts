@@ -269,7 +269,11 @@ function addBonusPoolToDivisionBounds(
   ]: Readonly<MatchmakingDivisionWithBoundsAndBonusFactor>,
   bonusPool: number,
 ): MatchmakingDivisionWithBounds {
-  return [division, low + bonusPool * bonusFactorLow, high + bonusPool * bonusFactorHigh]
+  return [
+    division,
+    Math.max(0, low + bonusPool * bonusFactorLow),
+    high + bonusPool * bonusFactorHigh,
+  ]
 }
 
 /** Converts a given points value into a matching `MatchmakingDivision`. */
