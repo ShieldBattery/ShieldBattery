@@ -174,7 +174,8 @@ export async function getAllSeasonMatchmakingRatings(
       SELECT *
       FROM matchmaking_ratings
       WHERE matchmaking_type = ${matchmakingType}
-        AND season_id = ${seasonId};
+        AND season_id = ${seasonId}
+        AND num_games_played > 0;
     `)
     return result.rows.map(r => fromDbMatchmakingRating(r))
   } finally {
