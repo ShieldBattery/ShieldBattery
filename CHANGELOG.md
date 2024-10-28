@@ -1,3 +1,20 @@
+#### 9.6.0 (Oct 28, 2024)
+
+- **Added a ladder and matchmaking for 1v1 Fastest.** In this mode, users choose which maps they would
+  like to play from the map pool, and will only be matched against users with at least one of the
+  same maps selected.
+- **Adjusted ranked divisions to be based on Ranked Points instead of Matchmaking Rating.** We've
+  found that many people were confused by the previous system and how rankings work, so we made some
+  changes. Everyone will begin the season in Bronze 1 and be able to rank up by winning games. Over
+  the course of the season it will become harder to achieve and keep higher ranks. Matchmaking
+  Rating is still used for matchmaking, and higher MMR players can achieve higher Ranked Point
+  totals at a faster rate.
+- **Added a 7-day freeze for the bonus pool at the end of a ranked season.**
+- **Added a right-click menu to whispers in the navigation bar**
+- **Added user information to the whisper UI**
+- **Fixed issues with lobbies getting stuck when users leave during the countdown**
+- **Fixed an issue with unblocking users**
+
 #### 9.5.1 (Jun 8, 2024)
 
 - Fixed a bug that caused some users to be unable to play games or have slow network routes when

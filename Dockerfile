@@ -1,7 +1,7 @@
 # ---------- 1st stage ----------
 # The first stage adds the necessary libraries to build native add-ons (eg. bcrypt) and then installs
 # the server dependencies
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 

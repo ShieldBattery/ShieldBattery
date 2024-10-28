@@ -26,13 +26,15 @@ nsis:
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
 win:
-  certificateSubjectName: Fast Expo Collective LLC
-  signingHashAlgorithms:
-    - sha256
-  signDlls: true
-  rfc3161TimeStampServer: http://ts.ssl.com
   icon: icon.ico
   target: nsis
+  signExts:
+    - dll
+  signtoolOptions:
+    certificateSubjectName: Fast Expo Collective LLC
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://ts.ssl.com
 
 # These properties differ between configs
 productName: ShieldBattery-Staging
