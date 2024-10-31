@@ -219,9 +219,16 @@ impl UiExt for egui::Ui {
                     y: pos.y.ceil(),
                 },
             };
-            if new_rect.width() != 0.0 || new_rect.height() != 0.0 {
-                self.advance_cursor_after_rect(new_rect);
-            }
+
+            // NOTE(tec27): We zero out the spacing for this call because
+            // `advance_cursor_after_rect` will add it, but we're just trying to move the cursor
+            // to an integer pixel value. We also call this unconditonally (even if it is 0) to
+            // ensure layout stability across consecutive frames (see
+            // https://github.com/ShieldBattery/ShieldBattery/issues/1112).
+            let old_item_spacing = self.spacing().item_spacing;
+            self.spacing_mut().item_spacing = Vec2::ZERO;
+            self.advance_cursor_after_rect(new_rect);
+            self.spacing_mut().item_spacing = old_item_spacing;
         }
     }
 }
