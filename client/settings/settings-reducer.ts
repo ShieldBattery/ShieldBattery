@@ -1,11 +1,14 @@
 import { ReadonlyDeep } from 'type-fest'
 import {
+  DEFAULT_LOCAL_SETTINGS,
+  DEFAULT_SCR_SETTINGS,
+} from '../../common/settings/default-settings'
+import {
   LocalSettings,
   ScrSettings,
   ShieldBatteryAppSettings,
 } from '../../common/settings/local-settings'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SCR_SETTINGS } from './default-settings'
 import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
 
 export interface SettingsState {
