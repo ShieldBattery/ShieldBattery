@@ -86,7 +86,14 @@
                 "apmAlert": "Оповещение, когда APM падает ниже",
                 "apmColorText": "Цветной текст",
                 "apmDisplay": "АРМ-дисплей",
-                "apmSound": "Воспроизвести звук"
+                "apmSound": "Воспроизвести звук",
+                "apmAlertHeader": "оповещение APM",
+                "startingFog": {
+                    "legacy": "Наследие",
+                    "showResources": "Показать ресурсы",
+                    "title": "Запуск тумана войны",
+                    "transparent": "Прозрачный"
+                }
             },
             "sound": {
                 "musicVolume": "Громкость музыки",
