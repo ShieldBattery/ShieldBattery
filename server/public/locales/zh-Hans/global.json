@@ -85,7 +85,14 @@
                 "apmSound": "播放声音",
                 "apmValue": "APM值",
                 "apmValueValidation": "输入一个1到999之间的数值",
-                "colorCycling": "启用颜色循环"
+                "colorCycling": "启用颜色循环",
+                "apmAlertHeader": "APM 警报",
+                "startingFog": {
+                    "legacy": "原版",
+                    "showResources": "显示资源",
+                    "title": "开始战争迷雾",
+                    "transparent": "透明的"
+                }
             },
             "input": {
                 "customMouseSensitivity": "自定义鼠标灵敏度",
