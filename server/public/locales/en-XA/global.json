@@ -83,7 +83,14 @@
                     "still": "$🗡Still🗡!",
                     "title": "$🗡Portraits🗡!"
                 },
-                "visualizeNetworkStalls": "$🗡Visualize network stalls🗡!"
+                "visualizeNetworkStalls": "$🗡Visualize network stalls🗡!",
+                "startingFog": {
+                    "showResources": "$🗡Show resources🗡!",
+                    "legacy": "$🗡Legacy🗡!",
+                    "title": "$🗡Starting fog of war🗡!",
+                    "transparent": "$🗡Transparent🗡!"
+                },
+                "apmAlertHeader": "$🗡APM alert🗡!"
             },
             "input": {
                 "customMouseSensitivity": "$🗡Custom mouse sensitivity🗡!",
