@@ -10,6 +10,11 @@ import {
   getIngameSkinName,
   IngameSkin,
 } from '../../../common/settings/blizz-settings'
+import {
+  ALL_STARTING_FOG,
+  getStartingFogLabel,
+  StartingFog,
+} from '../../../common/settings/local-settings'
 import { useForm, Validator } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
@@ -39,6 +44,7 @@ interface GameplaySettingsModel {
   selectedSkin: IngameSkin
   unitPortraits: number
   showTurnRate: boolean
+  startingFog: StartingFog
   // Dev-only settings
   visualizeNetworkStalls?: boolean
 }
@@ -85,6 +91,17 @@ export function GameplaySettings() {
         },
       ),
     )
+    dispatch(
+      mergeLocalSettings(
+        {
+          startingFog: model.startingFog,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
 
     if (DEV_INDICATOR) {
       dispatch(
@@ -102,7 +119,11 @@ export function GameplaySettings() {
   })
 
   const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
-    { ...scrSettings, visualizeNetworkStalls: localSettings.visualizeNetworkStalls },
+    {
+      ...scrSettings,
+      visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
+      startingFog: localSettings.startingFog,
+    },
     { apmAlertValue: validateApmValue() },
     { onValidatedChange },
   )
@@ -141,6 +162,14 @@ export function GameplaySettings() {
               value={false}
               text={t('settings.game.gameplay.minimapPosition.standard', 'Standard')}
             />
+          </Select>
+          <Select
+            {...bindCustom('startingFog')}
+            label={t('settings.game.gameplay.startingFog.title', 'Starting fog of war')}
+            tabIndex={0}>
+            {ALL_STARTING_FOG.map(fog => (
+              <SelectOption key={fog} value={fog} text={getStartingFogLabel(fog, t)} />
+            ))}
           </Select>
         </div>
         <div>
@@ -181,6 +210,11 @@ export function GameplaySettings() {
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
+            {...bindCheckable('apmDisplayOn')}
+            label={t('settings.game.gameplay.apmDisplay', 'APM display')}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
             {...bindCheckable('colorCyclingOn')}
             label={t('settings.game.gameplay.colorCycling', 'Enable color cycling')}
             inputProps={{ tabIndex: 0 }}
@@ -190,13 +224,11 @@ export function GameplaySettings() {
             label={t('settings.game.gameplay.latency', 'Show latency')}
             inputProps={{ tabIndex: 0 }}
           />
-          <CheckBox
-            {...bindCheckable('apmDisplayOn')}
-            label={t('settings.game.gameplay.apmDisplay', 'APM display')}
-            inputProps={{ tabIndex: 0 }}
-          />
         </div>
         <div>
+          <SectionOverline>
+            {t('settings.game.gameplay.apmAlertHeader', 'APM alert')}
+          </SectionOverline>
           <CheckBox
             {...bindCheckable('apmAlertOn')}
             label={t('settings.game.gameplay.apmAlert', 'Alert when APM falls below')}

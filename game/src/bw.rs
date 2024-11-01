@@ -11,7 +11,7 @@ use players::StormPlayerId;
 use quick_error::quick_error;
 use winapi::shared::windef::HWND;
 
-use crate::app_messages::{MapInfo, Settings};
+use crate::app_messages::{MapInfo, Settings, StartingFog};
 use crate::bw_scr::BwScr;
 
 pub mod apm_stats;
@@ -129,6 +129,8 @@ pub trait Bw: Sync + Send {
         wparam: usize,
         lparam: isize,
     ) -> Option<isize>;
+
+    fn starting_fog(&self) -> StartingFog;
 }
 
 /// One bool for state that doesn't require specific handling based on version.

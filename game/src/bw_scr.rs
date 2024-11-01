@@ -20,7 +20,7 @@ use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
-use crate::app_messages::{MapInfo, Settings};
+use crate::app_messages::{AtomicStartingFog, MapInfo, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
@@ -212,6 +212,7 @@ pub struct BwScr {
     open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
+    starting_fog: AtomicStartingFog,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// True if the network is currently stalled (updated whenever `step_network` is called).
@@ -967,6 +968,7 @@ impl BwScr {
             open_replay_files: Mutex::new(Vec::new()),
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
+            starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
             in_network_stall: AtomicBool::new(false),
@@ -1757,7 +1759,9 @@ impl BwScr {
                 };
 
                 // Leave unexplored area in UMS maps black
-                let use_new_mask = if crate::game_thread::is_ums() {
+                let use_new_mask = if crate::game_thread::is_ums()
+                    || self.starting_fog.load(Ordering::Relaxed) != StartingFog::Transparent
+                {
                     0.0
                 } else {
                     1.0
@@ -2194,6 +2198,11 @@ impl bw::Bw for BwScr {
                 warn!("settings.scr.showBonusSkins was not set");
                 true
             });
+        let starting_fog: StartingFog = settings
+            .local
+            .get("startingFog")
+            .and_then(|x| serde_json::from_value(x.clone()).ok())
+            .unwrap_or_default();
         let visualize_network_stalls = settings
             .local
             .get("visualizeNetworkStalls")
@@ -2206,6 +2215,7 @@ impl bw::Bw for BwScr {
             .unwrap_or(false);
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
+        self.starting_fog.store(starting_fog, Ordering::Relaxed);
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Relaxed);
         self.disable_hd.store(disable_hd, Ordering::Relaxed);
@@ -2690,6 +2700,10 @@ impl bw::Bw for BwScr {
         render_state
             .overlay
             .window_proc(window, msg, wparam, lparam)
+    }
+
+    fn starting_fog(&self) -> StartingFog {
+        self.starting_fog.load(Ordering::Relaxed)
     }
 }
 

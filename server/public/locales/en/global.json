@@ -1027,6 +1027,7 @@
     "game": {
       "gameplay": {
         "apmAlert": "Alert when APM falls below",
+        "apmAlertHeader": "APM alert",
         "apmColorText": "Color text",
         "apmDisplay": "APM display",
         "apmSound": "Play sound",
@@ -1059,6 +1060,12 @@
         },
         "showBonusSkins": "Show bonus skins",
         "skinsInfo": "Skins (must be purchased from Blizzard)",
+        "startingFog": {
+          "legacy": "Legacy",
+          "showResources": "Show resources",
+          "title": "Starting fog of war",
+          "transparent": "Transparent"
+        },
         "title": "Gameplay",
         "unitPortraits": {
           "animated": "Animated",

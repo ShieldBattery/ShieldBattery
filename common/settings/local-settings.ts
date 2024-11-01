@@ -1,3 +1,5 @@
+import { TFunction } from 'i18next'
+import { assertUnreachable } from '../assert-unreachable'
 import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
 
 /**
@@ -13,6 +15,27 @@ export interface ShieldBatteryAppSettings {
   winMaximized: boolean
 }
 
+export enum StartingFog {
+  Transparent = 'transparent',
+  ShowResources = 'showResources',
+  Legacy = 'legacy',
+}
+
+export const ALL_STARTING_FOG: Readonly<StartingFog[]> = Object.values(StartingFog)
+
+export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
+  switch (fog) {
+    case StartingFog.Transparent:
+      return t('settings.game.gameplay.startingFog.transparent', 'Transparent')
+    case StartingFog.ShowResources:
+      return t('settings.game.gameplay.startingFog.showResources', 'Show resources')
+    case StartingFog.Legacy:
+      return t('settings.game.gameplay.startingFog.legacy', 'Legacy')
+    default:
+      return assertUnreachable(fog)
+  }
+}
+
 export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
@@ -23,6 +46,7 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinWidth: number
   gameWinHeight: number
   quickOpenReplays: boolean
+  startingFog: StartingFog
 
   visualizeNetworkStalls?: boolean
   disableHd?: boolean

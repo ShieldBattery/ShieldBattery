@@ -15,7 +15,7 @@ use libc::c_void;
 use once_cell::sync::OnceCell;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::GameSetupInfo;
+use crate::app_messages::{GameSetupInfo, StartingFog};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
@@ -302,7 +302,12 @@ pub unsafe fn after_init_game_data() {
 
     send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
     // Create fog-of-war sprites for any neutral buildings
-    if !is_ums() {
+    if !is_ums()
+        && matches!(
+            bw.starting_fog(),
+            StartingFog::Transparent | StartingFog::ShowResources
+        )
+    {
         for unit in bw.active_units() {
             if unit.player() == 11 && unit.is_landed_building() {
                 bw.create_fow_sprite(unit);

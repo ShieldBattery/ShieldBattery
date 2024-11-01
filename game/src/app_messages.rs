@@ -1,3 +1,4 @@
+use atomic_enum::atomic_enum;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,16 @@ pub struct Settings {
     pub local: serde_json::Map<String, serde_json::Value>,
     pub scr: serde_json::Map<String, serde_json::Value>,
     pub settings_file_path: String,
+}
+
+#[atomic_enum]
+#[derive(Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum StartingFog {
+    #[default]
+    Transparent,
+    ShowResources,
+    Legacy,
 }
 
 // app/common/game_status.js

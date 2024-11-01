@@ -14,7 +14,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinWidth: -1,
   gameWinHeight: -1,
   quickOpenReplays: false,
-  visualizeNetworkStalls: false,
+  transparentStartingFog: true,
 }
 
 export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {

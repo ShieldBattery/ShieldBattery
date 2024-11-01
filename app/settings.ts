@@ -1,17 +1,16 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
-import { Map } from 'immutable'
 import debounce from 'lodash/debounce'
 import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
-import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
+import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
 import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 11
+const VERSION = 12
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -266,7 +265,13 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     }
 
     if (!settings.version || settings.version < 11) {
+      log.verbose('Found settings version 10, migrating to version 11')
       newSettings.quickOpenReplays = false
+    }
+
+    if (!settings.version || settings.version < 12) {
+      log.verbose('Found settings version 11, migrating to version 12')
+      newSettings.startingFog = StartingFog.Transparent
     }
 
     newSettings.version = VERSION
@@ -278,11 +283,8 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
  * Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
  * names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
  * convert from SC:R -> SB settings (when fetching) use the inverse map below.
- *
- * NOTE(tec27): The typing here does very little in current versions of TS, since it allows either
- * side of the tuple to match to 'string' :/
  */
-export const sbToScrMapping = Map<Omit<keyof ScrSettings, 'version'>, string>([
+export const sbToScrMapping: ReadonlyMap<Omit<keyof ScrSettings, 'version'>, string> = new Map([
   ['keyboardScrollSpeed', 'm_kscroll'],
   ['mouseScrollSpeed', 'm_mscroll'],
   ['mouseSensitivityOn', 'MouseUseSensitivity'],
@@ -329,7 +331,9 @@ export const sbToScrMapping = Map<Omit<keyof ScrSettings, 'version'>, string>([
   ['showTurnRate', 'ShowTurnRate'],
 ])
 
-export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
+export const scrToSbMapping: ReadonlyMap<string, Omit<keyof ScrSettings, 'version'>> = new Map(
+  Array.from(sbToScrMapping.entries(), ([key, value]) => [value, key]),
+)
 
 export function fromBlizzardToSb(blizzardSettings: Record<string, any>): Partial<ScrSettings> {
   return Object.entries(blizzardSettings).reduce((acc, [name, value]) => {
