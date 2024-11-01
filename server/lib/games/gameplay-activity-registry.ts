@@ -12,6 +12,10 @@ export class GameplayActivityRegistry {
    * @returns true if no other client was registered for the user, false otherwise.
    */
   registerActiveClient(userId: SbUserId, client: ClientSocketsGroup): boolean {
+    if (!client.isConnected()) {
+      throw new Error('Cannot register a disconnected client')
+    }
+
     if (this.userClients.has(userId)) {
       return false
     }

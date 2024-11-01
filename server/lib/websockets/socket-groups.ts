@@ -52,6 +52,10 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
    */
   abstract getType(): SocketGroupType
 
+  isConnected() {
+    return !this.sockets.isEmpty()
+  }
+
   add(socket: NydusClient) {
     const newSockets = this.sockets.add(socket)
     if (newSockets !== this.sockets) {
@@ -94,6 +98,14 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
   ) {
     if (this.subscriptions.has(path)) {
       // The group was already subscribed to the path, so no further effort is needed
+      return
+    }
+
+    if (!this.isConnected()) {
+      // If this group is already disconnected, run the cleanup function immediately
+      if (cleanup) {
+        cleanup(this)
+      }
       return
     }
 
