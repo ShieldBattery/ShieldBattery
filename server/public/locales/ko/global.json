@@ -82,7 +82,14 @@
                 "apmValue": "APM 값",
                 "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
                 "colorCycling": "색상 순환 활성화",
-                "showBonusSkins": "보너스 스킨 보기"
+                "showBonusSkins": "보너스 스킨 보기",
+                "startingFog": {
+                    "legacy": "유산",
+                    "showResources": "리소스 표시",
+                    "title": "전쟁의 안개가 시작되다",
+                    "transparent": "투명한"
+                },
+                "apmAlertHeader": "APM 알림"
             },
             "input": {
                 "mouseScrollSpeed": "마우스 스크롤 속도",
