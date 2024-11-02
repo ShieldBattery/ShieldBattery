@@ -1189,7 +1189,8 @@
             "turnRate": "Ritmo de turno",
             "turnRateAuto": "Auto",
             "turnRateDynamic": "DTR (No recomendado)",
-            "useLegacyLimits": "Usar límite de unidades heredadas"
+            "useLegacyLimits": "Usar límite de unidades heredadas",
+            "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos"
         },
         "errors": {
             "alreadyInLobby": "Ya estás en otro vestíbulo.",
