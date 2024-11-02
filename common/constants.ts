@@ -5,6 +5,7 @@ export const EMAIL_MINLENGTH = 3
 export const EMAIL_MAXLENGTH = 100
 
 export const LOBBY_NAME_MAXLENGTH = 50
+export const LOBBY_NAME_PATTERN = /^[^%@]+$/
 
 export const PASSWORD_MINLENGTH = 6
 

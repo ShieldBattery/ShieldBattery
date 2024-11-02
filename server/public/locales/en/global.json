@@ -554,6 +554,7 @@
       "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
       "gameTypeHeader": "Game type",
       "lobbyName": "Lobby name",
+      "lobbyNameInvalidCharacters": "Lobby name contains invalid characters",
       "lobbyNameRequired": "Enter a lobby name",
       "mapRequired": "Select a map to play",
       "selectMap": "Select map",

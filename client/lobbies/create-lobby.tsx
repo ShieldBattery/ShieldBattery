@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef } f
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
+import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import {
   ALL_GAME_TYPES,
   GameType,
@@ -18,7 +18,7 @@ import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
-import { composeValidators, maxLength, required } from '../forms/validators'
+import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { MapSelect } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
@@ -95,6 +95,9 @@ const SectionHeader = styled.div`
 const lobbyNameValidator = composeValidators(
   required(t => t('lobbies.createLobby.lobbyNameRequired', 'Enter a lobby name')),
   maxLength(LOBBY_NAME_MAXLENGTH),
+  regex(LOBBY_NAME_PATTERN, t =>
+    t('lobbies.createLobby.lobbyNameInvalidCharacters', 'Lobby name contains invalid characters'),
+  ),
 )
 const selectedMapValidator = required(t =>
   t('lobbies.createLobby.mapRequired', 'Select a map to play'),

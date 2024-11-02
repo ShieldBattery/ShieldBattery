@@ -4,7 +4,7 @@ import { container } from 'tsyringe'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { isValidLobbyName, validRace } from '../../../common/constants'
+import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
 import {
   GameSource,
   isValidGameSubType,
@@ -143,6 +143,10 @@ export class LobbyApi {
       data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    if (!LOBBY_NAME_PATTERN.test(name)) {
+      throw new errors.BadRequest('lobby name contains invalid characters')
+    }
 
     if (this.lobbies.has(name)) {
       throw new errors.Conflict('already another lobby with that name')
