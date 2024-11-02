@@ -637,7 +637,8 @@
             "turnRate": "Скорость поворота",
             "turnRateAuto": "Авто",
             "turnRateDynamic": "ДТР (не рекомендуется)",
-            "useLegacyLimits": "Использовать устаревший лимит единиц измерения"
+            "useLegacyLimits": "Использовать устаревший лимит единиц измерения",
+            "lobbyNameInvalidCharacters": "Название лобби содержит недопустимые символы"
         },
         "errors": {
             "alreadyInLobby": "Вы уже находитесь в другом лобби.",
