@@ -1184,7 +1184,8 @@
             "turnRate": "$🗡Turn rate🗡!",
             "turnRateAuto": "$🗡Auto🗡!",
             "turnRateDynamic": "$🗡DTR (Not recommended)🗡!",
-            "useLegacyLimits": "$🗡Use legacy unit limit🗡!"
+            "useLegacyLimits": "$🗡Use legacy unit limit🗡!",
+            "lobbyNameInvalidCharacters": "$🗡Lobby name contains invalid characters🗡!"
         },
         "errors": {
             "alreadyInLobby": "$🗡You're already in another lobby.🗡!",
