@@ -799,7 +799,8 @@
             "turnRate": "转换率",
             "turnRateAuto": "自动设置",
             "turnRateDynamic": "动态转换率（不推荐使用）",
-            "useLegacyLimits": "使用旧版单位数量限制"
+            "useLegacyLimits": "使用旧版单位数量限制",
+            "lobbyNameInvalidCharacters": "大厅名称包含无效字符"
         },
         "events": {
             "banned": "您已被该房间封禁。",
