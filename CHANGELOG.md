@@ -1,3 +1,12 @@
+#### 9.7.0 (Nov 4, 2024)
+
+- **Fixed an issue with users that never played games showing up in the ladder standings**
+- **Fixed an issue with certain lobby names not working correctly**
+- **Added a setting for the starting fog of war in non-UMS games**. This defaults to "Transparent",
+  which was the previous behavior. The added settings are "Show Resources", which hides terrain but
+  shows minerals and gas on the minimap, and "Legacy" which hides everything unexplored.
+- **Fixed the replay UI rapidly changing size in certain configurations**
+
 #### 9.6.0 (Oct 28, 2024)
 
 - **Added a ladder and matchmaking for 1v1 Fastest.** In this mode, users choose which maps they would
