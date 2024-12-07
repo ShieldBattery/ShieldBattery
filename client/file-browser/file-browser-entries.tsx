@@ -130,17 +130,20 @@ export const FileEntry = React.memo(
     isFocused,
     isExpanded,
     onClick,
+    onFocusedPathChange,
   }: FileBrowserEntryProps & {
     file: FileBrowserFileEntry
     fileEntryConfig: FileBrowserFileEntryConfig
     isFocused: boolean
     isExpanded?: boolean
     onClick: (entry: FileBrowserFileEntry) => void
+    onFocusedPathChange: (path: string) => void
   }) => {
     const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
 
     const onSelectClick = useStableCallback((event: React.MouseEvent) => {
       event.stopPropagation()
+      onFocusedPathChange(file.path)
       onSelect(file)
     })
 
