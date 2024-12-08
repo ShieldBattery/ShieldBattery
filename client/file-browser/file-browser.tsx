@@ -470,6 +470,7 @@ export function FileBrowser({
           isFocused={isFocused}
           isExpanded={expandedFileEntry === entry.path}
           onClick={onFileClick}
+          onFocusedPathChange={setFocusedPath}
           key={entry.path}
         />
       )
