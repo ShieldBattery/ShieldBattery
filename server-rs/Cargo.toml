@@ -16,6 +16,10 @@ path = "src/main.rs"
 name = "gen-schema"
 path = "src/bin/gen-schema.rs"
 
+[[bench]]
+name = "matchmaker"
+harness = false
+
 [dependencies]
 async-graphql = { version = "7.0", features = [
   "chrono",
@@ -30,13 +34,15 @@ axum-client-ip = "1.0"
 axum-extra = { version = "0.10", features = ["typed-header"] }
 axum-prometheus = "0.8"
 bcrypt = "0.17"
+chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
 color-eyre = "0.6"
-chrono = "0.4"
 data-encoding = "2.4"
 dotenvy = "0.15"
 gethostname = "1.0"
+enumset = "1.1"
 ipnetwork = "0.20"
+itertools = "0.14"
 jsonwebtoken = "9.3"
 mobc = "0.8"
 mobc-redis = "0.8"
@@ -53,6 +59,8 @@ secrecy = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
+strum = "0.27"
+strum_macros = "0.27"
 thiserror = "2.0"
 tokio = { version = "1.41", features = ["macros", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["util"] }
@@ -60,7 +68,7 @@ tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 typeshare = "1.0"
-uuid = { version = "1.11", features = ["v4"] }
+uuid = { version = "1.16", features = ["v4"] }
 
 [dependencies.sqlx]
 version = "0.8"
@@ -90,7 +98,8 @@ features = [
 ]
 
 [dev-dependencies]
-mockito = "1.1"
+criterion = "0.5"
+mockito = "1.6"
 
 # Improve performance of color-eyre in dev
 [profile.dev.package.backtrace]

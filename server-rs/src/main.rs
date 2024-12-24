@@ -20,11 +20,11 @@ async fn main() -> eyre::Result<()> {
 
     if let Err(e) = dotenvy::dotenv() {
         match e {
-            dotenvy::Error::Io(e) => {
+            dotenvy::Error::Io(_e) => {
                 // We ignore this outside of debug mode because we won't usually use a .env file
                 // directly in production
                 #[cfg(debug_assertions)]
-                tracing::error!("I/O error while loading .env file: {e:?}");
+                tracing::error!("I/O error while loading .env file: {_e:?}");
             }
             _ => {
                 tracing::warn!("Error while loading .env file: {e:?}");
