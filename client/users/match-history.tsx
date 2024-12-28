@@ -42,7 +42,7 @@ const ErrorText = styled.div`
 
 const SearchResults = styled.div`
   width: 100%;
-  padding: 8px 16px;
+  padding: 0 24px;
 
   display: flex;
   flex-direction: column;

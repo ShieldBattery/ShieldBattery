@@ -5,34 +5,21 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingDivision,
-  MatchmakingSeasonJson,
-  MatchmakingType,
-  SeasonId,
-  getTotalBonusPoolForSeason,
-  matchmakingDivisionToLabel,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { ALL_MATCHMAKING_TYPES, MatchmakingSeasonJson, SeasonId } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
-import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   amberA400,
-  background700,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
-  colorDividers,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
@@ -46,7 +33,6 @@ import {
   overline,
   singleLine,
   subtitle1,
-  subtitle2,
 } from '../styles/typography'
 import {
   correctUsernameForProfile,
@@ -55,7 +41,9 @@ import {
 } from './action-creators'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
+import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
+import { UserRankDisplay } from './user-rank-display'
 
 const LoadableAdminUserPage = React.lazy(async () => ({
   default: (await import('./user-profile-admin')).AdminUserPage,
@@ -246,8 +234,11 @@ export function UserProfilePage({
       break
 
     case UserProfileSubPage.Stats:
-    case UserProfileSubPage.Seasons:
       content = <ComingSoonPage />
+      break
+
+    case UserProfileSubPage.Seasons:
+      content = <UserProfileSeasons user={user} />
       break
 
     case UserProfileSubPage.Admin:
@@ -395,7 +386,7 @@ function SummaryPage({
           <RankedSection>
             {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
               profile.ladder[matchmakingType] ? (
-                <RankDisplay
+                <UserRankDisplay
                   key={matchmakingType}
                   matchmakingType={matchmakingType}
                   ladderPlayer={profile.ladder[matchmakingType]!}
@@ -437,136 +428,6 @@ function ComingSoonPage() {
     <ComingSoonRoot>
       <ComingSoon />
     </ComingSoonRoot>
-  )
-}
-
-const RankDisplayRoot = styled.div`
-  padding: 16px 16px 8px;
-
-  display: flex;
-
-  background-color: ${background700};
-  border-radius: 4px;
-`
-
-const DivisionInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  border-right: 1px solid ${colorDividers};
-  padding-right: 15px;
-`
-
-const DivisionIcon = styled(LadderPlayerIcon)`
-  width: 88px;
-  height: 88px;
-`
-
-const RankDisplayDivisionLabel = styled.div`
-  ${headline6};
-  padding-top: 12px;
-`
-
-const RankDisplayType = styled.div`
-  ${subtitle2};
-  ${singleLine};
-  color: ${colorTextFaint};
-`
-
-const RankDisplayInfo = styled.div`
-  padding-left: 8px;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 24px;
-
-  color: ${colorTextSecondary};
-`
-
-const RankDisplayInfoRow = styled.div`
-  height: 44px;
-  display: flex;
-  gap: 8px;
-`
-
-const RankDisplayInfoEntry = styled.div`
-  width: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`
-
-const RankDisplayInfoLabel = styled.div`
-  ${caption};
-  ${singleLine};
-  color: ${colorTextFaint};
-`
-
-const RankDisplayInfoValue = styled.div`
-  ${subtitle1};
-  ${singleLine};
-`
-
-const RankDisplayPrefix = styled.span`
-  ${caption};
-`
-
-function RankDisplay({
-  matchmakingType,
-  ladderPlayer,
-  season,
-}: {
-  matchmakingType: MatchmakingType
-  ladderPlayer: LadderPlayer
-  season: ReadonlyDeep<MatchmakingSeasonJson>
-}) {
-  const { t } = useTranslation()
-  const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
-
-  if (division === MatchmakingDivision.Unrated) {
-    return null
-  }
-
-  const divisionLabel = matchmakingDivisionToLabel(division, t)
-
-  return (
-    <RankDisplayRoot>
-      <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} size={88} bonusPool={bonusPool} />
-        <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
-        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
-      </DivisionInfo>
-      <RankDisplayInfo>
-        <RankDisplayInfoRow>
-          <RankDisplayInfoEntry>
-            <RankDisplayInfoValue>
-              <RankDisplayPrefix>#</RankDisplayPrefix>
-              {ladderPlayer.rank}
-            </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>{t('users.profile.rank', 'Rank')}</RankDisplayInfoLabel>
-          </RankDisplayInfoEntry>
-          <RankDisplayInfoEntry>
-            <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>{t('users.profile.points', 'Points')}</RankDisplayInfoLabel>
-          </RankDisplayInfoEntry>
-        </RankDisplayInfoRow>
-        <RankDisplayInfoRow>
-          <RankDisplayInfoEntry>
-            <RankDisplayInfoValue>
-              {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
-            </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>{t('users.profile.record', 'Record')}</RankDisplayInfoLabel>
-          </RankDisplayInfoEntry>
-          <RankDisplayInfoEntry>
-            <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>{t('users.profile.rating', 'Rating')}</RankDisplayInfoLabel>
-          </RankDisplayInfoEntry>
-        </RankDisplayInfoRow>
-      </RankDisplayInfo>
-    </RankDisplayRoot>
   )
 }
 

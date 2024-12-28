@@ -1211,6 +1211,9 @@
     "miniMatchHistory": {
       "noGameSelected": "No game selected",
       "viewDetails": "View details"
+    },
+    "seasons": {
+      "noMatchingGames": "{{user}} has played no games in previous seasons."
     }
   },
   "users": {

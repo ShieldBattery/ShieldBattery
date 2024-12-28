@@ -3,17 +3,20 @@ import {
   MatchmakingSeasonJson,
   MatchmakingType,
   pointsToMatchmakingDivision,
+  SeasonId,
 } from '../matchmaking'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
 /**
- * A ranked player for a particular matchmaking ladder. Contains information about their play
- * history and current rating.
+ * A ranked player for a particular matchmaking ladder in a particular season. Contains information
+ * about their play history and current rating.
  */
 export interface LadderPlayer extends RaceStats {
   rank: number
   userId: SbUserId
+  matchmakingType: MatchmakingType
+  seasonId: SeasonId
   rating: number
   points: number
   bonusUsed: number

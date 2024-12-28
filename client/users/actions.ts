@@ -9,6 +9,7 @@ import {
   AdminGetUserIpsResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
+  GetUserRankingHistoryResponse,
   SbUser,
   SbUserId,
   SearchMatchHistoryResponse,
@@ -26,6 +27,7 @@ export type UserActions =
   | UpsertUserRelationship
   | DeleteUserRelationship
   | UpdateFriendActivityStatus
+  | GetUserRankingHistory
 
 export interface GetUserProfile {
   type: '@users/getUserProfile'
@@ -99,4 +101,10 @@ export interface DeleteUserRelationship {
 export interface UpdateFriendActivityStatus {
   type: '@users/updateFriendActivityStatus'
   payload: FriendActivityStatusUpdateEvent
+}
+
+export type GetUserRankingHistory = {
+  type: '@users/getRankingHistory'
+  payload: GetUserRankingHistoryResponse
+  meta: { userId: SbUserId }
 }

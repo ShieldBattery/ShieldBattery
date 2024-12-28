@@ -11,6 +11,7 @@ import {
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
+  GetUserRankingHistoryResponse,
   SbUserId,
   SearchMatchHistoryResponse,
 } from '../../common/users/sb-user'
@@ -305,5 +306,27 @@ export function unblockUser(targetId: SbUserId, spec: RequestHandlingSpec): Thun
       method: 'DELETE',
       signal: spec.signal,
     })
+  })
+}
+
+export function getUserRankingHistory(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<GetUserRankingHistoryResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetUserRankingHistoryResponse>(
+      apiUrl`users/${userId}/ranking-history`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@users/getRankingHistory',
+      payload: result,
+      meta: { userId },
+    })
+
+    return result
   })
 }

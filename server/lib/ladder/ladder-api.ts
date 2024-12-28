@@ -120,6 +120,8 @@ export class LadderApi {
         acc[r.matchmakingType] = {
           rank: ranks.get(r.matchmakingType) ?? -2,
           userId: r.userId,
+          matchmakingType: r.matchmakingType,
+          seasonId: r.seasonId,
           rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
           points: r.points,
           bonusUsed: r.bonusUsed,
@@ -186,6 +188,8 @@ export class LadderApi {
       players.push({
         rank: lastRank,
         userId: r.userId,
+        matchmakingType: r.matchmakingType,
+        seasonId: r.seasonId,
         rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
         points: r.points,
         bonusUsed: r.bonusUsed,
