@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
@@ -40,19 +40,18 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error>()
-  const abortControllerRef = useRef<AbortController>()
 
   useEffect(() => {
     setIsLoading(true)
 
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
+    const abortController = new AbortController()
 
     dispatch(
       getUserRankingHistory(user.id, {
-        signal: abortControllerRef.current.signal,
+        signal: abortController.signal,
         onSuccess: data => {
           setIsLoading(false)
+          setError(undefined)
           setRanks(data.history)
         },
         onError: err => {
@@ -61,11 +60,11 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
         },
       }),
     )
-  }, [dispatch, user.id])
 
-  useEffect(() => {
-    return () => abortControllerRef.current?.abort()
-  }, [])
+    return () => {
+      abortController.abort()
+    }
+  }, [dispatch, user.id])
 
   if (isLoading) {
     return <LoadingDotsArea />

@@ -138,8 +138,8 @@ const matchHistoryRetrievalThrottle = createThrottle('matchhistoryretrieval', {
 })
 
 const rankingsHistoryRetrievalThrottle = createThrottle('rankingshistoryretrieval', {
-  rate: 50,
-  burst: 150,
+  rate: 10,
+  burst: 30,
   window: 60000,
 })
 
