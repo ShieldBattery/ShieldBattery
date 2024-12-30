@@ -4,13 +4,22 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MatchmakingSeasonsState {
   byId: Map<SeasonId, MatchmakingSeasonJson>
+  currentSeasonId?: SeasonId
 }
 
 const DEFAULT_STATE: ReadonlyDeep<MatchmakingSeasonsState> = {
   byId: new Map(),
+  currentSeasonId: undefined,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@matchmaking/getMatchmakingSeasons'](state, { payload: { seasons, current } }) {
+    for (const season of seasons) {
+      state.byId.set(season.id, season)
+    }
+    state.currentSeasonId = current
+  },
+
   ['@ladder/getRankings'](state, action) {
     const { season } = action.payload
     state.byId.set(season.id, season)

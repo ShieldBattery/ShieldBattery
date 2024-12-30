@@ -95,7 +95,9 @@ export function TableTest() {
       players={players}
       usersById={usersById}
       curTime={Date.now()}
+      seasons={new Map([[SEASON.id, SEASON]])}
       season={SEASON}
+      onSeasonChange={() => {}}
       searchQuery={searchQuery}
       onSearchChange={onSearchChange}
       filteredDivision={(filteredDivision || 'all') as DivisionFilter}

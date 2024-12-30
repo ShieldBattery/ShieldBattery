@@ -6,6 +6,7 @@ import {
   FindMatchRequest,
   GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingMapPoolBody,
+  GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingSeasonJson,
@@ -236,6 +237,7 @@ export function updateLastQueuedMatchmakingType(
   }
 }
 
+// TODO(2Pac): I Don't think this is used anymore, remove it?
 export function getCurrentMatchmakingSeason(
   spec: RequestHandlingSpec<MatchmakingSeasonJson>,
 ): ThunkAction {
@@ -249,5 +251,20 @@ export function getCurrentMatchmakingSeason(
     )
 
     return response.season
+  })
+}
+
+export function getMatchmakingSeasons(
+  spec: RequestHandlingSpec<GetMatchmakingSeasonsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetMatchmakingSeasonsResponse>(apiUrl`matchmaking/seasons`)
+
+    dispatch({
+      type: '@matchmaking/getMatchmakingSeasons',
+      payload: result,
+    })
+
+    return result
   })
 }
