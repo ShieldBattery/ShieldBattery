@@ -477,7 +477,7 @@ export async function getMatchmakingFinalizedRanksForUser(
       WHERE
         mfr.user_id = ${userId}
       ORDER BY
-        ms.start_date DESC, mfr.matchmaking_type
+        ms.start_date DESC, mr.points DESC
     `)
 
     return result.rows.map(r => fromDbMatchmakingFinalizedRank(r))
