@@ -1128,6 +1128,10 @@
         "matchHistory": {
             "noMatchingGames": "Нет подходящих игр.",
             "retrievingError": "Не удалось получить историю матчей."
+        },
+        "seasons": {
+            "noMatchingGames": "{{user}} не играл ни в одном матче в предыдущих сезонах.",
+            "retrievingError": "Произошла ошибка при получении истории рейтинга."
         }
     },
     "users": {
