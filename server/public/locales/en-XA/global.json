@@ -805,6 +805,10 @@
         "matchHistory": {
             "retrievingError": "$🗡There was an error retrieving the match history.🗡!",
             "noMatchingGames": "$🗡No matching games.🗡!"
+        },
+        "seasons": {
+            "noMatchingGames": "$🗡{{user}} has played no games in previous seasons.🗡!",
+            "retrievingError": "$🗡There was an error retrieving the ranking history.🗡!"
         }
     },
     "windowControls": {
