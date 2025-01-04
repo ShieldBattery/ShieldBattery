@@ -71,6 +71,10 @@ export interface MatchmakingRating extends RaceStats {
   losses: number
 }
 
+export interface FinalizedMatchmakingRank extends MatchmakingRating {
+  rank: number
+}
+
 export const DEFAULT_MATCHMAKING_RATING: Readonly<
   Omit<MatchmakingRating, 'userId' | 'matchmakingType' | 'seasonId'>
 > = {
@@ -102,6 +106,7 @@ export const DEFAULT_MATCHMAKING_RATING: Readonly<
 }
 
 type DbMatchmakingRating = Dbify<MatchmakingRating>
+type DbMatchmakingFinalizedRank = Dbify<FinalizedMatchmakingRank>
 
 function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): MatchmakingRating {
   return {
@@ -133,6 +138,15 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     rTLosses: result.r_t_losses,
     rZWins: result.r_z_wins,
     rZLosses: result.r_z_losses,
+  }
+}
+
+function fromDbMatchmakingFinalizedRank(
+  result: Readonly<DbMatchmakingFinalizedRank>,
+): FinalizedMatchmakingRank {
+  return {
+    ...fromDbMatchmakingRating(result),
+    rank: result.rank,
   }
 }
 
@@ -375,7 +389,7 @@ export async function getManyMatchmakingRatings(
     const optionalJoin = searchStr ? sql`JOIN users u ON r.user_id = u.id` : sql``
 
     let query = sql`
-      SELECT r.matchmaking_type, r.user_id, r.rating, r.points,
+      SELECT r.matchmaking_type, r.user_id, r.season_id, r.rating, r.points,
         r.bonus_used, r.wins, r.losses, r.lifetime_games,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
@@ -415,7 +429,7 @@ export async function getMatchmakingRatingsForUser(
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingRating>(sql`
-      SELECT r.matchmaking_type, r.user_id, r.rating, r.points,
+      SELECT r.matchmaking_type, r.user_id, r.season_id, r.rating, r.points,
         r.bonus_used, r.lifetime_games, r.wins, r.losses,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
@@ -428,6 +442,45 @@ export async function getMatchmakingRatingsForUser(
     `)
 
     return result.rows.map(r => fromDbMatchmakingRating(r))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a user's finalized rank for all seasons and matchmaking type combos. Rank for the current
+ * season, as well as any season and matchmaking type combo that the user has not completed a game
+ * in will not be included in the result. The results are ordered by the start date of the season.
+ */
+export async function getMatchmakingFinalizedRanksForUser(
+  userId: SbUserId,
+  withClient?: DbClient,
+): Promise<FinalizedMatchmakingRank[]> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const result = await client.query<DbMatchmakingFinalizedRank>(sql`
+      SELECT mfr.user_id, mfr.season_id, mfr.matchmaking_type, mfr.rank, mr.rating, mr.points,
+        mr.bonus_used, mr.lifetime_games, mr.wins, mr.losses,
+        mr.p_wins, mr.p_losses,
+        mr.t_wins, mr.t_losses,
+        mr.z_wins, mr.z_losses,
+        mr.r_wins, mr.r_losses,
+        mr.r_p_wins, mr.r_p_losses, mr.r_t_wins, mr.r_t_losses, mr.r_z_wins, mr.r_z_losses,
+        mr.last_played_date
+      FROM
+        matchmaking_finalized_ranks mfr
+        INNER JOIN matchmaking_ratings mr ON mfr.season_id = mr.season_id
+          AND mfr.user_id = mr.user_id
+          AND mfr.matchmaking_type = mr.matchmaking_type
+        INNER JOIN matchmaking_seasons ms ON mfr.season_id = ms.id
+      WHERE
+        mfr.user_id = ${userId}
+      ORDER BY
+        ms.start_date DESC, mr.points DESC
+    `)
+
+    return result.rows.map(r => fromDbMatchmakingFinalizedRank(r))
   } finally {
     done()
   }
@@ -603,6 +656,35 @@ export async function getMatchmakingSeasons(withClient?: DbClient): Promise<Matc
       SELECT *, LEAD(start_date, 1) OVER (ORDER BY start_date) as end_date
       FROM matchmaking_seasons
       ORDER BY start_date DESC;
+    `)
+    return result.rows.map(r => fromDbMatchmakingSeason(r))
+  } finally {
+    done()
+  }
+}
+
+/** Returns the matchmaking seasons with the given IDs, in descending order by start date. */
+export async function getMatchmakingSeasonsByIds(
+  seasonIds: SeasonId[],
+  withClient?: DbClient,
+): Promise<MatchmakingSeason[]> {
+  const { client, done } = await db(withClient)
+
+  try {
+    // NOTE(2Pac): We use a CTE to get the end date for each season, and then filter by the given
+    // season IDs. Otherwise, the first season in the result would not be able to get the end date
+    // of the previous season.
+    // TODO(2Pac): It might be worth it to simply save the end date in the database, and update it
+    // automatically with a trigger when a new season is added?
+    const result = await client.query<DbMatchmakingSeason>(sql`
+      WITH s AS (
+        SELECT *, LEAD(start_date, 1) OVER (ORDER BY start_date) AS end_date
+        FROM matchmaking_seasons
+        ORDER BY start_date DESC
+      )
+      SELECT *
+      FROM s
+      WHERE id = ANY(${seasonIds})
     `)
     return result.rows.map(r => fromDbMatchmakingSeason(r))
   } finally {

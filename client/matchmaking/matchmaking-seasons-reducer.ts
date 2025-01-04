@@ -26,4 +26,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.byId.set(season.id, season)
     }
   },
+
+  ['@users/getRankingHistory'](state, { payload: { seasons } }) {
+    for (const season of seasons) {
+      state.byId.set(season.id, season)
+    }
+  },
 })

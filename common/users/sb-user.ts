@@ -113,6 +113,11 @@ export interface SearchMatchHistoryResponse {
   hasMoreGames: boolean
 }
 
+export interface GetUserRankingHistoryResponse {
+  history: LadderPlayer[]
+  seasons: MatchmakingSeasonJson[]
+}
+
 export interface GetBatchUserInfoResponse {
   userInfos: SbUser[]
 }

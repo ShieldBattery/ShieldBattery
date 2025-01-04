@@ -45,6 +45,7 @@ import {
   ChangeLanguagesResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
+  GetUserRankingHistoryResponse,
   SbUser,
   SbUserId,
   SEARCH_MATCH_HISTORY_LIMIT,
@@ -65,7 +66,11 @@ import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
-import { getMatchmakingRatingsForUser } from '../matchmaking/models'
+import {
+  getMatchmakingFinalizedRanksForUser,
+  getMatchmakingRatingsForUser,
+  getMatchmakingSeasonsByIds,
+} from '../matchmaking/models'
 import { usePasswordResetCode } from '../models/password-resets'
 import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
@@ -129,6 +134,12 @@ const accountRetrievalThrottle = createThrottle('accountretrieval', {
 const matchHistoryRetrievalThrottle = createThrottle('matchhistoryretrieval', {
   rate: 50,
   burst: 150,
+  window: 60000,
+})
+
+const rankingsHistoryRetrievalThrottle = createThrottle('rankingshistoryretrieval', {
+  rate: 10,
+  burst: 30,
   window: 60000,
 })
 
@@ -353,8 +364,10 @@ export class UserApi {
     const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
     for (const r of ratings) {
       ladder[r.matchmakingType] = {
-        rank: rankings.get(r.matchmakingType) ?? -1,
         userId: r.userId,
+        matchmakingType: r.matchmakingType,
+        seasonId: r.seasonId,
+        rank: rankings.get(r.matchmakingType) ?? -1,
         rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
         points: r.points,
         bonusUsed: r.bonusUsed,
@@ -447,6 +460,65 @@ export class UserApi {
       maps: maps.map(m => toMapInfoJson(m)),
       users,
       hasMoreGames: games.length >= SEARCH_MATCH_HISTORY_LIMIT,
+    }
+  }
+
+  @httpGet('/:id/ranking-history')
+  @httpBefore(
+    throttleMiddleware(
+      rankingsHistoryRetrievalThrottle,
+      ctx => String(ctx.session?.user?.id) ?? ctx.ip,
+    ),
+  )
+  async getUserRankingHistory(ctx: RouterContext): Promise<GetUserRankingHistoryResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const ranks = await getMatchmakingFinalizedRanksForUser(params.id)
+    const seasons = await getMatchmakingSeasonsByIds(ranks.map(r => r.seasonId))
+
+    const history: LadderPlayer[] = ranks.map(
+      r =>
+        ({
+          userId: r.userId,
+          matchmakingType: r.matchmakingType,
+          seasonId: r.seasonId,
+          rank: r.rank,
+          rating: r.rating,
+          points: r.points,
+          bonusUsed: r.bonusUsed,
+          wins: r.wins,
+          losses: r.losses,
+          lifetimeGames: r.lifetimeGames,
+          pWins: r.pWins,
+          pLosses: r.pLosses,
+          tWins: r.tWins,
+          tLosses: r.tLosses,
+          zWins: r.zWins,
+          zLosses: r.zLosses,
+          rWins: r.rWins,
+          rLosses: r.rLosses,
+          rPWins: r.rPWins,
+          rPLosses: r.rPLosses,
+          rTWins: r.rTWins,
+          rTLosses: r.rTLosses,
+          rZWins: r.rZWins,
+          rZLosses: r.rZLosses,
+          lastPlayedDate: Number(r.lastPlayedDate),
+        }) satisfies LadderPlayer,
+    )
+
+    return {
+      history,
+      seasons: seasons.map(s => toMatchmakingSeasonJson(s)),
     }
   }
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder/ladder'
-import { makeSeasonId, MatchmakingSeasonJson } from '../../../common/matchmaking'
+import { makeSeasonId, MatchmakingSeasonJson, MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DivisionFilter, LadderTable } from '../ladder'
 
@@ -45,6 +45,8 @@ for (let i = 0; i < 1000; i++) {
   PLAYERS.push({
     rank: i + 1,
     userId: makeSbUserId(i),
+    matchmakingType: MatchmakingType.Match1v1,
+    seasonId: SEASON.id,
     rating,
     points: rating * (Math.random() * 4),
     bonusUsed: 0,

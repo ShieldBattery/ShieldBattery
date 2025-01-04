@@ -10,6 +10,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
   getTotalBonusPoolForSeason,
+  makeSeasonId,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -428,6 +429,8 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
     ({
       rank: Number.MAX_SAFE_INTEGER,
       userId: selfUserId,
+      matchmakingType,
+      seasonId: season?.id ?? makeSeasonId(0),
       rating: 0,
       points: 0,
       bonusUsed: 0,
