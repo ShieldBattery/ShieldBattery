@@ -1198,6 +1198,10 @@
         "matchHistory": {
             "noMatchingGames": "일치하는 게임이 없습니다.",
             "retrievingError": "경기 기록을 가져오는 중에 오류가 발생했습니다."
+        },
+        "seasons": {
+            "noMatchingGames": "{{user}}는 지난 시즌에 경기를 치르지 않았습니다.",
+            "retrievingError": "순위 기록을 가져오는 중 오류가 발생했습니다."
         }
     },
     "windowControls": {
