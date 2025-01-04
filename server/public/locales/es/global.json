@@ -810,6 +810,10 @@
         "matchHistory": {
             "noMatchingGames": "Nada de juegos de combinación.",
             "retrievingError": "Se produjo un error al recuperar el historial de partidos."
+        },
+        "seasons": {
+            "noMatchingGames": "{{user}} no ha jugado ningún partido en temporadas anteriores.",
+            "retrievingError": "Se produjo un error al recuperar el historial de clasificación."
         }
     },
     "windowControls": {
