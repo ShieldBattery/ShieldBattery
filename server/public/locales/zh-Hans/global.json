@@ -1119,6 +1119,10 @@
         "matchHistory": {
             "noMatchingGames": "没有匹配的游戏。",
             "retrievingError": "检索比赛历史记录时出错。"
+        },
+        "seasons": {
+            "noMatchingGames": "{{user}} 在前几个赛季没有参加过任何比赛。",
+            "retrievingError": "检索排名历史记录时出错。"
         }
     },
     "users": {
