@@ -422,7 +422,7 @@ export async function getManyMatchmakingRatings(
  * Returns a list of players's finalized matchmaking ranks, and optionally filtered by a search
  * query, for a particular matchmaking type and season.
  */
-export async function getManyMatchmakingFinalizedRanks(
+export async function getFinalizedRanksForSeason(
   matchmakingType: MatchmakingType,
   seasonId: SeasonId,
   searchStr?: string,

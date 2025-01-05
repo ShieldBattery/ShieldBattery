@@ -1,75 +1,69 @@
 import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder/ladder'
-import { MatchmakingType, SeasonId } from '../../common/matchmaking'
+import {
+  makeMatchmakingTypeAndSeasonId,
+  MatchmakingType,
+  MatchmakingTypeAndSeasonId,
+  SeasonId,
+} from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000
 
-const lastFetchTimeByMatchmakingType = new Map<MatchmakingType, number>()
-const lastSearchTimeByMatchmakingType = new Map<MatchmakingType, number>()
-const lastSearchQueryByMatchmakingType = new Map<MatchmakingType, string>()
+const lastFetchTimeBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, number>()
+const lastSearchTimeBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, number>()
+const lastSearchQueryBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, string>()
 
-const lastFetchTimeBySeasonIdAndMatchmakingType = new Map<SeasonId, Map<MatchmakingType, number>>()
-const lastSearchTimeBySeasonIdAndMatchmakingType = new Map<SeasonId, Map<MatchmakingType, number>>()
-const lastSearchQueryBySeasonIdAndMatchmakingType = new Map<
-  SeasonId,
-  Map<MatchmakingType, string>
->()
-
-export function getRankings(
+export function getCurrentSeasonRankings(
   matchmakingType: MatchmakingType,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType)
+    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
+    const lastFetchTime = lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
       return
     }
-
-    lastFetchTimeByMatchmakingType.set(matchmakingType, fetchTime)
 
     const result = await fetchJson<GetRankingsResponse>(apiUrl`ladder/${matchmakingType}`, {
       signal: spec.signal,
     })
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0)) {
+    if (fetchTime >= (lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
+      lastFetchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+
       dispatch({
         type: '@ladder/getRankings',
         payload: result,
         meta: { matchmakingType, fetchTime: new Date() },
       })
+
+      dispatch({
+        type: '@matchmaking/getCurrentMatchmakingSeason',
+        payload: result.season,
+      })
     }
   })
 }
 
-export function getRankingsForPastSeason(
+export function getPreviousSeasonRankings(
   seasonId: SeasonId,
   matchmakingType: MatchmakingType,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const lastFetchTime = lastFetchTimeBySeasonIdAndMatchmakingType
-      .get(seasonId)
-      ?.get(matchmakingType)
+    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
+    const lastFetchTime = lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
       return
-    }
-
-    if (lastFetchTimeBySeasonIdAndMatchmakingType.has(seasonId)) {
-      lastFetchTimeBySeasonIdAndMatchmakingType.get(seasonId)!.set(matchmakingType, fetchTime)
-    } else {
-      lastFetchTimeBySeasonIdAndMatchmakingType.set(
-        seasonId,
-        new Map([[matchmakingType, fetchTime]]),
-      )
     }
 
     const result = await fetchJson<GetRankingsResponse>(
@@ -80,10 +74,9 @@ export function getRankingsForPastSeason(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (
-      fetchTime >=
-      (lastFetchTimeBySeasonIdAndMatchmakingType.get(seasonId)?.get(matchmakingType) ?? 0)
-    ) {
+    if (fetchTime >= (lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
+      lastFetchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+
       dispatch({
         type: '@ladder/getRankings',
         payload: result,
@@ -93,15 +86,16 @@ export function getRankingsForPastSeason(
   })
 }
 
-export function searchRankings(
+export function searchCurrentSeasonRankings(
   matchmakingType: MatchmakingType,
   searchQuery: string,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const lastSearchTime = lastSearchTimeByMatchmakingType.get(matchmakingType)
-    const lastSearchQuery = lastSearchQueryByMatchmakingType.get(matchmakingType)
+    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
+    const lastSearchTime = lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey)
+    const lastSearchQuery = lastSearchQueryBySeasonIdAndMatchmakingType.get(mapKey)
 
     if (
       lastSearchTime !== undefined &&
@@ -110,9 +104,6 @@ export function searchRankings(
     ) {
       return
     }
-
-    lastSearchTimeByMatchmakingType.set(matchmakingType, fetchTime)
-    lastSearchQueryByMatchmakingType.set(matchmakingType, searchQuery)
 
     const result = await fetchJson<GetRankingsResponse>(
       apiUrl`ladder/${matchmakingType}` + (searchQuery ? urlPath`?q=${searchQuery}` : ''),
@@ -122,17 +113,25 @@ export function searchRankings(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0)) {
+    if (fetchTime >= (lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
+      lastSearchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+      lastSearchQueryBySeasonIdAndMatchmakingType.set(mapKey, searchQuery)
+
       dispatch({
         type: '@ladder/searchRankings',
         payload: result,
         meta: { matchmakingType, searchQuery, fetchTime: new Date() },
       })
+
+      dispatch({
+        type: '@matchmaking/getCurrentMatchmakingSeason',
+        payload: result.season,
+      })
     }
   })
 }
 
-export function searchRankingsForPastSeason(
+export function searchPreviousSeasonRankings(
   seasonId: SeasonId,
   matchmakingType: MatchmakingType,
   searchQuery: string,
@@ -140,12 +139,9 @@ export function searchRankingsForPastSeason(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const lastSearchTime = lastSearchTimeBySeasonIdAndMatchmakingType
-      .get(seasonId)
-      ?.get(matchmakingType)
-    const lastSearchQuery = lastSearchQueryBySeasonIdAndMatchmakingType
-      .get(seasonId)
-      ?.get(matchmakingType)
+    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
+    const lastSearchTime = lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey)
+    const lastSearchQuery = lastSearchQueryBySeasonIdAndMatchmakingType.get(mapKey)
 
     if (
       lastSearchTime !== undefined &&
@@ -153,23 +149,6 @@ export function searchRankingsForPastSeason(
       lastSearchQuery === searchQuery
     ) {
       return
-    }
-
-    if (lastSearchTimeBySeasonIdAndMatchmakingType.has(seasonId)) {
-      lastSearchTimeBySeasonIdAndMatchmakingType.get(seasonId)!.set(matchmakingType, fetchTime)
-    } else {
-      lastSearchTimeBySeasonIdAndMatchmakingType.set(
-        seasonId,
-        new Map([[matchmakingType, fetchTime]]),
-      )
-    }
-    if (lastSearchQueryBySeasonIdAndMatchmakingType.has(seasonId)) {
-      lastSearchQueryBySeasonIdAndMatchmakingType.get(seasonId)!.set(matchmakingType, searchQuery)
-    } else {
-      lastSearchQueryBySeasonIdAndMatchmakingType.set(
-        seasonId,
-        new Map([[matchmakingType, searchQuery]]),
-      )
     }
 
     const result = await fetchJson<GetRankingsResponse>(
@@ -181,7 +160,10 @@ export function searchRankingsForPastSeason(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0)) {
+    if (fetchTime >= (lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
+      lastSearchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+      lastSearchQueryBySeasonIdAndMatchmakingType.set(mapKey, searchQuery)
+
       dispatch({
         type: '@ladder/searchRankings',
         payload: result,
@@ -207,7 +189,18 @@ export function getInstantaneousSelfRank(spec: RequestHandlingSpec<void>): Thunk
   })
 }
 
-/** Navigates to the ladder standings (optionally for a given matchmaking type). */
-export function navigateToLadder(type?: MatchmakingType, seasonId?: SeasonId, transitionFn = push) {
-  transitionFn(urlPath`/ladder/${type ?? ''}` + (seasonId ? urlPath`/${seasonId}` : ''))
+/** Navigates to the ladder rankings page (optionally for a given matchmaking type and a season). */
+export function navigateToLadder(
+  matchmakingType?: MatchmakingType,
+  seasonId?: SeasonId,
+  transitionFn = push,
+) {
+  // This case would produce non-sensical URLs, so we handle it specially.
+  if (matchmakingType === undefined && seasonId) {
+    transitionFn(urlPath`/ladder/${MatchmakingType.Match1v1}/${seasonId}`)
+  } else {
+    transitionFn(
+      urlPath`/ladder/${matchmakingType ?? ''}` + (seasonId ? urlPath`/${seasonId}` : ''),
+    )
+  }
 }

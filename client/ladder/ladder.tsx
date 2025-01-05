@@ -15,6 +15,7 @@ import {
   NUM_PLACEMENT_MATCHES,
   SeasonId,
   getTotalBonusPoolForSeason,
+  makeMatchmakingTypeAndSeasonId,
   makeSeasonId,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
@@ -63,11 +64,11 @@ import {
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
-  getRankings,
-  getRankingsForPastSeason,
+  getCurrentSeasonRankings,
+  getPreviousSeasonRankings,
   navigateToLadder,
-  searchRankings,
-  searchRankingsForPastSeason,
+  searchCurrentSeasonRankings,
+  searchPreviousSeasonRankings,
 } from './action-creators'
 
 const LadderPage = styled.div`
@@ -152,14 +153,14 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   const currentSeasonId = useAppSelector(s => s.matchmakingSeasons.currentSeasonId)
   const currentSeasonIdRef = useValueAsRef(currentSeasonId)
   const rankings = useAppSelector(s =>
-    seasonId
-      ? s.ladder.seasonToTypeToRankings.get(seasonId)?.get(matchmakingType)
-      : s.ladder.typeToRankings.get(matchmakingType),
+    s.ladder.typeAndSeasonToRankings.get(
+      makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId ?? currentSeasonId),
+    ),
   )
   const searchResults = useAppSelector(s =>
-    seasonId
-      ? s.ladder.seasonToTypeToSearchResults.get(seasonId)?.get(matchmakingType)
-      : s.ladder.typeToSearchResults.get(matchmakingType),
+    s.ladder.typeAndSeasonToSearchResults.get(
+      makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId ?? currentSeasonId),
+    ),
   )
   const usersById = useAppSelector(s => s.users.byId)
 
@@ -225,14 +226,17 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     const searchPastRankingsAbortController = new AbortController()
     const debouncedSearch = debouncedSearchRef.current
 
-    // NOTE(2Pac): Using the ref here to avoid re-fetching rankings when the season changes. Also,
-    // there is a bug somewhere that aborts the initial request when the current season changes from
-    // `undefined` -> actual value; which is fine on its own, but the way we check for last fetch
-    // time in the action creator cause it to not re-run the request.
+    // NOTE(2Pac): Since we want to initiate the requests for retrieving the rankings and retrieving
+    // all of the seasons, including the `currentSeasonId`, at the same time (without having the
+    // waterfall requests), we're using the ref here for the `currentSeasonId` to avoid running this
+    // effect again when the `currentSeasonId` changes (e.g. from `undefined` -> actual value). It
+    // also wouldn't really make sense to run this effect again in case the `currentSeasonId` gets
+    // updated through websockets or something since that would change the rankings the user is
+    // looking at without their input.
     if (!seasonId || !currentSeasonIdRef.current || seasonId === currentSeasonIdRef.current) {
       if (searchQuery) {
         dispatch(
-          searchRankings(matchmakingType, searchQuery, {
+          searchCurrentSeasonRankings(matchmakingType, searchQuery, {
             signal: searchRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),
@@ -240,7 +244,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
         )
       } else {
         dispatch(
-          getRankings(matchmakingType, {
+          getCurrentSeasonRankings(matchmakingType, {
             signal: getRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),
@@ -250,7 +254,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     } else {
       if (searchQuery) {
         dispatch(
-          searchRankingsForPastSeason(seasonId, matchmakingType, searchQuery, {
+          searchPreviousSeasonRankings(seasonId, matchmakingType, searchQuery, {
             signal: searchPastRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),
@@ -258,7 +262,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
         )
       } else {
         dispatch(
-          getRankingsForPastSeason(seasonId, matchmakingType, {
+          getPreviousSeasonRankings(seasonId, matchmakingType, {
             signal: getPastRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),

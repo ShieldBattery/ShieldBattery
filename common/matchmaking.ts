@@ -936,3 +936,20 @@ export interface AddMatchmakingSeasonResponse {
 export interface GetCurrentMatchmakingSeasonResponse {
   season: MatchmakingSeasonJson
 }
+
+export type MatchmakingTypeAndSeasonId = Tagged<
+  `${MatchmakingType}|${SeasonId | undefined}`,
+  'MatchmakingTypeAndSeasonId'
+>
+
+/**
+ * Converts a matchmaking type and a season ID into a new type made up of both values. This is
+ * useful for creating a unique key for a matchmaking type and a season ID, so we don't have to
+ * use nested maps.
+ */
+export function makeMatchmakingTypeAndSeasonId(
+  matchmakingType: MatchmakingType,
+  seasonId?: SeasonId,
+): MatchmakingTypeAndSeasonId {
+  return `${matchmakingType}|${seasonId}` as MatchmakingTypeAndSeasonId
+}

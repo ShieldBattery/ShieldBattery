@@ -3,6 +3,7 @@ import {
   GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
+  MatchmakingSeasonJson,
   MatchmakingStatusJson,
   MatchmakingType,
   MatchReadyEvent,
@@ -41,6 +42,8 @@ export type MatchmakingActions =
   | StartMatchSearch
   | RequeueSearch
   | GetMatchmakingSeasons
+  | GetCurrentMatchmakingSeason
+
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
   payload: {
@@ -213,4 +216,9 @@ export interface MatchmakingStatusUpdate {
 export interface GetMatchmakingSeasons {
   type: '@matchmaking/getMatchmakingSeasons'
   payload: GetMatchmakingSeasonsResponse
+}
+
+export interface GetCurrentMatchmakingSeason {
+  type: '@matchmaking/getCurrentMatchmakingSeason'
+  payload: MatchmakingSeasonJson
 }
