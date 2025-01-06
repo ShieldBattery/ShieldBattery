@@ -13,9 +13,9 @@ import { fetchJson } from '../network/fetch'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000
 
-const lastFetchTimeBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, number>()
-const lastSearchTimeBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, number>()
-const lastSearchQueryBySeasonIdAndMatchmakingType = new Map<MatchmakingTypeAndSeasonId, string>()
+const lastFetchTimeByMatchmakingTypeAndSeasonId = new Map<MatchmakingTypeAndSeasonId, number>()
+const lastSearchTimeByMatchmakingTypeAndSeasonId = new Map<MatchmakingTypeAndSeasonId, number>()
+const lastSearchQueryByMatchmakingTypeAndSeasonId = new Map<MatchmakingTypeAndSeasonId, string>()
 
 export function getCurrentSeasonRankings(
   matchmakingType: MatchmakingType,
@@ -23,8 +23,8 @@ export function getCurrentSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
-    const lastFetchTime = lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey)
+    const cacheKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
+    const lastFetchTime = lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
       return
@@ -35,8 +35,8 @@ export function getCurrentSeasonRankings(
     })
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
-      lastFetchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+    if (fetchTime >= (lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey) ?? 0)) {
+      lastFetchTimeByMatchmakingTypeAndSeasonId.set(cacheKey, fetchTime)
 
       dispatch({
         type: '@ladder/getRankings',
@@ -59,8 +59,8 @@ export function getPreviousSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
-    const lastFetchTime = lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey)
+    const cacheKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
+    const lastFetchTime = lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
       return
@@ -74,8 +74,8 @@ export function getPreviousSeasonRankings(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastFetchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
-      lastFetchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
+    if (fetchTime >= (lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey) ?? 0)) {
+      lastFetchTimeByMatchmakingTypeAndSeasonId.set(cacheKey, fetchTime)
 
       dispatch({
         type: '@ladder/getRankings',
@@ -93,9 +93,9 @@ export function searchCurrentSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
-    const lastSearchTime = lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey)
-    const lastSearchQuery = lastSearchQueryBySeasonIdAndMatchmakingType.get(mapKey)
+    const cacheKey = makeMatchmakingTypeAndSeasonId(matchmakingType)
+    const lastSearchTime = lastSearchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
+    const lastSearchQuery = lastSearchQueryByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (
       lastSearchTime !== undefined &&
@@ -113,9 +113,9 @@ export function searchCurrentSeasonRankings(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
-      lastSearchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
-      lastSearchQueryBySeasonIdAndMatchmakingType.set(mapKey, searchQuery)
+    if (fetchTime >= (lastSearchTimeByMatchmakingTypeAndSeasonId.get(cacheKey) ?? 0)) {
+      lastSearchTimeByMatchmakingTypeAndSeasonId.set(cacheKey, fetchTime)
+      lastSearchQueryByMatchmakingTypeAndSeasonId.set(cacheKey, searchQuery)
 
       dispatch({
         type: '@ladder/searchRankings',
@@ -139,9 +139,9 @@ export function searchPreviousSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const mapKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
-    const lastSearchTime = lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey)
-    const lastSearchQuery = lastSearchQueryBySeasonIdAndMatchmakingType.get(mapKey)
+    const cacheKey = makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId)
+    const lastSearchTime = lastSearchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
+    const lastSearchQuery = lastSearchQueryByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (
       lastSearchTime !== undefined &&
@@ -160,9 +160,9 @@ export function searchPreviousSeasonRankings(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= (lastSearchTimeBySeasonIdAndMatchmakingType.get(mapKey) ?? 0)) {
-      lastSearchTimeBySeasonIdAndMatchmakingType.set(mapKey, fetchTime)
-      lastSearchQueryBySeasonIdAndMatchmakingType.set(mapKey, searchQuery)
+    if (fetchTime >= (lastSearchTimeByMatchmakingTypeAndSeasonId.get(cacheKey) ?? 0)) {
+      lastSearchTimeByMatchmakingTypeAndSeasonId.set(cacheKey, fetchTime)
+      lastSearchQueryByMatchmakingTypeAndSeasonId.set(cacheKey, searchQuery)
 
       dispatch({
         type: '@ladder/searchRankings',

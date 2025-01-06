@@ -25,12 +25,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@ladder/getRankings'](state, action) {
-    const { season: season } = action.payload
+    const { season } = action.payload
     state.byId.set(season.id, season)
   },
 
   ['@ladder/searchRankings'](state, action) {
-    const { season: season } = action.payload
+    const { season } = action.payload
     state.byId.set(season.id, season)
   },
 
