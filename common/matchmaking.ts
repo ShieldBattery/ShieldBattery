@@ -932,25 +932,3 @@ export type AddMatchmakingSeasonRequest = Jsonify<ServerAddMatchmakingSeasonRequ
 export interface AddMatchmakingSeasonResponse {
   season: MatchmakingSeasonJson
 }
-
-export interface GetCurrentMatchmakingSeasonResponse {
-  season: MatchmakingSeasonJson
-}
-
-export type MatchmakingTypeAndSeasonId = Tagged<
-  `${MatchmakingType}|${SeasonId | undefined}`,
-  'MatchmakingTypeAndSeasonId'
->
-
-/**
- * Converts a matchmaking type and a season ID into a new type made up of both values. This is
- * useful for creating a unique key for a matchmaking type and a season ID, so we don't have to
- * use nested maps. Season ID can be `undefined` which should be used to indicate the current season
- * in case its ID is not yet known.
- */
-export function makeMatchmakingTypeAndSeasonId(
-  matchmakingType: MatchmakingType,
-  seasonId?: SeasonId,
-): MatchmakingTypeAndSeasonId {
-  return `${matchmakingType}|${seasonId}` as MatchmakingTypeAndSeasonId
-}

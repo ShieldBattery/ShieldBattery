@@ -15,7 +15,6 @@ import {
   NUM_PLACEMENT_MATCHES,
   SeasonId,
   getTotalBonusPoolForSeason,
-  makeMatchmakingTypeAndSeasonId,
   makeSeasonId,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
@@ -152,16 +151,24 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
   const currentSeasonId = useAppSelector(s => s.matchmakingSeasons.currentSeasonId)
   const currentSeasonIdRef = useValueAsRef(currentSeasonId)
-  const rankings = useAppSelector(s =>
-    s.ladder.typeAndSeasonToRankings.get(
-      makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId ?? currentSeasonId),
-    ),
-  )
-  const searchResults = useAppSelector(s =>
-    s.ladder.typeAndSeasonToSearchResults.get(
-      makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId ?? currentSeasonId),
-    ),
-  )
+  const rankings = useAppSelector(s => {
+    if (seasonId) {
+      return s.ladder.typeAndSeasonToRankings.get(`${matchmakingType}|${seasonId}`)
+    } else if (currentSeasonId) {
+      return s.ladder.typeAndSeasonToRankings.get(`${matchmakingType}|${currentSeasonId}`)
+    } else {
+      return undefined
+    }
+  })
+  const searchResults = useAppSelector(s => {
+    if (seasonId) {
+      return s.ladder.typeAndSeasonToSearchResults.get(`${matchmakingType}|${seasonId}`)
+    } else if (currentSeasonId) {
+      return s.ladder.typeAndSeasonToSearchResults.get(`${matchmakingType}|${currentSeasonId}`)
+    } else {
+      return undefined
+    }
+  })
   const usersById = useAppSelector(s => s.users.byId)
 
   const searchInputRef = useRef<SearchInputHandle>(null)
@@ -233,7 +240,10 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     // also wouldn't really make sense to run this effect again in case the `currentSeasonId` gets
     // updated through websockets or something since that would change the rankings the user is
     // looking at without their input.
-    if (!seasonId || !currentSeasonIdRef.current || seasonId === currentSeasonIdRef.current) {
+    const isForCurrentSeason =
+      !seasonId || !currentSeasonIdRef.current || seasonId === currentSeasonIdRef.current
+
+    if (isForCurrentSeason) {
       if (searchQuery) {
         dispatch(
           searchCurrentSeasonRankings(matchmakingType, searchQuery, {
@@ -254,7 +264,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     } else {
       if (searchQuery) {
         dispatch(
-          searchPreviousSeasonRankings(seasonId, matchmakingType, searchQuery, {
+          searchPreviousSeasonRankings(matchmakingType, seasonId, searchQuery, {
             signal: searchPastRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),
@@ -262,7 +272,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
         )
       } else {
         dispatch(
-          getPreviousSeasonRankings(seasonId, matchmakingType, {
+          getPreviousSeasonRankings(matchmakingType, seasonId, {
             signal: getPastRankingsAbortController.signal,
             onSuccess: () => setLastError(undefined),
             onError: err => setLastError(err),

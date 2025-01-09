@@ -1,10 +1,6 @@
 import { Immutable } from 'immer'
 import { LadderPlayer } from '../../common/ladder/ladder'
-import {
-  makeMatchmakingTypeAndSeasonId,
-  MatchmakingTypeAndSeasonId,
-  SeasonId,
-} from '../../common/matchmaking'
+import { MatchmakingType, SeasonId } from '../../common/matchmaking'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface RetrievedRankings {
@@ -21,9 +17,9 @@ export interface SearchResults extends RetrievedRankings {
 
 export interface LadderState {
   /** A map of a matchmaking type and season ID -> rankings. */
-  typeAndSeasonToRankings: Map<MatchmakingTypeAndSeasonId, RetrievedRankings>
+  typeAndSeasonToRankings: Map<`${MatchmakingType}|${SeasonId}`, RetrievedRankings>
   /** A map of a matchmaking type and season ID -> search results. */
-  typeAndSeasonToSearchResults: Map<MatchmakingTypeAndSeasonId, SearchResults>
+  typeAndSeasonToSearchResults: Map<`${MatchmakingType}|${SeasonId}`, SearchResults>
 }
 
 const DEFAULT_LADDER_STATE: Immutable<LadderState> = {
@@ -42,7 +38,7 @@ export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
       season: { id: seasonId },
     } = action.payload
 
-    state.typeAndSeasonToRankings.set(makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId), {
+    state.typeAndSeasonToRankings.set(`${matchmakingType}|${seasonId}`, {
       players,
       lastUpdated,
       totalCount,
@@ -61,16 +57,13 @@ export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
       season: { id: seasonId },
     } = action.payload
 
-    state.typeAndSeasonToSearchResults.set(
-      makeMatchmakingTypeAndSeasonId(matchmakingType, seasonId),
-      {
-        players,
-        lastUpdated,
-        totalCount,
-        seasonId,
-        fetchTime,
-        searchQuery,
-      },
-    )
+    state.typeAndSeasonToSearchResults.set(`${matchmakingType}|${seasonId}`, {
+      players,
+      lastUpdated,
+      totalCount,
+      seasonId,
+      fetchTime,
+      searchQuery,
+    })
   },
 })

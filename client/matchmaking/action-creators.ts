@@ -4,12 +4,10 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
   FindMatchRequest,
-  GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingPreferences,
-  MatchmakingSeasonJson,
   MatchmakingServiceErrorCode,
   MatchmakingType,
   PartialMatchmakingPreferences,
@@ -235,23 +233,6 @@ export function updateLastQueuedMatchmakingType(
     type: '@matchmaking/updateLastQueuedMatchmakingType',
     payload: type,
   }
-}
-
-// TODO(2Pac): I Don't think this is used anymore, remove it?
-export function getCurrentMatchmakingSeason(
-  spec: RequestHandlingSpec<MatchmakingSeasonJson>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
-    // TODO(tec27): Add a reducer for this and dispatch it?
-    const response = await fetchJson<GetCurrentMatchmakingSeasonResponse>(
-      apiUrl`matchmaking/seasons/current`,
-      {
-        signal: spec.signal,
-      },
-    )
-
-    return response.season
-  })
 }
 
 export function getMatchmakingSeasons(
