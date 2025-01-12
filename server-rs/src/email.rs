@@ -1,6 +1,7 @@
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine as _;
 use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
-use data_encoding::BASE64;
 use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -128,7 +129,7 @@ fn get_template_version(canonical_host: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(canonical_host);
     let hash = hasher.finalize();
-    BASE64.encode(&hash[..])
+    BASE64_STANDARD.encode(&hash[..])
 }
 
 impl MailgunClient {

@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use axum::extract::Request;
+use axum::ServiceExt;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use mobc_redis::redis;
@@ -13,6 +15,8 @@ use server::redis::RedisPool;
 use server::routes::create_app;
 use server::schema::write_schema;
 use server::telemetry::init_subscriber;
+use tower::Layer;
+use tower_http::normalize_path::NormalizePathLayer;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -71,10 +75,11 @@ async fn main() -> eyre::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     tracing::info!("listening on http://{}", listener.local_addr().unwrap());
+    let router = create_app(db_pool, redis_pool, settings);
+    let app = NormalizePathLayer::trim_trailing_slash().layer(router);
     axum::serve(
         listener,
-        create_app(db_pool, redis_pool, settings)
-            .into_make_service_with_connect_info::<SocketAddr>(),
+        ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
     )
     .await
     .wrap_err("axum failure")?;

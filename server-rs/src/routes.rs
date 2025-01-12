@@ -33,6 +33,7 @@ use tracing::Span;
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
+use crate::matchmaking::api::create_matchmaker_api;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
@@ -137,6 +138,8 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
     let metrics_router = Router::new()
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
+    let matchmaker_router =
+        create_matchmaker_api().layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
@@ -154,6 +157,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         .route("/healthcheck", get(health_check))
         .route("/gql", playground_route.post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
+        .nest("/matchmaker", matchmaker_router)
         .layer(
             ServiceBuilder::new()
                 .layer(prometheus_layer)

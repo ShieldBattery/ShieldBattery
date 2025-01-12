@@ -33,6 +33,7 @@ axum = { version = "0.8.3", features = ["macros", "ws"] }
 axum-client-ip = "1.0"
 axum-extra = { version = "0.10", features = ["typed-header"] }
 axum-prometheus = "0.8"
+base64 = "0.22"
 bcrypt = "0.17"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
@@ -90,6 +91,7 @@ features = [
   "add-extension",
   "compression-full",
   "cors",
+  "normalize-path",
   "request-id",
   "sensitive-headers",
   "timeout",
