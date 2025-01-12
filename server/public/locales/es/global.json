@@ -453,7 +453,8 @@
         "winLossHeader": "Ganar perder",
         "activity": {
             "title": "Escalera"
-        }
+        },
+        "season": "Estación"
     },
     "clientDownload": {
         "andMore": "¡Y más!",
@@ -1003,33 +1004,25 @@
     },
     "parties": {
         "errors": {
-            "alreadySearching": "Algunos miembros del grupo ya están jugando, buscando una partida o en un lobby personalizado:",
             "findMatchAsParty": {
-                "alreadyInGameplayActivity": "El grupo ya está buscando un tipo de emparejamiento diferente",
-                "notFoundOrNotInParty": "Partido no encontrado o no estás en él"
+                "alreadyInGameplayActivity": "El grupo ya está buscando un tipo de emparejamiento diferente"
             },
             "inviteToParty": {
                 "general": "Ocurrió un error al enviar una invitación"
-            },
-            "leaveParty": {
-                "general": "Ocurrió un error al salir de la fiesta."
             }
         },
         "inviteDialog": {
             "findPlayers": "encontrar jugadores"
         },
         "messageLayout": {
-            "joinParty": "<0><0></0></0> se ha unido a la fiesta",
             "queueCancel": {
                 "error": "El emparejamiento ha sido cancelado debido a un error"
-            },
-            "queueReady": "El grupo ahora está buscando una coincidencia."
+            }
         },
         "queueAcceptDialog": {
             "contents": "Tu grupo está buscando una coincidencia <2>{{matchmakingLabel}}</2>."
         },
         "view": {
-            "invitePlayers": "invitar jugadores",
             "openSlot": "Vacío"
         }
     },
