@@ -1,7 +1,9 @@
 import { Immutable } from 'immer'
 import {
   GetMatchmakingMapPoolBody,
+  GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
+  MatchmakingSeasonJson,
   MatchmakingStatusJson,
   MatchmakingType,
   MatchReadyEvent,
@@ -39,6 +41,8 @@ export type MatchmakingActions =
   | MatchmakingStatusUpdate
   | StartMatchSearch
   | RequeueSearch
+  | GetMatchmakingSeasons
+  | GetCurrentMatchmakingSeason
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -207,4 +211,14 @@ export interface QueueStatus {
 export interface MatchmakingStatusUpdate {
   type: '@matchmaking/statusUpdate'
   payload: MatchmakingStatusJson[]
+}
+
+export interface GetMatchmakingSeasons {
+  type: '@matchmaking/getMatchmakingSeasons'
+  payload: GetMatchmakingSeasonsResponse
+}
+
+export interface GetCurrentMatchmakingSeason {
+  type: '@matchmaking/getCurrentMatchmakingSeason'
+  payload: MatchmakingSeasonJson
 }

@@ -419,6 +419,52 @@ export async function getManyMatchmakingRatings(
 }
 
 /**
+ * Returns a list of players's finalized matchmaking ranks, and optionally filtered by a search
+ * query, for a particular matchmaking type and season.
+ */
+export async function getFinalizedRanksForSeason(
+  matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
+  searchStr?: string,
+): Promise<FinalizedMatchmakingRank[]> {
+  const { client, done } = await db()
+  try {
+    const optionalJoin = searchStr ? sql`JOIN users u ON mfr.user_id = u.id` : sql``
+
+    let query = sql`
+      SELECT mfr.user_id, mfr.season_id, mfr.matchmaking_type, mfr.rank, mr.rating, mr.points,
+        mr.bonus_used, mr.lifetime_games, mr.wins, mr.losses,
+        mr.p_wins, mr.p_losses,
+        mr.t_wins, mr.t_losses,
+        mr.z_wins, mr.z_losses,
+        mr.r_wins, mr.r_losses,
+        mr.r_p_wins, mr.r_p_losses, mr.r_t_wins, mr.r_t_losses, mr.r_z_wins, mr.r_z_losses,
+        mr.last_played_date
+      FROM matchmaking_finalized_ranks mfr
+      INNER JOIN matchmaking_ratings mr ON mfr.season_id = mr.season_id
+        AND mfr.user_id = mr.user_id
+        AND mfr.matchmaking_type = mr.matchmaking_type
+      ${optionalJoin}
+      WHERE mfr.matchmaking_type = ${matchmakingType}
+      AND mfr.season_id = ${seasonId}
+    `
+
+    if (searchStr) {
+      const escapedStr = `%${escapeSearchString(searchStr)}%`
+      query = query.append(sql`
+        AND u.name ILIKE ${escapedStr}
+      `)
+    }
+
+    const result = await client.query<DbMatchmakingFinalizedRank>(query)
+
+    return result.rows.map(r => fromDbMatchmakingFinalizedRank(r))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Returns a user's rating for all matchmaking types. Any matchmaking types that the user has not
  * completed a game in will not be included in the result.
  */

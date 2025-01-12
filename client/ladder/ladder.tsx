@@ -13,7 +13,9 @@ import {
   MatchmakingSeasonJson,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
+  SeasonId,
   getTotalBonusPoolForSeason,
+  makeSeasonId,
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -24,6 +26,7 @@ import { useTrackPageView } from '../analytics/analytics'
 import { Avatar } from '../avatars/avatar'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
+import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -48,6 +51,7 @@ import {
   colorTextSecondary,
   getRaceColor,
 } from '../styles/colors'
+import { FlexSpacer } from '../styles/flex-spacer'
 import {
   Headline6,
   body1,
@@ -58,7 +62,13 @@ import {
   subtitle2,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
-import { getRankings, navigateToLadder, searchRankings } from './action-creators'
+import {
+  getCurrentSeasonRankings,
+  getPreviousSeasonRankings,
+  navigateToLadder,
+  searchCurrentSeasonRankings,
+  searchPreviousSeasonRankings,
+} from './action-creators'
 
 const LadderPage = styled.div`
   width: 100%;
@@ -111,7 +121,7 @@ const LastUpdatedText = styled.div`
 const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
 
 export function LadderRouteComponent(props: { params: any }) {
-  const [matches, params] = useRoute('/ladder/:matchmakingType?')
+  const [matches, params] = useRoute('/ladder/:matchmakingType?/:seasonId?')
 
   if (!matches) {
     return null
@@ -120,38 +130,62 @@ export function LadderRouteComponent(props: { params: any }) {
   const matchmakingType = ALL_MATCHMAKING_TYPES.includes(params.matchmakingType as MatchmakingType)
     ? (params.matchmakingType as MatchmakingType)
     : undefined
+  const seasonId = params.seasonId ? makeSeasonId(Number(params.seasonId)) : undefined
 
-  return <Ladder matchmakingType={matchmakingType} />
+  return <Ladder matchmakingType={matchmakingType} seasonId={seasonId} />
 }
 
 export interface LadderProps {
   matchmakingType?: MatchmakingType
+  seasonId?: SeasonId
 }
 
 /**
  * Displays a ranked table of players on the ladder(s).
  */
-export function Ladder({ matchmakingType: routeType }: LadderProps) {
+export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
   useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
-  const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
+  const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
+  const currentSeasonId = useAppSelector(s => s.matchmakingSeasons.currentSeasonId)
+  const currentSeasonIdRef = useValueAsRef(currentSeasonId)
+  const rankings = useAppSelector(s => {
+    if (seasonId) {
+      return s.ladder.typeAndSeasonToRankings.get(`${matchmakingType}|${seasonId}`)
+    } else if (currentSeasonId) {
+      return s.ladder.typeAndSeasonToRankings.get(`${matchmakingType}|${currentSeasonId}`)
+    } else {
+      return undefined
+    }
+  })
+  const searchResults = useAppSelector(s => {
+    if (seasonId) {
+      return s.ladder.typeAndSeasonToSearchResults.get(`${matchmakingType}|${seasonId}`)
+    } else if (currentSeasonId) {
+      return s.ladder.typeAndSeasonToSearchResults.get(`${matchmakingType}|${currentSeasonId}`)
+    } else {
+      return undefined
+    }
+  })
   const usersById = useAppSelector(s => s.users.byId)
 
-  const rankingsSeason = useAppSelector(s =>
-    rankings?.seasonId ? s.matchmakingSeasons.byId.get(rankings.seasonId) : undefined,
-  )
-  const searchResultsSeason = useAppSelector(s =>
-    searchResults?.seasonId ? s.matchmakingSeasons.byId.get(searchResults.seasonId) : undefined,
+  const searchInputRef = useRef<SearchInputHandle>(null)
+  const onTabChange = useCallback(
+    (tab: MatchmakingType) => {
+      searchInputRef.current?.clear()
+      navigateToLadder(tab, seasonId)
+    },
+    [seasonId],
   )
 
-  const searchInputRef = useRef<SearchInputHandle>(null)
-  const onTabChange = useCallback((tab: MatchmakingType) => {
-    searchInputRef.current?.clear()
-    navigateToLadder(tab)
-  }, [])
+  const onSeasonChange = useCallback(
+    (seasonId: SeasonId) => {
+      navigateToLadder(matchmakingType, seasonId)
+    },
+    [matchmakingType],
+  )
 
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
@@ -184,34 +218,77 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   )
 
   useEffect(() => {
+    dispatch(
+      getMatchmakingSeasons({
+        onSuccess: () => setLastError(undefined),
+        onError: err => setLastError(err),
+      }),
+    )
+  }, [dispatch])
+
+  useEffect(() => {
     const getRankingsAbortController = new AbortController()
     const searchRankingsAbortController = new AbortController()
+    const getPastRankingsAbortController = new AbortController()
+    const searchPastRankingsAbortController = new AbortController()
     const debouncedSearch = debouncedSearchRef.current
 
-    if (searchQuery) {
-      dispatch(
-        searchRankings(matchmakingType, searchQuery, {
-          signal: searchRankingsAbortController.signal,
-          onSuccess: () => setLastError(undefined),
-          onError: err => setLastError(err),
-        }),
-      )
+    // NOTE(2Pac): Since we want to initiate the requests for retrieving the rankings and retrieving
+    // all of the seasons, including the `currentSeasonId`, at the same time (without having the
+    // waterfall requests), we're using the ref here for the `currentSeasonId` to avoid running this
+    // effect again when the `currentSeasonId` changes (e.g. from `undefined` -> actual value). It
+    // also wouldn't really make sense to run this effect again in case the `currentSeasonId` gets
+    // updated through websockets or something since that would change the rankings the user is
+    // looking at without their input.
+    const isForCurrentSeason =
+      !seasonId || !currentSeasonIdRef.current || seasonId === currentSeasonIdRef.current
+
+    if (isForCurrentSeason) {
+      if (searchQuery) {
+        dispatch(
+          searchCurrentSeasonRankings(matchmakingType, searchQuery, {
+            signal: searchRankingsAbortController.signal,
+            onSuccess: () => setLastError(undefined),
+            onError: err => setLastError(err),
+          }),
+        )
+      } else {
+        dispatch(
+          getCurrentSeasonRankings(matchmakingType, {
+            signal: getRankingsAbortController.signal,
+            onSuccess: () => setLastError(undefined),
+            onError: err => setLastError(err),
+          }),
+        )
+      }
     } else {
-      dispatch(
-        getRankings(matchmakingType, {
-          signal: getRankingsAbortController.signal,
-          onSuccess: () => setLastError(undefined),
-          onError: err => setLastError(err),
-        }),
-      )
+      if (searchQuery) {
+        dispatch(
+          searchPreviousSeasonRankings(matchmakingType, seasonId, searchQuery, {
+            signal: searchPastRankingsAbortController.signal,
+            onSuccess: () => setLastError(undefined),
+            onError: err => setLastError(err),
+          }),
+        )
+      } else {
+        dispatch(
+          getPreviousSeasonRankings(matchmakingType, seasonId, {
+            signal: getPastRankingsAbortController.signal,
+            onSuccess: () => setLastError(undefined),
+            onError: err => setLastError(err),
+          }),
+        )
+      }
     }
 
     return () => {
       getRankingsAbortController.abort()
       searchRankingsAbortController.abort()
+      getPastRankingsAbortController.abort()
+      searchPastRankingsAbortController.abort()
       debouncedSearch.cancel()
     }
-  }, [dispatch, matchmakingType, searchQuery])
+  }, [currentSeasonIdRef, dispatch, matchmakingType, searchQuery, seasonId])
 
   useEffect(() => {
     if (routeType) {
@@ -232,7 +309,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     totalCount: 0,
     players: [] as Immutable<LadderPlayer[]>,
     curTime: 0,
-    season: undefined as MatchmakingSeasonJson | undefined,
   }
   if (searchQuery && searchResults) {
     rankingsData = {
@@ -240,7 +316,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       totalCount: searchResults.totalCount,
       players: searchResults.players,
       curTime: Number(searchResults.fetchTime),
-      season: searchResultsSeason,
     }
   } else if (rankings) {
     rankingsData = {
@@ -248,7 +323,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       totalCount: rankings.totalCount,
       players: rankings.players,
       curTime: Number(rankings.fetchTime),
-      season: rankingsSeason,
     }
   }
 
@@ -282,9 +356,12 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
       </PageHeader>
       <Content>
-        {rankingsData ? (
+        {rankingsData && currentSeasonId ? (
           <LadderTable
             {...rankingsData}
+            seasons={seasons}
+            season={seasonId ? seasons.get(seasonId) : seasons.get(currentSeasonId)}
+            onSeasonChange={onSeasonChange}
             usersById={usersById}
             lastError={lastError}
             searchInputRef={searchInputRef}
@@ -315,8 +392,8 @@ const TableContainer = styled.div`
 const FiltersContainer = styled.div`
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
 
   width: 100%;
   max-width: min(800px, 100% - 32px);
@@ -325,6 +402,10 @@ const FiltersContainer = styled.div`
 
 const StyledSearchInput = styled(SearchInput)`
   width: 256px;
+`
+
+const SeasonSelect = styled(Select)`
+  width: 180px;
 `
 
 const DivisionSelect = styled(Select)`
@@ -491,7 +572,9 @@ export interface LadderTableProps {
   players?: ReadonlyArray<LadderPlayer>
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
+  seasons: Immutable<Map<SeasonId, MatchmakingSeasonJson>>
   season: MatchmakingSeasonJson | undefined
+  onSeasonChange: (seasonId: SeasonId) => void
   lastError?: Error
   searchInputRef?: React.RefObject<SearchInputHandle>
   searchQuery: string
@@ -522,7 +605,9 @@ export function LadderTable(props: LadderTableProps) {
     usersById,
     lastError,
     curTime,
+    seasons,
     season,
+    onSeasonChange,
     searchInputRef,
     searchQuery,
     onSearchChange,
@@ -651,6 +736,20 @@ export function LadderTable(props: LadderTableProps) {
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
         />
+
+        <FlexSpacer />
+
+        <SeasonSelect
+          dense={true}
+          label={t('ladder.season', 'Season')}
+          value={season?.id}
+          onChange={onSeasonChange}
+          allowErrors={false}>
+          {Array.from(seasons.values()).map(s => (
+            <SelectOption key={s.id} value={s.id} text={s.name} />
+          ))}
+        </SeasonSelect>
+
         <DivisionSelect
           dense={true}
           label={t('ladder.division', 'Division')}

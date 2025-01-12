@@ -384,6 +384,7 @@
     "playerHeader": "Player",
     "pointsHeader": "Points",
     "rankHeader": "Rank",
+    "season": "Season",
     "updatedText": "Updated: {{timestamp}}",
     "winLossHeader": "Win/loss"
   },

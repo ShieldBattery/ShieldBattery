@@ -12,6 +12,7 @@ import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
+  SeasonId,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
@@ -21,7 +22,12 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
-import { getManyMatchmakingRatings, getMatchmakingRatingsForUser } from '../matchmaking/models'
+import {
+  getFinalizedRanksForSeason,
+  getManyMatchmakingRatings,
+  getMatchmakingRatingsForUser,
+  getMatchmakingSeasonsByIds,
+} from '../matchmaking/models'
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -153,7 +159,7 @@ export class LadderApi {
 
   @httpGet('/:matchmakingType')
   @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
-  async getRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
+  async getCurrentSeasonRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
     const { params, query } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
@@ -216,6 +222,67 @@ export class LadderApi {
 
     return {
       totalCount: rankings.length,
+      players,
+      users,
+      lastUpdated: Date.now(),
+      season: toMatchmakingSeasonJson(season),
+    }
+  }
+
+  @httpGet('/:matchmakingType/:seasonId')
+  @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
+  async getPreviousSeasonRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
+    const { params, query } = validateRequest(ctx, {
+      params: Joi.object<{ matchmakingType: MatchmakingType; seasonId: SeasonId }>({
+        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+        seasonId: Joi.number().required(),
+      }),
+      query: Joi.object<{ q?: string }>({
+        q: Joi.string().allow(''),
+      }),
+    })
+
+    const [season] = await getMatchmakingSeasonsByIds([params.seasonId])
+    if (!season) {
+      throw new LadderApiError(LadderErrorCode.NotFound, 'season not found')
+    }
+
+    const ranks = await getFinalizedRanksForSeason(params.matchmakingType, season.id, query.q)
+    const users = await findUsersById(ranks.map(r => r.userId))
+
+    const players: LadderPlayer[] = ranks.map(
+      r =>
+        ({
+          userId: r.userId,
+          matchmakingType: r.matchmakingType,
+          seasonId: r.seasonId,
+          rank: r.rank,
+          rating: r.rating,
+          points: r.points,
+          bonusUsed: r.bonusUsed,
+          wins: r.wins,
+          losses: r.losses,
+          lifetimeGames: r.lifetimeGames,
+          pWins: r.pWins,
+          pLosses: r.pLosses,
+          tWins: r.tWins,
+          tLosses: r.tLosses,
+          zWins: r.zWins,
+          zLosses: r.zLosses,
+          rWins: r.rWins,
+          rLosses: r.rLosses,
+          rPWins: r.rPWins,
+          rPLosses: r.rPLosses,
+          rTWins: r.rTWins,
+          rTLosses: r.rTLosses,
+          rZWins: r.rZWins,
+          rZLosses: r.rZLosses,
+          lastPlayedDate: Number(r.lastPlayedDate),
+        }) satisfies LadderPlayer,
+    )
+
+    return {
+      totalCount: ranks.length,
       players,
       users,
       lastUpdated: Date.now(),

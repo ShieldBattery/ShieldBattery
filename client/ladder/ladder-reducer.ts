@@ -16,13 +16,15 @@ export interface SearchResults extends RetrievedRankings {
 }
 
 export interface LadderState {
-  typeToRankings: Map<MatchmakingType, RetrievedRankings>
-  typeToSearchResults: Map<MatchmakingType, SearchResults>
+  /** A map of a matchmaking type and season ID -> rankings. */
+  typeAndSeasonToRankings: Map<`${MatchmakingType}|${SeasonId}`, RetrievedRankings>
+  /** A map of a matchmaking type and season ID -> search results. */
+  typeAndSeasonToSearchResults: Map<`${MatchmakingType}|${SeasonId}`, SearchResults>
 }
 
 const DEFAULT_LADDER_STATE: Immutable<LadderState> = {
-  typeToRankings: new Map(),
-  typeToSearchResults: new Map(),
+  typeAndSeasonToRankings: new Map(),
+  typeAndSeasonToSearchResults: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
@@ -36,7 +38,7 @@ export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
       season: { id: seasonId },
     } = action.payload
 
-    state.typeToRankings.set(matchmakingType, {
+    state.typeAndSeasonToRankings.set(`${matchmakingType}|${seasonId}`, {
       players,
       lastUpdated,
       totalCount,
@@ -55,13 +57,13 @@ export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
       season: { id: seasonId },
     } = action.payload
 
-    state.typeToSearchResults.set(matchmakingType, {
+    state.typeAndSeasonToSearchResults.set(`${matchmakingType}|${seasonId}`, {
       players,
       lastUpdated,
       totalCount,
       seasonId,
-      searchQuery,
       fetchTime,
+      searchQuery,
     })
   },
 })

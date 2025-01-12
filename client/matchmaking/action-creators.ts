@@ -4,11 +4,10 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
   FindMatchRequest,
-  GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingMapPoolBody,
+  GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingPreferences,
-  MatchmakingSeasonJson,
   MatchmakingServiceErrorCode,
   MatchmakingType,
   PartialMatchmakingPreferences,
@@ -230,18 +229,17 @@ export function updateLastQueuedMatchmakingType(
   }
 }
 
-export function getCurrentMatchmakingSeason(
-  spec: RequestHandlingSpec<MatchmakingSeasonJson>,
+export function getMatchmakingSeasons(
+  spec: RequestHandlingSpec<GetMatchmakingSeasonsResponse>,
 ): ThunkAction {
-  return abortableThunk(spec, async () => {
-    // TODO(tec27): Add a reducer for this and dispatch it?
-    const response = await fetchJson<GetCurrentMatchmakingSeasonResponse>(
-      apiUrl`matchmaking/seasons/current`,
-      {
-        signal: spec.signal,
-      },
-    )
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetMatchmakingSeasonsResponse>(apiUrl`matchmaking/seasons`)
 
-    return response.season
+    dispatch({
+      type: '@matchmaking/getMatchmakingSeasons',
+      payload: result,
+    })
+
+    return result
   })
 }

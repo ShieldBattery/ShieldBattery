@@ -5,7 +5,6 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
   FindMatchRequest,
-  GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingSeasonsResponse,
   hasVetoes,
   MatchmakingSeasonsServiceErrorCode,
@@ -35,6 +34,12 @@ import { matchmakingPreferencesValidator } from './matchmaking-validators'
 const matchmakingThrottle = createThrottle('matchmaking', {
   rate: 20,
   burst: 40,
+  window: 60000,
+})
+
+const seasonsRetrievalThrottle = createThrottle('seasonsRetrieval', {
+  rate: 20,
+  burst: 50,
   window: 60000,
 })
 
@@ -80,11 +85,7 @@ const convertMatchmakingSeasonsServiceErrors = makeErrorConverterMiddleware(err 
 })
 
 @httpApi('/matchmaking')
-@httpBeforeAll(
-  ensureLoggedIn,
-  convertMatchmakingServiceErrors,
-  convertMatchmakingSeasonsServiceErrors,
-)
+@httpBeforeAll(convertMatchmakingServiceErrors, convertMatchmakingSeasonsServiceErrors)
 export class MatchmakingApi {
   constructor(
     private matchmakingService: MatchmakingService,
@@ -93,7 +94,10 @@ export class MatchmakingApi {
   ) {}
 
   @httpPost('/find')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+  )
   async findMatch(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<FindMatchRequest>({
@@ -133,19 +137,27 @@ export class MatchmakingApi {
   }
 
   @httpDelete('/find')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+  )
   async cancelSearch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.cancel(ctx.session!.user!.id)
   }
 
   @httpPost('/accept')
-  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+  )
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.user!.id)
   }
 
   @httpGet('/seasons')
-  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  @httpBefore(
+    throttleMiddleware(seasonsRetrievalThrottle, ctx => String(ctx.session?.user?.id) ?? ctx.ip),
+  )
   async getMatchmakingSeasons(ctx: RouterContext): Promise<GetMatchmakingSeasonsResponse> {
     return {
       seasons: (await this.matchmakingSeasonsService.getAllSeasons()).map(s =>
@@ -155,17 +167,8 @@ export class MatchmakingApi {
     }
   }
 
-  @httpGet('/seasons/current')
-  async getCurrentMatchmakingSeason(
-    ctx: RouterContext,
-  ): Promise<GetCurrentMatchmakingSeasonResponse> {
-    return {
-      season: toMatchmakingSeasonJson(await this.matchmakingSeasonsService.getCurrentSeason()),
-    }
-  }
-
   @httpPost('/seasons')
-  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMatchmakingSeasons'))
   async addMatchmakingSeason(ctx: RouterContext): Promise<AddMatchmakingSeasonResponse> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<ServerAddMatchmakingSeasonRequest>({
@@ -181,7 +184,7 @@ export class MatchmakingApi {
   }
 
   @httpDelete('/seasons/:id')
-  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMatchmakingSeasons'))
   async deleteMatchmakingSeason(ctx: RouterContext): Promise<void> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SeasonId }>({
