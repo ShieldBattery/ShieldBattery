@@ -453,7 +453,8 @@
         "playerHeader": "Игрок",
         "activity": {
             "title": "Лестница"
-        }
+        },
+        "season": "Сезон"
     },
     "matchmaking": {
         "division": {
@@ -806,34 +807,22 @@
     "parties": {
         "errors": {
             "findMatchAsParty": {
-                "general": "Что-то пошло не так :(",
                 "notFoundOrNotInParty": "Партия не найдена или вы в ней не участвуете"
-            },
-            "changeLeader": {
-                "general": "Произошла ошибка при смене лидера"
             },
             "inviteToParty": {
                 "general": "Произошла ошибка при отправке приглашения"
-            },
-            "leaveParty": {
-                "general": "Произошла ошибка при выходе из группы"
             }
         },
         "inviteDialog": {
             "findPlayers": "Найти игроков"
         },
         "messageLayout": {
-            "joinParty": "<0><0></0></0> присоединился к группе",
             "queueCancel": {
                 "error": "Сватовство было отменено из-за ошибки"
-            },
-            "queueReady": "Партия сейчас ищет совпадение"
+            }
         },
         "navEntry": {
             "leaveParty": "Покинуть вечеринку"
-        },
-        "queueAcceptDialog": {
-            "error": "Ошибка: {{error}}"
         },
         "view": {
             "kickFromParty": "Выгнать с вечеринки"
