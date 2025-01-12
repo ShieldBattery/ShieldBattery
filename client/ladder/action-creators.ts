@@ -22,7 +22,7 @@ export function getCurrentSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const cacheKey = `${matchmakingType}|undefined` as MatchmakingTypeAndSeasonId
+    const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|undefined`
     const lastFetchTime = lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
@@ -58,7 +58,7 @@ export function getPreviousSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const cacheKey = `${matchmakingType}|${seasonId}` as MatchmakingTypeAndSeasonId
+    const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|${seasonId}`
     const lastFetchTime = lastFetchTimeByMatchmakingTypeAndSeasonId.get(cacheKey)
 
     if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
@@ -92,7 +92,7 @@ export function searchCurrentSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const cacheKey = `${matchmakingType}|undefined` as MatchmakingTypeAndSeasonId
+    const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|undefined`
     let { fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
       lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {}
 
@@ -143,7 +143,7 @@ export function searchPreviousSeasonRankings(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
-    const cacheKey = `${matchmakingType}|${seasonId}` as MatchmakingTypeAndSeasonId
+    const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|${seasonId}`
     let { fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
       lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {}
 
