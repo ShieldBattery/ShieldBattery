@@ -507,7 +507,6 @@
             "errors": {
                 "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다",
                 "dialogTitle": "게임 검색 오류",
-                "inParty": "당신은 파티에 있습니다. 솔로 플레이 대기열에 들어갈 수 없습니다",
                 "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :("
@@ -531,13 +530,10 @@
         "disabledCard": {
             "days": "날",
             "hours": "시간",
-            "inParty": "파티 중 비활성화",
             "minutes": "분",
-            "notPartyLeader": "파티 리더만 매치 대기열에 들어갈 수 있습니다.",
             "soon": "곧™",
             "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다:",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
-            "partyTooLargeText": "현재 파티원이 너무 많아서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
             "partyTooLargeTitle": "파티원이 너무 많음",
             "seconds": "초",
             "title": "매치메이킹 비활성화됨"
@@ -623,7 +619,6 @@
             "lobbyNameRequired": "로비 이름을 입력하세요",
             "mapRequired": "플레이할 맵을 선택하세요",
             "selectMap": "지도 선택",
-            "disabledInPartyText": "파티로 로비를 만드는 작업은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
             "disabledInPartyTitle": "파티 중 비활성화",
             "gameSubTypeHeader": "팀",
             "gameSubTypeOption": "{{numTeams}} 팀",
@@ -942,86 +937,56 @@
     "parties": {
         "errors": {
             "inviteToParty": {
-                "alreadyMember": "{{user}}는 이미 파티에 있습니다",
                 "blocked": "초대를 보내지 못했습니다, 이 사용자가 귀하를 차단했습니다",
-                "general": "초대장을 보내는 중에 오류가 발생했습니다",
-                "invalidSelfAction": "파티에 자신을 초대할 수 없습니다",
-                "notificationFailure": "초대장을 보내지 못했습니다. 다시 시도해 주세요"
+                "invalidSelfAction": "파티에 자신을 초대할 수 없습니다"
             },
             "alreadySearching": "일부 파티원은 이미 게임을 하고 있거나 매치를 검색하고 있거나 사용자 지정 로비에 있습니다:",
-            "cancelQueue": "매치메이킹 취소 오류: {{errorMessage}}",
             "changeLeader": {
                 "general": "리더를 변경하는 동안 오류가 발생했습니다"
             },
-            "declinePartyInvite": {
-                "general": "초대를 거절하는 중에 오류가 발생했습니다"
-            },
             "kickPlayer": {
                 "general": "플레이어를 차는 중에 오류가 발생했습니다"
-            },
-            "leaveParty": {
-                "general": "파티에서 나가는 중 오류가 발생했습니다"
             },
             "removePartyInvite": {
                 "general": "초대를 삭제하는 중에 오류가 발생했습니다"
             },
             "findMatchAsParty": {
-                "invalidAction": "해당 매치메이킹 유형에 비해 파티가 너무 큽니다",
                 "notFoundOrNotInParty": "파티를 찾을 수 없거나 당신이 파티에 없습니다",
-                "title": "일치 검색 오류",
                 "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다",
-                "general": "문제가 발생했습니다",
                 "insufficientPermissions": "파티 리더만 매치메이킹을 위해 대기할 수 있습니다"
             },
-            "unknownError": "알 수 없는 오류가 발생했습니다",
             "acceptPartyInvite": {
                 "general": "초대를 수락하는 중에 오류가 발생했습니다",
-                "notFoundOrNotInvited": "더 이상 존재하지 않는 파티",
                 "partyFull": "파티가 꽉 찼습니다"
             }
         },
         "navEntry": {
-            "invitePlayers": "플레이어 초대",
-            "leaveParty": "파티 탈퇴",
-            "title": "파티"
+            "leaveParty": "파티 탈퇴"
         },
         "notificationUi": "<0>{{user}}</0>님이 파티 초대장을 보냈습니다.",
         "queueAcceptDialog": {
-            "contents": "당신의 파티는 <2>{{matchmakingLabel}}</2> 경기를 찾고 있습니다.",
-            "error": "오류: {{error}}",
-            "title": "인종을 선택하세요"
+            "error": "오류: {{error}}"
         },
         "view": {
             "cancelSearch": "검색 취소",
-            "invitePlayers": "플레이어 초대",
             "kickFromParty": "파티에서 차기",
-            "leaveParty": "파티 탈퇴",
-            "makeLeader": "리더 만들기",
-            "openSlot": "비어 있는"
+            "makeLeader": "리더 만들기"
         },
         "events": {
             "kickFromParty": "당신은 파티에서 쫓겨났습니다."
         },
         "inviteDialog": {
-            "findPlayers": "플레이어 찾기",
-            "sendInvites": "초대장 보내기",
-            "title": "파티에 플레이어 초대"
+            "sendInvites": "초대장 보내기"
         },
         "messageLayout": {
             "inviteToParty": "<0><0></0></0>님이 파티에 초대되었습니다",
-            "joinParty": "<0><0></0></0>님이 파티에 참여했습니다",
             "kickFromParty": "<0><0></0></0>님이 파티에서 추방되었습니다",
-            "leaderChange": "<0><0></0></0>이(가) 이제 리더입니다",
             "leaveParty": "<0><0></0></0>님이 파티를 나갔습니다",
             "queueCancel": {
-                "error": "오류로 인해 매치메이킹이 취소되었습니다",
                 "matchmakingDisabled": "매치메이킹이 현재 비활성화되어 취소되었습니다",
-                "rejected": "<0><0></0></0> 취소된 매치메이킹",
                 "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다"
             },
-            "queueReady": "파티는 지금 짝을 찾고 있습니다",
-            "queueStart": "<0><0></0></0>에서 <4>{{matchmakingLabel}}</4> 일치 검색을 시작합니다",
-            "selfJoin": "당신은 파티에 가입했습니다. 리더는 <2><0></0></2>입니다."
+            "queueStart": "<0><0></0></0>에서 <4>{{matchmakingLabel}}</4> 일치 검색을 시작합니다"
         }
     },
     "material": {
@@ -1074,7 +1039,6 @@
         "contextMenu": {
             "removeFriend": "친구 삭제",
             "removeFriendRequest": "친구 요청 제거",
-            "uninviteFromParty": "파티에서 초대 취소",
             "userBlocked": "사용자가 차단됨",
             "userUnblocked": "사용자가 차단 해제됨",
             "viewProfile": "프로필보기",
@@ -1084,7 +1048,6 @@
             "friendRequestAccepted": "친구 요청 수락됨",
             "friendRequestRemoved": "친구 요청이 삭제됨",
             "friendRequestSent": "친구 요청이 전송",
-            "inviteToParty": "파티에 초대",
             "kickFromParty": "파티에서 차기",
             "loadingUsers": "사용자 로드 중…"
         },

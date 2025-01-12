@@ -496,11 +496,8 @@
             "days": "Días",
             "description": "El emparejamiento a veces se cierra por mantenimiento y desarrollo, y actualmente está deshabilitado. El próximo período de emparejamiento es:",
             "hours": "Horas",
-            "inParty": "Deshabilitado mientras está en la fiesta",
             "minutes": "Minutos",
-            "notPartyLeader": "Solo el líder del grupo puede hacer cola para los partidos.",
             "partyTooLargeText": "Tu grupo actual es demasiado grande para hacer cola para este tipo de emparejamiento.",
-            "partyTooLargeTitle": "fiesta demasiado grande",
             "seconds": "Segundos",
             "soon": "Pronto™",
             "title": "Emparejamiento deshabilitado",
@@ -515,7 +512,6 @@
             "errors": {
                 "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
                 "dialogTitle": "Error al buscar una coincidencia",
-                "inParty": "Estás en un grupo, no puedes hacer cola como jugador solitario",
                 "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :("
@@ -1009,86 +1005,52 @@
     "parties": {
         "errors": {
             "acceptPartyInvite": {
-                "general": "Ocurrió un error al aceptar una invitación",
-                "notFoundOrNotInvited": "la fiesta ya no existe",
-                "partyFull": "la fiesta esta llena"
+                "notFoundOrNotInvited": "la fiesta ya no existe"
             },
             "alreadySearching": "Algunos miembros del grupo ya están jugando, buscando una partida o en un lobby personalizado:",
-            "cancelQueue": "Error al cancelar el emparejamiento: {{errorMessage}}",
             "changeLeader": {
                 "general": "Ocurrió un error al cambiar el líder"
             },
-            "declinePartyInvite": {
-                "general": "Ocurrió un error al rechazar una invitación"
-            },
             "findMatchAsParty": {
                 "alreadyInGameplayActivity": "El grupo ya está buscando un tipo de emparejamiento diferente",
-                "general": "Algo salió mal :(",
                 "insufficientPermissions": "Solo los líderes del partido pueden hacer cola para el emparejamiento",
-                "invalidAction": "El grupo es demasiado grande para ese tipo de emparejamiento.",
-                "notFoundOrNotInParty": "Partido no encontrado o no estás en él",
-                "title": "Error al buscar una coincidencia"
+                "notFoundOrNotInParty": "Partido no encontrado o no estás en él"
             },
             "inviteToParty": {
                 "alreadyMember": "{{user}} ya está en tu grupo",
-                "blocked": "Error al enviar la invitación, ha sido bloqueado por este usuario",
                 "general": "Ocurrió un error al enviar una invitación",
-                "invalidSelfAction": "No puedes invitarte a la fiesta.",
                 "notificationFailure": "Error al enviar una invitación. Inténtalo de nuevo"
-            },
-            "kickPlayer": {
-                "general": "Ocurrió un error al patear al jugador."
             },
             "leaveParty": {
                 "general": "Ocurrió un error al salir de la fiesta."
             },
-            "removePartyInvite": {
-                "general": "Ocurrió un error al eliminar una invitación"
-            },
             "unknownError": "ocurrió un error desconocido"
-        },
-        "events": {
-            "kickFromParty": "Te han echado de la fiesta."
         },
         "inviteDialog": {
             "findPlayers": "encontrar jugadores",
-            "sendInvites": "Enviar invitaciones",
             "title": "Invitar jugadores a la fiesta"
         },
         "messageLayout": {
-            "inviteToParty": "<0><0></0></0> ha sido invitado a la fiesta",
             "joinParty": "<0><0></0></0> se ha unido a la fiesta",
-            "kickFromParty": "<0><0></0></0> ha sido expulsado de la fiesta",
             "leaderChange": "<0><0></0></0> es ahora el líder",
-            "leaveParty": "<0><0></0></0> ha abandonado la fiesta",
             "queueCancel": {
                 "error": "El emparejamiento ha sido cancelado debido a un error",
-                "matchmakingDisabled": "El emparejamiento se canceló porque actualmente está deshabilitado",
-                "rejected": "<0><0></0></0> emparejamiento cancelado",
-                "userLeft": "El emparejamiento se canceló porque <2><0></0></2> abandonó la fiesta"
+                "rejected": "<0><0></0></0> emparejamiento cancelado"
             },
             "queueReady": "El grupo ahora está buscando una coincidencia.",
-            "queueStart": "<0><0></0></0> está iniciando una búsqueda de una coincidencia <4>{{matchmakingLabel}}</4>",
             "selfJoin": "Te has unido a la fiesta. El líder es <2><0></0></2>."
         },
-        "notificationUi": "<0>{{user}}</0> te envió una invitación a la fiesta.",
         "queueAcceptDialog": {
             "contents": "Tu grupo está buscando una coincidencia <2>{{matchmakingLabel}}</2>.",
-            "error": "Error: {{error}}",
             "title": "Elige tu raza"
         },
         "view": {
-            "cancelSearch": "Cancelar búsqueda",
             "invitePlayers": "invitar jugadores",
-            "kickFromParty": "patada de fiesta",
             "leaveParty": "dejar la fiesta",
-            "makeLeader": "Hacer líder",
             "openSlot": "Vacío"
         },
         "navEntry": {
-            "invitePlayers": "invitar jugadores",
-            "leaveParty": "dejar la fiesta",
-            "title": "Fiesta"
+            "leaveParty": "dejar la fiesta"
         }
     },
     "users": {
@@ -1098,12 +1060,10 @@
             "friendRequestAccepted": "Solicitud de amistad aceptada",
             "friendRequestRemoved": "Solicitud de amistad eliminada",
             "friendRequestSent": "Solicitud de amistad enviada",
-            "inviteToParty": "Invitar a una fiesta",
             "kickFromParty": "patada de fiesta",
             "loadingUsers": "Cargando usuario…",
             "removeFriend": "Eliminar amigo",
             "removeFriendRequest": "Eliminar solicitud de amistad",
-            "uninviteFromParty": "Dejar de invitar a la fiesta",
             "userBlocked": "Usuario bloqueado",
             "userUnblocked": "Usuario desbloqueado",
             "viewProfile": "Ver perfil",
@@ -1178,7 +1138,6 @@
     "lobbies": {
         "createLobby": {
             "backToList": "volver a la lista",
-            "disabledInPartyText": "Actualmente se está desarrollando la creación de un lobby como partido. Deja tu fiesta para continuar.",
             "disabledInPartyTitle": "Deshabilitado mientras está en la fiesta",
             "lobbyNameRequired": "Ingrese un nombre de lobby",
             "mapRequired": "Selecciona un mapa para jugar",

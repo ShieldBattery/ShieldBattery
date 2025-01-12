@@ -500,14 +500,11 @@
         "disabledCard": {
             "description": "因维护和开发的需要，匹配功能有时会关闭。匹配功能目前已禁用。下一次匹配时段是：",
             "hours": "小时",
-            "inParty": "组队时不可用",
             "minutes": "分钟",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>至</1><2>{{nextEndDate}}</2>",
-            "notPartyLeader": "只有队长能够参加匹配队列。",
             "partyTooLargeTitle": "队伍人数太多",
             "title": "匹配已被禁用",
             "days": "天",
-            "partyTooLargeText": "您当前的队伍人数太多，无法参加此类型的匹配。",
             "seconds": "秒",
             "soon": "Soon™"
         },
@@ -519,7 +516,6 @@
             "description": "选择你的备用种族。如果您和对手的主族相同，则您会使用备用种族进行游戏。",
             "errors": {
                 "alreadyInGame": "您已经在游戏中、正在搜索比赛或在自定义房间中",
-                "inParty": "您正在组队中，无法作为单人玩家匹配",
                 "loadingRank": "加载您的当前排名时遇到问题。",
                 "matchmakingDisabled": "目前已禁用匹配功能",
                 "somethingWentWrong": "出错了 :(",
@@ -784,7 +780,6 @@
         },
         "createLobby": {
             "backToList": "返回列表",
-            "disabledInPartyText": "组队创建房间功能目前仍在开发中。您必须退出队伍才能继续。",
             "disabledInPartyTitle": "组队时不可创建房间",
             "gameSubTypeHeader": "队伍",
             "gameSubTypeOption": "{{numTeams}}支队伍",
@@ -950,86 +945,56 @@
     "parties": {
         "errors": {
             "acceptPartyInvite": {
-                "general": "接受邀请时遇到错误",
-                "notFoundOrNotInvited": "队伍已不存在",
-                "partyFull": "队伍已满"
+                "notFoundOrNotInvited": "队伍已不存在"
             },
             "findMatchAsParty": {
                 "title": "搜索比赛时遇到错误",
-                "alreadyInGameplayActivity": "队伍已经在其他比赛类型中进行匹配",
                 "general": "出错了:(",
-                "insufficientPermissions": "只有队长才能发起匹配",
-                "invalidAction": "队伍人数太多，无法参加该类型的匹配",
-                "notFoundOrNotInParty": "未找到队伍或您不在该队伍中"
+                "invalidAction": "队伍人数太多，无法参加该类型的匹配"
             },
             "alreadySearching": "一些队伍成员已经在游戏中、正在匹配或在自定义房间中：",
-            "cancelQueue": "取消匹配时遇到错误：{{errorMessage}}",
             "changeLeader": {
                 "general": "更改队长时遇到错误"
             },
-            "declinePartyInvite": {
-                "general": "拒绝邀请时遇到错误"
-            },
             "unknownError": "发生未知错误",
             "inviteToParty": {
-                "blocked": "发送邀请失败，您已被该用户屏蔽",
                 "general": "发送邀请时遇到错误",
-                "invalidSelfAction": "不能邀请自己参加队伍",
-                "notificationFailure": "发送邀请失败。请再试一次",
-                "alreadyMember": "{{user}}已在您的队伍中"
+                "notificationFailure": "发送邀请失败。请再试一次"
             },
             "kickPlayer": {
                 "general": "踢出玩家时遇到错误"
-            },
-            "leaveParty": {
-                "general": "离开队伍时遇到错误"
             },
             "removePartyInvite": {
                 "general": "删除邀请时遇到错误"
             }
         },
         "messageLayout": {
-            "leaveParty": "<0><0></0></0>已离开队伍",
             "queueCancel": {
                 "error": "发生错误，匹配已被取消",
-                "matchmakingDisabled": "匹配功能当前已被禁用，匹配已被取消",
-                "rejected": "<0><0></0></0>取消了匹配",
-                "userLeft": "由于<2><0></0></2>离开队伍，匹配已被取消"
+                "rejected": "<0><0></0></0>取消了匹配"
             },
             "queueReady": "队伍现在正在搜索比赛",
-            "queueStart": "<0><0></0></0> 开始搜索 <4>{{matchmakingLabel}}</4>比赛",
             "selfJoin": "您已加入队伍。队长是<2><0></0></2>。",
-            "joinParty": "<0><0></0></0>已加入队伍",
             "kickFromParty": "<0><0></0></0>已被踢出队伍",
-            "leaderChange": "<0><0></0></0> 已成为队长",
             "inviteToParty": "<0><0></0></0>已受邀参加队伍"
         },
         "navEntry": {
-            "invitePlayers": "邀请玩家",
-            "leaveParty": "离开队伍",
-            "title": "队伍"
+            "leaveParty": "离开队伍"
         },
         "notificationUi": "<0>{{user}}</0>向您发送了组队邀请。",
         "queueAcceptDialog": {
-            "contents": "您的队伍正在搜索 <2>{{matchmakingLabel}}</2> 比赛。",
-            "error": "错误：{{error}}",
-            "title": "选择您的种族"
+            "error": "错误：{{error}}"
         },
         "view": {
             "cancelSearch": "取消搜索",
-            "invitePlayers": "邀请玩家",
             "kickFromParty": "踢出队伍",
-            "leaveParty": "离开队伍",
-            "makeLeader": "将该玩家设为队长",
-            "openSlot": "空的"
+            "makeLeader": "将该玩家设为队长"
         },
         "events": {
             "kickFromParty": "您已被踢出队伍。"
         },
         "inviteDialog": {
-            "findPlayers": "搜索玩家",
-            "sendInvites": "发送邀请",
-            "title": "邀请玩家参加队伍"
+            "sendInvites": "发送邀请"
         }
     },
     "policy": {
@@ -1132,14 +1097,12 @@
             "friendRequestAccepted": "已接受好友请求",
             "removeFriend": "删除好友",
             "removeFriendRequest": "删除好友请求",
-            "uninviteFromParty": "撤回组队邀请",
             "userBlocked": "用户已被屏蔽",
             "userUnblocked": "用户已被解除屏蔽",
             "viewProfile": "查看资料",
             "whisper": "私聊",
             "friendRequestRemoved": "已删除好友请求",
             "friendRequestSent": "已发送好友请求",
-            "inviteToParty": "发出组队邀请",
             "kickFromParty": "踢出队伍",
             "loadingUsers": "正在加载用户…"
         },
