@@ -3,6 +3,7 @@ use std::{collections::HashMap, time::Instant};
 use enumset::{EnumSet, EnumSetType};
 use itertools::Itertools;
 use rand::{seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -20,11 +21,13 @@ then added together. i.e.: Value = WaitTime + W1 * SkillVariance + W2 * Latency
 - In their system, the match score minimum is *per player* because it depends on their skill rating
   + region
 */
+
 const WEIGHT_RATING_VARIANCE: f32 = 0.05;
 const WEIGHT_WIN_PROB: f32 = 0.05;
 
 // FIXME: Move elsewhere + export TS types
-#[derive(Debug, Hash, EnumIter, EnumSetType)]
+#[derive(Debug, Hash, EnumIter, EnumSetType, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum MatchmakingMode {
     Mode1v1,
     Mode1v1Fastest,
@@ -76,6 +79,14 @@ pub struct Matchmaker<T: QueueSelector> {
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingMode, usize>,
     queue_selector: T,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum MatchmakerError {
+    #[error("player {0} is already in the queue")]
+    AlreadyInQueue(usize),
+    #[error("must queue for at least one mode")]
+    NoModesSelected,
 }
 
 #[derive(Debug, Clone)]
@@ -161,10 +172,14 @@ impl<T: QueueSelector> Matchmaker<T> {
         }
     }
 
-    pub fn insert_player(&mut self, player: Player, modes: EnumSet<MatchmakingMode>) -> &mut Self {
-        let entry = self.create_entry_and_update_modes(player, modes, Instant::now());
+    pub fn insert_player(
+        &mut self,
+        player: Player,
+        modes: EnumSet<MatchmakingMode>,
+    ) -> Result<&mut Self, MatchmakerError> {
+        let entry = self.create_entry_and_update_modes(player, modes, Instant::now())?;
         self.queue.push(entry);
-        self
+        Ok(self)
     }
 
     /// Re-inserts a player in the queue who had been queued previously, keeping their queue_time
@@ -175,8 +190,8 @@ impl<T: QueueSelector> Matchmaker<T> {
         player: Player,
         modes: EnumSet<MatchmakingMode>,
         queue_time: Instant,
-    ) -> &mut Self {
-        let entry = self.create_entry_and_update_modes(player, modes, queue_time);
+    ) -> Result<&mut Self, MatchmakerError> {
+        let entry = self.create_entry_and_update_modes(player, modes, queue_time)?;
 
         match self
             .queue
@@ -185,21 +200,21 @@ impl<T: QueueSelector> Matchmaker<T> {
             Ok(pos) | Err(pos) => self.queue.insert(pos, entry),
         };
 
-        self
+        Ok(self)
     }
 
-    // FIXME: use a result instead of panicking
     fn create_entry_and_update_modes(
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
         queue_time: Instant,
-    ) -> QueueEntry {
-        assert!(!modes.is_empty(), "must queue for at least one mode");
-        assert!(
-            self.queue.iter().all(|x| x.player.id != player.id),
-            "player already in queue"
-        );
+    ) -> Result<QueueEntry, MatchmakerError> {
+        if modes.is_empty() {
+            return Err(MatchmakerError::NoModesSelected);
+        }
+        if self.queue.iter().all(|x| x.player.id != player.id) {
+            return Err(MatchmakerError::AlreadyInQueue(player.id));
+        }
 
         let entry = QueueEntry {
             queue_time,
@@ -214,7 +229,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                 .or_insert(1);
         }
 
-        entry
+        Ok(entry)
     }
 
     pub fn remove_player(&mut self, id: usize) -> Option<Player> {

@@ -4106,6 +4106,7 @@ dependencies = [
  "axum-client-ip",
  "axum-extra",
  "axum-prometheus",
+ "base64",
  "bcrypt",
  "chrono",
  "clap",
