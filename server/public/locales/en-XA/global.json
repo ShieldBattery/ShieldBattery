@@ -475,7 +475,8 @@
         "pageHeadline": "$🗡Ladder🗡!",
         "activity": {
             "title": "$🗡Ladder🗡!"
-        }
+        },
+        "season": "$🗡Season🗡!"
     },
     "matchmaking": {
         "division": {
@@ -998,33 +999,23 @@
     },
     "parties": {
         "errors": {
-            "cancelQueue": "$🗡Error canceling matchmaking: {{errorMessage}}🗡!",
             "findMatchAsParty": {
-                "invalidAction": "$🗡The party is too large for that matchmaking type🗡!",
-                "insufficientPermissions": "$🗡Only party leaders can queue for matchmaking🗡!"
+                "invalidAction": "$🗡The party is too large for that matchmaking type🗡!"
             },
             "inviteToParty": {
                 "invalidSelfAction": "$🗡Can't invite yourself to the party🗡!"
-            },
-            "removePartyInvite": {
-                "general": "$🗡An error occurred while removing an invite🗡!"
             }
         },
         "inviteDialog": {
             "findPlayers": "$🗡Find players🗡!"
         },
         "messageLayout": {
-            "kickFromParty": "$🗡<0><0></0></0> has been kicked from the party🗡!",
             "queueCancel": {
                 "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!"
-            },
-            "selfJoin": "$🗡You have joined the party. The leader is <2><0></0></2>.🗡!"
+            }
         },
         "navEntry": {
             "leaveParty": "$🗡Leave party🗡!"
-        },
-        "queueAcceptDialog": {
-            "title": "$🗡Choose your race🗡!"
         },
         "view": {
             "makeLeader": "$🗡Make leader🗡!"
