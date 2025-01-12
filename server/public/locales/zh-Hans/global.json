@@ -473,7 +473,8 @@
         "winLossHeader": "胜/败",
         "activity": {
             "title": "天梯"
-        }
+        },
+        "season": "季节"
     },
     "matchmaking": {
         "division": {
@@ -943,34 +944,20 @@
     "parties": {
         "errors": {
             "findMatchAsParty": {
-                "title": "搜索比赛时遇到错误",
                 "invalidAction": "队伍人数太多，无法参加该类型的匹配"
-            },
-            "changeLeader": {
-                "general": "更改队长时遇到错误"
             },
             "inviteToParty": {
                 "general": "发送邀请时遇到错误"
-            },
-            "kickPlayer": {
-                "general": "踢出玩家时遇到错误"
             }
         },
         "messageLayout": {
             "queueCancel": {
                 "error": "发生错误，匹配已被取消"
             },
-            "queueReady": "队伍现在正在搜索比赛",
             "kickFromParty": "<0><0></0></0>已被踢出队伍"
-        },
-        "navEntry": {
-            "leaveParty": "离开队伍"
         },
         "queueAcceptDialog": {
             "error": "错误：{{error}}"
-        },
-        "view": {
-            "kickFromParty": "踢出队伍"
         },
         "events": {
             "kickFromParty": "您已被踢出队伍。"
