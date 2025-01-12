@@ -897,7 +897,6 @@ export interface MatchmakingCompletion {
 export enum MatchmakingServiceErrorCode {
   ClientDisconnected = 'clientDisconnected',
   GameplayConflict = 'gameplayConflict',
-  InParty = 'inParty',
   InvalidClient = 'invalidClient',
   InvalidMapPool = 'invalidMapPool',
   InvalidMaps = 'invalidMaps',

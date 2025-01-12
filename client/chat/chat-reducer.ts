@@ -528,10 +528,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
-  ['@parties/updateChatMessage'](state, action) {
-    updateChannelInfos(state, action.payload.channelMentions)
-  },
-
   [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
     updateChannelInfos(state, action.payload.channelMentions)
   },

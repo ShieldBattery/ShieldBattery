@@ -10,7 +10,6 @@ import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
-import { findMatchAsParty } from '../parties/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
@@ -82,7 +81,6 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     const matchmakingType = gameConfig.gameSourceExtra.type
 
     const {
-      party: { current },
       matchmakingPreferences: { byType },
     } = getState()
     const prefs = byType.get(matchmakingType)?.preferences
@@ -93,10 +91,6 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       return
     }
 
-    if (current) {
-      dispatch(findMatchAsParty(matchmakingType, prefs ?? {}, current.id))
-    } else {
-      dispatch(findMatch(matchmakingType, prefs ?? {}))
-    }
+    dispatch(findMatch(matchmakingType, prefs ?? {}))
   }
 }

@@ -41,8 +41,6 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
-import { leaveParty } from '../parties/action-creators'
-import { PartyNavEntry } from '../parties/party-nav-entry'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
@@ -316,42 +314,6 @@ function LobbySection() {
   )
 }
 
-function PartySection() {
-  const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()!
-  const currentParty = useAppSelector(s => s.party.current)
-
-  const onInviteClick = useCallback(() => {
-    dispatch(openDialog({ type: DialogType.PartyInvite }))
-  }, [dispatch])
-  const onLeaveClick = useCallback(
-    (partyId: string) => {
-      dispatch(leaveParty(partyId))
-    },
-    [dispatch],
-  )
-
-  if (!currentParty) {
-    return null
-  }
-
-  const canInvite = selfUser.id === currentParty.leader
-  return (
-    <>
-      <Section key='party-section'>
-        <PartyNavEntry
-          key='party'
-          party={currentParty}
-          canInvite={canInvite}
-          onInviteUserClick={onInviteClick}
-          onLeavePartyClick={onLeaveClick}
-        />
-      </Section>
-      <SectionSpacer key='party-divider' />
-    </>
-  )
-}
-
 function ConnectedChatNavEntry({
   channelId,
   onLeave,
@@ -479,7 +441,6 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <LoadingGameSection /> : null}
       {IS_ELECTRON ? <ActiveGameSection /> : null}
       {IS_ELECTRON ? <LobbySection /> : null}
-      {IS_ELECTRON ? <PartySection /> : null}
       {NEWS_PAGE ? (
         <>
           <HomeNavEntry />

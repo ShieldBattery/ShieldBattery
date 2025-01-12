@@ -178,9 +178,8 @@ export function ConnectedGameResultsPage({
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
   const canSearchMatchmaking = useAppSelector(s => {
-    const currentParty = s.party.current
     const isSearching = !!s.matchmaking.searchInfo
-    return !isSearching && (!currentParty || currentParty.leader === s.auth.self?.user.id)
+    return !isSearching
   })
 
   const results = game?.results

@@ -3,7 +3,6 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DisabledCard, DisabledText } from '../activities/disabled-content'
-import { useSelfUser } from '../auth/auth-utils'
 import { TransInterpolation } from '../i18n/i18next'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
@@ -149,44 +148,6 @@ export function ConnectedMatchmakingDisabledCard({
       ) : (
         <Headline6>{t('matchmaking.disabledCard.soon', 'Soon™')}</Headline6>
       )}
-    </DisabledCard>
-  )
-}
-
-export interface ConnectedPartyDisabledCardProps {
-  className?: string
-  type: MatchmakingType
-}
-
-export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDisabledCardProps) {
-  const { t } = useTranslation()
-  const selfUser = useSelfUser()!
-  const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
-  const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
-
-  let disabledTitle = t('matchmaking.disabledCard.inParty', 'Disabled while in party')
-  let disabledText: string | undefined
-  if (!isPartyLeader) {
-    disabledText = t(
-      'matchmaking.disabledCard.notPartyLeader',
-      'Only the party leader can queue for matches.',
-    )
-  } else if (
-    ((type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
-      partySize > 1) ||
-    (type === MatchmakingType.Match2v2 && partySize > 2)
-  ) {
-    disabledTitle = t('matchmaking.disabledCard.partyTooLargeTitle', 'Party too large')
-    disabledText = t(
-      'matchmaking.disabledCard.partyTooLargeText',
-      'Your current party is too large to queue for this matchmaking type.',
-    )
-  }
-
-  return (
-    <DisabledCard className={className}>
-      <Headline5>{disabledTitle}</Headline5>
-      <DisabledText>{disabledText}</DisabledText>
     </DisabledCard>
   )
 }

@@ -2,7 +2,6 @@ import { Record } from 'immutable'
 import { ChatMessage } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
-import { PartyMessage } from '../parties/party-message-records'
 
 // TODO(2Pac): Move all the messaging-related services to immer like the chat service already is,
 // and remove this file.
@@ -47,4 +46,4 @@ export class NewDayMessageRecord
   implements BaseMessage {}
 
 export type CommonMessage = TextMessageRecord | NewDayMessageRecord
-export type SbMessage = CommonMessage | ChatMessage | LobbyMessage | PartyMessage
+export type SbMessage = CommonMessage | ChatMessage | LobbyMessage

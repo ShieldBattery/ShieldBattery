@@ -8,7 +8,11 @@ export enum NotificationType {
   FriendStart = 'friendStart',
   /** A user has sent a friend request to this user. */
   FriendRequest = 'friendRequest',
-  /** A user has sent a party invite to this user. */
+  /**
+   * A user has sent a party invite to this user.
+   *
+   * @deprecated Parties have been removed from the system.
+   */
   PartyInvite = 'partyInvite',
   /** An updated legal policy is available for viewing. */
   PolicyUpdated = 'policyUpdated',

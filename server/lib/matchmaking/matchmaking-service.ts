@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { Counter, exponentialBuckets, Histogram } from 'prom-client'
-import { container, inject, singleton } from 'tsyringe'
+import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
@@ -30,7 +30,6 @@ import {
   MatchmakingSeason,
   MatchmakingServiceErrorCode,
   MatchmakingType,
-  PreferenceData,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
@@ -42,19 +41,13 @@ import { GameLoader, GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
-import {
-  calcEffectiveRating,
-  Matchmaker,
-  MATCHMAKING_INTERVAL_MS,
-  OnMatchFoundFunc,
-} from '../matchmaking/matchmaker'
+import { Matchmaker, MATCHMAKING_INTERVAL_MS, OnMatchFoundFunc } from '../matchmaking/matchmaker'
 import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
   isMatchmakingParty,
   MatchmakingEntity,
-  MatchmakingParty,
   MatchmakingPlayer,
   MatchmakingPlayerData,
   matchmakingRatingToPlayerData,
@@ -67,11 +60,9 @@ import {
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import { IN_PARTY_CHECKER, InPartyChecker } from '../parties/in-party-checker'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { findUsersByIdAsMap } from '../users/user-model'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
@@ -520,7 +511,6 @@ export class MatchmakingService {
     private matchmakingStatus: MatchmakingStatusService,
     private activityRegistry: GameplayActivityRegistry,
     private gameLoader: GameLoader,
-    @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private clock: Clock,
     private userIdentifierManager: UserIdentifierManager,
@@ -553,13 +543,6 @@ export class MatchmakingService {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.MatchmakingDisabled,
         'Matchmaking is currently disabled',
-      )
-    }
-
-    if (this.inPartyChecker.isInParty(userId)) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.InParty,
-        'User is in a party, cannot queue as solo player',
       )
     }
 
@@ -631,132 +614,6 @@ export class MatchmakingService {
 
     this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, race)
     this.matchesRequestedMetric.labels(type, '1').inc()
-  }
-
-  /**
-   * Adds a party of users to matchmaking as a single group. Callers of this need to manage the
-   * registering the gameplay activity status themselves (until this function returns successfully,
-   * at which point the activity status will be handled by this service).
-   */
-  async findAsParty({
-    type,
-    users,
-    partyId,
-    leaderId,
-    leaderPreferences,
-  }: {
-    type: MatchmakingType
-    users: Readonly<
-      Map<
-        SbUserId,
-        { race: RaceChar; clientId: string; identifiers: ReadonlyArray<ClientIdentifierString> }
-      >
-    >
-    partyId: string
-    leaderId: SbUserId
-    leaderPreferences: {
-      mapSelections: ReadonlyArray<string>
-      preferenceData: Readonly<PreferenceData>
-    }
-  }): Promise<void> {
-    const { mapSelections, preferenceData } = leaderPreferences
-
-    if (!this.matchmakingStatus.isEnabled(type)) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.MatchmakingDisabled,
-        'Matchmaking is currently disabled',
-      )
-    }
-
-    if (users.size > TEAM_SIZES[type]) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.TooManyPlayers,
-        'Party is too large for that matchmaking type',
-      )
-    }
-
-    const anyNotInGameplay = Array.from(users.entries()).some(
-      ([id, { clientId }]) => this.activityRegistry.getClientForUser(id)?.clientId !== clientId,
-    )
-    if (anyNotInGameplay) {
-      // This is a programming error, rather than something the user should really ever encounter
-      throw new Error('At least one party user was not registered in gameplay activity')
-    }
-
-    if (users.size === 1) {
-      // Just queue as a solo player to simplify the matchmaker logic (which assumes a party is
-      // 2 players)
-      const user = users.get(leaderId)!
-      await this.queueSoloPlayer(leaderId, user.clientId, user.identifiers, {
-        matchmakingType: type,
-        race: user.race,
-        mapSelections: mapSelections.slice(),
-        data: preferenceData,
-      })
-      return
-    }
-
-    const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    const names = await findUsersByIdAsMap(Array.from(users.keys()))
-    const mmrs = await Promise.all(
-      Array.from(users.entries(), ([id, { identifiers }]) =>
-        this.retrieveMmr(id, type, season, identifiers),
-      ),
-    )
-    const matchmakingParty: MatchmakingParty = {
-      leaderId,
-      partyId,
-      players: mmrs.map(mmr =>
-        matchmakingRatingToPlayerData({
-          mmr,
-          username: names.get(mmr.userId)!.name,
-          race: users.get(mmr.userId)!.race,
-          mapSelections: mapSelections.slice(),
-          preferenceData,
-        }),
-      ),
-      // We'll update this below
-      interval: {
-        low: 0,
-        high: 0,
-      },
-      searchIterations: 0,
-    }
-
-    const effectiveRating = calcEffectiveRating([matchmakingParty])
-    // Choose the largest uncertainty among the party members to use as the party's uncertainty
-    let uncertainty = 0
-    for (const mmr of mmrs) {
-      if (mmr.uncertainty > uncertainty) {
-        uncertainty = mmr.uncertainty
-      }
-    }
-
-    const halfUncertainty = uncertainty / 2
-    matchmakingParty.interval.low = effectiveRating - halfUncertainty
-    matchmakingParty.interval.high = effectiveRating + halfUncertainty
-
-    const userToSockets = new Map(
-      Array.from(users.entries(), ([id, { clientId }]) => [
-        id,
-        {
-          userSockets: this.getUserSocketsOrFail(id),
-          clientSockets: this.getClientSocketsOrFail(id, clientId),
-        },
-      ]),
-    )
-
-    this.matchmakers.get(type)!.addToQueue(matchmakingParty)
-    for (const [userId, { userSockets, clientSockets }] of userToSockets.entries()) {
-      this.queueEntries.set(userId, {
-        type,
-        userId,
-        registeredId: leaderId,
-        partyId,
-      })
-      this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, users.get(userId)!.race)
-    }
-    this.matchesRequestedMetric.labels(type, String(users.size)).inc()
   }
 
   async cancel(userId: SbUserId): Promise<void> {

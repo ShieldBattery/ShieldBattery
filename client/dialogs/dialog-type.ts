@@ -18,8 +18,6 @@ export enum DialogType {
   LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
-  PartyQueueAccept = 'partyQueueAccept',
-  PartyInvite = 'partyInvite',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   ReplayInfo = 'replayInfo',
@@ -78,8 +76,6 @@ type MapPreviewDialogPayload = BaseDialogPayload<
     mapId: string
   }
 >
-type PartyQueueAcceptDialogPayload = BaseDialogPayload<typeof DialogType.PartyQueueAccept>
-type PartyInviteDialogPayload = BaseDialogPayload<typeof DialogType.PartyInvite>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -131,8 +127,6 @@ export type DialogPayload =
   | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
   | MapPreviewDialogPayload
-  | PartyQueueAcceptDialogPayload
-  | PartyInviteDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | ReplayInfoDialogPayload

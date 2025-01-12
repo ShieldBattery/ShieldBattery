@@ -601,14 +601,7 @@ export function Splash() {
                 'Play back any games played in Team Melee mode on ShieldBattery!',
               )}
             />
-            <FeatureEntry
-              title={t('landing.splash.features.partiesTitle', 'Parties')}
-              description={t(
-                'landing.splash.features.partiesDescription',
-                'Party up with your friends to easily host private matches, watch replays ' +
-                  'together, or join matchmaking.',
-              )}
-            />
+
             <FeatureEntry
               title={t(
                 'landing.splash.features.cloudHostingTitle',
@@ -649,6 +642,14 @@ export function Splash() {
                 'landing.splash.comingSoon.cloudReplaysDescription',
                 'Automatic uploading for replays. Share them with others, watch them from ' +
                   'anywhere!',
+              )}
+            />
+            <FeatureEntry
+              title={t('landing.splash.features.partiesTitle', 'Parties')}
+              description={t(
+                'landing.splash.features.partiesDescription',
+                'Party up with your friends to easily host private matches, watch replays ' +
+                  'together, or join matchmaking.',
               )}
             />
             <FeatureEntry

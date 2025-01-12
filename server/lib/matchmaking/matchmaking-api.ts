@@ -57,7 +57,6 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
-    case MatchmakingServiceErrorCode.InParty:
     case MatchmakingServiceErrorCode.MatchAlreadyStarting:
       throw asHttpError(409, err)
     default:

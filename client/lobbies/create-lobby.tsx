@@ -1,6 +1,6 @@
 import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
@@ -15,7 +15,6 @@ import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import { ActivityOverlayType } from '../activities/activity-overlay-type'
-import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
@@ -31,7 +30,7 @@ import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
-import { Headline5, headline5, subtitle1 } from '../styles/typography'
+import { headline5, subtitle1 } from '../styles/typography'
 import {
   createLobby,
   getLobbyPreferences,
@@ -340,7 +339,6 @@ export function CreateLobby(props: CreateLobbyProps) {
   }, [storeRecentMaps, initialMapId])
   const recentMapsRef = useValueAsRef(recentMaps)
 
-  const isInParty = useAppSelector(s => !!s.party.current)
   const formRef = useRef<CreateLobbyFormHandle>(null)
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
@@ -354,10 +352,6 @@ export function CreateLobby(props: CreateLobbyProps) {
     [dispatch],
   )
   const onMapBrowse = useCallback(() => {
-    if (isInParty) {
-      return
-    }
-
     dispatch(
       openOverlay({
         type: ActivityOverlayType.BrowseServerMaps,
@@ -368,13 +362,9 @@ export function CreateLobby(props: CreateLobbyProps) {
         },
       }),
     )
-  }, [isInParty, dispatch, t, onMapSelect])
+  }, [dispatch, t, onMapSelect])
   const onSubmit = useCallback(
     (model: CreateLobbyModel) => {
-      if (isInParty) {
-        return
-      }
-
       const { name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits } = model
       const subType = isTeamType(gameType) ? gameSubType : undefined
 
@@ -404,7 +394,7 @@ export function CreateLobby(props: CreateLobbyProps) {
       navigateToLobby(name)
       dispatch(closeOverlay() as any)
     },
-    [isInParty, dispatch, recentMapsRef],
+    [dispatch, recentMapsRef],
   )
 
   const debouncedSavePrefrencesRef = useRef(
@@ -426,7 +416,7 @@ export function CreateLobby(props: CreateLobbyProps) {
     dispatch(getLobbyPreferences())
   }, [dispatch])
 
-  const isDisabled = isInParty || isRequesting
+  const isDisabled = isRequesting
 
   return (
     <Container>
@@ -458,21 +448,6 @@ export function CreateLobby(props: CreateLobbyProps) {
           )}
         </ContentsBody>
         {bottomElem}
-        {isInParty ? (
-          <DisabledOverlay>
-            <DisabledCard>
-              <Headline5>
-                {t('lobbies.createLobby.disabledInPartyTitle', 'Disabled while in party')}
-              </Headline5>
-              <DisabledText>
-                <Trans t={t} i18nKey='lobbies.createLobby.disabledInPartyText'>
-                  Creating a lobby as a party is currently under development. Leave your party to
-                  continue.
-                </Trans>
-              </DisabledText>
-            </DisabledCard>
-          </DisabledOverlay>
-        ) : null}
       </Contents>
       <Actions>
         <ScrollDivider $show={!isAtBottom} $showAt='top' />

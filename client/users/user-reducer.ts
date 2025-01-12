@@ -150,23 +150,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.mentions)
   },
 
-  ['@parties/init'](state, action) {
-    updateUsers(state, action.payload.userInfos)
-  },
-
-  ['@parties/updateInvite'](state, action) {
-    updateUsers(state, [action.payload.userInfo])
-  },
-
-  ['@parties/updateJoin'](state, action) {
-    updateUsers(state, [action.payload.userInfo])
-  },
-
-  ['@parties/updateChatMessage'](state, action) {
-    updateUsers(state, [action.payload.message.user])
-    updateUsers(state, action.payload.mentions)
-  },
-
   [LOBBY_INIT_DATA as any](state: any, action: any) {
     updateUsers(state, action.payload.userInfos)
   },

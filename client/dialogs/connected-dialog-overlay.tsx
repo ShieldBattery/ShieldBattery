@@ -23,8 +23,6 @@ import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { ExternalLinkDialog } from '../navigation/external-link-dialog'
-import { PartyInviteDialog } from '../parties/party-invite-dialog'
-import { PartyQueueAcceptDialog } from '../parties/party-queue-accept-dialog'
 import {
   AcceptableUseDialog,
   PrivacyPolicyDialog,
@@ -91,10 +89,6 @@ function getDialog(dialogType: DialogType): {
       return { component: MapDetailsDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
-    case DialogType.PartyInvite:
-      return { component: PartyInviteDialog }
-    case DialogType.PartyQueueAccept:
-      return { component: PartyQueueAcceptDialog, modal: true }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:

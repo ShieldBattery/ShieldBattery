@@ -80,12 +80,6 @@ export function findMatch<M extends MatchmakingType>(
               'Matchmaking is currently disabled',
             )
             break
-          case MatchmakingServiceErrorCode.InParty:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.inParty',
-              'You are in a party, cannot queue as a solo player',
-            )
-            break
           case MatchmakingServiceErrorCode.GameplayConflict:
             message = i18n.t(
               'matchmaking.findMatch.errors.alreadyInGame',

@@ -10,7 +10,6 @@ import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
-import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
@@ -97,11 +96,6 @@ function ConnectedUserContextMenuContents({
   const selfUser = useSelfUser()
   const user = useAppSelector(s => s.users.byId.get(userId))
 
-  const partyId = useAppSelector(s => s.party.current?.id)
-  const partyMembers = useAppSelector(s => s.party.current?.members)
-  const partyInvites = useAppSelector(s => s.party.current?.invites)
-  const partyLeader = useAppSelector(s => s.party.current?.leader)
-
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
       return UserRelationshipKind.Friend
@@ -136,21 +130,6 @@ function ConnectedUserContextMenuContents({
 
   const onWhisperClick = useStableCallback(() => {
     navigateToWhisper(user!.id, user!.name)
-    onDismiss()
-  })
-
-  const onInviteToPartyClick = useStableCallback(() => {
-    dispatch(inviteToParty({ targetId: userId }))
-    onDismiss()
-  })
-
-  const onRemovePartyInvite = useStableCallback(() => {
-    dispatch(removePartyInvite(partyId!, userId))
-    onDismiss()
-  })
-
-  const onKickPlayerClick = useStableCallback(() => {
-    dispatch(kickPlayer(partyId!, userId))
     onDismiss()
   })
 
@@ -420,56 +399,6 @@ function ConnectedUserContextMenuContents({
             }}
           />,
         )
-      }
-
-      if (IS_ELECTRON) {
-        if (!partyId && relationshipKind !== UserRelationshipKind.Block) {
-          appendToMultimap(
-            items,
-            MenuItemCategory.Party,
-            <MenuItem
-              key='invite'
-              text={t('users.contextMenu.inviteToParty', 'Invite to party')}
-              onClick={onInviteToPartyClick}
-            />,
-          )
-        } else if (partyLeader === selfUser?.id) {
-          const isAlreadyInParty = !!partyMembers?.includes(user.id)
-          const hasInvite = !!partyInvites?.includes(user.id)
-          if (isAlreadyInParty) {
-            // TODO(2Pac): Move this item to "destructive" category, but only iside the party
-            // context. And instead show "View party" or something in non-party contexts?
-            appendToMultimap(
-              items,
-              MenuItemCategory.Party,
-              <MenuItem
-                key='kick-party'
-                text={t('users.contextMenu.kickFromParty', 'Kick from party')}
-                onClick={onKickPlayerClick}
-              />,
-            )
-          } else if (hasInvite) {
-            appendToMultimap(
-              items,
-              MenuItemCategory.Party,
-              <MenuItem
-                key='invite'
-                text={t('users.contextMenu.uninviteFromParty', 'Uninvite from party')}
-                onClick={onRemovePartyInvite}
-              />,
-            )
-          } else if (relationshipKind !== UserRelationshipKind.Block) {
-            appendToMultimap(
-              items,
-              MenuItemCategory.Party,
-              <MenuItem
-                key='invite'
-                text={t('users.contextMenu.inviteToParty', 'Invite to party')}
-                onClick={onInviteToPartyClick}
-              />,
-            )
-          }
-        }
       }
     }
   }

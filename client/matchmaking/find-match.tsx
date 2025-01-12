@@ -27,7 +27,6 @@ import { RaisedButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
-import { findMatchAsParty } from '../parties/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
@@ -52,10 +51,7 @@ import { Contents1v1 } from './find-1v1'
 import { Contents1v1Fastest } from './find-1v1-fastest'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
-import {
-  ConnectedMatchmakingDisabledCard,
-  ConnectedPartyDisabledCard,
-} from './matchmaking-disabled-card'
+import { ConnectedMatchmakingDisabledCard } from './matchmaking-disabled-card'
 import { LadderPlayerIcon } from './rank-icon'
 
 const ENTER = 'Enter'
@@ -103,23 +99,16 @@ const TabArea = styled.div`
 
 interface DisabledContentsProps {
   matchmakingType: MatchmakingType
-  isMatchmakingStatusDisabled: boolean
-  isMatchmakingPartyDisabled: boolean
+  isMatchmakingDisabled: boolean
 }
 
 function DisabledContents(props: DisabledContentsProps) {
-  const { matchmakingType, isMatchmakingStatusDisabled, isMatchmakingPartyDisabled } = props
+  const { matchmakingType, isMatchmakingDisabled } = props
 
-  if (isMatchmakingStatusDisabled) {
+  if (isMatchmakingDisabled) {
     return (
       <DisabledOverlay>
         <ConnectedMatchmakingDisabledCard type={matchmakingType} />
-      </DisabledOverlay>
-    )
-  } else if (isMatchmakingPartyDisabled) {
-    return (
-      <DisabledOverlay>
-        <ConnectedPartyDisabledCard type={matchmakingType} />
       </DisabledOverlay>
     )
   }
@@ -154,22 +143,9 @@ export function FindMatch() {
   useTrackPageView(urlPath`/matchmaking/find/${activeTab}`)
 
   const dispatch = useAppDispatch()
-  const isMatchmakingStatusDisabled = !useAppSelector(
+  const isMatchmakingDisabled = !useAppSelector(
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
-  const selfUser = useSelfUser()!
-  const partyId = useAppSelector(s => s.party.current?.id)
-  const isInParty = !!partyId
-  const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
-  const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
-  const isMatchmakingPartyDisabled =
-    isInParty &&
-    (!isPartyLeader ||
-      ((activeTab === MatchmakingType.Match1v1 || activeTab === MatchmakingType.Match1v1Fastest) &&
-        partySize > 1) ||
-      (activeTab === MatchmakingType.Match2v2 && partySize > 2))
-
-  const isMatchmakingDisabled = isMatchmakingStatusDisabled || isMatchmakingPartyDisabled
 
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
     refreshToken: activeTab,
@@ -187,14 +163,10 @@ export function FindMatch() {
         return
       }
 
-      if (isInParty) {
-        dispatch(findMatchAsParty(activeTab, prefs, partyId))
-      } else {
-        dispatch(findMatch(activeTab, prefs))
-      }
+      dispatch(findMatch(activeTab, prefs))
       dispatch(closeOverlay() as any)
     },
-    [activeTab, dispatch, isInParty, partyId],
+    [activeTab, dispatch],
   )
 
   const onFindClick = useCallback(() => {
@@ -282,8 +254,7 @@ export function FindMatch() {
             {bottomElem}
             <DisabledContents
               matchmakingType={activeTab as MatchmakingType}
-              isMatchmakingStatusDisabled={isMatchmakingStatusDisabled}
-              isMatchmakingPartyDisabled={isMatchmakingPartyDisabled}
+              isMatchmakingDisabled={isMatchmakingDisabled}
             />
           </Contents>
           <Actions>

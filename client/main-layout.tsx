@@ -47,7 +47,6 @@ import { replace } from './navigation/routing'
 import { addLocalNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
-import { PartyView } from './parties/party-view'
 import {
   addAcceptableUseNotificationIfNeeded,
   addPrivacyPolicyNotificationIfNeeded,
@@ -91,12 +90,10 @@ const Content = styled.div`
 
 let lobbyRoute = <></>
 let matchmakingRoute = <></>
-let partyRoute = <></>
 if (IS_ELECTRON) {
   // TODO(2Pac): Remove `any` once the `LobbyView` is TS-ified
   lobbyRoute = <Route path='/lobbies/:lobby/*?' component={LobbyView} />
   matchmakingRoute = <Route path='/matchmaking/*?' component={MatchmakingView} />
-  partyRoute = <Route path='/parties/:partyId/*?' component={PartyView} />
 }
 
 const AdminPanelComponent = React.lazy(() => import('./admin/panel'))
@@ -456,7 +453,6 @@ export function MainLayout() {
           <Route path='/leagues/*?' component={LeagueRoot} />
           {lobbyRoute}
           {matchmakingRoute}
-          {partyRoute}
           <Route path='/users/*?' component={ProfileRouteComponent} />
           <Route path='/whispers/*?' component={WhisperRouteComponent} />
           {NEWS_PAGE ? (
