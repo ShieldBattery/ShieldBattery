@@ -509,7 +509,6 @@
             "description": "Подбор матчей иногда закрывается на техническое обслуживание и разработку, и в настоящее время он отключен. Следующий период сватовства:",
             "minutes": "Минуты",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>в</1><2>{{nextEndDate}}</2>",
-            "partyTooLargeTitle": "Слишком большая вечеринка",
             "seconds": "Секунды",
             "soon": "Скоро™",
             "title": "Сватовство отключено",
@@ -625,7 +624,6 @@
             "selectMap": "Выберите карту",
             "title": "Создать лобби",
             "backToList": "Обратно к списку",
-            "disabledInPartyTitle": "Отключено в группе",
             "gameSubTypeHeader": "Команды",
             "gameSubTypeOption": "{{numTeams}} команды",
             "advancedSettings": "Расширенные настройки",
@@ -807,53 +805,38 @@
     },
     "parties": {
         "errors": {
-            "acceptPartyInvite": {
-                "notFoundOrNotInvited": "Партии больше не существует"
-            },
             "findMatchAsParty": {
                 "general": "Что-то пошло не так :(",
-                "insufficientPermissions": "Только лидеры групп могут стоять в очереди на матчмейкинг.",
                 "notFoundOrNotInParty": "Партия не найдена или вы в ней не участвуете"
             },
-            "alreadySearching": "Некоторые участники группы уже играют в игру, ищут матч или находятся в пользовательском лобби:",
             "changeLeader": {
                 "general": "Произошла ошибка при смене лидера"
             },
             "inviteToParty": {
-                "alreadyMember": "{{user}} уже в вашей группе",
-                "general": "Произошла ошибка при отправке приглашения",
-                "notificationFailure": "Не удалось отправить приглашение. Пожалуйста, попробуйте еще раз"
+                "general": "Произошла ошибка при отправке приглашения"
             },
             "leaveParty": {
                 "general": "Произошла ошибка при выходе из группы"
-            },
-            "unknownError": "произошла неизвестная ошибка"
+            }
         },
         "inviteDialog": {
-            "findPlayers": "Найти игроков",
-            "title": "Пригласите игроков на вечеринку"
+            "findPlayers": "Найти игроков"
         },
         "messageLayout": {
             "joinParty": "<0><0></0></0> присоединился к группе",
-            "leaderChange": "<0><0></0></0> теперь лидер",
             "queueCancel": {
-                "error": "Сватовство было отменено из-за ошибки",
-                "rejected": "<0><0></0></0> отменил поиск партнеров"
+                "error": "Сватовство было отменено из-за ошибки"
             },
-            "queueReady": "Партия сейчас ищет совпадение",
-            "selfJoin": "Вы вступили в партию. Лидер <2><0></0></2>."
+            "queueReady": "Партия сейчас ищет совпадение"
         },
         "navEntry": {
             "leaveParty": "Покинуть вечеринку"
         },
-        "notificationUi": "<0>{{user}}</0> отправил вам приглашение на вечеринку.",
         "queueAcceptDialog": {
             "error": "Ошибка: {{error}}"
         },
         "view": {
-            "cancelSearch": "Отменить поиск",
-            "kickFromParty": "Выгнать с вечеринки",
-            "makeLeader": "Сделать лидером"
+            "kickFromParty": "Выгнать с вечеринки"
         }
     },
     "replays": {
@@ -1102,7 +1085,6 @@
             "friendRequestAccepted": "Запрос дружбы принят",
             "friendRequestRemoved": "Запрос на добавление в друзья удален",
             "friendRequestSent": "Запрос на добавление в друзья отправлен",
-            "kickFromParty": "Выгнать с вечеринки",
             "loadingUsers": "Загрузка пользователя…",
             "removeFriend": "Удалить друга",
             "removeFriendRequest": "Удалить запрос на добавление в друзья",

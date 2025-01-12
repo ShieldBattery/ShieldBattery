@@ -505,7 +505,6 @@
             "days": "$🗡Days🗡!",
             "hours": "$🗡Hours🗡!",
             "minutes": "$🗡Minutes🗡!",
-            "partyTooLargeText": "$🗡Your current party is too large to queue for this matchmaking type.🗡!",
             "seconds": "$🗡Seconds🗡!",
             "soon": "$🗡Soon™🗡!",
             "title": "$🗡Matchmaking disabled🗡!",
@@ -999,55 +998,36 @@
     },
     "parties": {
         "errors": {
-            "acceptPartyInvite": {
-                "partyFull": "$🗡Party is full🗡!"
-            },
             "cancelQueue": "$🗡Error canceling matchmaking: {{errorMessage}}🗡!",
-            "declinePartyInvite": {
-                "general": "$🗡An error occurred while declining an invite🗡!"
-            },
             "findMatchAsParty": {
                 "invalidAction": "$🗡The party is too large for that matchmaking type🗡!",
-                "title": "$🗡Error searching for a match🗡!",
                 "insufficientPermissions": "$🗡Only party leaders can queue for matchmaking🗡!"
             },
             "inviteToParty": {
-                "blocked": "$🗡Failed to send invite, you have been blocked by this user🗡!",
                 "invalidSelfAction": "$🗡Can't invite yourself to the party🗡!"
-            },
-            "kickPlayer": {
-                "general": "$🗡An error occurred while kicking the player🗡!"
             },
             "removePartyInvite": {
                 "general": "$🗡An error occurred while removing an invite🗡!"
-            },
-            "alreadySearching": "$🗡Some party members are already playing a game, searching for a match, or in a custom lobby:🗡!"
+            }
         },
         "inviteDialog": {
-            "findPlayers": "$🗡Find players🗡!",
-            "sendInvites": "$🗡Send invites🗡!"
+            "findPlayers": "$🗡Find players🗡!"
         },
         "messageLayout": {
             "kickFromParty": "$🗡<0><0></0></0> has been kicked from the party🗡!",
-            "leaveParty": "$🗡<0><0></0></0> has left the party🗡!",
             "queueCancel": {
-                "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!",
-                "error": "$🗡Matchmaking has been canceled due to an error🗡!"
+                "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!"
             },
-            "selfJoin": "$🗡You have joined the party. The leader is <2><0></0></2>.🗡!",
-            "queueStart": "$🗡<0><0></0></0> is starting a search for a <4>{{matchmakingLabel}}</4> match🗡!"
+            "selfJoin": "$🗡You have joined the party. The leader is <2><0></0></2>.🗡!"
         },
         "navEntry": {
             "leaveParty": "$🗡Leave party🗡!"
         },
         "queueAcceptDialog": {
-            "contents": "$🗡Your party is searching for a <2>{{matchmakingLabel}}</2> match.🗡!",
             "title": "$🗡Choose your race🗡!"
         },
         "view": {
-            "invitePlayers": "$🗡Invite players🗡!",
-            "makeLeader": "$🗡Make leader🗡!",
-            "leaveParty": "$🗡Leave party🗡!"
+            "makeLeader": "$🗡Make leader🗡!"
         }
     },
     "users": {
@@ -1056,7 +1036,6 @@
             "friendRequestAccepted": "$🗡Friend request accepted🗡!",
             "friendRequestRemoved": "$🗡Friend request removed🗡!",
             "friendRequestSent": "$🗡Friend request sent🗡!",
-            "kickFromParty": "$🗡Kick from party🗡!",
             "removeFriend": "$🗡Remove friend🗡!",
             "removeFriendRequest": "$🗡Remove friend request🗡!",
             "userBlocked": "$🗡User blocked🗡!",
@@ -1135,7 +1114,6 @@
     "lobbies": {
         "createLobby": {
             "backToList": "$🗡Back to list🗡!",
-            "disabledInPartyTitle": "$🗡Disabled while in party🗡!",
             "gameSubTypeHeader": "$🗡Teams🗡!",
             "gameSubTypeOption": "$🗡{{numTeams}} teams🗡!",
             "gameSubTypeOptionTvB": "$🗡{{topSlots}} vs {{bottomSlots}}🗡!",

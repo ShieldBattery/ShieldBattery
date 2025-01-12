@@ -502,7 +502,6 @@
             "hours": "小时",
             "minutes": "分钟",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>至</1><2>{{nextEndDate}}</2>",
-            "partyTooLargeTitle": "队伍人数太多",
             "title": "匹配已被禁用",
             "days": "天",
             "seconds": "秒",
@@ -780,7 +779,6 @@
         },
         "createLobby": {
             "backToList": "返回列表",
-            "disabledInPartyTitle": "组队时不可创建房间",
             "gameSubTypeHeader": "队伍",
             "gameSubTypeOption": "{{numTeams}}支队伍",
             "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
@@ -944,57 +942,38 @@
     },
     "parties": {
         "errors": {
-            "acceptPartyInvite": {
-                "notFoundOrNotInvited": "队伍已不存在"
-            },
             "findMatchAsParty": {
                 "title": "搜索比赛时遇到错误",
-                "general": "出错了:(",
                 "invalidAction": "队伍人数太多，无法参加该类型的匹配"
             },
-            "alreadySearching": "一些队伍成员已经在游戏中、正在匹配或在自定义房间中：",
             "changeLeader": {
                 "general": "更改队长时遇到错误"
             },
-            "unknownError": "发生未知错误",
             "inviteToParty": {
-                "general": "发送邀请时遇到错误",
-                "notificationFailure": "发送邀请失败。请再试一次"
+                "general": "发送邀请时遇到错误"
             },
             "kickPlayer": {
                 "general": "踢出玩家时遇到错误"
-            },
-            "removePartyInvite": {
-                "general": "删除邀请时遇到错误"
             }
         },
         "messageLayout": {
             "queueCancel": {
-                "error": "发生错误，匹配已被取消",
-                "rejected": "<0><0></0></0>取消了匹配"
+                "error": "发生错误，匹配已被取消"
             },
             "queueReady": "队伍现在正在搜索比赛",
-            "selfJoin": "您已加入队伍。队长是<2><0></0></2>。",
-            "kickFromParty": "<0><0></0></0>已被踢出队伍",
-            "inviteToParty": "<0><0></0></0>已受邀参加队伍"
+            "kickFromParty": "<0><0></0></0>已被踢出队伍"
         },
         "navEntry": {
             "leaveParty": "离开队伍"
         },
-        "notificationUi": "<0>{{user}}</0>向您发送了组队邀请。",
         "queueAcceptDialog": {
             "error": "错误：{{error}}"
         },
         "view": {
-            "cancelSearch": "取消搜索",
-            "kickFromParty": "踢出队伍",
-            "makeLeader": "将该玩家设为队长"
+            "kickFromParty": "踢出队伍"
         },
         "events": {
             "kickFromParty": "您已被踢出队伍。"
-        },
-        "inviteDialog": {
-            "sendInvites": "发送邀请"
         }
     },
     "policy": {
@@ -1103,7 +1082,6 @@
             "whisper": "私聊",
             "friendRequestRemoved": "已删除好友请求",
             "friendRequestSent": "已发送好友请求",
-            "kickFromParty": "踢出队伍",
             "loadingUsers": "正在加载用户…"
         },
         "errors": {
