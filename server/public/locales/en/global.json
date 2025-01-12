@@ -547,8 +547,6 @@
     "createLobby": {
       "advancedSettings": "Advanced settings",
       "backToList": "Back to list",
-      "disabledInPartyText": "Creating a lobby as a party is currently under development. Leave your party to continue.",
-      "disabledInPartyTitle": "Disabled while in party",
       "gameSubTypeHeader": "Teams",
       "gameSubTypeOption": "{{numTeams}} teams",
       "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
@@ -734,12 +732,8 @@
       "days": "Days",
       "description": "Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:",
       "hours": "Hours",
-      "inParty": "Disabled while in party",
       "minutes": "Minutes",
       "nextDateRange": "<0>{{nextStartDate}}</0><1>to</1><2>{{nextEndDate}}</2>",
-      "notPartyLeader": "Only the party leader can queue for matches.",
-      "partyTooLargeText": "Your current party is too large to queue for this matchmaking type.",
-      "partyTooLargeTitle": "Party too large",
       "seconds": "Seconds",
       "soon": "Soon™",
       "title": "Matchmaking disabled"
@@ -762,7 +756,6 @@
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
         "dialogTitle": "Error searching for a match",
-        "inParty": "You are in a party, cannot queue as a solo player",
         "loadingRank": "There was a problem loading your current rank.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
         "somethingWentWrong": "Something went wrong :("
@@ -877,91 +870,6 @@
     },
     "popup": {
       "markAsRead": "Mark as read"
-    }
-  },
-  "parties": {
-    "errors": {
-      "acceptPartyInvite": {
-        "general": "An error occurred while accepting an invite",
-        "notFoundOrNotInvited": "Party doesn't exist anymore",
-        "partyFull": "Party is full"
-      },
-      "alreadySearching": "Some party members are already playing a game, searching for a match, or in a custom lobby:",
-      "cancelQueue": "Error canceling matchmaking: {{errorMessage}}",
-      "changeLeader": {
-        "general": "An error occurred while changing the leader"
-      },
-      "declinePartyInvite": {
-        "general": "An error occurred while declining an invite"
-      },
-      "findMatchAsParty": {
-        "alreadyInGameplayActivity": "The party is already searching for a different matchmaking type",
-        "general": "Something went wrong :(",
-        "insufficientPermissions": "Only party leaders can queue for matchmaking",
-        "invalidAction": "The party is too large for that matchmaking type",
-        "notFoundOrNotInParty": "Party not found or you're not in it",
-        "title": "Error searching for a match"
-      },
-      "inviteToParty": {
-        "alreadyMember": "{{user}} is already in your party",
-        "blocked": "Failed to send invite, you have been blocked by this user",
-        "general": "An error occurred while sending an invite",
-        "invalidSelfAction": "Can't invite yourself to the party",
-        "notificationFailure": "Failed to send an invite. Please try again"
-      },
-      "kickPlayer": {
-        "general": "An error occurred while kicking the player"
-      },
-      "leaveParty": {
-        "general": "An error occurred while leaving the party"
-      },
-      "removePartyInvite": {
-        "general": "An error occurred while removing an invite"
-      },
-      "unknownError": "unknown error occurred"
-    },
-    "events": {
-      "kickFromParty": "You have been kicked from the party."
-    },
-    "inviteDialog": {
-      "findPlayers": "Find players",
-      "sendInvites": "Send invites",
-      "title": "Invite players to the party"
-    },
-    "messageLayout": {
-      "inviteToParty": "<0><0></0></0> has been invited to the party",
-      "joinParty": "<0><0></0></0> has joined the party",
-      "kickFromParty": "<0><0></0></0> has been kicked from the party",
-      "leaderChange": "<0><0></0></0> is now the leader",
-      "leaveParty": "<0><0></0></0> has left the party",
-      "queueCancel": {
-        "error": "Matchmaking has been canceled due to an error",
-        "matchmakingDisabled": "Matchmaking was canceled because it is currently disabled",
-        "rejected": "<0><0></0></0> canceled matchmaking",
-        "userLeft": "Matchmaking was canceled because <2><0></0></2> left the party"
-      },
-      "queueReady": "The party is now searching for a match",
-      "queueStart": "<0><0></0></0> is starting a search for a <4>{{matchmakingLabel}}</4> match",
-      "selfJoin": "You have joined the party. The leader is <2><0></0></2>."
-    },
-    "navEntry": {
-      "invitePlayers": "Invite players",
-      "leaveParty": "Leave party",
-      "title": "Party"
-    },
-    "notificationUi": "<0>{{user}}</0> sent you a party invitation.",
-    "queueAcceptDialog": {
-      "contents": "Your party is searching for a <2>{{matchmakingLabel}}</2> match.",
-      "error": "Error: {{error}}",
-      "title": "Choose your race"
-    },
-    "view": {
-      "cancelSearch": "Cancel search",
-      "invitePlayers": "Invite players",
-      "kickFromParty": "Kick from party",
-      "leaveParty": "Leave party",
-      "makeLeader": "Make leader",
-      "openSlot": "Empty"
     }
   },
   "policy": {
@@ -1224,12 +1132,9 @@
       "friendRequestAccepted": "Friend request accepted",
       "friendRequestRemoved": "Friend request removed",
       "friendRequestSent": "Friend request sent",
-      "inviteToParty": "Invite to party",
-      "kickFromParty": "Kick from party",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
-      "uninviteFromParty": "Uninvite from party",
       "userBlocked": "User blocked",
       "userUnblocked": "User unblocked",
       "viewProfile": "View profile",
