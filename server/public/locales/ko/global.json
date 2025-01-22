@@ -935,21 +935,14 @@
     },
     "parties": {
         "errors": {
-            "changeLeader": {
-                "general": "리더를 변경하는 동안 오류가 발생했습니다"
-            },
             "findMatchAsParty": {
                 "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다"
             }
-        },
-        "navEntry": {
-            "leaveParty": "파티 탈퇴"
         },
         "view": {
             "kickFromParty": "파티에서 차기"
         },
         "messageLayout": {
-            "inviteToParty": "<0><0></0></0>님이 파티에 초대되었습니다",
             "queueCancel": {
                 "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다"
             }

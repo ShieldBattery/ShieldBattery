@@ -999,23 +999,14 @@
     },
     "parties": {
         "errors": {
-            "findMatchAsParty": {
-                "invalidAction": "$🗡The party is too large for that matchmaking type🗡!"
-            },
             "inviteToParty": {
                 "invalidSelfAction": "$🗡Can't invite yourself to the party🗡!"
             }
-        },
-        "inviteDialog": {
-            "findPlayers": "$🗡Find players🗡!"
         },
         "messageLayout": {
             "queueCancel": {
                 "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!"
             }
-        },
-        "navEntry": {
-            "leaveParty": "$🗡Leave party🗡!"
         },
         "view": {
             "makeLeader": "$🗡Make leader🗡!"

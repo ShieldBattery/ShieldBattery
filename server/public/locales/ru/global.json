@@ -806,23 +806,14 @@
     },
     "parties": {
         "errors": {
-            "findMatchAsParty": {
-                "notFoundOrNotInParty": "Партия не найдена или вы в ней не участвуете"
-            },
             "inviteToParty": {
                 "general": "Произошла ошибка при отправке приглашения"
             }
-        },
-        "inviteDialog": {
-            "findPlayers": "Найти игроков"
         },
         "messageLayout": {
             "queueCancel": {
                 "error": "Сватовство было отменено из-за ошибки"
             }
-        },
-        "navEntry": {
-            "leaveParty": "Покинуть вечеринку"
         },
         "view": {
             "kickFromParty": "Выгнать с вечеринки"

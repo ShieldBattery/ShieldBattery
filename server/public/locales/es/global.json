@@ -1004,23 +1004,14 @@
     },
     "parties": {
         "errors": {
-            "findMatchAsParty": {
-                "alreadyInGameplayActivity": "El grupo ya está buscando un tipo de emparejamiento diferente"
-            },
             "inviteToParty": {
                 "general": "Ocurrió un error al enviar una invitación"
             }
-        },
-        "inviteDialog": {
-            "findPlayers": "encontrar jugadores"
         },
         "messageLayout": {
             "queueCancel": {
                 "error": "El emparejamiento ha sido cancelado debido a un error"
             }
-        },
-        "queueAcceptDialog": {
-            "contents": "Tu grupo está buscando una coincidencia <2>{{matchmakingLabel}}</2>."
         },
         "view": {
             "openSlot": "Vacío"

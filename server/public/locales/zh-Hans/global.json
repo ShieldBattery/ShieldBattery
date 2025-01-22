@@ -943,21 +943,12 @@
     },
     "parties": {
         "errors": {
-            "findMatchAsParty": {
-                "invalidAction": "队伍人数太多，无法参加该类型的匹配"
-            },
             "inviteToParty": {
                 "general": "发送邀请时遇到错误"
             }
         },
         "messageLayout": {
-            "queueCancel": {
-                "error": "发生错误，匹配已被取消"
-            },
             "kickFromParty": "<0><0></0></0>已被踢出队伍"
-        },
-        "queueAcceptDialog": {
-            "error": "错误：{{error}}"
         },
         "events": {
             "kickFromParty": "您已被踢出队伍。"
