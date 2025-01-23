@@ -942,16 +942,8 @@
         }
     },
     "parties": {
-        "errors": {
-            "inviteToParty": {
-                "general": "发送邀请时遇到错误"
-            }
-        },
         "messageLayout": {
             "kickFromParty": "<0><0></0></0>已被踢出队伍"
-        },
-        "events": {
-            "kickFromParty": "您已被踢出队伍。"
         }
     },
     "policy": {

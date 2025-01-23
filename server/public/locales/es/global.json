@@ -1003,18 +1003,10 @@
         }
     },
     "parties": {
-        "errors": {
-            "inviteToParty": {
-                "general": "Ocurrió un error al enviar una invitación"
-            }
-        },
         "messageLayout": {
             "queueCancel": {
                 "error": "El emparejamiento ha sido cancelado debido a un error"
             }
-        },
-        "view": {
-            "openSlot": "Vacío"
         }
     },
     "users": {

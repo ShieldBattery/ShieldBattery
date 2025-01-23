@@ -934,18 +934,8 @@
         }
     },
     "parties": {
-        "errors": {
-            "findMatchAsParty": {
-                "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다"
-            }
-        },
         "view": {
             "kickFromParty": "파티에서 차기"
-        },
-        "messageLayout": {
-            "queueCancel": {
-                "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다"
-            }
         }
     },
     "material": {

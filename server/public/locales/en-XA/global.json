@@ -998,18 +998,10 @@
         }
     },
     "parties": {
-        "errors": {
-            "inviteToParty": {
-                "invalidSelfAction": "$🗡Can't invite yourself to the party🗡!"
-            }
-        },
         "messageLayout": {
             "queueCancel": {
                 "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!"
             }
-        },
-        "view": {
-            "makeLeader": "$🗡Make leader🗡!"
         }
     },
     "users": {

@@ -805,18 +805,10 @@
         }
     },
     "parties": {
-        "errors": {
-            "inviteToParty": {
-                "general": "Произошла ошибка при отправке приглашения"
-            }
-        },
         "messageLayout": {
             "queueCancel": {
                 "error": "Сватовство было отменено из-за ошибки"
             }
-        },
-        "view": {
-            "kickFromParty": "Выгнать с вечеринки"
         }
     },
     "replays": {
