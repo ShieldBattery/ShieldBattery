@@ -71,6 +71,9 @@ export function initI18next() {
       // values, so we configure our `t` function to not be able to return `null` values.
       returnNull: false,
     })
+  i18n.on('languageChanged', lang => {
+    document.documentElement.lang = lang
+  })
 
   i18next.then(
     r => i18nextDeferred.resolve(r),
