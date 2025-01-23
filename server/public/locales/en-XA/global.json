@@ -997,13 +997,6 @@
             "closeWhisper": "$🗡Close whisper🗡!"
         }
     },
-    "parties": {
-        "messageLayout": {
-            "queueCancel": {
-                "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!"
-            }
-        }
-    },
     "users": {
         "contextMenu": {
             "addFriend": "$🗡Add friend🗡!",
@@ -1113,7 +1106,6 @@
             "kicked": "$🗡You have been kicked from the lobby.🗡!"
         },
         "joinLobby": {
-            "disabledInPartyText": "$🗡Joining a lobby as a party is currently under development. Leave your party to continue.🗡!",
             "disabledInPartyTitle": "$🗡Disabled while in party🗡!",
             "noActiveLobbies": "$🗡There are no active lobbies🗡!",
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",

@@ -1002,13 +1002,6 @@
             "closeWhisper": "Cerrar susurro"
         }
     },
-    "parties": {
-        "messageLayout": {
-            "queueCancel": {
-                "error": "El emparejamiento ha sido cancelado debido a un error"
-            }
-        }
-    },
     "users": {
         "contextMenu": {
             "addFriend": "Añadir amigo",
@@ -1118,7 +1111,6 @@
             "kicked": "Te han echado del vestíbulo."
         },
         "joinLobby": {
-            "disabledInPartyText": "Unirse a un lobby como partido está actualmente en desarrollo. Deja tu fiesta para continuar.",
             "disabledInPartyTitle": "Deshabilitado mientras está en la fiesta",
             "noOpenLobbies": "No hay vestíbulos abiertos.",
             "title": "Unirse al vestíbulo",

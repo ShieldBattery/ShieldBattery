@@ -647,7 +647,6 @@
         "joinLobby": {
             "openSlotCount_other": "{{count}} 슬롯 열림",
             "title": "로비 참가",
-            "disabledInPartyText": "파티로 로비에 참여하는 기능은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
             "disabledInPartyTitle": "파티 중 비활성화",
             "noActiveLobbies": "활성 로비가 없습니다",
             "noOpenLobbies": "공개된 로비가 없습니다",
@@ -931,11 +930,6 @@
         "replayInfoDialog": {
             "title": "다시보기 정보",
             "watch": "보다"
-        }
-    },
-    "parties": {
-        "view": {
-            "kickFromParty": "파티에서 차기"
         }
     },
     "material": {

@@ -721,7 +721,6 @@
     "lobbies": {
         "joinLobby": {
             "openSlotCount_other": "有{{count}}个空位",
-            "disabledInPartyText": "组队加入房间功能目前仍在开发中。您必须退出队伍才能继续。",
             "disabledInPartyTitle": "组队时不可加入房间",
             "noActiveLobbies": "目前没有活跃的房间",
             "noOpenLobbies": "目前没有开放的房间",
@@ -939,11 +938,6 @@
         },
         "list": {
             "title": "通知"
-        }
-    },
-    "parties": {
-        "messageLayout": {
-            "kickFromParty": "<0><0></0></0>已被踢出队伍"
         }
     },
     "policy": {
