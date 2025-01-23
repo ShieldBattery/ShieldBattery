@@ -7,9 +7,7 @@ import { Dispatchable, dispatch } from '../dispatch-registry'
  * Sounds to play when receiving an `add` for a notification of a particular type. If a type is not
  * present in this mapping, no sound will be played.
  */
-const NOTIFICATION_SOUNDS: Partial<Record<NotificationType, AvailableSound>> = {
-  [NotificationType.PartyInvite]: AvailableSound.PartyInvite,
-}
+const NOTIFICATION_SOUNDS: Partial<Record<NotificationType, AvailableSound>> = {}
 
 const ELECTRON_ONLY_NOTIFICATION_TYPES: ReadonlySet<NotificationType> = new Set([
   NotificationType.PartyInvite,

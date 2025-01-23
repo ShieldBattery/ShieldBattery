@@ -1,11 +1,10 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import { Trans, withTranslation } from 'react-i18next'
+import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/configuration'
 import { closeOverlay } from '../activities/action-creators'
-import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
@@ -116,7 +115,7 @@ const ContentsBody = styled.div`
 `
 
 @withTranslation()
-@connect(state => ({ lobbyList: state.lobbyList, party: state.party }))
+@connect(state => ({ lobbyList: state.lobbyList }))
 export default class JoinLobby extends React.Component {
   constructor(props) {
     super(props)
@@ -173,21 +172,6 @@ export default class JoinLobby extends React.Component {
         </TitleBar>
         <Contents>
           <ContentsBody>{this.renderList()}</ContentsBody>
-          {this.props.party.current ? (
-            <DisabledOverlay>
-              <DisabledCard>
-                <Headline5>
-                  {t('lobbies.joinLobby.disabledInPartyTitle', 'Disabled while in party')}
-                </Headline5>
-                <DisabledText>
-                  <Trans t={t} i18nKey='lobbies.joinLobby.disabledInPartyText'>
-                    Joining a lobby as a party is currently under development. Leave your party to
-                    continue.
-                  </Trans>
-                </DisabledText>
-              </DisabledCard>
-            </DisabledOverlay>
-          ) : null}
         </Contents>
       </Container>
     )

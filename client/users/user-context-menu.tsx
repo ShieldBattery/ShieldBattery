@@ -41,8 +41,6 @@ const LoadingItem = styled(MenuItem)`
 export enum MenuItemCategory {
   /** Contains general menu items, like view profile, whisper, mention */
   General = 'General',
-  /** Contains party-related menu items, like invite/uninvite to/from party */
-  Party = 'Party',
   /** Contains destructive menu items, like kick/ban from chat channels, lobbies */
   Destructive = 'Destructive',
 }
