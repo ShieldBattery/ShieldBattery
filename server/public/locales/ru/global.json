@@ -643,7 +643,6 @@
             "kicked": "Вас выгнали из лобби."
         },
         "joinLobby": {
-            "disabledInPartyTitle": "Отключено в группе",
             "noActiveLobbies": "Нет активных лобби",
             "noOpenLobbies": "Нет открытых лобби",
             "title": "Присоединиться к лобби",

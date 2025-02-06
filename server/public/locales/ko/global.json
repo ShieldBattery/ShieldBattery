@@ -647,7 +647,6 @@
         "joinLobby": {
             "openSlotCount_other": "{{count}} 슬롯 열림",
             "title": "로비 참가",
-            "disabledInPartyTitle": "파티 중 비활성화",
             "noActiveLobbies": "활성 로비가 없습니다",
             "noOpenLobbies": "공개된 로비가 없습니다",
             "action": "로비에 참여"

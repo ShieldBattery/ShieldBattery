@@ -1106,7 +1106,6 @@
             "kicked": "$🗡You have been kicked from the lobby.🗡!"
         },
         "joinLobby": {
-            "disabledInPartyTitle": "$🗡Disabled while in party🗡!",
             "noActiveLobbies": "$🗡There are no active lobbies🗡!",
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",
             "title": "$🗡Join Lobby🗡!",
