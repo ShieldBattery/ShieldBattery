@@ -10,12 +10,10 @@ export interface MatchmakingTime {
 }
 
 function convertFromDb(props: {
-  /* eslint-disable camelcase */
   id: string
   matchmaking_type: MatchmakingType
   start_date: Date
   enabled: boolean
-  /* eslint-enable camelcase */
 }): MatchmakingTime {
   return {
     id: props.id,

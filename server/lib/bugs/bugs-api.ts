@@ -88,7 +88,7 @@ export class BugsApi {
 
   @httpPost('/')
   @httpBefore(
-    throttleMiddleware(reportThrottle, ctx => String(ctx.session?.user?.id) ?? ctx.ip),
+    throttleMiddleware(reportThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
     handleMultipartFiles(MAX_LOGS_FILE_SIZE),
   )
   async reportBug(ctx: RouterContext): Promise<ReportBugResponse> {

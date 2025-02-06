@@ -32,9 +32,6 @@ export abstract class TypedEventEmitter<T extends EventMap> extends (EventEmitte
   new <T extends EventMap>(): TypedEmitter<T>
 })<T> {
   constructor() {
-    // NOTE(tec27): No idea why eslint thinks super isn't a constructor here, I assume it's failing
-    // to parse things properly in some way
-    // eslint-disable-next-line constructor-super
     super()
   }
 }

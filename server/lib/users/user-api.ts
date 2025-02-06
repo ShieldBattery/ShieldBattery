@@ -304,7 +304,7 @@ export class UserApi {
 
   @httpGet('/:id/profile')
   @httpBefore(
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id) ?? ctx.ip),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
   )
   async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
@@ -408,9 +408,8 @@ export class UserApi {
 
   @httpGet('/:id/match-history')
   @httpBefore(
-    throttleMiddleware(
-      matchHistoryRetrievalThrottle,
-      ctx => String(ctx.session?.user?.id) ?? ctx.ip,
+    throttleMiddleware(matchHistoryRetrievalThrottle, ctx =>
+      String(ctx.session?.user?.id ?? ctx.ip),
     ),
   )
   async searchMatchHistory(ctx: RouterContext): Promise<SearchMatchHistoryResponse> {
@@ -465,9 +464,8 @@ export class UserApi {
 
   @httpGet('/:id/ranking-history')
   @httpBefore(
-    throttleMiddleware(
-      rankingsHistoryRetrievalThrottle,
-      ctx => String(ctx.session?.user?.id) ?? ctx.ip,
+    throttleMiddleware(rankingsHistoryRetrievalThrottle, ctx =>
+      String(ctx.session?.user?.id ?? ctx.ip),
     ),
   )
   async getUserRankingHistory(ctx: RouterContext): Promise<GetUserRankingHistoryResponse> {

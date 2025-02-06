@@ -511,7 +511,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   ipcMain.handle('fsReadFile', async (_, filePath) => {
-    return fsPromises.readFile(filePath)
+    // NOTE(tec27): We can guarantee this is an ArrayBuffer and not a SharedArrayBuffer, and if it
+    // were, it wouldn't be transferable anyway (thus it'd cause an error)
+    return (await fsPromises.readFile(filePath)).buffer as ArrayBuffer
   })
   ipcMain.handle('fsReadDir', async (_, dirPath, options) => {
     const result = await fsPromises.readdir(dirPath, options)

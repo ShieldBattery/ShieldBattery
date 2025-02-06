@@ -135,7 +135,7 @@ export class GameApi {
   ) {}
 
   @httpGet('/:gameId')
-  @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.user?.id) ?? ctx.ip))
+  @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getGame(ctx: RouterContext): Promise<GetGameResponse> {
     const {
       params: { gameId },

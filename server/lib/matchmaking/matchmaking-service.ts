@@ -126,7 +126,6 @@ class Match {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     ;[this.acceptTimeout, this.clearAcceptTimeout] = timeoutPromise(
       MATCHMAKING_ACCEPT_MATCH_TIME_MS + ACCEPT_MATCH_LATENCY,
     )

@@ -156,7 +156,7 @@ export class MatchmakingApi {
 
   @httpGet('/seasons')
   @httpBefore(
-    throttleMiddleware(seasonsRetrievalThrottle, ctx => String(ctx.session?.user?.id) ?? ctx.ip),
+    throttleMiddleware(seasonsRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
   )
   async getMatchmakingSeasons(ctx: RouterContext): Promise<GetMatchmakingSeasonsResponse> {
     return {

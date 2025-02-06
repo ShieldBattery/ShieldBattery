@@ -59,7 +59,6 @@ if (module.hot) {
   const appendChild = document.head.appendChild.bind(document.head)
   document.head.appendChild = elem => {
     if (elem.tagName === 'SCRIPT' && new Error().stack.includes('__webpack_require__')) {
-      // eslint-disable-next-line no-undef,camelcase
       elem.setAttribute('nonce', __webpack_nonce__)
     }
 

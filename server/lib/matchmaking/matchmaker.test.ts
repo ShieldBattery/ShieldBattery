@@ -1,4 +1,3 @@
-/* eslint-disable jest/no-commented-out-tests */
 import { mockRandomForEach } from 'jest-mock-random'
 import { makeSbUserId } from '../../../common/users/sb-user'
 import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
