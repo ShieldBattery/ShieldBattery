@@ -3,7 +3,7 @@
 # the server dependencies
 FROM node:20-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable
 
 # By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
 # multistage build to install the necessary tools, and build the dependencies which will then be
@@ -47,7 +47,7 @@ RUN pnpm prune --prod
 # Second stage copies the built dependencies from first stage and runs the app in production mode
 FROM node:20-alpine
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable
 
 ENV NODE_ENV=production
 # Tell the server not to try and run webpack

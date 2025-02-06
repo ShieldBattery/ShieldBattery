@@ -19,11 +19,10 @@ them installed separately.
 ### PNPM
 
 The various JavaScript components use [pnpm](https://pnpm.io/) to manage their dependencies.
-Install the latest version via `corepack` which is provided by Node:
+Install the correct version via `corepack` which is provided by Node:
 
 ```sh
 corepack enable
-corepack prepare pnpm@latest --activate
 ```
 
 ### C++
