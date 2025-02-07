@@ -20,5 +20,5 @@ export function WhisperRouteComponent(props: { params: any }) {
     return null
   }
 
-  return <ConnectedWhisper userId={makeSbUserId(targetIdNum)} username={params!.username} />
+  return <ConnectedWhisper targetId={makeSbUserId(targetIdNum)} targetUsername={params!.username} />
 }

@@ -6,7 +6,6 @@ import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
 import games from '../games/socket-handlers'
-import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import logger from '../logging/logger'
 import news from '../news/socket-handlers'
@@ -120,7 +119,6 @@ const handlers = [
   auth,
   chat,
   games,
-  loading,
   lobbies,
   networkStatusHandler,
   news,

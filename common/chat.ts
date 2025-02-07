@@ -214,18 +214,10 @@ export interface InitialChannelData {
   detailedChannelInfo: DetailedChannelInfo
   /** The channel information specific to user's joined channels. */
   joinedChannelInfo: JoinedChannelInfo
-  /** A list of IDs of active users that are in the chat channel. */
-  activeUserIds: SbUserId[]
   /** The channel preferences for the current user that is initializing the channel. */
   selfPreferences: ChannelPreferences
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
-}
-
-export interface ChatReadyEvent {
-  type: 'chatReady'
-  /** Ordered list of channels (and their initial data) that the user is joined in. */
-  channels: InitialChannelData[]
 }
 
 export interface ChatInitEvent extends InitialChannelData {
@@ -296,6 +288,12 @@ export interface ChatMessageDeletedEvent {
   messageId: string
 }
 
+export interface ChatInitActiveUsersEvent {
+  action: 'initActiveUsers'
+  /** A list of IDs of active users that are in a chat channel. */
+  activeUserIds: SbUserId[]
+}
+
 export interface ChatUserActiveEvent {
   action: 'userActive2'
   /** The ID of a user that has become active in a chat channel. */
@@ -325,6 +323,7 @@ export type ChatEvent =
   | ChatBanEvent
   | ChatMessageEvent
   | ChatMessageDeletedEvent
+  | ChatInitActiveUsersEvent
   | ChatUserActiveEvent
   | ChatUserIdleEvent
   | ChatUserOfflineEvent

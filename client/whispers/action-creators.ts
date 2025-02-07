@@ -7,6 +7,19 @@ import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 
+export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const sessions = await fetchJson<SbUserId[]>(apiUrl`whispers/sessions`, {
+      method: 'GET',
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@whispers/getWhisperSessions',
+      payload: sessions,
+    })
+  })
+}
 export function startWhisperSessionByName(
   target: string,
   spec: RequestHandlingSpec<{ userId: SbUserId }>,
