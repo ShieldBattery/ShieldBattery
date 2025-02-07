@@ -940,6 +940,33 @@ describe('chat/chat-service', () => {
       await expectMessageWasNotReceived(user2, testChannel, client1)
       expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
+
+    // NOTE(2Pac): This test covers a rare bug that happened once when the user tried to leave a
+    // channel that didn't exist in state anymore.
+    test("works when trying to leave channel that doesn't exist", async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      let mockCalled = false
+      asMockedFunction(removeUserFromChannelMock).mockImplementation(async () => {
+        if (mockCalled) {
+          return { newOwnerId: undefined }
+        }
+
+        mockCalled = true
+        await chatService.leaveChannel(testChannel.id, user1.id)
+
+        return { newOwnerId: undefined }
+      })
+
+      await chatService.leaveChannel(testChannel.id, user1.id)
+
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
+    })
   })
 
   describe('moderateUser', () => {
