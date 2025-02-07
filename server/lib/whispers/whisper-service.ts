@@ -89,12 +89,14 @@ export default class WhisperService {
     }
 
     await dbCloseWhisperSession(userId, targetUser)
-    this.userSessions = this.userSessions.update(userId, s => s!.delete(targetUser))
+    this.userSessions = this.userSessions.update(userId, s => s?.delete(targetUser))
 
-    const updated = this.sessionUsers.get(targetUser)!.delete(userId)
-    this.sessionUsers = updated.size
-      ? this.sessionUsers.set(targetUser, updated)
-      : this.sessionUsers.delete(targetUser)
+    if (this.sessionUsers.has(targetUser)) {
+      const updated = this.sessionUsers.get(targetUser)!.delete(userId)
+      this.sessionUsers = updated.size
+        ? this.sessionUsers.set(targetUser, updated)
+        : this.sessionUsers.delete(targetUser)
+    }
 
     this.publisher.publish(getSessionPath(userId, targetUser), {
       action: 'closeSession',
