@@ -144,7 +144,7 @@ export function GamePlayersDisplay({
       )
     }
     const [teamTop, teamBottom] = game.config.teams
-    const teamDiff = teamTop.length - teamBottom.length;
+    const teamDiff = teamTop.length - teamBottom.length
     playerElems.push(
       ...teamTop.map((p, i) => {
         const result = p.isComputer ? undefined : resultsById.get(p.id)
