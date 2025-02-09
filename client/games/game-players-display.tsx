@@ -143,8 +143,10 @@ export function GamePlayersDisplay({
         </GamePreviewTeamOverline>,
       )
     }
+    const [teamTop, teamBottom] = game.config.teams
+    const teamDiff = teamTop.length - teamBottom.length;
     playerElems.push(
-      ...game.config.teams[0].map((p, i) => {
+      ...teamTop.map((p, i) => {
         const result = p.isComputer ? undefined : resultsById.get(p.id)
         return (
           <GamePreviewPlayer key={`team-top-${i}`}>
@@ -160,6 +162,13 @@ export function GamePlayersDisplay({
       }),
     )
 
+    // If teamBottom has more players, render placeholders for teamTop.
+    if (teamDiff < 0) {
+      for (let i = 0; i < Math.abs(teamDiff); i++) {
+        playerElems.push(<GamePreviewPlayer key={`placeholder-${i}`} />)
+      }
+    }
+
     if (showTeamLabels) {
       playerElems.push(
         <GamePreviewTeamOverline key={'team-bottom'}>
@@ -168,7 +177,7 @@ export function GamePlayersDisplay({
       )
     }
     playerElems.push(
-      ...game.config.teams[1].map((p, i) => {
+      ...teamBottom.map((p, i) => {
         const result = p.isComputer ? undefined : resultsById.get(p.id)
         return (
           <GamePreviewPlayer key={`team-bottom-${i}`}>
@@ -183,6 +192,13 @@ export function GamePlayersDisplay({
         )
       }),
     )
+
+    // If teamTop has more players, render placeholders for teamBottom.
+    if (teamDiff > 0) {
+      for (let i = 0; i < teamDiff; i++) {
+        playerElems.push(<GamePreviewPlayer key={`placeholder-${i}`} />)
+      }
+    }
   } else {
     // TODO(tec27): Handle UMS game types with 2 teams? Always add team labels for 1v1?
     playerElems.push(
@@ -203,13 +219,6 @@ export function GamePlayersDisplay({
         }),
       ),
     )
-  }
-
-  // NOTE(tec27): If there are an uneven number of items, column-count does really weird stuff
-  // splitting the middle element across both columns, which we definitely don't want. Instead we
-  // just add a dummy entry at the end to balance the columns.
-  if (playerElems.length % 2 !== 0) {
-    playerElems.push(<GamePreviewPlayer key={`placeholder`} />)
   }
 
   return <GamePreviewPlayers className={className}>{playerElems}</GamePreviewPlayers>
