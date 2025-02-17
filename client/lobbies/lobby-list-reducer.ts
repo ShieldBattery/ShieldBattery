@@ -1,33 +1,36 @@
 import { List, Map, Record } from 'immutable'
+import { GameType } from '../../common/games/configuration'
 import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
 
-export const HostRecord = Record({
-  name: null,
-  id: null,
-})
-export const LobbySummary = Record({
-  name: null,
-  map: null,
-  gameType: null,
-  gameSubType: null,
-  host: null,
-  openSlotCount: -1,
-})
-export const LobbyList = Record({
-  list: List(),
-  byName: new Map(),
-  count: 0,
-})
+export class HostRecord extends Record({
+  name: '',
+  id: '',
+}) {}
 
-function createSummary(lobbyData) {
+export class LobbySummary extends Record({
+  name: '',
+  map: '',
+  gameType: GameType.Melee,
+  gameSubType: 0,
+  host: 'string',
+  openSlotCount: -1,
+}) {}
+
+export class LobbyList extends Record({
+  list: List<string>(),
+  byName: Map<string, LobbySummary>(),
+  count: 0,
+}) {}
+
+function createSummary(lobbyData: any): LobbySummary {
   return new LobbySummary({
     ...lobbyData,
     host: new HostRecord(lobbyData.host),
   })
 }
 
-function handleFull(state, data) {
-  const byName = new Map(
+function handleFull(state: LobbyList, data: any[]): LobbyList {
+  const byName = Map(
     data.map(lobby => {
       const summary = createSummary(lobby)
       return [summary.name, summary]
@@ -40,7 +43,7 @@ function handleFull(state, data) {
   return new LobbyList({ list, byName, count: state.count })
 }
 
-function handleAdd(state, data) {
+function handleAdd(state: LobbyList, data: any): LobbyList {
   if (state.byName.has(data.name)) return state
 
   const insertBefore = state.list.findEntry(name => data.name.localeCompare(name) < 1)
@@ -49,22 +52,22 @@ function handleAdd(state, data) {
   return state.setIn(['byName', data.name], createSummary(data)).set('list', updatedList)
 }
 
-function handleUpdate(state, data) {
+function handleUpdate(state: LobbyList, data: any): LobbyList {
   if (!state.byName.has(data.name)) return state
 
   const summary = createSummary(data)
   return state.setIn(['byName', summary.name], summary)
 }
 
-function handleDelete(state, data) {
+function handleDelete(state: LobbyList, data: string): LobbyList {
   if (!state.byName.has(data)) return state
 
   const newState = state.deleteIn(['byName', data])
   const listEntry = state.list.findEntry(name => name === data)
-  return newState.deleteIn(['list', listEntry[0]])
+  return listEntry ? newState.deleteIn(['list', listEntry[0]]) : newState
 }
 
-export default function lobbyListReducer(state = new LobbyList(), action) {
+export default function lobbyListReducer(state = new LobbyList(), action: any): LobbyList {
   if (action.type === LOBBIES_COUNT_UPDATE) {
     return state.set('count', action.payload.count)
   } else if (action.type === '@network/connect') {

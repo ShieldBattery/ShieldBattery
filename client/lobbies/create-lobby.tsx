@@ -13,8 +13,6 @@ import {
 import { MapInfoJson } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
-import { closeOverlay, openOverlay } from '../activities/action-creators'
-import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
@@ -347,11 +345,14 @@ export function CreateLobby(props: CreateLobbyProps) {
   }, [])
   const onMapSelect = useCallback(
     (map: ReadonlyDeep<MapInfoJson>) => {
-      dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { map, creating: true } }))
+      // FIXME
+      // dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { map, creating: true } }))
     },
     [dispatch],
   )
   const onMapBrowse = useCallback(() => {
+    // FIXME
+    /*
     dispatch(
       openOverlay({
         type: ActivityOverlayType.BrowseServerMaps,
@@ -362,6 +363,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         },
       }),
     )
+    */
   }, [dispatch, t, onMapSelect])
   const onSubmit = useCallback(
     (model: CreateLobbyModel) => {
@@ -392,7 +394,6 @@ export function CreateLobby(props: CreateLobbyProps) {
       )
 
       navigateToLobby(name)
-      dispatch(closeOverlay() as any)
     },
     [dispatch, recentMapsRef],
   )
