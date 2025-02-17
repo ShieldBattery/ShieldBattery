@@ -1,8 +1,9 @@
 import { TFunction } from 'i18next'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
+import { CreateLobby } from '../lobbies/create-lobby'
 import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
@@ -40,7 +41,7 @@ function tabToLabel(t: TFunction, tab: PlayTab): string {
 }
 
 export function PlayRoot() {
-  const [routeMatches, routeParams] = useRoute('/play/:tab?')
+  const [routeMatches, routeParams] = useRoute('/play/:tab?/*?')
   if (!routeMatches) {
     return undefined
   }
@@ -116,5 +117,26 @@ function Matchmaking() {
 }
 
 function Lobbies() {
-  return <JoinLobby />
+  const onNavigateToList = useCallback(() => {
+    push('/play/lobbies')
+  }, [])
+
+  const onNavigateToCreate = useCallback(() => {
+    push('/play/lobbies/create')
+  }, [])
+
+  return (
+    <Switch>
+      {IS_ELECTRON ? (
+        <Route path='/play/lobbies/create/*?'>
+          <CreateLobby onNavigateToList={onNavigateToList} />
+        </Route>
+      ) : (
+        <></>
+      )}
+      <Route>
+        <JoinLobby onNavigateToCreate={onNavigateToCreate} />
+      </Route>
+    </Switch>
+  )
 }

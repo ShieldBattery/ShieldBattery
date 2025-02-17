@@ -18,7 +18,6 @@ import { caption, singleLine, sofiaSans } from './styles/typography'
 
 const ALT_A = { keyCode: keycode('a'), altKey: true }
 const ALT_B = { keyCode: keycode('b'), altKey: true }
-// FIXME: create lobby
 const ALT_C = { keyCode: keycode('c'), altKey: true }
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
@@ -538,6 +537,12 @@ function AppBar({
       if (keyEventMatches(event, ALT_B) || keyEventMatches(event, ALT_J)) {
         if (location.pathname !== '/play/lobbies') {
           push('/play/lobbies')
+        }
+        return true
+      }
+      if (IS_ELECTRON && keyEventMatches(event, ALT_C)) {
+        if (location.pathname !== '/play/lobbies/create') {
+          push('/play/lobbies/create')
         }
         return true
       }
