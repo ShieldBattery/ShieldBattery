@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
@@ -11,11 +11,9 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
-import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { HotkeyProp, IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
@@ -48,32 +46,6 @@ const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accou
   color: ${colorTextSecondary};
 `
 
-const IconContainer = styled.div``
-
-const CountText = styled.div`
-  ${singleLine};
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  line-height: 12px;
-`
-
-export function NumberedFriendsIcon({ count }: { count: number }) {
-  return (
-    <IconContainer>
-      <FadedFriendsIcon />
-      <CountText>{count}</CountText>
-    </IconContainer>
-  )
-}
-
-const PopoverContents = styled.div`
-  height: calc(var(--sb-popover-max-height) * 0.667);
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-`
-
 function useRelationshipsLoader() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -99,49 +71,6 @@ function useRelationshipsLoader() {
       controller.abort()
     }
   }, [dispatch, t, userId])
-}
-
-export function FriendsListActivityButton() {
-  const { t } = useTranslation()
-
-  useRelationshipsLoader()
-  const [friendsListOpen, openFriendsList, closeFriendsList] = usePopoverController()
-
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: buttonRef, hotkey: ALT_E })
-
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
-
-  const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
-  const friendCount = useMemo(() => {
-    return Array.from(friendActivityStatus.values()).filter(
-      status => status !== FriendActivityStatus.Offline,
-    ).length
-  }, [friendActivityStatus])
-
-  return (
-    <>
-      <Tooltip text={t('users.friendsList.tooltip', 'Friends (Alt + E)')} position='left'>
-        <IconButton
-          ref={buttonRef}
-          icon={<NumberedFriendsIcon count={friendCount} />}
-          onClick={openFriendsList}
-          testName={'friends-list-button'}
-        />
-      </Tooltip>
-      <Popover
-        open={friendsListOpen}
-        onDismiss={closeFriendsList}
-        anchorX={(anchorX ?? 0) - 8}
-        anchorY={(anchorY ?? 0) - 8}
-        originX='right'
-        originY='bottom'>
-        <PopoverContents>
-          <FriendsPopover onDismiss={closeFriendsList} />
-        </PopoverContents>
-      </Popover>
-    </>
-  )
 }
 
 enum FriendsListTab {
@@ -174,7 +103,7 @@ const FriendsListContent = styled.div`
   flex-grow: 1;
 `
 
-export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
+export function FriendsList() {
   const { t } = useTranslation()
 
   useRelationshipsLoader()
@@ -183,7 +112,6 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
   const activeTab = savedFriendsListTab.getValue() ?? FriendsListTab.List
   const onTabChange = useStableCallback((tab: FriendsListTab) => {
     if (tab === FriendsListTab.Settings) {
-      onDismiss()
       // TODO(tec27): Open to the correct part of settings once it's there
       dispatch(openSettings())
       return
@@ -238,9 +166,9 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
       <FriendsListContent ref={dimensionRef}>
         {topElem}
         {activeTab === FriendsListTab.Requests ? (
-          <FriendRequestsList height={contentRect?.height ?? 0} />
+          <VirtualizedFriendRequestsList height={contentRect?.height ?? 0} />
         ) : (
-          <FriendsList height={contentRect?.height ?? 0} />
+          <VirtualizedFriendsList height={contentRect?.height ?? 0} />
         )}
         {bottomElem}
       </FriendsListContent>
@@ -295,7 +223,7 @@ interface OfflineData {
 
 type FriendsListRowData = HeaderData | OnlineData | OfflineData
 
-function FriendsList({ height }: { height: number }) {
+function VirtualizedFriendsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const friends = useAppSelector(s => s.relationships.friends)
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
@@ -383,7 +311,7 @@ interface FriendRequestsUserData {
 
 type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
 
-function FriendRequestsList({ height }: { height: number }) {
+function VirtualizedFriendRequestsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!

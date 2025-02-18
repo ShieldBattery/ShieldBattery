@@ -630,12 +630,13 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
   const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
+  const onShowSocial = useStableCallback(() => setSidebarOpen(true))
 
   return (
     <Root $sidebarOpen={sidebarOpen}>
       <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
-      <Sidebar />
+      <Sidebar onShowSidebar={onShowSocial} />
       <VersionText />
     </Root>
   )
