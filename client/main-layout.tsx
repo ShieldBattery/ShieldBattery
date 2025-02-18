@@ -13,6 +13,7 @@ import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
+import { SocialSidebar } from './social/social-sidebar'
 import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
 import { caption, singleLine, sofiaSans } from './styles/typography'
 
@@ -620,26 +621,8 @@ const Content = styled.div`
   overflow: auto;
 `
 
-const Sidebar = styled.div`
+const Sidebar = styled(SocialSidebar)`
   grid-area: sidebar;
-
-  position: relative;
-  width: 100%;
-  height: calc(100% + 8px);
-  margin-top: -8px;
-
-  background-color: var(--theme-surface);
-  overflow-x: hidden;
-
-  &:before {
-    position: absolute;
-    width: 1px;
-    height: 100%;
-    left: 0;
-
-    content: '';
-    background-color: var(--theme-outline);
-  }
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
