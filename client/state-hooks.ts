@@ -166,6 +166,21 @@ function loadAndParseLocalStorage<T>(key: string): T | undefined {
  */
 export function useUserLocalStorageValue<T>(
   key: string,
+): [value: T | undefined, storeValue: (value: T | undefined) => void]
+
+/**
+ * Hook that is similar to `useState` but the value is stored in `LocalStorage`, keyed by user ID.
+ * T must be serializable to JSON. Parsing failures will be logged and act as if the value is unset.
+ * Any time the value is unset, `defaultValue` will be returned instead.
+ */
+export function useUserLocalStorageValue<T>(
+  key: string,
+  defaultValue: T,
+): [value: T, storeValue: (value: T | undefined) => void]
+
+export function useUserLocalStorageValue<T>(
+  key: string,
+  defaultValue?: T,
 ): [value: T | undefined, storeValue: (value: T | undefined) => void] {
   const currentUser = useSelfUser()?.id ?? 0
   const userKey = `${String(currentUser)}|${key}`
@@ -196,5 +211,5 @@ export function useUserLocalStorageValue<T>(
     }
   }, [userKey])
 
-  return [value, storeValue]
+  return [value ?? defaultValue, storeValue]
 }
