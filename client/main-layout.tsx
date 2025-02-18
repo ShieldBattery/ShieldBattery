@@ -623,6 +623,7 @@ const Content = styled.div`
 
 const Sidebar = styled(SocialSidebar)`
   grid-area: sidebar;
+  min-width: var(--sb-sidebar-width);
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
