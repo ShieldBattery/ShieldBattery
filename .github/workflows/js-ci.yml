@@ -17,10 +17,10 @@ jobs:
       - name: Using pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Using Node.js 20.x
+      - name: Using Node.js 22.x
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -98,10 +98,10 @@ jobs:
       - name: Using pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Using Node.js 20.x
+      - name: Using Node.js 22.x
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies

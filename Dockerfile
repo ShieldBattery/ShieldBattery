@@ -1,7 +1,7 @@
 # ---------- 1st stage ----------
 # The first stage adds the necessary libraries to build native add-ons (eg. bcrypt) and then installs
 # the server dependencies
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 RUN corepack enable
 
@@ -45,7 +45,7 @@ RUN pnpm prune --prod
 
 # ---------- 2nd stage ----------
 # Second stage copies the built dependencies from first stage and runs the app in production mode
-FROM node:20-alpine
+FROM node:22-alpine
 
 RUN corepack enable
 
