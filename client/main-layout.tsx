@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useId, useRef, useState } from 'react'
+import React, { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -13,7 +13,7 @@ import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
-import { useMultiRef, useStableCallback } from './state-hooks'
+import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
 import { caption, singleLine, sofiaSans } from './styles/typography'
 
 const ALT_A = { keyCode: keycode('a'), altKey: true }
@@ -643,8 +643,7 @@ const Sidebar = styled.div`
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
-  // TODO(tec27): Store in localStorage per user
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', true)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
   const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
