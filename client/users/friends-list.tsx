@@ -1,4 +1,3 @@
-import keycode from 'keycode'
 import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
@@ -11,7 +10,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
-import { HotkeyProp, IconButton } from '../material/button'
+import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -31,8 +30,6 @@ import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './
 import { ConnectedUserContextMenu } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
-
-const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
 
 const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
   color: ${colorTextSecondary};
