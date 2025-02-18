@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@types/node': ^22.13.4
+  '@types/node': 20.16.11
   '@types/unist': ^3.0.0
 
 importers:
@@ -633,8 +633,8 @@ packages:
   '@shieldbattery/windows-registry@1.0.0':
     resolution: {integrity: sha512-8I5260BYzFN/2wmrq7Rx61xi0iX+BbWpIl5RC/UCmJHGTL4z/r0PsKeuL1avwr9WsH4wwESK7+sQnA8igqQ7ow==}
 
-  '@types/node@22.13.4':
-    resolution: {integrity: sha512-ywP2X0DYtX3y08eFVx5fNIw7/uIv8hYUKgXoK8oayJlLnKcRfEYCxWMVE1XagUdVtCJlZT1AU4LXEABW+L1Peg==}
+  '@types/node@20.16.11':
+    resolution: {integrity: sha512-y+cTCACu92FyA5fgQSAI8A1H429g7aSK2HsO7K4XYUWc4dY5IUz55JSDIYT6/VsOLfGy8vmvQYC2hfb0iF16Uw==}
 
   '@types/readable-stream@4.0.18':
     resolution: {integrity: sha512-21jK/1j+Wg+7jVw1xnSwy/2Q1VgVjWuFssbYGTREPUBeZ+rqVFl2udq0IkxzPC0ZhOzVceUbyIACFZKLqKEBlA==}
@@ -1373,8 +1373,8 @@ packages:
   truncate-utf8-bytes@1.0.2:
     resolution: {integrity: sha512-95Pu1QXQvruGEhv62XCMO3Mm90GscOCClvrIUwCM0PYOXK3kaF3l3sIHxx71ThJfcbM2O5Au6SO3AWCSEfW4mQ==}
 
-  undici-types@6.20.0:
-    resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
+  undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
@@ -2167,13 +2167,13 @@ snapshots:
 
   '@shieldbattery/windows-registry@1.0.0': {}
 
-  '@types/node@22.13.4':
+  '@types/node@20.16.11':
     dependencies:
-      undici-types: 6.20.0
+      undici-types: 6.19.8
 
   '@types/readable-stream@4.0.18':
     dependencies:
-      '@types/node': 22.13.4
+      '@types/node': 20.16.11
       safe-buffer: 5.1.2
 
   abort-controller@3.0.0:
@@ -2946,7 +2946,7 @@ snapshots:
     dependencies:
       utf8-byte-length: 1.0.5
 
-  undici-types@6.20.0: {}
+  undici-types@6.19.8: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 

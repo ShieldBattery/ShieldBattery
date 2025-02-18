@@ -27,7 +27,7 @@ export default class LocalFsStore implements FileStore {
     return path.join(this.path, normalized)
   }
 
-  async write(filename: string, stream: Readable) {
+  async write(filename: string, stream: Readable): Promise<void> {
     const full = this.getFullPath(filename)
     await mkdir(path.dirname(full), { recursive: true })
     const out = createWriteStream(full)
