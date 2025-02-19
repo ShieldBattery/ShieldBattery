@@ -55,6 +55,7 @@ export function PlayRoot() {
 const ContentGrid = styled.div`
   width: 100%;
   height: 100%;
+  padding-top: 24px;
 
   display: grid;
   grid-template-columns: 1fr;

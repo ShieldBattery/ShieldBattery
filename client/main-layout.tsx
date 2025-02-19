@@ -15,7 +15,7 @@ import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
 import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
-import { caption, singleLine, sofiaSans } from './styles/typography'
+import { singleLine, sofiaSans } from './styles/typography'
 
 const ALT_A = { keyCode: keycode('a'), altKey: true }
 const ALT_B = { keyCode: keycode('b'), altKey: true }
@@ -30,27 +30,45 @@ const ALT_O = { keyCode: keycode('o'), altKey: true }
 const ALT_R = { keyCode: keycode('r'), altKey: true }
 const ALT_S = { keyCode: keycode('s'), altKey: true }
 
+const SIDEBAR_WIDTH = 320
+
 const Root = styled.div<{ $sidebarOpen?: boolean }>`
   /* Note: width/height come from global styles */
 
-  --sb-sidebar-width: 320px;
+  --sb-sidebar-width: ${SIDEBAR_WIDTH}px;
 
   display: grid;
-  grid-template-columns: minmax(max-content, 1fr) ${props =>
+  grid-template-columns: 0 minmax(max-content, 1fr) ${props =>
       props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0'};
   grid-template-areas:
-    'appbar appbar'
-    'content sidebar';
+    'appbar appbar appbar'
+    'padding content sidebar';
   grid-template-rows: auto 1fr;
 
   transition: grid-template-columns ${props => (props.$sidebarOpen ? '400ms' : '200ms')}
     ${props => (props.$sidebarOpen ? emphasizedDecelerateEasing : emphasizedAccelerateEasing)};
+
+  @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
+    grid-template-columns:
+      ${props => (props.$sidebarOpen ? 'calc(100vw - 1248px - var(--sb-sidebar-width))' : '0')}
+      minmax(max-content, 1fr)
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+  }
+
+  @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
+    grid-template-columns:
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')}
+      minmax(max-content, 1fr)
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+  }
 `
 
 const AppBarRoot = styled.div`
   grid-area: appbar;
-  height: 72px;
   position: relative;
+
+  height: 72px;
+  margin-bottom: -8px;
   padding: 0 8px 0 24px;
 
   display: grid;
@@ -321,6 +339,7 @@ const PlayButtonRoot = styled.a`
   width: 240px;
   height: 72px;
   margin: 0 -16px;
+  z-index: 5;
 
   display: block;
   overflow: visible; /* Allow the shadow to exceed bounds */
@@ -611,8 +630,6 @@ function AppBar({
 
 const Content = styled.div`
   grid-area: content;
-  padding-left: var(--pixel-shove-x);
-  padding-top: 12px;
 
   display: flex;
   flex-direction: column;
@@ -638,30 +655,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
       <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
       <Sidebar onShowSidebar={onShowSocial} />
-      <VersionText />
     </Root>
   )
-}
-
-const VersionTextRoot = styled.div`
-  ${caption};
-
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  padding: 4px;
-
-  pointer-events: none;
-
-  background-color: rgb(from var(--theme-surface) r g b / 40%);
-  border-radius: 0 2px 0 0;
-  color: var(--theme-on-surface-variant);
-  letter-spacing: 1.25px;
-  line-height: 1;
-`
-
-const CUR_VERSION = __WEBPACK_ENV.VERSION
-
-export function VersionText() {
-  return <VersionTextRoot>v{CUR_VERSION}</VersionTextRoot>
 }
