@@ -50,7 +50,7 @@ export function LeagueRoot(props: { params: any }) {
 const ListRoot = styled.div`
   width: 100%;
   max-width: 1120px;
-  padding: 0 24px 12px;
+  padding: 24px 24px 12px;
 
   display: flex;
   flex-direction: column;

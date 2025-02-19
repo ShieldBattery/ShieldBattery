@@ -73,6 +73,20 @@ const StyledLockup = styled(Lockup)`
   flex-shrink: 0;
 `
 
+const VersionTextRoot = styled.div`
+  ${caption};
+
+  color: var(--theme-on-surface-variant);
+  letter-spacing: 1.25px;
+  line-height: 1;
+`
+
+const CUR_VERSION = __WEBPACK_ENV.VERSION
+
+export function VersionText() {
+  return <VersionTextRoot>v{CUR_VERSION}</VersionTextRoot>
+}
+
 export function SystemBar() {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-system-bar-height', '32px')
@@ -92,6 +106,7 @@ export function SystemBar() {
       <SizeRight />
       <LeftSide>
         <StyledLockup />
+        <VersionText />
         {DEV_INDICATOR ? (
           // TODO(tec27): Find a place for this + admin that will show up on the web version too
           <DevIndicator title='Go to dev pages' onClick={() => push('/dev')}>

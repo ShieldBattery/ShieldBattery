@@ -45,7 +45,7 @@ import { LeagueCard, LeagueSectionType } from './league-list'
 import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
-  padding: 12px 24px;
+  padding: 16px 24px;
 `
 
 const Title = styled.div`
