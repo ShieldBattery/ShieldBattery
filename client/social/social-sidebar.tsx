@@ -38,7 +38,6 @@ const Root = styled.div`
   position: relative;
   width: 100%;
   height: calc(100% + 8px);
-  margin-top: -8px;
   padding: 0 8px;
 
   display: flex;
