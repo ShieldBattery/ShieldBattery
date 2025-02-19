@@ -65,6 +65,7 @@ const PageRoot = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+  padding-top: 24px;
 
   display: flex;
   flex-direction: column;
