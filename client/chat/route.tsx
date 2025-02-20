@@ -2,6 +2,7 @@ import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
 import { SbChannelId, makeSbChannelId } from '../../common/chat'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -39,7 +40,13 @@ export function ChannelRoute({
 }
 
 export function ChannelRouteComponent(props: { params: any }) {
+  const isLoggedIn = useIsLoggedIn()
   const isAdmin = useHasAnyPermission('moderateChatChannels')
+
+  if (!isLoggedIn) {
+    redirectToLogin()
+    return undefined
+  }
 
   return (
     <Suspense fallback={<LoadingDotsArea />}>
