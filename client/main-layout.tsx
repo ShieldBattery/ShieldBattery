@@ -3,19 +3,36 @@ import React, { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
-import { Avatar } from './avatars/avatar'
+import { logOut } from './auth/action-creators'
+import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
+import { ConnectedAvatar } from './avatars/avatar'
+import { openChangelog } from './changelog/action-creators'
+import { openDialog } from './dialogs/action-creators'
+import { DialogType } from './dialogs/dialog-type'
+import { useBreakpoint } from './dom/dimension-hooks'
 import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
-import { HotkeyProp, IconButton, keyEventMatches, useButtonHotkey } from './material/button'
+import {
+  HotkeyProp,
+  IconButton,
+  keyEventMatches,
+  RaisedButton,
+  useButtonHotkey,
+} from './material/button'
 import { emphasizedAccelerateEasing, emphasizedDecelerateEasing } from './material/curve-constants'
+import { Divider } from './material/menu/divider'
+import { MenuItem } from './material/menu/item'
+import { usePopoverController } from './material/popover'
 import { Tooltip } from './material/tooltip'
 import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
-import { useAppDispatch, useAppSelector } from './redux-hooks'
+import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
 import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
 import { singleLine, sofiaSans } from './styles/typography'
+import { navigateToUserProfile } from './users/action-creators'
+import { SelfProfileOverlay } from './users/self-profile-overlay'
 
 const ALT_A = { keyCode: keycode('a'), altKey: true }
 const ALT_B = { keyCode: keycode('b'), altKey: true }
@@ -63,61 +80,6 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
   }
 `
 
-const AppBarRoot = styled.div`
-  grid-area: appbar;
-  position: relative;
-
-  height: 72px;
-  margin-bottom: -8px;
-  padding: 0 8px 0 24px;
-
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-
-  color: var(--theme-on-surface-variant);
-
-  &:before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: var(--color-grey-blue40);
-  }
-
-  & > * {
-    margin-bottom: 8px;
-    /** Give these elements a new stacking context so they display over top of the ::before */
-    position: relative;
-  }
-`
-
-const AvatarSpace = styled.div`
-  width: 40px;
-  height: 40px;
-`
-
-const IconButtons = styled.div`
-  padding-right: 8px;
-
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-`
-
-const MenuItems = styled.div`
-  ${sofiaSans};
-  height: 100%;
-  margin-bottom: 0px; /* Allow play button to stretch the whole parent */
-  /* Need space for the diagonal edges of the outer menu items to draw */
-  padding: 0 20px 0 calc(20px + var(--pixel-shove-x));
-
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: start;
-`
 const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   ${singleLine};
 
@@ -247,7 +209,7 @@ interface MenuItemProps {
   children: React.ReactNode
 }
 
-const MenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
+const AppBarMenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
   ({ href, routePattern, flipped, hotkey, children }, ref) => {
     const [isActive] = useRoute(routePattern)
     const strokeLeftId = useId()
@@ -530,6 +492,89 @@ const ShadowedToggleIcon = styled(ShadowedIcon)<{ $active?: boolean }>`
   transition: color 250ms linear;
 `
 
+enum AppBarBreakpoint {
+  Small,
+  Normal,
+}
+
+const APP_BAR_BREAKPOINTS = [
+  [0, AppBarBreakpoint.Small],
+  [1320, AppBarBreakpoint.Normal],
+] satisfies ReadonlyArray<[number, AppBarBreakpoint]>
+
+const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
+  grid-area: appbar;
+  position: relative;
+
+  height: 72px;
+  margin-bottom: -8px;
+  padding: 0 4px 0 12px;
+
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+
+  color: var(--theme-on-surface-variant);
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--color-grey-blue40);
+  }
+
+  & > * {
+    /** Give these elements a new stacking context so they display over top of the ::before */
+    position: relative;
+  }
+`
+
+const AvatarSpace = styled.div`
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+
+  display: flex;
+  align-items: center;
+`
+
+const MenuItems = styled.div<{ $breakpoint: AppBarBreakpoint }>`
+  ${sofiaSans};
+  height: 100%;
+  margin-bottom: 0px; /* Allow play button to stretch the whole parent */
+  /* Need space for the diagonal edges of the outer menu items to draw */
+  padding: 0 20px 0 calc(20px + var(--pixel-shove-x));
+
+  display: grid;
+  grid-template-columns: ${props =>
+    props.$breakpoint === AppBarBreakpoint.Normal ? '1fr auto 1fr' : 'auto'};
+  align-items: start;
+`
+
+const IconButtons = styled.div`
+  margin-bottom: 8px;
+  padding-right: 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+`
+
+const LeftSideSmall = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const AvatarButton = styled(IconButton)`
+  width: 56px;
+  height: 56px;
+  margin: 4px;
+`
+
 function AppBar({
   onToggleSocial,
   sidebarOpen,
@@ -539,7 +584,32 @@ function AppBar({
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const user = useAppSelector(s => s.auth.self?.user)
+  const selfUser = useSelfUser()
+  const [breakpointRef, breakpoint] = useBreakpoint(APP_BAR_BREAKPOINTS, AppBarBreakpoint.Normal)
+  const [onLoginPage] = useRoute('/login')
+
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
+  const profileEntryRef = useRef<HTMLButtonElement>(null)
+
+  const onLogIn = useStableCallback(() => {
+    redirectToLogin(push)
+  })
+  const onLogOutClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(logOut().action)
+  })
+  const onChangelogClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(openChangelog())
+  })
+  const onViewProfileClick = useStableCallback(() => {
+    closeProfileOverlay()
+    navigateToUserProfile(selfUser!.id, selfUser!.name)
+  })
+  const onReportBugClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(openDialog({ type: DialogType.BugReport }))
+  })
 
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
@@ -571,34 +641,83 @@ function AppBar({
     },
   })
 
+  const avatarSpace = (
+    <AvatarSpace>
+      {selfUser ? (
+        <AvatarButton
+          ref={profileEntryRef}
+          icon={<ConnectedAvatar userId={selfUser.id} />}
+          testName='app-bar-user-button'
+          ariaLabel={t('navigation.bar.userMenu', 'User menu')}
+          onClick={openProfileOverlay}
+        />
+      ) : (
+        /* TODO(tec27): Use a contained button instead */
+        <RaisedButton
+          label={t('auth.login.logIn', 'Log in')}
+          testName='app-bar-login'
+          onClick={onLogIn}
+          disabled={onLoginPage}
+        />
+      )}
+    </AvatarSpace>
+  )
+  const playButton = <PlayButton>{t('navigation.bar.play', 'Play')}</PlayButton>
+
   return (
-    <AppBarRoot>
-      <AvatarSpace>{user ? <Avatar user={user.name} /> : null}</AvatarSpace>
-      <MenuItems>
-        <MenuItemsStart>
-          <MenuItem href='/' routePattern='/' hotkey={ALT_O}>
-            {t('navigation.bar.home', 'Home')}
-          </MenuItem>
-          <MenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
-            {t('games.activity.title', 'Games')}
-          </MenuItem>
-          <MenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
-            {t('replays.activity.title', 'Replays')}
-          </MenuItem>
-        </MenuItemsStart>
-        <PlayButton>{t('navigation.bar.play', 'Play')}</PlayButton>
-        <MenuItemsEnd>
-          <MenuItem href='/maps/' routePattern='/maps/*?' flipped={true} hotkey={ALT_M}>
-            {t('maps.activity.title', 'Maps')}
-          </MenuItem>
-          <MenuItem href='/ladder/' routePattern='/ladder/*?' flipped={true} hotkey={ALT_D}>
-            {t('ladder.activity.title', 'Ladder')}
-          </MenuItem>
-          <MenuItem href='/leagues/' routePattern='/leagues/*?' flipped={true} hotkey={ALT_A}>
-            {t('leagues.activity.title', 'Leagues')}
-          </MenuItem>
-        </MenuItemsEnd>
-      </MenuItems>
+    <AppBarRoot ref={breakpointRef} $breakpoint={breakpoint}>
+      {breakpoint === AppBarBreakpoint.Normal ? (
+        <>
+          {avatarSpace}
+          <MenuItems $breakpoint={breakpoint}>
+            <MenuItemsStart>
+              <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O}>
+                {t('navigation.bar.home', 'Home')}
+              </AppBarMenuItem>
+              <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
+                {t('games.activity.title', 'Games')}
+              </AppBarMenuItem>
+              <AppBarMenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
+                {t('replays.activity.title', 'Replays')}
+              </AppBarMenuItem>
+            </MenuItemsStart>
+            {playButton}
+            <MenuItemsEnd>
+              <AppBarMenuItem href='/maps/' routePattern='/maps/*?' flipped={true} hotkey={ALT_M}>
+                {t('maps.activity.title', 'Maps')}
+              </AppBarMenuItem>
+              <AppBarMenuItem
+                href='/ladder/'
+                routePattern='/ladder/*?'
+                flipped={true}
+                hotkey={ALT_D}>
+                {t('ladder.activity.title', 'Ladder')}
+              </AppBarMenuItem>
+              <AppBarMenuItem
+                href='/leagues/'
+                routePattern='/leagues/*?'
+                flipped={true}
+                hotkey={ALT_A}>
+                {t('leagues.activity.title', 'Leagues')}
+              </AppBarMenuItem>
+            </MenuItemsEnd>
+          </MenuItems>
+        </>
+      ) : (
+        <>
+          <LeftSideSmall>
+            <IconButtons>
+              <IconButton
+                icon={<ShadowedIcon icon='menu' />}
+                ariaLabel={t('navigation.bar.appMenu', 'Menu')}
+                testName='app-menu-button'
+              />
+            </IconButtons>
+            {avatarSpace}
+          </LeftSideSmall>
+          <MenuItems $breakpoint={breakpoint}>{playButton}</MenuItems>
+        </>
+      )}
       <IconButtons>
         <Tooltip
           text={t('settings.activity.title', 'Settings (Alt + S)')}
@@ -611,19 +730,54 @@ function AppBar({
             testName='settings-button'
           />
         </Tooltip>
-        <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
-        <Tooltip
-          text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
-          position='bottom'
-          tabIndex={-1}>
-          <IconButton
-            ref={chatButtonRef}
-            icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
-            onClick={onToggleSocial}
-            testName='social-sidebar-button'
-          />
-        </Tooltip>
+        {selfUser ? (
+          <>
+            <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
+            <Tooltip
+              text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
+              position='bottom'
+              tabIndex={-1}>
+              <IconButton
+                ref={chatButtonRef}
+                icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
+                onClick={onToggleSocial}
+                testName='social-sidebar-button'
+              />
+            </Tooltip>
+          </>
+        ) : undefined}
       </IconButtons>
+      <SelfProfileOverlay
+        popoverProps={{
+          open: profileOverlayOpen,
+          onDismiss: closeProfileOverlay,
+        }}
+        anchor={profileEntryRef.current}
+        username={selfUser?.name ?? ''}>
+        <MenuItem
+          icon={<MaterialIcon icon='account_box' />}
+          text={t('navigation.leftNav.viewProfile', 'View profile')}
+          onClick={onViewProfileClick}
+        />
+        <MenuItem
+          icon={<MaterialIcon icon='new_releases' />}
+          text={t('navigation.leftNav.viewChangelog', 'View changelog')}
+          onClick={onChangelogClick}
+        />
+        {IS_ELECTRON ? (
+          <MenuItem
+            icon={<MaterialIcon icon='bug_report' />}
+            text={t('navigation.leftNav.reportBug', 'Report a bug')}
+            onClick={onReportBugClick}
+          />
+        ) : undefined}
+        <Divider />
+        <MenuItem
+          icon={<MaterialIcon icon='logout' />}
+          text={t('navigation.leftNav.logOut', 'Log out')}
+          onClick={onLogOutClick}
+        />
+      </SelfProfileOverlay>
     </AppBarRoot>
   )
 }
@@ -644,6 +798,7 @@ const Sidebar = styled(SocialSidebar)`
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
+  const isLoggedIn = useIsLoggedIn()
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', true)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
@@ -654,7 +809,7 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
     <Root $sidebarOpen={sidebarOpen}>
       <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
-      <Sidebar onShowSidebar={onShowSocial} />
+      {isLoggedIn ? <Sidebar onShowSidebar={onShowSocial} /> : <div></div>}
     </Root>
   )
 }
