@@ -18,7 +18,7 @@ export function useRedirectAfterLogin() {
   }, [isLoggedIn])
 }
 
-export function createNextPath(location: Location) {
+export function createNextPath(location: Location): string | undefined {
   return queryString.stringify({
     nextPath: makePathString({
       pathname: location.pathname,

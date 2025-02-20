@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useValueAsRef } from '../state-hooks'
 
 export type DimensionsHookResult<T extends Element> = [
@@ -175,4 +175,39 @@ export function useElementRect(): [
   })
 
   return [setElementRef, rect]
+}
+
+export type BreakpointResult<T extends Element, B> = [ref: React.RefCallback<T>, breakpoint: B]
+
+/**
+ * Hook that returns a breakpoint based on the current width of the element it is attached to. This
+ * is similar to a media query of `@media (min-width: <breakpoint>)`, but for cases where JS changes
+ * are needed (like if you want to use a different component based on the size).
+ */
+export function useBreakpoint<T extends Element, B>(
+  breakpoints: Array<[minWidth: number, breakpoint: B]>,
+  defaultBreakpoint: B,
+): BreakpointResult<T, B> {
+  const [ref, rect] = useObservedDimensions()
+  // Ensure the breakpoints are sorted from least to greatest
+  const sortedBreakpoints = useMemo(() => {
+    return breakpoints.slice().sort((a, b) => a[0] - b[0])
+  }, [breakpoints])
+
+  if (sortedBreakpoints[0][0] > 0) {
+    sortedBreakpoints[0][0] = 0
+  }
+
+  let breakpoint: B | undefined
+  if (rect) {
+    for (const [minWidth, bp] of sortedBreakpoints) {
+      if (rect.width >= minWidth) {
+        breakpoint = bp
+      } else {
+        break
+      }
+    }
+  }
+
+  return [ref, breakpoint ?? defaultBreakpoint]
 }

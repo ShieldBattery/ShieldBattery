@@ -14,7 +14,6 @@ import { LadderRouteComponent } from './ladder/ladder'
 import { Faq } from './landing/faq'
 import { LeagueRoot } from './leagues/league-list'
 import { MapsRoot } from './maps/maps-root'
-import { LoginRoute } from './navigation/custom-routes'
 import {
   AcceptableUsePage,
   PrivacyPolicyPage,
@@ -50,13 +49,13 @@ export function AppRoutes() {
       <Route path='/acceptable-use' component={AcceptableUsePage} />
       <Route path='/privacy' component={PrivacyPolicyPage} />
       <Route path='/terms-of-service' component={TermsOfServicePage} />
-      <LoginRoute path='/forgot-password' component={ForgotPassword} />
-      <LoginRoute path='/forgot-user' component={ForgotUser} />
-      <LoginRoute path='/login' component={Login} />
-      <LoginRoute path='/reset-password' component={ResetPassword} />
-      <LoginRoute path='/signup' component={Signup} />
-      <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-      {isAdmin ? <Route path='/admin/*?' component={LoadableAdminPanel} /> : null}
+      <Route path='/forgot-password' component={ForgotPassword} />
+      <Route path='/forgot-user' component={ForgotUser} />
+      <Route path='/login' component={Login} />
+      <Route path='/reset-password' component={ResetPassword} />
+      <Route path='/signup' component={Signup} />
+      <Route path='/verify-email' component={EmailVerificationUi} />
+      {isAdmin ? <Route path='/admin/*?' component={LoadableAdminPanel} /> : <></>}
       <Route path='/chat/*?' component={ChannelRouteComponent} />
       <Route path='/games/*?' component={GamesRouteComponent} />
       <Route path='/ladder/*?' component={LadderRouteComponent} />

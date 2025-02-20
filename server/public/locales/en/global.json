@@ -760,9 +760,11 @@
   },
   "navigation": {
     "bar": {
+      "appMenu": "Menu",
       "home": "Home",
       "play": "Play",
-      "social": "Toggle social (ALT + H)"
+      "social": "Toggle social (ALT + H)",
+      "userMenu": "User menu"
     },
     "copyLink": {
       "copiedText": "Copied!",
