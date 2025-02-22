@@ -33,7 +33,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { body1, headline4, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
 import {
   adminAddLeague,
   adminGetLeague,
@@ -49,11 +49,11 @@ const Root = styled.div`
 `
 
 const Title = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -144,7 +144,7 @@ export function LeagueAdmin() {
 }
 
 const FieldLabel = styled.label`
-  ${body1};
+  ${bodyMedium};
   display: block;
 
   color: ${colorTextSecondary};
@@ -157,7 +157,7 @@ const DateInput = styled.input`
 `
 
 const DateError = styled.div`
-  ${body1};
+  ${bodyMedium};
   color: ${colorError};
 `
 

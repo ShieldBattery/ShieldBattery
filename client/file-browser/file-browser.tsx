@@ -15,7 +15,7 @@ import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { blue800, colorError, colorTextFaint } from '../styles/colors'
-import { Headline5, subtitle1 } from '../styles/typography'
+import { TitleLarge, bodyLarge } from '../styles/typography'
 import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
 import {
@@ -100,7 +100,7 @@ const VertPadding = styled.div<{ context?: unknown }>`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorError};
@@ -108,7 +108,7 @@ const ErrorText = styled.div`
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorTextFaint};
@@ -500,7 +500,7 @@ export function FileBrowser({
       <TopBar>
         <TitleContainer>
           {titleButton ? titleButton : null}
-          <Headline5>{title}</Headline5>
+          <TitleLarge>{title}</TitleLarge>
         </TitleContainer>
         {Object.values(rootFolders).length > 1 ? (
           <RootFolderSelect

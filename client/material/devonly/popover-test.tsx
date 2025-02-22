@@ -8,7 +8,7 @@ import {
   useAnchorPosition,
   usePopoverController,
 } from '../../material/popover'
-import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
+import { BodyLarge, HeadlineMedium, TitleLarge } from '../../styles/typography'
 import { IconButton } from '../button'
 import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
@@ -99,57 +99,57 @@ export default function PopoverTest() {
   const popoverContents = (
     <PopoverScrollable>
       <PopoverContents>
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
 
-        <Headline4>Hello</Headline4>
-        <Headline5>World</Headline5>
-        <Subtitle1>How are you?</Subtitle1>
+        <HeadlineMedium>Hello</HeadlineMedium>
+        <TitleLarge>World</TitleLarge>
+        <BodyLarge>How are you?</BodyLarge>
       </PopoverContents>
     </PopoverScrollable>
   )

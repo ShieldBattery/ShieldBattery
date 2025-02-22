@@ -7,7 +7,7 @@ import Card from '../material/card'
 import { shadow8dp } from '../material/shadows'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
-import { body1, Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
+import { bodyMedium, DisplaySmall, labelMedium, TitleLarge, titleLarge } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -31,13 +31,13 @@ export const DisabledCard = styled(Card)`
 `
 
 export const DisabledText = styled.span`
-  ${body1};
+  ${bodyMedium};
   margin: 24px 0 16px 0;
   overflow-wrap: break-word;
 `
 
 const ToText = styled.span`
-  ${headline6};
+  ${titleLarge};
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
@@ -60,7 +60,7 @@ const CountdownItemContainer = styled.div`
 `
 
 const CountdownItemText = styled.span`
-  ${overline};
+  ${labelMedium};
   color: ${colorTextSecondary};
 `
 
@@ -119,7 +119,7 @@ export function ConnectedMatchmakingDisabledCard({
 
   return (
     <DisabledCard className={className}>
-      <Headline5>{t('matchmaking.disabledCard.title', 'Matchmaking disabled')}</Headline5>
+      <TitleLarge>{t('matchmaking.disabledCard.title', 'Matchmaking disabled')}</TitleLarge>
       <DisabledText>
         <Trans t={t} i18nKey='matchmaking.disabledCard.description'>
           Matchmaking is sometimes shut down for maintenance and development, and is currently
@@ -130,42 +130,42 @@ export function ConnectedMatchmakingDisabledCard({
         <>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <Trans t={t} i18nKey='matchmaking.disabledCard.nextDateRange'>
-              <Headline6>
+              <TitleLarge>
                 {{ nextStartDate: dateFormat.format(nextStartDate) } as TransInterpolation}
-              </Headline6>
+              </TitleLarge>
               <ToText>to</ToText>
-              <Headline6>
+              <TitleLarge>
                 {{ nextEndDate: dateFormat.format(nextEndDate) } as TransInterpolation}
-              </Headline6>
+              </TitleLarge>
             </Trans>
           ) : (
-            <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
+            <TitleLarge>{dateFormat.format(nextStartDate)}</TitleLarge>
           )}
           <CountdownContainer>
             <CountdownItemContainer>
               <CountdownItemText>{t('matchmaking.disabledCard.days', 'Days')}</CountdownItemText>
-              <Headline3>{days}</Headline3>
+              <DisplaySmall>{days}</DisplaySmall>
             </CountdownItemContainer>
             <CountdownItemContainer>
               <CountdownItemText>{t('matchmaking.disabledCard.hours', 'Hours')}</CountdownItemText>
-              <Headline3>{hours}</Headline3>
+              <DisplaySmall>{hours}</DisplaySmall>
             </CountdownItemContainer>
             <CountdownItemContainer>
               <CountdownItemText>
                 {t('matchmaking.disabledCard.minutes', 'Minutes')}
               </CountdownItemText>
-              <Headline3>{minutes}</Headline3>
+              <DisplaySmall>{minutes}</DisplaySmall>
             </CountdownItemContainer>
             <CountdownItemContainer>
               <CountdownItemText>
                 {t('matchmaking.disabledCard.seconds', 'Seconds')}
               </CountdownItemText>
-              <Headline3>{seconds}</Headline3>
+              <DisplaySmall>{seconds}</DisplaySmall>
             </CountdownItemContainer>
           </CountdownContainer>
         </>
       ) : (
-        <Headline6>{t('matchmaking.disabledCard.soon', 'Soon™')}</Headline6>
+        <TitleLarge>{t('matchmaking.disabledCard.soon', 'Soon™')}</TitleLarge>
       )}
     </DisabledCard>
   )

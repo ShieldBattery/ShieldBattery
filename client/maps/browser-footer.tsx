@@ -15,7 +15,7 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { SearchInput } from '../search/search-input'
 import { useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
+import { labelMedium } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -76,7 +76,7 @@ function FilterOverlay({ children, onApply }: { children: React.ReactNode; onApp
 }
 
 const SectionOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   color: ${colorTextSecondary};
   margin-top: 8px;
 `

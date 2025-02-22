@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { colorTextSecondary } from '../../styles/colors'
-import { overline, singleLine } from '../../styles/typography'
+import { labelMedium, singleLine } from '../../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -11,7 +11,7 @@ const Container = styled.div`
 `
 
 const Title = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 36px;

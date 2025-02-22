@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Headline3, Headline4, headline5 } from '../styles/typography'
+import { DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 import PlayerCard from './player-card'
 
 const Container = styled.div`
@@ -41,7 +41,7 @@ const StatusContainer = styled.div`
 `
 
 const StatusText = styled.div`
-  ${headline5};
+  ${titleLarge};
   color: ${colorTextSecondary};
 `
 
@@ -122,7 +122,7 @@ export default class ActiveLobby extends React.Component {
 
     return (
       <Container>
-        <Headline3>{lobby.map.name}</Headline3>
+        <DisplaySmall>{lobby.map.name}</DisplaySmall>
         <TopHalfContainer>
           <Spacer />
           <StyledMapThumbnail map={lobby.map} size={320} />
@@ -134,7 +134,7 @@ export default class ActiveLobby extends React.Component {
           <TeamsContainer>
             <TeamContainer>{teams.get(0)}</TeamContainer>
             <VsContainer>
-              <Headline4>{t('matchmaking.match.playerVsPlayer', 'vs')}</Headline4>
+              <HeadlineMedium>{t('matchmaking.match.playerVsPlayer', 'vs')}</HeadlineMedium>
             </VsContainer>
             <TeamContainer>{teams.get(1)}</TeamContainer>
           </TeamsContainer>

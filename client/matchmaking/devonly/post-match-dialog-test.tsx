@@ -20,7 +20,7 @@ import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { useAppDispatch } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { Body1 } from '../../styles/typography'
+import { BodyMedium } from '../../styles/typography'
 
 const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)
@@ -217,10 +217,10 @@ export function PostMatchDialogTest() {
   return (
     <div>
       <ControlsCard>
-        <Body1>
+        <BodyMedium>
           Input a desired MMR change to show a dialog for. Point/rating change values will
           automatically change their sign for win/loss, so always input positive amounts.
-        </Body1>
+        </BodyMedium>
         <CheckBox
           name='outcome'
           label='Win?'

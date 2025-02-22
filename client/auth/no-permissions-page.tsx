@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { colorError, colorTextFaint } from '../styles/colors'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 
 const Container = styled.div`
   width: 100%;
@@ -22,7 +22,7 @@ const ErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
 `
 
 const Text = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextFaint};
 `
 

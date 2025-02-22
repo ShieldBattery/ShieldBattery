@@ -24,7 +24,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { Body1, body2, singleLine, subtitle1 } from '../styles/typography'
+import { BodyMedium, bodyLarge, singleLine, titleSmall } from '../styles/typography'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;
@@ -42,7 +42,7 @@ const GameList = styled.div`
 `
 
 const EmptyListText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextFaint};
   margin-left: 16px;
 `
@@ -109,13 +109,13 @@ const GameListEntryTextRow = styled.div<{ $color?: 'primary' | 'secondary' }>`
 `
 
 const MapName = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
   flex-shrink: 1;
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
-  ${body2};
+  ${titleSmall};
   color: ${props => {
     switch (props.$result) {
       case 'win':
@@ -182,9 +182,9 @@ export function ConnectedGameListEntry({
       </GameListEntryTextRow>
 
       <GameListEntryTextRow $color='secondary'>
-        <Body1>{matchType}</Body1>
+        <BodyMedium>{matchType}</BodyMedium>
         <Tooltip text={longTimestamp.format(startTime)} position='left'>
-          <Body1>{narrowDuration.format(startTime)}</Body1>
+          <BodyMedium>{narrowDuration.format(startTime)}</BodyMedium>
         </Tooltip>
       </GameListEntryTextRow>
 
@@ -216,7 +216,7 @@ const GamePreviewDetails = styled.div`
 `
 
 const NoGameText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextFaint};
   text-align: center;
 `

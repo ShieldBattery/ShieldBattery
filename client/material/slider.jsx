@@ -5,7 +5,7 @@ import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
 import { amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body1, caption } from '../styles/typography'
+import { bodyMedium, bodySmall } from '../styles/typography'
 import { standardEasing } from './curve-constants'
 
 const transitionNames = {
@@ -150,7 +150,7 @@ const Root = styled.div`
 `
 
 const SliderLabel = styled.div`
-  ${body1};
+  ${bodyMedium};
   position: absolute;
   top: 8px;
   left: 2px;
@@ -261,7 +261,7 @@ const Balloon = styled.div`
 `
 
 const BalloonText = styled.div`
-  ${caption};
+  ${bodySmall};
   font-weight: 600;
   line-height: ${BALLOON_HEIGHT_PX}px;
   z-index: 2;

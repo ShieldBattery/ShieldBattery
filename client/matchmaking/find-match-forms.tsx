@@ -20,7 +20,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { body1, body2, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
 
 export interface FindMatchFormRef {
@@ -35,7 +35,7 @@ export interface FindMatchContentsProps {
 }
 
 export const SectionTitle = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin: 8px 0 4px;
 `
 
@@ -44,7 +44,7 @@ export const StyledRaceSelect = styled(RaceSelect)`
 `
 
 export const DescriptionText = styled.span`
-  ${body1};
+  ${bodyMedium};
   color: ${colorTextSecondary};
 `
 
@@ -56,7 +56,7 @@ export const MapSelectionsHeader = styled.div`
 `
 
 export const OutdatedIndicator = styled.span`
-  ${body2};
+  ${titleSmall};
   margin-left: 16px;
   padding: 0 4px;
   color: ${amberA400};
@@ -107,7 +107,7 @@ export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boole
 `
 
 const VetoStatus = styled.div`
-  ${body2};
+  ${titleSmall};
   margin-top: 24px;
 `
 
@@ -265,7 +265,7 @@ export function VetoDescriptionText({
 }
 
 const ErrorText = styled.div`
-  ${body2};
+  ${titleSmall};
   color: ${colorNegative};
 `
 

@@ -18,7 +18,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { body1, caption, headline6 } from '../styles/typography'
+import { bodyMedium, bodySmall, titleLarge } from '../styles/typography'
 import {
   getBatchChannelInfo,
   joinChannelWithErrorHandling,
@@ -64,18 +64,18 @@ export const ChannelCardBadge = styled.div`
 `
 
 export const ChannelName = styled.div`
-  ${headline6};
+  ${titleLarge};
   margin-top: 4px;
   padding: 0 16px;
 `
 
 const ChannelUserCount = styled.div`
-  ${caption};
+  ${bodySmall};
   padding: 0 16px;
 `
 
 const PrivateChannelDescriptionContainer = styled.div`
-  ${body1};
+  ${bodyMedium};
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -93,7 +93,7 @@ const PrivateChannelDescriptionText = styled.span`
 `
 
 export const ChannelDescriptionContainer = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin-top: 16px;
   padding: 0 16px;
 
@@ -117,7 +117,7 @@ export const ChannelActions = styled.div`
 `
 
 const JoinedIndicator = styled.div`
-  ${body1};
+  ${bodyMedium};
 
   display: flex;
   align-items: center;

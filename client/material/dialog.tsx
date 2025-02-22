@@ -7,7 +7,7 @@ import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { CardLayer, background900, colorDividers } from '../styles/colors'
-import { headline5 } from '../styles/typography'
+import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
 import { shadowDef8dp } from './shadow-constants'
@@ -98,7 +98,7 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
 `
 
 const Title = styled.div`
-  ${headline5};
+  ${titleLarge};
   flex-grow: 1;
   padding: 24px 24px 20px;
 `

@@ -30,15 +30,15 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
-  Body1,
-  body1,
-  body2,
-  caption,
-  headline6,
+  BodyMedium,
+  bodyLarge,
+  bodyMedium,
+  bodySmall,
   labelLarge,
-  overline,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
+  titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
 
@@ -76,7 +76,7 @@ const PopoverContents = styled.div`
 `
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
 `
 
@@ -144,7 +144,7 @@ const UsernameAndTitle = styled.div`
 `
 
 const Username = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
 `
 
@@ -158,19 +158,19 @@ const LoadingUsername = styled.div`
 `
 
 const Title = styled.div`
-  ${body2};
+  ${titleSmall};
   color: ${colorTextSecondary};
 `
 
 const SectionHeader = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   margin: 4px 0;
   color: ${colorTextFaint};
 `
 
 const HintText = styled.div`
-  ${caption};
+  ${bodySmall};
   color: ${colorTextFaint};
 `
 
@@ -261,12 +261,12 @@ export function UserProfileOverlayContents({
           <div>
             <SectionHeader>{t('users.profileOverlay.info', 'Info')}</SectionHeader>
             <Tooltip text={longFormattedDate}>
-              <Body1>
+              <BodyMedium>
                 {t('users.profileOverlay.joined', {
                   defaultValue: 'Joined {{date}}',
                   date: joinDateFormat.format(profile.created),
                 })}
-              </Body1>
+              </BodyMedium>
             </Tooltip>
           </div>
 
@@ -307,12 +307,12 @@ export function UserProfileOverlayContents({
 }
 
 const TotalGameText = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   margin-right: 12px;
 `
 
 const WinLossText = styled.span`
-  ${body1};
+  ${bodyMedium};
 `
 
 function TotalGameStats({ userStats }: { userStats: UserStats }) {
@@ -351,7 +351,7 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 `
 
 const RankDisplayType = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
   padding-top: 4px;
   color: ${colorTextSecondary};

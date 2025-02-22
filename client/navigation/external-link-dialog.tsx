@@ -9,7 +9,7 @@ import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { addTrustedDomain } from '../messaging/action-creators'
 import { useAppDispatch } from '../redux-hooks'
-import { Subtitle1, singleLine, subtitle2 } from '../styles/typography'
+import { BodyLarge, singleLine, titleMedium } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 640px;
@@ -24,7 +24,7 @@ const SelectionBoundary = styled.div`
 `
 
 const LinkAsText = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine}
 
   width: 100%;
@@ -93,9 +93,9 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
       dialogRef={dialogRef}>
       <SelectionBoundary>
         <Trans t={t} i18nKey='navigation.externalLink.dialogText'>
-          <Subtitle1>This link will take you to a site outside ShieldBattery:</Subtitle1>
+          <BodyLarge>This link will take you to a site outside ShieldBattery:</BodyLarge>
           <LinkAsText title={href}>{{ link: href } as TransInterpolation}</LinkAsText>
-          <Subtitle1>Are you sure you want to go there?</Subtitle1>
+          <BodyLarge>Are you sure you want to go there?</BodyLarge>
         </Trans>
       </SelectionBoundary>
     </StyledDialog>

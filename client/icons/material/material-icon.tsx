@@ -16,7 +16,10 @@ export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertCo
   word-wrap: normal;
   direction: ltr;
   -webkit-font-feature-settings: 'liga';
+
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
 
   width: ${props => props.$size}px;
   height: ${props => props.$size}px;

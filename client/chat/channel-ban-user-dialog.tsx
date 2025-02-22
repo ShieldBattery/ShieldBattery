@@ -14,7 +14,7 @@ import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { colorError } from '../styles/colors'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 import { moderateUser } from './action-creators'
 
 const ErrorsContainer = styled.div`
@@ -22,7 +22,7 @@ const ErrorsContainer = styled.div`
 `
 
 const ErrorText = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 

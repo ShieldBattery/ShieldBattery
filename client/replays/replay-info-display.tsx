@@ -26,7 +26,7 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError, colorTextSecondary } from '../styles/colors'
-import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { startReplay } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -40,7 +40,7 @@ async function getReplayMetadata(
 const Root = styled.div``
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorError};
@@ -59,7 +59,7 @@ const PlayerListContainer = styled.div`
 `
 
 const TeamLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 24px;
@@ -94,7 +94,7 @@ const StyledRaceIcon = styled(RaceIcon)`
 `
 
 const PlayerName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-left: 16px;
   margin-right: 8px;
@@ -116,13 +116,13 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin: 12px 0 16px;
 `
 
 const ReplayInfoText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
   margin: 4px 0;
 

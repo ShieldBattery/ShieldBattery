@@ -40,13 +40,13 @@ import {
 } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
-  caption,
-  headline3,
-  headline5,
-  overline,
+  bodyLarge,
+  bodySmall,
+  displaySmall,
+  labelMedium,
   singleLine,
-  subtitle1,
-  subtitle2,
+  titleLarge,
+  titleMedium,
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
@@ -155,7 +155,7 @@ const TitleRow = styled.div`
 `
 
 const Title = styled.div`
-  ${headline3};
+  ${displaySmall};
 `
 
 const SummaryRow = styled.div`
@@ -165,7 +165,7 @@ const SummaryRow = styled.div`
 `
 
 const FormatAndDate = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextSecondary};
   flex-shrink: 0;
 `
@@ -175,7 +175,7 @@ const DateTooltip = styled(Tooltip)`
 `
 
 const LeagueLink = styled(ExternalLink)`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
   min-width: 80px;
   text-align: right;
@@ -197,7 +197,7 @@ const InfoSection = styled.div`
 `
 
 const InfoSectionHeader = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const LeagueImageContainer = styled.div`
@@ -217,7 +217,7 @@ const ErrorLayout = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -486,7 +486,7 @@ const LeaderboardRoot = styled.div`
 const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
 
 const LeaderboardHeaderRow = styled.div`
-  ${overline};
+  ${labelMedium};
   width: 100%;
   height: 48px;
   position: sticky !important;
@@ -507,7 +507,7 @@ const LeaderboardHeaderRow = styled.div`
 `
 
 const LeaderboardRowRoot = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   position: relative;
   width: 100%;
   height: 72px;
@@ -580,7 +580,7 @@ const LeaderboardError = styled(ErrorText)`
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorTextFaint};
@@ -742,12 +742,12 @@ const PlayerNameAndRace = styled.div`
 `
 
 const PlayerName = styled(ConnectedUsername)`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${caption};
+  ${bodySmall};
   color: ${props => getRaceColor(props.$race)};
 `
 

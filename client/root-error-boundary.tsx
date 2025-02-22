@@ -7,7 +7,7 @@ import { RaisedButton } from './material/button'
 import { colorTextSecondary } from './styles/colors'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
-import { Headline5, subtitle1 } from './styles/typography'
+import { TitleLarge, bodyLarge } from './styles/typography'
 import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
 
 export interface RootErrorBoundaryProps {
@@ -31,7 +31,7 @@ const Container = styled.div`
 `
 
 const ErrorInfo = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   max-width: 960px;
   margin: 16px;
 
@@ -45,7 +45,7 @@ const ErrorInfo = styled.div`
 `
 
 const Instructions = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   max-width: 960px;
   margin: 16px 16px 32px;
 `
@@ -150,7 +150,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
 
   return (
     <>
-      <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
+      <TitleLarge>{t('rootErrorBoundary.title', 'Something went wrong :(')}</TitleLarge>
       <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
       <Instructions>
         <Trans t={t} i18nKey='rootErrorBoundary.contents'>
@@ -173,7 +173,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
 function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
   return (
     <>
-      <Headline5>Something went wrong :(</Headline5>
+      <TitleLarge>Something went wrong :(</TitleLarge>
       <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
       <Instructions>
         Please report this issue to us in our{' '}

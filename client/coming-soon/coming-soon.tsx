@@ -5,7 +5,7 @@ import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Headline5, Subtitle1 } from '../styles/typography'
+import { BodyLarge, TitleLarge } from '../styles/typography'
 
 const FundingSection = styled.div`
   margin-top: 48px;
@@ -52,10 +52,10 @@ export function ComingSoon() {
   const { t } = useTranslation()
   return (
     <>
-      <Headline5>{t('comingSoon.headline', 'This feature is coming soon!')}</Headline5>
+      <TitleLarge>{t('comingSoon.headline', 'This feature is coming soon!')}</TitleLarge>
 
       <FundingSection>
-        <Subtitle1>{t('comingSoon.subtitle', "Help fund ShieldBattery's development")}:</Subtitle1>
+        <BodyLarge>{t('comingSoon.subtitle', "Help fund ShieldBattery's development")}:</BodyLarge>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'

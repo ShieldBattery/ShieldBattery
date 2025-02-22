@@ -13,7 +13,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
-import { body2, overline, singleLine } from '../styles/typography'
+import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   areUserEntriesEqual,
   sortUserEntries,
@@ -49,7 +49,7 @@ const OVERLINE_HEIGHT = 36 + 24
 const FIRST_OVERLINE_HEIGHT = 36 + 8
 
 const UserListOverline = styled.div<{ $firstOverline: boolean }>`
-  ${overline}
+  ${labelMedium}
   ${userListRow};
   height: ${props => (props.$firstOverline ? FIRST_OVERLINE_HEIGHT : OVERLINE_HEIGHT)}px;
   color: ${colorTextSecondary};
@@ -88,7 +88,7 @@ interface UserListEntryItemProps {
 }
 
 const UserListEntryItem = styled.div<UserListEntryItemProps>`
-  ${body2};
+  ${titleSmall};
   ${userListRow};
   height: 44px;
   border-radius: 2px;

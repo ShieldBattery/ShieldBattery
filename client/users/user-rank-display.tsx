@@ -13,7 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { background700, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { caption, headline6, singleLine, subtitle1, subtitle2 } from '../styles/typography'
+import { bodyLarge, bodySmall, singleLine, titleLarge, titleMedium } from '../styles/typography'
 
 const RankDisplayRoot = styled.div`
   padding: 16px 16px 8px;
@@ -39,12 +39,12 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 `
 
 const RankDisplayDivisionLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   padding-top: 12px;
 `
 
 const RankDisplayType = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
   color: ${colorTextFaint};
 `
@@ -74,18 +74,18 @@ const RankDisplayInfoEntry = styled.div`
 `
 
 const RankDisplayInfoLabel = styled.div`
-  ${caption};
+  ${bodySmall};
   ${singleLine};
   color: ${colorTextFaint};
 `
 
 const RankDisplayInfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
 `
 
 const RankDisplayPrefix = styled.span`
-  ${caption};
+  ${bodySmall};
 `
 
 export function UserRankDisplay({

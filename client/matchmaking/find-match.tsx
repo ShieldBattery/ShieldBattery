@@ -37,13 +37,12 @@ import {
   dialogScrim,
 } from '../styles/colors'
 import {
-  Headline5,
-  body1,
-  caption,
-  headline5,
-  headline6,
+  TitleLarge,
+  bodyLarge,
+  bodyMedium,
+  bodySmall,
   singleLine,
-  subtitle1,
+  titleLarge,
 } from '../styles/typography'
 import { findMatch, getCurrentMapPool } from './action-creators'
 import { Contents1v1 } from './find-1v1'
@@ -238,7 +237,7 @@ export function FindMatch() {
   return (
     <Container>
       <TitleBar>
-        <Headline5>{t('matchmaking.findMatch.title', 'Find match')}</Headline5>
+        <TitleLarge>{t('matchmaking.findMatch.title', 'Find match')}</TitleLarge>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
@@ -309,7 +308,7 @@ const RankInfoContainer = styled.div`
 `
 
 const RankLoadingError = styled.div`
-  ${body1};
+  ${bodyMedium};
   color: ${colorError};
 `
 
@@ -328,7 +327,7 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 `
 
 const RankDisplayDivisionLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   padding-top: 12px;
 `
 
@@ -358,13 +357,13 @@ const RankDisplayInfoEntry = styled.div`
 `
 
 const RankDisplayInfoLabel = styled.div`
-  ${caption};
+  ${bodySmall};
   ${singleLine};
   color: ${colorTextFaint};
 `
 
 const RankDisplayInfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
 `
 
@@ -397,7 +396,7 @@ const BonusBar = styled.div`
 `
 
 const UnratedText = styled.div`
-  ${headline5};
+  ${titleLarge};
   text-align: center;
 `
 

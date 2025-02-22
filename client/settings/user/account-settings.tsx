@@ -36,12 +36,12 @@ import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
 import {
-  Body1,
-  Subtitle1,
-  Subtitle2,
-  headline5,
-  overline,
-  subtitle1,
+  BodyLarge,
+  BodyMedium,
+  TitleMedium,
+  bodyLarge,
+  labelMedium,
+  titleLarge,
 } from '../../styles/typography'
 
 const Root = styled.div`
@@ -53,7 +53,7 @@ const Root = styled.div`
 const Section = styled.div``
 
 const SectionHeader = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-bottom: 16px;
 `
 
@@ -86,7 +86,7 @@ const EditableItem = styled.div`
 `
 
 const EditableOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   color: ${colorTextSecondary};
 `
 
@@ -173,7 +173,7 @@ export function AccountSettings() {
               <EditableOverline>
                 {t('settings.user.account.displayName', 'Display name')}
               </EditableOverline>
-              <Subtitle2>{currentUser.name}</Subtitle2>
+              <TitleMedium>{currentUser.name}</TitleMedium>
             </EditableContent>
             <RaisedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
@@ -183,7 +183,7 @@ export function AccountSettings() {
               <EditableOverline>
                 {t('settings.user.account.loginName', 'Login name')}
               </EditableOverline>
-              <Subtitle2>{currentUser.loginName}</Subtitle2>
+              <TitleMedium>{currentUser.loginName}</TitleMedium>
             </EditableContent>
             <RaisedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
@@ -192,8 +192,8 @@ export function AccountSettings() {
             <EditableContent>
               <EditableOverline>{t('settings.user.account.email', 'Email')}</EditableOverline>
               <EmailItem>
-                <Subtitle1 data-test='account-email-text'>{emailText}</Subtitle1>
-                <Body1>
+                <BodyLarge data-test='account-email-text'>{emailText}</BodyLarge>
+                <BodyMedium>
                   <a
                     href='#'
                     data-test='reveal-email-link'
@@ -205,7 +205,7 @@ export function AccountSettings() {
                       ? t('common.actions.hide', 'Hide')
                       : t('common.actions.reveal', 'Reveal')}
                   </a>
-                </Body1>
+                </BodyMedium>
               </EmailItem>
             </EditableContent>
             <RaisedButton
@@ -240,7 +240,7 @@ const FormSpacer = styled.div`
 `
 
 const ErrorMessage = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
   padding-bottom: 16px;
 `

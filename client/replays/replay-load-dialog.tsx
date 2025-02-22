@@ -10,14 +10,14 @@ import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { colorError } from '../styles/colors'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 

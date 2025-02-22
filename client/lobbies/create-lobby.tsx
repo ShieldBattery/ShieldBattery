@@ -38,7 +38,7 @@ import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback, useValueAsRef } from '../state-hooks'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import {
   createLobby,
   getLobbyPreferences,
@@ -58,7 +58,7 @@ const TitleBar = styled.div`
 `
 
 const Title = styled.div`
-  ${headline5};
+  ${titleLarge};
   padding: 8px 16px 0;
 `
 
@@ -98,7 +98,7 @@ const AdvancedSettings = styled.div`
 `
 
 const SectionHeader = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin: 16px 0;
 `
 
@@ -159,12 +159,9 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
 
     const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
 
-    console.log('rendered with selectedMap: ' + selectedMap)
-
     const onBrowseClick = useStableCallback(() => {
       onMapBrowse(mapId => {
         setInputValue('selectedMap', mapId)
-        console.log('selected map: ' + mapId)
       })
     })
 
@@ -326,6 +323,10 @@ enum MapBrowseState {
   Local,
 }
 
+// FIXME: recent maps on first load: doesn't work because we store recent maps in state now and we
+// also load them from the server in this component, but can't easily fix that state when the load
+// completes. Maybe move this component down a level from the one that triggers the load + only
+// render it when load is complete?
 export function CreateLobby(props: CreateLobbyProps) {
   const [routeMatches, routeParams] = useRoute('/play/lobbies/create/:name?')
   const routeName =

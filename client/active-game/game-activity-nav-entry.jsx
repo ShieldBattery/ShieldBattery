@@ -3,7 +3,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { colorTextSecondary } from '../styles/colors'
-import { headline6, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
 
 const Container = styled.li`
   height: 72px;
@@ -36,12 +36,12 @@ const StyledLink = styled(Link)`
 `
 
 const StyledTitle = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
 `
 
 const Subtitle = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
   color: ${colorTextSecondary};
 `

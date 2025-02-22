@@ -18,25 +18,27 @@ import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { headline4, subtitle1 } from '../styles/typography'
+import { bodyLarge, headlineMedium } from '../styles/typography'
 import { searchChannels } from './action-creators'
 
 const Container = styled.div`
-  padding: 16px 24px;
+  width: 100%;
+  padding: 24px;
 
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 `
 
 const TitleBar = styled.div`
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
   margin-bottom: 16px;
 `
 
 const PageHeadline = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const StyledSearchInput = styled(SearchInput)`
@@ -44,20 +46,23 @@ const StyledSearchInput = styled(SearchInput)`
 `
 
 const SearchResults = styled.div`
+  width: 100%;
+
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
+  overflow-x: hidden;
 `
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorTextFaint};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorError};
 `

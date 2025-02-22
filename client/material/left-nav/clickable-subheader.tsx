@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
-import { overline, singleLine } from '../../styles/typography'
+import { labelMedium, singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { LinkButton } from '../link-button'
 import { Ripple } from '../ripple'
@@ -31,7 +31,7 @@ const StyledLink = styled(LinkButton)`
 `
 
 const Title = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 100%;

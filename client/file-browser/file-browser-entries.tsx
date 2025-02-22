@@ -5,7 +5,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Caption, Subtitle1 } from '../styles/typography'
+import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,
   FileBrowserFileEntryConfig,
@@ -66,7 +66,7 @@ export function UpOneDir({
       <EntryIcon>
         <MaterialIcon icon='subdirectory_arrow_left' />
       </EntryIcon>
-      <Subtitle1>{upOneDir.name}</Subtitle1>
+      <BodyLarge>{upOneDir.name}</BodyLarge>
     </EntryContainer>
   )
 }
@@ -91,7 +91,7 @@ export function FolderEntry({
         <MaterialIcon icon='folder' invertColor={true} />
       </EntryIcon>
       <InfoContainer>
-        <Subtitle1>{folder.name}</Subtitle1>
+        <BodyLarge>{folder.name}</BodyLarge>
       </InfoContainer>
     </FolderEntryContainer>
   )
@@ -152,8 +152,8 @@ export const FileEntry = React.memo(
         <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
           <EntryIcon>{icon}</EntryIcon>
           <InfoContainer>
-            <Subtitle1>{file.name}</Subtitle1>
-            <Caption>{longTimestamp.format(file.date)}</Caption>
+            <BodyLarge>{file.name}</BodyLarge>
+            <BodySmall>{longTimestamp.format(file.date)}</BodySmall>
           </InfoContainer>
           {ExpansionPanelComponent ? (
             <SelectButton $focused={isFocused} label={onSelectTitle} onClick={onSelectClick} />

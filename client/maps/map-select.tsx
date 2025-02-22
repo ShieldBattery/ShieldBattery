@@ -7,7 +7,7 @@ import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { useStableCallback } from '../state-hooks'
 import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
@@ -20,7 +20,7 @@ const Container = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -69,7 +69,7 @@ const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
 `
 
 const BrowseText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextSecondary};
 `
 

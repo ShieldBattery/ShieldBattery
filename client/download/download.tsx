@@ -7,15 +7,15 @@ import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Blurb = styled.div`
-  ${headline5};
+  ${titleLarge};
   font-weight: 300;
 `
 
 const BlurbList = styled.ul`
-  ${headline5};
+  ${titleLarge};
   margin: 0;
   padding: 0;
 
@@ -29,7 +29,7 @@ const BlurbList = styled.ul`
 `
 
 const SupportText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin-top: 32px;
 `
 
@@ -76,7 +76,7 @@ const InstallerLinks = styled.div`
 `
 
 const InstallerButtonLabel = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   height: 48px;
   display: flex;
   align-items: center;

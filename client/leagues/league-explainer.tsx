@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Subtitle1, subtitle1 } from '../styles/typography'
+import { BodyLarge, bodyLarge } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
@@ -23,7 +23,7 @@ const ListEntry = styled.li`
 `
 
 const Emphasized = styled.b`
-  ${subtitle1};
+  ${bodyLarge};
 
   display: block;
   margin-bottom: 4px;
@@ -40,12 +40,12 @@ export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps
       onCancel={onCancel}
       showCloseButton={true}
       dialogRef={dialogRef}>
-      <Subtitle1>
+      <BodyLarge>
         {t(
           'leagues.explainer.description',
           'Leagues are a new way to compete for prizes, qualify for tournament entries, and more!',
         )}
-      </Subtitle1>
+      </BodyLarge>
 
       <List>
         <ListEntry>

@@ -19,7 +19,7 @@ import {
   colorTextFaint,
   colorTextPrimary,
 } from '../styles/colors'
-import { singleLine, subtitle2 } from '../styles/typography'
+import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
@@ -140,7 +140,7 @@ const TextProtection = styled.div`
 `
 
 const MapName = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
   color: ${colorTextPrimary};
 `
