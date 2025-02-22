@@ -4,6 +4,7 @@ import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch } from 'wouter'
 import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
+import { useSelfUser } from './auth/auth-utils'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
 import { UpdateOverlay } from './download/update-overlay'
@@ -88,6 +89,7 @@ export default function App() {
     document.body.style.setProperty('--pixel-shove-y', `${shoveY}px`)
   }, [shoveX, shoveY])
   const graphqlClient = useUserSpecificGraphqlClient()
+  const selfUser = useSelfUser()
 
   return (
     <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
@@ -106,7 +108,7 @@ export default function App() {
                   <Switch>
                     {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
                   </Switch>
-                  <MainLayout>
+                  <MainLayout key={selfUser?.id ?? -1}>
                     <AppRoutes />
                   </MainLayout>
                   <ConnectedSettings />
