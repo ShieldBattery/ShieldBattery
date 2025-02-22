@@ -32,7 +32,6 @@ const MatchHistoryRoot = styled.div`
   padding: 0 24px 0 8px;
 
   display: flex;
-  align-items: flex-start;
 `
 
 const GameList = styled.div`
@@ -217,7 +216,7 @@ const GamePreviewDetails = styled.div`
 
 const NoGameText = styled.div`
   ${bodyLarge};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -227,15 +226,19 @@ const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
   left: 16px;
   right: 16px;
 
-  padding-top: 32px;
+  padding-top: 24px;
 
   background: linear-gradient(
     to bottom,
     rgb(from ${background700} r g b / 0),
-    rgb(from ${background700} r g b / 50%) 24px,
+    rgb(from ${background700} r g b / 50%) 12px,
     rgb(from ${background700} r g b / 80%) 80%,
     rgb(from ${background700} r g b) 92%
   );
+`
+
+const StyledMapThumbnail = styled(MapThumbnail)`
+  height: auto;
 `
 
 export interface ConnectedGamePreviewProps {
@@ -283,7 +286,9 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   return (
     <GamePreviewRoot>
       <GamePreviewDetails>
-        {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
+        {map ? (
+          <StyledMapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} />
+        ) : null}
         <StyledGamePlayersDisplay game={game} />
       </GamePreviewDetails>
       <TextButton
