@@ -5,7 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { LeagueId, LeagueJson } from '../../common/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
-import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
+import { colorTextInvert, colorTextPrimary } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
 
 const badgeCommon = css`
@@ -17,7 +17,7 @@ const badgeCommon = css`
 
 const LeagueBadgePlaceholder = styled.svg`
   ${badgeCommon};
-  background-color: var(--sb-badge-color, ${blue400});
+  background-color: var(--sb-badge-color, var(--color-blue70));
   color: var(--sb-badge-text-color, ${colorTextPrimary});
 `
 

@@ -2,7 +2,7 @@ import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { randomColorForString } from '../avatars/colors'
-import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
+import { colorTextInvert, colorTextPrimary } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
 
 const badgeCommon = css`
@@ -14,7 +14,7 @@ const badgeCommon = css`
 
 const ChannelBadgePlaceholder = styled.svg`
   ${badgeCommon};
-  background-color: var(--sb-badge-color, ${blue400});
+  background-color: var(--sb-badge-color, var(--color-blue70));
   color: var(--sb-badge-text-color, ${colorTextPrimary});
 `
 

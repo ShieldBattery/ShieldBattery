@@ -7,13 +7,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makePublicAssetUrl } from '../network/server-url'
-import {
-  background700,
-  background800,
-  blue400,
-  colorDividers,
-  colorTextSecondary,
-} from '../styles/colors'
+import { background700, background800, colorDividers, colorTextSecondary } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 import { TopLinks } from './top-links'
@@ -48,7 +42,7 @@ const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, 
   margin-right: 16px;
 
   display: inline-block;
-  color: ${blue400};
+  color: var(--color-blue80);
   vertical-align: middle;
 
   @media screen and (max-width: 980px) {
@@ -61,7 +55,7 @@ const QuestionText = styled.div`
   margin: 0;
   display: inline-block;
 
-  color: ${blue400};
+  color: var(--color-blue90);
   line-height: 48px;
   vertical-align: middle;
 
