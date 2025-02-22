@@ -652,7 +652,7 @@ function AppBar({
           onClick={openProfileOverlay}
         />
       ) : (
-        /* TODO(tec27): Use a contained button instead */
+        /* TODO(tec27): Use a filled button instead once implemented */
         <RaisedButton
           label={t('auth.login.logIn', 'Log in')}
           testName='app-bar-login'

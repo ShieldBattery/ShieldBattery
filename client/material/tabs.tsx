@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
 import { useMultiRef } from '../state-hooks'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { buttonText, singleLine } from '../styles/typography'
+import { labelLarge, singleLine } from '../styles/typography'
 import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { Ripple } from './ripple'
@@ -35,7 +35,7 @@ const Container = styled.div`
 `
 
 export const TabTitle = styled.span`
-  ${buttonText};
+  ${labelLarge};
   ${singleLine};
 `
 

@@ -33,9 +33,9 @@ import {
   Body1,
   body1,
   body2,
-  buttonText,
   caption,
   headline6,
+  labelLarge,
   overline,
   singleLine,
   subtitle1,
@@ -81,7 +81,7 @@ const LoadingError = styled.div`
 `
 
 const ViewProfileHover = styled.div`
-  ${buttonText};
+  ${labelLarge};
 
   position: absolute;
   width: 100%;
