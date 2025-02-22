@@ -17,7 +17,7 @@ import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
   addComputer,
@@ -325,9 +325,9 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='other_houses' />
-          <Subtitle1>
+          <BodyLarge>
             {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create it?')}
-          </Subtitle1>
+          </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
@@ -345,12 +345,12 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='meeting_room' />
-          <Subtitle1>
+          <BodyLarge>
             {t(
               'lobbies.state.exists',
               "You're not currently in this lobby. Would you like to join it?",
             )}
-          </Subtitle1>
+          </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.joinLobby.action', 'Join lobby')}
             iconStart={<MaterialIcon icon='add' />}
@@ -363,9 +363,9 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='avg_pace' />
-          <Subtitle1>
+          <BodyLarge>
             {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
-          </Subtitle1>
+          </BodyLarge>
         </StateMessageLayout>
       )
     default:

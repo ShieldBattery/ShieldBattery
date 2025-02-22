@@ -41,13 +41,13 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
-  Headline3,
-  body1,
-  body2,
-  headline6,
-  overline,
+  DisplaySmall,
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
+  titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
@@ -116,7 +116,7 @@ const HeaderInfoItem = styled.div`
 `
 
 const HeaderInfoLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   width: 88px;
   margin-right: 16px;
@@ -130,12 +130,12 @@ const HeaderInfoLabel = styled.div`
 `
 
 const HeaderInfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
 `
 
 const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   color: ${props => (props.$isLive ? amberA200 : colorTextFaint)};
@@ -307,7 +307,7 @@ export function ConnectedGameResultsPage({
   return (
     <Container>
       <HeaderArea>
-        <Headline3>{headline}</Headline3>
+        <DisplaySmall>{headline}</DisplaySmall>
         <HeaderInfo>
           {game ? (
             <>
@@ -380,7 +380,7 @@ function ComingSoonPage() {
 }
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 32px;
   margin-bottom: 48px;
@@ -416,7 +416,7 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-top: 8px;
 `
@@ -430,7 +430,7 @@ const PlayerListCard = styled(Card)`
 `
 
 const TeamLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 24px;
@@ -621,7 +621,7 @@ const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
 `
 
 const PlayerName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-left: 16px;
   margin-right: 8px;
@@ -643,14 +643,14 @@ const GameResultColumn = styled.div`
 `
 
 const StyledGameResultText = styled(GameResultText)`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
   width: 100%;
   text-align: right;
 `
 
 const StyledPointsChangeText = styled(MmrChangeText)`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
   text-align: right;
 `

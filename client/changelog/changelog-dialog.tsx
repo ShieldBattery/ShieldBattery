@@ -4,7 +4,7 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline5, headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { KEY, VERSION } from './should-show-changelog'
 
 const Content = styled.div`
@@ -29,7 +29,7 @@ const Content = styled.div`
   }
 
   li {
-    ${subtitle1};
+    ${bodyLarge};
     margin-top: 8px;
     color: ${colorTextSecondary};
   }
@@ -39,12 +39,12 @@ const Content = styled.div`
   }
 
   h4 {
-    ${headline5};
+    ${titleLarge};
     margin-bottom: 8px;
   }
 
   h5 {
-    ${headline6};
+    ${titleLarge};
     margin-bottom: 8px;
   }
 

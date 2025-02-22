@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
 import { LoadingDotsArea } from '../progress/dots'
 import { colorDividers } from '../styles/colors'
-import { headline5, headline6, subtitle1, subtitle2 } from '../styles/typography'
+import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 
 const LoadableMarkdown = React.lazy(() => import('react-markdown'))
 
@@ -15,33 +15,33 @@ const StyledMarkdown = styled(LoadableMarkdown)`
   }
 
   h1 {
-    ${headline5};
+    ${titleLarge};
     font-weight: 500;
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h2 {
-    ${headline5};
+    ${titleLarge};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h3 {
-    ${headline6};
+    ${titleLarge};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h4 {
-    ${subtitle1};
+    ${bodyLarge};
     font-weight: 500;
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h5 {
-    ${subtitle2};
+    ${titleMedium};
     margin-top: 16px;
     margin-bottom: 8px;
   }

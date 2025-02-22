@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { background700, colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { BodyLarge } from '../styles/typography'
 
 const ImgContainer = styled.div`
   position: relative;
@@ -41,7 +41,7 @@ export const MapNoImage = () => {
   return (
     <NoImageContainer>
       <NoImageIcon />
-      <Subtitle1>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</Subtitle1>
+      <BodyLarge>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</BodyLarge>
     </NoImageContainer>
   )
 }

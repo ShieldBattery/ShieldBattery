@@ -21,7 +21,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography'
+import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, bodySmall } from '../styles/typography'
 import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
 import { ConnectedUsername } from './connected-username'
 
@@ -47,7 +47,7 @@ const AdminSection = styled.div<{ $gridColumn?: string }>`
 `
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 40px;
   margin-bottom: 48px;
@@ -152,7 +152,7 @@ function PermissionsEditor({
 
   return (
     <AdminSection $gridColumn='span 3'>
-      <Headline5>Permissions</Headline5>
+      <TitleLarge>Permissions</TitleLarge>
       {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
       <form noValidate={true} onSubmit={onSubmit} data-test='permissions-form'>
         <CheckBox
@@ -310,7 +310,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
 
   return (
     <AdminSection $gridColumn='span 6' data-test='ban-history-section'>
-      <Headline5>Ban history</Headline5>
+      <TitleLarge>Ban history</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
       {!isSelf ? (
@@ -326,7 +326,7 @@ const BanTable = styled.table`
 
   th,
   td {
-    ${body1};
+    ${bodyMedium};
 
     min-width: 100px;
     max-width: 150px;
@@ -341,7 +341,7 @@ const BanTable = styled.table`
   }
 
   th {
-    ${caption};
+    ${bodySmall};
     color: ${colorTextSecondary};
   }
 `
@@ -351,7 +351,7 @@ const BanRow = styled.tr<{ $expired?: boolean }>`
 `
 
 const EmptyState = styled.td`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextFaint};
 `
 
@@ -422,7 +422,7 @@ function BanUserForm({
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
-      <Headline5>Ban user</Headline5>
+      <TitleLarge>Ban user</TitleLarge>
       <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
         <SelectOption value={3} text='3 Hours' />
         <SelectOption value={24} text='1 Day' />
@@ -430,7 +430,7 @@ function BanUserForm({
         <SelectOption value={24 * 7 * 4} text='1 Month' />
         <SelectOption value={24 * 365 * 999} text='Permanent!' />
       </Select>
-      <Body1>This reason will be visible to the user!</Body1>
+      <BodyMedium>This reason will be visible to the user!</BodyMedium>
       <TextField
         {...bindInput('reason')}
         label='Ban reason'
@@ -483,7 +483,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
 
   return (
     <AdminSection $gridColumn='span 5'>
-      <Headline5>IP addresses</Headline5>
+      <TitleLarge>IP addresses</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {ips === undefined ? <LoadingDotsArea /> : <IpList ips={ips} relatedUsers={relatedUsers!} />}
     </AdminSection>
@@ -491,7 +491,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
 }
 
 const IpListRoot = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px 0;
   display: flex;
   flex-direction: column;
@@ -527,7 +527,7 @@ const SeenCount = styled.div`
 `
 
 const RelatedUsers = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin: 16px 0;
   padding-left: 40px;
 

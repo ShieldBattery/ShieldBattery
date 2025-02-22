@@ -14,7 +14,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
 import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
   useChatMessageMenuItems,
@@ -35,7 +35,7 @@ const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const Username = styled.span`
-  ${body2};
+  ${titleSmall};
 
   margin-right: 8px;
 

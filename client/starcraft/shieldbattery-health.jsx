@@ -8,12 +8,12 @@ import { DialogType } from '../dialogs/dialog-type'
 import { RaisedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { openSnackbar } from '../snackbars/action-creators'
-import { body1, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium } from '../styles/typography'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
 import { isShieldBatteryHealthy } from './is-starcraft-healthy'
 
 const Text = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   & + & {
     margin-top: 24px;
@@ -21,7 +21,7 @@ const Text = styled.div`
 `
 
 const FileList = styled.ul`
-  ${body1};
+  ${bodyMedium};
   margin-bottom: 40px;
 `
 

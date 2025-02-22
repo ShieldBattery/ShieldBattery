@@ -53,13 +53,13 @@ import {
 } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
-  Headline6,
-  body1,
-  caption,
-  overline,
+  TitleLarge,
+  bodyLarge,
+  bodyMedium,
+  bodySmall,
+  labelMedium,
   singleLine,
-  subtitle1,
-  subtitle2,
+  titleMedium,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
@@ -112,7 +112,7 @@ const Content = styled.div`
 `
 
 const LastUpdatedText = styled.div`
-  ${body1};
+  ${bodyMedium};
   flex-grow: 1;
   flex-shrink: 0;
 
@@ -331,7 +331,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   return (
     <LadderPage>
       <PageHeader>
-        <Headline6>{t('ladder.pageHeadline', 'Ladder')}</Headline6>
+        <TitleLarge>{t('ladder.pageHeadline', 'Ladder')}</TitleLarge>
         <TabsContainer>
           <Tabs activeTab={matchmakingType} onChange={onTabChange}>
             <TabItem
@@ -435,7 +435,7 @@ const Table = styled.div`
 const RowContainer = styled.button<{ $isEven: boolean }>`
   ${buttonReset};
 
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   height: 72px;
   padding: 0;
@@ -449,7 +449,7 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
 const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
 
 const HeaderRowContainer = styled.div<{ context?: unknown }>`
-  ${overline};
+  ${labelMedium};
   width: 100%;
   height: 48px;
   position: sticky !important;
@@ -539,17 +539,17 @@ const PlayerNameAndRace = styled.div`
 `
 
 const PlayerName = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${caption};
+  ${bodySmall};
   color: ${props => getRaceColor(props.$race)};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorError};
@@ -557,7 +557,7 @@ const ErrorText = styled.div`
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
   color: ${colorTextFaint};

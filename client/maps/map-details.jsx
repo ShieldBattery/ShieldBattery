@@ -14,7 +14,7 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
 import { colorError, colorTextSecondary } from '../styles/colors'
-import { Body1Old, Display1Old, SubheadingOld, singleLine } from '../styles/typography'
+import { Body1Old, SubheadingOld, headlineMedium, singleLine } from '../styles/typography'
 import { getMapDetails, updateMap } from './action-creators'
 import { MapThumbnail } from './map-thumbnail'
 
@@ -43,7 +43,8 @@ const MapInfo = styled.div`
   margin-right: 16px;
 `
 
-const MapName = styled(Display1Old)`
+const MapName = styled.div`
+  ${headlineMedium};
   flex-shrink: 0;
   position: relative;
   /* dialog max-width - dialog padding - map info margin - map image */

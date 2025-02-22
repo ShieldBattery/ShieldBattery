@@ -2,10 +2,10 @@ import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline6 } from '../styles/typography'
+import { titleLarge } from '../styles/typography'
 
 const BreadcrumbPiece = styled.span<{ $active: boolean }>`
-  ${headline6};
+  ${titleLarge};
   padding: 8px;
   flex-grow: 0;
   flex-shrink: 0;

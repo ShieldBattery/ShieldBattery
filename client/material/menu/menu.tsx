@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useStableCallback } from '../../state-hooks'
 import { CardLayer } from '../../styles/colors'
-import { body1, subtitle1 } from '../../styles/typography'
+import { bodyLarge, bodyMedium } from '../../styles/typography'
 import { zIndexMenu } from '../zindex'
 import { isMenuItem } from './menu-item-symbol'
 
@@ -28,7 +28,7 @@ const MENU_MAX_HEIGHT = ITEM_HEIGHT * (ITEMS_SHOWN + 0.5) + VERT_PADDING
 const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VERT_PADDING
 
 export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
-  ${props => (props.$dense ? body1 : subtitle1)};
+  ${props => (props.$dense ? bodyMedium : bodyLarge)};
 
   --sb-menu-min-width: 160px;
 

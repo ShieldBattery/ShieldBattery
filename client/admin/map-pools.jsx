@@ -23,7 +23,7 @@ import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { body1, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   clearSearch,
   createMapPool,
@@ -88,7 +88,7 @@ const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', si
 `
 
 const SectionTitle = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextSecondary};
 `
 
@@ -102,7 +102,7 @@ const DateInput = styled.input`
 `
 
 const InvalidDateInput = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin-left: 16px;
   color: ${colorError};
 `
@@ -152,7 +152,7 @@ const LoadingArea = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 

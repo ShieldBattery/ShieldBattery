@@ -1,7 +1,7 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
 import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { body1, overline } from '../styles/typography'
+import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'
 import { standardEasing } from './curve-constants'
 import { Ripple } from './ripple'
@@ -17,7 +17,7 @@ const RadioGroupContainer = styled.div`
 `
 
 const RadioOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   color: ${colorTextSecondary};
 
   padding: 4px 0;
@@ -163,7 +163,7 @@ const StyledRipple = styled(Ripple)`
 `
 
 const Label = styled.label<{ $disabled?: boolean }>`
-  ${body1};
+  ${bodyMedium};
 
   flex-grow: 1;
   padding: 4px 0;

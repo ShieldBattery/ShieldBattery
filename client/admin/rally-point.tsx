@@ -21,7 +21,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Content = styled.div`
   max-width: 960px;
@@ -29,7 +29,7 @@ const Content = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-top: 16px;
   margin-bottom: 8px;
 `
@@ -44,7 +44,7 @@ const HeadlineAndButton = styled.div`
 `
 
 const Row = styled.div<{ $editable?: boolean }>`
-  ${subtitle1};
+  ${bodyLarge};
   min-height: 48px;
   display: flex;
   align-items: center;

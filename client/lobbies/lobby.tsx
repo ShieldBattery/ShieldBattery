@@ -7,12 +7,12 @@ import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
 import {
-  Team,
   canAddObservers,
   canRemoveObservers,
   findSlotByName,
   hasOpposingSides,
   isUms,
+  Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
@@ -26,7 +26,7 @@ import { shadow2dp } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
 import { colorTextSecondary } from '../styles/colors'
-import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium, titleLarge } from '../styles/typography'
 import ClosedSlot from './closed-slot'
 import {
   BanLobbyPlayerMessage,
@@ -92,7 +92,7 @@ const Info = styled.div`
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   margin: 24px 0 0;
 `
 
@@ -110,12 +110,12 @@ const InfoItem = styled.div`
 `
 
 const InfoLabel = styled.div`
-  ${body1};
+  ${bodyMedium};
   color: ${colorTextSecondary};
 `
 
 const InfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin-left: 16px;
   flex-grow: 1;
 `
@@ -125,7 +125,7 @@ const StartButton = styled(RaisedButton)`
 `
 
 const Countdown = styled.div`
-  ${headline4};
+  ${headlineMedium};
   margin: 16px 0;
 `
 

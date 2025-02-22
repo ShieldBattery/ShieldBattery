@@ -13,7 +13,7 @@ import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { amberA400 } from '../styles/colors'
-import { Body1 } from '../styles/typography'
+import { BodyMedium } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 
 const ENTER = 'Enter'
@@ -140,9 +140,9 @@ function AcceptingStateView() {
 
   return (
     <div>
-      <Body1>
+      <BodyMedium>
         {t('matchmaking.acceptMatch.body', 'All players must ready up for the match to start.')}
-      </Body1>
+      </BodyMedium>
       <CenteredContainer>
         {hasAccepted ? (
           [...acceptedAvatars, ...unacceptedAvatars]

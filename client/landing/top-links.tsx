@@ -20,10 +20,10 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { amberA400 } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { titleSmall } from '../styles/typography'
 
 const TopLinksList = styled.ul`
-  ${body2};
+  ${titleSmall};
 
   display: flex;
   justify-content: center;

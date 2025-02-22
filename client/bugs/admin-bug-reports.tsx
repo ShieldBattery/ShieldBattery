@@ -14,7 +14,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { colorDividers, colorError } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
-import { headline5, subtitle1, subtitle2 } from '../styles/typography'
+import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { adminGetBugReport, adminListBugReports, adminResolveBugReport } from './action-creators'
 
@@ -25,7 +25,7 @@ const Content = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const HeadlineAndButton = styled.div`
@@ -44,7 +44,7 @@ const ButtonWithCheckBox = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -207,17 +207,17 @@ const Item = styled.div`
 `
 
 const ItemLabel = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   width: 128px;
   flex: 0 0 auto;
   text-align: right;
 `
 const ItemValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 `
 
 const DetailsValue = styled.pre`
-  ${subtitle1};
+  ${bodyLarge};
 
   margin: 0;
   padding: 8px 0 8px 8px;

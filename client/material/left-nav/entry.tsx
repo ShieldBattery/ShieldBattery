@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { amberA200 } from '../../styles/colors'
-import { body2, singleLine } from '../../styles/typography'
+import { singleLine, titleSmall } from '../../styles/typography'
 import AttentionIndicator from './attention-indicator'
 
 const Container = styled.li<{ $isCurrentPath: boolean; $isActive?: boolean }>`
@@ -34,7 +34,7 @@ const Container = styled.li<{ $isCurrentPath: boolean; $isActive?: boolean }>`
 `
 
 const EntryLink = styled(Link)`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   height: 100%;

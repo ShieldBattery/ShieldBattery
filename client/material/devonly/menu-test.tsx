@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { colorTextSecondary } from '../../styles/colors'
-import { subtitle1 } from '../../styles/typography'
+import { bodyLarge } from '../../styles/typography'
 import { RaisedButton } from '../button'
 import Card from '../card'
 import { Divider } from '../menu/divider'
@@ -30,7 +30,7 @@ const StyledMenuList = styled(MenuList)`
 `
 
 const Overline = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 0 12px;
   margin: 8px 0;
   color: ${colorTextSecondary};

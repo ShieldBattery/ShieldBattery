@@ -18,7 +18,7 @@ import { openSettings } from '../settings/action-creators'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body2, headline6, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -92,7 +92,7 @@ const FriendsListTabsContainer = styled.div`
 `
 
 const TitleText = styled.div`
-  ${headline6};
+  ${titleLarge};
   color: ${colorTextSecondary};
 `
 
@@ -174,7 +174,7 @@ export function FriendsList() {
 }
 
 const EmptyList = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 32px 16px 48px;
 
   color: ${colorTextFaint};
@@ -182,7 +182,7 @@ const EmptyList = styled.div`
 `
 
 const ListOverline = styled.div<{ $firstOverline?: boolean }>`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   margin: 0 8px;
   padding: ${props => (props.$firstOverline ? '4px' : '20px')} 8px 0;
@@ -506,7 +506,7 @@ const FriendEntryActions = styled.div`
 `
 
 const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean }>`
-  ${body2};
+  ${titleSmall};
   height: 44px;
   margin: 0 8px;
   padding: 4px 8px;

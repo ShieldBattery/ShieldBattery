@@ -19,7 +19,7 @@ import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle2, headline5, headline6, subtitle1 } from '../styles/typography'
+import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
   height: 100%;
@@ -31,7 +31,7 @@ const Container = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-top: 16px;
   margin-bottom: 8px;
 `
@@ -47,7 +47,7 @@ const HeadlineAndButton = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin-bottom: 8px;
   padding: 0 8px;
 
@@ -55,7 +55,7 @@ const ErrorText = styled.div`
 `
 
 const Row = styled.div<{ $current?: boolean }>`
-  ${subtitle1};
+  ${bodyLarge};
   min-height: 48px;
   padding: 0 8px;
   display: flex;
@@ -70,7 +70,7 @@ const StartDate = styled.div`
 `
 
 const SeasonName = styled.div`
-  ${headline6};
+  ${titleLarge};
   flex-grow: 1;
 `
 
@@ -112,7 +112,7 @@ const FormContainer = styled.div`
 `
 
 const FormTitle = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-bottom: 16px;
   padding: 0 8px;
 `
@@ -235,7 +235,7 @@ export function AdminMatchmakingSeasons() {
         ) : (
           <Row key={s.id}>
             <div>
-              Really delete <Subtitle2 as='span'>{s.name}</Subtitle2>?
+              Really delete <TitleMedium as='span'>{s.name}</TitleMedium>?
             </div>
             <TextButton
               color='accent'

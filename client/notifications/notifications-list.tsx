@@ -6,7 +6,7 @@ import { SbNotification } from '../../common/notifications'
 import { TextButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { clearNotifications } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
@@ -27,7 +27,7 @@ const TitleArea = styled.div`
 `
 
 const TitleText = styled.div`
-  ${headline6};
+  ${titleLarge};
   color: ${colorTextSecondary};
 `
 
@@ -37,7 +37,7 @@ const ListArea = styled.div`
 `
 
 const EmptyList = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 32px 16px 48px;
 
   color: ${colorTextFaint};

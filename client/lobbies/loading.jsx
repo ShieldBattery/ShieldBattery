@@ -7,7 +7,7 @@ import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
 import { shadow1dp } from '../material/shadows'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, TitleOld } from '../styles/typography'
+import { HeadlineMedium, headlineMedium, TitleOld } from '../styles/typography'
 import PlayerCard from './player-card'
 
 const LOADING_MESSAGES = [
@@ -240,8 +240,10 @@ const Content = styled.div`
   align-items: center;
 `
 
-const GameTypeMapBridge = styled(Display1Old)`
+const GameTypeMapBridge = styled.div`
+  ${headlineMedium};
   color: ${colorTextSecondary};
+  line-height: 40px;
 `
 
 const MapImageContainer = styled.div`
@@ -301,9 +303,11 @@ export default class LoadingScreen extends React.Component {
       <Content>
         <div>
           <Trans t={t} i18nKey='lobbies.loading.content'>
-            <Display1Old as='span'>{{ gameType: gameTypeToLabel(lobby.gameType, t) }}</Display1Old>
+            <HeadlineMedium as='span'>
+              {{ gameType: gameTypeToLabel(lobby.gameType, t) }}
+            </HeadlineMedium>
             <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
-            <Display1Old as='span'>{{ mapName: lobby.map.name }}</Display1Old>
+            <HeadlineMedium as='span'>{{ mapName: lobby.map.name }}</HeadlineMedium>
           </Trans>
         </div>
         <MapImageContainer>

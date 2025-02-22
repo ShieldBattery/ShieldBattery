@@ -23,7 +23,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { body1, caption, headline4, headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, bodySmall, headlineMedium, titleLarge } from '../styles/typography'
 import { getLeaguesList, urlForLeague } from './action-creators'
 import { LeagueBadge } from './league-badge'
 import { LeagueDetailsPage } from './league-details'
@@ -64,11 +64,11 @@ const TitleRow = styled.div`
 `
 
 const Title = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -185,7 +185,7 @@ const SectionRoot = styled.div`
 `
 
 const SectionLabel = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextSecondary};
 `
 
@@ -198,7 +198,7 @@ const SectionCards = styled.div`
 `
 
 const EmptyText = styled.div`
-  ${body1};
+  ${bodyMedium};
   color: ${colorTextFaint};
 `
 
@@ -272,18 +272,18 @@ const LeagueCardBadge = styled.div`
 `
 
 const LeagueName = styled.div`
-  ${headline6};
+  ${titleLarge};
   margin-top: 4px;
   padding: 0 16px;
 `
 
 const LeagueFormatAndDate = styled.div`
-  ${caption};
+  ${bodySmall};
   padding: 0 16px;
 `
 
 const LeagueDescription = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin-top: 16px;
   padding: 0 16px;
 
@@ -307,7 +307,7 @@ const DateTooltip = styled(Tooltip)`
 `
 
 const JoinedIndicator = styled.div`
-  ${body1};
+  ${bodyMedium};
 
   display: flex;
   align-items: center;
