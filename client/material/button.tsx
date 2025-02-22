@@ -1,14 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import {
-  CardLayer,
-  amberA400,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
+import { CardLayer, amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -340,8 +334,22 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
 
   background-color: ${props =>
     props.$color === 'accent' ? 'var(--color-amber70)' : 'var(--color-blue70)'};
-  color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.87)' : colorTextPrimary)};
+  color: ${props =>
+    props.$color === 'accent' ? 'var(--theme-on-amber-container)' : 'var(--theme-on-surface)'};
   --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
+
+  ${props => {
+    if (props.$color === 'accent') {
+      // Bump up the font weight for dark-on-light text colors so it looks even with light-on-dark
+      return css`
+        & ${Label} {
+          font-variation-settings: 'wght' 600;
+        }
+      `
+    } else {
+      return css``
+    }
+  }};
 
   &:hover,
   &:focus {
@@ -357,6 +365,10 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
     background-color: rgba(255, 255, 255, 0.12);
     box-shadow: none;
     color: ${colorTextFaint};
+
+    & ${Label} {
+      font-variation-settings: inherit;
+    }
   }
 
   ${CardLayer} && {
