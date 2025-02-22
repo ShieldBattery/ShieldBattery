@@ -22,8 +22,8 @@ export const DisabledCard = styled(Card)`
   ${shadow8dp};
 
   position: relative;
-  width: 384px;
-  padding: 16px;
+  width: 480px;
+  padding: 24px;
 
   display: flex;
   flex-direction: column;

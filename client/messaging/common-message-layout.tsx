@@ -13,7 +13,7 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
-import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
+import { amberA100, colorDividers, colorTextFaint } from '../styles/colors'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
@@ -51,11 +51,11 @@ const Text = styled.span`
 `
 
 const MentionedUsername = styled(ConnectedUsername)`
-  color: ${blue100};
+  color: var(--color-blue95);
 `
 
 const MentionedChannelName = styled(ConnectedChannelName)`
-  color: ${blue100};
+  color: var(--color-blue95);
 `
 
 function* getAllMatches(text: string) {

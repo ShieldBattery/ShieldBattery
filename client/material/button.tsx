@@ -5,8 +5,6 @@ import { useKeyListener } from '../keyboard/key-listener'
 import {
   CardLayer,
   amberA400,
-  blue400,
-  blue500,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
@@ -340,7 +338,8 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   contain: content;
   text-align: center;
 
-  background-color: ${props => (props.$color === 'accent' ? amberA400 : blue500)};
+  background-color: ${props =>
+    props.$color === 'accent' ? 'var(--color-amber70)' : 'var(--color-blue70)'};
   color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.87)' : colorTextPrimary)};
   --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
 
@@ -475,7 +474,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
       case 'normal':
         return colorTextSecondary
       case 'primary':
-        return blue400
+        return 'var(--color-blue90)'
       case 'accent':
         return amberA400
       default:
