@@ -45,6 +45,8 @@ import { LeagueCard, LeagueSectionType } from './league-list'
 import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
+  width: 100%;
+  max-width: 1248px;
   padding: 16px 24px;
 `
 

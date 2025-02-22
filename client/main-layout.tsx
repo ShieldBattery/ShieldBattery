@@ -802,7 +802,7 @@ const Sidebar = styled(SocialSidebar)`
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
   const isLoggedIn = useIsLoggedIn()
-  const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', true)
+  const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
   const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
