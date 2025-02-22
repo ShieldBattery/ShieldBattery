@@ -22,7 +22,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   background500,
-  background900,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
   colorDividers,
@@ -34,8 +33,8 @@ import {
   bodyLarge,
   bodyMedium,
   bodySmall,
-  labelLarge,
   labelMedium,
+  labelSmall,
   singleLine,
   titleLarge,
   titleSmall,
@@ -81,7 +80,7 @@ const LoadingError = styled.div`
 `
 
 const ViewProfileHover = styled.div`
-  ${labelLarge};
+  ${labelSmall};
 
   position: absolute;
   width: 100%;
@@ -90,14 +89,15 @@ const ViewProfileHover = styled.div`
   left: 0;
   padding: 8px 0;
 
-  background: ${background900};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  background: var(--color-blue10);
   border-radius: 100%;
   opacity: 0;
   transition: opacity 75ms linear;
-
-  font-size: 10px;
-  line-height: 20px;
-  text-align: center;
 `
 
 const IdentityArea = styled.div`
