@@ -7,7 +7,7 @@ import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
 import { shadow1dp } from '../material/shadows'
 import { colorTextSecondary } from '../styles/colors'
-import { HeadlineMedium, headlineMedium, TitleOld } from '../styles/typography'
+import { HeadlineMedium, headlineMedium, titleMedium } from '../styles/typography'
 import PlayerCard from './player-card'
 
 const LOADING_MESSAGES = [
@@ -188,7 +188,8 @@ const LOADING_MESSAGES = [
   'Building a bot to perfectly emulate SlayerS`BoxeR`',
 ]
 
-const LoadingMessageContent = styled(TitleOld)`
+const LoadingMessageContent = styled.div`
+  ${titleMedium};
   margin-top: 24px;
   color: ${colorTextSecondary};
 `

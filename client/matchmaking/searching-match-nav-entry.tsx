@@ -6,7 +6,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
 import { useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
-import { sofiaSans, TitleOld, titleSmall } from '../styles/typography'
+import { sofiaSans, titleSmall } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
 
 const SearchingContainer = styled.div`
@@ -17,7 +17,7 @@ const SearchingContainer = styled.div`
   height: 48px;
 `
 
-const SearchTitle = styled(TitleOld)`
+const SearchTitle = styled.div`
   ${sofiaSans};
   font-weight: 500;
   margin: 0 16px;

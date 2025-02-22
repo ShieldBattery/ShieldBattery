@@ -13,7 +13,7 @@ import { CheckBox } from '../material/check-box'
 import { TabItem, Tabs } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
 import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { Body1Old, SubheadingOld } from '../styles/typography'
+import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   addMatchmakingTime,
   deleteMatchmakingTime,
@@ -37,7 +37,8 @@ const LoadingArea = styled.div`
   margin: 16px 0;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.div`
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -223,7 +224,8 @@ const DateInput = styled.input`
   color: #000;
 `
 
-const InvalidDateInput = styled(Body1Old)`
+const InvalidDateInput = styled.div`
+  ${bodyMedium};
   margin-left: 16px;
   color: ${colorError};
 `

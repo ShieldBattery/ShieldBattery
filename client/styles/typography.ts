@@ -144,7 +144,7 @@ export const HeadlineLarge = styled.div`
 `
 
 export const displaySmall = css`
-  ${sofiaSans};
+  ${sofiaSansCondensed};
   font-size: 38px;
   font-weight: 400;
   line-height: 44px;
@@ -156,6 +156,7 @@ export const DisplaySmall = styled.div`
 `
 
 export const displayMedium = css`
+  ${sofiaSansCondensed};
   font-size: 47px;
   font-weight: 400;
   letter-spacing: 0px;
@@ -167,6 +168,7 @@ export const DisplayMedium = styled.div`
 `
 
 export const displayLarge = css`
+  ${sofiaSansCondensed};
   font-size: 59px;
   font-weight: 400;
   letter-spacing: 0px;
@@ -175,49 +177,4 @@ export const displayLarge = css`
 
 export const DisplayLarge = styled.div`
   ${displayLarge};
-`
-
-// =============================================================================
-// EVERYTHING BELOW HERE WILL BE DELETED SOON!!! DO NOT ADD MORE USAGES!!!
-// =============================================================================
-
-const textSizeSubheadOld = '16px'
-const textSizeTitleOld = '20px'
-const textSizeHeadlineOld = '24px'
-
-/**
- * @deprecated
- */
-export const HeadlineOld = styled.h3`
-  font-size: ${textSizeHeadlineOld};
-  font-weight: 400;
-  line-height: 32px;
-`
-
-/**
- * @deprecated
- */
-export const TitleOld = styled.h4`
-  font-size: ${textSizeTitleOld};
-  font-weight: 500;
-  letter-spacing: 0.005em;
-`
-
-/**
- * @deprecated
- */
-export const SubheadingOld = styled.h5`
-  font-size: ${textSizeSubheadOld};
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 24px;
-`
-
-/**
- * @deprecated
- */
-export const Body1Old = styled.span`
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 20px;
 `

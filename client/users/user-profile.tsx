@@ -28,7 +28,7 @@ import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
   bodySmall,
-  displaySmall,
+  headlineLarge,
   labelMedium,
   singleLine,
   titleLarge,
@@ -186,7 +186,7 @@ const UsernameAndTitle = styled.div`
 `
 
 const Username = styled.div`
-  ${displaySmall};
+  ${headlineLarge};
   ${singleLine};
   color: ${amberA400};
 `
