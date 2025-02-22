@@ -11,7 +11,7 @@ import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { Body1, Headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
+import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
 import { joinLobby, navigateToLobby } from './action-creators'
 
 const ListEntryRoot = styled.div`
@@ -68,15 +68,15 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
   return (
     <ListEntryRoot onClick={() => onClick(lobby)}>
       <Info>
-        <Headline6>{lobby.name}</Headline6>
-        <Subtitle2>{lobby.host.name}</Subtitle2>
-        <Body1>{gameTypeToLabel(lobby.gameType, t)}</Body1>
-        <Body1>
+        <TitleLarge>{lobby.name}</TitleLarge>
+        <TitleMedium>{lobby.host.name}</TitleMedium>
+        <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
+        <BodyMedium>
           {t('lobbies.joinLobby.openSlotCount', {
             defaultValue: '{{count}} slots open',
             count: lobby.openSlotCount,
           })}
-        </Body1>
+        </BodyMedium>
       </Info>
       <MapPreview>
         <MapThumbnail map={lobby.map} showMapName={true} />
@@ -144,9 +144,9 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
     if (!list.size) {
       return (
         <div>
-          <Subtitle1>
+          <BodyLarge>
             {t('lobbies.joinLobby.noActiveLobbies', 'There are no active lobbies')}
-          </Subtitle1>
+          </BodyLarge>
         </div>
       )
     }
@@ -159,7 +159,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
             <ListEntry key={name} lobby={byName.get(name)} onClick={handleLobbyClick} />
           ))
         ) : (
-          <Subtitle1>{t('lobbies.joinLobby.noOpenLobbies', 'There are no open lobbies')}</Subtitle1>
+          <BodyLarge>{t('lobbies.joinLobby.noOpenLobbies', 'There are no open lobbies')}</BodyLarge>
         )}
       </div>
     )
@@ -168,7 +168,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
   return (
     <Container>
       <TitleBar>
-        <Headline5>{t('lobbies.joinLobby.title', 'Join Lobby')}</Headline5>
+        <TitleLarge>{t('lobbies.joinLobby.title', 'Join Lobby')}</TitleLarge>
         <FlexSpacer />
         {IS_ELECTRON ? (
           <RaisedButton

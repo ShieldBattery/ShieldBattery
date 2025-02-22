@@ -25,17 +25,24 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
-import { body1, body2, caption, headline4, singleLine, subtitle1 } from '../styles/typography'
+import {
+  bodyLarge,
+  bodyMedium,
+  bodySmall,
+  headlineMedium,
+  singleLine,
+  titleSmall,
+} from '../styles/typography'
 import { searchMatchHistory } from './action-creators'
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorTextFaint};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorError};
 `
@@ -151,7 +158,7 @@ const PlayersCell = styled(BaseCell)`
 `
 
 const GameLengthCell = styled(BaseCell)`
-  ${headline4};
+  ${headlineMedium};
   width: 128px;
 
   display: flex;
@@ -168,7 +175,7 @@ const MapAndGameTypeCell = styled(BaseCell)`
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
-  ${headline4};
+  ${headlineMedium};
   color: ${props => {
     switch (props.$result) {
       case 'win':
@@ -183,7 +190,7 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
 `
 
 const GameDate = styled.div`
-  ${caption};
+  ${bodySmall};
   ${singleLine};
   color: ${colorTextSecondary};
 `
@@ -196,7 +203,7 @@ const MapNameAndGameTypeContainer = styled.div`
 `
 
 const MapName = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   min-width: 0;
@@ -204,7 +211,7 @@ const MapName = styled.div`
 `
 
 const GameType = styled.div`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
   color: ${colorTextSecondary};
 

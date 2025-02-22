@@ -8,7 +8,7 @@ import { IconButton } from '../material/button'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { colorError } from '../styles/colors'
-import { caption } from '../styles/typography'
+import { bodySmall } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
 
 const Container = styled.header`
@@ -48,7 +48,7 @@ const StyledIconButton = styled(IconButton)`
 `
 
 const DevIndicator = styled.div`
-  ${caption};
+  ${bodySmall};
 
   width: 80px;
   height: 16px;
@@ -74,7 +74,7 @@ const StyledLockup = styled(Lockup)`
 `
 
 const VersionTextRoot = styled.div`
-  ${caption};
+  ${bodySmall};
 
   color: var(--theme-on-surface-variant);
   letter-spacing: 1.25px;

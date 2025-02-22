@@ -10,7 +10,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
-import { body1, body2, caption } from '../styles/typography'
+import { bodyMedium, bodySmall, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`
@@ -32,7 +32,7 @@ const StyledTooltip = styled(Tooltip)`
 // pleasing way. We effectively pad everything and then push the timestamps into the padding. By
 // doing this we also ensure copy+paste looks decent (instead of on separate lines)
 const Timestamp = styled.span`
-  ${caption};
+  ${bodySmall};
   width: 72px;
   display: inline-block;
   /** 8px when we add 1px for the separator */
@@ -57,7 +57,7 @@ export const MessageTimestamp = (props: MessageTimestampProps) => (
 )
 
 const messageContainerBase = css`
-  ${body1};
+  ${bodyMedium};
 
   width: 100%;
   position: relative;
@@ -69,7 +69,7 @@ const messageContainerBase = css`
 
 const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean }>`
   ${messageContainerBase};
-  ${body1};
+  ${bodyMedium};
 
   padding: 4px 8px 4px 72px;
 
@@ -146,7 +146,7 @@ export const SystemMessage = styled(TimestampMessageLayout)`
 `
 
 export const SystemImportant = styled.span`
-  ${body2};
+  ${titleSmall};
   color: ${blue100};
   line-height: inherit;
 `
@@ -188,7 +188,7 @@ export const InfoMessageLayout = (props: InfoMessageLayoutProps) => {
 }
 
 export const InfoImportant = styled.span`
-  ${body2};
+  ${titleSmall};
   color: ${colorTextSecondary};
   line-height: inherit;
 `

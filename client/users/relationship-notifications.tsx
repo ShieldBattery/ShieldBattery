@@ -10,7 +10,7 @@ import { ActionableNotification, ActionlessNotification } from '../notifications
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { blue300 } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { titleSmall } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
 const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 })`
@@ -19,7 +19,7 @@ const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 
 `
 
 const Username = styled.span`
-  ${body2};
+  ${titleSmall};
 `
 
 export interface FriendRequestNotificationUiProps {

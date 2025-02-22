@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, singleLine } from '../styles/typography'
 
 export const InputBase = styled.div<{
   $floatingLabel?: boolean
@@ -11,7 +11,7 @@ export const InputBase = styled.div<{
   $leadingIconsLength?: number
   $trailingIconsLength?: number
 }>`
-  ${subtitle1};
+  ${bodyLarge};
   flex-grow: 1;
   order: 2;
   width: 100%;

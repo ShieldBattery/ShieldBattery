@@ -16,7 +16,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { background700, background800, colorError } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { MenuItemCategory } from '../users/user-context-menu'
 import {
   activateChannel,
@@ -244,12 +244,12 @@ const ErrorContainer = styled.div`
 `
 
 const ChannelName = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-bottom: 8px;
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 

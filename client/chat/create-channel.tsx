@@ -14,7 +14,7 @@ import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
-import { headline4, subtitle1 } from '../styles/typography'
+import { bodyLarge, headlineMedium } from '../styles/typography'
 import { joinChannel, navigateToChannel } from './action-creators'
 
 const CreateChannelRoot = styled.div`
@@ -26,11 +26,11 @@ const CreateChannelRoot = styled.div`
 `
 
 const Title = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 

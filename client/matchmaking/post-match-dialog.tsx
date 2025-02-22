@@ -34,12 +34,11 @@ import { startReplay } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import {
-  caption,
-  headline4,
-  headline5,
-  headline6,
-  overline,
+  bodySmall,
+  headlineMedium,
+  labelMedium,
   singleLine,
+  titleLarge,
 } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
@@ -58,7 +57,7 @@ const Content = styled.div`
 `
 
 const SideOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   text-align: center;
   overflow-x: hidden;
@@ -444,7 +443,7 @@ function RatedUserContent({
 }
 
 const DeltaItemRoot = styled.div`
-  ${headline4};
+  ${headlineMedium};
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -462,7 +461,7 @@ const DeltaValue = styled.div`
 `
 
 const DeltaLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   color: ${colorTextSecondary};
 `
 
@@ -489,7 +488,7 @@ function DeltaItem({
 }
 
 const LeagueDeltaRoot = styled.div`
-  ${headline5};
+  ${titleLarge};
   display: flex;
   align-items: center;
   gap: 16px;
@@ -533,7 +532,7 @@ const StyledDivisionIcon = styled(DivisionIcon)`
 `
 
 const RankLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   padding-top: 8px;
   text-align: center;
@@ -626,7 +625,7 @@ const PointsLabelMover = styled.div`
 `
 
 const PointsLabel = styled.div`
-  ${caption};
+  ${bodySmall};
   position: absolute;
   transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
 `

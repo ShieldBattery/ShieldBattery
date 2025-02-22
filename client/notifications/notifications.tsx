@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { colorDividers } from '../styles/colors'
-import { body1 } from '../styles/typography'
+import { bodyMedium } from '../styles/typography'
 
 const Container = styled.div<{ $read: boolean }>`
   position: relative;
@@ -27,7 +27,7 @@ const TextContainer = styled.div`
   margin-left: 16px;
   margin-right: 16px;
 
-  ${body1};
+  ${bodyMedium};
   flex-grow: 1;
 `
 

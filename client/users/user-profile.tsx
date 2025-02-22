@@ -26,13 +26,13 @@ import {
 } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
-  Subtitle2,
-  caption,
-  headline3,
-  headline6,
-  overline,
+  bodyLarge,
+  bodySmall,
+  displaySmall,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
+  TitleMedium,
 } from '../styles/typography'
 import {
   correctUsernameForProfile,
@@ -56,7 +56,7 @@ const Container = styled.div`
 `
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 40px;
   margin-bottom: 48px;
@@ -186,7 +186,7 @@ const UsernameAndTitle = styled.div`
 `
 
 const Username = styled.div`
-  ${headline3};
+  ${displaySmall};
   ${singleLine};
   color: ${amberA400};
 `
@@ -263,7 +263,7 @@ export function UserProfilePage({
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
-          <Subtitle2>{title}</Subtitle2>
+          <TitleMedium>{title}</TitleMedium>
         </UsernameAndTitle>
       </TopSection>
 
@@ -297,7 +297,7 @@ export function UserProfilePage({
 }
 
 const SectionOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   color: ${colorTextFaint};
   margin: 12px 24px;
@@ -333,7 +333,7 @@ const TotalGamesSpacer = styled.div`
 `
 
 const EmptyListText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin: 0 24px;
   color: ${colorTextFaint};
 `
@@ -461,12 +461,12 @@ const RaceCircleIcon = styled(RaceIcon)`
 `
 
 const TotalGamesText = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
 `
 
 const WinLossText = styled.div`
-  ${caption};
+  ${bodySmall};
   color: ${colorTextSecondary};
 `
 

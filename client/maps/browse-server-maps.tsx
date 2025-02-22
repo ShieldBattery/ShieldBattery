@@ -20,7 +20,7 @@ import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Headline5, Subtitle1, subtitle1 } from '../styles/typography'
+import { bodyLarge, BodyLarge, TitleLarge } from '../styles/typography'
 import {
   clearMapsList,
   getMapPreferences,
@@ -66,14 +66,14 @@ const ContentsBody = styled.div`
 `
 
 const SectionHeader = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorTextSecondary};
   margin-top: 24px;
   margin-bottom: 16px;
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -392,7 +392,7 @@ export function BrowseServerMaps({
       return (
         <>
           <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
-          <Subtitle1>{text}</Subtitle1>
+          <BodyLarge>{text}</BodyLarge>
         </>
       )
     }
@@ -416,7 +416,7 @@ export function BrowseServerMaps({
   return (
     <Container>
       <TitleBar>
-        <Headline5>{title}</Headline5>
+        <TitleLarge>{title}</TitleLarge>
       </TitleBar>
       <TabArea>
         <Tabs activeTab={activeTab} onChange={onTabChange}>

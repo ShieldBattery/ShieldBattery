@@ -14,7 +14,7 @@ import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { amberA400, dialogScrim } from '../styles/colors'
-import { Body1, Subtitle1 } from '../styles/typography'
+import { BodyLarge, BodyMedium } from '../styles/typography'
 import {
   UpdateProgress,
   UpdateStateChangeHandler,
@@ -135,7 +135,7 @@ export function UpdateDialog({
   let content = <span />
   if (hasDownloadError) {
     content = (
-      <Subtitle1>
+      <BodyLarge>
         <Trans t={t} i18nKey='clientUpdate.overlay.errorBody'>
           There was an error downloading the update. Please restart and try again, or visit{' '}
           <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
@@ -143,18 +143,18 @@ export function UpdateDialog({
           </a>{' '}
           to download the latest version.
         </Trans>
-      </Subtitle1>
+      </BodyLarge>
     )
   } else if (readyToInstall) {
     content = (
       <Content>
-        <Subtitle1>
+        <BodyLarge>
           {t(
             'clientUpdate.overlay.newUpdateReady',
             'A new update has been downloaded and is ready to install. ' +
               'Please restart the application to continue.',
           )}
-        </Subtitle1>
+        </BodyLarge>
         <RaisedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
           label={t('clientUpdate.overlay.restartNow', 'Restart now')}
@@ -164,13 +164,13 @@ export function UpdateDialog({
   } else if (hasUpdate) {
     content = (
       <Content>
-        <Subtitle1>
+        <BodyLarge>
           {t(
             'clientUpdate.overlay.newUpdateDownloading',
             'A new update is being downloaded. ' +
               'Please wait for the download to complete in order to continue.',
           )}
-        </Subtitle1>
+        </BodyLarge>
         {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>
     )
@@ -223,12 +223,12 @@ function UpdateProgressUi({ progress }: { progress: UpdateProgress }) {
       <ProgressBar>
         <FilledProgressBar $filledScale={bytesTransferred / totalBytes} />
       </ProgressBar>
-      <Body1>
+      <BodyMedium>
         <Trans t={t} i18nKey='clientUpdate.overlay.progress'>
           {{ transferred: prettyBytesTransferred }} / {{ total: prettyTotalBytes }} at{' '}
           {{ perSecond: prettyBytesPerSecond }}/s
         </Trans>
-      </Body1>
+      </BodyMedium>
     </ProgressContainer>
   )
 }

@@ -6,7 +6,7 @@ import { LeagueId, LeagueJson } from '../../common/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
 import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
-import { headline3 } from '../styles/typography'
+import { displaySmall } from '../styles/typography'
 
 const badgeCommon = css`
   width: 40px;
@@ -31,7 +31,7 @@ const PlaceholderTextContainer = styled.div`
 `
 
 const PlaceholderText = styled.div`
-  ${headline3};
+  ${displaySmall};
   font-size: 28px;
   line-height: 40px;
 `

@@ -9,7 +9,7 @@ import {
   colorTextPrimary,
   THEME_CSS,
 } from './colors'
-import { body1 } from './typography'
+import { bodyMedium } from './typography'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {
@@ -24,7 +24,7 @@ const GlobalStyle = createGlobalStyle`
 
   html {
     ${THEME_CSS};
-    ${body1};
+    ${bodyMedium};
 
     font-family: Inter, sans-serif;
     font-optical-sizing: auto;
@@ -56,6 +56,7 @@ const GlobalStyle = createGlobalStyle`
   #app > div {
     width: 100%;
     height: calc(100% - var(--sb-system-bar-height, 0px));
+    overflow: hidden;
   }
 
   [disabled] {

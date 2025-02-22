@@ -12,7 +12,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle1, body1, subtitle1 } from '../styles/typography'
+import { BodyLarge, bodyLarge, bodyMedium } from '../styles/typography'
 import { reportBug } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
@@ -26,12 +26,12 @@ const Layout = styled.div`
 `
 
 const LogUploadDescription = styled.div`
-  ${body1};
+  ${bodyMedium};
   color: ${colorTextSecondary};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   color: ${colorError};
 `
 
@@ -115,13 +115,13 @@ export function BugReportDialog(props: CommonDialogProps) {
             </ErrorText>
           ) : undefined}
 
-          <Subtitle1>
+          <BodyLarge>
             {t(
               'bugReport.detailsDescription',
               'Please describe the bug and provide as much detail as possible about what you ' +
                 'were doing when the bug occurred.',
             )}
-          </Subtitle1>
+          </BodyLarge>
           <TextField
             {...bindInput('details')}
             multiline={true}

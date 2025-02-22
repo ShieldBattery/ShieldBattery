@@ -29,7 +29,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { Caption, caption, headline6, singleLine } from '../styles/typography'
+import { BodySmall, bodySmall, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 
@@ -77,7 +77,7 @@ const NameAndTopicContainer = styled.div`
 `
 
 const ChannelName = styled.div`
-  ${headline6};
+  ${titleLarge};
   flex-shrink: 0;
 `
 
@@ -92,7 +92,7 @@ const StyledTooltipContent = styled(TooltipContent)`
 `
 
 const ChannelTopic = styled.div`
-  ${caption};
+  ${bodySmall};
   ${singleLine};
   color: ${colorTextFaint};
 
@@ -295,7 +295,7 @@ export function ChannelHeader({
       <ActionsArea>
         <UserCountContainer>
           <MaterialIcon icon='groups' size={20} />
-          <Caption>{detailedChannelInfo.userCount}</Caption>
+          <BodySmall>{detailedChannelInfo.userCount}</BodySmall>
         </UserCountContainer>
         {actions.length > 0 ? (
           <StyledIconButton

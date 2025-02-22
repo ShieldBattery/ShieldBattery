@@ -14,7 +14,7 @@ import {
   colorDividers,
   colorTextSecondary,
 } from '../styles/colors'
-import { headline1, headline4, headline5 } from '../styles/typography'
+import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 import { TopLinks } from './top-links'
 
@@ -57,7 +57,7 @@ const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, 
 `
 
 const QuestionText = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin: 0;
   display: inline-block;
 
@@ -71,7 +71,7 @@ const QuestionText = styled.div`
 `
 
 const AnswerText = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin: 8px 0 0 80px;
 
   color: ${colorTextSecondary};
@@ -201,7 +201,7 @@ const FaqHeaderContainer = styled.div`
 `
 
 const FaqHeader = styled.div`
-  ${headline1};
+  ${displayLarge};
   width: 100%;
   max-width: 464px;
   margin: 0;
@@ -230,7 +230,7 @@ const FaqToc = styled.div`
 `
 
 const FaqTitle = styled.div`
-  ${headline4}
+  ${headlineMedium}
 `
 
 export function Faq() {

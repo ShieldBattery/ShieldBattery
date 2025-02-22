@@ -27,7 +27,13 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { body2, caption, headline4, overline, singleLine } from '../styles/typography'
+import {
+  bodySmall,
+  headlineMedium,
+  labelMedium,
+  singleLine,
+  titleSmall,
+} from '../styles/typography'
 import { changeSettingsSubPage, closeSettings } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
@@ -120,7 +126,7 @@ const NavContainer = styled.div`
 `
 
 const NavSectionTitle = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 36px;
@@ -241,7 +247,7 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
 `
 
 const NavEntryText = styled(SettingsSubPageTitle)`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   height: 100%;
@@ -322,7 +328,7 @@ const TitleBar = styled.div`
 `
 
 const Title = styled(SettingsSubPageTitle)`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const CloseButton = styled(IconButton)`
@@ -337,7 +343,7 @@ const CloseButton = styled(IconButton)`
 `
 
 const LabeledCloseButton = styled.div`
-  ${caption};
+  ${bodySmall};
   display: flex;
   flex-direction: column;
   gap: 4px;

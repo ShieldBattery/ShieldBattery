@@ -8,7 +8,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { getUserRankingHistory } from './action-creators'
 import { UserRankDisplay } from './user-rank-display'
 
@@ -21,13 +21,13 @@ const Container = styled.div`
 `
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorTextFaint};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorError};
 `
@@ -104,7 +104,7 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
 }
 
 const SeasonHeader = styled.div`
-  ${headline6};
+  ${titleLarge};
   color: ${colorTextPrimary};
   margin-bottom: 16px;
 `

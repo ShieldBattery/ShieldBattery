@@ -16,7 +16,7 @@ import { ThunkAction } from '../../dispatch-registry'
 import { RaisedButton } from '../../material/button'
 import { DestructiveMenuItem } from '../../material/menu/item'
 import { ChatContext, ChatContextValue } from '../../messaging/chat'
-import MessageList from '../../messaging/message-list'
+import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
@@ -27,7 +27,7 @@ import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
 import { background700, background800, colorError } from '../../styles/colors'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { headline6, subtitle1 } from '../../styles/typography'
+import { bodyLarge, titleLarge } from '../../styles/typography'
 import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
 import { renderChannelMessage } from '../channel'
 import { ChannelUserList } from '../channel-user-list'
@@ -109,7 +109,7 @@ const ChannelHeaderContainer = styled.div`
 `
 
 const ChannelHeadline = styled.div`
-  ${headline6};
+  ${titleLarge};
 `
 
 const ChannelContainer = styled.div`
@@ -129,7 +129,7 @@ const StyledMessageList = styled(MessageList)`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
   color: ${colorError};
 `

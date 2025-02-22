@@ -17,7 +17,7 @@ import {
   colorSuccess,
   colorTextSecondary,
 } from '../styles/colors'
-import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
   const permissions = useSelfPermissions()
@@ -214,7 +214,7 @@ const HeadlineContainer = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const Content = styled.div`
@@ -268,7 +268,7 @@ const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
 `
 
 const SectionTitle = styled.div`
-  ${overline};
+  ${labelMedium};
   color: ${colorTextSecondary};
 
   padding: 4px 0;
@@ -279,11 +279,11 @@ const StyledLoadingIndicator = styled(LoadingIndicator)`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1}
+  ${bodyLarge}
   color: ${colorError};
 `
 
 const WarningText = styled.p`
-  ${subtitle1}
+  ${bodyLarge}
   color: ${amberA400};
 `

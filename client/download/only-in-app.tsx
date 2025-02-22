@@ -4,10 +4,10 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Message = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-top: 24px;
   text-align: center;
 `
@@ -18,7 +18,7 @@ const InstallerLinks = styled.div`
 `
 
 const InstallerButtonLabel = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   height: 48px;
   display: flex;
   align-items: center;
