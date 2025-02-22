@@ -25,6 +25,7 @@ export function MapsRoot() {
     setUploadedMap(map)
   })
 
+  // FIXME: missing overflow menu + such
   return (
     <CenteredContentContainer>
       {IS_ELECTRON && browsingLocalMaps ? (
