@@ -11,14 +11,25 @@ export const sofiaSans = css`
   font-optical-sizing: auto;
 `
 
-// FIXME: Update these to 2025 typescale
+export const labelSmall = css`
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  line-height: 16px;
+`
 
-export const buttonText = css`
+export const labelMedium = css`
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  line-height: 16px;
+`
+
+export const labelLarge = css`
   font-size: 14px;
   font-weight: 500;
-  letter-spacing: 1.4px;
-  line-height: 36px;
-  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 20px;
 `
 
 export const headline1 = css`
