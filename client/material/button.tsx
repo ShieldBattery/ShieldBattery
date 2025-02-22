@@ -11,7 +11,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { buttonText } from '../styles/typography'
+import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple, RippleController } from './ripple'
@@ -19,7 +19,7 @@ import { shadowDef4dp, shadowDef8dp } from './shadow-constants'
 import { shadow2dp } from './shadows'
 
 export const Label = styled.span`
-  ${buttonText};
+  ${labelLarge};
   display: flex;
   justify-content: center;
   align-items: center;

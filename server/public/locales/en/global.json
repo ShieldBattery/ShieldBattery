@@ -219,8 +219,10 @@
   "clientDownload": {
     "andMore": "And more!",
     "blurb": "Download the ShieldBattery client to:",
+    "download": "Download",
     "downloadClient": "Download client",
     "exploreMaps": "Explore maps",
+    "onlyInApp": "This feature is only available in the app.",
     "playGames": "Play games",
     "supportProjectText": "Want to support the project?",
     "watchReplays": "Watch replays"
@@ -778,16 +780,9 @@
     },
     "leftNav": {
       "chatChannels": "Chat channels",
-      "customGame": "Custom game",
-      "gameInProgress": "Game in progress…",
-      "home": "Home",
       "joinChannel": "Join a channel (Alt + H)",
       "loadingChannel": "Loading…",
-      "loadingGame": "Loading…",
-      "lobby": "Lobby",
-      "logIn": "Log in",
       "logOut": "Log out",
-      "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
       "startWhisper": "Start a whisper (Alt + W)",
       "viewChangelog": "View changelog",
@@ -1122,8 +1117,7 @@
       "title": {
         "addFriends": "Add friends",
         "friends": "Friends"
-      },
-      "tooltip": "Friends (Alt + E)"
+      }
     },
     "profile": {
       "achievements": "Achievements",

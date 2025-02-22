@@ -1,10 +1,10 @@
 import React from 'react'
+import { OnlyInApp } from '../download/only-in-app'
 
 const LoadableLocalReplays = React.lazy(async () => ({
   default: (await import('./browse-local-replays')).BrowseLocalReplays,
 }))
 
 export function ReplaysRoot() {
-  // FIXME: Implement the web experience
-  return IS_ELECTRON ? <LoadableLocalReplays /> : <div>Only in app, download</div>
+  return IS_ELECTRON ? <LoadableLocalReplays /> : <OnlyInApp />
 }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
+import { OnlyInApp } from '../download/only-in-app'
 import { CreateLobby } from '../lobbies/create-lobby'
 import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
@@ -121,7 +122,7 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
 }
 
 function Matchmaking() {
-  return IS_ELECTRON ? <FindMatch /> : <div>FIXME: only available in app, download</div>
+  return IS_ELECTRON ? <FindMatch /> : <OnlyInApp />
 }
 
 function Lobbies() {
