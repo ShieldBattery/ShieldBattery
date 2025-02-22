@@ -11,9 +11,6 @@ export function ProfileRouteComponent(props: { params: any }) {
   )
 
   if (!matches) {
-    queueMicrotask(() => {
-      replace('/')
-    })
     return null
   }
   const userIdNum = Number(params!.userId)

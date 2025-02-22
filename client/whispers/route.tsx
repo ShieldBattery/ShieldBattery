@@ -10,9 +10,6 @@ export function WhisperRouteComponent(props: { params: any }) {
   )
 
   if (!matches) {
-    queueMicrotask(() => {
-      replace('/')
-    })
     return null
   }
   const targetIdNum = Number(params!.targetId)
