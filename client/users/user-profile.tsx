@@ -50,6 +50,7 @@ const LoadableAdminUserPage = React.lazy(async () => ({
 }))
 
 const Container = styled.div`
+  width: 100%;
   max-width: 960px;
   /* 12px + 24px from tab = 36px from left */
   padding: 24px 12px;
