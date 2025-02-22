@@ -5,6 +5,7 @@ import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
+import { urlPath } from '../../common/urls'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
@@ -330,14 +331,7 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
-            onClick={() =>
-              dispatch(
-                openOverlay({
-                  type: ActivityOverlayType.Lobby,
-                  initData: { creating: true, initName: routeLobby },
-                }),
-              )
-            }
+            onClick={() => push(urlPath`/play/lobbies/create/${routeLobby}`)}
           />
         </StateMessageLayout>
       )
