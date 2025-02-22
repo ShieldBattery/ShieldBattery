@@ -62,6 +62,7 @@ const SlotsCard = styled(Card)`
 `
 
 const ContentArea = styled.div`
+  width: 100%;
   max-width: 1140px;
   height: 100%;
   padding: 0 16px;

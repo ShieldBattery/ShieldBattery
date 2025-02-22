@@ -100,7 +100,7 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfo
     )
   }
 
-  // FIXME: add back button if needed (always?)
+  // TODO(tec27): add back button if needed (always?)
   return (
     <FileBrowser
       browserType={FileBrowserType.Maps}

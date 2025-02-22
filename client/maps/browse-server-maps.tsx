@@ -412,7 +412,7 @@ export function BrowseServerMaps({
 
   const hasMoreMaps = mapsState.total === -1 || mapsState.total > mapsState.byId.size
 
-  // FIXME: Add back button if needed
+  // TODO(tec27): Add back button if needed
   return (
     <Container>
       <TitleBar>

@@ -1,8 +1,16 @@
 import { debounce } from 'lodash-es'
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import {
   ALL_GAME_TYPES,
@@ -17,6 +25,8 @@ import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { BrowseLocalMaps } from '../maps/browse-local-maps'
+import { BrowseServerMaps } from '../maps/browse-server-maps'
 import { MapSelect } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { RaisedButton, TextButton } from '../material/button'
@@ -27,7 +37,7 @@ import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useValueAsRef } from '../state-hooks'
+import { useStableCallback, useValueAsRef } from '../state-hooks'
 import { headline5, subtitle1 } from '../styles/typography'
 import {
   createLobby,
@@ -52,9 +62,11 @@ const Title = styled.div`
   padding: 8px 16px 0;
 `
 
-const Contents = styled.div<{ $disabled: boolean }>`
+const Contents = styled.div<{ $disabled: boolean; $hidden: boolean }>`
   position: relative;
   flex-grow: 1;
+
+  display: ${props => (props.$hidden ? 'none' : 'block')};
 
   contain: strict;
   overflow-y: ${props => (props.$disabled ? 'hidden' : 'auto')};
@@ -64,8 +76,9 @@ const ContentsBody = styled.div`
   padding: 12px 24px;
 `
 
-const Actions = styled.div`
+const Actions = styled.div<{ $hidden: boolean }>`
   position: relative;
+  display: ${props => (props.$hidden ? 'none' : 'block')};
   padding: 16px 24px;
 `
 
@@ -118,7 +131,7 @@ interface CreateLobbyFormProps {
   model: CreateLobbyModel
   onSubmit: (model: CreateLobbyModel) => void
   onValidatedChange: (model: CreateLobbyModel) => void
-  onMapBrowse: () => void
+  onMapBrowse: (onMapSelect: (mapId: string) => void) => void
   quickMaps: ReadonlyArray<string>
 }
 
@@ -145,6 +158,15 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
     const gameType = getInputValue('gameType')
 
     const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
+
+    console.log('rendered with selectedMap: ' + selectedMap)
+
+    const onBrowseClick = useStableCallback(() => {
+      onMapBrowse(mapId => {
+        setInputValue('selectedMap', mapId)
+        console.log('selected map: ' + mapId)
+      })
+    })
 
     useEffect(() => {
       if (!selectedMapInfo || !isTeamType(gameType)) return
@@ -256,7 +278,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
           {...bindCustom('selectedMap')}
           quickMaps={quickMaps}
           disabled={disabled}
-          onMapBrowse={onMapBrowse}
+          onMapBrowse={onBrowseClick}
         />
 
         <AdvancedSettings>
@@ -295,12 +317,20 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
 )
 
 export interface CreateLobbyProps {
-  initName?: string
-  mapId?: string
   onNavigateToList: () => void
 }
 
+enum MapBrowseState {
+  None,
+  Server,
+  Local,
+}
+
 export function CreateLobby(props: CreateLobbyProps) {
+  const [routeMatches, routeParams] = useRoute('/play/lobbies/create/:name?')
+  const routeName =
+    routeMatches && routeParams.name ? decodeURIComponent(routeParams.name) : undefined
+
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
@@ -314,57 +344,62 @@ export function CreateLobby(props: CreateLobbyProps) {
   const storeSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const storeRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
-  const initialMapId = props.mapId
-  const initialName = props.initName ?? prefsName ?? ''
+  const initialName = routeName ?? prefsName ?? ''
 
-  const selectedMap = initialMapId ?? storeSelectedMap
   const model = useMemo(
     () =>
       ({
         name: initialName,
         gameType: gameType ?? 'melee',
         gameSubType,
-        selectedMap,
+        selectedMap: storeSelectedMap,
         turnRate: turnRate ?? null,
         useLegacyLimits: useLegacyLimits ?? false,
       }) satisfies CreateLobbyModel,
-    [initialName, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits],
+    [initialName, gameType, gameSubType, storeSelectedMap, turnRate, useLegacyLimits],
   )
 
-  const recentMaps = useMemo(() => {
-    const initialList = initialMapId ? [initialMapId] : []
-    return initialList.concat(storeRecentMaps.toArray().filter(m => m !== initialMapId)).slice(0, 5)
-  }, [storeRecentMaps, initialMapId])
+  const [recentMaps, setRecentMaps] = useState(() => storeRecentMaps.toArray().slice(0, 5))
   const recentMapsRef = useValueAsRef(recentMaps)
 
   const formRef = useRef<CreateLobbyFormHandle>(null)
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
-  const onCreateClick = useCallback(() => {
+  const [browsingMaps, setBrowsingMaps] = useState(MapBrowseState.None)
+  const mapSelectCallbackRef = useRef<(mapId: string) => void>()
+
+  const onCreateClick = useStableCallback(() => {
     formRef.current?.submit()
-  }, [])
-  const onMapSelect = useCallback(
-    (map: ReadonlyDeep<MapInfoJson>) => {
-      // FIXME
-      // dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { map, creating: true } }))
-    },
-    [dispatch],
+  })
+  const onMapBrowse = useStableCallback((mapSelectCallback: (mapId: string) => void) => {
+    mapSelectCallbackRef.current = mapSelectCallback
+    setBrowsingMaps(MapBrowseState.Server)
+  })
+  const onBrowseLocalMaps = useStableCallback(() => {
+    setBrowsingMaps(MapBrowseState.Local)
+  })
+  const onMapSelect = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
+    mapSelectCallbackRef.current?.(map.id)
+    mapSelectCallbackRef.current = undefined
+
+    const newRecentMaps = [map.id]
+      .concat(recentMapsRef.current.filter(m => m !== map.id))
+      .slice(0, 5)
+    setRecentMaps(newRecentMaps)
+    setBrowsingMaps(MapBrowseState.None)
+  })
+
+  const debouncedSavePrefrencesRef = useRef(
+    debounce((model: CreateLobbyModel) => {
+      dispatch(
+        updateLobbyPreferences({
+          ...model,
+          turnRate: model.turnRate !== null ? model.turnRate : undefined,
+          recentMaps: recentMapsRef.current,
+        }),
+      )
+    }, 200),
   )
-  const onMapBrowse = useCallback(() => {
-    // FIXME
-    /*
-    dispatch(
-      openOverlay({
-        type: ActivityOverlayType.BrowseServerMaps,
-        initData: {
-          title: t('lobbies.createLobby.selectMap', 'Select map'),
-          onMapSelect,
-          onMapUpload: onMapSelect,
-        },
-      }),
-    )
-    */
-  }, [dispatch, t, onMapSelect])
   const onSubmit = useCallback(
     (model: CreateLobbyModel) => {
       const { name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits } = model
@@ -381,6 +416,8 @@ export function CreateLobby(props: CreateLobbyProps) {
         }),
       )
 
+      debouncedSavePrefrencesRef.current.cancel()
+
       // Move the hosted map to the front of the recent maps list
       const orderedRecentMaps = recentMapsRef.current.filter(m => m !== selectedMap).slice(0, 4)
       orderedRecentMaps.unshift(selectedMap!)
@@ -396,18 +433,6 @@ export function CreateLobby(props: CreateLobbyProps) {
       navigateToLobby(name)
     },
     [dispatch, recentMapsRef],
-  )
-
-  const debouncedSavePrefrencesRef = useRef(
-    debounce((model: CreateLobbyModel) => {
-      dispatch(
-        updateLobbyPreferences({
-          ...model,
-          turnRate: model.turnRate !== null ? model.turnRate : undefined,
-          recentMaps: recentMapsRef.current,
-        }),
-      )
-    }, 200),
   )
   const onValidatedChange = useCallback((model: CreateLobbyModel) => {
     debouncedSavePrefrencesRef.current(model)
@@ -428,10 +453,28 @@ export function CreateLobby(props: CreateLobbyProps) {
           iconStart={<MaterialIcon icon='arrow_back' />}
           onClick={props.onNavigateToList}
         />
-        <Title>{t('lobbies.createLobby.title', 'Create lobby')}</Title>
-        <ScrollDivider $show={!isAtTop} $showAt='bottom' />
+        {browsingMaps === MapBrowseState.None ? (
+          <>
+            <Title>{t('lobbies.createLobby.title', 'Create lobby')}</Title>
+            <ScrollDivider $show={!isAtTop} $showAt='bottom' />
+          </>
+        ) : undefined}
       </TitleBar>
-      <Contents $disabled={isDisabled}>
+      {browsingMaps === MapBrowseState.Server ? (
+        <BrowseServerMaps
+          title={t('lobbies.createLobby.selectMap', 'Select map')}
+          onMapSelect={onMapSelect}
+          onBrowseLocalMaps={onBrowseLocalMaps}
+        />
+      ) : undefined}
+      {browsingMaps === MapBrowseState.Local ? (
+        <BrowseLocalMaps onMapSelect={onMapSelect} />
+      ) : undefined}
+      {/*
+          NOTE(tec27): We use display: none on these instead of just not rendering them so they
+          maintain state while hidden
+        */}
+      <Contents $disabled={isDisabled} $hidden={browsingMaps !== MapBrowseState.None}>
         {topElem}
         <ContentsBody>
           {!isRequesting && hasLoaded ? (
@@ -450,7 +493,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         </ContentsBody>
         {bottomElem}
       </Contents>
-      <Actions>
+      <Actions $hidden={browsingMaps !== MapBrowseState.None}>
         <ScrollDivider $show={!isAtBottom} $showAt='top' />
         <RaisedButton
           label={t('lobbies.createLobby.title', 'Create lobby')}
