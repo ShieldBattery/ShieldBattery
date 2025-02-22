@@ -9,13 +9,12 @@ import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
-import { blue300 } from '../styles/colors'
 import { titleSmall } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
 const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 })`
   flex-shrink: 0;
-  color: ${blue300};
+  color: var(--color-blue80);
 `
 
 const Username = styled.span`
@@ -109,7 +108,7 @@ export const FriendRequestNotificationUi = React.memo(
 
 const ColoredFriendStartIcon = styled(MaterialIcon).attrs({ icon: 'group', size: 36 })`
   flex-shrink: 0;
-  color: ${blue300};
+  color: var(--color-blue80);
 `
 
 export interface FriendStartNotificationUiProps {

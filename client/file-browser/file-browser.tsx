@@ -14,7 +14,7 @@ import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { blue800, colorError, colorTextFaint } from '../styles/colors'
+import { colorError, colorTextFaint } from '../styles/colors'
 import { TitleLarge, bodyLarge } from '../styles/typography'
 import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
@@ -58,7 +58,7 @@ const Root = styled.div`
 
 const TopBar = styled.div`
   ${shadow4dp};
-  background: ${blue800};
+  background: var(--color-blue50);
 `
 
 const TitleContainer = styled.div`

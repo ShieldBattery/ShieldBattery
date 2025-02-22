@@ -26,6 +26,7 @@ import { usePopoverController } from './material/popover'
 import { Tooltip } from './material/tooltip'
 import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
+import NotificationPopups from './notifications/notifications-popup'
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
@@ -812,6 +813,7 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
       <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
       {isLoggedIn ? <Sidebar onShowSidebar={onShowSocial} /> : <div></div>}
+      <NotificationPopups />
     </Root>
   )
 }

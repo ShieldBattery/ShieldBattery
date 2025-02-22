@@ -14,7 +14,7 @@ import {
 } from '@react-email/components'
 import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
-import { blue500 } from '../../client/styles/colors'
+import { blue70 } from '../../client/styles/colors'
 import { EmailProps } from '../email-props'
 import { t } from '../i18n/i18next'
 
@@ -160,7 +160,7 @@ export function EmailButton(props: Parameters<typeof Button>[0]) {
         fontSize: '14px',
         textDecoration: 'none',
         color: '#fff',
-        backgroundColor: blue500,
+        backgroundColor: blue70,
         borderRadius: '9999px',
         lineHeight: '20px',
         fontWeight: 500,

@@ -4,7 +4,7 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
-import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { amberA400, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,
@@ -110,7 +110,7 @@ const SelectButton = styled(TextButton)<{ $focused: boolean }>`
 
 const FileEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
-    background: ${blue700};
+    background: var(--color-blue60);
     color: ${colorTextPrimary};
   }
 

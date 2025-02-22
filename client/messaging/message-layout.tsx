@@ -2,14 +2,7 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
-import {
-  amberA100,
-  blue100,
-  blue200,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
+import { amberA100, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyMedium, bodySmall, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
@@ -142,12 +135,12 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
 }
 
 export const SystemMessage = styled(TimestampMessageLayout)`
-  color: ${blue200};
+  color: var(--color-blue90);
 `
 
 export const SystemImportant = styled.span`
   ${titleSmall};
-  color: ${blue100};
+  color: var(--color-blue95);
   line-height: inherit;
 `
 
