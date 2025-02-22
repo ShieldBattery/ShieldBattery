@@ -42,7 +42,7 @@ import { FlexSpacer } from '../styles/flex-spacer'
 import {
   bodyLarge,
   bodySmall,
-  displaySmall,
+  headlineLarge,
   labelMedium,
   singleLine,
   titleLarge,
@@ -155,7 +155,7 @@ const TitleRow = styled.div`
 `
 
 const Title = styled.div`
-  ${displaySmall};
+  ${headlineLarge};
 `
 
 const SummaryRow = styled.div`

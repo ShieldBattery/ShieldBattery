@@ -378,6 +378,7 @@ function PlayButton({ children }: { children?: React.ReactNode }) {
   const gradientId = useId()
   const shadowId = useId()
 
+  // FIXME: destination + content should be based on the user's current gameplay activity
   return (
     <Link href='/play/' asChild={true}>
       <PlayButtonRoot>
