@@ -8,7 +8,10 @@ export const singleLine = css`
 
 export const sofiaSans = css`
   font-family: 'Sofia Sans', Inter, sans-serif;
-  font-optical-sizing: auto;
+`
+
+export const sofiaSansCondensed = css`
+  font-family: 'Sofia Sans Condensed', 'Sofia Sans', Inter, sans-serif;
 `
 
 export const bodySmall = css`

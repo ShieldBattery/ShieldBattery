@@ -13,6 +13,9 @@ const GOOGLE_FONTS_URL = constructURL({
     'Sofia Sans': {
       wght: [400, 600, 700],
     },
+    'Sofia Sans Condensed': {
+      wght: [400],
+    },
   },
   display: 'swap',
 })
