@@ -199,7 +199,10 @@ export function Tooltip({
     setMouseAnchorElem(undefined)
   }, [])
   const onFocus = useCallback((event: React.FocusEvent) => {
-    setFocusAnchorElem(event.currentTarget as HTMLElement)
+    if (event.target.matches(':focus-visible')) {
+      // Only show a tooltip for focus if the element was focused via keyboard (i.e. not by click)
+      setFocusAnchorElem(event.currentTarget as HTMLElement)
+    }
   }, [])
   const onBlur = useCallback(() => {
     setFocusAnchorElem(undefined)
