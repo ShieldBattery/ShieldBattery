@@ -1,5 +1,4 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -33,6 +32,7 @@ const MatchHistoryRoot = styled.div`
   padding: 0 24px 0 8px;
 
   display: flex;
+  align-items: flex-start;
 `
 
 const GameList = styled.div`
@@ -227,9 +227,15 @@ const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
   left: 16px;
   right: 16px;
 
-  padding-top: 48px;
+  padding-top: 32px;
 
-  background: linear-gradient(to bottom, ${rgba(background700, 0)}, ${background700} 40%);
+  background: linear-gradient(
+    to bottom,
+    rgb(from ${background700} r g b / 0),
+    rgb(from ${background700} r g b / 50%) 24px,
+    rgb(from ${background700} r g b / 80%) 80%,
+    rgb(from ${background700} r g b) 92%
+  );
 `
 
 export interface ConnectedGamePreviewProps {
