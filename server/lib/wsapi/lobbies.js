@@ -5,11 +5,8 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
-import {
-  GameSource,
-  isValidGameSubType,
-  isValidGameType,
-} from '../../../common/games/configuration'
+import { GameSource } from '../../../common/games/configuration'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
   findSlotById,
   findSlotByName,

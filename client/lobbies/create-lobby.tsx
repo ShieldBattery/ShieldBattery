@@ -12,12 +12,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
-import {
-  ALL_GAME_TYPES,
-  GameType,
-  gameTypeToLabel,
-  isTeamType,
-} from '../../common/games/configuration'
+import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import { MapInfoJson } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'

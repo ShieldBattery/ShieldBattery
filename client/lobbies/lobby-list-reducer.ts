@@ -1,5 +1,5 @@
 import { List, Map, Record } from 'immutable'
-import { GameType } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
 import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
 
 export class HostRecord extends Record({

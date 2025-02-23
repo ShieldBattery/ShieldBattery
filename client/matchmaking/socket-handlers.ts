@@ -1,7 +1,7 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
-import { GameType } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
 import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
