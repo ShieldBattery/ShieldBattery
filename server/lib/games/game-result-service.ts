@@ -1,7 +1,8 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource, GameType } from '../../../common/games/configuration'
+import { GameSource } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import {
   GameRecord,
   GameRecordUpdate,

@@ -1,4 +1,4 @@
-import { GameType } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import {
   findSlotById,
   findSlotByName,

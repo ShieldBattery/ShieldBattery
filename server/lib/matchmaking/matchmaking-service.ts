@@ -15,9 +15,9 @@ import {
   GameConfig,
   GameConfigPlayer,
   GameSource,
-  GameType,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {

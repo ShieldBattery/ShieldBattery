@@ -1,5 +1,5 @@
 import { List, Range } from 'immutable'
-import { GameType, isTeamType } from '../../../common/games/configuration'
+import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   Lobby,
   MAX_OBSERVERS,

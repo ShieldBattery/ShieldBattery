@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { isValidLobbyName } from '../../../common/constants'
-import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
 import { getMapInfo } from '../maps/map-models'

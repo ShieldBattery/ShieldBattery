@@ -1,5 +1,5 @@
 import { List, Record } from 'immutable'
-import { GameType, isTeamType } from '../games/configuration'
+import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { BwTurnRate } from '../network'
 import { Slot, SlotType } from './slot'

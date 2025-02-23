@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { GameSource, GameType } from '../../../common/games/configuration'
+import { GameSource } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
 import {
