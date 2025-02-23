@@ -8,6 +8,7 @@ import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
 import games from '../games/socket-handlers'
 import loading from '../loading/socket-handlers'
+import lobbies from '../lobbies/socket-handlers'
 import logger from '../logging/logger'
 import notifications from '../notifications/socket-handlers'
 import users from '../users/socket-handlers'
@@ -107,7 +108,7 @@ const envSpecificHandlers = IS_ELECTRON
       rallyPointHandler,
       require('../active-game/socket-handlers').default,
       require('../download/ipc-handlers').default,
-      require('../lobbies/socket-handlers').default,
+      require('../lobbies/electron-socket-handlers').default,
       require('../matchmaking/socket-handlers').default,
       require('../replays/ipc-handlers').default,
       require('../settings/ipc-handlers').default,
@@ -120,6 +121,7 @@ const handlers = [
   chat,
   games,
   loading,
+  lobbies,
   networkStatusHandler,
   notifications,
   users,

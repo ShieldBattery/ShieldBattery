@@ -81,9 +81,7 @@ export class LobbyApi {
     this.subscribedSockets = new Map()
 
     this.clientSockets.on('newClient', client => {
-      if (client.clientType === 'electron') {
-        client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
-      }
+      client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
     })
   }
 

@@ -10,6 +10,7 @@ import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { push } from '../navigation/routing'
+import { useAppSelector } from '../redux-hooks'
 import { useStableCallback, useUserLocalStorageValue } from '../state-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 
@@ -30,13 +31,15 @@ function normalizeTab(tab: PlayTab | string | undefined): PlayTab | undefined {
   }
 }
 
-// TODO(tec27): Add active lobby count to the lobby string
-function tabToLabel(t: TFunction, tab: PlayTab): string {
+function tabToLabel(t: TFunction, tab: PlayTab, lobbyCount: number): string {
   switch (tab) {
     case PlayTab.Matchmaking:
       return t('matchmaking.activity.title', 'Matchmaking')
     case PlayTab.Lobbies:
-      return t('lobbies.activity.title', 'Lobbies')
+      return t('lobbies.activity.title', {
+        defaultValue: 'Lobbies ({{lobbyCount}})',
+        lobbyCount,
+      })
     default:
       return tab satisfies never
   }
@@ -93,6 +96,7 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
     setActiveTab(tab)
     push(`/play/${tab}`)
   })
+  const lobbyCount = useAppSelector(s => s.lobbyList.count)
 
   useEffect(() => {
     // Handle tab changes that happen only as URL changes
@@ -107,7 +111,7 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
         <TabsContainer>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             {ALL_TABS.map(tab => (
-              <TabItem key={tab} value={tab} text={tabToLabel(t, tab)} />
+              <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
             ))}
           </Tabs>
         </TabsContainer>
