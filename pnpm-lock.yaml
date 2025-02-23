@@ -188,8 +188,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       nydus-client:
-        specifier: ^4.0.2
-        version: 4.0.2
+        specifier: ^4.0.4
+        version: 4.0.4
       pg:
         specifier: ^8.13.3
         version: 8.13.3
@@ -5994,8 +5994,8 @@ packages:
   end-of-stream@1.4.4:
     resolution: {integrity: sha512-+uw1inIHVPQoaVuHzRyXd21icM+cnt4CzD5rW+NC1wjOUSTOs+Te7FOv7AhN7vS9x/oIyhLP5PR1H+phQAHu5Q==}
 
-  engine.io-client@6.6.1:
-    resolution: {integrity: sha512-aYuoak7I+R83M/BBPIOs2to51BmFIpC1wZe6zZzMrT2llVsHy5cvcmdsJgP2Qz6smHu+sD9oexiSUAVd8OfBPw==}
+  engine.io-client@6.6.3:
+    resolution: {integrity: sha512-T0iLjnyNWahNyv/lcjS2y4oE358tVS/SYQNxYXGAJ9/GLgH4VCvOQ/mhTjqU88mLZCQgiG8RIegFHYCdVC+j5w==}
 
   engine.io-parser@5.2.3:
     resolution: {integrity: sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q==}
@@ -6441,8 +6441,8 @@ packages:
   flow-enums-runtime@0.0.6:
     resolution: {integrity: sha512-3PYnM29RFXwvAN6Pc/scUfkI7RwhQ/xqyLUyPNlXUp9S40zI8nup9tUSrTLSVnWGBN38FNiGWbwZOB6uR4OGdw==}
 
-  flow-parser@0.261.1:
-    resolution: {integrity: sha512-2l5bBKeVtT+d+1CYSsTLJ+iP2FuoR7zjbDQI/v6dDRiBpx3Lb20Z/tLS37ReX/lcodyGSHC2eA/Nk63hB+mkYg==}
+  flow-parser@0.261.2:
+    resolution: {integrity: sha512-RtunoakA3YjtpAxPSOBVW6lmP5NYmETwkpAfNkdr8Ovf86ENkbD3mtPWnswFTIUtRvjwv0i8ZSkHK+AzsUg1JA==}
     engines: {node: '>=0.4.0'}
 
   follow-redirects@1.15.9:
@@ -8569,8 +8569,8 @@ packages:
   nwsapi@2.2.13:
     resolution: {integrity: sha512-cTGB9ptp9dY9A5VbMSe7fQBcl/tt22Vcqdq8+eN93rblOuE0aCFu4aZ2vMwct/2t+lFnosm8RkQW1I0Omb1UtQ==}
 
-  nydus-client@4.0.2:
-    resolution: {integrity: sha512-js9Wb/0rnV9Dv/FC2zC1tLjDD43Y26KroCZaI+daRTCJ3LmxGXAXc5mJdye6YjBi52v8SBNuMdNZjhviVmE35g==}
+  nydus-client@4.0.4:
+    resolution: {integrity: sha512-aEXNiN/4eFKBw7olMIotaXdK8wvudpRngZXmh/lgySzJwd45c+9m1ddl0Hg0kODiMYh6CZxxbuyjiMkdBtF6VQ==}
 
   nydus-protocol@2.0.0:
     resolution: {integrity: sha512-+k7iQZI0hfFFgeIsMMDpPeLGtjU28uuu/ZQdEKR2x+lBuPRVzQ0Dvfc1kwL630OQHU/CgPlrr1j+XUYK4GLfyQ==}
@@ -11028,8 +11028,8 @@ packages:
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
-  xmlhttprequest-ssl@2.1.1:
-    resolution: {integrity: sha512-ptjR8YSJIXoA3Mbv5po7RtSYHO6mZr8s7i5VGmEk7QY2pQWyT1o0N+W1gKbOyJPUCGXGnuw0wqe8f0L6Y0ny7g==}
+  xmlhttprequest-ssl@2.1.2:
+    resolution: {integrity: sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ==}
     engines: {node: '>=0.4.0'}
 
   xtend@4.0.2:
@@ -17838,13 +17838,13 @@ snapshots:
     dependencies:
       once: 1.4.0
 
-  engine.io-client@6.6.1:
+  engine.io-client@6.6.3:
     dependencies:
       '@socket.io/component-emitter': 3.1.2
       debug: 4.3.7(supports-color@5.5.0)
       engine.io-parser: 5.2.3
       ws: 8.17.1
-      xmlhttprequest-ssl: 2.1.1
+      xmlhttprequest-ssl: 2.1.2
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -18494,7 +18494,7 @@ snapshots:
 
   flow-enums-runtime@0.0.6: {}
 
-  flow-parser@0.261.1: {}
+  flow-parser@0.261.2: {}
 
   follow-redirects@1.15.9: {}
 
@@ -20086,7 +20086,7 @@ snapshots:
       '@babel/register': 7.25.9(@babel/core@7.26.9)
       babel-core: 7.0.0-bridge.0(@babel/core@7.26.9)
       chalk: 4.1.2
-      flow-parser: 0.261.1
+      flow-parser: 0.261.2
       graceful-fs: 4.2.11
       micromatch: 4.0.8
       neo-async: 2.6.2
@@ -21351,11 +21351,11 @@ snapshots:
 
   nwsapi@2.2.13: {}
 
-  nydus-client@4.0.2:
+  nydus-client@4.0.4:
     dependencies:
       backo2: 1.0.2
       cuid: 2.1.8
-      engine.io-client: 6.6.1
+      engine.io-client: 6.6.3
       nydus-protocol: 2.0.0
       ruta3: 2.0.1
       typed-emitter: 2.1.0
@@ -24236,7 +24236,7 @@ snapshots:
 
   xmlchars@2.2.0: {}
 
-  xmlhttprequest-ssl@2.1.1: {}
+  xmlhttprequest-ssl@2.1.2: {}
 
   xtend@4.0.2: {}
 
