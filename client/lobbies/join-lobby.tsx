@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { gameTypeToLabel } from '../../common/games/configuration'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -156,12 +158,13 @@ function LobbyList() {
   const dispatch = useAppDispatch()
   const { byName, list } = useAppSelector(s => s.lobbyList)
 
-  // FIXME: show a download prompt dialog on web
   const handleLobbyClick = useCallback(
     (lobby: any) => {
       if (IS_ELECTRON) {
         dispatch(joinLobby(lobby.name))
         navigateToLobby(lobby.name)
+      } else {
+        dispatch(openDialog({ type: DialogType.Download }))
       }
     },
     [dispatch],
