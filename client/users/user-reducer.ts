@@ -1,7 +1,8 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
-import { SbUser, UserProfileJson } from '../../common/users/sb-user'
+import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { UserProfileJson } from '../../common/users/user-network'
 import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 

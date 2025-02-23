@@ -7,7 +7,12 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
+import {
+  ClientLeagueUserJson,
+  LeagueErrorCode,
+  LeagueId,
+  LeagueJson,
+} from '../../common/leagues/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'

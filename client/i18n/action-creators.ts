@@ -1,6 +1,6 @@
 import { TranslationLanguage } from '../../common/i18n'
 import { apiUrl } from '../../common/urls'
-import { ChangeLanguageRequest, ChangeLanguagesResponse } from '../../common/users/sb-user'
+import { ChangeLanguageRequest, ChangeLanguagesResponse } from '../../common/users/user-network'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import type { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'

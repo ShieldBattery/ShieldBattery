@@ -33,6 +33,9 @@ import {
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
+import { SbUser, SEARCH_MATCH_HISTORY_LIMIT, SelfUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
+import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
@@ -46,16 +49,11 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SbUser,
-  SEARCH_MATCH_HISTORY_LIMIT,
   SearchMatchHistoryResponse,
-  SelfUser,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   UserErrorCode,
-} from '../../../common/users/sb-user'
-import { SbUserId } from '../../../common/users/sb-user-id'
-import { ClientSessionInfo } from '../../../common/users/session'
+} from '../../../common/users/user-network'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'

@@ -11,7 +11,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
-import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues'
+import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
 import {
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingType,

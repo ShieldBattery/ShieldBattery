@@ -1,5 +1,5 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
-import { makeLeagueId } from '../../../common/leagues'
+import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { LeagueUser } from '../leagues/league-models'

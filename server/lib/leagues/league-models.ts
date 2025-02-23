@@ -1,6 +1,6 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { appendToMultimap } from '../../../common/data-structures/maps'
-import { League, LeagueId } from '../../../common/leagues'
+import { League, LeagueId } from '../../../common/leagues/leagues'
 import { MatchmakingResult, MatchmakingType } from '../../../common/matchmaking'
 import { Patch } from '../../../common/patch'
 import { RaceStats } from '../../../common/races'

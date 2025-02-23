@@ -1,5 +1,5 @@
 import { singleton } from 'tsyringe'
-import { UserIpInfo } from '../../../common/users/sb-user'
+import { UserIpInfo } from '../../../common/users/user-network'
 import { Redis } from '../redis/redis'
 
 // Don't mark IPs as suspicious for longer than we'd track them in the DB (60 days)
