@@ -10,7 +10,7 @@ import {
   LEAGUE_IMAGE_WIDTH,
   LeagueJson,
   makeLeagueId,
-} from '../../common/leagues'
+} from '../../common/leagues/leagues'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,

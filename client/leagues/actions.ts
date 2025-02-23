@@ -3,7 +3,7 @@ import {
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
-} from '../../common/leagues'
+} from '../../common/leagues/leagues'
 
 export type LeaguesActions = GetLeaguesList | GetLeague | JoinLeague | GetLeagueLeaderboard
 

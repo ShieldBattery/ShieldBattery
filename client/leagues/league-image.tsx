@@ -1,6 +1,6 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
-import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues'
+import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues/leagues'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { background600, colorTextFaint } from '../styles/colors'

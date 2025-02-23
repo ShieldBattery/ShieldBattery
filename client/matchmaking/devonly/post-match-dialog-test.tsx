@@ -3,7 +3,11 @@ import styled from 'styled-components'
 import { GameSource } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
+import {
+  ClientLeagueUserChangeJson,
+  LeagueJson,
+  makeLeagueId,
+} from '../../../common/leagues/leagues'
 import {
   makeSeasonId,
   MatchmakingResult,

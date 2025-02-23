@@ -2,6 +2,7 @@ import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import { GetRelationshipsResponse } from '../../common/users/relationships'
+import { SbUserId } from '../../common/users/sb-user-id'
 import {
   AdminBanUserRequest,
   AdminBanUserResponse,
@@ -13,8 +14,7 @@ import {
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   SearchMatchHistoryResponse,
-} from '../../common/users/sb-user'
-import { SbUserId } from '../../common/users/sb-user-id'
+} from '../../common/users/user-network'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'

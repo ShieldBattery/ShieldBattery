@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { UserErrorCode } from '../../common/users/sb-user'
+import { UserErrorCode } from '../../common/users/user-network'
 import logger from '../logging/logger'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
