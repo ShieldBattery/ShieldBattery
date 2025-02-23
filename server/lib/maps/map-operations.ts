@@ -1,7 +1,7 @@
 import { writeFile as fsWriteFile } from 'fs/promises'
 import { withFile as withTmpFile } from 'tmp-promise'
 import { MapInfo } from '../../../common/maps'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { readFile } from '../file-upload'
 import { MapParseResult, mapPath, parseMap } from '../maps/store'
 import { getMapInfo, updateParseData } from './map-models'

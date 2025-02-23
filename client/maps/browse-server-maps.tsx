@@ -12,7 +12,7 @@ import {
   NumPlayers,
   Tileset,
 } from '../../common/maps'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'

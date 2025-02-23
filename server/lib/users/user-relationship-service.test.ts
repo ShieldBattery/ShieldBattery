@@ -9,7 +9,7 @@ import {
   UserRelationshipKind,
   UserRelationshipSummary,
 } from '../../../common/users/relationships'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'

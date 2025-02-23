@@ -2,7 +2,7 @@ import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
   SendWhisperMessageRequest,

@@ -1,4 +1,4 @@
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 
 /**
  * Keeps track of the user's IP address in our database. This indirection is necessary so we don't

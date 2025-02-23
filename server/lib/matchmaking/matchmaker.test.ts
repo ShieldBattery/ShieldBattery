@@ -1,5 +1,5 @@
 import { mockRandomForEach } from 'jest-mock-random'
-import { makeSbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
 import { MatchmakingPlayer } from './matchmaking-entity'

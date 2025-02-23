@@ -1,7 +1,7 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SbChannelId } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import {
   InfoImportant,

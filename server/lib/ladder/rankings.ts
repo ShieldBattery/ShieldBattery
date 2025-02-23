@@ -1,5 +1,5 @@
 import { ALL_MATCHMAKING_TYPES, MatchmakingType, SeasonId } from '../../../common/matchmaking'
-import { makeSbUserId, SbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { getAllSeasonMatchmakingRatings, MatchmakingRating } from '../matchmaking/models'
 import { Redis } from '../redis/redis'

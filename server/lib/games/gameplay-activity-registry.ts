@@ -1,5 +1,5 @@
 import { singleton } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 
 @singleton()

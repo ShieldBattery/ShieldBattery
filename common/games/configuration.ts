@@ -2,7 +2,7 @@ import { SetOptional } from 'type-fest'
 import { MatchmakingType } from '../matchmaking'
 import { BwTurnRate } from '../network'
 import { RaceChar } from '../races'
-import { SbUserId } from '../users/sb-user'
+import { SbUserId } from '../users/sb-user-id'
 import { GameType } from './game-type'
 
 export enum GameSource {

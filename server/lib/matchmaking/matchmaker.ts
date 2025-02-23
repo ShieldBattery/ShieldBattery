@@ -7,7 +7,7 @@ import { hasVetoes, MatchmakingType, TEAM_SIZES } from '../../../common/matchmak
 import { multipleRandomItems, randomItem } from '../../../common/random'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'

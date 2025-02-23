@@ -1,6 +1,6 @@
 import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
 import { ReconciledResults } from '../../../common/games/results'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'

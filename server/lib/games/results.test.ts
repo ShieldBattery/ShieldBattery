@@ -4,7 +4,7 @@ import {
   ReconciledPlayerResult,
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { reconcileResults } from './results'
 
 function makePlayerResult(

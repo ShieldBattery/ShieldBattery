@@ -1,5 +1,6 @@
 import { SbChannelId } from '../../../common/chat'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType } from '../../../common/whispers'
 import db from '../db'
 import { sql } from '../db/sql'

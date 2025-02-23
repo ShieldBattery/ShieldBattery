@@ -12,7 +12,7 @@ import {
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { RaisedButton } from '../../material/button'

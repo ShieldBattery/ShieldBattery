@@ -20,7 +20,7 @@ import {
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'

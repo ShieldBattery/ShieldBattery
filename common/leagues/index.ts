@@ -2,7 +2,8 @@ import { Tagged } from 'type-fest'
 import { Jsonify } from '../json'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { RaceStats } from '../races'
-import { SbUser, SbUserId } from '../users/sb-user'
+import { SbUser } from '../users/sb-user'
+import { SbUserId } from '../users/sb-user-id'
 
 export const LEAGUE_IMAGE_WIDTH = 704 * 2
 export const LEAGUE_IMAGE_HEIGHT = 288 * 2

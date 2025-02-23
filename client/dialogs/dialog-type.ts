@@ -2,7 +2,7 @@ import { SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues'
 import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',

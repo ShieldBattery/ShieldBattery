@@ -36,11 +36,11 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Check for circular dependencies
-        run: pnpm run check-circular
-
       - name: Lint
         run: pnpm run lint
+
+      - name: Check for circular dependencies
+        run: pnpm run check-circular
 
       - name: Check translation files
         id: check-translation-files

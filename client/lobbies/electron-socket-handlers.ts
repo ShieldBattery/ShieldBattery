@@ -7,7 +7,8 @@ import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { MapExtension, MapInfoJson } from '../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../common/network'
 import { urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import {
   LOBBIES_COUNT_UPDATE,
   LOBBIES_LIST_UPDATE,

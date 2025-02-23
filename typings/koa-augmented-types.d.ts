@@ -2,7 +2,8 @@ import { Logger } from 'pino'
 import promClient from 'prom-client'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../common/users/permissions'
-import { SbUserId, SelfUser } from '../common/users/sb-user'
+import { SelfUser } from '../common/users/sb-user'
+import { SbUserId } from '../common/users/sb-user-id'
 
 declare module 'koa' {
   interface AppSession {

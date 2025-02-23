@@ -7,7 +7,7 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
