@@ -21,13 +21,13 @@ import {
 import { MapInfoJson } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
-import { useForm } from '../forms/form-hook'
+import { useForm, Validator } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { BrowseLocalMaps } from '../maps/browse-local-maps'
 import { BrowseServerMaps } from '../maps/browse-server-maps'
-import { MapSelect } from '../maps/map-select'
+import { MapSelect, MapSelectionValue } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { RaisedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -37,7 +37,7 @@ import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback, useValueAsRef } from '../state-hooks'
+import { useStableCallback } from '../state-hooks'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import {
   createLobby,
@@ -45,6 +45,9 @@ import {
   navigateToLobby,
   updateLobbyPreferences,
 } from './action-creators'
+
+// TODO(tec27): Move to common and use on the server as well
+const NUM_RECENT_MAPS = 5
 
 const Container = styled.div`
   display: flex;
@@ -102,6 +105,15 @@ const SectionHeader = styled.div`
   margin: 16px 0;
 `
 
+interface CreateLobbyModel {
+  name: string
+  mapSelection: MapSelectionValue
+  gameType: GameType
+  gameSubType: number
+  turnRate: BwTurnRate | 0 | null
+  useLegacyLimits: boolean
+}
+
 const lobbyNameValidator = composeValidators(
   required(t => t('lobbies.createLobby.lobbyNameRequired', 'Enter a lobby name')),
   maxLength(LOBBY_NAME_MAXLENGTH),
@@ -109,17 +121,17 @@ const lobbyNameValidator = composeValidators(
     t('lobbies.createLobby.lobbyNameInvalidCharacters', 'Lobby name contains invalid characters'),
   ),
 )
-const selectedMapValidator = required(t =>
-  t('lobbies.createLobby.mapRequired', 'Select a map to play'),
-)
+const mapSelectionValidator: Validator<MapSelectionValue, CreateLobbyModel> = (
+  value,
+  _model,
+  _dirty,
+  t,
+) => {
+  if (!value || !value.mapId) {
+    return t('lobbies.createLobby.mapRequired', 'Select a map to play')
+  }
 
-interface CreateLobbyModel {
-  name: string
-  selectedMap?: string
-  gameType: GameType
-  gameSubType: number
-  turnRate: BwTurnRate | 0 | null
-  useLegacyLimits: boolean
+  return undefined
 }
 
 interface CreateLobbyFormHandle {
@@ -132,7 +144,15 @@ interface CreateLobbyFormProps {
   onSubmit: (model: CreateLobbyModel) => void
   onValidatedChange: (model: CreateLobbyModel) => void
   onMapBrowse: (onMapSelect: (mapId: string) => void) => void
-  quickMaps: ReadonlyArray<string>
+}
+
+/** Updates the list of recent maps given that `selectedId` is a newly selected map. */
+function updateRecentMaps(
+  selectedId: string,
+  numRecentMaps: number,
+  recentMaps: ReadonlyArray<string> = [],
+): string[] {
+  return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, numRecentMaps - 1)]
 }
 
 const TURN_RATE_OPTIONS: ReadonlyArray<BwTurnRate> = ALL_TURN_RATES.slice(0).sort((a, b) => b - a)
@@ -143,7 +163,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
     const { onSubmit, bindInput, bindCustom, bindCheckable, getInputValue, setInputValue } =
       useForm(
         props.model,
-        { name: lobbyNameValidator, selectedMap: selectedMapValidator },
+        { name: lobbyNameValidator, mapSelection: mapSelectionValidator },
         { onSubmit: props.onSubmit, onValidatedChange: props.onValidatedChange },
       )
     const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
@@ -152,16 +172,20 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
       submit: onSubmit,
     }))
 
-    const { quickMaps, disabled, onMapBrowse } = props
+    const { disabled, onMapBrowse } = props
 
-    const selectedMap = getInputValue('selectedMap')
+    const mapSelection = getInputValue('mapSelection')
+    const selectedMap = mapSelection.mapId
     const gameType = getInputValue('gameType')
 
     const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
 
     const onBrowseClick = useStableCallback(() => {
       onMapBrowse(mapId => {
-        setInputValue('selectedMap', mapId)
+        setInputValue('mapSelection', {
+          mapId,
+          recentMaps: updateRecentMaps(mapId, NUM_RECENT_MAPS, mapSelection.recentMaps),
+        })
       })
     })
 
@@ -272,10 +296,10 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
 
         <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
         <MapSelect
-          {...bindCustom('selectedMap')}
-          quickMaps={quickMaps}
+          {...bindCustom('mapSelection')}
           disabled={disabled}
           onMapBrowse={onBrowseClick}
+          numRecentMaps={NUM_RECENT_MAPS}
         />
 
         <AdvancedSettings>
@@ -323,10 +347,6 @@ enum MapBrowseState {
   Local,
 }
 
-// FIXME: recent maps on first load: doesn't work because we store recent maps in state now and we
-// also load them from the server in this component, but can't easily fix that state when the load
-// completes. Maybe move this component down a level from the one that triggers the load + only
-// render it when load is complete?
 export function CreateLobby(props: CreateLobbyProps) {
   const [routeMatches, routeParams] = useRoute('/play/lobbies/create/:name?')
   const routeName =
@@ -353,15 +373,23 @@ export function CreateLobby(props: CreateLobbyProps) {
         name: initialName,
         gameType: gameType ?? 'melee',
         gameSubType,
-        selectedMap: storeSelectedMap,
+        mapSelection: {
+          mapId: storeSelectedMap,
+          recentMaps: storeRecentMaps.toArray(),
+        },
         turnRate: turnRate ?? null,
         useLegacyLimits: useLegacyLimits ?? false,
       }) satisfies CreateLobbyModel,
-    [initialName, gameType, gameSubType, storeSelectedMap, turnRate, useLegacyLimits],
+    [
+      initialName,
+      gameType,
+      gameSubType,
+      storeSelectedMap,
+      storeRecentMaps,
+      turnRate,
+      useLegacyLimits,
+    ],
   )
-
-  const [recentMaps, setRecentMaps] = useState(() => storeRecentMaps.toArray().slice(0, 5))
-  const recentMapsRef = useValueAsRef(recentMaps)
 
   const formRef = useRef<CreateLobbyFormHandle>(null)
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
@@ -382,11 +410,6 @@ export function CreateLobby(props: CreateLobbyProps) {
   const onMapSelect = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
     mapSelectCallbackRef.current?.(map.id)
     mapSelectCallbackRef.current = undefined
-
-    const newRecentMaps = [map.id]
-      .concat(recentMapsRef.current.filter(m => m !== map.id))
-      .slice(0, 5)
-    setRecentMaps(newRecentMaps)
     setBrowsingMaps(MapBrowseState.None)
   })
 
@@ -394,22 +417,33 @@ export function CreateLobby(props: CreateLobbyProps) {
     debounce((model: CreateLobbyModel) => {
       dispatch(
         updateLobbyPreferences({
-          ...model,
+          name: model.name,
+          selectedMap: model.mapSelection.mapId,
+          recentMaps: model.mapSelection.recentMaps,
+          gameType: model.gameType,
+          gameSubType: model.gameSubType,
           turnRate: model.turnRate !== null ? model.turnRate : undefined,
-          recentMaps: recentMapsRef.current,
+          useLegacyLimits: model.useLegacyLimits,
         }),
       )
     }, 200),
   )
   const onSubmit = useCallback(
     (model: CreateLobbyModel) => {
-      const { name, gameType, gameSubType, selectedMap, turnRate, useLegacyLimits } = model
+      const {
+        name,
+        gameType,
+        gameSubType,
+        mapSelection: { mapId, recentMaps },
+        turnRate,
+        useLegacyLimits,
+      } = model
       const subType = isTeamType(gameType) ? gameSubType : undefined
 
       dispatch(
         createLobby({
           name,
-          map: selectedMap,
+          map: mapId,
           gameType,
           gameSubType: subType,
           turnRate: turnRate === null ? undefined : turnRate,
@@ -419,21 +453,23 @@ export function CreateLobby(props: CreateLobbyProps) {
 
       debouncedSavePrefrencesRef.current.cancel()
 
-      // Move the hosted map to the front of the recent maps list
-      const orderedRecentMaps = recentMapsRef.current.filter(m => m !== selectedMap).slice(0, 4)
-      orderedRecentMaps.unshift(selectedMap!)
+      const orderedRecentMaps = updateRecentMaps(mapId!, NUM_RECENT_MAPS, recentMaps)
 
       dispatch(
         updateLobbyPreferences({
-          ...model,
-          turnRate: model.turnRate !== null ? model.turnRate : undefined,
+          name: model.name,
+          selectedMap: model.mapSelection.mapId,
           recentMaps: orderedRecentMaps,
+          gameType: model.gameType,
+          gameSubType: model.gameSubType,
+          turnRate: model.turnRate !== null ? model.turnRate : undefined,
+          useLegacyLimits: model.useLegacyLimits,
         }),
       )
 
       navigateToLobby(name)
     },
-    [dispatch, recentMapsRef],
+    [dispatch],
   )
   const onValidatedChange = useCallback((model: CreateLobbyModel) => {
     debouncedSavePrefrencesRef.current(model)
@@ -485,7 +521,6 @@ export function CreateLobby(props: CreateLobbyProps) {
               model={model}
               onValidatedChange={onValidatedChange}
               onSubmit={onSubmit}
-              quickMaps={recentMaps}
               onMapBrowse={onMapBrowse}
             />
           ) : (
