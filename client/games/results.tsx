@@ -60,6 +60,7 @@ import {
 import { ResultsSubPage } from './results-sub-page'
 
 const Container = styled.div`
+  width: 100%;
   min-width: 640px;
   max-width: 960px;
   padding: 0px 12px 24px;
