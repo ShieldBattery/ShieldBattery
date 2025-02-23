@@ -65,7 +65,6 @@ const PageRoot = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  padding-top: 24px;
 
   display: flex;
   flex-direction: column;
@@ -122,9 +121,12 @@ export function LeagueDetailsPage() {
 }
 
 const DetailsRoot = styled.div`
-  max-width: 704px;
-  min-height: min-content;
+  width: 100%;
+  max-width: 752px;
   height: 100%;
+  min-height: min-content;
+  margin-top: 24px;
+  padding: 0 24px;
 
   display: flex;
   flex-direction: column;
@@ -478,12 +480,12 @@ const FillerRow = styled.div.attrs<{ height: number }>(props => ({
   style: { height: `${props.height}px` },
 }))<{ height: number }>``
 
+const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
+
 const LeaderboardRoot = styled.div`
   border: 1px solid ${colorDividers};
   border-radius: 2px;
 `
-
-const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
 
 const LeaderboardHeaderRow = styled.div`
   ${labelMedium};
