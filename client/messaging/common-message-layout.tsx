@@ -13,7 +13,7 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
-import { amberA100, colorDividers, colorTextFaint } from '../styles/colors'
+import { colorDividers, colorTextFaint } from '../styles/colors'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
@@ -39,7 +39,7 @@ const Username = styled.span`
 
   margin-right: 8px;
 
-  color: ${amberA100};
+  color: var(--color-amber90);
   line-height: inherit;
 `
 

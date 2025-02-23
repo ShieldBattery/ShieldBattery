@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { Record } from 'immutable'
 import { LOBBY_UPDATE_GAME_STARTED } from '../actions'
 import { LobbyRecord } from '../lobbies/lobby-reducer'
-import { MatchmakingMatch } from '../matchmaking/matchmaking-reducer'
+import { MatchmakingMatch } from '../matchmaking/matchmaking-match-state'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import { ActiveGameStatus } from './actions'
 

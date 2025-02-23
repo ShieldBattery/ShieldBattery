@@ -12,13 +12,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  amberA100,
-  background700,
-  background900,
-  colorTextFaint,
-  colorTextPrimary,
-} from '../styles/colors'
+import { background700, background900, colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
@@ -85,14 +79,13 @@ const Overlay = styled.div<{
     content: '';
     pointer-events: none;
 
-    background-color: var(--sb-map-thumbnail-selected-color, ${amberA100});
+    background-color: var(--sb-map-thumbnail-selected-color, var(--color-amber95));
     opacity: ${props => {
-      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
-      // selected.
-      if (props.$isSelected) {
-        return 0.36
-      } else if (props.$isFocused) {
-        return 0.16
+      // TODO(tec27): Use a focus outline for :focus-visible instead of changing opacity only
+      if (props.$isFocused) {
+        return 0.32
+      } else if (props.$isSelected) {
+        return 0.24
       } else {
         return 0
       }
@@ -102,12 +95,10 @@ const Overlay = styled.div<{
 
   &:hover::before {
     opacity: ${props => {
-      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
-      // selected.
-      if (props.$isSelected) {
-        return 0.24
-      } else if (props.$isFocused) {
-        return 0.16
+      if (props.$isFocused) {
+        return 0.36
+      } else if (props.$isSelected) {
+        return 0.28
       } else {
         return 0.12
       }

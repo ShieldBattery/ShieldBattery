@@ -2,7 +2,7 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
-import { amberA100, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyMedium, bodySmall, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
@@ -74,7 +74,7 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
       return ''
     }
 
-    return `
+    return css`
       background-color: rgba(255, 255, 255, 0.16);
 
       &::before {
@@ -84,7 +84,7 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
         left: 0;
         bottom: 0;
         width: 2px;
-        background-color: ${amberA100};
+        background-color: var(--color-amber90);
       }
     `
   }}

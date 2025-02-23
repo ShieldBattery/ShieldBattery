@@ -130,7 +130,6 @@ export const THEME_CSS = css`
 
 // FIXME: delete these
 /* Accent color */
-export const amberA100 = '#ffe57f'
 export const amberA200 = '#ffd740'
 export const amberA400 = '#ffc400'
 

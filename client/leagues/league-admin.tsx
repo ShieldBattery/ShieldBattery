@@ -40,8 +40,9 @@ import {
   adminGetLeagues,
   adminUpdateLeague,
 } from './action-creators'
+import { LeagueCard } from './league-card'
 import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
-import { LeagueCard, LeagueSectionType } from './league-list'
+import { LeagueSectionType } from './league-section-type'
 import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`

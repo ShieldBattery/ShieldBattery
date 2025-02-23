@@ -2,7 +2,7 @@ import React from 'react'
 import { Switch } from 'wouter'
 import { useHasAnyPermission } from '../../admin/admin-permissions'
 import { NoPermissionsPage } from '../../auth/no-permissions-page'
-import { ChannelRoute } from '../route'
+import { ChannelRoute } from '../channel-route'
 import { AdminChannelView } from './channel-view'
 
 export function ChatAdmin() {
