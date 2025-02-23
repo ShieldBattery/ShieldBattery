@@ -13,6 +13,7 @@ import {
   Tileset,
 } from '../../common/maps'
 import { SbUserId } from '../../common/users/sb-user'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
@@ -202,7 +203,8 @@ export function BrowseServerMaps({
 }: BrowseServerMapsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const auth = useAppSelector(s => s.auth)
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
   const mapsState = useAppSelector(s => s.maps)
   const mapPreferences = useAppSelector(s => s.mapPreferences)
 
@@ -248,15 +250,19 @@ export function BrowseServerMaps({
   )
 
   useEffect(() => {
-    dispatch(getMapPreferences())
-    window.addEventListener('beforeunload', savePreferences)
-    return () => {
-      dispatch(clearMapsList())
-      savePreferences()
-      window.removeEventListener('beforeunload', savePreferences)
-      debouncedSetSearchQuery.current?.cancel()
+    if (selfUser) {
+      dispatch(getMapPreferences())
+      window.addEventListener('beforeunload', savePreferences)
+      return () => {
+        dispatch(clearMapsList())
+        savePreferences()
+        window.removeEventListener('beforeunload', savePreferences)
+        debouncedSetSearchQuery.current?.cancel()
+      }
     }
-  }, [dispatch, savePreferences])
+
+    return () => {}
+  }, [dispatch, savePreferences, selfUser])
 
   useEffect(() => {
     const {
@@ -336,8 +342,8 @@ export function BrowseServerMaps({
           $padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           <MapList
             maps={maps}
-            userId={auth.self?.user.id}
-            canManageMaps={!!auth.self?.permissions.manageMaps}
+            userId={selfUser?.id}
+            canManageMaps={!!selfPermissions?.manageMaps}
             thumbnailSize={thumbnailSize}
             favoriteStatusRequests={mapsState.favoriteStatusRequests}
             onMapSelect={onMapSelect}
@@ -421,7 +427,9 @@ export function BrowseServerMaps({
       <TabArea>
         <Tabs activeTab={activeTab} onChange={onTabChange}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
-          <TabItem text={t('maps.server.tab.myMaps', 'My maps')} value={MapTab.MyMaps} />
+          {selfUser ? (
+            <TabItem text={t('maps.server.tab.myMaps', 'My maps')} value={MapTab.MyMaps} />
+          ) : undefined}
           <TabItem
             text={t('maps.server.tab.community', 'Community')}
             value={MapTab.CommunityMaps}
@@ -456,7 +464,7 @@ export function BrowseServerMaps({
       </Contents>
       <ScrollDivider position='bottom' />
       <Footer
-        onBrowseLocalMaps={onBrowseLocalMaps}
+        onBrowseLocalMaps={selfUser ? onBrowseLocalMaps : undefined}
         thumbnailSize={thumbnailSize}
         onSizeChange={onThumbnailSizeChange}
         numPlayersFilter={numPlayersFilter}

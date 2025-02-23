@@ -404,8 +404,8 @@ export async function getMaps(
   filters: Partial<MapFilters> = {},
   limit: number,
   pageNumber: number,
-  favoritedBy: number,
-  uploadedBy?: number,
+  favoritedBy?: SbUserId,
+  uploadedBy?: SbUserId,
   searchStr?: string,
 ) {
   const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
@@ -460,9 +460,14 @@ export async function getMaps(
       ON um.map_hash = m.hash
       ${whereCondition}
     )
-    SELECT maps.*, fav.map_id AS favorited
-    FROM maps LEFT JOIN favorited_maps AS fav
-    ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy}
+    SELECT maps.*, ${favoritedBy ? sql`fav.map_id AS favorited` : sql`FALSE AS favorited`}
+    FROM maps ${
+      favoritedBy
+        ? sql`LEFT JOIN favorited_maps AS fav
+          ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy}
+         `
+        : sql``
+    }
     ${orderByStatement}
     LIMIT ${limit}
     OFFSET ${pageNumber * limit};

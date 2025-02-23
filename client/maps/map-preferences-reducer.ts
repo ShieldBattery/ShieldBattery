@@ -1,5 +1,12 @@
 import { Immutable } from 'immer'
-import { MapPreferences, MapSortType, MapVisibility, NumPlayers, Tileset } from '../../common/maps'
+import {
+  ALL_TILESETS,
+  MapPreferences,
+  MapSortType,
+  MapVisibility,
+  NumPlayers,
+  Tileset,
+} from '../../common/maps'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapPreferencesState {
@@ -21,11 +28,11 @@ export interface MapPreferencesState {
 }
 
 const DEFAULT_STATE: Immutable<MapPreferencesState> = {
-  visibility: MapVisibility.Private,
+  visibility: MapVisibility.Official,
   thumbnailSize: 0,
   sortOption: MapSortType.Name,
-  numPlayersFilter: new Set(),
-  tilesetFilter: new Set(),
+  numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
+  tilesetFilter: new Set(ALL_TILESETS),
   isRequesting: false,
   lastError: undefined,
 }
