@@ -9,6 +9,7 @@ import { MessageList, MessageListProps } from '../messaging/message-list'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { MenuItemCategory } from '../users/user-context-menu'
+import { ChatContext, ChatContextValue } from './chat-context'
 
 const MessagesAndInput = styled.div`
   position: relative;
@@ -24,7 +25,7 @@ const StyledMessageList = styled(MessageList)`
   flex-grow: 1;
 `
 
-interface ChatProps {
+export interface ChatProps {
   className?: string
   listProps: Omit<MessageListProps, 'onScrollUpdate'>
   inputProps: Omit<MessageInputProps, 'showDivider'>
@@ -64,23 +65,6 @@ interface ChatProps {
     onMenuClose: (event?: MouseEvent) => void,
   ) => React.ReactNode[]
 }
-
-export interface ChatContextValue {
-  mentionUser?: (userId: SbUserId) => void
-  modifyUserMenuItems?: (
-    userId: SbUserId,
-    items: Map<MenuItemCategory, React.ReactNode[]>,
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => Map<MenuItemCategory, React.ReactNode[]>
-  modifyMessageMenuItems?: (
-    messageId: string,
-    items: React.ReactNode[],
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
-}
-export const ChatContext = React.createContext<ChatContextValue>({
-  mentionUser: () => {},
-})
 
 /**
  * This is a general chat component that combines `MessageList` and `MessageInput` components into

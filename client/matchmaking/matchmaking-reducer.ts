@@ -1,27 +1,15 @@
 import { Immutable } from 'immer'
-import { MapInfoJson } from '../../common/maps'
-import {
-  MatchmakingPlayer,
-  MatchmakingServiceErrorCode,
-  MatchmakingType,
-} from '../../common/matchmaking'
+import { MatchmakingServiceErrorCode, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { isFetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import { MatchmakingMatch } from './matchmaking-match-state'
 
 export interface MatchmakingSearchInfo {
   matchmakingType: MatchmakingType
   race: RaceChar
   /** The time when the search was started (as returned by `window.performance.now()`) */
   startTime: number
-}
-
-export interface MatchmakingMatch {
-  numPlayers: number
-  acceptedPlayers: number
-  type: MatchmakingType
-  players?: MatchmakingPlayer[]
-  chosenMap?: MapInfoJson
 }
 
 export interface MatchmakingState {

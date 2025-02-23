@@ -1,43 +1,17 @@
 import React, { Suspense } from 'react'
-import { Route, RouteProps, Switch } from 'wouter'
-import { SbChannelId, makeSbChannelId } from '../../common/chat'
+import { Route, Switch } from 'wouter'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
-import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { ConnectedChatChannel } from './channel'
 import { ChannelList } from './channel-list'
+import { ChannelRoute } from './channel-route'
 import { CreateChannel } from './create-channel'
 
 const LoadableChatAdminComponent = React.lazy(async () => ({
   default: (await import('./admin')).ChatAdmin,
 }))
-
-export function ChannelRoute({
-  component: Component,
-  ...rest
-}: Omit<RouteProps, 'component'> & {
-  component: React.ComponentType<{ channelId: SbChannelId; channelName: string }>
-}) {
-  return (
-    <Route<{ channelId: string; channelName: string }> {...rest}>
-      {params => {
-        const channelIdNum = Number(params.channelId)
-        if (isNaN(channelIdNum)) {
-          queueMicrotask(() => {
-            replace('/')
-          })
-          return null
-        }
-
-        return (
-          <Component channelId={makeSbChannelId(channelIdNum)} channelName={params.channelName} />
-        )
-      }}
-    </Route>
-  )
-}
 
 export function ChannelRouteComponent(props: { params: any }) {
   const isLoggedIn = useIsLoggedIn()
