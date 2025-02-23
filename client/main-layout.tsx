@@ -5,6 +5,7 @@ import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
+import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
 import { ConnectedAvatar } from './avatars/avatar'
 import { openChangelog } from './changelog/action-creators'
 import { openDialog } from './dialogs/action-creators'
@@ -27,6 +28,7 @@ import { Tooltip } from './material/tooltip'
 import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
+import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
@@ -801,6 +803,9 @@ const Sidebar = styled(SocialSidebar)`
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
+  useShowEmailVerificationNotificationIfNeeded()
+  useShowPolicyNotificationsIfNeeded()
+
   const isLoggedIn = useIsLoggedIn()
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
