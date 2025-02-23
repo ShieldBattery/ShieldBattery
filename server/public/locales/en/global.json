@@ -480,7 +480,7 @@
   },
   "lobbies": {
     "activity": {
-      "title": "Lobbies"
+      "title": "Lobbies ({{lobbyCount}})"
     },
     "createLobby": {
       "advancedSettings": "Advanced settings",

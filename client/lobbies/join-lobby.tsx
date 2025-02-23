@@ -112,9 +112,7 @@ interface JoinLobbyProps {
 
 function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
   const isConnected = useAppSelector(s => s.network.isConnected)
-  const lobbyList = useAppSelector(s => s.lobbyList)
 
   useEffect(() => {
     if (!isConnected) {
@@ -131,40 +129,6 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
     }
   }, [isConnected])
 
-  const handleLobbyClick = useCallback(
-    (lobby: any) => {
-      dispatch(joinLobby(lobby.name))
-      navigateToLobby(lobby.name)
-    },
-    [dispatch],
-  )
-
-  const renderList = () => {
-    const { byName, list } = lobbyList
-    if (!list.size) {
-      return (
-        <div>
-          <BodyLarge>
-            {t('lobbies.joinLobby.noActiveLobbies', 'There are no active lobbies')}
-          </BodyLarge>
-        </div>
-      )
-    }
-
-    const openLobbies = list.filter(name => (byName.get(name)?.openSlotCount ?? 0) > 0)
-    return (
-      <div>
-        {!openLobbies.isEmpty() ? (
-          openLobbies.map(name => (
-            <ListEntry key={name} lobby={byName.get(name)} onClick={handleLobbyClick} />
-          ))
-        ) : (
-          <BodyLarge>{t('lobbies.joinLobby.noOpenLobbies', 'There are no open lobbies')}</BodyLarge>
-        )}
-      </div>
-    )
-  }
-
   return (
     <Container>
       <TitleBar>
@@ -179,9 +143,51 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
         ) : undefined}
       </TitleBar>
       <Contents>
-        <ContentsBody>{renderList()}</ContentsBody>
+        <ContentsBody>
+          <LobbyList />
+        </ContentsBody>
       </Contents>
     </Container>
+  )
+}
+
+function LobbyList() {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const { byName, list } = useAppSelector(s => s.lobbyList)
+
+  // FIXME: show a download prompt dialog on web
+  const handleLobbyClick = useCallback(
+    (lobby: any) => {
+      if (IS_ELECTRON) {
+        dispatch(joinLobby(lobby.name))
+        navigateToLobby(lobby.name)
+      }
+    },
+    [dispatch],
+  )
+
+  if (!list.size) {
+    return (
+      <div>
+        <BodyLarge>
+          {t('lobbies.joinLobby.noActiveLobbies', 'There are no active lobbies')}
+        </BodyLarge>
+      </div>
+    )
+  }
+
+  const openLobbies = list.filter(name => (byName.get(name)?.openSlotCount ?? 0) > 0)
+  return (
+    <div>
+      {!openLobbies.isEmpty() ? (
+        openLobbies.map(name => (
+          <ListEntry key={name} lobby={byName.get(name)} onClick={handleLobbyClick} />
+        ))
+      ) : (
+        <BodyLarge>{t('lobbies.joinLobby.noOpenLobbies', 'There are no open lobbies')}</BodyLarge>
+      )}
+    </div>
   )
 }
 
