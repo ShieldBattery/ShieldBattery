@@ -23,7 +23,7 @@ import {
   ServerAdminEditLeagueRequest,
   toClientLeagueUserJson,
   toLeagueJson,
-} from '../../../common/leagues'
+} from '../../../common/leagues/leagues'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { Patch } from '../../../common/patch'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'

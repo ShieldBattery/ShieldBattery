@@ -1,5 +1,5 @@
 import { Tagged } from 'type-fest'
-import { LeagueId } from '../../common/leagues'
+import { LeagueId } from '../../common/leagues/leagues'
 import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
 
 /**

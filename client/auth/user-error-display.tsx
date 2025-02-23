@@ -1,7 +1,7 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { UserErrorCode } from '../../common/users/sb-user'
+import { UserErrorCode } from '../../common/users/user-network'
 import { longTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
 import { FetchError, isFetchError } from '../network/fetch-errors'
