@@ -1,6 +1,6 @@
 import cuid from 'cuid'
 import { List, Record } from 'immutable'
-import { GameType } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
 import { Team } from '../../common/lobbies/index'
 import { Slot } from '../../common/lobbies/slot'
 import {

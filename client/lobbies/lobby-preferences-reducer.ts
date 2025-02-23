@@ -1,5 +1,5 @@
 import { List, Record } from 'immutable'
-import { GameType } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
 import { MapInfoJson } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import {

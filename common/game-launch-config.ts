@@ -1,4 +1,4 @@
-import { GameType } from './games/configuration'
+import { GameType } from './games/game-type'
 import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { BwTurnRate, BwUserLatency } from './network'

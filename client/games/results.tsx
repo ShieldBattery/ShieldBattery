@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
+import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
+import { isTeamType } from '../../common/games/game-type'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import {
   ReconciledPlayerResult,

@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { PlayerInfo } from '../../common/game-launch-config'
-import { GameType } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { SelfUser, makeSbUserId } from '../../common/users/sb-user'
