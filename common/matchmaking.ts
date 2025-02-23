@@ -8,7 +8,7 @@ import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { BwTurnRate, BwUserLatency } from './network'
 import { AssignedRaceChar, RaceChar } from './races'
-import { SbUserId } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 /**
  * How long after a season has ended that rankings are considered "finalized" and will not be

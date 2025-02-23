@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
 import { getBatchUserInfo } from './action-creators'

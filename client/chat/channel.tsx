@@ -7,7 +7,7 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'

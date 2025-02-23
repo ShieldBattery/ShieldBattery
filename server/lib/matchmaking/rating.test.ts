@@ -1,7 +1,7 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues'
 import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { LeagueUser } from '../leagues/league-models'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'

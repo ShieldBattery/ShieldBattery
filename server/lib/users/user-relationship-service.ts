@@ -12,7 +12,7 @@ import {
   UserRelationshipServiceErrorCode,
   UserRelationshipSummary,
 } from '../../../common/users/relationships'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import logger from '../logging/logger'
 import NotificationService from '../notifications/notification-service'

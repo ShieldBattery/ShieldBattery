@@ -1,5 +1,5 @@
 import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'

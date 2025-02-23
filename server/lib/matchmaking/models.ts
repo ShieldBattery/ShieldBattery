@@ -7,7 +7,7 @@ import {
   SeasonId,
 } from '../../../common/matchmaking'
 import { RaceStats } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
 import { sql } from '../db/sql'

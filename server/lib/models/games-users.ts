@@ -5,7 +5,7 @@ import {
   ReconciledResult,
 } from '../../../common/games/results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { ResultSubmission } from '../games/results'

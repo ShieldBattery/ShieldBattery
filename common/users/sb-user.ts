@@ -1,4 +1,3 @@
-import { Tagged } from 'type-fest'
 import { GameRecordJson } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
@@ -7,11 +6,10 @@ import { MapInfoJson } from '../maps'
 import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
 import { SbPermissions } from './permissions'
+import { SbUserId } from './sb-user-id'
 import { UserStats } from './user-stats'
 
 export const SEARCH_MATCH_HISTORY_LIMIT = 40
-
-export type SbUserId = Tagged<number, 'SbUser'>
 
 /**
  * Information about any user in the system, mainly things that represent the "identity" of the
@@ -21,15 +19,6 @@ export interface SbUser {
   id: SbUserId
   /** The user's display name. */
   name: string
-}
-
-/**
- * Converts a user ID number into a properly typed version. Alternative methods of retrieving an
- * SbUserId should be preferred, such as using a value retrieved from the database, or getting one
- * via the common Joi validator.
- */
-export function makeSbUserId(id: number): SbUserId {
-  return id as SbUserId
 }
 
 /** Information about the current user. */

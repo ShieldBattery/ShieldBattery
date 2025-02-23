@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import { dispatch, type ThunkAction } from '../dispatch-registry'

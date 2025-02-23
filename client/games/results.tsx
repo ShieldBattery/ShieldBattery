@@ -13,7 +13,7 @@ import {
 } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'

@@ -6,7 +6,8 @@ import {
   SeasonId,
 } from '../matchmaking'
 import { RaceStats } from '../races'
-import { SbUser, SbUserId } from '../users/sb-user'
+import { SbUser } from '../users/sb-user'
+import { SbUserId } from '../users/sb-user-id'
 
 /**
  * A ranked player for a particular matchmaking ladder in a particular season. Contains information

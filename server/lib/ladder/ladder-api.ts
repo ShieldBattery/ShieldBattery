@@ -15,7 +15,7 @@ import {
   SeasonId,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'

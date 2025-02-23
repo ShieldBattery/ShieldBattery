@@ -1,7 +1,7 @@
 import { IncomingMessage } from 'http'
 import { NydusClient } from 'nydus'
 import { singleton } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 
 export interface SessionInfo {
   sessionId: string

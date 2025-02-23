@@ -1,5 +1,5 @@
 import { SbPolicyType } from './policies/policy-type'
-import { SbUserId } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 export enum NotificationType {
   /** The user needs to verify their email. */

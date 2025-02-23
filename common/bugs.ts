@@ -1,5 +1,6 @@
 import { Jsonify } from './json'
-import { SbUser, SbUserId } from './users/sb-user'
+import { SbUser } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 export interface ReportBugRequest {
   details: string

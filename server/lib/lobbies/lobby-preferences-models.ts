@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'

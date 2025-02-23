@@ -11,7 +11,7 @@ import {
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'

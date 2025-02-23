@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { Simplify } from 'type-fest'
 import { PreferenceData } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating } from './models'
 

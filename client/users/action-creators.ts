@@ -12,9 +12,9 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SbUserId,
   SearchMatchHistoryResponse,
 } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'

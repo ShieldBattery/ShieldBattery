@@ -1,6 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LeagueState {

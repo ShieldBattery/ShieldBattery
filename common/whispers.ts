@@ -1,7 +1,8 @@
 import { TFunction } from 'i18next'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo, SbChannelId } from './chat'
-import { SbUser, SbUserId } from './users/sb-user'
+import { SbUser } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 export enum WhisperMessageType {
   TextMessage = 'message',

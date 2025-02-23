@@ -7,7 +7,7 @@ import {
   MapVisibility,
   Tileset,
 } from '../../../common/maps'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import { SqlTemplate, sql, sqlConcat, sqlRaw } from '../db/sql'
 import transact from '../db/transaction'
