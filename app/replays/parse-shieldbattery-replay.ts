@@ -1,5 +1,5 @@
 import { ReplayShieldBatteryData } from '../../common/replays'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 
 /**
  * Parse the ShieldBattery version as it's written in the replay file. Since it's a string of 16

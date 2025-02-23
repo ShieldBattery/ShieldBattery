@@ -1,4 +1,5 @@
-import { SbUser, SbUserId } from '../../common/users/sb-user'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
 
 export type WhisperActions =

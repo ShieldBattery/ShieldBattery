@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import transact from '../db/transaction'
 import logger from '../logging/logger'
 import { Redis } from '../redis/redis'

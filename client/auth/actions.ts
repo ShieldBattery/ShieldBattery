@@ -1,9 +1,6 @@
 import { SbPermissions } from '../../common/users/permissions'
-import {
-  AcceptPoliciesResponse,
-  ChangeLanguagesResponse,
-  SbUserId,
-} from '../../common/users/sb-user'
+import { AcceptPoliciesResponse, ChangeLanguagesResponse } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import { BaseFetchFailure } from '../network/fetch-errors'
 

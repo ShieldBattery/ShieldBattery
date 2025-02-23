@@ -13,7 +13,7 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { LOBBY_UPDATE_CHAT_MESSAGE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 

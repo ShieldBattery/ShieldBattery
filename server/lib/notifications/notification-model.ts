@@ -1,6 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { NotificationType } from '../../../common/notifications'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db/index'
 import { sql, sqlConcat, sqlRaw } from '../db/sql'
 import { Dbify } from '../db/types'

@@ -7,7 +7,7 @@ import {
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'

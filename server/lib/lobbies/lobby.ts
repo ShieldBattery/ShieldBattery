@@ -32,7 +32,7 @@ import {
 import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps'
 import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 
 export function hasControlledOpens(gameType: GameType) {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll

@@ -9,7 +9,8 @@ import {
   PublicMatchmakingRatingChangeJson,
   matchmakingTypeToLabel,
 } from '../matchmaking'
-import { SbUser, SbUserId } from '../users/sb-user'
+import { SbUser } from '../users/sb-user'
+import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
 

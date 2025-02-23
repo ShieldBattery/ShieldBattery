@@ -6,7 +6,7 @@ import {
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 
 function maybeOptional<T extends { required: () => T }>(optional: boolean, schema: T): T {
   return optional ? schema : schema.required()

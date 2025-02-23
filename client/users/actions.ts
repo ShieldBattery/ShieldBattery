@@ -11,9 +11,9 @@ import {
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   SbUser,
-  SbUserId,
   SearchMatchHistoryResponse,
 } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 
 export type UserActions =
   | GetUserProfile

@@ -6,7 +6,7 @@ import {
   ReconciledResults,
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 
 export interface ResultSubmission {
   /** The user ID of the player who reported these results. */

@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseMessage } from '../messaging/base-message-record'
 
 export enum LobbyMessageType {

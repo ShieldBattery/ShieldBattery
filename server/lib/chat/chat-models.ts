@@ -12,7 +12,8 @@ import {
   ServerChatMessageType,
 } from '../../../common/chat'
 import { Patch } from '../../../common/patch'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat } from '../db/sql'

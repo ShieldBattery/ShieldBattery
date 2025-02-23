@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { AdminBanUserRequest, SbUserId } from '../../common/users/sb-user'
+import { AdminBanUserRequest } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import { adminRequestContext } from '../admin-utils'
 import { suppressChangelog } from '../changelog-utils'

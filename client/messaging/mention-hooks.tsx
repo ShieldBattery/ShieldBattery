@@ -1,5 +1,5 @@
 import React, { useCallback, useContext } from 'react'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { MenuItemCategory } from '../users/user-context-menu'
 import { ChatContext } from './chat-context'
 

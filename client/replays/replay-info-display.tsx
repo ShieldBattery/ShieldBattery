@@ -10,7 +10,7 @@ import {
   replayGameTypeToLabel,
   replayRaceToChar,
 } from '../../common/replays'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'

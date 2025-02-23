@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
 import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'

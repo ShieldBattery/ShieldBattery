@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
 import { ChatMessage } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { BaseMessage } from './base-message-record'
 

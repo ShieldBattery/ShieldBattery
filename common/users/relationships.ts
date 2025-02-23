@@ -1,5 +1,6 @@
 import { Jsonify } from '../json'
-import { SbUser, SbUserId } from './sb-user'
+import { SbUser } from './sb-user'
+import { SbUserId } from './sb-user-id'
 
 /**
  * The maximum amount of friends you can have (including outgoing requests).

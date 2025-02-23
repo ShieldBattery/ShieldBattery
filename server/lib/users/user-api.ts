@@ -47,7 +47,6 @@ import {
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   SbUser,
-  SbUserId,
   SEARCH_MATCH_HISTORY_LIMIT,
   SearchMatchHistoryResponse,
   SelfUser,
@@ -55,6 +54,7 @@ import {
   toUserIpInfoJson,
   UserErrorCode,
 } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
