@@ -1,51 +1,22 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { Link, Route, Switch } from 'wouter'
-import { assertUnreachable } from '../../common/assert-unreachable'
+import { Link } from 'wouter'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useTrackPageView } from '../analytics/analytics'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
-import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { TextButton, useButtonState } from '../material/button'
-import Card from '../material/card'
-import { LinkButton } from '../material/link-button'
-import { Ripple } from '../material/ripple'
-import { shadow2dp } from '../material/shadows'
-import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { bodyLarge, bodyMedium, bodySmall, headlineMedium, titleLarge } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
 import { getLeaguesList, urlForLeague } from './action-creators'
-import { LeagueBadge } from './league-badge'
-import { LeagueDetailsPage } from './league-details'
-import { LeagueImage, LeaguePlaceholderImage } from './league-image'
-
-const LoadableLeagueAdmin = React.lazy(async () => ({
-  default: (await import('./league-admin')).LeagueAdmin,
-}))
-
-export function LeagueRoot(props: { params: any }) {
-  const isAdmin = useHasAnyPermission('manageLeagues')
-
-  return (
-    <Suspense fallback={<LoadingDotsArea />}>
-      <Switch>
-        {isAdmin ? <Route path='/leagues/admin/*?' component={LoadableLeagueAdmin} /> : <></>}
-        <Route path='/leagues/:id/*?' component={LeagueDetailsPage} />
-        <Route component={LeagueList} />
-      </Switch>
-    </Suspense>
-  )
-}
+import { LeagueCard } from './league-card'
+import { LeagueSectionType } from './league-section-type'
 
 const ListRoot = styled.div`
   width: 100%;
@@ -72,13 +43,7 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-export enum LeagueSectionType {
-  Past,
-  Current,
-  Future,
-}
-
-function LeagueList() {
+export function LeagueList() {
   useTrackPageView('/leagues/')
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -237,165 +202,5 @@ function LeagueSection({
         )}
       </SectionCards>
     </SectionRoot>
-  )
-}
-
-const LeagueCardRoot = styled(Card)`
-  position: relative;
-  width: 352px;
-  padding: 0;
-
-  display: flex;
-  flex-direction: column;
-
-  contain: content;
-  cursor: pointer;
-`
-
-const LeagueImageAndBadge = styled.div`
-  box-sizing: content-box;
-  position: relative;
-  padding-bottom: 20px;
-`
-
-const LeagueCardBadge = styled.div`
-  ${shadow2dp};
-  position: absolute;
-  left: 12px;
-  bottom: 0;
-  width: 52px;
-  height: 52px;
-  padding: 6px;
-
-  background: var(--sb-color-background);
-  border-radius: 9999px;
-`
-
-const LeagueName = styled.div`
-  ${titleLarge};
-  margin-top: 4px;
-  padding: 0 16px;
-`
-
-const LeagueFormatAndDate = styled.div`
-  ${bodySmall};
-  padding: 0 16px;
-`
-
-const LeagueDescription = styled.div`
-  ${bodyMedium};
-  margin-top: 16px;
-  padding: 0 16px;
-
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  line-clamp: 3;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`
-
-const LeagueActions = styled.div`
-  padding: 16px 0 10px 16px;
-
-  display: flex;
-  justify-content: space-between;
-`
-
-const DateTooltip = styled(Tooltip)`
-  display: inline-flex;
-`
-
-const JoinedIndicator = styled.div`
-  ${bodyMedium};
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  color: ${colorTextFaint};
-`
-
-export function LeagueCard({
-  league,
-  type,
-  curDate,
-  joined,
-  actionText,
-  href,
-}: {
-  league: ReadonlyDeep<LeagueJson>
-  type: LeagueSectionType
-  curDate: number
-  joined: boolean
-  actionText: string
-  href: string
-}) {
-  const { t } = useTranslation()
-  const [buttonProps, rippleRef] = useButtonState({})
-
-  let dateText: string
-  let dateTooltip: string
-  switch (type) {
-    case LeagueSectionType.Current:
-      dateText = t('leagues.list.ends', {
-        defaultValue: 'Ends {{endDate}}',
-        endDate: narrowDuration.format(league.endAt, curDate),
-      })
-      dateTooltip = longTimestamp.format(league.endAt)
-      break
-    case LeagueSectionType.Future:
-      dateText = t('leagues.list.starts', {
-        defaultValue: 'Starts {{startDate}}',
-        startDate: narrowDuration.format(league.startAt, curDate),
-      })
-      dateTooltip = longTimestamp.format(league.startAt)
-      break
-    case LeagueSectionType.Past:
-      dateText = `${monthDay.format(league.startAt)}\u2013${monthDay.format(league.endAt)}`
-      dateTooltip = `${longTimestamp.format(league.startAt)}\u2013${longTimestamp.format(
-        league.endAt,
-      )}`
-      break
-    default:
-      assertUnreachable(type)
-  }
-
-  return (
-    <LinkButton href={href} tabIndex={0}>
-      <LeagueCardRoot {...buttonProps}>
-        <LeagueImageAndBadge>
-          {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
-          <LeagueCardBadge>
-            <LeagueBadge league={league} />
-          </LeagueCardBadge>
-        </LeagueImageAndBadge>
-        <LeagueName>{league.name}</LeagueName>
-        <LeagueFormatAndDate>
-          {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
-          <DateTooltip text={dateTooltip} position={'right'}>
-            {dateText}
-          </DateTooltip>
-        </LeagueFormatAndDate>
-        <LeagueDescription>{league.description}</LeagueDescription>
-        <FlexSpacer />
-        <LeagueActions>
-          {joined ? (
-            <JoinedIndicator>
-              <MaterialIcon icon='check' />
-              <span>{t('leagues.list.joined', 'Joined')}</span>
-            </JoinedIndicator>
-          ) : (
-            <div />
-          )}
-          {/*
-          NOTE(tec27): This intentionally doesn't have an onClick handler as it is handled by the
-          card and having both would cause 2 navigations to occur.
-        */}
-          <TextButton label={actionText} color='accent' />
-        </LeagueActions>
-        <Ripple ref={rippleRef} />
-      </LeagueCardRoot>
-    </LinkButton>
   )
 }
