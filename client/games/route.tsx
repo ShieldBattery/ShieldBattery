@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { ConnectedGameResultsPage } from './results'
 import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from './results-sub-page'
 import { fromRouteGameId, makeRouteGameId } from './route-game-id'
@@ -20,9 +21,11 @@ export function GamesRouteComponent() {
 
   if (!params.routeId) {
     return (
-      <ComingSoonContainer>
-        <ComingSoon />
-      </ComingSoonContainer>
+      <CenteredContentContainer>
+        <ComingSoonContainer>
+          <ComingSoon />
+        </ComingSoonContainer>
+      </CenteredContentContainer>
     )
   }
 
