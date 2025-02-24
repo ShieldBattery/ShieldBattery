@@ -25,7 +25,7 @@ export const CenteredContentContainer = styled.div<{ $targetWidth?: number }>`
     parent container.
   */
   padding: 0 round(down, calc(50% - var(--internal-half-content-width)), 1px) 0
-    round(down, calc(50% - var(--internal-half-content-width) + var(--pixel-shove-x, 0)), 1px);
+    round(up, calc(50% - var(--internal-half-content-width)), 1px);
 
   overflow-x: hidden;
   overflow-y: auto;
