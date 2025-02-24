@@ -36,6 +36,9 @@ const Container = styled.div`
   justify-content: space-around;
   pointer-events: none;
   z-index: ${zIndexDialog};
+
+  --pixel-shove-x: 0;
+  --pixel-shove-y: 0;
 `
 
 const Surface = styled(animated(CardLayer))<{ $isTopDialog?: boolean }>`

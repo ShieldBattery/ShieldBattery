@@ -98,7 +98,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   line-height: 64px;
   text-align: center;
   text-decoration: none;
-  text-shadow: 1px 1px rgba(0, 0, 0, 0.24);
+  text-shadow: 1px 1px rgb(from var(--color-grey-blue10) r g b / 50%);
   text-transform: uppercase;
 
   --menu-item-fill: none;
@@ -314,7 +314,7 @@ const PlayButtonRoot = styled.a`
   font-weight: 700;
   line-height: 72px;
   text-align: center;
-  text-shadow: 1px 1px rgba(0, 0, 0, 0.24);
+  text-shadow: 1px 1px rgb(from var(--color-blue10) r g b / 50%);
   text-transform: uppercase;
 
   &:link,
@@ -483,7 +483,7 @@ function PlayButton({ children }: { children?: React.ReactNode }) {
 }
 
 const ShadowedIcon = styled(MaterialIcon)`
-  text-shadow: 1px 1px rgba(0, 0, 0, 0.24);
+  text-shadow: 1px 1px rgb(from var(--color-grey-blue10) r g b / 50%);
 `
 
 const ShadowedToggleIcon = styled(ShadowedIcon)<{ $active?: boolean }>`

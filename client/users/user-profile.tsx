@@ -18,6 +18,7 @@ import { TabItem, Tabs } from '../material/tabs'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { CenteredContentContainer } from '../styles/centered-container'
 import {
   amberA400,
   backgroundSaturatedDark,
@@ -50,13 +51,6 @@ import { UserRankDisplay } from './user-rank-display'
 const LoadableAdminUserPage = React.lazy(async () => ({
   default: (await import('./user-profile-admin')).AdminUserPage,
 }))
-
-const Container = styled.div`
-  width: 100%;
-  max-width: 960px;
-  /* 12px + 24px from tab = 36px from left */
-  padding: 24px 12px;
-`
 
 const LoadingError = styled.div`
   ${bodyLarge};
@@ -157,6 +151,7 @@ export function ConnectedUserProfilePage({
 const TopSection = styled.div`
   height: 100px;
   width: 100%;
+  margin-top: 24px;
   margin-bottom: 32px;
   padding: 0 24px;
 
@@ -199,6 +194,10 @@ const TabArea = styled.div`
   max-width: 720px;
   margin-bottom: 24px;
   padding: 0 24px;
+`
+
+const BottomSpacer = styled.div`
+  height: 24px;
 `
 
 export interface UserProfilePageProps {
@@ -259,7 +258,7 @@ export function UserProfilePage({
   }
 
   return (
-    <Container>
+    <CenteredContentContainer>
       <TopSection>
         <AvatarCircle>
           <StyledAvatar userId={user.id} />
@@ -295,7 +294,8 @@ export function UserProfilePage({
       </TabArea>
 
       {content}
-    </Container>
+      <BottomSpacer />
+    </CenteredContentContainer>
   )
 }
 

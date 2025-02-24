@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch } from 'wouter'
@@ -6,7 +6,6 @@ import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
 import { useSelfUser } from './auth/auth-utils'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
-import { usePixelShover } from './dom/pixel-shover'
 import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { KeyListenerBoundary } from './keyboard/key-listener'
@@ -83,11 +82,6 @@ function useUserSpecificGraphqlClient() {
 }
 
 export default function App() {
-  const [shoveX, shoveY] = usePixelShover()
-  useLayoutEffect(() => {
-    document.body.style.setProperty('--pixel-shove-x', `${shoveX}px`)
-    document.body.style.setProperty('--pixel-shove-y', `${shoveY}px`)
-  }, [shoveX, shoveY])
   const graphqlClient = useUserSpecificGraphqlClient()
   const selfUser = useSelfUser()
 

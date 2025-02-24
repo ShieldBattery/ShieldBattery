@@ -28,4 +28,7 @@ export const CenteredContentContainer = styled.div<{ $targetWidth?: number }>`
 
   overflow-x: hidden;
   overflow-y: auto;
+
+  /** Since we adjusted for pixel-shove-x, our descendants shouldn't need one. */
+  --pixel-shove-x: 0;
 `

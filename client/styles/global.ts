@@ -22,8 +22,11 @@ const GlobalStyle = createGlobalStyle`
     user-select: none;
   }
 
-  html {
+  :root {
     ${THEME_CSS};
+  }
+
+  html {
     ${bodyMedium};
 
     font-family: Inter, sans-serif;
@@ -39,6 +42,12 @@ const GlobalStyle = createGlobalStyle`
     /** This will be overridden on the body styles in Electron */
     --sb-system-bar-height: 0px;
 
+    /**
+      Values to adjust for if centering content so that the content's edges don't end up on
+      half pixels.
+    */
+    --pixel-shove-x: mod(100vw, 2px);
+    --pixel-shove-y: mod(100vh, 2px);
   }
 
   html, body, #app {
