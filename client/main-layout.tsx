@@ -789,11 +789,6 @@ function AppBar({
 
 const Content = styled.div`
   grid-area: content;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
   overflow: auto;
 `
 

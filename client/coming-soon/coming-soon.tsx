@@ -14,6 +14,7 @@ const FundingSection = styled.div`
 const SupportLinks = styled.div`
   display: flex;
   align-items: flex-start;
+  justify-content: center;
 
   margin-top: 8px;
   /** Offset for the inner padding of the first item */

@@ -11,6 +11,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import logger from '../logging/logger'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
@@ -20,8 +21,7 @@ import { LeagueSectionType } from './league-section-type'
 
 const ListRoot = styled.div`
   width: 100%;
-  max-width: 1120px;
-  padding: 24px 24px 12px;
+  padding: 24px 0 12px;
 
   display: flex;
   flex-direction: column;
@@ -97,49 +97,51 @@ export function LeagueList() {
   }, [dispatch])
 
   return (
-    <ListRoot>
-      <TitleRow>
-        <Title>{t('leagues.list.pageHeadline', 'Leagues')}</Title>
-        {isAdmin ? (
-          <Link href='/leagues/admin'>{t('leagues.list.manageLeagues', 'Manage leagues')}</Link>
+    <CenteredContentContainer>
+      <ListRoot>
+        <TitleRow>
+          <Title>{t('leagues.list.pageHeadline', 'Leagues')}</Title>
+          {isAdmin ? (
+            <Link href='/leagues/admin'>{t('leagues.list.manageLeagues', 'Manage leagues')}</Link>
+          ) : null}
+          <FlexSpacer />
+          <Link href='#' onClick={onHowItWorksClick}>
+            {t('leagues.list.howDoLeaguesWork', 'How do leagues work?')}
+          </Link>
+        </TitleRow>
+
+        {!isLoading && error ? (
+          <ErrorText>{t('leagues.list.loadingError', 'Error loading leagues')}</ErrorText>
         ) : null}
-        <FlexSpacer />
-        <Link href='#' onClick={onHowItWorksClick}>
-          {t('leagues.list.howDoLeaguesWork', 'How do leagues work?')}
-        </Link>
-      </TitleRow>
 
-      {!isLoading && error ? (
-        <ErrorText>{t('leagues.list.loadingError', 'Error loading leagues')}</ErrorText>
-      ) : null}
+        {!isLoading || currentLeagues.length ? (
+          <LeagueSection
+            label={t('leagues.list.currentlyRunning', 'Currently running')}
+            leagues={currentLeagues}
+            joinedLeagues={selfLeagues}
+            type={LeagueSectionType.Current}
+          />
+        ) : undefined}
+        {futureLeagues.length ? (
+          <LeagueSection
+            label={t('leagues.list.acceptingSignups', 'Accepting signups')}
+            leagues={futureLeagues}
+            joinedLeagues={selfLeagues}
+            type={LeagueSectionType.Future}
+          />
+        ) : null}
+        {pastLeagues.length ? (
+          <LeagueSection
+            label={t('leagues.list.finished', 'Finished')}
+            leagues={pastLeagues}
+            joinedLeagues={selfLeagues}
+            type={LeagueSectionType.Past}
+          />
+        ) : null}
 
-      {!isLoading || currentLeagues.length ? (
-        <LeagueSection
-          label={t('leagues.list.currentlyRunning', 'Currently running')}
-          leagues={currentLeagues}
-          joinedLeagues={selfLeagues}
-          type={LeagueSectionType.Current}
-        />
-      ) : undefined}
-      {futureLeagues.length ? (
-        <LeagueSection
-          label={t('leagues.list.acceptingSignups', 'Accepting signups')}
-          leagues={futureLeagues}
-          joinedLeagues={selfLeagues}
-          type={LeagueSectionType.Future}
-        />
-      ) : null}
-      {pastLeagues.length ? (
-        <LeagueSection
-          label={t('leagues.list.finished', 'Finished')}
-          leagues={pastLeagues}
-          joinedLeagues={selfLeagues}
-          type={LeagueSectionType.Past}
-        />
-      ) : null}
-
-      {isLoading ? <LoadingDotsArea /> : null}
-    </ListRoot>
+        {isLoading ? <LoadingDotsArea /> : null}
+      </ListRoot>
+    </CenteredContentContainer>
   )
 }
 
