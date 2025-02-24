@@ -87,7 +87,6 @@ const FriendsListHeader = styled.div`
 const FriendsListTabsContainer = styled.div`
   max-width: 212px;
   margin: 0 auto;
-  padding-left: var(--pixel-shove-x, 0px);
   padding-bottom: 16px;
 `
 
