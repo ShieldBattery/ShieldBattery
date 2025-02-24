@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */
 /* eslint-disable @typescript-eslint/no-wrapper-object-types */
 // NOTE(tec27): This is copied from reflect-metadata, because the corejs polyfill we use does not

@@ -1,6 +1,7 @@
 import { fixupConfigRules, fixupPluginRules } from '@eslint/compat'
 import { FlatCompat } from '@eslint/eslintrc'
 import js from '@eslint/js'
+import stylistic from '@stylistic/eslint-plugin'
 import typescriptEslint from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
 import jest from 'eslint-plugin-jest'
@@ -59,6 +60,7 @@ export default [
     files: ['**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx'],
 
     plugins: {
+      '@stylistic': stylistic,
       '@typescript-eslint': fixupPluginRules(typescriptEslint),
       prettier,
       react: fixupPluginRules(react),
@@ -92,26 +94,82 @@ export default [
     },
 
     rules: {
-      'accessor-pairs': 'error',
+      '@stylistic/eol-last': 'error',
+      '@stylistic/linebreak-style': ['error', 'unix'],
+      '@stylistic/new-parens': 'error',
+      '@stylistic/no-floating-decimal': 'error',
+      '@stylistic/no-multiple-empty-lines': [
+        'error',
+        {
+          max: 2,
+          maxEOF: 1,
+        },
+      ],
+      '@stylistic/quotes': [
+        'error',
+        'single',
+        {
+          avoidEscape: true,
+          allowTemplateLiterals: true,
+        },
+      ],
+      '@stylistic/semi': ['error', 'never'],
+      '@stylistic/spaced-comment': [
+        'error',
+        'always',
+        {
+          markers: ['global', 'globals', 'eslint', 'eslint-disable', '*package', '!', ',', '/'],
+        },
+      ],
+      '@stylistic/wrap-iife': ['error', 'any'],
 
+      'prettier/prettier': 'error',
+
+      'react/display-name': 'off',
+      'react/jsx-boolean-value': ['error', 'always'],
+      'react/jsx-no-target-blank': [
+        'error',
+        {
+          allowReferrer: true,
+        },
+      ],
+      'react/no-deprecated': 'off',
+      'react/no-unescaped-entities': 'off',
+      'react/prop-types': 'off',
+
+      '@typescript-eslint/no-empty-object-type': [
+        'error',
+        {
+          allowInterfaces: 'always',
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-redeclare': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          vars: 'all',
+          args: 'none',
+          caughtErrors: 'none',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/no-var-requires': 'off',
+
+      'accessor-pairs': 'error',
       camelcase: [
         'error',
         {
           allow: ['.+_.+Fragment$'],
         },
       ],
-
       'consistent-return': 'error',
       'constructor-super': 'error',
-      curly: ['error', 'multi-line'],
       'dot-notation': 'error',
-      'eol-last': 'error',
       eqeqeq: ['error', 'smart'],
-      'linebreak-style': ['error', 'unix'],
-      'max-len': ['error', 100],
       'max-nested-callbacks': ['error', 5],
       'max-params': ['error', 8],
-      'new-parens': 'error',
       'no-alert': 'error',
       'no-array-constructor': 'error',
       'no-caller': 'error',
@@ -119,30 +177,18 @@ export default [
       'no-eval': 'error',
       'no-extend-native': 'error',
       'no-extra-bind': 'error',
-      'no-extra-semi': 'off',
-
       'no-fallthrough': [
         'error',
         {
           allowEmptyCase: true,
         },
       ],
-
-      'no-floating-decimal': 'error',
       'no-implied-eval': 'error',
       'no-inner-declarations': ['error', 'both'],
       'no-label-var': 'error',
       'no-labels': 'error',
       'no-lone-blocks': 'off',
       'no-multi-str': 'error',
-
-      'no-multiple-empty-lines': [
-        'error',
-        {
-          max: 2,
-        },
-      ],
-
       'no-nested-ternary': 'error',
       'no-new': 'error',
       'no-new-func': 'error',
@@ -150,7 +196,6 @@ export default [
       'no-new-wrappers': 'error',
       'no-octal-escape': 'error',
       'no-proto': 'error',
-
       'no-restricted-globals': [
         'error',
         {
@@ -158,7 +203,6 @@ export default [
           message: 'Do not use the built-in fetch, use client/network/fetch instead.',
         },
       ],
-
       'no-restricted-imports': [
         'error',
         {
@@ -181,7 +225,6 @@ export default [
           ],
         },
       ],
-
       'no-return-assign': 'error',
       'no-self-compare': 'error',
       'no-sequences': 'error',
@@ -189,18 +232,15 @@ export default [
       'no-undef': 'off',
       'no-undef-init': 'error',
       'no-unneeded-ternary': 'error',
-
       'no-unused-expressions': [
         'error',
         {
           allowTaggedTemplates: true,
         },
       ],
-
       'no-unused-vars': 'off',
       'no-var': 'error',
       'no-void': 'error',
-
       'no-warning-comments': [
         'error',
         {
@@ -208,69 +248,9 @@ export default [
           location: 'start',
         },
       ],
-
       'object-shorthand': 'error',
-      'padded-blocks': ['error', 'never'],
       'prefer-const': 'error',
       'quote-props': ['error', 'as-needed'],
-
-      quotes: [
-        'error',
-        'single',
-        {
-          avoidEscape: true,
-          allowTemplateLiterals: true,
-        },
-      ],
-
-      semi: ['error', 'never'],
-
-      'spaced-comment': [
-        'error',
-        'always',
-        {
-          markers: ['global', 'globals', 'eslint', 'eslint-disable', '*package', '!', ',', '/'],
-        },
-      ],
-
-      'wrap-iife': ['error', 'any'],
-      'prettier/prettier': 'error',
-      'react/display-name': 'off',
-      'react/jsx-boolean-value': ['error', 'always'],
-      'react/no-deprecated': 'off',
-
-      'react/jsx-no-target-blank': [
-        'error',
-        {
-          allowReferrer: true,
-        },
-      ],
-
-      'react/no-unescaped-entities': 'off',
-      'react/prop-types': 'off',
-
-      '@typescript-eslint/no-empty-object-type': [
-        'error',
-        {
-          allowInterfaces: 'always',
-        },
-      ],
-
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-redeclare': 'off',
-      '@typescript-eslint/no-require-imports': 'off',
-
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          vars: 'all',
-          args: 'none',
-          caughtErrors: 'none',
-          varsIgnorePattern: '^_',
-        },
-      ],
-
-      '@typescript-eslint/no-var-requires': 'off',
     },
   },
   ...fixupConfigRules(compat.extends('plugin:@typescript-eslint/recommended-type-checked')).map(
@@ -293,14 +273,12 @@ export default [
 
     rules: {
       '@typescript-eslint/no-base-to-string': 'off',
-
       '@typescript-eslint/no-empty-object-type': [
         'error',
         {
           allowInterfaces: 'always',
         },
       ],
-
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-redeclare': 'off',
       '@typescript-eslint/no-require-imports': 'off',
@@ -311,7 +289,6 @@ export default [
       '@typescript-eslint/no-unsafe-enum-comparison': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
-
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -321,7 +298,6 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
-
       '@typescript-eslint/no-var-requires': 'off',
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/restrict-plus-operands': 'off',
@@ -382,7 +358,7 @@ export default [
     },
   },
   {
-    files: ['client/gql/fragment-masking.ts'],
+    files: ['client/gql/fragment-masking.ts', 'client/gql/gql.ts'],
 
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
