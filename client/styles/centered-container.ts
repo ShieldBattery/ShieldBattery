@@ -8,9 +8,10 @@ import styled from 'styled-components'
  * The target width can be changed by setting the `$targetWidth` prop (defaults to `1200px`).
  */
 export const CenteredContentContainer = styled.div<{ $targetWidth?: number }>`
-  /** Dumb CSS properties just to avoid needing to write out this calculation multiple times. */
   --target-width: ${props => props.$targetWidth ?? 1200}px;
   --target-horizontal-padding: 24px;
+
+  /** Dumb CSS properties just to avoid needing to write out this calculation multiple times. */
   --internal-this-width: min(100%, var(--target-width) + 2 * var(--target-horizontal-padding));
   --internal-half-content-width: min(
     50% - var(--target-horizontal-padding),
