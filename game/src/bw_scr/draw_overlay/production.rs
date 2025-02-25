@@ -232,10 +232,7 @@ impl OverlayState {
         ui: &mut egui::Ui,
         player_id: u8,
     ) -> Option<Production> {
-        let player_production = match self.production.per_player.get(player_id as usize) {
-            Some(s) => s,
-            None => return None,
-        };
+        let player_production = self.production.per_player.get(player_id as usize)?;
         let size = Vec2 { x: 300.0, y: 24.0 };
         let mut clicked = None;
         let res = ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Min), |ui| {

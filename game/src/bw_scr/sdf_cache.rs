@@ -450,7 +450,7 @@ impl SdfCache {
     }
 }
 
-impl<'a> VacantSdfEntry<'a> {
+impl VacantSdfEntry<'_> {
     pub fn insert(self, width: u16, height: u16, data: &[u8]) {
         let data_offset = self.data.len() as u32;
         self.data.extend_from_slice(data);

@@ -16,8 +16,8 @@ pub struct SnpLoadFuncs {
     pub identify: unsafe extern "system" fn(
         u32,            // snp index
         *mut u32,       // id
-        *mut *const u8, // name
-        *mut *const u8, // description
+        *mut *const i8, // name
+        *mut *const i8, // description
         *mut *const crate::bw::SnpCapabilities,
     ) -> u32,
     pub bind: unsafe extern "system" fn(u32, *mut *const SnpFunctions) -> u32,

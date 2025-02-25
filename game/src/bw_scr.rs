@@ -3059,8 +3059,8 @@ static SNP_FUNCTIONS: SnpFunctions = SnpFunctions {
 unsafe extern "system" fn snp_load_identify(
     snp_index: u32,
     id: *mut u32,
-    name: *mut *const u8,
-    description: *mut *const u8,
+    name: *mut *const i8,
+    description: *mut *const i8,
     caps: *mut *const crate::bw::SnpCapabilities,
 ) -> u32 {
     if snp_index > 0 {
@@ -3068,8 +3068,8 @@ unsafe extern "system" fn snp_load_identify(
     }
 
     *id = snp::PROVIDER_ID;
-    *name = b"Shieldbattery\0".as_ptr();
-    *description = b"=)\0".as_ptr();
+    *name = c"Shieldbattery".as_ptr();
+    *description = c"=)".as_ptr();
     *caps = &snp::CAPABILITIES;
     1
 }

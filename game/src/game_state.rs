@@ -1597,7 +1597,7 @@ fn determine_game_results(
         let dropped = game_thread_results
             .network_results
             .get(storm_id)
-            .map_or(false, |r| r.was_dropped);
+            .is_some_and(|r| r.was_dropped);
 
         // If the player was dropped but it was a mass disconnect, we assume they are probably still
         // playing in the other games, so we mark them back to Playing
@@ -1629,7 +1629,7 @@ fn determine_game_results(
                             game_thread_results
                                 .network_results
                                 .get(storm)
-                                .map_or(true, |r| r.has_quit)
+                                .is_none_or(|r| r.has_quit)
                         })
                         .unwrap_or(true)
                 {
@@ -1675,7 +1675,7 @@ fn determine_game_results(
                 || game_thread_results
                     .network_results
                     .get(storm_id)
-                    .map_or(true, |r| r.has_quit);
+                    .is_none_or(|r| r.has_quit);
 
             if quit && result.result == VictoryState::Defeat {
                 let bw_id = sb_to_bw
