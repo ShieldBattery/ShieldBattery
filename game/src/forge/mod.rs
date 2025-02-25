@@ -31,6 +31,13 @@ mod scr_hooks {
     );
 }
 
+struct ChangeDisplaySettingsParams {
+    /// With terminating 0
+    device_name: Option<Vec<u16>>,
+    devmode: DEVMODEW,
+    flags: u32,
+}
+
 const FOREGROUND_HOTKEY_ID: i32 = 1337;
 const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
@@ -119,9 +126,42 @@ unsafe extern "system" fn wnd_proc_scr(
 
 unsafe fn msg_game_started(window: HWND) {
     debug!("Forge: Game started");
+    let mut display_change_request = None;
     with_forge(|forge| {
         forge.game_started = true;
+        // This request must be handled while forge is not being accessed,
+        // as ChangeDisplaySettingsExW will call WndProc before it returns.
+        display_change_request = forge.display_change_request.take();
     });
+
+    if let Some(ref mut params) = display_change_request {
+        debug!("Applying delayed display settings change");
+        let device_name = match params.device_name {
+            Some(ref x) => x.as_ptr(),
+            None => std::ptr::null(),
+        };
+        let result = ChangeDisplaySettingsExW(
+            device_name,
+            &mut params.devmode,
+            null_mut(),
+            params.flags,
+            null_mut(),
+        );
+        if result != DISP_CHANGE_SUCCESSFUL {
+            let os_string;
+            let device_name_string = match params.device_name {
+                Some(ref x) => {
+                    os_string = crate::windows::os_string_from_winapi(x);
+                    os_string.to_string_lossy()
+                }
+                None => "(Default device)".into(),
+            };
+            error!(
+                "Changing display mode for {} failed. Result {:x}",
+                device_name_string, result,
+            );
+        }
+    }
 
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
     // but will allow you to do so if you're handling a global hotkey. So... we register
@@ -177,6 +217,8 @@ struct Forge {
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
     /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
     scr_window_class: Option<ATOM>,
+    // Delayed display change for SC:R fullscreen switching
+    display_change_request: Option<ChangeDisplaySettingsParams>,
 }
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
@@ -310,12 +352,10 @@ fn change_display_settings_ex(
     orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
 ) -> i32 {
     unsafe {
-        // SC:R seems to call this setting despite not needing to in its current rendering APIs.
-        // DX11 and DX12 (the only options you can achieve without changing non-public settings)
-        // use DXGI with ResizeTarget + SetFullScreenState, which is more performant and enables
-        // better switching between applications. For whatever reason, Blizzard seems to have left
-        // these calls in, so we just ignore them unless they're weirdly formatted.
-
+        // We want to block SC:R from switching to fullscreen before game has completely started,
+        // buffer the change request if it occurs while we're loading.
+        // (Note: Exclusive fullscreen only; windowed fullscreen calls this without setting
+        // devmode)
         if !param.is_null() || !hwnd.is_null() {
             // Unexpected parameters, let windows do whatever
             warn!("Unexpected ChangeDisplaySettingsExW params");
@@ -331,9 +371,39 @@ fn change_display_settings_ex(
             );
             return orig(device_name, devmode, hwnd, flags, param);
         }
-
-        debug!("Ignoring ChangeDisplaySettingsExW call");
-        DISP_CHANGE_SUCCESSFUL
+        if !scr_hooks_disabled() {
+            let game_started = with_forge(|forge| forge.game_started);
+            if game_started {
+                debug!("ChangeDisplaySettingsExW(devmode: {devmode:p})");
+                orig(device_name, devmode, hwnd, flags, param)
+            } else {
+                with_forge(|forge| {
+                    if devmode.is_null() {
+                        // Resetting to default settings (out of fullscreen),
+                        // so clear any buffered fullscreen request we may have.
+                        debug!("Clearing delayed ChangeDisplaySettingsExW");
+                        forge.display_change_request = None;
+                    } else {
+                        debug!("Delaying ChangeDisplaySettingsExW");
+                        let device_name = if device_name.is_null() {
+                            None
+                        } else {
+                            let len = (0..).find(|&i| *device_name.add(i) == 0).unwrap();
+                            let slice = std::slice::from_raw_parts(device_name, len + 1);
+                            Some(slice.into())
+                        };
+                        forge.display_change_request = Some(ChangeDisplaySettingsParams {
+                            device_name,
+                            devmode: devmode.read(),
+                            flags,
+                        });
+                    }
+                    DISP_CHANGE_SUCCESSFUL
+                })
+            }
+        } else {
+            orig(device_name, devmode, hwnd, flags, param)
+        }
     }
 }
 
@@ -551,6 +621,7 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         orig_wnd_proc: None,
         game_started: false,
         scr_window_class: None,
+        display_change_request: None,
     });
     FORGE_INITED.store(true, Ordering::Release);
 }
