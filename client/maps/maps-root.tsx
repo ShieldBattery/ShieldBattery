@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
+import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { BrowseServerMaps } from './browse-server-maps'
@@ -12,6 +15,7 @@ const LoadableLocalMaps = React.lazy(async () => ({
 
 export function MapsRoot() {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
   const [uploadedMap, setUploadedMap] = useState<ReadonlyDeep<MapInfoJson>>()
 
@@ -24,8 +28,10 @@ export function MapsRoot() {
     setBrowsingLocalMaps(false)
     setUploadedMap(map)
   })
+  const onMapDetails = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
+    dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+  })
 
-  // FIXME: missing overflow menu + such
   return (
     <CenteredContentContainer>
       {IS_ELECTRON && browsingLocalMaps ? (
@@ -33,8 +39,10 @@ export function MapsRoot() {
       ) : (
         <BrowseServerMaps
           title={t('maps.activity.title', 'Maps')}
-          onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
           uploadedMap={uploadedMap}
+          onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
+          onMapDetails={onMapDetails}
+          onMapSelect={onMapDetails}
         />
       )}
     </CenteredContentContainer>
