@@ -9,6 +9,7 @@ import { writeFile } from '../file-upload'
 import { addMap } from './map-models'
 import { MapParseData } from './parse-data'
 import { MAP_PARSER_VERSION } from './parser-version'
+import { imagePath, mapPath } from './paths'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
 let MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
@@ -125,18 +126,6 @@ export async function storeRegeneratedImages(path: string, extension: MapExtensi
     : Promise.resolve()
 
   await Promise.all([image256Promise, image512Promise, image1024Promise, image2048Promise])
-}
-
-export function mapPath(hash: string, extension: MapExtension) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
-  return `maps/${firstByte}/${secondByte}/${hash}.${extension}`
-}
-
-export function imagePath(hash: string, size: 256 | 512 | 1024 | 2048) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
-  return `map_images/${firstByte}/${secondByte}/${hash}-${size}.jpg`
 }
 
 export interface MapParseResult {
