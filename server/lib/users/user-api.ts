@@ -54,6 +54,7 @@ import {
   toUserIpInfoJson,
   UserErrorCode,
 } from '../../../common/users/user-network'
+import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
@@ -206,6 +207,7 @@ export class UserApi {
     private clock: Clock,
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
+    private chatService: ChatService,
   ) {}
 
   @httpPost('/')
@@ -267,6 +269,8 @@ export class UserApi {
         ipAddress: ctx.ip,
         clientIds,
         locale,
+        joinInitialChannelFn: (userId, client, transactionCompleted) =>
+          this.chatService.joinInitialChannel(userId, client, transactionCompleted),
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {

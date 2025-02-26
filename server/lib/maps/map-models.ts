@@ -14,7 +14,7 @@ import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../file-upload'
 import { MapParseData } from './parse-data'
-import { imagePath, mapPath } from './store'
+import { imagePath, mapPath } from './paths'
 
 // TODO(tec27): Make the MapInfo structure more closely align to what we store here?
 type DbMapInfo = Dbify<{
