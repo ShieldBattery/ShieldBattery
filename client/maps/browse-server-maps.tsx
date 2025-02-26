@@ -17,6 +17,7 @@ import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
+import { useRefreshToken } from '../network/refresh-token'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
@@ -27,6 +28,8 @@ import {
   getMapPreferences,
   getMapsList,
   openMapPreviewDialog,
+  regenMapImage,
+  removeMap,
   toggleFavoriteMap,
   updateMapPreferences,
 } from './action-creators'
@@ -187,8 +190,6 @@ interface BrowseServerMapsProps {
   uploadedMap?: ReadonlyDeep<MapInfoJson>
   onMapSelect?: (map: ReadonlyDeep<MapInfoJson>) => void
   onMapDetails?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onRemoveMap?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onRegenMapImage?: (map: ReadonlyDeep<MapInfoJson>) => void
   onBrowseLocalMaps?: () => void
 }
 
@@ -197,8 +198,6 @@ export function BrowseServerMaps({
   uploadedMap,
   onMapSelect,
   onMapDetails,
-  onRemoveMap,
-  onRegenMapImage,
   onBrowseLocalMaps,
 }: BrowseServerMapsProps) {
   const { t } = useTranslation()
@@ -219,7 +218,15 @@ export function BrowseServerMaps({
   const [searchQuery, setSearchQuery] = useState('')
   const [hasInitializedState, setHasInitializedState] = useState(false)
 
-  const refreshTokenRef = useRef(0)
+  const [refreshToken, triggerRefresh] = useRefreshToken()
+
+  const onRemoveMap = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
+    dispatch(removeMap(map))
+  })
+
+  const onRegenMapImage = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
+    dispatch(regenMapImage(map))
+  })
 
   const savePreferences = useStableCallback(() => {
     dispatch(
@@ -237,8 +244,8 @@ export function BrowseServerMaps({
   const reset = useStableCallback(() => {
     debouncedSetSearchQuery.current?.cancel()
     dispatch(clearMapsList())
-    refreshTokenRef.current++
     setCurrentPage(0)
+    triggerRefresh()
   })
   debouncedSetSearchQuery.current = useMemo(
     () =>
@@ -454,7 +461,7 @@ export function BrowseServerMaps({
                 nextLoadingEnabled={true}
                 isLoadingNext={mapsState.isRequesting}
                 hasNextData={hasMoreMaps}
-                refreshToken={refreshTokenRef.current}
+                refreshToken={refreshToken}
                 onLoadNextData={onLoadMoreMaps}>
                 {renderAllMaps()}
               </InfiniteScrollList>
