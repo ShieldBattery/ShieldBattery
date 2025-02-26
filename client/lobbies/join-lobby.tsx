@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { gameTypeToLabel } from '../../common/games/game-type'
+import { useTrackPageView } from '../analytics/analytics'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -113,6 +114,7 @@ interface JoinLobbyProps {
 }
 
 function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
+  useTrackPageView('/lobbies')
   const { t } = useTranslation()
   const isConnected = useAppSelector(s => s.network.isConnected)
 

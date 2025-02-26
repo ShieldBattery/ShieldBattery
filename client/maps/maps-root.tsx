@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
+import { useTrackPageView } from '../analytics/analytics'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useAppDispatch } from '../redux-hooks'
@@ -14,6 +15,7 @@ const LoadableLocalMaps = React.lazy(async () => ({
 }))
 
 export function MapsRoot() {
+  useTrackPageView('/maps')
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)

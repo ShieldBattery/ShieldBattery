@@ -16,6 +16,7 @@ import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../com
 import { MapInfoJson } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
+import { useTrackPageView } from '../analytics/analytics'
 import { useForm, Validator } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
@@ -343,6 +344,8 @@ enum MapBrowseState {
 }
 
 export function CreateLobby(props: CreateLobbyProps) {
+  useTrackPageView('/lobbies/create')
+
   const [routeMatches, routeParams] = useRoute('/play/lobbies/create/:name?')
   const routeName =
     routeMatches && routeParams.name ? decodeURIComponent(routeParams.name) : undefined
