@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
-import { amberA400, colorDividers } from '../styles/colors'
+import { colorDividers } from '../styles/colors'
 import PlaceholderIcon from './avatar-placeholder.svg'
 import { randomColorForString } from './colors'
 
@@ -11,7 +11,7 @@ export const ImageAvatar = styled.img<{ $glowing?: boolean }>`
   height: 40px;
   display: inline-block;
   border-radius: 50%;
-  ${props => (props.$glowing ? `box-shadow: 0 0 8px ${amberA400}` : '')};
+  ${props => (props.$glowing ? `box-shadow: 0 0 8px var(--theme-amber)` : '')};
 `
 
 export const IconContainer = styled.div`

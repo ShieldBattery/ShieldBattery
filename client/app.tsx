@@ -101,10 +101,12 @@ export default function App() {
                   <SiteSocketManager />
                   <Switch>
                     {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
+                    <Route>
+                      <MainLayout key={selfUser?.id ?? -1}>
+                        <AppRoutes />
+                      </MainLayout>
+                    </Route>
                   </Switch>
-                  <MainLayout key={selfUser?.id ?? -1}>
-                    <AppRoutes />
-                  </MainLayout>
                   <ConnectedSettings />
                   <ConnectedSnackbar />
                   <ConnectedDialogOverlay />

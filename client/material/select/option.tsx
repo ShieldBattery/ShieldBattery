@@ -1,7 +1,5 @@
-import { rgba } from 'polished'
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
-import { amberA400 } from '../../styles/colors'
 import { MenuItem } from '../menu/item'
 import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol'
 
@@ -12,7 +10,7 @@ const StyledMenuItem = styled(MenuItem)<{
   &:hover {
     background-color: ${props => {
       if (props.$selected) {
-        return rgba(amberA400, 0.2)
+        return 'rgb(from var(--theme-amber) r g b / 0.2)'
       }
       if (props.$focused) {
         return 'rgba(255, 255, 255, 0.24)'
@@ -23,12 +21,12 @@ const StyledMenuItem = styled(MenuItem)<{
   }
 
   &:active {
-    background-color: ${rgba(amberA400, 0.24)};
+    background-color: rgb(from var(--theme-amber) r g b / 0.24);
   }
 
   ${props => {
     if (props.$selected) {
-      return `background-color: ${rgba(amberA400, 0.16)}`
+      return `background-color: rgb(from var(--theme-amber) r g b / 0.16)`
     }
     if (props.$focused) {
       return 'background-color: rgba(255, 255, 255, 0.24)'

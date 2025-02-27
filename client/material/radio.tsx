@@ -1,6 +1,6 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors'
 import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'
 import { standardEasing } from './curve-constants'
@@ -111,9 +111,9 @@ const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
   height: 48px;
 
   color: ${props => {
-    if (props.$disabled) return colorTextFaint
-    else if (props.$selected) return amberA400
-    else return colorTextSecondary
+    if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
+    else if (props.$selected) return 'var(--theme-amber)'
+    else return 'var(--theme-on-surface-variant)'
   }};
 `
 
@@ -168,7 +168,8 @@ const Label = styled.label<{ $disabled?: boolean }>`
   flex-grow: 1;
   padding: 4px 0;
 
-  color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
+  color: ${props =>
+    props.$disabled ? 'rgb(from var(--theme-on-surface) r g b / 0.38)' : 'var(--theme-on-surface)'};
 `
 
 export const RadioButton = React.memo(

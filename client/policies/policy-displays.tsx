@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { BottomLinks } from '../landing/bottom-links'
-import TopLinks from '../landing/top-links'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodyLarge, bodyMedium, displaySmall, titleLarge, titleSmall } from '../styles/typography'
@@ -56,7 +55,6 @@ function PolicyPage(props: { title: string; children: React.ReactNode }) {
   return (
     <PageRoot>
       <PageContentRoot>
-        <TopLinks />
         <PageHeader>{props.title}</PageHeader>
         <React.Suspense fallback={<LoadingDotsArea />}>{props.children}</React.Suspense>
         <BottomLinks />

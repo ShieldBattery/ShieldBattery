@@ -9,11 +9,10 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'
-import { amberA400 } from '../styles/colors'
 
 const ColoredPolicyIcon = styled(MaterialIcon).attrs({ icon: 'policy', size: 36 })`
   flex-shrink: 0;
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 export interface PolicyUpdateNotificationUiProps {

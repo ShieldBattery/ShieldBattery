@@ -10,13 +10,7 @@ import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState, useStableCallback } from '../state-hooks'
-import {
-  amberA400,
-  background600,
-  colorError,
-  colorSuccess,
-  colorTextSecondary,
-} from '../styles/colors'
+import { background600, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
@@ -285,5 +279,5 @@ const ErrorText = styled.div`
 
 const WarningText = styled.p`
   ${bodyLarge}
-  color: ${amberA400};
+  color: var(--theme-amber);
 `

@@ -6,7 +6,6 @@ import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { ConnectedNotificationsList } from './notifications-list'
 
@@ -19,7 +18,7 @@ const UnreadIndicator = styled.div`
   left: 8px;
   top: 12px;
 
-  background-color: ${amberA200};
+  background-color: var(--color-amber80);
   border-radius: 50%;
   pointer-events: none;
 `

@@ -1,14 +1,5 @@
 import { createGlobalStyle } from 'styled-components'
-import {
-  amberA200,
-  amberA400,
-  background300,
-  background700,
-  CardLayer,
-  colorTextFaint,
-  colorTextPrimary,
-  THEME_CSS,
-} from './colors'
+import { background300, background700, CardLayer, colorTextPrimary, THEME_CSS } from './colors'
 import { bodyMedium } from './typography'
 
 const GlobalStyle = createGlobalStyle`
@@ -29,6 +20,7 @@ const GlobalStyle = createGlobalStyle`
   html {
     ${bodyMedium};
 
+    accent-color: var(--theme-amber);
     font-family: Inter, sans-serif;
     font-optical-sizing: auto;
     font-weight: normal;
@@ -69,16 +61,16 @@ const GlobalStyle = createGlobalStyle`
   }
 
   [disabled] {
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / 0.38);
   }
 
   a:link, a:visited {
-    color: ${amberA400};
+    color: var(--color-amber70);
     text-decoration: none;
   }
 
   a:hover, a:active {
-    color: ${amberA200};
+    color: var(--color-amber80);
     text-decoration: underline;
   }
 

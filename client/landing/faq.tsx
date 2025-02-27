@@ -10,7 +10,6 @@ import { makePublicAssetUrl } from '../network/server-url'
 import { background700, background800, colorDividers, colorTextSecondary } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
-import { TopLinks } from './top-links'
 
 const makeQuestionId = (question: string) => {
   return encodeURIComponent(question.replace(/\s/g, '-').replace('?', ''))
@@ -422,7 +421,6 @@ export function Faq() {
 
   return (
     <Splash>
-      <TopLinks />
       <LogoContainer>
         <Logo src={makePublicAssetUrl('/images/splash-logo.png')} />
         <StyledLogoText />

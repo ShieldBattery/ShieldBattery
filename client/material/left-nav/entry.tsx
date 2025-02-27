@@ -1,7 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { amberA200 } from '../../styles/colors'
 import { singleLine, titleSmall } from '../../styles/typography'
 import AttentionIndicator from './attention-indicator'
 
@@ -18,7 +17,7 @@ const Container = styled.li<{ $isCurrentPath: boolean; $isActive?: boolean }>`
   background-color: ${props =>
     props.$isCurrentPath || props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent'};
   line-height: 36px;
-  color: ${props => (props.$isCurrentPath ? amberA200 : 'currentColor')};
+  color: ${props => (props.$isCurrentPath ? 'var(--color-amber80)' : 'currentColor')};
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.12);

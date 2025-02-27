@@ -12,7 +12,7 @@ import { RaisedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TabItem, Tabs } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
-import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   addMatchmakingTime,
@@ -80,11 +80,11 @@ const DisabledText = styled.span`
 `
 
 const CurrentText = styled.span`
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 const FinishedText = styled.span`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 class MatchmakingTimesHistory extends React.PureComponent {

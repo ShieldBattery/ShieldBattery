@@ -4,7 +4,7 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
-import { amberA400, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,
@@ -73,7 +73,7 @@ export function UpOneDir({
 
 const FolderEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
-    background: ${amberA400};
+    background: var(--theme-amber);
   }
 `
 

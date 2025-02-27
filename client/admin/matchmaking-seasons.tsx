@@ -18,7 +18,7 @@ import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
-import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
+import { colorError, colorTextSecondary } from '../styles/colors'
 import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -62,7 +62,7 @@ const Row = styled.div<{ $current?: boolean }>`
   align-items: center;
   gap: 32px;
 
-  border: ${props => (props.$current ? '1px' : '0px')} solid ${amberA400};
+  border: ${props => (props.$current ? '1px' : '0px')} solid var(--theme-amber);
 `
 
 const StartDate = styled.div`

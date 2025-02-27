@@ -8,13 +8,12 @@ import { addLocalNotification } from '../notifications/action-creators'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
-import { amberA400 } from '../styles/colors'
 import { sendVerificationEmail } from './action-creators'
 import { useIsLoggedIn, useSelfUser } from './auth-utils'
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 // SORRY(tec27): lol this is the biggest mouthful sorry

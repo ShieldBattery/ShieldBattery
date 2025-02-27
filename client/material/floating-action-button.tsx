@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint } from '../styles/colors'
 import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -19,9 +18,9 @@ const Root = styled.button`
   align-items: center;
   justify-content: center;
 
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   border-radius: 50%;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--theme-on-amber-container);
   contain: content;
   --sb-ripple-color: #000000;
 
@@ -35,9 +34,9 @@ const Root = styled.button`
   }
 
   &:disabled {
-    background-color: ${colorTextFaint};
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
-    color: rgba(0, 0, 0, 0.54);
+    color: rgb(from var(--theme-on-surface) r g b / 0.38);
   }
 `
 

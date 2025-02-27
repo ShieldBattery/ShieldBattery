@@ -1,16 +1,6 @@
-import { rgba } from 'polished'
 import React, { useCallback, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import {
-  alphaDisabled,
-  alphaDividers,
-  amberA400,
-  colorBackground,
-  colorDividers,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
+import { colorDividers } from '../styles/colors'
 import { standardEasing } from './curve-constants'
 
 const BOX_WIDTH = 18
@@ -50,7 +40,7 @@ const Root = styled.div<{ $disabled?: boolean }>`
     margin-left: 10px; /* the box is 18px wide, so this hits a 4px multiple */
     line-height: 20px;
     pointer-events: none;
-    ${props => (props.$disabled ? `color: ${colorTextFaint};` : '')}
+    ${props => (props.$disabled ? `color: rgb(from var(--theme-on-surface) r g b / 0.38);` : '')};
   }
 `
 
@@ -79,8 +69,9 @@ export const CheckIconContainer = styled.div<{
     display: block;
 
     background-color: ${props => {
-      if (props.$disabled) return colorDividers
-      else if (props.$checked && props.$focused) return rgba(amberA400, Number(alphaDividers))
+      if (props.$disabled) return 'transparent'
+      else if (props.$checked && props.$focused)
+        return 'rgb(from var(--theme-primary) r g b / 0.12)'
       else return 'transparent'
     }};
     border-radius: 50%;
@@ -119,17 +110,17 @@ export const CheckIcon = styled.div<{
     opacity 150ms linear;
 
   background-color: ${props => {
-    if (props.$checked && props.$disabled) return colorTextPrimary
-    else if (props.$checked) return amberA400
+    if (props.$checked && props.$disabled) return 'rgb(from var(--theme-primary) r g b / 0.38)'
+    else if (props.$checked) return 'var(--theme-primary)'
     else return 'transparent'
   }};
   border-color: ${props => {
-    if (props.$disabled) return colorTextPrimary
-    else if (props.$checked) return amberA400
-    else return colorTextSecondary
+    if (props.$disabled) return 'var(--theme-on-surface)'
+    else if (props.$checked) return 'var(--theme-primary)'
+    else return 'var(--theme-on-surface-variant)'
   }};
   opacity: ${props => {
-    if (props.$disabled) return alphaDisabled
+    if (props.$disabled) return '0.38'
     else return '1'
   }};
 
@@ -148,7 +139,11 @@ export const CheckIcon = styled.div<{
     display: table;
 
     border: 2px solid;
-    border-color: ${props => (props.$checked ? colorBackground : 'transparent')};
+    border-color: ${props => {
+      if (props.$disabled && props.$checked) return 'var(--theme-on-surface)'
+      else if (props.$checked) return 'var(--theme-on-primary)'
+      else return 'transparent'
+    }};
     border-top: 0;
     border-left: 0;
     content: '';
