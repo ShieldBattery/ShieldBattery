@@ -34,13 +34,7 @@ import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  amberA200,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
+import { colorNegative, colorPositive, colorTextSecondary } from '../styles/colors'
 import {
   DisplaySmall,
   bodyLarge,
@@ -140,7 +134,7 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   ${titleSmall};
   ${singleLine};
 
-  color: ${props => (props.$isLive ? amberA200 : colorTextFaint)};
+  color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface-variant)')};
 `
 
 const StyledFindMatchIcon = styled(FindMatchIcon)`

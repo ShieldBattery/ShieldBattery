@@ -12,7 +12,6 @@ import { RaisedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { amberA400 } from '../styles/colors'
 import { BodyMedium } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 
@@ -54,7 +53,7 @@ const FilledTimerBar = styled.div`
   left: 0;
   width: 100%;
   height: 8px;
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   transform: scaleX(var(--sb-timer-scale-x, 0));
   transform-origin: 0% 50%;
   transition: transform 1000ms linear;
@@ -131,7 +130,7 @@ function AcceptingStateView() {
   // leaving the default avatar for opponents (though maybe it's fine to show opponents too at
   // this point?).
   const acceptedAvatars = Array.from(range(0, match?.acceptedPlayers ?? 0), i => (
-    <StyledAvatar key={i} color={amberA400} glowing={true} />
+    <StyledAvatar key={i} color={'var(--theme-amber)'} glowing={true} />
   ))
   const unacceptedAvatars = Array.from(
     range(match?.acceptedPlayers ?? 0, match?.numPlayers ?? 0),

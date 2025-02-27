@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
-import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
+import { background300 } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
 import { standardEasing } from '../curve-constants'
 import { InputBase } from '../input-base'
@@ -77,23 +77,19 @@ const Icon = styled.span<{
   margin-left: 4px;
   pointer-events: none;
   transform: translate3d(0, -50%, 0) ${props => (props.$opened ? 'rotate(180deg)' : '')};
-  transition: transform 150ms ${standardEasing};
+  transition:
+    transform 150ms ${standardEasing},
+    color 75ms linear;
+
+  color: ${props => {
+    if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
+    else if (props.$focused) return 'var(--theme-amber)'
+    else return 'var(--theme-on-surface)'
+  }};
 
   & > svg {
     width: 24px;
     height: 24px;
-    ${props => {
-      let color
-      if (props.$disabled) {
-        color = colorTextFaint
-      } else if (props.$focused) {
-        color = amberA400
-      } else {
-        color = colorTextPrimary
-      }
-
-      return `color: ${color}`
-    }};
   }
 `
 

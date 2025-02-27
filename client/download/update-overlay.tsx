@@ -13,7 +13,7 @@ import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { amberA400, dialogScrim } from '../styles/colors'
+import { dialogScrim } from '../styles/colors'
 import { BodyLarge, BodyMedium } from '../styles/typography'
 import {
   UpdateProgress,
@@ -196,7 +196,7 @@ const FilledProgressBar = styled.div<{ $filledScale: number }>`
   left: 0;
   width: 100%;
   height: 12px;
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   transform: ${props => `scaleX(${props.$filledScale})`};
   transform-origin: 0% 50%;
   transition: transform 80ms linear;

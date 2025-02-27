@@ -50,11 +50,14 @@ export const grey90 = '#e0e7f0'
 export const grey95 = '#ebf1fa'
 export const grey99 = '#f5fbfe'
 
-export const colorElevationLowest = '#101523'
-export const colorElevationLow = '#151c2e'
-export const colorElevationNormal = '#162036'
-export const colorElevationHigh = '#192643'
-export const colorElevationHighest = '#1d3258'
+export const colorContainerLowest = '#101523'
+export const colorContainerLow = '#151c2e'
+export const colorContainerNormal = '#162036'
+export const colorContainerHigh = '#192643'
+export const colorContainerHighest = '#1d3258'
+
+export const colorError = '#ff6e6e'
+export const colorSuccess = '#66bb6a'
 
 export const THEME_CSS = css`
   --color-blue10: ${blue10};
@@ -105,11 +108,11 @@ export const THEME_CSS = css`
   --color-grey95: ${grey95};
   --color-grey99: ${grey99};
 
-  --color-elevation-lowest: ${colorElevationLowest};
-  --color-elevation-low: ${colorElevationLow};
-  --color-elevation-normal: ${colorElevationNormal};
-  --color-elevation-high: ${colorElevationHigh};
-  --color-elevation-highest: ${colorElevationHighest};
+  --color-container-lowest: ${colorContainerLowest};
+  --color-container-low: ${colorContainerLow};
+  --color-container-normal: ${colorContainerNormal};
+  --color-container-high: ${colorContainerHigh};
+  --color-container-highest: ${colorContainerHighest};
 
   --theme-primary: var(--color-blue80);
   --theme-on-primary: var(--color-blue10);
@@ -125,14 +128,15 @@ export const THEME_CSS = css`
   --theme-on-surface-variant: var(--color-blue95);
 
   --theme-outline: var(--color-grey-blue60);
-  --theme-outline-variant: var(--color-grey-blue40);
+  --theme-outline-variant: var(--color-grey-blue70);
+
+  --theme-disabled-opacity: 0.38;
+
+  --theme-error: ${colorError};
+  --theme-success: ${colorSuccess};
 `
 
 // FIXME: delete these
-/* Accent color */
-export const amberA200 = '#ffd740'
-export const amberA400 = '#ffc400'
-
 /** Colors used for backgrounds (a muted grey-blue palette) */
 export const background300 = '#466180'
 export const background400 = '#30455F'
@@ -159,8 +163,6 @@ export const colorTextInvert = 'rgba(0, 0, 0, 0.87)'
 export const colorTextInvertSecondary = 'rgba(0, 0, 0, 0.6)'
 
 export const colorBackground = background800
-export const colorError = '#ff6e6e'
-export const colorSuccess = '#66bb6a'
 
 /** Color used to indicate something positive (e.g. winning). */
 export const colorPositive = '#69f0ae'

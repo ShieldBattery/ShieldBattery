@@ -1,5 +1,4 @@
 import styled from 'styled-components'
-import { amberA200 } from '../../styles/colors'
 
 const AttentionIndicator = styled.div`
   width: 8px;
@@ -9,7 +8,7 @@ const AttentionIndicator = styled.div`
   top: calc(50% - 4px);
 
   border-radius: 50%;
-  background-color: ${amberA200};
+  background-color: var(--color-amber80);
 `
 
 export default AttentionIndicator

@@ -177,6 +177,7 @@ export function TabsTest() {
           <TabItem text='1st' value={0} />
           <TabItem text='Second tab' value={1} />
           <TabItem text='Third long tab' value={2} />
+          <TabItem text='Disabled tab' value={4} disabled={true} />
           <TabItem text='Fourth p long tab' value={3} />
         </Tabs>
         <DemoContent>{tabContent}</DemoContent>

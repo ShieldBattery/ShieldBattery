@@ -28,7 +28,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useUserLocalStorageValue } from '../state-hooks'
 import {
-  amberA400,
   background600,
   colorDividers,
   colorError,
@@ -389,7 +388,7 @@ const BonusBar = styled.div`
     width: 100%;
     height: 100%;
 
-    background-color: ${amberA400};
+    background-color: var(--theme-amber);
     transform: scaleX(var(--sb-bonus-bar-scale, 0));
     transform-origin: 0% 50%;
   }

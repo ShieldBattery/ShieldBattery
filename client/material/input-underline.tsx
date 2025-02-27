@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { amberA400, colorDividers, colorError } from '../styles/colors'
+import { colorDividers, colorError } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
 
 const UnderlineContainer = styled.div<{ $error?: boolean }>`
@@ -12,7 +12,7 @@ const UnderlineContainer = styled.div<{ $error?: boolean }>`
   width: 100%;
   margin: 0;
   pointer-events: none;
-  color: ${props => (props.$error ? colorError : amberA400)};
+  color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-amber)')};
 `
 
 const Underline = styled.hr<{ $error?: boolean }>`

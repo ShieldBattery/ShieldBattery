@@ -34,7 +34,7 @@ import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
 import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
+import { colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
 import {
   BodyLarge,
   BodyMedium,
@@ -59,7 +59,7 @@ const SectionHeader = styled.div`
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 const EmailVerificationWarning = styled.div`

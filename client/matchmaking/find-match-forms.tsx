@@ -12,7 +12,6 @@ import { shadow4dp } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
 import {
-  amberA400,
   colorDividers,
   colorNegative,
   colorPositive,
@@ -59,9 +58,9 @@ export const OutdatedIndicator = styled.span`
   ${titleSmall};
   margin-left: 16px;
   padding: 0 4px;
-  color: ${amberA400};
+  color: var(--theme-amber);
   text-transform: uppercase;
-  border: 1px solid ${amberA400};
+  border: 1px solid var(--theme-amber);
   border-radius: 4px;
 `
 

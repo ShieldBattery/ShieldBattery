@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { CardLayer, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -484,11 +484,11 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   color: ${props => {
     switch (props.$color) {
       case 'normal':
-        return colorTextSecondary
+        return 'var(--theme-on-surface-variant)'
       case 'primary':
         return 'var(--color-blue90)'
       case 'accent':
-        return amberA400
+        return 'var(--theme-amber)'
       default:
         return assertUnreachable(props.$color)
     }

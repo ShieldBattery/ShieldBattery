@@ -20,6 +20,7 @@ export const InputBase = styled.div<{
   border-radius: 0;
   outline: none;
   background: none;
+  caret-color: var(--theme-amber);
   color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
   line-height: inherit;
   -ms-flex-preferred-size: inherit;

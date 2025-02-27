@@ -20,7 +20,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import {
-  amberA400,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
   colorTextFaint,
@@ -186,7 +185,7 @@ const UsernameAndTitle = styled.div`
 const Username = styled.div`
   ${headlineLarge};
   ${singleLine};
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 const TabArea = styled.div`
