@@ -21,7 +21,6 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
-  background500,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
   colorDividers,
@@ -341,7 +340,7 @@ const RankDisplayRoot = styled.div`
   flex-direction: column;
   align-items: center;
 
-  background-color: ${background500};
+  background-color: var(--theme-container-high);
   border-radius: 4px;
 `
 

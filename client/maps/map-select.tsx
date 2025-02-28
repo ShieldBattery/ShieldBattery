@@ -6,8 +6,8 @@ import { useKeyListener } from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { useStableCallback } from '../state-hooks'
-import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { bodyLarge } from '../styles/typography'
+import { colorError } from '../styles/colors'
+import { bodyLarge, labelLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
@@ -36,7 +36,7 @@ export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: ${background400};
+  background-color: var(--theme-container-low);
   border-radius: 2px;
   ${props => (props.$isFocused ? shadow8dp : shadow2dp)};
 
@@ -65,12 +65,14 @@ export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
 `
 
 const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const BrowseText = styled.div`
-  ${bodyLarge};
-  color: ${colorTextSecondary};
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+  margin-top: 8px;
+  margin-bottom: 8px;
 `
 
 export interface MapSelectionValue {

@@ -1,12 +1,10 @@
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
 
 export const FloatingLabel = styled.label<{
   $hasValue?: boolean
   $focused?: boolean
   $error?: boolean
-  $disabled?: boolean
   $dense?: boolean
   $leadingIconsLength?: number
 }>`
@@ -22,20 +20,14 @@ export const FloatingLabel = styled.label<{
   top: 0;
   z-index: 1;
   color: ${props => {
-    if (props.$error && props.$disabled) {
-      return `rgb(from var(--theme-error) r g b / 0.6)`
-    }
     if (props.$error) {
       return 'var(--theme-error)'
-    }
-    if (props.$disabled) {
-      return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
     }
     if (props.$focused) {
       return 'var(--theme-amber)'
     }
 
-    return colorTextSecondary
+    return 'var(--theme-on-surface-variant)'
   }};
   pointer-events: none;
   transform: ${props => {

@@ -18,7 +18,6 @@ import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import {
-  background500,
   colorError,
   colorNegative,
   colorPositive,
@@ -237,7 +236,7 @@ const MapNoImageContainer = styled.div`
   align-items: center;
 
   border-radius: 2px;
-  background-color: ${background500};
+  background-color: var(--theme-container);
 `
 
 const MapNoImageIcon = styled(MaterialIcon).attrs({ icon: 'question_mark', size: 36 })`

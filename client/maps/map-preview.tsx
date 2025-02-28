@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { background400 } from '../styles/colors'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
@@ -23,7 +22,7 @@ const StyledDialog = styled(Dialog)`
 `
 
 const StyledMapImage = styled(MapImage)`
-  background-color: ${background400};
+  background-color: var(--theme-container-low);
   border-radius: 2px;
 `
 

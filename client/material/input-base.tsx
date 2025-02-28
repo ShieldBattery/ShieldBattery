@@ -1,5 +1,4 @@
 import styled, { css } from 'styled-components'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { bodyLarge, singleLine } from '../styles/typography'
 
 export const InputBase = styled.div<{
@@ -16,14 +15,17 @@ export const InputBase = styled.div<{
   order: 2;
   width: 100%;
   padding: ${props => (props.$floatingLabel ? '17px 12px 4px' : '12px')};
+
   border: none;
   border-radius: 0;
   outline: none;
+
   background: none;
-  caret-color: var(--theme-amber);
-  color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
+  caret-color: var(--theme-primary);
+  color: var(--theme-on-surface);
   line-height: inherit;
   -ms-flex-preferred-size: inherit;
+  opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
   user-select: inherit;
 
   &:focus {

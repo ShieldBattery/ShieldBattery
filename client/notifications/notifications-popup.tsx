@@ -20,7 +20,6 @@ import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { background300, background400 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
@@ -45,12 +44,15 @@ const PopupsContainer = styled.div`
 `
 
 const Popup = styled(animated.div)`
+  ${shadow6dp};
+  contain: content;
+
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  background-color: ${background400};
-  ${shadow6dp};
-  border-radius: 2px;
+
+  background-color: var(--theme-container-high);
+  border-radius: 8px;
 
   &:not(:first-child) {
     margin-top: 16px;
@@ -61,7 +63,8 @@ const MarkAsReadButton = styled(IconButton)`
   flex-shrink: 0;
   height: 100%;
   border-radius: 0;
-  background-color: ${background300};
+  background-color: var(--theme-indigo-container);
+  color: var(--theme-on-indigo-container);
 `
 
 export default function NotificationPopups() {

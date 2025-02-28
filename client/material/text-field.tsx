@@ -2,7 +2,6 @@ import React, { useCallback, useId, useLayoutEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiRef, useStableCallback } from '../state-hooks'
-import { colorTextSecondary } from '../styles/colors'
 import { IconButton } from './button'
 import { InputBase } from './input-base'
 import { InputError } from './input-error'
@@ -27,18 +26,28 @@ const TextFieldContainer = styled.div<{
   $maxRows?: number
   $multiline?: boolean
 }>`
+  position: relative;
+
+  width: 100%;
+  min-height: ${props => (props.$dense ? '40px' : '56px')};
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  position: relative;
-  width: 100%;
-  min-height: ${props => (props.$dense ? '40px' : '56px')};
+
   font-size: 16px;
   line-height: 20px;
-  background-color: rgba(255, 255, 255, 0.1);
+
+  background-color: ${props =>
+    props.$disabled
+      ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.04))'
+      : 'var(--theme-container-highest)'};
   border-radius: 4px 4px 0 0;
   contain: layout paint style;
+  opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
   user-select: text;
+
+  pointer-events: ${props => (props.$disabled ? 'none' : 'unset')};
 
   ${props => {
     const spacing = props.$floatingLabel ? 34 : 28 /* textfield padding + input margin */
@@ -67,22 +76,6 @@ const TextFieldContainer = styled.div<{
     }
   }}
 
-  ${props =>
-    !props.$disabled
-      ? `
-        &:hover {
-          background-color: rgba(255, 255, 255, 0.12);
-        }
-      `
-      : ''}
-
-  ${props =>
-    props.$focused
-      ? `
-        background-color: rgba(255, 255, 255, 0.16) !important;
-      `
-      : ''}
-
   & input[type='text'],
   & input[type='password'],
   & input[type='datetime'],
@@ -104,6 +97,23 @@ const TextFieldContainer = styled.div<{
   }
 `
 
+const StateLayer = styled.div`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(--theme-on-surface);
+  opacity: 0;
+  transition: opacity 75ms linear;
+
+  *:hover > & {
+    opacity: 0.08;
+  }
+
+  *:focus-within > & {
+    opacity: 0.12;
+  }
+`
+
 const iconStyle = css<{ $dense?: boolean }>`
   position: absolute;
   top: 4px;
@@ -112,7 +122,7 @@ const iconStyle = css<{ $dense?: boolean }>`
   display: flex;
   justify-content: center;
   align-items: center;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const LeadingIcon = styled.span<{ $dense?: boolean; $index: number }>`
@@ -337,7 +347,6 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           $dense={dense}
           $focused={isFocused}
           $error={!!errorText}
-          $disabled={disabled}
           $leadingIconsLength={leadingIcons.length}>
           {label}
         </FloatingLabel>
@@ -382,7 +391,8 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
             {...internalInputProps}
           />
           {trailingIconsElements.length > 0 ? trailingIconsElements : null}
-          <InputUnderline focused={isFocused} error={!!errorText} disabled={disabled} />
+          <InputUnderline focused={isFocused} error={!!errorText} />
+          <StateLayer />
         </TextFieldContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
       </div>

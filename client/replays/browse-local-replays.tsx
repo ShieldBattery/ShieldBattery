@@ -14,7 +14,6 @@ import {
 } from '../file-browser/file-browser-types'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useAppDispatch } from '../redux-hooks'
-import { background400 } from '../styles/colors'
 import { startReplay } from './action-creators'
 import { ReplayInfoDisplay } from './replay-info-display'
 
@@ -31,7 +30,7 @@ const sortByDateReverse = (a: FileBrowserFileEntry, b: FileBrowserFileEntry) => 
 
 const StyledReplayInfoDisplay = styled(ReplayInfoDisplay)`
   padding: 16px;
-  background-color: ${background400};
+  background-color: var(--theme-container-low);
 `
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
