@@ -86,6 +86,10 @@ const DisabledOverlay = styled.div`
   justify-content: center;
 `
 
+const StyledChannelCardRoot = styled(ChannelCardRoot)`
+  border: 1px solid var(--theme-outline-variant);
+`
+
 interface ChannelSettingsModel {
   description?: string
   topic?: string
@@ -277,7 +281,7 @@ export function ChannelSettingsDialog({
             ) : null}
           </FormContainer>
 
-          <ChannelCardRoot>
+          <StyledChannelCardRoot>
             <ChannelBannerAndBadge>
               {bannerUrl ? (
                 <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
@@ -305,7 +309,7 @@ export function ChannelSettingsDialog({
             <ChannelActions>
               <div />
             </ChannelActions>
-          </ChannelCardRoot>
+          </StyledChannelCardRoot>
         </Content>
       </Root>
     </StyledDialog>

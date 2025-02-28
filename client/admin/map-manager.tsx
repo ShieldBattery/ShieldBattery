@@ -10,7 +10,7 @@ import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState, useStableCallback } from '../state-hooks'
-import { background600, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
@@ -229,7 +229,7 @@ const SelectedFiles = styled.ul`
   width: 100%;
   margin: 8px 0;
   padding: 8px 0;
-  background-color: ${background600};
+  background-color: var(--theme-container-low);
   border-radius: 8px;
 `
 

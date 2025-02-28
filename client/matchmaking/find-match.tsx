@@ -28,7 +28,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useUserLocalStorageValue } from '../state-hooks'
 import {
-  background600,
   colorDividers,
   colorError,
   colorTextFaint,
@@ -302,7 +301,7 @@ const RankInfoContainer = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${background600};
+  background-color: var(--theme-container-low);
   border-radius: 4px;
 `
 

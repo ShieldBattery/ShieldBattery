@@ -3,13 +3,12 @@ import styled, { css } from 'styled-components'
 import { CHANNEL_BANNER_HEIGHT, CHANNEL_BANNER_WIDTH } from '../../common/chat'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { background600, colorTextFaint } from '../styles/colors'
 
 const channelBannerCommon = css`
   width: 100%;
   height: auto;
   aspect-ratio: ${CHANNEL_BANNER_WIDTH} / ${CHANNEL_BANNER_HEIGHT};
-  background-color: ${background600};
+  background-color: var(--theme-container-high);
   border-radius: 2px;
   contain: content;
 `
@@ -35,7 +34,7 @@ export function ChannelBanner({ src, testName }: { src: string; testName?: strin
 
 const ChannelBannerPlaceholderContainer = styled.div`
   ${channelBannerCommon};
-  color: ${colorTextFaint};
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
 
   display: flex;
   align-items: center;
