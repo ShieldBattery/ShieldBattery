@@ -182,8 +182,8 @@ export const THEME_CSS = css`
 
   --theme-primary: var(--color-blue60);
   --theme-on-primary: var(--color-blue99);
-  --theme-primary-container: var(--color-blue30);
-  --theme-on-primary-container: var(--color-blue90);
+  --theme-primary-container: var(--color-blue40);
+  --theme-on-primary-container: var(--color-blue99);
 
   --theme-amber: var(--color-amber60);
   --theme-on-amber: var(--color-amber10);
