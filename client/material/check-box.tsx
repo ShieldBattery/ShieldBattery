@@ -70,8 +70,7 @@ export const CheckIconContainer = styled.div<{
 
     background-color: ${props => {
       if (props.$disabled) return 'transparent'
-      else if (props.$checked && props.$focused)
-        return 'rgb(from var(--theme-primary) r g b / 0.12)'
+      else if (props.$checked && props.$focused) return 'rgb(from var(--theme-amber) r g b / 0.12)'
       else return 'transparent'
     }};
     border-radius: 50%;
@@ -110,13 +109,13 @@ export const CheckIcon = styled.div<{
     opacity 150ms linear;
 
   background-color: ${props => {
-    if (props.$checked && props.$disabled) return 'rgb(from var(--theme-primary) r g b / 0.38)'
-    else if (props.$checked) return 'var(--theme-primary)'
+    if (props.$checked && props.$disabled) return 'rgb(from var(--theme-amber) r g b / 0.38)'
+    else if (props.$checked) return 'var(--theme-amber)'
     else return 'transparent'
   }};
   border-color: ${props => {
     if (props.$disabled) return 'var(--theme-on-surface)'
-    else if (props.$checked) return 'var(--theme-primary)'
+    else if (props.$checked) return 'var(--theme-amber)'
     else return 'var(--theme-on-surface-variant)'
   }};
   opacity: ${props => {
@@ -141,7 +140,7 @@ export const CheckIcon = styled.div<{
     border: 2px solid;
     border-color: ${props => {
       if (props.$disabled && props.$checked) return 'var(--theme-on-surface)'
-      else if (props.$checked) return 'var(--theme-on-primary)'
+      else if (props.$checked) return 'var(--theme-on-amber)'
       else return 'transparent'
     }};
     border-top: 0;

@@ -62,7 +62,7 @@ const ValueTick = styled.div`
   border-radius: 50%;
   background-color: ${props =>
     props.filled
-      ? 'rgb(from var(--theme-on-primary) r g b / 0.38)'
+      ? 'rgb(from var(--theme-on-amber) r g b / 0.38)'
       : 'rgb(from var(--theme-on-surface-variant) r g b / 0.38)'};
 `
 
@@ -101,7 +101,7 @@ const TrackRoot = styled.div`
   background-color: ${props =>
     props.disabled
       ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.12))'
-      : 'var(--theme-primary-container)'};
+      : 'rgb(from var(--theme-on-surface) r g b / 0.12)'};
 `
 
 // This wrapper is needed to make sure the border-radius doesn't get scaled with the filled track.
@@ -121,8 +121,7 @@ const FilledTrack = styled.div`
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: ${props =>
-    props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-primary)'};
+  background-color: ${props => (props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)')};
 
   transform: scaleX(1);
   transform-origin: 0% 50%;
@@ -195,8 +194,7 @@ const Thumb = styled.div`
   left: ${THUMB_WIDTH_PX / -2}px;
   top: 2px;
 
-  background-color: ${props =>
-    props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-primary)'};
+  background-color: ${props => (props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)')};
   border-radius: 50%;
   pointer-events: none;
   transition: background-color 200ms linear;
@@ -224,9 +222,9 @@ const Balloon = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: var(--theme-primary);
+  background-color: var(--theme-amber);
   border-radius: 50%;
-  color: var(--theme-on-primary);
+  color: var(--theme-on-amber);
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
@@ -242,7 +240,7 @@ const Balloon = styled.div`
     top: 19px;
 
     border-radius: 16px;
-    border-top: 16px solid var(--theme-primary);
+    border-top: 16px solid var(--theme-amber);
     border-left: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     border-right: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     content: '';
