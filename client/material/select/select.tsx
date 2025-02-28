@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
-import { background300 } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
 import { standardEasing } from '../curve-constants'
 import { InputBase } from '../input-base'
@@ -95,7 +94,7 @@ const Icon = styled.span<{
 
 const StyledMenuList = styled(MenuList)<{ $overlayWidth: number }>`
   width: ${props => props.$overlayWidth}px;
-  background-color: ${background300};
+  background-color: var(--theme-container);
 `
 
 export interface SelectProps {

@@ -12,7 +12,7 @@ import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { background500, colorError, colorSuccess } from '../../styles/colors'
+import { colorError, colorSuccess } from '../../styles/colors'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
@@ -45,8 +45,8 @@ const CurrentPathValueContainer = styled.div`
 
 const CurrentPathValue = styled.div`
   ${titleMedium};
-  padding: 0 4px;
-  background-color: ${background500};
+  padding: 8px 12px;
+  background-color: var(--theme-container-highest);
   border-radius: 2px;
 `
 

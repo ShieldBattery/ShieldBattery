@@ -2,7 +2,6 @@ import React from 'react'
 import styled from 'styled-components'
 import { range } from '../../../common/range'
 import Card from '../../material/card'
-import { background400, background700, colorTextSecondary } from '../../styles/colors'
 import Carousel from '../carousel'
 
 const Container = styled.div`
@@ -19,7 +18,7 @@ const StyledCard = styled(Card)`
   width: 100%;
   max-width: 840px;
   margin-left: 16px;
-  background-color: ${background400};
+  background-color: var(--theme-container-low);
 `
 
 const StyledCarousel = styled(Carousel)`
@@ -34,7 +33,7 @@ const CarouselItem = styled.div`
   justify-content: center;
   width: 200px;
   height: 200px;
-  background-color: ${background700};
+  background-color: var(--theme-container);
 
   &:not(:first-child) {
     margin-left: 4px;
@@ -42,7 +41,7 @@ const CarouselItem = styled.div`
 
   span {
     font-size: 64px;
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
   }
 `
 

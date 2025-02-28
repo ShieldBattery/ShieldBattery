@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { CardLayer, colorTextFaint } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -333,9 +333,9 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   text-align: center;
 
   background-color: ${props =>
-    props.$color === 'accent' ? 'var(--color-amber70)' : 'var(--color-blue70)'};
+    props.$color === 'accent' ? 'var(--theme-amber)' : 'var(--theme-primary)'};
   color: ${props =>
-    props.$color === 'accent' ? 'var(--theme-on-amber-container)' : 'var(--theme-on-surface)'};
+    props.$color === 'accent' ? 'var(--theme-on-amber)' : 'var(--theme-on-primary)'};
   --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
 
   ${props => {
@@ -596,7 +596,7 @@ const IconButtonRoot = styled.button`
 
   background-color: transparent;
   border-radius: 8px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   contain: content;
   --sb-ripple-color: #ffffff;
 

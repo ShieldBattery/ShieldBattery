@@ -1,5 +1,5 @@
 import { createGlobalStyle } from 'styled-components'
-import { background300, background700, CardLayer, colorTextPrimary, THEME_CSS } from './colors'
+import { THEME_CSS } from './colors'
 import { bodyMedium } from './typography'
 
 const GlobalStyle = createGlobalStyle`
@@ -60,10 +60,6 @@ const GlobalStyle = createGlobalStyle`
     overflow: hidden;
   }
 
-  [disabled] {
-    color: rgb(from var(--theme-on-surface) r g b / 0.38);
-  }
-
   a:link, a:visited {
     color: var(--color-amber70);
     text-decoration: none;
@@ -79,17 +75,9 @@ const GlobalStyle = createGlobalStyle`
   }
 
   input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0px 1000px ${background700} inset !important;
-    box-shadow: 0 0 0px 1000px ${background700} inset !important;
-    -webkit-text-fill-color: ${colorTextPrimary} !important;
-    caret-color: #fff !important;
-
-    ${CardLayer} & {
-      -webkit-box-shadow: 0 0 0px 1000px ${background300} inset !important;
-      box-shadow: 0 0 0px 1000px ${background300} inset !important;
-      -webkit-text-fill-color: ${colorTextPrimary} !important;
-      caret-color: #fff !important;
-    }
+    box-shadow: 0 0 0px 1000px var(--theme-container-highest) inset !important;
+    -webkit-text-fill-color: var(--theme-on-surface) !important;
+    caret-color: var(--theme-amber) !important;
   }
 
   /** Style default scrollbar (at least in Webkit-based browsers) */
