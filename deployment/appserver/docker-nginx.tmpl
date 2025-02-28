@@ -155,8 +155,10 @@ server {
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
 	listen {{ $external_https_port }} ssl http2;
+  listen {{ $external_https_port }} quic reuseport;
 	{{ if $enable_ipv6 }}
 	listen [::]:{{ $external_https_port }} ssl http2;
+	listen [::]:{{ $external_https_port }} quic reuseport;
 	{{ end }}
 	{{ $access_log }}
 	return 503;
@@ -165,6 +167,11 @@ server {
 	ssl_session_tickets off;
 	ssl_certificate /etc/nginx/certs/default.crt;
 	ssl_certificate_key /etc/nginx/certs/default.key;
+  ssl_early_data on;
+
+  quic_bpf on;
+  quic_gso on;
+  quic_retry on;
 }
 {{ end }}
 
@@ -270,8 +277,10 @@ server {
 server {
 	server_name {{ $host }};
 	listen {{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen {{ $external_https_port }} quic reuseport {{ $default_server }};
 	{{ if $enable_ipv6 }}
 	listen [::]:{{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen [::]:{{ $external_https_port }} quic reuseport {{ $default_server }};
 	{{ end }}
 	{{ $access_log }}
 
@@ -285,6 +294,11 @@ server {
 	ssl_session_timeout 5m;
 	ssl_session_cache shared:SSL:50m;
 	ssl_session_tickets off;
+  ssl_early_data on;
+
+  quic_bpf on;
+  quic_gso on;
+  quic_retry on;
 
 	ssl_certificate /etc/nginx/certs/{{ (printf "%s.crt" $cert) }};
 	ssl_certificate_key /etc/nginx/certs/{{ (printf "%s.key" $cert) }};
@@ -339,6 +353,8 @@ server {
 		{{ else if (exists "/etc/nginx/vhost.d/default_location") }}
 		include /etc/nginx/vhost.d/default_location;
 		{{ end }}
+
+    add_header Alt-Svc 'h3=":$external_https_port"; ma=86400, h2=":$external_https_port"; ma=86400';
 	}
 }
 
