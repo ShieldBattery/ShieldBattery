@@ -18,15 +18,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { useStableCallback } from '../state-hooks'
-import {
-  background700,
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
+import { colorDividers, colorError, colorTextFaint } from '../styles/colors'
 import {
   bodySmall,
   headlineMedium,
@@ -113,14 +105,14 @@ const Container = styled(animated.div)`
   display: flex;
   flex-direction: row;
 
-  background-color: ${background800};
+  background-color: var(--theme-container-lowest);
   z-index: ${zIndexSettings};
 `
 
 const NavContainer = styled.div`
   width: 272px;
   padding: 16px 0;
-  background-color: ${background700};
+  background-color: var(--color-grey-blue30);
 
   flex-shrink: 0;
 `
@@ -133,14 +125,14 @@ const NavSectionTitle = styled.div`
   line-height: 36px;
   padding: 0 16px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const NavSectionSeparator = styled.div`
   height: 1px;
   margin: 7px 16px 8px;
 
-  background-color: ${colorDividers};
+  background-color: var(--theme-outline-variant);
 `
 
 function Settings({
@@ -234,8 +226,12 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
   contain: content;
   cursor: pointer;
 
-  --sb-ripple-color: ${colorTextPrimary};
-  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+  --sb-ripple-color: var(--theme-on-surface);
+  background-color: ${props =>
+    props.$isActive ? 'rgb(from var(--theme-on-surface) r g b / 0.08)' : 'transparent'};
+  color: ${props => (props.$isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+
+  transition: color 125ms linear;
 
   &[disabled] {
     cursor: auto;

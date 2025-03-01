@@ -209,8 +209,8 @@ export const THEME_CSS = css`
   --theme-on-surface: var(--color-grey99);
   --theme-on-surface-variant: var(--color-blue95);
 
-  --theme-outline: var(--color-grey-blue70);
-  --theme-outline-variant: var(--color-grey-blue60);
+  --theme-outline: var(--color-grey-blue60);
+  --theme-outline-variant: var(--color-grey-blue50);
 
   --theme-container-lowest: ${colorContainerLowest};
   --theme-container-low: ${colorContainerLow};

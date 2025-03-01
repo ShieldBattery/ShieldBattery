@@ -43,7 +43,7 @@ const Root = styled.div`
   display: flex;
   flex-direction: column;
 
-  background-color: var(--theme-surface);
+  background-color: var(--theme-container-lowest);
   overflow-x: hidden;
 
   &:before {
