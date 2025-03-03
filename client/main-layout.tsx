@@ -112,7 +112,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
     &:hover {
       color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
       text-decoration: none;
-      --menu-item-fill: var(--color-grey-blue50);
+      --menu-item-fill: var(--color-grey-blue40);
 
       &:before {
         content: '';
@@ -144,7 +144,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   &:active {
     color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
     text-decoration: none;
-    --menu-item-fill: var(--color-grey-blue60);
+    --menu-item-fill: var(--color-grey-blue50);
 
     &:before {
       content: '';
@@ -223,7 +223,7 @@ const AppBarMenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
 
     return (
       <Link href={href} asChild={true}>
-        <MenuItemRoot ref={setLinkRef} $isActive={isActive}>
+        <MenuItemRoot ref={setLinkRef} $isActive={isActive} draggable={false}>
           <MenuItemLeftEdge viewBox='0 0 20 64'>
             <polygon
               points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}
@@ -347,7 +347,7 @@ const PlayButtonRoot = styled.a`
   &:active {
     color: var(--theme-on-surface);
     text-decoration: none;
-    --menu-item-fill: var(--color-grey-blue60);
+    --menu-item-fill: var(--color-grey-blue50);
 
     &:before {
       content: '';
@@ -384,7 +384,7 @@ function PlayButton({ children }: { children?: React.ReactNode }) {
   // FIXME: destination + content should be based on the user's current gameplay activity
   return (
     <Link href='/play/' asChild={true}>
-      <PlayButtonRoot>
+      <PlayButtonRoot draggable={false}>
         <PlayButtonBackground viewBox='0 0 240 72'>
           <defs>
             <linearGradient
@@ -527,7 +527,7 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
     left: 0;
     right: 0;
     height: 64px;
-    background: var(--color-grey-blue40);
+    background: var(--color-grey-blue30);
   }
 
   & > * {

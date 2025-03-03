@@ -24,7 +24,7 @@ const Container = styled.header`
   display: flex;
   flex-direction: row;
 
-  background-color: var(--color-grey-blue30);
+  background-color: var(--color-grey-blue20);
   overflow: hidden;
   z-index: ${zIndexAppBar};
 

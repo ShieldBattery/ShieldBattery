@@ -62,17 +62,17 @@ export const indigo90 = '#a8a7f5'
 export const indigo95 = '#c9c9fc'
 export const indigo99 = '#ededfc'
 
-export const greyBlue10 = '#161717'
-export const greyBlue20 = '#1e222b'
-export const greyBlue30 = '#252c3c'
-export const greyBlue40 = '#333d53'
-export const greyBlue50 = '#4f5d78'
-export const greyBlue60 = '#677895'
-export const greyBlue70 = '#7686a2'
-export const greyBlue80 = '#9dadc9'
-export const greyBlue90 = '#a9b9d2'
-export const greyBlue95 = '#cbd6e8'
-export const greyBlue99 = '#efeff0'
+export const greyBlue10 = '#101725'
+export const greyBlue20 = '#182031'
+export const greyBlue30 = '#202d47'
+export const greyBlue40 = '#2e3e5b'
+export const greyBlue50 = '#495d82'
+export const greyBlue60 = '#62789e'
+export const greyBlue70 = '#748bb3'
+export const greyBlue80 = '#9bb1d3'
+export const greyBlue90 = '#abbeda'
+export const greyBlue95 = '#c8d7ee'
+export const greyBlue99 = '#dceeff'
 
 export const grey10 = '#1b1e22'
 export const grey20 = '#252a31'
@@ -204,6 +204,11 @@ export const THEME_CSS = css`
   --theme-on-indigo: var(--color-indigo99);
   --theme-indigo-container: var(--color-indigo70);
   --theme-on-indigo-container: var(--color-indigo99);
+
+  --theme-grey-blue: var(--color-grey-blue60);
+  --theme-on-grey-blue: var(--color-grey-blue99);
+  --theme-grey-blue-container: var(--color-grey-blue40);
+  --theme-on-grey-blue-container: var(--color-grey-blue95);
 
   --theme-surface: var(--color-blue10);
   --theme-on-surface: var(--color-grey99);

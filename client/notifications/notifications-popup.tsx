@@ -63,8 +63,8 @@ const MarkAsReadButton = styled(IconButton)`
   flex-shrink: 0;
   height: 100%;
   border-radius: 0;
-  background-color: var(--theme-indigo-container);
-  color: var(--theme-on-indigo-container);
+  background-color: var(--theme-grey-blue-container);
+  color: var(--theme-on-grey-blue-container);
 `
 
 export default function NotificationPopups() {
