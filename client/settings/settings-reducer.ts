@@ -9,11 +9,11 @@ import {
   ShieldBatteryAppSettings,
 } from '../../common/settings/local-settings'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
+import { SettingsSubPage } from './settings-sub-page'
 
 export interface SettingsState {
   open: boolean
-  subPage: SettingsSubPage
+  subPage?: SettingsSubPage
 
   local: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
   scr: Omit<ScrSettings, 'version'>
@@ -21,7 +21,7 @@ export interface SettingsState {
 
 const DEFAULT_SETTINGS_STATE: ReadonlyDeep<SettingsState> = {
   open: false,
-  subPage: UserSettingsSubPage.Account,
+  subPage: undefined,
 
   local: DEFAULT_LOCAL_SETTINGS,
   scr: DEFAULT_SCR_SETTINGS,
@@ -64,5 +64,17 @@ export default immerKeyedReducer(DEFAULT_SETTINGS_STATE, {
       const k = key as keyof Omit<ScrSettings, 'version'>
       ;(state.scr[k] as any) = action.payload[key]
     }
+  },
+
+  ['@auth/loadCurrentSession'](state, action) {
+    return DEFAULT_SETTINGS_STATE
+  },
+
+  ['@auth/logOut'](state, action) {
+    if (!action.error) {
+      return DEFAULT_SETTINGS_STATE
+    }
+
+    return state
   },
 })

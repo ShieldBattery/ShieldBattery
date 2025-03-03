@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { useIsLoggedIn } from '../auth/auth-utils'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -47,8 +48,11 @@ const ESCAPE = 'Escape'
 
 export function ConnectedSettings() {
   const dispatch = useAppDispatch()
+  const isLoggedIn = useIsLoggedIn()
   const isOpen = useAppSelector(s => s.settings.open)
-  const subPage = useAppSelector(s => s.settings.subPage)
+  const subPage =
+    useAppSelector(s => s.settings.subPage) ??
+    (isLoggedIn ? UserSettingsSubPage.Account : UserSettingsSubPage.Language)
   const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
@@ -149,6 +153,7 @@ function Settings({
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
+  const isLoggedIn = useIsLoggedIn()
 
   useKeyListener({
     onKeyDown(event) {
@@ -181,7 +186,8 @@ function Settings({
     <Container style={style}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
-        {[UserSettingsSubPage.Account, UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+        {(isLoggedIn ? [UserSettingsSubPage.Account] : []).map(getNavEntriesMapper())}
+        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
           <>
