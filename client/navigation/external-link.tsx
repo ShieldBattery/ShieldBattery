@@ -33,12 +33,13 @@ export function ExternalLink({ href, children, className, forceNewWindow }: Exte
     try {
       const url = new URL(href)
       if (IS_ELECTRON && isShieldBatteryUrl(url)) {
-        // NOTE(tec27): The code flow is a bit weird here but it is convenient: we mutate the URL so
-        // that Electron will navigate to the right spot if we're not opening a new window, but if
-        // we *are* opening a new window (because ctrl or shift is held), we want to open the
+        // NOTE(tec27): The code flow is a bit weird here but it is convenient: we generate a new
+        // URL so that Electron will navigate to the right spot if we're not opening a new window,
+        // but if we *are* opening a new window (because ctrl or shift is held), we want to open the
         // external URL (which will be the href on the anchor tag)
-        url.protocol = ELECTRON_PROTO
-        url.host = ELECTRON_HOST
+        // NOTE(tec27): As of Chrome 130+, we can't simply set the proto of a URL object to a custom
+        // scheme any more, so we have to collect all the parts ourselves
+        return new URL(`${ELECTRON_PROTO}//${ELECTRON_HOST}${url.pathname}${url.search}${url.hash}`)
       }
       return url
     } catch (err) {
