@@ -49,20 +49,20 @@ export function RankIconsTest() {
 
         <Row>
           <RankIcon points={1} bonusPool={0} />
-          <RankIcon points={1000 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1060 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1160 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={150 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={300 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={400 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+        </Row>
+
+        <Row>
+          <RankIcon points={600 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={900 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={1100 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
         <Row>
           <RankIcon points={1200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1300 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
           <RankIcon points={1400 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-        </Row>
-
-        <Row>
-          <RankIcon points={1500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1550 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
           <RankIcon points={1600 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
 
@@ -74,16 +74,9 @@ export function RankIconsTest() {
 
         <Row>
           <RankIcon points={1980 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2000 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon points={2050 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
           <RankIcon points={2200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
           <RankIcon points={2800 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-        </Row>
-
-        <Row>
-          <RankIcon points={2200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
         </Row>
       </Column>
       <Column>
