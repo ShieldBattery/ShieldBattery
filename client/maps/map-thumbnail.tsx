@@ -1,5 +1,4 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -12,7 +11,6 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
@@ -124,25 +122,28 @@ const TextProtection = styled.div`
   width: 100%;
   height: ${TEXT_PROTECTION_HEIGHT_PX}px;
   padding: 0 4px 0 12px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: ${rgba(background900, 0.6)};
+
+  background-color: rgb(from var(--color-blue10) r g b / 0.5);
 `
 
 const MapName = styled.div`
   ${titleMedium};
   ${singleLine};
-  color: ${colorTextPrimary};
+  color: var(--theme-on-surface);
 `
 
 const MapActionButton = styled(IconButton)`
   flex-shrink: 0;
   min-height: 40px;
   width: 40px;
-  padding: 0;
-  line-height: 40px;
   margin-left: 4px;
+  padding: 0;
+
+  line-height: 40px;
 `
 
 const NoImageContainer = styled.div`

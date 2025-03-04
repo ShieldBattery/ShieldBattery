@@ -16,7 +16,7 @@ export const sofiaSansCondensed = css`
 
 export const bodySmall = css`
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0.4px;
   line-height: 16px;
 `

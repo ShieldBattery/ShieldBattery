@@ -1,12 +1,11 @@
 import keycode from 'keycode'
-import { rgba } from 'polished'
 import React, { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, background900, colorDividers } from '../styles/colors'
+import { CardLayer, colorDividers } from '../styles/colors'
 import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
@@ -70,7 +69,7 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
           left: 0;
           width: 100%;
 
-          background-color: ${rgba(background900, 0.6)};
+          background-color: rgb(from var(--color-blue10) r g b / 0.5);
           opacity: 0;
           transition: opacity 75ms linear;
           z-index: 1;

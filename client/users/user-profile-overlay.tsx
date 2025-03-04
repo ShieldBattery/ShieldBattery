@@ -21,13 +21,6 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
-  backgroundSaturatedDark,
-  backgroundSaturatedLight,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import {
   BodyMedium,
   bodyLarge,
   bodyMedium,
@@ -125,8 +118,8 @@ const AvatarCircle = styled.div`
   height: 64px;
   position: relative;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 8px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 8px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -152,25 +145,25 @@ const LoadingUsername = styled.div`
   height: 20px;
   margin: 4px 0;
 
-  background-color: ${colorDividers};
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
   border-radius: 2px;
 `
 
 const Title = styled.div`
   ${titleSmall};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const SectionHeader = styled.div`
   ${labelMedium};
   ${singleLine};
   margin: 4px 0;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const HintText = styled.div`
   ${bodySmall};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplaySection = styled.div`
@@ -353,7 +346,7 @@ const RankDisplayType = styled.div`
   ${titleSmall};
   ${singleLine};
   padding-top: 4px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function RankDisplay({

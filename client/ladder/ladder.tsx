@@ -44,14 +44,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks'
-import {
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-  getRaceColor,
-} from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
   TitleLarge,
@@ -117,7 +110,7 @@ const LastUpdatedText = styled.div`
   flex-grow: 1;
   flex-shrink: 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
@@ -429,7 +422,7 @@ const Table = styled.div`
   margin: 8px auto 0px;
   padding-bottom: 16px;
 
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
 `
 
@@ -459,15 +452,15 @@ const HeaderRowContainer = styled.div<{ context?: unknown }>`
   display: flex;
   align-items: center;
 
-  background-color: ${background800};
-  color: ${colorTextSecondary} !important;
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant) !important;
   contain: content;
 
   --sb-ladder-row-height: 48px;
 
   .${HEADER_STUCK_CLASS} & {
     ${shadow4dp};
-    border-bottom: 1px solid ${colorDividers};
+    border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
 
@@ -522,7 +515,7 @@ const WinLossCell = styled(BaseCell)`
 const LastPlayedCell = styled(BaseCell)`
   width: 140px;
   padding: 0 16px 0 32px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
@@ -553,7 +546,7 @@ const ErrorText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
   text-align: center;
 `
 
@@ -561,7 +554,7 @@ const EmptyText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -853,7 +846,7 @@ const FillerRow = styled.div.attrs<{ height: number }>(props => ({
 }))<{ height: number }>``
 
 const UnratedText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const DivisionIcon = styled(LadderPlayerIcon)`

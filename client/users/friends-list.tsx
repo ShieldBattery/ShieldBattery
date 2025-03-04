@@ -17,7 +17,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
-import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
@@ -488,14 +488,14 @@ const LoadingName = styled.div`
   margin: 8px 0;
   display: inline-block;
 
-  background-color: ${colorDividers};
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
   border-radius: 2px;
 `
 
 const fadedCss = css`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   ${StyledAvatar}, ${LoadingName} {
-    opacity: ${alphaDisabled};
+    opacity: var(--theme-disabled-opacity);
   }
 `
 

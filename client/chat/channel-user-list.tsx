@@ -6,7 +6,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
-import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   areUserEntriesEqual,
@@ -72,14 +72,14 @@ const LoadingName = styled.div`
   margin: 8px 0;
   display: inline-block;
 
-  background-color: ${colorDividers};
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
   border-radius: 2px;
 `
 
 const fadedCss = css`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   ${StyledAvatar}, ${LoadingName} {
-    opacity: ${alphaDisabled};
+    opacity: var(--theme-disabled-opacity);
   }
 `
 

@@ -7,7 +7,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makePublicAssetUrl } from '../network/server-url'
-import { background800, colorDividers, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -121,7 +121,7 @@ const Splash = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: ${background800};
+  background-color: var(--theme-container-low);
   overflow: auto;
 
   & * {

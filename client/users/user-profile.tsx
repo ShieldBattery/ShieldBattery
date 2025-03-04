@@ -19,13 +19,6 @@ import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
-import {
-  backgroundSaturatedDark,
-  backgroundSaturatedLight,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
@@ -163,8 +156,8 @@ const AvatarCircle = styled.div`
   height: 100px;
   position: relative;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 12px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 12px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -301,7 +294,7 @@ export function UserProfilePage({
 const SectionOverline = styled.div`
   ${labelMedium};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   margin: 12px 24px;
 `
 
@@ -337,7 +330,7 @@ const TotalGamesSpacer = styled.div`
 const EmptyListText = styled.div`
   ${bodyLarge};
   margin: 0 24px;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 interface RaceStats {
@@ -447,8 +440,8 @@ const RaceCircle = styled.div`
   position: relative;
   margin-right: 12px;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 6px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 6px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -459,7 +452,7 @@ const RaceCircleIcon = styled(RaceIcon)`
   top: calc(50% - 20px);
   left: calc(50% - 20px);
 
-  fill: ${colorTextPrimary};
+  fill: var(--theme-on-surface);
 `
 
 const TotalGamesText = styled.div`
@@ -469,7 +462,7 @@ const TotalGamesText = styled.div`
 
 const WinLossText = styled.div`
   ${bodySmall};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number; losses: number }) {

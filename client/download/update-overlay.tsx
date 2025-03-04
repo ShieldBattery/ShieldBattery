@@ -1,4 +1,3 @@
-import { rgba } from 'polished'
 import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -13,7 +12,6 @@ import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { dialogScrim } from '../styles/colors'
 import { BodyLarge, BodyMedium } from '../styles/typography'
 import {
   UpdateProgress,
@@ -35,13 +33,11 @@ const Scrim = styled(animated.div)`
   right: 0;
   bottom: 0;
 
+  background: var(--theme-dialog-scrim);
   z-index: ${zIndexDialogScrim};
 
   -webkit-app-region: no-drag;
 `
-
-const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
-const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.84)
 
 export function UpdateOverlay() {
   const [hasUpdate, setHasUpdate] = useState(false)
@@ -59,10 +55,10 @@ export function UpdateOverlay() {
 
   const scrimTransition = useTransition(hasUpdate, {
     from: {
-      background: INVISIBLE_SCRIM_COLOR,
+      opacity: 0,
     },
-    enter: { background: VISIBLE_SCRIM_COLOR },
-    leave: { background: INVISIBLE_SCRIM_COLOR },
+    enter: { opacity: 0.84 },
+    leave: { opacity: 0 },
     config: {
       ...defaultSpring,
       clamp: true,

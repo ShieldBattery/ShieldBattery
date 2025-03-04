@@ -35,14 +35,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
-import {
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-  getRaceColor,
-} from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
   bodyLarge,
@@ -173,7 +166,7 @@ const SummaryRow = styled.div`
 
 const FormatAndDate = styled.div`
   ${bodyLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   flex-shrink: 0;
 `
 
@@ -225,7 +218,7 @@ const ErrorLayout = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export interface LeagueDetailsProps {
@@ -488,7 +481,7 @@ const FillerRow = styled.div.attrs<{ height: number }>(props => ({
 const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
 
 const LeaderboardRoot = styled.div`
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
 `
 
@@ -503,13 +496,13 @@ const LeaderboardHeaderRow = styled.div`
   display: flex;
   align-items: center;
 
-  background-color: ${background800};
-  color: ${colorTextSecondary};
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant);
   contain: content;
 
   .${HEADER_STUCK_CLASS} & {
     ${shadow4dp};
-    border-bottom: 1px solid ${colorDividers};
+    border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
 
@@ -579,6 +572,7 @@ const WinLossCell = styled(NumericCell)`
 const LastPlayedCell = styled(NumericCell)`
   width: 156px;
   padding: 0 16px 0 32px;
+  color: var(--theme-on-surface-variant);
 `
 
 const LeaderboardError = styled(ErrorText)`
@@ -590,7 +584,7 @@ const EmptyText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

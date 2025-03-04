@@ -1,5 +1,4 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useMemo, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { UseTransitionProps, animated, useTransition } from 'react-spring'
@@ -34,7 +33,7 @@ import { ReplayLoadDialog } from '../replays/replay-load-dialog'
 import { ChangeEmailDialog, ChangePasswordDialog } from '../settings/user/account-settings'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
-import { dialogScrim } from '../styles/colors'
+import { dialogScrimOpacity } from '../styles/colors'
 import { CreateWhisper as CreateWhisperSessionDialog } from '../whispers/create-whisper'
 import { closeDialog } from './action-creators'
 import { DialogState } from './dialog-reducer'
@@ -48,13 +47,11 @@ const Scrim = styled(animated.div)`
   right: 0;
   bottom: 0;
 
+  background: var(--theme-dialog-scrim);
   z-index: ${zIndexDialogScrim};
 
   -webkit-app-region: no-drag;
 `
-
-const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
-const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 
 const noop = () => {}
 
@@ -181,10 +178,10 @@ function DialogDisplay({
   const scrimTransition = useTransition(isTopDialog, {
     key: isTopDialog,
     from: {
-      background: INVISIBLE_SCRIM_COLOR,
+      opacity: 0,
     },
-    enter: { background: VISIBLE_SCRIM_COLOR },
-    leave: { background: INVISIBLE_SCRIM_COLOR },
+    enter: { opacity: dialogScrimOpacity },
+    leave: { opacity: 0 },
     config: {
       ...defaultSpring,
       clamp: true,

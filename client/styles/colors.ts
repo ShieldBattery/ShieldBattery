@@ -100,6 +100,13 @@ export const colorPositive = '#69f0ae'
 /** Color used to indicate something negative (e.g. losing). */
 export const colorNegative = '#e66060'
 
+export const colorZerg = '#c1a3f5'
+export const colorProtoss = '#ffe57f'
+export const colorTerran = '#89bbf5'
+export const colorRandom = '#f5a63d'
+
+export const dialogScrimOpacity = 0.5
+
 export const THEME_CSS = css`
   --color-blue10: ${blue10};
   --color-blue20: ${blue20};
@@ -218,7 +225,7 @@ export const THEME_CSS = css`
   --theme-surface: var(--color-blue10);
   --theme-on-surface: var(--color-grey99);
   --theme-on-surface-variant: var(--color-blue95);
-  --theme-inverse-surface: var(--color-blue95);
+  --theme-inverse-surface: var(--color-blue99);
   --theme-inverse-on-surface: var(--color-grey10);
   --theme-inverse-primary: var(--color-blue-40);
   --theme-inverse-amber: var(--color-amber-60);
@@ -239,51 +246,38 @@ export const THEME_CSS = css`
 
   --theme-positive: ${colorPositive};
   --theme-negative: ${colorNegative};
+
+  --theme-color-zerg: ${colorZerg};
+  --theme-color-protoss: ${colorProtoss};
+  --theme-color-terran: ${colorTerran};
+  --theme-color-random: ${colorRandom};
+
+  --theme-dialog-scrim: var(--color-blue10);
+  --theme-dialog-scrim-opacity: ${dialogScrimOpacity};
 `
 
 // FIXME: delete these
-/** Colors used for backgrounds (a muted grey-blue palette) */
-export const background800 = '#0E1B2A'
-export const background900 = '#091320'
-
-/** Background colors used for accenting particularly prominent UI. */
-export const backgroundSaturatedLight = '#02498C'
-export const backgroundSaturatedDark = '#034078'
-
-export const alphaDividers = 0.12
-export const alphaDisabled = 0.5
-
-export const colorText = '#ffffff'
-
-export const colorDividers = `rgba(255, 255, 255, ${alphaDividers})`
+export const colorDividers = `rgba(255, 255, 255, 0.12)`
 export const colorTextFaint = '#8998a9'
 export const colorTextSecondary = '#cdddee'
 export const colorTextPrimary = '#ffffff'
 export const colorTextInvert = 'rgba(0, 0, 0, 0.87)'
 export const colorTextInvertSecondary = 'rgba(0, 0, 0, 0.6)'
 
-export const colorBackground = background800
-export const colorZerg = '#c1a3f5'
-export const colorProtoss = '#ffe57f'
-export const colorTerran = '#89bbf5'
-export const colorRandom = '#f5a63d'
-
 export function getRaceColor(race: RaceChar) {
   switch (race) {
     case 'z':
-      return colorZerg
+      return 'var(--theme-color-zerg)'
     case 'p':
-      return colorProtoss
+      return 'var(--theme-color-protoss)'
     case 't':
-      return colorTerran
+      return 'var(--theme-color-terran)'
     case 'r':
-      return colorRandom
+      return 'var(--theme-color-random)'
     default:
       return assertUnreachable(race)
   }
 }
-
-export const dialogScrim = background900
 
 // FIXME: delete this?
 export const CardLayer = styled.div`

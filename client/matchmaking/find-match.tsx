@@ -27,13 +27,7 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useUserLocalStorageValue } from '../state-hooks'
-import {
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-  dialogScrim,
-} from '../styles/colors'
+import { colorDividers, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import {
   TitleLarge,
   bodyLarge,
@@ -105,7 +99,8 @@ const DisabledOverlay = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: rgb(from ${dialogScrim} r g b / 0.5);
+  background-color: var(--theme-dialog-scrim);
+  opacity: var(--theme-dialog-scrim-opacity);
   contain: strict;
   z-index: 100;
 `

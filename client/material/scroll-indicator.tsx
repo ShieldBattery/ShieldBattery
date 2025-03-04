@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react'
 import styled from 'styled-components'
-import { background800, colorDividers } from '../styles/colors'
+import { colorDividers } from '../styles/colors'
 
 const ScrollObserved = styled.div`
   width: 0px;
@@ -49,7 +49,7 @@ export const GradientScrollDivider = styled.div<{
 
   background: linear-gradient(
     ${props => (props.$showAt === 'top' ? '180deg' : '0deg')},
-    var(--sb-color-background, ${background800}) 0%,
+    var(--sb-color-background, var(--theme-container-low)) 0%,
     transparent 100%
   );
   opacity: ${props => (props.$show ? 1 : 0)};

@@ -25,7 +25,7 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { background800, colorError } from '../../styles/colors'
+import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, titleLarge } from '../../styles/typography'
 import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
@@ -83,29 +83,25 @@ function getChannelUsers(channelId: SbChannelId, spec: RequestHandlingSpec<SbUse
   })
 }
 
-const Container = styled.div`
-  width: 100%;
-  height: 100%;
-  padding: 0 16px;
-
-  background-color: var(--theme-container-low);
-
+const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
+  gap: 8px;
 `
 
 const ChannelHeaderContainer = styled.div`
   width: 100%;
-  max-width: 960px;
   height: 72px;
   padding: 8px;
-  padding-right: 8px;
-  background-color: var(--theme-container-low);
 
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
 const ChannelHeadline = styled.div`
@@ -118,20 +114,23 @@ const ChannelContainer = styled.div`
 
   flex-grow: 1;
   display: flex;
+  gap: 8px;
 `
 
 const StyledMessageList = styled(MessageList)`
   flex-grow: 1;
-  max-width: 960px;
   min-width: 320px;
-
-  background-color: ${background800};
+  padding-bottom: 8px;
 `
 
 const ErrorText = styled.div`
   ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
+`
+
+const StyledUserList = styled(ChannelUserList)`
+  margin-bottom: 8px;
 `
 
 export function AdminChannelView({
@@ -377,7 +376,7 @@ export function AdminChannelView({
                 refreshToken={channelInfo.id}
                 renderMessage={renderChannelMessage}
               />
-              <ChannelUserList active={activeUsers} />
+              <StyledUserList active={activeUsers} />
             </ChannelContainer>
           </ChatContext.Provider>
         </>

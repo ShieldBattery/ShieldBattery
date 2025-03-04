@@ -22,7 +22,7 @@ import {
 
 const MESSAGES_LIMIT = 50
 
-const Container = styled(CenteredContentContainer)`
+const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
   display: flex;
   padding-top: 8px;
   gap: 8px;

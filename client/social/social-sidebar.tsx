@@ -69,7 +69,7 @@ const TabsContainer = styled.div`
   flex-shrink: 0;
 
   width: min-content;
-  margin: 0 auto;
+  margin: 8px auto 0;
   padding: 8px 0;
 `
 

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useId, useState } from 'react'
 import { UseTransitionProps, useTransition } from 'react-spring'
 import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
-import { background900 } from '../styles/colors'
 import { bodySmall } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
@@ -87,7 +86,8 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
 
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 4px;
-  background-color: ${background900};
+  background-color: var(--theme-inverse-surface);
+  color: var(--theme-inverse-on-surface);
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
   &::before {
