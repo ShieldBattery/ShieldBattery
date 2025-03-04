@@ -346,6 +346,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           $hasValue={!!value}
           $dense={dense}
           $focused={isFocused}
+          $disabled={disabled}
           $error={!!errorText}
           $leadingIconsLength={leadingIcons.length}>
           {label}

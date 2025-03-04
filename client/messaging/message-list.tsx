@@ -11,7 +11,6 @@ import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
 import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
@@ -40,7 +39,7 @@ const EmptyList = styled.div`
   ${bodyLarge};
   padding: 32px 16px 48px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

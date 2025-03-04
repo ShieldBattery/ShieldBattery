@@ -28,7 +28,6 @@ import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { BodySmall, bodySmall, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
@@ -96,7 +95,7 @@ const StyledTooltipContent = styled(TooltipContent)`
 const ChannelTopic = styled.div`
   ${bodySmall};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 
   // NOTE(2Pac): This increases the topic hit area a bit so it's easier to trigger the tooltip, but
   // keeps the text at the same vertical position.
@@ -115,11 +114,11 @@ const UserCountContainer = styled.div`
   align-items: center;
   gap: 4px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledIconButton = styled(IconButton)`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export interface ChannelHeaderProps {

@@ -102,9 +102,9 @@ export const colorPositive = '#69f0ae'
 export const colorNegative = '#e66060'
 
 export const colorZerg = '#c1a3f5'
-export const colorProtoss = '#ffe57f'
-export const colorTerran = '#89bbf5'
-export const colorRandom = '#f5a63d'
+export const colorProtoss = '#ead36d'
+export const colorTerran = '#53b3fc'
+export const colorRandom = '#f3ab60'
 
 export const dialogScrimOpacity = 0.5
 
@@ -260,7 +260,6 @@ export const THEME_CSS = css`
 `
 
 // FIXME: delete these
-export const colorTextFaint = '#8998a9'
 export const colorTextSecondary = '#cdddee'
 export const colorTextPrimary = '#ffffff'
 

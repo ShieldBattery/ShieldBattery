@@ -5,7 +5,7 @@ import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { standardEasing } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
-import { colorTextFaint, getRaceColor } from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { RaceIcon } from './race-icon'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
@@ -39,7 +39,7 @@ export const RaceButton = styled.button<{
   }
 
   --sb-race-color: ${props => getRaceColor(props.$race)};
-  color: ${props => (props.$active ? 'var(--sb-race-color)' : colorTextFaint)};
+  color: ${props => (props.$active ? 'var(--sb-race-color)' : 'var(--theme-on-surface-variant)')};
 
   &:hover,
   &:active {
@@ -47,7 +47,7 @@ export const RaceButton = styled.button<{
   }
 
   &:disabled {
-    color: ${props => (props.$active ? 'var(--sb-race-color)' : colorTextFaint)};
+    color: ${props => (props.$active ? 'var(--sb-race-color)' : 'var(--theme-on-surface-variant)')};
   }
 `
 
@@ -85,7 +85,7 @@ const HiddenRaceIcon = styled.span`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
+    background-color: var(--theme-skeleton);
   }
 `
 

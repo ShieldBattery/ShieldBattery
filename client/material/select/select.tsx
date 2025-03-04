@@ -309,7 +309,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
             <MaterialIcon icon='arrow_drop_down' />
           </Icon>
-          <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
+          <InputUnderline focused={focused} error={!!errorText} />
         </SelectContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
         <Popover

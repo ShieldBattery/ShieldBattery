@@ -14,7 +14,6 @@ import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorError, colorTextFaint } from '../styles/colors'
 import { TitleLarge, bodyLarge } from '../styles/typography'
 import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
@@ -103,7 +102,7 @@ const ErrorText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
   text-align: center;
 `
 
@@ -111,7 +110,7 @@ const EmptyText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

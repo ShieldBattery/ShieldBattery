@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, colorTextFaint } from '../styles/colors'
+import { CardLayer } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -362,9 +362,9 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
 
   &:disabled,
   &[disabled] {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
 
     & ${Label} {
       font-variation-settings: inherit;
@@ -506,7 +506,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   }};
 
   &:disabled {
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
 `
 
@@ -601,7 +601,7 @@ const IconButtonRoot = styled.button`
   --sb-ripple-color: #ffffff;
 
   &:disabled {
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
 `
 

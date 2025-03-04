@@ -34,7 +34,6 @@ import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorNegative, colorPositive, colorTextSecondary } from '../styles/colors'
 import {
   DisplaySmall,
   bodyLarge,
@@ -106,9 +105,9 @@ const HeaderInfo = styled.div`
 
 const HeaderInfoItem = styled.div`
   display: flex;
-  align-items: center;
+  align-items: baseline;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const HeaderInfoLabel = styled.div`
@@ -117,11 +116,7 @@ const HeaderInfoLabel = styled.div`
   width: 88px;
   margin-right: 16px;
 
-  // The all-caps variation used for overlines doesn't really align vertically between these fonts
-  // so we adjust manually
-  line-height: 23px;
-  padding-top: 1px;
-
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
@@ -134,7 +129,7 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   ${titleSmall};
   ${singleLine};
 
-  color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface)')};
 `
 
 const StyledFindMatchIcon = styled(FindMatchIcon)`
@@ -433,7 +428,7 @@ const TeamLabel = styled.div`
   line-height: 24px;
   margin: 0 8px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 type ConfigAndResult = [config: GameConfigPlayer, result: ReconciledPlayerResult | undefined]
@@ -613,7 +608,7 @@ const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
   width: 40px;
   height: 40px;
   margin-left: 8px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayerName = styled.div`
@@ -694,11 +689,11 @@ export interface GameResultTextProps {
 }
 
 const PositiveText = styled.span`
-  color: ${colorPositive};
+  color: var(--theme-positive);
 `
 
 const NegativeText = styled.span`
-  color: ${colorNegative};
+  color: var(--theme-negative);
 `
 
 export function GameResultText({ className, result }: GameResultTextProps) {

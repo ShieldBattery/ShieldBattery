@@ -13,7 +13,6 @@ import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
-import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyMedium, bodySmall, titleLarge } from '../styles/typography'
 import { LeagueBadge } from './league-badge'
@@ -93,7 +92,7 @@ const JoinedIndicator = styled.div`
   align-items: center;
   gap: 4px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 export function LeagueCard({

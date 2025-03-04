@@ -16,7 +16,6 @@ import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
@@ -310,7 +309,7 @@ const StateMessageIcon = styled(MaterialIcon).attrs({
   size: 96,
   filled: false,
 })`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const StateMessageActionButton = styled(RaisedButton)`

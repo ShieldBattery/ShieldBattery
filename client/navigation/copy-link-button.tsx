@@ -7,13 +7,12 @@ import { IconButton } from '../material/button'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { makeServerUrl } from '../network/server-url'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 
 const StyledIconButton = styled(IconButton)`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 
   &:hover {
-    color: ${colorTextSecondary};
+    color: var(--theme-amber);
   }
 `
 

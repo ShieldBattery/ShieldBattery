@@ -17,7 +17,6 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
@@ -32,15 +31,15 @@ import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
 const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const FadedFriendAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accounts' })`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function useRelationshipsLoader() {
@@ -92,7 +91,7 @@ const FriendsListTabsContainer = styled.div`
 
 const TitleText = styled.div`
   ${titleLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const FriendsListContent = styled.div`
@@ -176,7 +175,7 @@ const EmptyList = styled.div`
   ${bodyLarge};
   padding: 32px 16px 48px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -186,7 +185,7 @@ const ListOverline = styled.div<{ $firstOverline?: boolean }>`
   margin: 0 8px;
   padding: ${props => (props.$firstOverline ? '4px' : '20px')} 8px 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   line-height: 36px;
 `
 

@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { range } from '../../../common/range'
-import { colorTextFaint } from '../../styles/colors'
 import { RadioButton, RadioGroup } from '../radio'
 
 const Container = styled.div`
@@ -24,7 +23,7 @@ const CustomLargeLabel = styled.div`
   width: 100%;
   max-width: 600px;
   height: 140px;
-  background-color: ${colorTextFaint};
+  background-color: var(--theme-skeleton);
   border-radius: 2px;
 `
 

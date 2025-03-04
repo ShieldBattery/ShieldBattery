@@ -18,13 +18,6 @@ import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import {
-  colorError,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import {
   bodyLarge,
   bodyMedium,
   bodySmall,
@@ -37,13 +30,13 @@ import { searchMatchHistory } from './action-creators'
 const NoResults = styled.div`
   ${bodyLarge};
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
   ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const SearchResults = styled.div`
@@ -178,11 +171,11 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
   color: ${props => {
     switch (props.$result) {
       case 'win':
-        return colorPositive
+        return 'var(--theme-positive)'
       case 'loss':
-        return colorNegative
+        return 'var(--theme-negative)'
       default:
-        return colorTextSecondary
+        return 'var(--theme-on-surface-variant)'
     }
   }};
   flex-shrink: 0;
@@ -191,7 +184,7 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
 const GameDate = styled.div`
   ${bodySmall};
   ${singleLine};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MapNameAndGameTypeContainer = styled.div`
@@ -212,7 +205,7 @@ const MapName = styled.div`
 const GameType = styled.div`
   ${bodyMedium};
   ${singleLine};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   min-width: 0;
   width: 100%;

@@ -16,7 +16,6 @@ import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyLarge, headlineMedium } from '../styles/typography'
 import { searchChannels } from './action-creators'
@@ -58,13 +57,13 @@ const SearchResults = styled.div`
 const NoResults = styled.div`
   ${bodyLarge};
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
   ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export function ChannelList() {

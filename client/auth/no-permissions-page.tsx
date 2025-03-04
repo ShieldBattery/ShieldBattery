@@ -2,7 +2,7 @@ import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { colorError, colorTextFaint } from '../styles/colors'
+import { colorError } from '../styles/colors'
 import { bodyLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -23,7 +23,7 @@ const ErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
 
 const Text = styled.span`
   ${bodyLarge};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface);
 `
 
 export function NoPermissionsPage() {

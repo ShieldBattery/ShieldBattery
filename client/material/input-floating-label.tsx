@@ -5,6 +5,7 @@ export const FloatingLabel = styled.label<{
   $hasValue?: boolean
   $focused?: boolean
   $error?: boolean
+  $disabled?: boolean
   $dense?: boolean
   $leadingIconsLength?: number
 }>`
@@ -22,6 +23,9 @@ export const FloatingLabel = styled.label<{
   color: ${props => {
     if (props.$error) {
       return 'var(--theme-error)'
+    }
+    if (props.$disabled) {
+      return 'var(--theme-on-surface)'
     }
     if (props.$focused) {
       return 'var(--theme-amber)'

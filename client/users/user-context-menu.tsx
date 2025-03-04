@@ -13,7 +13,6 @@ import { Popover, PopoverProps } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import {
   acceptFriendRequest,
@@ -27,7 +26,7 @@ import {
 import { userRelationshipErrorToString } from './relationship-errors'
 
 const LoadingItem = styled(MenuItem)`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 /**

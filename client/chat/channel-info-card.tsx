@@ -16,7 +16,6 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyMedium, bodySmall, titleLarge } from '../styles/typography'
 import {
@@ -84,11 +83,11 @@ const PrivateChannelDescriptionContainer = styled.div`
 
 const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
   margin-bottom: 8px;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const PrivateChannelDescriptionText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -106,7 +105,7 @@ export const ChannelDescriptionContainer = styled.div`
 `
 
 const NoChannelDescriptionText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 export const ChannelActions = styled.div`
@@ -123,7 +122,7 @@ const JoinedIndicator = styled.div`
   align-items: center;
   gap: 4px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 export interface ConnectedChannelInfoCardProps {

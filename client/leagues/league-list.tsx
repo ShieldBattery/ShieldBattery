@@ -12,9 +12,8 @@ import logger from '../logging/logger'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium, labelLarge } from '../styles/typography'
 import { getLeaguesList, urlForLeague } from './action-creators'
 import { LeagueCard } from './league-card'
 import { LeagueSectionType } from './league-section-type'
@@ -40,7 +39,7 @@ const Title = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export function LeagueList() {
@@ -152,8 +151,8 @@ const SectionRoot = styled.div`
 `
 
 const SectionLabel = styled.div`
-  ${bodyLarge};
-  color: ${colorTextSecondary};
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
 `
 
 const SectionCards = styled.div`
@@ -166,7 +165,7 @@ const SectionCards = styled.div`
 
 const EmptyText = styled.div`
   ${bodyMedium};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 function LeagueSection({
