@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import { background700 } from '../styles/colors'
 import { TextButton } from './button'
 import { accelerateEasing, decelerateEasing, standardEasing } from './curve-constants'
 import { shadow6dp } from './shadows'
@@ -60,17 +59,20 @@ const Container = styled.div`
 
 const Content = styled.div`
   ${shadow6dp};
-  display: inline-flex;
-  justify-content: space-between;
-  align-items: center;
-  overflow: hidden;
   width: auto;
   min-width: 288px;
   max-width: 568px;
   height: auto;
+
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
   text-align: left;
+
+  background-color: var(--theme-inverse-surface);
   border-radius: 2px;
-  background-color: ${background700};
+  color: var(--theme-inverse-on-surface);
 `
 
 class Snackbar extends React.Component {

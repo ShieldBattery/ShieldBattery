@@ -28,7 +28,7 @@ import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { BodySmall, bodySmall, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
@@ -40,13 +40,15 @@ const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
   height: ${CHANNEL_HEADER_HEIGHT}px;
   padding: 8px;
   padding-right: ${props => (props.$hasActions ? '8px' : '0')};
-  background-color: ${background700};
 
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
 const StyledMenuList = styled(MenuList)`

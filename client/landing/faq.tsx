@@ -7,7 +7,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makePublicAssetUrl } from '../network/server-url'
-import { background700, background800, colorDividers, colorTextSecondary } from '../styles/colors'
+import { background800, colorDividers, colorTextSecondary } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -174,7 +174,7 @@ const Intro = styled.div`
   justify-content: center;
   width: 100%;
   margin-top: 142px;
-  background-color: ${background700};
+  background-color: var(--theme-container-low);
   box-shadow: ${shadowDef4dp};
 
   @media screen and (max-width: 980px) {

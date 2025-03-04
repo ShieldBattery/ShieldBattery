@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { background700 } from '../../styles/colors'
 
 const Header = styled.div``
 const Footer = styled.div``
@@ -13,7 +12,7 @@ const Container = styled.nav`
   flex-grow: 0;
   flex-shrink: 0;
 
-  background-color: ${background700};
+  background-color: var(--theme-container-low);
 `
 
 const Sections = styled.div`

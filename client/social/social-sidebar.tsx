@@ -37,23 +37,25 @@ enum SocialTab {
 const Root = styled.div`
   position: relative;
   width: 100%;
-  height: calc(100% + 8px);
+  height: 100%;
   padding: 0 8px;
 
   display: flex;
   flex-direction: column;
 
   background-color: var(--theme-container-lowest);
+  border-radius: 12px 0 0 12px;
   overflow-x: hidden;
 
   &:before {
     position: absolute;
-    width: 1px;
-    height: 100%;
-    left: 0;
+    inset: 0;
 
     content: '';
-    background-color: var(--theme-outline);
+    border-left: 1px solid var(--theme-outline);
+    border-radius: inherit;
+
+    pointer-events: none;
   }
 `
 

@@ -15,7 +15,8 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { background700, background800, colorError } from '../styles/colors'
+import { CenteredContentContainer } from '../styles/centered-container'
+import { colorError } from '../styles/colors'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import { MenuItemCategory } from '../users/user-context-menu'
 import {
@@ -53,19 +54,18 @@ const BACKGROUND_MASK_GRADIENT = `
   )
 `
 
-const Container = styled.div`
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
+const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
   display: flex;
-  background-color: ${background700};
+  padding-top: 8px;
+  gap: 8px;
 `
 
 const StyledChat = styled(Chat)`
-  max-width: 960px;
   flex-grow: 1;
-  background-color: ${background800};
+`
+
+const StyledUserList = styled(ChannelUserList)`
+  margin-bottom: 8px;
 `
 
 const BackgroundImage = styled.img`
@@ -210,7 +210,7 @@ export function ConnectedChatChannel({
             ) : undefined
           }
           extraContent={
-            <ChannelUserList
+            <StyledUserList
               active={channelUsers?.active}
               idle={channelUsers?.idle}
               offline={channelUsers?.offline}

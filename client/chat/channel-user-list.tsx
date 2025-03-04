@@ -6,13 +6,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
-import {
-  alphaDisabled,
-  background700,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
+import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   areUserEntriesEqual,
@@ -27,12 +21,19 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
-  padding-top: 10px;
 
-  background-color: ${background700};
+  contain: content;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
-const VertPadding = styled.div<{ context?: unknown }>`
+const PaddingHeader = styled.div<{ context?: unknown }>`
+  width: 100%;
+  height: 10px;
+`
+
+const PaddingFooter = styled.div<{ context?: unknown }>`
   width: 100%;
   height: 8px;
 `
@@ -200,11 +201,11 @@ interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
   offline: SbUserId[]
+  className?: string
 }
 
-const UserList = React.memo((props: UserListProps) => {
+const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
   const { t } = useTranslation()
-  const { active, idle, offline } = props
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
     let result: UserListRowData[] = [
@@ -253,8 +254,12 @@ const UserList = React.memo((props: UserListProps) => {
   }, [])
 
   return (
-    <UserListContainer>
-      <Virtuoso components={{ Footer: VertPadding }} data={rowData} itemContent={renderRow} />
+    <UserListContainer className={className}>
+      <Virtuoso
+        components={{ Header: PaddingHeader, Footer: PaddingFooter }}
+        data={rowData}
+        itemContent={renderRow}
+      />
     </UserListContainer>
   )
 })
@@ -263,10 +268,12 @@ export function ChannelUserList({
   active,
   idle,
   offline,
+  className,
 }: {
   active?: ReadonlySet<SbUserId>
   idle?: ReadonlySet<SbUserId>
   offline?: ReadonlySet<SbUserId>
+  className?: string
 }) {
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
@@ -282,5 +289,12 @@ export function ChannelUserList({
     [offlineUserEntries],
   )
 
-  return <UserList active={sortedActiveUsers} idle={sortedIdleUsers} offline={sortedOfflineUsers} />
+  return (
+    <UserList
+      className={className}
+      active={sortedActiveUsers}
+      idle={sortedIdleUsers}
+      offline={sortedOfflineUsers}
+    />
+  )
 }

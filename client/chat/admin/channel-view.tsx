@@ -25,7 +25,7 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { background700, background800, colorError } from '../../styles/colors'
+import { background800, colorError } from '../../styles/colors'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, titleLarge } from '../../styles/typography'
 import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
@@ -88,10 +88,10 @@ const Container = styled.div`
   height: 100%;
   padding: 0 16px;
 
+  background-color: var(--theme-container-low);
+
   display: flex;
   flex-direction: column;
-
-  background-color: ${background700};
 `
 
 const ChannelHeaderContainer = styled.div`
@@ -100,7 +100,7 @@ const ChannelHeaderContainer = styled.div`
   height: 72px;
   padding: 8px;
   padding-right: 8px;
-  background-color: ${background700};
+  background-color: var(--theme-container-low);
 
   display: flex;
   justify-content: space-between;

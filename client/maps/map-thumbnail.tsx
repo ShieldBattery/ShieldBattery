@@ -12,7 +12,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { background700, background900, colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
@@ -154,8 +154,8 @@ const NoImageContainer = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${background700};
-  color: ${colorTextFaint};
+  background-color: var(--theme-container);
+  color: var(--theme-on-surface-variant);
 `
 
 const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 96 })`

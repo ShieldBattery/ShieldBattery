@@ -95,6 +95,11 @@ export const colorContainerHighest = '#1c304f'
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 
+/** Color used to indicate something positive (e.g. winning). */
+export const colorPositive = '#69f0ae'
+/** Color used to indicate something negative (e.g. losing). */
+export const colorNegative = '#e66060'
+
 export const THEME_CSS = css`
   --color-blue10: ${blue10};
   --color-blue20: ${blue20};
@@ -213,6 +218,10 @@ export const THEME_CSS = css`
   --theme-surface: var(--color-blue10);
   --theme-on-surface: var(--color-grey99);
   --theme-on-surface-variant: var(--color-blue95);
+  --theme-inverse-surface: var(--color-blue95);
+  --theme-inverse-on-surface: var(--color-grey10);
+  --theme-inverse-primary: var(--color-blue-40);
+  --theme-inverse-amber: var(--color-amber-60);
 
   --theme-outline: var(--color-grey-blue60);
   --theme-outline-variant: var(--color-grey-blue50);
@@ -227,11 +236,13 @@ export const THEME_CSS = css`
 
   --theme-error: ${colorError};
   --theme-success: ${colorSuccess};
+
+  --theme-positive: ${colorPositive};
+  --theme-negative: ${colorNegative};
 `
 
 // FIXME: delete these
 /** Colors used for backgrounds (a muted grey-blue palette) */
-export const background700 = '#142539'
 export const background800 = '#0E1B2A'
 export const background900 = '#091320'
 
@@ -252,12 +263,6 @@ export const colorTextInvert = 'rgba(0, 0, 0, 0.87)'
 export const colorTextInvertSecondary = 'rgba(0, 0, 0, 0.6)'
 
 export const colorBackground = background800
-
-/** Color used to indicate something positive (e.g. winning). */
-export const colorPositive = '#69f0ae'
-/** Color used to indicate something negative (e.g. losing). */
-export const colorNegative = '#e66060'
-
 export const colorZerg = '#c1a3f5'
 export const colorProtoss = '#ffe57f'
 export const colorTerran = '#89bbf5'

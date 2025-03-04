@@ -15,14 +15,6 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  background700,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
 import { BodyMedium, bodyLarge, singleLine, titleSmall } from '../styles/typography'
 
 const MatchHistoryRoot = styled.div`
@@ -42,7 +34,7 @@ const GameList = styled.div`
 
 const EmptyListText = styled.div`
   ${bodyLarge};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   margin-left: 16px;
 `
 
@@ -104,7 +96,8 @@ const GameListEntryTextRow = styled.div<{ $color?: 'primary' | 'secondary' }>`
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  color: ${props => (props.$color === 'secondary' ? colorTextSecondary : colorTextPrimary)};
+  color: ${props =>
+    props.$color === 'secondary' ? 'var(--theme-on-surface-variant)' : 'var(--theme-on-surface)'};
 `
 
 const MapName = styled.div`
@@ -118,11 +111,11 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
   color: ${props => {
     switch (props.$result) {
       case 'win':
-        return colorPositive
+        return 'var(--theme-positive)'
       case 'loss':
-        return colorNegative
+        return 'var(--theme-negative)'
       default:
-        return colorTextFaint
+        return 'var(--theme-on-surface-variant)'
     }
   }};
   padding-left: 8px;
@@ -210,7 +203,8 @@ const GamePreviewDetails = styled.div`
   display: flex;
   flex-direction: column;
 
-  background-color: ${background700};
+  --_surface-bg: var(--theme-container-low);
+  background-color: var(--_surface-bg);
   border-radius: 4px;
 `
 
@@ -230,10 +224,10 @@ const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
 
   background: linear-gradient(
     to bottom,
-    rgb(from ${background700} r g b / 0),
-    rgb(from ${background700} r g b / 50%) 12px,
-    rgb(from ${background700} r g b / 80%) 80%,
-    rgb(from ${background700} r g b) 92%
+    rgb(from var(--_surface-bg) r g b / 0),
+    rgb(from var(--_surface-bg) r g b / 50%) 12px,
+    rgb(from var(--_surface-bg) r g b / 80%) 80%,
+    rgb(from var(--_surface-bg) r g b) 92%
   );
 `
 

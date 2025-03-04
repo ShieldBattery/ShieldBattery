@@ -12,7 +12,6 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { background700, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodySmall, singleLine, titleLarge, titleMedium } from '../styles/typography'
 
 const RankDisplayRoot = styled.div`
@@ -20,7 +19,7 @@ const RankDisplayRoot = styled.div`
 
   display: flex;
 
-  background-color: ${background700};
+  background-color: var(--theme-container-low);
   border-radius: 4px;
 `
 
@@ -29,7 +28,7 @@ const DivisionInfo = styled.div`
   flex-direction: column;
   align-items: center;
 
-  border-right: 1px solid ${colorDividers};
+  border-right: 1px solid var(--theme-outline-variant);
   padding-right: 15px;
 `
 
@@ -46,7 +45,7 @@ const RankDisplayDivisionLabel = styled.div`
 const RankDisplayType = styled.div`
   ${titleMedium};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplayInfo = styled.div`
@@ -57,7 +56,7 @@ const RankDisplayInfo = styled.div`
   justify-content: center;
   gap: 24px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const RankDisplayInfoRow = styled.div`
@@ -76,7 +75,7 @@ const RankDisplayInfoEntry = styled.div`
 const RankDisplayInfoLabel = styled.div`
   ${bodySmall};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplayInfoValue = styled.div`
