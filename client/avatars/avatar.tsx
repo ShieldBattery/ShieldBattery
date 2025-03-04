@@ -2,7 +2,6 @@ import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import PlaceholderIcon from './avatar-placeholder.svg'
 import { randomColorForString } from './colors'
 
@@ -62,9 +61,10 @@ export function Avatar({ image, user, color, glowing, className }: AvatarProps) 
 
 const LoadingAvatar = styled.div`
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
 
-  background-color: ${colorDividers};
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
   border-radius: 100%;
 `
 

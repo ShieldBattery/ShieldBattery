@@ -16,12 +16,6 @@ import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import {
-  colorDividers,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
 import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, bodySmall } from '../styles/typography'
 import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
 import { ConnectedUsername } from './connected-username'
@@ -42,7 +36,7 @@ const AdminSection = styled.div<{ $gridColumn?: string }>`
   block-size: min-content;
   padding: 16px 16px 0;
 
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
   grid-column: ${props => props.$gridColumn ?? 'auto'};
 `
@@ -333,7 +327,7 @@ const BanTable = styled.table`
     max-width: 150px;
     padding: 4px;
 
-    border: 1px solid ${colorDividers};
+    border: 1px solid var(--theme-outline-variant);
     border-radius: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -343,17 +337,20 @@ const BanTable = styled.table`
 
   th {
     ${bodySmall};
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
   }
 `
 
 const BanRow = styled.tr<{ $expired?: boolean }>`
-  color: ${props => (!props.$expired ? colorTextPrimary : colorTextFaint)};
+  color: ${props =>
+    !props.$expired
+      ? 'var(--theme-on-surface)'
+      : 'rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity)'};
 `
 
 const EmptyState = styled.td`
   ${bodyLarge};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -520,11 +517,11 @@ const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const IpDateRange = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const SeenCount = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const RelatedUsers = styled.div`

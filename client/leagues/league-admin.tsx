@@ -32,7 +32,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
+import { colorError, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
 import {
   adminAddLeague,
@@ -205,7 +205,7 @@ const LeagueForm = styled.form`
   flex-direction: column;
   gap: 12px;
 
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
 `
 
@@ -218,7 +218,7 @@ const LeaguePreview = styled.div`
   flex-direction: column;
   gap: 16px;
 
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
 `
 

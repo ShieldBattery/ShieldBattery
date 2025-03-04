@@ -7,7 +7,6 @@ import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
-import { colorDividers } from './styles/colors'
 
 const Container = styled.div`
   padding: 0 !important;
@@ -22,7 +21,7 @@ const HomeLink = styled.div`
   height: 32px;
   padding-left: 16px;
   line-height: 32px;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 `
 
 const Content = styled.div`
@@ -38,9 +37,6 @@ function DevDashboard() {
         of the app.
       </DescriptionText>
       <ul>
-        <li>
-          <Link href='/dev/activities'>Activity components</Link>
-        </li>
         <li>
           <Link href='/dev/download'>Download components</Link>
         </li>

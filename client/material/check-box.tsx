@@ -1,6 +1,5 @@
 import React, { useCallback, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { colorDividers } from '../styles/colors'
 import { standardEasing } from './curve-constants'
 
 const BOX_WIDTH = 18
@@ -55,7 +54,7 @@ export const CheckIconContainer = styled.div<{
   height: ${BOX_HEIGHT}px;
   pointer-events: none;
   background-color: ${props => {
-    if (props.$focused && !props.$disabled && !props.$checked) return colorDividers
+    if (props.$focused && !props.$disabled && !props.$checked) return 'var(--theme-outline-variant)'
     else return 'transparent'
   }};
   flex-shrink: 0;

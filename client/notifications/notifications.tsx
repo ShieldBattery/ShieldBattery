@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { colorDividers } from '../styles/colors'
 import { bodyMedium } from '../styles/typography'
 
 const Container = styled.div<{ $read: boolean }>`
@@ -48,7 +47,7 @@ const Divider = styled.div`
   left: 16px;
   right: 16px;
   bottom: 0;
-  background-color: ${colorDividers};
+  background-color: var(--theme-outline-variant);
 `
 
 export interface NotificationProps {

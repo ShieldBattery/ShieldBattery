@@ -7,7 +7,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makePublicAssetUrl } from '../network/server-url'
-import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -23,7 +23,7 @@ const pageWidth = css`
 const QuestionSectionRoot = styled.div`
   ${pageWidth};
   padding: 48px 48px 48px 0;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 
   @media screen and (max-width: 980px) {
     padding: 16px;
@@ -215,7 +215,7 @@ const FaqToc = styled.div`
 
   font-size: 20px;
   line-height: 1.5;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 
   @media screen and (max-width: 980px) {
     padding: 32px 16px;

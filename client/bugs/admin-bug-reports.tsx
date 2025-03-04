@@ -12,7 +12,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorDividers, colorError } from '../styles/colors'
+import { colorError } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -50,7 +50,7 @@ const ErrorText = styled.div`
 
 const ReportTable = styled.div`
   width: 100%;
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
 `
 
@@ -222,7 +222,7 @@ const DetailsValue = styled.pre`
   margin: 0;
   padding: 8px 0 8px 8px;
 
-  border-left: 1px solid ${colorDividers};
+  border-left: 1px solid var(--theme-outline-variant);
   font-family: inherit;
   white-space: pre-line;
 `

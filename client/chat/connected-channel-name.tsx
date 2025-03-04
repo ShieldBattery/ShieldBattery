@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 
@@ -16,7 +15,7 @@ const ChannelName = styled.span`
 `
 
 const LoadingChannelName = styled.span`
-  background-color: ${colorDividers};
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
   border-radius: 2px;
 `
 

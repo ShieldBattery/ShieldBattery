@@ -12,7 +12,6 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
 import { joinLobby, navigateToLobby } from './action-creators'
@@ -41,7 +40,7 @@ const ListEntryRoot = styled.div`
 
   & + & {
     padding-top: 8px;
-    border-top: 1px solid ${colorDividers};
+    border-top: 1px solid var(--theme-outline-variant);
   }
 `
 

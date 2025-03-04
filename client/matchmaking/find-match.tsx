@@ -27,7 +27,6 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useUserLocalStorageValue } from '../state-hooks'
-import { colorDividers, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import {
   TitleLarge,
   bodyLarge,
@@ -302,7 +301,7 @@ const RankInfoContainer = styled.div`
 
 const RankLoadingError = styled.div`
   ${bodyMedium};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const DivisionInfo = styled.div`
@@ -310,7 +309,7 @@ const DivisionInfo = styled.div`
   flex-direction: column;
   align-items: center;
 
-  border-right: 1px solid ${colorDividers};
+  border-right: 1px solid var(--theme-outline-variant);
   padding-right: 15px;
 `
 
@@ -333,7 +332,7 @@ const RankDisplayInfo = styled.div`
   justify-content: center;
   gap: 24px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const RankDisplayInfoRow = styled.div`
@@ -352,7 +351,7 @@ const RankDisplayInfoEntry = styled.div`
 const RankDisplayInfoLabel = styled.div`
   ${bodySmall};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplayInfoValue = styled.div`
@@ -370,7 +369,7 @@ const BonusBar = styled.div`
   height: 20px;
   margin: 2px 0;
 
-  border: 2px solid ${colorDividers};
+  border: 2px solid var(--theme-outline-variant);
   border-radius: 9999px;
   contain: paint;
 

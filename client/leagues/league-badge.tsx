@@ -1,11 +1,10 @@
-import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
-import { colorTextInvert, colorTextPrimary } from '../styles/colors'
+import { colorTextPrimary, pickTextColor } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
 
 const badgeCommon = css`
@@ -59,9 +58,7 @@ export function LeagueBadge({ league, className }: LeagueBadgeProps) {
   }
 
   const badgeColor = randomColorForString(league.name)
-  const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary).AA
-    ? colorTextPrimary
-    : colorTextInvert
+  const textColor = pickTextColor(badgeColor)
 
   return (
     <LeagueBadgePlaceholder

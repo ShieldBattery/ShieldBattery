@@ -8,7 +8,6 @@ import React, {
   useState,
 } from 'react'
 import styled from 'styled-components'
-import { colorDividers } from '../styles/colors'
 
 const ScrollObserved = styled.div`
   width: 0px;
@@ -27,7 +26,7 @@ export const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bott
 
   ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
 
-  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
+  background-color: ${props => (props.$show ? 'var(--theme-outline-variant)' : 'transparent')};
   transition: background-color 150ms linear;
 `
 

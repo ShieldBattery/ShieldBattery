@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors'
 import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 
 export const RegularSlots = styled.div`
@@ -92,9 +92,9 @@ export const SlotEmptyAvatar = styled.span`
   margin-right: 16px;
 
   border-radius: 50%;
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline);
   text-align: center;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export const SlotName = styled.div`
@@ -107,5 +107,5 @@ export const SlotName = styled.div`
 `
 
 export const SlotEmptyName = styled(SlotName)`
-  color: ${colorTextFaint};
+  color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
 `

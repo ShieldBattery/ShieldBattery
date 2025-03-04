@@ -5,7 +5,6 @@ import { useSelfUser } from '../auth/auth-utils'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers } from '../styles/colors'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -21,7 +20,8 @@ const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
     top: 0;
 
     content: '';
-    border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
+    border-top: 1px solid
+      ${props => (props.showDivider ? 'var(--theme-outline-variant)' : 'transparent')};
     transition: border 250ms linear;
   }
 `

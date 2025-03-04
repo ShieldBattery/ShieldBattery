@@ -5,7 +5,7 @@ import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { standardEasing } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
-import { colorDividers, colorTextFaint, getRaceColor } from '../styles/colors'
+import { colorTextFaint, getRaceColor } from '../styles/colors'
 import { RaceIcon } from './race-icon'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
@@ -85,7 +85,7 @@ const HiddenRaceIcon = styled.span`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: ${colorDividers};
+    background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
   }
 `
 

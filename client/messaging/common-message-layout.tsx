@@ -13,7 +13,6 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
-import { colorDividers, colorTextFaint } from '../styles/colors'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
@@ -180,7 +179,7 @@ export const TextMessage = React.memo<{
 })
 
 const BlockedText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
   line-height: inherit;
   overflow-wrap: break-word;
   overflow: hidden;
@@ -189,11 +188,11 @@ const BlockedText = styled.span`
 
 const BlockedDivider = styled.span`
   padding: 0 8px;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
 `
 
 const ShowHideLink = styled.a`
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
 
   &:hover {
     cursor: pointer;
@@ -202,8 +201,8 @@ const ShowHideLink = styled.a`
 
 const VisibleBlockedMessage = styled.div`
   padding: 4px 0;
-  background-color: rgba(0, 0, 0, 0.12);
-  border: 1px solid ${colorDividers};
+  background-color: var(--theme-container-lowest);
+  border: 1px solid var(--theme-outline);
   border-radius: 2px;
 `
 

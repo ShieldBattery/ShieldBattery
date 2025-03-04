@@ -32,7 +32,6 @@ import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplay } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import {
   bodySmall,
   headlineMedium,
@@ -105,7 +104,7 @@ const Leagues = styled.div`
     left: 0;
     top: 4px;
     content: '';
-    background-color: ${colorDividers};
+    background-color: var(--theme-outline-variant);
     z-index: 20;
   }
 `
@@ -456,13 +455,13 @@ const DeltaItemRoot = styled.div`
 const DeltaValue = styled.div`
   width: 104px;
   flex-grow: 0;
-  color: ${colorTextPrimary};
+  color: var(--theme-on-surface);
   text-align: right;
 `
 
 const DeltaLabel = styled.div`
   ${titleLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function DeltaItem({
@@ -596,8 +595,8 @@ const PointsBar = styled.div`
   width: 100%;
   height: 20px;
 
-  background-color: rgba(0, 0, 0, 0.24);
-  border: 2px solid ${colorDividers};
+  background-color: var(--theme-container-lowest);
+  border: 2px solid var(--theme-outline-variant);
   border-radius: 9999px;
   contain: paint;
 

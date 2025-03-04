@@ -2,7 +2,6 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
-import { colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { bodyMedium, bodySmall, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
@@ -31,7 +30,7 @@ const Timestamp = styled.span`
   /** 8px when we add 1px for the separator */
   padding-right: 7px;
   line-height: inherit;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue70);
   text-align: right;
 `
 
@@ -151,7 +150,7 @@ const InfoMessageContainer = styled.div`
 
 const InfoDivider = styled.hr`
   border: none;
-  border-top: 1px solid ${colorDividers};
+  border-top: 1px solid var(--theme-outline-variant);
   margin: 0;
 `
 
@@ -182,7 +181,7 @@ export const InfoMessageLayout = (props: InfoMessageLayoutProps) => {
 
 export const InfoImportant = styled.span`
   ${titleSmall};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   line-height: inherit;
 `
 
@@ -191,5 +190,5 @@ export const SeparatedInfoMessage = styled(InfoMessageLayout)`
   align-items: center;
   margin-top: 4px;
   margin-bottom: 4px;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue90);
 `

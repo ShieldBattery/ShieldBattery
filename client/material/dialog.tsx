@@ -5,7 +5,7 @@ import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, colorDividers } from '../styles/colors'
+import { CardLayer } from '../styles/colors'
 import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
@@ -93,7 +93,8 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }
@@ -137,7 +138,8 @@ const Actions = styled.div<{ $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }
@@ -154,7 +156,8 @@ const TabsContainer = styled.div<{ $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }

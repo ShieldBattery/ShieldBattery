@@ -1,3 +1,4 @@
+import { meetsContrastGuidelines } from 'polished'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
@@ -74,7 +75,7 @@ export const greyBlue90 = '#abbeda'
 export const greyBlue95 = '#c8d7ee'
 export const greyBlue99 = '#dceeff'
 
-export const grey10 = '#1b1e22'
+export const grey10 = '#16181f'
 export const grey20 = '#252a31'
 export const grey30 = '#353d45'
 export const grey40 = '#505762'
@@ -84,7 +85,7 @@ export const grey70 = '#b2bbc7'
 export const grey80 = '#d3dae4'
 export const grey90 = '#e0e7f0'
 export const grey95 = '#ebf1fa'
-export const grey99 = '#f5fbfe'
+export const grey99 = '#edf7fe'
 
 export const colorContainerLowest = '#141d2a'
 export const colorContainerLow = '#182237'
@@ -252,17 +253,16 @@ export const THEME_CSS = css`
   --theme-color-terran: ${colorTerran};
   --theme-color-random: ${colorRandom};
 
-  --theme-dialog-scrim: var(--color-blue10);
+  --theme-dialog-scrim: var(--color-grey-blue10);
   --theme-dialog-scrim-opacity: ${dialogScrimOpacity};
+
+  --theme-skeleton: var(--color-grey-blue60);
 `
 
 // FIXME: delete these
-export const colorDividers = `rgba(255, 255, 255, 0.12)`
 export const colorTextFaint = '#8998a9'
 export const colorTextSecondary = '#cdddee'
 export const colorTextPrimary = '#ffffff'
-export const colorTextInvert = 'rgba(0, 0, 0, 0.87)'
-export const colorTextInvertSecondary = 'rgba(0, 0, 0, 0.6)'
 
 export function getRaceColor(race: RaceChar) {
   switch (race) {
@@ -277,6 +277,12 @@ export function getRaceColor(race: RaceChar) {
     default:
       return assertUnreachable(race)
   }
+}
+
+// TODO(tec27): Use APCA instead of WCAG contrast stuff
+/** Picks a text color for a given background color that will meet contrast guidelines. */
+export function pickTextColor(backgroundColor: string): string {
+  return meetsContrastGuidelines(backgroundColor, grey99).AA ? grey99 : grey10
 }
 
 // FIXME: delete this?

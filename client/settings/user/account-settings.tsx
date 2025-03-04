@@ -34,7 +34,6 @@ import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
 import { openSnackbar } from '../../snackbars/action-creators'
 import { useStableCallback } from '../../state-hooks'
-import { colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
 import {
   BodyLarge,
   BodyMedium,
@@ -67,7 +66,7 @@ const EmailVerificationWarning = styled.div`
   display: flex;
   padding: 16px;
 
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline-variant);
   border-radius: 2px;
   gap: 16px;
   margin-bottom: 16px;
@@ -87,7 +86,7 @@ const EditableItem = styled.div`
 
 const EditableOverline = styled.div`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const EditableContent = styled.div`
@@ -241,7 +240,7 @@ const FormSpacer = styled.div`
 
 const ErrorMessage = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
   padding-bottom: 16px;
 `
 

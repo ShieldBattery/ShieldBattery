@@ -11,14 +11,6 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadow4dp } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
-import {
-  colorDividers,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
 
@@ -44,7 +36,7 @@ export const StyledRaceSelect = styled(RaceSelect)`
 
 export const DescriptionText = styled.span`
   ${bodyMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export const MapSelectionsHeader = styled.div`
@@ -80,7 +72,7 @@ export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boole
   ${shadow4dp};
 
   --sb-selectable-map-border: ${props =>
-    props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : colorDividers};
+    props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : 'var(--theme-outline)'};
   --sb-map-thumbnail-selected-icon-size: 48px;
 
   width: ${MAP_THUMB_SIZE_PX}px;
@@ -111,11 +103,11 @@ const VetoStatus = styled.div`
 `
 
 const VetoStatusLabel = styled.span`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const VetoStatusValue = styled.span<{ $exhausted: boolean }>`
-  color: ${props => (props.$exhausted ? colorTextFaint : colorTextPrimary)};
+  color: ${props => (props.$exhausted ? 'var(--theme-negative)' : 'var(--theme-on-surface)')};
 `
 
 interface ConnectedSelectableMapProps {
@@ -206,7 +198,8 @@ export function MapVetoesControl({
   const vetoesLeft = mapPool.maxVetoCount - (value?.length ?? 0)
   return (
     <div className={className}>
-      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorNegative } as any}>
+      <MapSelections
+        style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-negative)' } as any}>
         {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}
@@ -265,7 +258,7 @@ export function VetoDescriptionText({
 
 const ErrorText = styled.div`
   ${titleSmall};
-  color: ${colorNegative};
+  color: var(--theme-error);
 `
 
 /** Control for doing positive map selection (e.g. "I want to play on these specific maps"). */
@@ -299,7 +292,8 @@ export function MapSelectionControl({
 
   return (
     <div className={className}>
-      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorPositive } as any}>
+      <MapSelections
+        style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-positive)' } as any}>
         {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}

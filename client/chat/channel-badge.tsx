@@ -1,8 +1,7 @@
-import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { randomColorForString } from '../avatars/colors'
-import { colorTextInvert, colorTextPrimary } from '../styles/colors'
+import { colorTextPrimary, pickTextColor } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
 
 const badgeCommon = css`
@@ -59,9 +58,7 @@ export function ChannelBadge({ src, channelName, className, testName }: ChannelB
   }
 
   const badgeColor = randomColorForString(channelName)
-  const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary).AA
-    ? colorTextPrimary
-    : colorTextInvert
+  const textColor = pickTextColor(badgeColor)
 
   return (
     <ChannelBadgePlaceholder

@@ -21,7 +21,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors'
 import { bodyLarge, BodyLarge, TitleLarge } from '../styles/typography'
 import {
   clearMapsList,
@@ -78,7 +78,7 @@ const SectionHeader = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const TabArea = styled.div`
@@ -91,7 +91,7 @@ const ScrollDivider = styled.div<{ position: 'top' | 'bottom' }>`
   height: 1px;
   margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
   margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
-  background-color: ${colorDividers};
+  background-color: var(--theme-outline-variant);
 `
 
 enum MapTab {

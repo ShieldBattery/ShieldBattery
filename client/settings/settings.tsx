@@ -19,11 +19,11 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorError, colorTextFaint } from '../styles/colors'
+import { colorError } from '../styles/colors'
 import {
-  bodySmall,
   headlineMedium,
   labelMedium,
+  labelSmall,
   singleLine,
   titleSmall,
 } from '../styles/typography'
@@ -339,18 +339,18 @@ const CloseButton = styled(IconButton)`
     position: absolute;
     width: 100%;
     height: 100%;
-    border: 2px solid ${colorDividers};
+    border: 2px solid var(--theme-outline);
     border-radius: inherit;
   }
 `
 
 const LabeledCloseButton = styled.div`
-  ${bodySmall};
+  ${labelSmall};
   display: flex;
   flex-direction: column;
   gap: 4px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

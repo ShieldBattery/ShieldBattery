@@ -8,7 +8,6 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { Entry } from '../material/left-nav/entry'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import { getBatchUserInfo } from '../users/action-creators'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
@@ -61,7 +60,7 @@ const LeaveButton = styled(IconButton)`
 
 const LoadingName = styled.span`
   margin-right: 0.25em;
-  background-color: ${colorDividers};
+  background-color: var(--theme-skeleton);
   border-radius: 2px;
 `
 
