@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
 import { labelMedium, singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { LinkButton } from '../link-button'
@@ -12,11 +11,11 @@ const Container = styled.div`
   width: 100%;
   height: 36px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   cursor: pointer;
 
   &:hover {
-    color: ${colorTextPrimary};
+    color: var(--theme-on-surface);
   }
 `
 

@@ -4,7 +4,6 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,
@@ -21,11 +20,10 @@ const EntryContainer = styled.div<{ $focused: boolean }>`
   padding: 0 16px;
   display: flex;
   align-items: center;
-  background-color: ${props =>
-    props.$focused ? 'rgba(255, 255, 255, 0.24) !important' : 'transparent'};
+  background-color: ${props => (props.$focused ? 'var(--color-blue30) !important' : 'transparent')};
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: var(--color-blue20);
     cursor: pointer;
   }
 `
@@ -38,7 +36,7 @@ const EntryIcon = styled.div`
   flex-grow: 0;
   flex-shrink: 0;
 
-  background: ${colorTextSecondary};
+  background: var(--theme-on-surface-variant);
   border-radius: 50%;
   color: rgba(0, 0, 0, 0.54);
 `
@@ -111,7 +109,7 @@ const SelectButton = styled(TextButton)<{ $focused: boolean }>`
 const FileEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
     background: var(--color-blue60);
-    color: ${colorTextPrimary};
+    color: var(--theme-on-surface);
   }
 
   &:hover ${SelectButton} {

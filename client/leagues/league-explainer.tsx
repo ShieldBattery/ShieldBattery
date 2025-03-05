@@ -3,7 +3,6 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { BodyLarge, bodyLarge } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
@@ -19,7 +18,7 @@ const ListEntry = styled.li`
     margin-top: 24px;
   }
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const Emphasized = styled.b`
@@ -28,7 +27,7 @@ const Emphasized = styled.b`
   display: block;
   margin-bottom: 4px;
 
-  color: ${colorTextPrimary};
+  color: var(--theme-on-surface);
 `
 
 export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps) {

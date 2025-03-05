@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import { KEY, VERSION } from './should-show-changelog'
 
@@ -31,7 +30,7 @@ const Content = styled.div`
   li {
     ${bodyLarge};
     margin-top: 8px;
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
   }
 
   li + li {
@@ -49,7 +48,7 @@ const Content = styled.div`
   }
 
   strong {
-    color: ${colorTextPrimary};
+    color: var(--theme-on-surface);
     font-weight: 500;
   }
 

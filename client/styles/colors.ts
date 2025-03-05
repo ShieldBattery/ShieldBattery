@@ -261,7 +261,6 @@ export const THEME_CSS = css`
 
 // FIXME: delete these
 export const colorTextSecondary = '#cdddee'
-export const colorTextPrimary = '#ffffff'
 
 export function getRaceColor(race: RaceChar) {
   switch (race) {

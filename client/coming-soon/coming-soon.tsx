@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { BodyLarge, TitleLarge } from '../styles/typography'
 
 const FundingSection = styled.div`
@@ -26,14 +25,14 @@ const SupportLinks = styled.div`
     height: 48px;
     display: flex;
     align-items: center;
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
     padding-left: 16px;
     padding-right: 16px;
     overflow: hidden;
 
     &:hover,
     &:active {
-      color: ${colorTextPrimary};
+      color: var(--theme-on-surface);
     }
   }
 `

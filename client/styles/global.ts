@@ -38,8 +38,14 @@ const GlobalStyle = createGlobalStyle`
       Values to adjust for if centering content so that the content's edges don't end up on
       half pixels.
     */
-    --pixel-shove-x: mod(100vw, 2px);
-    --pixel-shove-y: mod(100vh, 2px);
+    // NOTE(tec27): Rounding seems very weird here, I know, BUT... Chrome seems to implement vw/vh
+    // extremely literally from the spec, which defines them as e.g. "1vw = 1% of viewport width."
+    // Thus, they pre-divide them by 100, and for some values (such as 954px):
+    //  954 / 100 * 100 => 953.9999999
+    // When this occurs, rem and mod by 2px can return 2px instead of the 0px they should. Other
+    // browsers (e.g. Firefox) don't seem to have this issue.
+    --pixel-shove-x: rem(round(100dvw, 0.25px), 2px);
+    --pixel-shove-y: rem(round(100dvh, 0.25px), 2px);
   }
 
   html, body, #app {

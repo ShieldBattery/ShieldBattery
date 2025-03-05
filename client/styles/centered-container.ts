@@ -30,6 +30,9 @@ export const CenteredContentContainer = styled.div<{
   overflow-x: hidden;
   overflow-y: auto;
 
-  /** Since we adjusted for pixel-shove-x, our descendants shouldn't need one. */
+  /**
+    Since we adjusted for pixel-shove-x, our descendants shouldn't need one. (Since we don't use
+    the value directly, we can simply set it on this element rather than on our children)
+  */
   --pixel-shove-x: 0;
 `
