@@ -67,12 +67,14 @@ export default immerKeyedReducer(DEFAULT_SETTINGS_STATE, {
   },
 
   ['@auth/loadCurrentSession'](state, action) {
-    return DEFAULT_SETTINGS_STATE
+    state.open = false
+    state.subPage = undefined
   },
 
   ['@auth/logOut'](state, action) {
     if (!action.error) {
-      return DEFAULT_SETTINGS_STATE
+      state.open = false
+      state.subPage = undefined
     }
 
     return state

@@ -326,7 +326,7 @@ const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
   padding: 0 16px;
   display: inline-table;
 
-  border-radius: 4px;
+  border-radius: 6px;
   contain: content;
   text-align: center;
 
@@ -467,7 +467,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   padding: 0 16px;
   display: inline-table;
 
-  border-radius: 4px;
+  border-radius: 6px;
   contain: content;
   text-align: center;
 
@@ -586,7 +586,7 @@ const IconButtonRoot = styled.button`
   justify-content: center;
 
   background-color: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--theme-on-surface-variant);
   contain: content;
   --sb-ripple-color: #ffffff;

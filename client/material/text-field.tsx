@@ -42,7 +42,7 @@ const TextFieldContainer = styled.div<{
     props.$disabled
       ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.04))'
       : 'var(--theme-container-highest)'};
-  border-radius: 4px 4px 0 0;
+  border-radius: 6px 6px 0 0;
   contain: layout paint style;
   opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
   user-select: text;
