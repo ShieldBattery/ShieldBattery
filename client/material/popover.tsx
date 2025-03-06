@@ -87,7 +87,7 @@ const Container = styled(animated.div)`
   max-width: var(--sb-popover-max-width, none);
   max-height: var(--sb-popover-max-height, none);
 
-  border-radius: 2px;
+  border-radius: 4px;
   contain: layout;
   pointer-events: auto;
   transform-origin: var(--sb-transform-origin);
@@ -96,7 +96,7 @@ const Container = styled(animated.div)`
 const Card = styled.div`
   ${elevationPlus3};
   ${containerStyles(ContainerLevel.Low)}
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 
   &:focus {

@@ -56,7 +56,7 @@ const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
   display: flex;
   flex-direction: column;
 
-  border-radius: 2px;
+  border-radius: 4px;
   contain: paint;
   overscroll-behavior: contain;
   pointer-events: ${props => (props.$isTopDialog ? 'auto' : 'none')};

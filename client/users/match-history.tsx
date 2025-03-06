@@ -228,7 +228,7 @@ const MapNoImageContainer = styled.div`
   justify-content: center;
   align-items: center;
 
-  border-radius: 2px;
+  border-radius: 4px;
   background-color: var(--theme-container);
 `
 

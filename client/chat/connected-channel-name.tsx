@@ -16,7 +16,7 @@ const ChannelName = styled.span`
 
 const LoadingChannelName = styled.span`
   background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 export interface ConnectedChannelNameProps {

@@ -23,7 +23,7 @@ const StyledDialog = styled(Dialog)`
 
 const StyledMapImage = styled(MapImage)`
   background-color: var(--theme-container-low);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 export interface MapPreviewDialogProps extends CommonDialogProps {

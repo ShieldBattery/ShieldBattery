@@ -24,7 +24,7 @@ const CustomLargeLabel = styled.div`
   max-width: 600px;
   height: 140px;
   background-color: var(--theme-skeleton);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 export function RadioTest() {

@@ -39,7 +39,7 @@ const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   justify-content: center;
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: 4px;
 
   &:after {
     position: absolute;

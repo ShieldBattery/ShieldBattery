@@ -50,7 +50,7 @@ const ErrorText = styled.div`
 const ReportTable = styled.div`
   width: 100%;
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const TableRow = styled.div`

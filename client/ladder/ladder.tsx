@@ -422,7 +422,7 @@ const Table = styled.div`
   padding-bottom: 16px;
 
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`

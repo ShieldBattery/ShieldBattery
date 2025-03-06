@@ -19,7 +19,7 @@ const Container = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 

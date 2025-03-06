@@ -78,7 +78,7 @@ export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boole
   width: ${MAP_THUMB_SIZE_PX}px;
   height: ${MAP_THUMB_SIZE_PX}px;
   position: relative;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: strict;
   pointer-events: ${props => (props.$disabled ? 'none' : 'auto')};
 
@@ -93,7 +93,7 @@ export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boole
     pointer-events: none;
 
     border: 1px solid var(--sb-selectable-map-border);
-    border-radius: 2px;
+    border-radius: 4px;
   }
 `
 

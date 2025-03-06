@@ -37,7 +37,7 @@ const AdminSection = styled.div<{ $gridColumn?: string }>`
   padding: 16px 16px 0;
 
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
   grid-column: ${props => props.$gridColumn ?? 'auto'};
 `
 
@@ -328,7 +328,7 @@ const BanTable = styled.table`
     padding: 4px;
 
     border: 1px solid var(--theme-outline-variant);
-    border-radius: 2px;
+    border-radius: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: top;

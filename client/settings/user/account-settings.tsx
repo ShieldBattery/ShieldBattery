@@ -67,7 +67,7 @@ const EmailVerificationWarning = styled.div`
   padding: 16px;
 
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
   gap: 16px;
   margin-bottom: 16px;
 `

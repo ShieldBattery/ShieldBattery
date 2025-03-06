@@ -96,7 +96,7 @@ const TrackRoot = styled.div`
   height: 4px;
   left: 0px;
   top: 54px;
-  border-radius: 2px;
+  border-radius: 4px;
   background-color: ${props =>
     props.disabled
       ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.12))'

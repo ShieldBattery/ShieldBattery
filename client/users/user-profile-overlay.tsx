@@ -145,7 +145,7 @@ const LoadingUsername = styled.div`
   margin: 4px 0;
 
   background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const Title = styled.div`

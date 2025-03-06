@@ -41,7 +41,7 @@ export const Overlay = styled.div<{ $dense?: boolean }>`
   flex-direction: column;
 
   z-index: ${zIndexMenu};
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
   overflow-x: hidden;
   overflow-y: auto;

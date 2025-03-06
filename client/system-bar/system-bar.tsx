@@ -58,7 +58,7 @@ const DevIndicator = styled.div`
   color: var(--theme-on-amber);
   font-variation-settings: 'wght' 600;
 
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   line-height: 16px;
   text-align: center;

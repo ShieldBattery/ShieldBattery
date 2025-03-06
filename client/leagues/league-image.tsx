@@ -9,7 +9,7 @@ const leagueImageCommon = css`
   height: auto;
   aspect-ratio: ${LEAGUE_IMAGE_WIDTH} / ${LEAGUE_IMAGE_HEIGHT};
   background-color: var(--color-grey-blue30);
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 

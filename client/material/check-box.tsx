@@ -101,7 +101,7 @@ export const CheckIcon = styled.div<{
   width: ${BOX_WIDTH}px;
   height: ${BOX_HEIGHT}px;
   border: 2px solid;
-  border-radius: 2px;
+  border-radius: 4px;
   transition:
     border-color 200ms linear,
     background-color 200ms linear,

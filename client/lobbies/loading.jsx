@@ -250,7 +250,7 @@ const MapImageContainer = styled.div`
   ${elevationPlus1};
   width: 256px;
   height: auto;
-  border-radius: 2px;
+  border-radius: 4px;
   margin-top: 16px;
   overflow: hidden;
 `

@@ -205,7 +205,7 @@ const LeagueForm = styled.form`
   gap: 12px;
 
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const LeaguePreview = styled.div`
@@ -218,7 +218,7 @@ const LeaguePreview = styled.div`
   gap: 16px;
 
   border: 1px solid var(--theme-outline-variant);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 interface LeagueModel {

@@ -46,7 +46,7 @@ const CurrentPathValue = styled.div`
   ${titleMedium};
   padding: 8px 12px;
   background-color: var(--theme-container-highest);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const ValidIcon = styled(MaterialIcon).attrs({ icon: 'check' })`

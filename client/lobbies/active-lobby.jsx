@@ -30,7 +30,7 @@ const Spacer = styled.div``
 const StyledMapThumbnail = styled(MapThumbnail)`
   ${elevationPlus1};
   width: 320px;
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const StatusContainer = styled.div`

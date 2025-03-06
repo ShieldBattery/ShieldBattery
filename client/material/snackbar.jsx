@@ -71,7 +71,7 @@ const Content = styled.div`
   text-align: left;
 
   background-color: var(--theme-inverse-surface);
-  border-radius: 2px;
+  border-radius: 4px;
   color: var(--theme-inverse-on-surface);
 `
 

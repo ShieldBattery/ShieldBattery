@@ -9,7 +9,7 @@ const channelBannerCommon = css`
   height: auto;
   aspect-ratio: ${CHANNEL_BANNER_WIDTH} / ${CHANNEL_BANNER_HEIGHT};
   background-color: var(--color-grey-blue30);
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 

@@ -132,7 +132,7 @@ const MapNoImageContainer = styled.div`
   position: relative;
   width: 100%;
   height: auto;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 

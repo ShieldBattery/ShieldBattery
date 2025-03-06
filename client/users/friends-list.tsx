@@ -488,7 +488,7 @@ const LoadingName = styled.div`
   display: inline-block;
 
   background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const fadedCss = css`
@@ -512,7 +512,7 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
   display: flex;
   align-items: center;
 
-  border-radius: 2px;
+  border-radius: 4px;
   line-height: 36px;
 
   &:hover {

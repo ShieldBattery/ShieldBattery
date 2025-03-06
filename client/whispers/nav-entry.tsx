@@ -61,7 +61,7 @@ const LeaveButton = styled(IconButton)`
 const LoadingName = styled.span`
   margin-right: 0.25em;
   background-color: var(--theme-skeleton);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 interface WhisperNavEntryProps {

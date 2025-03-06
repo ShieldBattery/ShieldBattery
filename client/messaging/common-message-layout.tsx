@@ -203,7 +203,7 @@ const VisibleBlockedMessage = styled.div`
   padding: 4px 0;
   background-color: var(--theme-container-lowest);
   border: 1px solid var(--theme-outline);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 export const BlockedMessage = React.memo<{

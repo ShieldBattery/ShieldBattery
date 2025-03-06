@@ -72,7 +72,7 @@ const LoadingName = styled.div`
   display: inline-block;
 
   background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
-  border-radius: 2px;
+  border-radius: 4px;
 `
 
 const fadedCss = css`
@@ -91,7 +91,7 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
   ${titleSmall};
   ${userListRow};
   height: 44px;
-  border-radius: 2px;
+  border-radius: 4px;
   padding-top: 4px;
   padding-bottom: 4px;
 
