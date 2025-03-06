@@ -13,7 +13,7 @@ import { CHANNEL_BANNERS } from '../../../common/flags'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { ThunkAction } from '../../dispatch-registry'
-import { RaisedButton } from '../../material/button'
+import { ElevatedButton } from '../../material/button'
 import { DestructiveMenuItem } from '../../material/menu/item'
 import { ChatContext, ChatContextValue } from '../../messaging/chat-context'
 import { MessageList } from '../../messaging/message-list'
@@ -352,12 +352,12 @@ export function AdminChannelView({
 
             {CHANNEL_BANNERS ? (
               <>
-                <RaisedButton
+                <ElevatedButton
                   label='Remove banner'
                   disabled={isRemovingBanner}
                   onClick={onRemoveBannerClick}
                 />
-                <RaisedButton
+                <ElevatedButton
                   label='Remove badge'
                   disabled={isRemovingBadge}
                   onClick={onRemoveBadgeClick}

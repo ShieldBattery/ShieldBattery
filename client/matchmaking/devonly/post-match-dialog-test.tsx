@@ -19,7 +19,7 @@ import {
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { RaisedButton } from '../../material/button'
+import { ElevatedButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
@@ -302,7 +302,7 @@ export function PostMatchDialogTest() {
           value={lifetimeGames}
           onChange={setLifetimeGames}
         />
-        <RaisedButton label='Show dialog' onClick={onClick} />
+        <ElevatedButton label='Show dialog' onClick={onClick} />
       </ControlsCard>
     </div>
   )

@@ -24,7 +24,7 @@ import { searchAgainFromGame } from '../games/action-creators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { LeagueBadge } from '../leagues/league-badge'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
 import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { defaultSpring } from '../material/springs'
@@ -189,13 +189,13 @@ export function PostMatchDialog({
       $hasLeagues={leagueValues.length > 0}>
       <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
       <ButtonBar>
-        <RaisedButton
+        <ElevatedButton
           label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
           iconStart={<SizedSearchAgainIcon />}
           onClick={onSearchAgain}
           disabled={!canSearchMatchmaking}
         />
-        <RaisedButton
+        <ElevatedButton
           label={t('matchmaking.postMatchDialog.watchReplay', 'Watch replay')}
           iconStart={<MaterialIcon icon='videocam' />}
           onClick={onWatchReplay}

@@ -5,7 +5,7 @@ import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Blurb = styled.div`
@@ -98,7 +98,7 @@ export function Download() {
         <li>{t('clientDownload.andMore', 'And more!')}</li>
       </BlurbList>
       <InstallerLinks>
-        <RaisedButton
+        <ElevatedButton
           onClick={onDownloadClick}
           iconStart={<MaterialIcon icon='download' />}
           label={

@@ -9,7 +9,7 @@ import { useForm } from '../forms/form-hook'
 import { graphql, useFragment } from '../gql'
 import { AdminUserProfile_PermissionsFragment } from '../gql/graphql'
 import { logger } from '../logging/logger'
-import { RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -441,7 +441,7 @@ function BanUserForm({
           spellCheck: false,
         }}
       />
-      <RaisedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
+      <ElevatedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
     </form>
   )
 }

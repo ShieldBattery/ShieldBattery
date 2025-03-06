@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../button'
+import { ElevatedButton, IconButton, TextButton } from '../button'
 import { Card } from '../card'
 import { FloatingActionButton } from '../floating-action-button'
 
@@ -31,10 +31,10 @@ export default class ButtonsTest extends React.Component {
       <Container>
         <StyledCard>
           <h3>Press some buttons</h3>
-          <RaisedButton label='Raised primary' />
-          <RaisedButton label='Raised primary disabled' disabled={true} />
-          <RaisedButton label='Raised accent' color='accent' />
-          <RaisedButton label='Raised accent disabled' color='accent' disabled={true} />
+          <ElevatedButton label='Raised primary' />
+          <ElevatedButton label='Raised primary disabled' disabled={true} />
+          <ElevatedButton label='Raised accent' color='accent' />
+          <ElevatedButton label='Raised accent disabled' color='accent' disabled={true} />
           <TextButton label='Flat normal' />
           <TextButton label='Flat normal disabled' disabled={true} />
           <TextButton label='Flat primary' color='primary' />

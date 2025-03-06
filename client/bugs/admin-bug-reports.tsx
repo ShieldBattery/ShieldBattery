@@ -5,7 +5,7 @@ import { BugReportJson, GetBugReportResponseJson } from '../../common/bugs'
 import { urlPath } from '../../common/urls'
 import { NarrowDuration, longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
@@ -158,7 +158,7 @@ function AdminBugReportsList() {
             checked={includeResolved}
             onChange={() => setIncludeResolved(!includeResolved)}
           />
-          <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+          <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
         </ButtonWithCheckBox>
       </HeadlineAndButton>
       {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
@@ -284,7 +284,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
       <HeadlineAndButton>
         <PageHeadline>Bug report</PageHeadline>
         {loading ? <LoadingDotsArea /> : null}
-        <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+        <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
       {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
       {bugReport ? (
@@ -344,7 +344,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
             <Item>
               <ItemLabel></ItemLabel>
               <ItemValue>
-                <RaisedButton label='Mark resolved' onClick={onResolveClick} />
+                <ElevatedButton label='Mark resolved' onClick={onResolveClick} />
               </ItemValue>
             </Item>
           )}

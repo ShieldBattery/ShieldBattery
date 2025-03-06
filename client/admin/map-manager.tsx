@@ -5,7 +5,7 @@ import { useSelfPermissions } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { getExtension } from '../maps/upload'
-import { RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
@@ -117,7 +117,7 @@ function UploadMaps() {
       )}
 
       {maps.length > 0 ? (
-        <RaisedButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
+        <ElevatedButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
       ) : null}
     </SectionContainer>
   )
@@ -166,7 +166,7 @@ function MassDeleteMaps() {
     <SectionContainer>
       <SectionTitle>Delete all maps</SectionTitle>
 
-      <RaisedButton
+      <ElevatedButton
         label='Delete all maps'
         disabled={isDeleting}
         onClick={() => setAreYouSure(true)}

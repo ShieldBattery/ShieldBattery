@@ -8,7 +8,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
@@ -30,7 +30,7 @@ const CenteredContainer = styled.div`
   margin: 32px 0;
 `
 
-const AcceptMatchButton = styled(RaisedButton)`
+const AcceptMatchButton = styled(ElevatedButton)`
   width: 162px;
 `
 
@@ -191,7 +191,7 @@ function FailedStateView() {
           "You didn't ready up in time and have been removed from the queue.",
         )}
       </p>
-      <RaisedButton label='Ok' onClick={onFailedClick} />
+      <ElevatedButton label='Ok' onClick={onFailedClick} />
     </div>
   )
 }

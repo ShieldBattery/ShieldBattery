@@ -12,7 +12,7 @@ import { apiUrl } from '../../common/urls'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { NumberTextField } from '../material/number-text-field'
 import { TextField } from '../material/text-field'
@@ -386,7 +386,7 @@ export function AdminRallyPoint() {
       <Content>
         <HeadlineAndButton>
           <PageHeadline>Rally-point servers</PageHeadline>
-          <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+          <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
         </HeadlineAndButton>
         {servers.map(s =>
           editing === s.id ? (
@@ -398,7 +398,7 @@ export function AdminRallyPoint() {
         {isAdding ? (
           <AddServerRow onSubmit={onAddSubmit} onCancel={onAddCancel} />
         ) : (
-          <RaisedButton color='primary' label={'Add'} onClick={onAddClick} />
+          <ElevatedButton color='primary' label={'Add'} onClick={onAddClick} />
         )}
       </Content>
     </CenteredContentContainer>

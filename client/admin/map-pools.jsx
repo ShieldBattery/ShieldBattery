@@ -14,7 +14,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { NumberTextField } from '../material/number-text-field'
@@ -111,7 +111,7 @@ const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
   margin-left: 8px;
 `
 
-const CreatePoolButton = styled(RaisedButton)`
+const CreatePoolButton = styled(ElevatedButton)`
   margin: 16px 0;
 `
 

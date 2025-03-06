@@ -7,7 +7,7 @@ import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
-import { RaisedButton } from '../../material/button'
+import { ElevatedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
@@ -201,7 +201,7 @@ export function StarcraftSettings() {
             </DetectionFailure>
           ) : undefined}
 
-          <RaisedButton
+          <ElevatedButton
             onClick={onDetectPathClick}
             label={t('settings.game.starcraft.detectPath', 'Detect installation')}
           />
@@ -216,7 +216,7 @@ export function StarcraftSettings() {
             )}
           </Instructions>
 
-          <RaisedButton
+          <ElevatedButton
             ref={browseButtonRef}
             label={t('settings.game.starcraft.browseManually', 'Browse manually')}
             onClick={onBrowseClick}

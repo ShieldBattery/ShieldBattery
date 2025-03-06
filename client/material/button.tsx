@@ -312,11 +312,11 @@ const IconContainer = styled.div`
   margin-right: 6px; // 8px - 2px of built-in padding in icons
 `
 
-interface RaisedButtonStyleProps {
+interface ElevatedButtonStyleProps {
   $color: 'primary' | 'accent'
 }
 
-const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
+const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
   ${buttonReset};
   ${fastOutSlowInShort};
   ${elevationPlus1};
@@ -374,7 +374,7 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   }
 `
 
-export interface RaisedButtonProps {
+export interface ElevatedButtonProps {
   color?: 'primary' | 'accent'
   label: string | React.ReactNode
   /** An optional icon to place at the starting edge of the button. */
@@ -397,9 +397,9 @@ export interface RaisedButtonProps {
 
 /**
  * A button with a colored background that has elevation, used for high-emphasis actions.
- * RaisedButton should generally be used for actions that are considered primary to the app.
+ * ElevatedButton should generally be used for actions that are considered primary to the app.
  */
-export const RaisedButton = React.forwardRef(
+export const ElevatedButton = React.forwardRef(
   (
     {
       color = 'primary',
@@ -419,7 +419,7 @@ export const RaisedButton = React.forwardRef(
       as = 'button',
       children,
       testName,
-    }: RaisedButtonProps,
+    }: ElevatedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
@@ -432,7 +432,7 @@ export const RaisedButton = React.forwardRef(
     })
 
     return (
-      <RaisedButtonRoot
+      <ElevatedButtonRoot
         ref={ref}
         as={as}
         className={className}
@@ -449,7 +449,7 @@ export const RaisedButton = React.forwardRef(
           {label}
         </Label>
         <Ripple ref={rippleRef} disabled={disabled} />
-      </RaisedButtonRoot>
+      </ElevatedButtonRoot>
     )
   },
 )

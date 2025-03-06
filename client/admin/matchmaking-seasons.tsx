@@ -12,7 +12,7 @@ import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
@@ -157,7 +157,7 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
         <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
 
-        <RaisedButton label='Submit' color='primary' onClick={onSubmit} />
+        <ElevatedButton label='Submit' color='primary' onClick={onSubmit} />
       </form>
     </FormContainer>
   )
@@ -220,7 +220,7 @@ export function AdminMatchmakingSeasons() {
     <Container>
       <HeadlineAndButton>
         <PageHeadline>Matchmaking seasons</PageHeadline>
-        <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+        <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
       {requestError ? <ErrorText>{String(requestError)}</ErrorText> : undefined}
       {seasons.map(s =>

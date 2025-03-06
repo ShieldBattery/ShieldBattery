@@ -8,7 +8,7 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TabItem, Tabs } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
@@ -229,7 +229,7 @@ const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
   margin-left: 8px;
 `
 
-const AddNewButton = styled(RaisedButton)`
+const AddNewButton = styled(ElevatedButton)`
   margin: 16px 16px 16px 0;
 `
 

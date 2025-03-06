@@ -5,7 +5,7 @@ import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton } from '../material/button'
+import { ElevatedButton, IconButton } from '../material/button'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -224,12 +224,12 @@ export function ConnectedChannelInfoCard({
 
   let action
   if (isUserInChannel) {
-    action = <RaisedButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
+    action = <ElevatedButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
   } else if (basicChannelInfo?.private || isUserBanned) {
-    action = <RaisedButton label={t('common.actions.join', 'Join')} disabled={true} />
+    action = <ElevatedButton label={t('common.actions.join', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
     action = (
-      <RaisedButton
+      <ElevatedButton
         label={t('common.actions.join', 'Join')}
         disabled={isJoinInProgress}
         onClick={onJoinClick}

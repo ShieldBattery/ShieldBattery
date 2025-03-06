@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
-import { RaisedButton } from './material/button'
+import { ElevatedButton } from './material/button'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { TitleLarge, bodyLarge } from './styles/typography'
@@ -160,7 +160,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
           .
         </Trans>
       </Instructions>
-      <RaisedButton
+      <ElevatedButton
         label={t('rootErrorBoundary.reloadApp', 'Reload app')}
         color='primary'
         onClick={onReloadAppClick}
@@ -181,7 +181,7 @@ function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps
         </a>
         .
       </Instructions>
-      <RaisedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
+      <ElevatedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
     </>
   )
 }

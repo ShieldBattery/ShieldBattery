@@ -26,7 +26,7 @@ import {
   required,
 } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
 import { push } from '../navigation/routing'
@@ -315,7 +315,7 @@ export function Signup() {
             />
 
             <FieldRow>
-              <RaisedButton
+              <ElevatedButton
                 label={t('auth.signup.createAccount', 'Create account')}
                 onClick={onSubmit}
                 tabIndex={1}

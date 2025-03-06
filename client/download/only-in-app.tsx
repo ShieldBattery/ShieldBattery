@@ -2,7 +2,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
 
@@ -38,7 +38,7 @@ export function OnlyInApp() {
         {t('clientDownload.onlyInApp', 'This feature is only available in the app.')}
       </Message>
       <InstallerLinks>
-        <RaisedButton
+        <ElevatedButton
           onClick={onDownloadClick}
           iconStart={<MaterialIcon icon='download' />}
           label={

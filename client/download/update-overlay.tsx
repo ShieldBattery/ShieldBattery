@@ -5,7 +5,7 @@ import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FocusTrap } from '../dom/focus-trap'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
 import { defaultSpring } from '../material/springs'
@@ -151,7 +151,7 @@ export function UpdateDialog({
               'Please restart the application to continue.',
           )}
         </BodyLarge>
-        <RaisedButton
+        <ElevatedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
           label={t('clientUpdate.overlay.restartNow', 'Restart now')}
         />

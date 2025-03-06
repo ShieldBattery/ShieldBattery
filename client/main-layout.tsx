@@ -14,10 +14,10 @@ import { useBreakpoint } from './dom/dimension-hooks'
 import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
 import {
+  ElevatedButton,
   HotkeyProp,
   IconButton,
   keyEventMatches,
-  RaisedButton,
   useButtonHotkey,
 } from './material/button'
 import { emphasizedAccelerateEasing, emphasizedDecelerateEasing } from './material/curve-constants'
@@ -657,7 +657,7 @@ function AppBar({
         />
       ) : (
         /* TODO(tec27): Use a filled button instead once implemented */
-        <RaisedButton
+        <ElevatedButton
           label={t('auth.login.logIn', 'Log in')}
           testName='app-bar-login'
           onClick={onLogIn}

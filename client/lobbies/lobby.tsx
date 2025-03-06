@@ -20,7 +20,7 @@ import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
@@ -119,7 +119,7 @@ const InfoValue = styled.div`
   flex-grow: 1;
 `
 
-const StartButton = styled(RaisedButton)`
+const StartButton = styled(ElevatedButton)`
   margin-top: 24px;
 `
 
@@ -371,7 +371,7 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
           <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
-          <RaisedButton
+          <ElevatedButton
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
           />
