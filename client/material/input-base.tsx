@@ -4,7 +4,6 @@ import { bodyLarge, singleLine } from '../styles/typography'
 export const InputBase = styled.div<{
   $floatingLabel?: boolean
   $dense?: boolean
-  $disabled?: boolean
   $focused?: boolean
   $multiline?: boolean
   $leadingIconsLength?: number
@@ -25,7 +24,6 @@ export const InputBase = styled.div<{
   color: var(--theme-on-surface);
   line-height: inherit;
   -ms-flex-preferred-size: inherit;
-  opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
   user-select: inherit;
 
   &:focus {
