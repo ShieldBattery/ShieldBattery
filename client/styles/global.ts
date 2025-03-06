@@ -88,29 +88,33 @@ const GlobalStyle = createGlobalStyle`
 
   /** Style default scrollbar (at least in Webkit-based browsers) */
   *::-webkit-scrollbar {
+    box-sizing: border-box;
     width: 16px;
   }
 
   *::-webkit-scrollbar-track {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
+    box-sizing: border-box;
+    background-color: rgb(from var(--color-grey-blue10) r g b / 80%);
+    border-radius: 4px;
+    border: 1px solid rgb(from var(--color-grey-blue30) r g b / 80%);
   }
 
   *::-webkit-scrollbar-thumb {
+    box-sizing: border-box;
     width: 100%;
     border: 2px solid transparent;
     margin-left: auto;
     margin-right: auto;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: var(--color-grey-blue40);
     background-clip: padding-box;
     /**
      * NOTE(tec27): This is more than the "usual" because it is inside of something that already
      * has border-radius, this makes it appear to match the outer radius
      */
-    border-radius: 4px;
+    border-radius: 6px;
 
     &:hover, &:active {
-      background-color: rgba(255, 255, 255, 0.16);
+      background-color: var(--color-grey-blue50);
     }
   }
 
