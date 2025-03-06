@@ -24,7 +24,7 @@ import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
 import { RaisedButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -500,7 +500,7 @@ const LeaderboardHeaderRow = styled.div`
   contain: content;
 
   .${HEADER_STUCK_CLASS} & {
-    ${shadow4dp};
+    ${elevationPlus2};
     border-bottom: 1px solid var(--theme-outline-variant);
   }
 `

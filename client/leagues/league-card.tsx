@@ -11,7 +11,7 @@ import { TextButton, useButtonState } from '../material/button'
 import { Card } from '../material/card'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
@@ -38,7 +38,7 @@ const LeagueImageAndBadge = styled.div`
 `
 
 const LeagueCardBadge = styled.div`
-  ${shadow2dp};
+  ${elevationPlus1};
   position: absolute;
   left: 12px;
   bottom: 0;

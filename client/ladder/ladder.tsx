@@ -35,7 +35,7 @@ import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
@@ -458,7 +458,7 @@ const HeaderRowContainer = styled.div<{ context?: unknown }>`
   --sb-ladder-row-height: 48px;
 
   .${HEADER_STUCK_CLASS} & {
-    ${shadow4dp};
+    ${elevationPlus2};
     border-bottom: 1px solid var(--theme-outline-variant);
   }
 `

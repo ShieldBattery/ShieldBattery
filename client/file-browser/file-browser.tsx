@@ -11,7 +11,7 @@ import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton } from '../material/button'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { TitleLarge, bodyLarge } from '../styles/typography'
@@ -56,7 +56,7 @@ const Root = styled.div`
 `
 
 const TopBar = styled.div`
-  ${shadow4dp};
+  ${elevationPlus2};
   background: var(--color-blue50);
 `
 

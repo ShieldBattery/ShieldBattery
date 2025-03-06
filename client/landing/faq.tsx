@@ -5,8 +5,9 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { DISCORD_URL } from '../../common/url-constants'
 import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
-import { shadowDef4dp } from '../material/shadow-constants'
+import { elevationPlus2 } from '../material/shadows'
 import { makePublicAssetUrl } from '../network/server-url'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -168,13 +169,13 @@ const StyledLogoText = styled(LogoText)`
 `
 
 const Intro = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  ${elevationPlus2};
   display: flex;
   flex-direction: row;
   justify-content: center;
   width: 100%;
   margin-top: 142px;
-  background-color: var(--theme-container-low);
-  box-shadow: ${shadowDef4dp};
 
   @media screen and (max-width: 980px) {
     margin-top: 86px;

@@ -4,7 +4,7 @@ import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import PlayerCard from '../lobbies/player-card'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadowDef2dp } from '../material/shadow-constants'
+import { elevationPlus1 } from '../material/shadows'
 import { DisplayLarge, DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -28,8 +28,8 @@ const TopHalfContainer = styled.div`
 const Spacer = styled.div``
 
 const StyledMapThumbnail = styled(MapThumbnail)`
+  ${elevationPlus1};
   width: 320px;
-  box-shadow: ${shadowDef2dp};
 `
 
 const StatusContainer = styled.div`

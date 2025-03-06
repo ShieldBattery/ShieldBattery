@@ -4,8 +4,9 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
-import { shadow2dp, shadow8dp } from '../material/shadows'
+import { elevationPlus1, elevationPlus2 } from '../material/shadows'
 import { useStableCallback } from '../state-hooks'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyLarge, labelLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
@@ -27,7 +28,10 @@ const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', si
   text-shadow: 0 0 8px #000;
 `
 
-export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
+const BrowseButton = styled.div<{ $isFocused?: boolean }>`
+  ${containerStyles(ContainerLevel.Low)};
+  ${elevationPlus1};
+
   position: relative;
   display: flex;
   flex-direction: column;
@@ -35,31 +39,31 @@ export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: var(--theme-container-low);
   border-radius: 2px;
-  ${props => (props.$isFocused ? shadow8dp : shadow2dp)};
 
   &:after {
     position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     content: '';
 
     background-color: white;
     opacity: ${props => (props.$isFocused ? '0.16 !important' : '0')};
     transition: opacity 150ms linear;
+
+    pointer-events: none;
+  }
+
+  &:hover {
+    ${elevationPlus2};
+    cursor: pointer;
   }
 
   &:hover:after {
     opacity: 0.08;
-    cursor: pointer;
   }
 
   &:active:after {
     opacity: 0.12;
-    ${shadow8dp};
   }
 `
 

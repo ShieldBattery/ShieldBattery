@@ -10,7 +10,7 @@ import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
@@ -50,7 +50,7 @@ export const ChannelBannerAndBadge = styled.div`
 `
 
 export const ChannelCardBadge = styled.div`
-  ${shadow2dp};
+  ${elevationPlus1};
   position: absolute;
   left: 12px;
   bottom: 0;

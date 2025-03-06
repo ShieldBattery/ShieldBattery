@@ -27,7 +27,7 @@ import { RaisedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -403,7 +403,7 @@ const MapContainer = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
 `
 
 const MapName = styled.div`

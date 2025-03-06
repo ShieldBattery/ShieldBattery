@@ -3,7 +3,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { TextButton } from './button'
 import { accelerateEasing, decelerateEasing, standardEasing } from './curve-constants'
-import { shadow6dp } from './shadows'
+import { elevationPlus3 } from './shadows'
 import { zIndexSnackbar } from './zindex'
 
 const MessageContainer = styled.div`
@@ -58,7 +58,7 @@ const Container = styled.div`
 `
 
 const Content = styled.div`
-  ${shadow6dp};
+  ${elevationPlus3};
   width: auto;
   min-width: 288px;
   max-width: 568px;

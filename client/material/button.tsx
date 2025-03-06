@@ -6,8 +6,7 @@ import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple, RippleController } from './ripple'
-import { shadowDef4dp, shadowDef8dp } from './shadow-constants'
-import { shadow2dp } from './shadows'
+import { elevationPlus1, elevationPlus2 } from './shadows'
 
 export const Label = styled.span`
   ${labelLarge};
@@ -320,7 +319,7 @@ interface RaisedButtonStyleProps {
 const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   ${buttonReset};
   ${fastOutSlowInShort};
-  ${shadow2dp};
+  ${elevationPlus1};
 
   min-width: 88px;
   min-height: 40px;
@@ -352,11 +351,11 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
 
   &:hover,
   &:focus {
-    box-shadow: ${shadowDef4dp};
+    ${elevationPlus2}
   }
 
   &:active {
-    box-shadow: ${shadowDef8dp};
+    ${elevationPlus1}
   }
 
   &:disabled,

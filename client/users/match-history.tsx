@@ -13,7 +13,7 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
-import { shadow1dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
@@ -212,14 +212,14 @@ const GameType = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 64px;
   height: 64px;
   flex-shrink: 0;
 `
 
 const MapNoImageContainer = styled.div`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 64px;
   height: 64px;
   flex-shrink: 0;

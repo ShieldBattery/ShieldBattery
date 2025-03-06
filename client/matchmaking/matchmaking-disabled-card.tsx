@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { TransInterpolation } from '../i18n/i18next'
 import { Card } from '../material/card'
-import { shadow8dp } from '../material/shadows'
+import { elevationPlus3 } from '../material/shadows'
 import { useAppSelector } from '../redux-hooks'
 import { bodyMedium, DisplaySmall, labelMedium, TitleLarge, titleLarge } from '../styles/typography'
 
@@ -18,7 +18,7 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 export const DisabledCard = styled(Card)`
-  ${shadow8dp};
+  ${elevationPlus3};
 
   position: relative;
   width: 480px;

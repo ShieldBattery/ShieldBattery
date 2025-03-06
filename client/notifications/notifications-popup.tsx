@@ -15,11 +15,12 @@ import { SbNotification } from '../../common/notifications'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import { shadow6dp } from '../material/shadows'
+import { elevationPlus3 } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
@@ -44,14 +45,15 @@ const PopupsContainer = styled.div`
 `
 
 const Popup = styled(animated.div)`
-  ${shadow6dp};
+  ${elevationPlus3};
+  ${containerStyles(ContainerLevel.High)};
+
   contain: content;
 
   display: flex;
   flex-direction: row;
   align-items: flex-start;
 
-  background-color: var(--theme-container-high);
   border-radius: 8px;
 
   &:not(:first-child) {

@@ -4,12 +4,11 @@ import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple } from './ripple'
-import { shadowDef12dp, shadowDef8dp } from './shadow-constants'
-import { shadow6dp } from './shadows'
+import { elevationPlus3, elevationPlus4 } from './shadows'
 
 const Root = styled.button`
   ${buttonReset};
-  ${shadow6dp};
+  ${elevationPlus3};
   ${fastOutSlowInShort};
 
   width: 56px;
@@ -26,11 +25,7 @@ const Root = styled.button`
 
   &:hover,
   &:focus {
-    box-shadow: ${shadowDef8dp};
-  }
-
-  &:active {
-    box-shadow: ${shadowDef12dp};
+    ${elevationPlus4};
   }
 
   &:disabled {

@@ -22,7 +22,7 @@ import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import { Card } from '../material/card'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
 import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
@@ -96,7 +96,7 @@ const MapName = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
   width: 256px;
   height: auto;
   margin-top: 8px;

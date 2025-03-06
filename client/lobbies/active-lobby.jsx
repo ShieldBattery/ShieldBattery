@@ -3,7 +3,7 @@ import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadowDef2dp } from '../material/shadow-constants'
+import { elevationPlus1 } from '../material/shadows'
 import { DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 import PlayerCard from './player-card'
 
@@ -28,9 +28,9 @@ const TopHalfContainer = styled.div`
 const Spacer = styled.div``
 
 const StyledMapThumbnail = styled(MapThumbnail)`
+  ${elevationPlus1};
   width: 320px;
   border-radius: 2px;
-  box-shadow: ${shadowDef2dp};
 `
 
 const StatusContainer = styled.div`

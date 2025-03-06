@@ -8,7 +8,7 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
@@ -69,7 +69,7 @@ export const MapSelections = styled.div`
 `
 
 export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boolean }>`
-  ${shadow4dp};
+  ${elevationPlus1};
 
   --sb-selectable-map-border: ${props =>
     props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : 'var(--theme-outline)'};

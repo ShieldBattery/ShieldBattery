@@ -12,7 +12,7 @@ import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
-import { shadow10dp } from './shadows'
+import { elevationPlus3 } from './shadows'
 import { defaultSpring } from './springs'
 import { zIndexMenu } from './zindex'
 
@@ -94,7 +94,7 @@ const Container = styled(animated.div)`
 `
 
 const Card = styled.div`
-  ${shadow10dp};
+  ${elevationPlus3};
   ${containerStyles(ContainerLevel.Low)}
   border-radius: 2px;
   contain: content;

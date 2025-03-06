@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
-import { shadow1dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { HeadlineMedium, headlineMedium, titleMedium } from '../styles/typography'
 import PlayerCard from './player-card'
 
@@ -247,7 +247,7 @@ const GameTypeMapBridge = styled.div`
 `
 
 const MapImageContainer = styled.div`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 256px;
   height: auto;
   border-radius: 2px;

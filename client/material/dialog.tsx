@@ -9,7 +9,7 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
-import { shadowDef8dp } from './shadow-constants'
+import { elevationPlus3 } from './shadows'
 import { zIndexDialog } from './zindex'
 
 const ESCAPE = keycode('esc')
@@ -43,7 +43,9 @@ const Container = styled.div`
 `
 
 const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
-  ${containerStyles(ContainerLevel.Normal)}
+  ${elevationPlus3};
+  ${containerStyles(ContainerLevel.Normal)};
+
   width: calc(100% - 160px);
   max-width: 768px;
   max-height: calc(100% - 160px);
@@ -55,7 +57,6 @@ const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
   flex-direction: column;
 
   border-radius: 2px;
-  box-shadow: ${shadowDef8dp};
   contain: paint;
   overscroll-behavior: contain;
   pointer-events: ${props => (props.$isTopDialog ? 'auto' : 'none')};

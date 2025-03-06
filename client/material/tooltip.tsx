@@ -5,7 +5,7 @@ import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
-import { shadow2dp } from './shadows'
+import { elevationPlus2 } from './shadows'
 import { defaultSpring } from './springs'
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
@@ -73,7 +73,7 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
 
 export const TooltipContent = styled.div<{ $position: TooltipPosition; $interactive?: boolean }>`
   ${labelMedium};
-  ${shadow2dp};
+  ${elevationPlus2};
 
   position: relative;
   min-height: 24px;

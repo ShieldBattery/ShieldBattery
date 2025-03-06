@@ -21,7 +21,7 @@ import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -111,7 +111,7 @@ const ReplayInfoContainer = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
 `
 
 const MapName = styled.div`
