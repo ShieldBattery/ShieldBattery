@@ -28,10 +28,11 @@ const POPOVER_DURATION = 10000
 
 const PopupsContainer = styled.div`
   position: fixed;
-  right: 32px;
-  bottom: 32px;
-  width: 368px;
+  right: 24px;
+  bottom: 24px;
+  width: calc(368px + 16px);
   max-height: calc(100% - 112px);
+  padding: 8px;
   z-index: ${zIndexMenu};
 
   display: flex;

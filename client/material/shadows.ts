@@ -3,7 +3,7 @@ import { css } from 'styled-components'
 const shadowKeyUmbraOpacity = 0.2
 const shadowKeyPenumbraOpacity = 0.14
 const shadowAmbientOpacity = 0.12
-const shadowOutlineOpacity = 0.28
+const shadowOutlineOpacity = 0.32
 
 // eslint-disable-next-line max-params
 function shadowDef(
