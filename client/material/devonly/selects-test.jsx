@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Card from '../card'
+import { Card } from '../card'
 import { CheckBox } from '../check-box'
 import { SelectOption } from '../select/option'
 import { Select } from '../select/select'

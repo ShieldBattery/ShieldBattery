@@ -20,8 +20,8 @@ import { useStableCallback } from '../state-hooks'
 import {
   bodyLarge,
   bodyMedium,
-  bodySmall,
   headlineMedium,
+  labelMedium,
   singleLine,
   titleSmall,
 } from '../styles/typography'
@@ -182,7 +182,7 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
 `
 
 const GameDate = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   ${singleLine};
   color: var(--theme-on-surface-variant);
 `

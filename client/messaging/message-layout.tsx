@@ -2,7 +2,7 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
-import { bodyMedium, bodySmall, titleSmall } from '../styles/typography'
+import { bodyMedium, labelMedium, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`
@@ -24,7 +24,7 @@ const StyledTooltip = styled(Tooltip)`
 // pleasing way. We effectively pad everything and then push the timestamps into the padding. By
 // doing this we also ensure copy+paste looks decent (instead of on separate lines)
 const Timestamp = styled.span`
-  ${bodySmall};
+  ${labelMedium};
   width: 72px;
   display: inline-block;
   /** 8px when we add 1px for the separator */

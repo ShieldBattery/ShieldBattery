@@ -19,7 +19,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import {
   headlineMedium,
   labelMedium,
@@ -256,16 +255,17 @@ const NavEntryText = styled(SettingsSubPageTitle)`
   line-height: 36px;
 `
 
-const NavEntryIcon = styled(MaterialIcon).attrs({ size: 16 })`
+const NavEntryIcon = styled(MaterialIcon).attrs({ size: 20 })`
   margin-right: 4px;
 `
 
 const ErrorIcon = styled(NavEntryIcon).attrs({ icon: 'error', filled: false })`
-  color: ${colorError};
+  color: var(--theme-error);
+  margin-bottom: 2px;
 `
 
 const ErrorText = styled(NavEntryText)`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 function NavEntry({

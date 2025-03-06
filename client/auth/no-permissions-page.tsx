@@ -2,7 +2,6 @@ import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { colorError } from '../styles/colors'
 import { bodyLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -18,7 +17,7 @@ const Container = styled.div`
 
 const ErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
   margin-bottom: 8px;
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const Text = styled.span`

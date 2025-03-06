@@ -18,7 +18,6 @@ import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
 import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -51,7 +50,7 @@ const ErrorText = styled.div`
   margin-bottom: 8px;
   padding: 0 8px;
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const Row = styled.div<{ $current?: boolean }>`
@@ -66,7 +65,7 @@ const Row = styled.div<{ $current?: boolean }>`
 `
 
 const StartDate = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const SeasonName = styled.div`
@@ -75,7 +74,7 @@ const SeasonName = styled.div`
 `
 
 const ModifierText = styled.span`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function SeasonRow({

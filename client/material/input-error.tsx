@@ -1,7 +1,6 @@
 import React, { useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { colorError } from '../styles/colors'
 import { accelerateEasing, decelerateEasing } from './curve-constants'
 
 const StyledTransitionGroup = styled(TransitionGroup)`
@@ -16,7 +15,7 @@ const StyledTransitionGroup = styled(TransitionGroup)`
 const ErrorText = styled.div`
   font-size: 12px;
   line-height: 20px;
-  color: ${colorError};
+  color: var(--theme-error);
   pointer-events: none;
 
   &.enter {

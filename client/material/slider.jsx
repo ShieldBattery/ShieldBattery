@@ -3,8 +3,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
-import { bodyMedium, labelMedium } from '../styles/typography'
+import { labelLarge, labelMedium } from '../styles/typography'
 import { standardEasing } from './curve-constants'
 
 const transitionNames = {
@@ -156,12 +155,12 @@ const Root = styled.div`
 `
 
 const SliderLabel = styled.div`
-  ${bodyMedium};
+  ${labelLarge};
   position: absolute;
   top: 8px;
   left: 2px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   pointer-events: none;
 `
 

@@ -39,7 +39,6 @@ import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
   bodyLarge,
-  bodySmall,
   headlineLarge,
   labelMedium,
   singleLine,
@@ -748,7 +747,7 @@ const PlayerName = styled(ConnectedUsername)`
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${bodySmall};
+  ${labelMedium};
   color: ${props => getRaceColor(props.$race)};
 `
 

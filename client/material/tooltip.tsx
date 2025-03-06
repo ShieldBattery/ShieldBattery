@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useId, useState } from 'react'
 import { UseTransitionProps, useTransition } from 'react-spring'
 import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
-import { bodySmall } from '../styles/typography'
+import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
 import { shadow2dp } from './shadows'
@@ -72,7 +72,7 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
 }
 
 export const TooltipContent = styled.div<{ $position: TooltipPosition; $interactive?: boolean }>`
-  ${bodySmall};
+  ${labelMedium};
   ${shadow2dp};
 
   position: relative;

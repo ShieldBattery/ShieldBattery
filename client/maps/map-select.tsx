@@ -6,7 +6,6 @@ import { useKeyListener } from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { bodyLarge, labelLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
@@ -21,7 +20,7 @@ const Container = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`

@@ -11,8 +11,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { BodyLarge, bodyLarge, bodyMedium } from '../styles/typography'
+import { BodyLarge, bodyLarge, labelMedium } from '../styles/typography'
 import { reportBug } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
@@ -26,13 +25,13 @@ const Layout = styled.div`
 `
 
 const LogUploadDescription = styled.div`
-  ${bodyMedium};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 interface BugReportFormModel {

@@ -16,13 +16,12 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { bodyLarge } from '../styles/typography'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
   margin-bottom: 16px;
 `
 

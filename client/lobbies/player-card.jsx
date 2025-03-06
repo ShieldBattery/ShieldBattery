@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { RaceIcon } from '../lobbies/race-icon'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { fastOutSlowInShort } from '../material/curves'
 import { singleLine, titleLarge } from '../styles/typography'
 

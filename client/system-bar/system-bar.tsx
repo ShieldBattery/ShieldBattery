@@ -7,8 +7,7 @@ import Lockup from '../logos/lockup-system-bar-24px.svg'
 import { IconButton } from '../material/button'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
-import { colorError } from '../styles/colors'
-import { bodySmall } from '../styles/typography'
+import { labelLarge, labelMedium } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
 
 const Container = styled.header`
@@ -48,19 +47,20 @@ const StyledIconButton = styled(IconButton)`
 `
 
 const DevIndicator = styled.div`
-  ${bodySmall};
+  ${labelLarge};
 
-  width: 80px;
-  height: 16px;
-  margin-left: 4px;
+  width: 72px;
+  height: 20px;
+  margin-left: 8px;
+  padding-block: 2px;
 
-  background-color: ${colorError};
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
+  font-variation-settings: 'wght' 600;
+
   border-radius: 2px;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 2px;
   line-height: 16px;
-  opacity: 0.84;
   text-align: center;
   text-transform: uppercase;
   -webkit-app-region: no-drag;
@@ -74,7 +74,7 @@ const StyledLockup = styled(Lockup)`
 `
 
 const VersionTextRoot = styled.div`
-  ${bodySmall};
+  ${labelMedium};
 
   color: var(--theme-on-surface-variant);
   letter-spacing: 1.25px;

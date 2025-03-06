@@ -50,7 +50,6 @@ import {
   TitleLarge,
   bodyLarge,
   bodyMedium,
-  bodySmall,
   labelMedium,
   singleLine,
   titleMedium,
@@ -538,7 +537,7 @@ const PlayerName = styled.div`
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${bodySmall};
+  ${labelMedium};
   color: ${props => getRaceColor(props.$race)};
 `
 

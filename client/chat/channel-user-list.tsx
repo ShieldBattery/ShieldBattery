@@ -6,7 +6,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
-import { colorTextSecondary } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   areUserEntriesEqual,
@@ -53,7 +52,7 @@ const UserListOverline = styled.div<{ $firstOverline: boolean }>`
   ${labelMedium}
   ${userListRow};
   height: ${props => (props.$firstOverline ? FIRST_OVERLINE_HEIGHT : OVERLINE_HEIGHT)}px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   padding-top: ${props => (props.$firstOverline ? '8px' : '24px')};
 `

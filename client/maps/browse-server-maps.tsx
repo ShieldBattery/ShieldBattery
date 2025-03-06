@@ -21,8 +21,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorTextSecondary } from '../styles/colors'
-import { bodyLarge, BodyLarge, TitleLarge } from '../styles/typography'
+import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
 import {
   clearMapsList,
   getMapPreferences,
@@ -70,8 +69,8 @@ const ContentsBody = styled.div`
 `
 
 const SectionHeader = styled.div`
-  ${bodyLarge};
-  color: ${colorTextSecondary};
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
   margin-top: 24px;
   margin-bottom: 16px;
 `

@@ -25,7 +25,6 @@ import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { startReplay } from './action-creators'
 
@@ -43,7 +42,7 @@ const ErrorText = styled.div`
   ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const InfoContainer = styled.div`
@@ -65,7 +64,7 @@ const TeamLabel = styled.div`
   height: 24px;
   line-height: 24px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayerContainer = styled.div`
@@ -126,7 +125,7 @@ const ReplayInfoText = styled.div`
   ${singleLine};
   margin: 4px 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MapNoImageContainer = styled.div`

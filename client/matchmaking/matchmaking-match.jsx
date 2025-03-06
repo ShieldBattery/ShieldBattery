@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import PlayerCard from '../lobbies/player-card'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors'
 import { DisplayLarge, DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -41,7 +40,7 @@ const StatusContainer = styled.div`
 
 const StatusText = styled.div`
   ${titleLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayersContainer = styled.div`

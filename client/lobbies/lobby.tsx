@@ -21,12 +21,11 @@ import { RaceChar } from '../../common/races'
 import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { shadow2dp } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
-import { colorTextSecondary } from '../styles/colors'
-import { bodyLarge, bodyMedium, headlineMedium, titleLarge } from '../styles/typography'
+import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
 import ClosedSlot from './closed-slot'
 import {
   BanLobbyPlayerMessage,
@@ -106,16 +105,16 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 const InfoItem = styled.div`
   margin: 8px 0 0;
   display: flex;
-  align-items: center;
+  align-items: baseline;
 `
 
 const InfoLabel = styled.div`
-  ${bodyMedium};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const InfoValue = styled.div`
-  ${bodyLarge};
+  ${labelLarge};
   margin-left: 16px;
   flex-grow: 1;
 `

@@ -16,7 +16,7 @@ export const sofiaSansCondensed = css`
 
 export const bodySmall = css`
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.4px;
   line-height: 16px;
 `
@@ -50,7 +50,7 @@ export const BodyLarge = styled.div`
 export const labelSmall = css`
   font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   line-height: 16px;
 `
 
@@ -61,7 +61,7 @@ export const LabelSmall = styled.div`
 export const labelMedium = css`
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.48px;
   line-height: 16px;
 `
 
@@ -72,7 +72,7 @@ export const LabelMedium = styled.div`
 export const labelLarge = css`
   font-size: 14px;
   font-weight: 500;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
   line-height: 20px;
 `
 

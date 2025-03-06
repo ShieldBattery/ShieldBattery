@@ -3,10 +3,9 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { TransInterpolation } from '../i18n/i18next'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { shadow8dp } from '../material/shadows'
 import { useAppSelector } from '../redux-hooks'
-import { colorTextSecondary } from '../styles/colors'
 import { bodyMedium, DisplaySmall, labelMedium, TitleLarge, titleLarge } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -39,7 +38,7 @@ export const DisabledText = styled.span`
 const ToText = styled.span`
   ${titleLarge};
   margin: 8px 0;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const CountdownContainer = styled.div`
@@ -61,7 +60,7 @@ const CountdownItemContainer = styled.div`
 
 const CountdownItemText = styled.span`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export interface ConnectedMatchmakingDisabledCardProps {

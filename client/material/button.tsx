@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -368,13 +367,6 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
 
     & ${Label} {
       font-variation-settings: inherit;
-    }
-  }
-
-  ${CardLayer} && {
-    &:disabled,
-    &[disabled] {
-      background-color: rgba(255, 255, 255, 0.08);
     }
   }
 

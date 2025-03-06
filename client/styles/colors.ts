@@ -1,5 +1,5 @@
 import { meetsContrastGuidelines } from 'polished'
-import styled, { css } from 'styled-components'
+import { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
 
@@ -39,30 +39,6 @@ export const purple90 = '#ceadf8'
 export const purple95 = '#e4ceff'
 export const purple99 = '#f8ecf8'
 
-export const mint10 = '#101a1a'
-export const mint20 = '#14332d'
-export const mint30 = '#00493f'
-export const mint40 = '#006d5e'
-export const mint50 = '#38ac97'
-export const mint60 = '#67e0c7'
-export const mint70 = '#76e4cc'
-export const mint80 = '#8df0da'
-export const mint90 = '#98f3dd'
-export const mint95 = '#bdf6e8'
-export const mint99 = '#dff7f7'
-
-export const indigo10 = '#111526'
-export const indigo20 = '#1a1a3d'
-export const indigo30 = '#1f1d55'
-export const indigo40 = '#2a2472'
-export const indigo50 = '#403997'
-export const indigo60 = '#524bb3'
-export const indigo70 = '#625ec0'
-export const indigo80 = '#918fe9'
-export const indigo90 = '#a8a7f5'
-export const indigo95 = '#c9c9fc'
-export const indigo99 = '#ededfc'
-
 export const greyBlue10 = '#101725'
 export const greyBlue20 = '#182031'
 export const greyBlue30 = '#202d47'
@@ -92,14 +68,20 @@ export const colorContainerLow = '#182237'
 export const colorContainer = '#18273e'
 export const colorContainerHigh = '#1c2b46'
 export const colorContainerHighest = '#1c304f'
+// Colors that aren't intended to be used directly, but will be added to the container elevation
+// hierarchy when inside a container (to ensure we can basically always e.g. put a card in a
+// container and still have its bounds visible)
+const colorContainerHighestPlus1 = '#1f3355'
+const colorContainerHighestPlus2 = '#20375c'
+const colorContainerHighestPlus3 = '#213961'
 
-export const colorError = '#ff6e6e'
-export const colorSuccess = '#66bb6a'
+const colorError = '#ff6e6e'
+const colorSuccess = '#66bb6a'
 
 /** Color used to indicate something positive (e.g. winning). */
-export const colorPositive = '#69f0ae'
+const colorPositive = '#69f0ae'
 /** Color used to indicate something negative (e.g. losing). */
-export const colorNegative = '#e66060'
+const colorNegative = '#e66060'
 
 export const colorZerg = '#c1a3f5'
 export const colorProtoss = '#ead36d'
@@ -145,30 +127,6 @@ export const THEME_CSS = css`
   --color-purple95: ${purple95};
   --color-purple99: ${purple99};
 
-  --color-mint10: ${mint10};
-  --color-mint20: ${mint20};
-  --color-mint30: ${mint30};
-  --color-mint40: ${mint40};
-  --color-mint50: ${mint50};
-  --color-mint60: ${mint60};
-  --color-mint70: ${mint70};
-  --color-mint80: ${mint80};
-  --color-mint90: ${mint90};
-  --color-mint95: ${mint95};
-  --color-mint99: ${mint99};
-
-  --color-indigo10: ${indigo10};
-  --color-indigo20: ${indigo20};
-  --color-indigo30: ${indigo30};
-  --color-indigo40: ${indigo40};
-  --color-indigo50: ${indigo50};
-  --color-indigo60: ${indigo60};
-  --color-indigo70: ${indigo70};
-  --color-indigo80: ${indigo80};
-  --color-indigo90: ${indigo90};
-  --color-indigo95: ${indigo95};
-  --color-indigo99: ${indigo99};
-
   --color-grey-blue10: ${greyBlue10};
   --color-grey-blue20: ${greyBlue20};
   --color-grey-blue30: ${greyBlue30};
@@ -208,16 +166,6 @@ export const THEME_CSS = css`
   --theme-purple-container: var(--color-purple40);
   --theme-on-purple-container: var(--color-purple95);
 
-  --theme-mint: var(--color-mint60);
-  --theme-on-mint: var(--color-mint10);
-  --theme-mint-container: var(--color-mint30);
-  --theme-on-mint-container: var(--color-mint90);
-
-  --theme-indigo: var(--color-indigo60);
-  --theme-on-indigo: var(--color-indigo99);
-  --theme-indigo-container: var(--color-indigo70);
-  --theme-on-indigo-container: var(--color-indigo99);
-
   --theme-grey-blue: var(--color-grey-blue60);
   --theme-on-grey-blue: var(--color-grey-blue99);
   --theme-grey-blue-container: var(--color-grey-blue40);
@@ -239,6 +187,11 @@ export const THEME_CSS = css`
   --theme-container: ${colorContainer};
   --theme-container-high: ${colorContainerHigh};
   --theme-container-highest: ${colorContainerHighest};
+  /** These are "internal" and shouldn't be used directly. */
+  --_theme-container-highest-plus1: ${colorContainerHighestPlus1};
+  --_theme-container-highest-plus2: ${colorContainerHighestPlus2};
+  --_theme-container-highest-plus3: ${colorContainerHighestPlus3};
+  /** End internal */
 
   --theme-disabled-opacity: 0.38;
 
@@ -258,9 +211,6 @@ export const THEME_CSS = css`
 
   --theme-skeleton: var(--color-grey-blue60);
 `
-
-// FIXME: delete these
-export const colorTextSecondary = '#cdddee'
 
 export function getRaceColor(race: RaceChar) {
   switch (race) {
@@ -283,8 +233,87 @@ export function pickTextColor(backgroundColor: string): string {
   return meetsContrastGuidelines(backgroundColor, grey99).AA ? grey99 : grey10
 }
 
-// FIXME: delete this?
-export const CardLayer = styled.div`
-  background-color: var(--theme-container-low);
-  --sb-color-background: var(--theme-container-low);
-`
+export enum ContainerLevel {
+  Lowest,
+  Low,
+  Normal,
+  High,
+  Highest,
+}
+
+export function containerStyles(level: ContainerLevel) {
+  switch (level) {
+    case ContainerLevel.Lowest:
+      return css`
+        background-color: var(--theme-container-lowest);
+        --sb-color-background: var(--theme-container-lowest);
+        & > * {
+          --theme-container-lowest: var(--theme-container-low);
+          --theme-container-low: var(--theme-container);
+          --theme-container: var(--theme-container-high);
+          --theme-container-high: var(--theme-container-highest);
+          --theme-container-highest: var(--_theme-container-highest-plus1);
+          --theme-container-highest-plus1: var(--_theme-container-highest-plus2);
+          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+        }
+      `
+    case ContainerLevel.Low:
+      return css`
+        background-color: var(--theme-container-low);
+        --sb-color-background: var(--theme-container-low);
+        & > * {
+          --theme-container-lowest: var(--theme-container);
+          --theme-container-low: var(--theme-container-high);
+          --theme-container: var(--theme-container-highest);
+          --theme-container-high: var(--theme-container-highest-plus1);
+          --theme-container-highest: var(--_theme-container-highest-plus2);
+          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+        }
+      `
+    case ContainerLevel.Normal:
+      return css`
+        background-color: var(--theme-container);
+        --sb-color-background: var(--theme-container);
+        & > * {
+          --theme-container-lowest: var(--theme-container-high);
+          --theme-container-low: var(--theme-container-highest);
+          --theme-container: var(--theme-container-highest-plus1);
+          --theme-container-high: var(--theme-container-highest-plus2);
+          --theme-container-highest: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+        }
+      `
+    case ContainerLevel.High:
+      return css`
+        background-color: var(--theme-container-high);
+        --sb-color-background: var(--theme-container-high);
+        & > * {
+          --theme-container-lowest: var(--theme-container-highest);
+          --theme-container-low: var(--theme-container-highest-plus1);
+          --theme-container: var(--theme-container-highest-plus2);
+          --theme-container-high: var(--_theme-container-highest-plus3);
+          --theme-container-highest: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+        }
+      `
+    case ContainerLevel.Highest:
+      return css`
+        background-color: var(--theme-container-highest);
+        --sb-color-background: var(--theme-container-highest);
+        & > * {
+          --theme-container-lowest: var(--theme-container-highest-plus1);
+          --theme-container-low: var(--theme-container-highest-plus2);
+          --theme-container: var(--_theme-container-highest-plus3);
+          --theme-container-high: var(--_theme-container-highest-plus3);
+          --theme-container-highest: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
+          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+        }
+      `
+    default:
+      return level satisfies never
+  }
+}

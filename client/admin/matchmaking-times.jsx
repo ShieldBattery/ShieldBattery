@@ -12,7 +12,7 @@ import { RaisedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TabItem, Tabs } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   addMatchmakingTime,
@@ -39,7 +39,7 @@ const LoadingArea = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const HistoryContainer = styled.table`
@@ -52,7 +52,7 @@ const HistoryContainer = styled.table`
   }
 
   th {
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
     text-align: left;
     font-weight: 500;
   }
@@ -72,11 +72,11 @@ const HistoryContainer = styled.table`
 `
 
 const EnabledText = styled.span`
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 const DisabledText = styled.span`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const CurrentText = styled.span`
@@ -209,12 +209,6 @@ class MatchmakingTimesHistory extends React.PureComponent {
   }
 }
 
-const Container = styled.div`
-  max-width: 800px;
-  padding: 0 16px;
-  overflow-y: auto;
-`
-
 const DateInputContainer = styled.div`
   display: flex;
   align-items: center;
@@ -227,16 +221,20 @@ const DateInput = styled.input`
 const InvalidDateInput = styled.div`
   ${bodyMedium};
   margin-left: 16px;
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
   margin-left: 8px;
 `
 
 const AddNewButton = styled(RaisedButton)`
   margin: 16px 16px 16px 0;
+`
+
+const Container = styled(CenteredContentContainer)`
+  padding-top: 16px;
 `
 
 @connect(state => ({ matchmakingTimes: state.matchmakingTimes }))

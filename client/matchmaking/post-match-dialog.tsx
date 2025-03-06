@@ -32,13 +32,7 @@ import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplay } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
-import {
-  bodySmall,
-  headlineMedium,
-  labelMedium,
-  singleLine,
-  titleLarge,
-} from '../styles/typography'
+import { headlineMedium, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
@@ -624,7 +618,7 @@ const PointsLabelMover = styled.div`
 `
 
 const PointsLabel = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   position: absolute;
   transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
 `

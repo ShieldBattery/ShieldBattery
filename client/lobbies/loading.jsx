@@ -6,7 +6,6 @@ import { gameTypeToLabel } from '../../common/games/game-type'
 import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
 import { shadow1dp } from '../material/shadows'
-import { colorTextSecondary } from '../styles/colors'
 import { HeadlineMedium, headlineMedium, titleMedium } from '../styles/typography'
 import PlayerCard from './player-card'
 
@@ -191,7 +190,7 @@ const LOADING_MESSAGES = [
 const LoadingMessageContent = styled.div`
   ${titleMedium};
   margin-top: 24px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MESSAGE_TIME_MIN = 3000
@@ -243,7 +242,7 @@ const Content = styled.div`
 
 const GameTypeMapBridge = styled.div`
   ${headlineMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   line-height: 40px;
 `
 

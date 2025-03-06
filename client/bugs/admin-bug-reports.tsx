@@ -12,7 +12,6 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -45,7 +44,7 @@ const ButtonWithCheckBox = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const ReportTable = styled.div`

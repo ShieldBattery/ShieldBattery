@@ -16,7 +16,6 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { colorError } from '../styles/colors'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import { MenuItemCategory } from '../users/user-context-menu'
 import {
@@ -250,7 +249,7 @@ const ChannelName = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 function ChannelInfoPage({

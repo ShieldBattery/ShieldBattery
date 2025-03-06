@@ -8,13 +8,13 @@ import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton, useButtonState } from '../material/button'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { bodyMedium, bodySmall, titleLarge } from '../styles/typography'
+import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
 import { LeagueBadge } from './league-badge'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 import { LeagueSectionType } from './league-section-type'
@@ -57,7 +57,7 @@ const LeagueName = styled.div`
 `
 
 const LeagueFormatAndDate = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   padding: 0 16px;
 `
 

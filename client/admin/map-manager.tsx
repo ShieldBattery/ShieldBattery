@@ -10,7 +10,6 @@ import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState, useStableCallback } from '../state-hooks'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
@@ -254,16 +253,16 @@ const StatusContainer = styled.div`
 `
 
 const StyledSuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const SectionTitle = styled.div`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   padding: 4px 0;
 `
@@ -274,7 +273,7 @@ const StyledLoadingIndicator = styled(LoadingIndicator)`
 
 const ErrorText = styled.div`
   ${bodyLarge}
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const WarningText = styled.p`

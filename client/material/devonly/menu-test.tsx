@@ -1,9 +1,8 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
-import { colorTextSecondary } from '../../styles/colors'
-import { bodyLarge } from '../../styles/typography'
+import { labelMedium } from '../../styles/typography'
 import { RaisedButton } from '../button'
-import Card from '../card'
+import { Card } from '../card'
 import { Divider } from '../menu/divider'
 import { MenuItem } from '../menu/item'
 import { MenuList } from '../menu/menu'
@@ -30,10 +29,10 @@ const StyledMenuList = styled(MenuList)`
 `
 
 const Overline = styled.div`
-  ${bodyLarge};
+  ${labelMedium};
   padding: 0 12px;
   margin: 8px 0;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const makeArrayRange = (size: number) => Array.from(Array(size).keys())

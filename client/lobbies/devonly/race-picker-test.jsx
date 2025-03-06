@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Card from '../../material/card'
+import { Card } from '../../material/card'
 import { RacePicker } from '../race-picker'
 import SelectedRace from '../selected-race'
 

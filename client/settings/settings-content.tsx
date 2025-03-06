@@ -1,5 +1,4 @@
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
 import { labelMedium } from '../styles/typography'
 
 export const FormContainer = styled.div`
@@ -12,5 +11,5 @@ export const FormContainer = styled.div`
 
 export const SectionOverline = styled.div`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `

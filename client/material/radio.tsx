@@ -1,6 +1,5 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
 import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'
 import { standardEasing } from './curve-constants'
@@ -18,7 +17,7 @@ const RadioGroupContainer = styled.div`
 
 const RadioOverline = styled.div`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   padding: 4px 0;
 `

@@ -12,7 +12,7 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
-import { bodyLarge, bodySmall, singleLine, titleLarge, titleMedium } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge, titleMedium } from '../styles/typography'
 
 const RankDisplayRoot = styled.div`
   padding: 16px 16px 8px;
@@ -73,7 +73,7 @@ const RankDisplayInfoEntry = styled.div`
 `
 
 const RankDisplayInfoLabel = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   ${singleLine};
   color: var(--theme-on-surface-variant);
 `
@@ -84,7 +84,7 @@ const RankDisplayInfoValue = styled.div`
 `
 
 const RankDisplayPrefix = styled.span`
-  ${bodySmall};
+  ${labelMedium};
 `
 
 export function UserRankDisplay({

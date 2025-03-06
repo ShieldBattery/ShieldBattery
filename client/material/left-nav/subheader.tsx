@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import { colorTextSecondary } from '../../styles/colors'
 import { labelMedium, singleLine } from '../../styles/typography'
 
 const Container = styled.div`
@@ -17,7 +16,7 @@ const Title = styled.div`
   height: 36px;
   margin: 0 16px;
   line-height: 36px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 interface SubheaderProps {

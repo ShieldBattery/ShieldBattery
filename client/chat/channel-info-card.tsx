@@ -6,7 +6,7 @@ import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, RaisedButton } from '../material/button'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
@@ -17,7 +17,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { bodyMedium, bodySmall, titleLarge } from '../styles/typography'
+import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
 import {
   getBatchChannelInfo,
   joinChannelWithErrorHandling,
@@ -69,7 +69,7 @@ export const ChannelName = styled.div`
 `
 
 const ChannelUserCount = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   padding: 0 16px;
 `
 

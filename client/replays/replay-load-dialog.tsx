@@ -9,7 +9,6 @@ import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import { colorError } from '../styles/colors'
 import { bodyLarge } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
@@ -18,7 +17,7 @@ const StyledDialog = styled(Dialog)`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export interface ReplayLoadDialogProps extends CommonDialogProps {

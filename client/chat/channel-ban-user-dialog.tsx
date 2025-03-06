@@ -13,7 +13,6 @@ import { TextField } from '../material/text-field'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
-import { colorError } from '../styles/colors'
 import { bodyLarge } from '../styles/typography'
 import { moderateUser } from './action-creators'
 
@@ -23,7 +22,7 @@ const ErrorsContainer = styled.div`
 
 const ErrorText = styled.span`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 // NOTE(2Pac): We only care about showing a customized message for errors that are actually possible

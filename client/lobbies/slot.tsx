@@ -1,5 +1,4 @@
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
 import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 
 export const RegularSlots = styled.div`
@@ -65,7 +64,7 @@ export const TeamName = styled.div`
   line-height: 24px;
   height: 24px;
   display: block;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   ${Slot} + & {
     margin-top: 8px;

@@ -5,7 +5,7 @@ import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer } from '../styles/colors'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
@@ -42,7 +42,8 @@ const Container = styled.div`
   }
 `
 
-const Surface = styled(animated(CardLayer))<{ $isTopDialog?: boolean }>`
+const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
+  ${containerStyles(ContainerLevel.Normal)}
   width: calc(100% - 160px);
   max-width: 768px;
   max-height: calc(100% - 160px);

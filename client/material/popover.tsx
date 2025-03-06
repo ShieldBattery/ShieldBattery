@@ -10,7 +10,7 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
-import { CardLayer } from '../styles/colors'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { shadow10dp } from './shadows'
 import { defaultSpring } from './springs'
@@ -93,8 +93,9 @@ const Container = styled(animated.div)`
   transform-origin: var(--sb-transform-origin);
 `
 
-const Card = styled(CardLayer)`
+const Card = styled.div`
   ${shadow10dp};
+  ${containerStyles(ContainerLevel.Low)}
   border-radius: 2px;
   contain: content;
 

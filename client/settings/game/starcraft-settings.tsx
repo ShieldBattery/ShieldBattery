@@ -12,7 +12,6 @@ import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { colorError, colorSuccess } from '../../styles/colors'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
@@ -51,11 +50,11 @@ const CurrentPathValue = styled.div`
 `
 
 const ValidIcon = styled(MaterialIcon).attrs({ icon: 'check' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 const InvalidIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const Instructions = styled.div`
@@ -64,7 +63,7 @@ const Instructions = styled.div`
 
 const DetectionFailure = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const AdvancedOverline = styled(LabelMedium)`

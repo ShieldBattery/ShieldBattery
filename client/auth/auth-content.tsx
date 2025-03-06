@@ -3,7 +3,6 @@ import { Label, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { headlineMedium } from '../styles/typography'
 
 export const AuthContent = styled.div`
@@ -37,12 +36,12 @@ export const LoadingArea = styled.div`
 
 export const ErrorsContainer = styled.div`
   flex-grow: 1;
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export const SuccessContainer = styled.p`
   flex-grow: 1;
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 export const AuthBottomAction = styled.div`
@@ -54,7 +53,7 @@ export const AuthBottomAction = styled.div`
 
 export const BottomActionButton = styled(TextButton)`
   & ${Label} {
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
     font-weight: 400;
   }
 `

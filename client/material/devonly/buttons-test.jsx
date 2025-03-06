@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton, RaisedButton, TextButton } from '../button'
-import Card from '../card'
+import { Card } from '../card'
 import { FloatingActionButton } from '../floating-action-button'
 
 const Container = styled.div`

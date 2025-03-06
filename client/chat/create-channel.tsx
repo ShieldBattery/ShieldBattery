@@ -13,7 +13,6 @@ import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { bodyLarge, headlineMedium } from '../styles/typography'
 import { joinChannel, navigateToChannel } from './action-creators'
 
@@ -31,7 +30,7 @@ const Title = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 interface JoinChannelModel {

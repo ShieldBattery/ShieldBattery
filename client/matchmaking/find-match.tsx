@@ -31,7 +31,7 @@ import {
   TitleLarge,
   bodyLarge,
   bodyMedium,
-  bodySmall,
+  labelMedium,
   singleLine,
   titleLarge,
 } from '../styles/typography'
@@ -349,7 +349,7 @@ const RankDisplayInfoEntry = styled.div`
 `
 
 const RankDisplayInfoLabel = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   ${singleLine};
   color: var(--theme-on-surface-variant);
 `

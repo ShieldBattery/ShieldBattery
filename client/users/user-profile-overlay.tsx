@@ -24,7 +24,6 @@ import {
   BodyMedium,
   bodyLarge,
   bodyMedium,
-  bodySmall,
   labelMedium,
   labelSmall,
   singleLine,
@@ -162,7 +161,7 @@ const SectionHeader = styled.div`
 `
 
 const HintText = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   color: var(--theme-on-surface-variant);
 `
 

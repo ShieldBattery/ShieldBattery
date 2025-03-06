@@ -14,7 +14,6 @@ import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { SearchInput } from '../search/search-input'
 import { useValueAsRef } from '../state-hooks'
-import { colorTextSecondary } from '../styles/colors'
 import { labelMedium } from '../styles/typography'
 
 const ENTER = 'Enter'
@@ -77,7 +76,7 @@ function FilterOverlay({ children, onApply }: { children: React.ReactNode; onApp
 
 const SectionOverline = styled.div`
   ${labelMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   margin-top: 8px;
 `
 

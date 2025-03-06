@@ -32,7 +32,6 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
 import {
   adminAddLeague,
@@ -57,7 +56,7 @@ const Title = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const ListRoot = styled.div`
@@ -150,7 +149,7 @@ const FieldLabel = styled.label`
   ${bodyMedium};
   display: block;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const DateInput = styled.input`
@@ -161,7 +160,7 @@ const DateInput = styled.input`
 
 const DateError = styled.div`
   ${bodyMedium};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 // TODO(tec27): Write a real version of this

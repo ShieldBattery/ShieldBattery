@@ -18,7 +18,6 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyLarge } from '../styles/typography'
 import { updateChannel } from './action-creators'
@@ -70,7 +69,7 @@ const BannerButtonsContainer = styled.div`
 
 const ErrorText = styled.span`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const DisabledOverlay = styled.div`
@@ -84,10 +83,6 @@ const DisabledOverlay = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-`
-
-const StyledChannelCardRoot = styled(ChannelCardRoot)`
-  border: 1px solid var(--theme-outline-variant);
 `
 
 interface ChannelSettingsModel {
@@ -281,7 +276,7 @@ export function ChannelSettingsDialog({
             ) : null}
           </FormContainer>
 
-          <StyledChannelCardRoot>
+          <ChannelCardRoot>
             <ChannelBannerAndBadge>
               {bannerUrl ? (
                 <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
@@ -309,7 +304,7 @@ export function ChannelSettingsDialog({
             <ChannelActions>
               <div />
             </ChannelActions>
-          </StyledChannelCardRoot>
+          </ChannelCardRoot>
         </Content>
       </Root>
     </StyledDialog>

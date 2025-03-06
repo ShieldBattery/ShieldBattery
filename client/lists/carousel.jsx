@@ -6,7 +6,6 @@ import WindowListener from '../dom/window-listener'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, Label } from '../material/button'
 import { standardEasing } from '../material/curve-constants'
-import { colorTextSecondary } from '../styles/colors'
 import InfiniteScrollList from './infinite-scroll-list'
 
 const BUTTON_WIDTH = 64
@@ -52,7 +51,7 @@ const CarouselButton = styled(IconButton)`
   margin: 0 8px;
 
   ${Label} {
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
   }
 `
 

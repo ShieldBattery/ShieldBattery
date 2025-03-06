@@ -22,7 +22,6 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
-  bodySmall,
   headlineLarge,
   labelMedium,
   singleLine,
@@ -461,7 +460,7 @@ const TotalGamesText = styled.div`
 `
 
 const WinLossText = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   color: var(--theme-on-surface-variant);
 `
 

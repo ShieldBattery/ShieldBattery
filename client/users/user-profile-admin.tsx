@@ -16,7 +16,7 @@ import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, bodySmall } from '../styles/typography'
+import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, labelMedium } from '../styles/typography'
 import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
 import { ConnectedUsername } from './connected-username'
 
@@ -336,7 +336,7 @@ const BanTable = styled.table`
   }
 
   th {
-    ${bodySmall};
+    ${labelMedium};
     color: var(--theme-on-surface-variant);
   }
 `

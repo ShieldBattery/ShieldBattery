@@ -28,7 +28,7 @@ import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { BodySmall, bodySmall, singleLine, titleLarge } from '../styles/typography'
+import { BodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 
@@ -93,7 +93,7 @@ const StyledTooltipContent = styled(TooltipContent)`
 `
 
 const ChannelTopic = styled.div`
-  ${bodySmall};
+  ${labelMedium};
   ${singleLine};
   color: var(--theme-on-surface-variant);
 

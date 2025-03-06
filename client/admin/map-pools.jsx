@@ -22,7 +22,6 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   clearSearch,
@@ -89,7 +88,7 @@ const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', si
 
 const SectionTitle = styled.div`
   ${bodyLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-secondary);
 `
 
 const DateInputContainer = styled.div`
@@ -104,11 +103,11 @@ const DateInput = styled.input`
 const InvalidDateInput = styled.div`
   ${bodyMedium};
   margin-left: 16px;
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
   margin-left: 8px;
 `
 
@@ -126,7 +125,7 @@ const HistoryContainer = styled.table`
   }
 
   th {
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-secondary);
     text-align: left;
     font-weight: 500;
   }
@@ -153,7 +152,7 @@ const LoadingArea = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export class MapPoolEditor extends React.Component {

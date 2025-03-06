@@ -4,7 +4,6 @@ import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors'
 import { DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 import PlayerCard from './player-card'
 
@@ -42,7 +41,7 @@ const StatusContainer = styled.div`
 
 const StatusText = styled.div`
   ${titleLarge};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const TeamsContainer = styled.div`

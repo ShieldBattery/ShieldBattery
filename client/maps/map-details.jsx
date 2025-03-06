@@ -13,7 +13,6 @@ import { IconButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorTextSecondary } from '../styles/colors'
 import { bodyLarge, bodyMedium, headlineMedium, singleLine } from '../styles/typography'
 import { getMapDetails, updateMap } from './action-creators'
 import { MapThumbnail } from './map-thumbnail'
@@ -33,7 +32,7 @@ const LoadingArea = styled.div`
 
 const ErrorText = styled.div`
   ${bodyLarge};
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const MapInfo = styled.div`
@@ -88,7 +87,7 @@ const MapData = styled.div`
 
 const MapDataItem = styled.div`
   ${bodyMedium};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`

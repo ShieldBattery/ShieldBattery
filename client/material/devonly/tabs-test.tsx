@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { BodyMedium, titleLarge } from '../../styles/typography'
-import Card from '../card'
+import { Card } from '../card'
 import { TabItem, Tabs } from '../tabs'
 
 const Container = styled.div`

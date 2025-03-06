@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
 import { RaisedButton } from './material/button'
-import { colorTextSecondary } from './styles/colors'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { TitleLarge, bodyLarge } from './styles/typography'
@@ -35,7 +34,7 @@ const ErrorInfo = styled.div`
   max-width: 960px;
   margin: 16px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   white-space: pre;
 
   &,
