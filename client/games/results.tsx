@@ -360,6 +360,7 @@ const ComingSoonRoot = styled.div`
   /* 34px + 6px from tab = 40px */
   margin-top: 34px;
   padding: 0 24px;
+  text-align: center;
 `
 
 function ComingSoonPage() {
@@ -404,6 +405,7 @@ const MapContainer = styled.div`
 
 const StyledMapThumbnail = styled(MapThumbnail)`
   ${elevationPlus1};
+  height: auto;
 `
 
 const MapName = styled.div`

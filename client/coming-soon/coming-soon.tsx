@@ -11,7 +11,7 @@ const FundingSection = styled.div`
 `
 
 const SupportLinks = styled.div`
-  display: flex;
+  display: inline-flex;
   align-items: flex-start;
   justify-content: center;
 
