@@ -70,7 +70,7 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
 
   @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
     grid-template-columns:
-      ${props => (props.$sidebarOpen ? 'calc(100vw - 1248px - var(--sb-sidebar-width))' : '0')}
+      ${props => (props.$sidebarOpen ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))' : '0')}
       minmax(min-content, 1fr)
       ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
   }
