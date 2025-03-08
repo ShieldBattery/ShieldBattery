@@ -9,7 +9,7 @@ import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
 
 export function clearNotifications(): ThunkAction {
@@ -35,10 +35,8 @@ export function clearNotifications(): ThunkAction {
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {
-        dispatch(
-          openSnackbar({
-            message: 'An error occurred while clearing notifications',
-          }),
+        externalShowSnackbar(
+          i18n.t('notifications.errors.clear', 'An error occurred while clearing notifications'),
         )
         throw err
       }),
@@ -97,13 +95,11 @@ export function markNotificationsRead(notificationIds: ReadonlyArray<string>): T
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {
-        dispatch(
-          openSnackbar({
-            message: i18n.t(
-              'notifications.errors.markRead',
-              'An error occurred while marking a notification read',
-            ),
-          }),
+        externalShowSnackbar(
+          i18n.t(
+            'notifications.errors.markRead',
+            'An error occurred while marking a notification read',
+          ),
         )
         throw err
       }),

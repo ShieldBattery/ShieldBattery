@@ -38,7 +38,7 @@ import { Dispatchable, dispatch } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -310,11 +310,7 @@ const eventToAction: EventToActionMap = {
     if (user === event.player.name) {
       // We have been kicked from a lobby
       clearCountdownTimer()
-      dispatch(
-        openSnackbar({
-          message: i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'),
-        }),
-      )
+      externalShowSnackbar(i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'))
       dispatch({
         type: LOBBY_UPDATE_KICK_SELF,
       } as any)
@@ -333,11 +329,7 @@ const eventToAction: EventToActionMap = {
     if (user === event.player.name) {
       // It was us who have been banned from a lobby (shame on us!)
       clearCountdownTimer()
-      dispatch(
-        openSnackbar({
-          message: i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'),
-        }) as any,
-      )
+      externalShowSnackbar(i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'))
       dispatch({
         type: LOBBY_UPDATE_BAN_SELF,
       } as any)

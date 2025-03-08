@@ -3,6 +3,7 @@ import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { findMatch } from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
@@ -10,7 +11,8 @@ import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
 
@@ -87,7 +89,13 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
 
     if (!prefs) {
       // TODO(tec27): Request them?
-      dispatch(openSnackbar({ message: 'There was a problem searching for a match' }))
+      externalShowSnackbar(
+        i18n.t(
+          'matchmaking.findMatch.errors.searchAgainError',
+          'There was a problem searching for a match',
+        ),
+        DURATION_LONG,
+      )
       return
     }
 

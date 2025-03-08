@@ -7,7 +7,8 @@ import logger from '../logging/logger'
 import { addLocalNotification } from '../notifications/action-creators'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { sendVerificationEmail } from './action-creators'
 import { useIsLoggedIn, useSelfUser } from './auth-utils'
 
@@ -40,6 +41,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
 export function EmailVerificationWarningContent() {
   const { t } = useTranslation()
 
+  const snackbarController = useSnackbarController()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const selfUserId = selfUser.id
@@ -50,33 +52,28 @@ export function EmailVerificationWarningContent() {
       dispatch(
         sendVerificationEmail(selfUserId, {
           onSuccess: () => {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'auth.emailVerification.emailSent',
-                  'Verification email has been sent successfully.',
-                ),
-                time: TIMING_LONG,
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'auth.emailVerification.emailSent',
+                'Verification email has been sent successfully.',
+              ),
+              DURATION_LONG,
             )
           },
           onError: err => {
             logger.error(`Resending verification email failed: ${String(err?.stack ?? err)}`)
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'auth.emailVerification.sendError',
-                  'Something went wrong while sending a verification email, ' +
-                    'please try again later.',
-                ),
-                time: TIMING_LONG,
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'auth.emailVerification.sendError',
+                'Something went wrong while sending a verification email, please try again later.',
+              ),
+              DURATION_LONG,
             )
           },
         }),
       )
     },
-    [dispatch, selfUserId, t],
+    [dispatch, selfUserId, snackbarController, t],
   )
 
   return (

@@ -33,7 +33,7 @@ import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
@@ -229,6 +229,7 @@ export interface LeagueDetailsProps {
 export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
 
@@ -249,28 +250,22 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       joinLeague(id, {
         onSuccess() {
           setIsJoining(false)
-          dispatch(
-            openSnackbar({ message: t('leagues.leagueDetails.leagueJoined', 'League joined') }),
-          )
+          snackbarController.showSnackbar(t('leagues.leagueDetails.leagueJoined', 'League joined'))
         },
         onError(err) {
           setIsJoining(false)
           if (isFetchError(err) && err.code === LeagueErrorCode.AlreadyEnded) {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'leagues.leagueDetails.leagueEndedError',
-                  "Couldn't join because the league has already ended",
-                ),
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'leagues.leagueDetails.leagueEndedError',
+                "Couldn't join because the league has already ended",
+              ),
             )
           } else {
-            dispatch(
-              openSnackbar({
-                message: t('leagues.leagueDetails.joinError', {
-                  defaultValue: "Couldn't join league: {{errorMessage}}",
-                  errorMessage: isFetchError(err) ? err.statusText : err.message,
-                }),
+            snackbarController.showSnackbar(
+              t('leagues.leagueDetails.joinError', {
+                defaultValue: "Couldn't join league: {{errorMessage}}",
+                errorMessage: isFetchError(err) ? err.statusText : err.message,
               }),
             )
           }

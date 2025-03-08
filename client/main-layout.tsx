@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useId, useRef } from 'react'
+import React, { useId, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -53,7 +53,9 @@ const ALT_S = { keyCode: keycode('s'), altKey: true }
 const SIDEBAR_WIDTH = 320
 
 const Root = styled.div<{ $sidebarOpen?: boolean }>`
-  /* Note: width/height come from global styles */
+  width: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0px));
+  overflow: hidden;
 
   --sb-sidebar-width: ${SIDEBAR_WIDTH}px;
 
@@ -798,6 +800,13 @@ const Sidebar = styled(SocialSidebar)`
 `
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
+  useLayoutEffect(() => {
+    document.body.style.setProperty('--sb-app-bar-height', '64px')
+    return () => {
+      document.body.style.removeProperty('--sb-app-bar-height')
+    }
+  }, [])
+
   useShowEmailVerificationNotificationIfNeeded()
   useShowPolicyNotificationsIfNeeded()
 

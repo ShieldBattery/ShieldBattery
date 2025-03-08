@@ -15,7 +15,8 @@ import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indic
 import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
@@ -45,6 +46,7 @@ const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accou
 function useRelationshipsLoader() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const userId = useAppSelector(s => s.auth.self?.user.id)
 
   useEffect(() => {
@@ -54,10 +56,8 @@ function useRelationshipsLoader() {
         signal: controller.signal,
         onSuccess: () => {},
         onError: () => {
-          dispatch(
-            openSnackbar({
-              message: t('users.errors.friendsList.load', 'Failed to load friends list'),
-            }),
+          snackbarController.showSnackbar(
+            t('users.errors.friendsList.load', 'Failed to load friends list'),
           )
         },
       }),
@@ -66,7 +66,7 @@ function useRelationshipsLoader() {
     return () => {
       controller.abort()
     }
-  }, [dispatch, t, userId])
+  }, [dispatch, snackbarController, t, userId])
 }
 
 enum FriendsListTab {
@@ -309,6 +309,7 @@ type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
 function VirtualizedFriendRequestsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const incomingRequests = useAppSelector(s => s.relationships.incomingRequests)
   const outgoingRequests = useAppSelector(s => s.relationships.outgoingRequests)
@@ -380,18 +381,16 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                     removeFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorRemovingFriendRequest',
-                                'Error removing friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorRemovingFriendRequest',
+                              'Error removing friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -409,18 +408,16 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                     declineFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorDecliningFriendRequest',
-                                'Error declining friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorDecliningFriendRequest',
+                              'Error declining friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -435,18 +432,16 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                     acceptFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorAcceptingFriendRequest',
-                                'Error accepting friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorAcceptingFriendRequest',
+                              'Error accepting friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -458,7 +453,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
         return <FriendEntry userId={row.userId} key={row.userId} actions={actions} />
       }
     },
-    [selfUser.id, t, dispatch],
+    [selfUser.id, t, dispatch, snackbarController],
   )
 
   return rowData.length === 0 ? (

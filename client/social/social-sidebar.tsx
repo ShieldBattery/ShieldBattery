@@ -21,7 +21,8 @@ import SubheaderButton from '../material/left-nav/subheader-button'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
 import { FriendsList } from '../users/friends-list'
 import { closeWhisperSession } from '../whispers/action-creators'
@@ -138,6 +139,7 @@ export function SocialSidebar({
 function ChatContent() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
 
@@ -152,14 +154,12 @@ function ChatContent() {
       closeWhisperSession(userId, {
         onSuccess: () => {},
         onError: err => {
-          dispatch(
-            openSnackbar({
-              message: t('navigation.leftNav.whisperCloseError', {
-                defaultValue: 'Error closing whisper session: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              time: TIMING_LONG,
+          snackbarController.showSnackbar(
+            t('navigation.leftNav.whisperCloseError', {
+              defaultValue: 'Error closing whisper session: {{errorMessage}}',
+              errorMessage: err.message,
             }),
+            DURATION_LONG,
           )
         },
       }),

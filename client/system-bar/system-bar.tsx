@@ -5,7 +5,7 @@ import { useIsAdmin } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Lockup from '../logos/lockup-system-bar-24px.svg'
 import { IconButton } from '../material/button'
-import { zIndexAppBar } from '../material/zindex'
+import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
@@ -25,7 +25,7 @@ const Container = styled.header`
 
   background-color: var(--color-grey-blue20);
   overflow: hidden;
-  z-index: ${zIndexAppBar};
+  z-index: ${zIndexSystemBar};
 
   -webkit-app-region: drag;
 `

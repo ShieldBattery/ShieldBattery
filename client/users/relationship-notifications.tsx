@@ -8,7 +8,7 @@ import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { titleSmall } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
@@ -33,6 +33,7 @@ export const FriendRequestNotificationUi = React.memo(
     const { t } = useTranslation()
     const { notificationId, from } = props
     const dispatch = useAppDispatch()
+    const snackbarController = useSnackbarController()
     const username = useAppSelector(s => s.users.byId.get(from)?.name)
 
     useEffect(() => {
@@ -63,13 +64,11 @@ export const FriendRequestNotificationUi = React.memo(
                 declineFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(
-                      openSnackbar({
-                        message: t(
-                          'users.errors.friendsList.errorDecliningFriendRequest',
-                          'Error declining friend request',
-                        ),
-                      }),
+                    snackbarController.showSnackbar(
+                      t(
+                        'users.errors.friendsList.errorDecliningFriendRequest',
+                        'Error declining friend request',
+                      ),
                     )
                   },
                 }),
@@ -86,13 +85,11 @@ export const FriendRequestNotificationUi = React.memo(
                 acceptFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(
-                      openSnackbar({
-                        message: t(
-                          'users.errors.friendsList.errorAcceptingFriendRequest',
-                          'Error accepting friend request',
-                        ),
-                      }),
+                    snackbarController.showSnackbar(
+                      t(
+                        'users.errors.friendsList.errorAcceptingFriendRequest',
+                        'Error accepting friend request',
+                      ),
                     )
                   },
                 }),

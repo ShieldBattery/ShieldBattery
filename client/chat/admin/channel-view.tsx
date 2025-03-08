@@ -23,7 +23,7 @@ import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
-import { openSnackbar } from '../../snackbars/action-creators'
+import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { useStableCallback } from '../../state-hooks'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
@@ -141,6 +141,7 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
   const [error, setError] = useState<Error>()
 
@@ -242,11 +243,11 @@ export function AdminChannelView({
         spec: {
           onSuccess: () => {
             setIsRemovingBanner(false)
-            dispatch(openSnackbar({ message: 'Banner successfully removed.' }))
+            snackbarController.showSnackbar('Banner successfully removed.')
           },
           onError: err => {
             setIsRemovingBanner(false)
-            dispatch(openSnackbar({ message: 'Something went wrong while removing the banner.' }))
+            snackbarController.showSnackbar('Something went wrong while removing the banner.')
           },
         },
       }),
@@ -265,11 +266,11 @@ export function AdminChannelView({
         spec: {
           onSuccess: () => {
             setIsRemovingBadge(false)
-            dispatch(openSnackbar({ message: 'Badge successfully removed.' }))
+            snackbarController.showSnackbar('Badge successfully removed.')
           },
           onError: err => {
             setIsRemovingBadge(false)
-            dispatch(openSnackbar({ message: 'Something went wrong while removing the badge.' }))
+            snackbarController.showSnackbar('Something went wrong while removing the badge.')
           },
         },
       }),
@@ -296,10 +297,10 @@ export function AdminChannelView({
                   deleteMessageAsAdmin(channelInfo.id, messageId, {
                     onSuccess: () => {
                       setChannelMessages(prev => prev.filter(m => m.id !== messageId))
-                      dispatch(openSnackbar({ message: 'Message deleted' }))
+                      snackbarController.showSnackbar('Message deleted')
                     },
                     onError: () => {
-                      dispatch(openSnackbar({ message: 'Error deleting message' }))
+                      snackbarController.showSnackbar('Error deleting message')
                     },
                   }),
                 )
@@ -311,7 +312,7 @@ export function AdminChannelView({
         return items
       },
     }),
-    [channelInfo, dispatch],
+    [channelInfo, dispatch, snackbarController],
   )
 
   if (error) {

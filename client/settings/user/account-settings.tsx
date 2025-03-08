@@ -32,7 +32,7 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
-import { openSnackbar } from '../../snackbars/action-creators'
+import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { useStableCallback } from '../../state-hooks'
 import {
   BodyLarge,
@@ -282,7 +282,7 @@ interface ChangePasswordFormModel {
 }
 
 export function ChangePasswordDialog(props: CommonDialogProps) {
-  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const { t } = useTranslation()
   const [{ fetching }, changePassword] = useMutation(ChangePasswordMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -336,13 +336,8 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
                 )
               }
             } else {
-              dispatch(
-                openSnackbar({
-                  message: t(
-                    'settings.user.account.changePassword.success',
-                    'Password changed successfully.',
-                  ),
-                }),
+              snackbarController.showSnackbar(
+                t('settings.user.account.changePassword.success', 'Password changed successfully.'),
               )
               onCancel()
             }
@@ -440,7 +435,7 @@ export interface ChangeEmailDialogProps extends CommonDialogProps {
 }
 
 export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
-  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const { t } = useTranslation()
   const [{ fetching }, changeEmail] = useMutation(ChangeEmailMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -493,13 +488,8 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                 )
               }
             } else {
-              dispatch(
-                openSnackbar({
-                  message: t(
-                    'settings.user.account.changeEmail.success',
-                    'Email changed successfully.',
-                  ),
-                }),
+              snackbarController.showSnackbar(
+                t('settings.user.account.changeEmail.success', 'Email changed successfully.'),
               )
               onCancel()
             }

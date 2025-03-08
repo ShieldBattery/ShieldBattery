@@ -6,6 +6,7 @@ import DevPopover from './popover-test'
 import { RadioTest } from './radio-test'
 import DevSelects from './selects-test'
 import DevSliders from './slider-test'
+import { SnackbarTest } from './snackbar-test'
 import { TabsTest } from './tabs-test'
 import DevTextFields from './text-field-test'
 import { TooltipTest } from './tooltip-test'
@@ -34,6 +35,9 @@ function DevMaterialDashboard() {
         <Link href={`${BASE_URL}/slider`}>Slider component</Link>
       </li>
       <li>
+        <Link href={`${BASE_URL}/snackbar`}>Snackbar component</Link>
+      </li>
+      <li>
         <Link href={`${BASE_URL}/tabs`}>Tabs component</Link>
       </li>
       <li>
@@ -55,6 +59,7 @@ export default function DevMaterialRoutes() {
       <Route path={`${BASE_URL}/radio`} component={RadioTest} />
       <Route path={`${BASE_URL}/select`} component={DevSelects as any} />
       <Route path={`${BASE_URL}/slider`} component={DevSliders as any} />
+      <Route path={`${BASE_URL}/snackbar`} component={SnackbarTest} />
       <Route path={`${BASE_URL}/tabs`} component={TabsTest} />
       <Route path={`${BASE_URL}/textfield`} component={DevTextFields as any} />
       <Route path={`${BASE_URL}/tooltip`} component={TooltipTest} />

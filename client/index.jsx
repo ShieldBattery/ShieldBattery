@@ -175,7 +175,7 @@ rootElemPromise
     window.fathom?.trackPageview()
 
     root.render(
-      <RootErrorBoundary>
+      <RootErrorBoundary isVeryTopLevel={true}>
         <ReduxProvider store={store}>
           <Router>
             <>

@@ -1,6 +1,6 @@
 import { createGlobalStyle } from 'styled-components'
 import { THEME_CSS } from './colors'
-import { bodyMedium } from './typography'
+import { bodyMedium, inter } from './typography'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {
@@ -18,10 +18,10 @@ const GlobalStyle = createGlobalStyle`
   }
 
   html {
+    ${inter};
     ${bodyMedium};
 
     accent-color: var(--theme-amber);
-    font-family: Inter, sans-serif;
     font-optical-sizing: auto;
     font-weight: normal;
     color: var(--theme-on-surface);
@@ -57,12 +57,6 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
     padding: 0;
     position: relative;
-    overflow: hidden;
-  }
-
-  #app > div {
-    width: 100%;
-    height: calc(100% - var(--sb-system-bar-height, 0px));
     overflow: hidden;
   }
 

@@ -19,7 +19,7 @@ import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
 import { getServerConfig } from './server-config-storage'
 import { ConnectedSettings } from './settings/settings'
-import ConnectedSnackbar from './snackbars/connected-snackbar'
+import { SnackbarOverlay } from './snackbars/snackbar-overlay'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 
@@ -83,33 +83,20 @@ function useUserSpecificGraphqlClient() {
 
 export default function App() {
   const graphqlClient = useUserSpecificGraphqlClient()
-  const selfUser = useSelfUser()
 
   return (
     <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
       <>
         <ResetStyle />
         <GlobalStyle />
-        <LoadableWindowControls />
-        <LoadableSystemBar />
         <KeyListenerBoundary>
           <RootErrorBoundary>
             <UrqlProvider value={graphqlClient}>
               <FileDropZoneProvider>
                 <React.Suspense fallback={<LoadingDotsArea />}>
-                  <RedirectOnUnauthorized />
-                  <SiteSocketManager />
-                  <Switch>
-                    {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
-                    <Route>
-                      <MainLayout key={selfUser?.id ?? -1}>
-                        <AppRoutes />
-                      </MainLayout>
-                    </Route>
-                  </Switch>
-                  <ConnectedSettings />
-                  <ConnectedSnackbar />
-                  <ConnectedDialogOverlay />
+                  <SnackbarOverlay>
+                    <AppContent />
+                  </SnackbarOverlay>
                 </React.Suspense>
               </FileDropZoneProvider>
             </UrqlProvider>
@@ -118,5 +105,38 @@ export default function App() {
         </KeyListenerBoundary>
       </>
     </StyleSheetManager>
+  )
+}
+
+const AppContent = React.memo(() => {
+  return (
+    <>
+      <LoadableWindowControls />
+      <LoadableSystemBar />
+      <RedirectOnUnauthorized />
+      <SiteSocketManager />
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <Switch>
+          {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
+          <Route>
+            <MainLayoutRoute />
+          </Route>
+        </Switch>
+      </React.Suspense>
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <ConnectedSettings />
+      </React.Suspense>
+      <ConnectedDialogOverlay />
+    </>
+  )
+})
+
+function MainLayoutRoute() {
+  const selfUser = useSelfUser()
+
+  return (
+    <MainLayout key={selfUser?.id ?? -1}>
+      <AppRoutes />
+    </MainLayout>
   )
 }

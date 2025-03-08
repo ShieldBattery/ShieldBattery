@@ -7,7 +7,8 @@ import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { getBestLanguage } from './language-detector'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
@@ -62,14 +63,12 @@ export function changeUserLanguage(
 
       dispatch(maybeChangeLanguageLocally(result.user.locale))
     } catch (err) {
-      dispatch(
-        openSnackbar({
-          message: i18n.t(
-            'auth.language.changeErrorMessage',
-            'Something went wrong when changing the language',
-          ),
-          time: TIMING_LONG,
-        }),
+      externalShowSnackbar(
+        i18n.t(
+          'auth.language.changeErrorMessage',
+          'Something went wrong when changing the language',
+        ),
+        DURATION_LONG,
       )
 
       throw err

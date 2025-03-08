@@ -26,7 +26,7 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
 import { BodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
@@ -138,6 +138,7 @@ export function ChannelHeader({
 }: ChannelHeaderProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const user = useSelfUser()
   const selfPermissions = useSelfPermissions()
 
@@ -210,13 +211,11 @@ export function ChannelHeader({
         {
           onSuccess: () => {},
           onError: err => {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'chat.channelHeader.errors.toggleBannerVisibility',
-                  'Something went wrong toggling the banner visibility',
-                ),
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'chat.channelHeader.errors.toggleBannerVisibility',
+                'Something went wrong toggling the banner visibility',
+              ),
             )
           },
         },

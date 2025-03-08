@@ -4,7 +4,8 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -57,14 +58,12 @@ const eventToChatAction: EventToChatActionMap = {
 
     if (auth.self!.user.id === event.targetId) {
       // It was us who has been kicked from the channel
-      dispatch(
-        openSnackbar({
-          message: i18n.t('chat.events.kick', {
-            defaultValue: 'You have been kicked from {{channelName}}.',
-            channelName: event.channelName,
-          }),
-          time: TIMING_LONG,
+      externalShowSnackbar(
+        i18n.t('chat.events.kick', {
+          defaultValue: 'You have been kicked from {{channelName}}.',
+          channelName: event.channelName,
         }),
+        DURATION_LONG,
       )
       dispatch({
         type: '@chat/updateKickSelf',
@@ -86,14 +85,12 @@ const eventToChatAction: EventToChatActionMap = {
       // It was us who has been banned from the channel
       // TODO(2Pac): Send a notification to the banned user that they've been banned, instead of
       // just showing a snackbar which is easily missed if the user is not looking.
-      dispatch(
-        openSnackbar({
-          message: i18n.t('chat.events.ban', {
-            defaultValue: 'You have been banned from {{channelName}}.',
-            channelName: event.channelName,
-          }),
-          time: TIMING_LONG,
+      externalShowSnackbar(
+        i18n.t('chat.events.ban', {
+          defaultValue: 'You have been banned from {{channelName}}.',
+          channelName: event.channelName,
         }),
+        DURATION_LONG,
       )
       dispatch({
         type: '@chat/updateBanSelf',

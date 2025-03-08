@@ -9,7 +9,9 @@ import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
 
 const Container = styled.div`
-  padding: 0 !important;
+  width: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0px));
+  overflow: hidden;
 `
 
 const DescriptionText = styled.div`

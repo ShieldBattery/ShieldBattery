@@ -7,7 +7,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
 import { isShieldBatteryHealthy } from './is-starcraft-healthy'
@@ -34,13 +34,11 @@ const RescanButton = styled(ElevatedButton)`
 export class ShieldBatteryHealthDialog extends React.Component {
   componentDidUpdate() {
     if (isShieldBatteryHealthy({ starcraft: { shieldBattery: this.props.files } })) {
-      this.props.dispatch(
-        openSnackbar({
-          message: this.props.t(
-            'starcraft.shieldbatteryHealth.noProblems',
-            'Your local installation is now free of problems.',
-          ),
-        }),
+      externalShowSnackbar(
+        this.props.t(
+          'starcraft.shieldbatteryHealth.noProblems',
+          'Your local installation is now free of problems.',
+        ),
       )
       this.props.dispatch(closeDialog(DialogType.ShieldBatteryHealth))
     }

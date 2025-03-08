@@ -19,7 +19,7 @@ import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { ClearMaps, GetMapsListParams } from './actions'
 import { upload } from './upload'
 
@@ -40,13 +40,8 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
         onMapSelect(map)
       },
       () => {
-        dispatch(
-          openSnackbar({
-            message: i18n.t(
-              'maps.local.uploadMapError',
-              'An error occurred while uploading the map',
-            ),
-          }),
+        externalShowSnackbar(
+          i18n.t('maps.local.uploadMapError', 'An error occurred while uploading the map'),
         )
       },
     )
@@ -100,27 +95,23 @@ export function toggleFavoriteMap(map: ReadonlyDeep<MapInfoJson>): ThunkAction {
 
     reqPromise.then(
       () => {
-        dispatch(
-          openSnackbar({
-            message: map.isFavorited
-              ? i18n.t('maps.server.favorites.removed', 'Removed from favorites')
-              : i18n.t('maps.server.favorites.added', 'Added to favorites'),
-          }),
+        externalShowSnackbar(
+          map.isFavorited
+            ? i18n.t('maps.server.favorites.removed', 'Removed from favorites')
+            : i18n.t('maps.server.favorites.added', 'Added to favorites'),
         )
       },
       () => {
-        dispatch(
-          openSnackbar({
-            message: map.isFavorited
-              ? i18n.t(
-                  'maps.server.favorites.removedError',
-                  'An error occurred while removing from favorites',
-                )
-              : i18n.t(
-                  'maps.server.favorites.addedError',
-                  'An error occurred while adding to favorites',
-                ),
-          }),
+        externalShowSnackbar(
+          map.isFavorited
+            ? i18n.t(
+                'maps.server.favorites.removedError',
+                'An error occurred while removing from favorites',
+              )
+            : i18n.t(
+                'maps.server.favorites.addedError',
+                'An error occurred while adding to favorites',
+              ),
         )
       },
     )
@@ -159,20 +150,11 @@ export function regenMapImage(map: Immutable<MapInfoJson>): ThunkAction {
 
     reqPromise.then(
       () => {
-        dispatch(
-          openSnackbar({
-            message: 'Images regenerated',
-          }),
-        )
+        externalShowSnackbar(i18n.t('maps.server.regenerated', 'Images regenerated'))
       },
       () => {
-        dispatch(
-          openSnackbar({
-            message: i18n.t(
-              'maps.server.regenerateError',
-              'An error occurred while regenerating images',
-            ),
-          }),
+        externalShowSnackbar(
+          i18n.t('maps.server.regenerateError', 'An error occurred while regenerating images'),
         )
       },
     )

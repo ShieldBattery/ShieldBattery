@@ -174,10 +174,9 @@ export const THEME_CSS = css`
   --theme-surface: var(--color-blue10);
   --theme-on-surface: var(--color-grey99);
   --theme-on-surface-variant: var(--color-blue95);
-  --theme-inverse-surface: var(--color-blue99);
-  --theme-inverse-on-surface: var(--color-grey10);
-  --theme-inverse-primary: var(--color-blue-40);
-  --theme-inverse-amber: var(--color-amber-60);
+  --theme-inverse-surface: var(--color-blue95);
+  --theme-inverse-on-surface: var(--color-grey-blue10);
+  --theme-inverse-primary: var(--color-blue50);
 
   --theme-outline: var(--color-grey-blue60);
   --theme-outline-variant: var(--color-grey-blue50);

@@ -145,9 +145,6 @@ export const LOBBY_PREFERENCES_UPDATE_BEGIN = 'LOBBY_PREFERENCES_UPDATE_BEGIN'
 // The server has responded with success/failure to us updating the lobby preferences
 export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
 
-export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'
-export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
-
 // An updated validity status for each important ShieldBattery file, indicating whether they are
 // accessible and have the correct contents.
 export const SHIELDBATTERY_FILES_VALIDITY = 'SHIELDBATTERY_FILES_VALIDITY'

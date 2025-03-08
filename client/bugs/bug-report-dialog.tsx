@@ -9,7 +9,7 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
 import { BodyLarge, bodyLarge, labelMedium } from '../styles/typography'
 import { reportBug } from './action-creators'
@@ -41,6 +41,7 @@ interface BugReportFormModel {
 export function BugReportDialog(props: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error>()
@@ -55,9 +56,7 @@ export function BugReportDialog(props: CommonDialogProps) {
           onSuccess: () => {
             setLoading(false)
             props.onCancel()
-            dispatch(
-              openSnackbar({ message: t('bugReport.reportSubmitted', 'Bug report submitted.') }),
-            )
+            snackbarController.showSnackbar(t('bugReport.reportSubmitted', 'Bug report submitted.'))
           },
           onError: err => {
             setLoading(false)

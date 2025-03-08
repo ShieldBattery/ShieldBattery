@@ -7,7 +7,8 @@ import { Chat } from '../messaging/chat'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { UserProfileOverlayContents } from '../users/user-profile-overlay'
@@ -58,6 +59,7 @@ export interface ConnectedWhisperProps {
 export function ConnectedWhisper({ userId, username: usernameFromRoute }: ConnectedWhisperProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const targetUser = useAppSelector(s => s.users.byId.get(userId))
   const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(userId))
@@ -65,10 +67,8 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
 
   useEffect(() => {
     if (selfUser.id === userId) {
-      dispatch(
-        openSnackbar({
-          message: t('whispers.errors.cantWhisperYourself', "You can't whisper with yourself."),
-        }),
+      snackbarController.showSnackbar(
+        t('whispers.errors.cantWhisperYourself', "You can't whisper with yourself."),
       )
       replace('/')
     }
@@ -76,7 +76,7 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
     if (targetUser && usernameFromRoute !== targetUser.name) {
       correctUsernameForWhisper(targetUser.id, targetUser.name)
     }
-  }, [selfUser, userId, targetUser, usernameFromRoute, dispatch, t])
+  }, [selfUser, userId, targetUser, usernameFromRoute, t, snackbarController])
 
   const prevIsSessionOpen = usePrevious(isSessionOpen)
   const prevUserId = usePrevious(userId)
@@ -95,14 +95,12 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
         startWhisperSessionById(userId, {
           onSuccess: () => {},
           onError: err => {
-            dispatch(
-              openSnackbar({
-                message: t('whispers.errors.openSession', {
-                  defaultValue: 'Error opening whisper to user: {{errorMessage}}',
-                  errorMessage: err.message,
-                }),
-                time: TIMING_LONG,
+            snackbarController.showSnackbar(
+              t('whispers.errors.openSession', {
+                defaultValue: 'Error opening whisper to user: {{errorMessage}}',
+                errorMessage: err.message,
               }),
+              DURATION_LONG,
             )
             push('/')
           },
@@ -113,7 +111,7 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
     return () => {
       dispatch(deactivateWhisperSession(userId))
     }
-  }, [isSessionOpen, isClosingWhisper, userId, dispatch, t])
+  }, [isSessionOpen, isClosingWhisper, userId, dispatch, t, snackbarController])
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const onLoadMoreMessages = useStableCallback(() => {
@@ -127,14 +125,12 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
           setIsLoadingHistory(false)
           // TODO(tec27): This would probably be better to show at the position the message loading
           // failed in the message list (and offer a button to retry)
-          dispatch(
-            openSnackbar({
-              message: t('whispers.errors.loadingHistory', {
-                defaultValue: 'Error loading message history: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              time: TIMING_LONG,
+          snackbarController.showSnackbar(
+            t('whispers.errors.loadingHistory', {
+              defaultValue: 'Error loading message history: {{errorMessage}}',
+              errorMessage: err.message,
             }),
+            DURATION_LONG,
           )
         },
       }),
@@ -148,14 +144,12 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
         onError: err => {
           // TODO(tec27): Offer a retry for the same message content? Display it in the message list
           // ala Discord?
-          dispatch(
-            openSnackbar({
-              message: t('whispers.errors.sendingMessage', {
-                defaultValue: 'Error sending message: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              time: TIMING_LONG,
+          snackbarController.showSnackbar(
+            t('whispers.errors.sendingMessage', {
+              defaultValue: 'Error sending message: {{errorMessage}}',
+              errorMessage: err.message,
             }),
+            DURATION_LONG,
           )
         },
       }),

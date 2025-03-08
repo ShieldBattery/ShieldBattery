@@ -18,8 +18,7 @@ import { NumberTextField } from '../material/number-text-field'
 import { TextField } from '../material/text-field'
 import { fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
-import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
 
@@ -306,11 +305,11 @@ export function EditServerRow({
 }
 
 export function AdminRallyPoint() {
-  const dispatch = useAppDispatch()
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const [servers, setServers] = useState<RallyPointServer[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [editing, setEditing] = useState<number>()
+  const snackbarController = useSnackbarController()
 
   const onAddClick = useCallback(() => {
     setIsAdding(true)
@@ -331,11 +330,11 @@ export function AdminRallyPoint() {
           triggerRefresh()
         })
         .catch(err => {
-          dispatch(openSnackbar({ message: 'Error adding server' }))
+          snackbarController.showSnackbar('Error adding server')
           console.error(err)
         })
     },
-    [dispatch, triggerRefresh],
+    [snackbarController, triggerRefresh],
   )
   const onAddCancel = useCallback(() => {
     setIsAdding(false)
@@ -362,11 +361,11 @@ export function AdminRallyPoint() {
           triggerRefresh()
         })
         .catch(err => {
-          dispatch(openSnackbar({ message: 'Error editing server' }))
+          snackbarController.showSnackbar('Error editing server')
           console.error(err)
         })
     },
-    [dispatch, triggerRefresh],
+    [snackbarController, triggerRefresh],
   )
   const onEditCancel = useCallback(() => {
     setEditing(undefined)
@@ -376,10 +375,10 @@ export function AdminRallyPoint() {
     fetchJson<GetRallyPointServersResponse>(apiUrl`admin/rally-point/`)
       .then(data => setServers(data.servers))
       .catch(err => {
-        dispatch(openSnackbar({ message: 'Error retrieving servers' }))
+        snackbarController.showSnackbar('Error retrieving servers')
         console.error(err)
       })
-  }, [dispatch, refreshToken])
+  }, [refreshToken, snackbarController])
 
   return (
     <CenteredContentContainer>

@@ -7,7 +7,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { Dialog } from '../material/dialog'
 import { openSettings } from '../settings/action-creators'
 import { GameSettingsSubPage } from '../settings/settings-sub-page'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { BodyLarge } from '../styles/typography'
 import {
   hasValidStarcraftPath,
@@ -20,13 +20,11 @@ import {
 export default class StarcraftHealthCheckupDialog extends React.Component {
   componentDidUpdate(prevProps) {
     if (isStarcraftHealthy(this.props)) {
-      this.props.dispatch(
-        openSnackbar({
-          message: this.props.t(
-            'starcraft.starcraftHealth.noProblems',
-            'Your local installation is now free of problems.',
-          ),
-        }),
+      externalShowSnackbar(
+        this.props.t(
+          'starcraft.starcraftHealth.noProblems',
+          'Your local installation is now free of problems.',
+        ),
       )
       this.props.dispatch(closeDialog(DialogType.StarcraftHealth))
     }

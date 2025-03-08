@@ -12,7 +12,7 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge } from '../styles/typography'
 import { moderateUser } from './action-creators'
 
@@ -112,6 +112,7 @@ export function ChannelBanUserDialog({
 }: ChannelBanUserDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const user = useAppSelector(s => s.users.byId.get(userId))!
   const [banUserError, setBanUserError] = useState<Error>()
 
@@ -124,12 +125,10 @@ export function ChannelBanUserDialog({
           ChannelModerationAction.Ban,
           {
             onSuccess: () => {
-              dispatch(
-                openSnackbar({
-                  message: t('chat.banUser.successMessage', {
-                    defaultValue: '{{user}} was banned',
-                    user: user.name,
-                  }),
+              snackbarController.showSnackbar(
+                t('chat.banUser.successMessage', {
+                  defaultValue: '{{user}} was banned',
+                  user: user.name,
                 }),
               )
               dispatch(closeDialog(DialogType.ChannelBanUser))
@@ -140,7 +139,7 @@ export function ChannelBanUserDialog({
         ),
       )
     },
-    [dispatch, channelId, user.id, user.name, t],
+    [dispatch, channelId, user.id, user.name, snackbarController, t],
   )
 
   const { onSubmit: handleSubmit, bindInput } = useForm<BanUserModel>(

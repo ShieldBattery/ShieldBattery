@@ -6,6 +6,10 @@ export const singleLine = css`
   text-overflow: ellipsis;
 `
 
+export const inter = css`
+  font-family: Inter, sans-serif;
+`
+
 export const sofiaSans = css`
   font-family: 'Sofia Sans', Inter, sans-serif;
 `

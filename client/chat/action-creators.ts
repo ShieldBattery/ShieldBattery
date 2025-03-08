@@ -27,7 +27,8 @@ import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { RequestCoalescer } from '../network/request-coalescer'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 /**
@@ -83,7 +84,7 @@ export function joinChannelWithErrorHandling(
           logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
         }
 
-        dispatch(openSnackbar({ message, time: TIMING_LONG }))
+        externalShowSnackbar(message, DURATION_LONG)
 
         throw err
       })

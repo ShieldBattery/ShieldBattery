@@ -19,7 +19,7 @@ import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -301,10 +301,8 @@ const eventToAction: EventToActionMap = {
       payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
     })
     dispatch({ type: '@matchmaking/loadingCanceled' })
-    dispatch(
-      openSnackbar({
-        message: i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
-      }),
+    externalShowSnackbar(
+      i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
     )
   },
 
