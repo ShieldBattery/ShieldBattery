@@ -138,6 +138,7 @@ function normalizeExpandedMatchmakingType(type?: string): ExpandedMatchmakingTyp
   }
 }
 
+// FIXME: Show overlay if currently searching for a match/in a match + way to cancel from it
 export function FindMatch() {
   const { t } = useTranslation()
   const [storedLastActiveTab, setLastActiveTab] = useUserLocalStorageValue<ExpandedMatchmakingType>(

@@ -147,21 +147,20 @@ function model1v1ToPrefs(model: Model1v1, userId: SbUserId, mapPoolId: number) {
 export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
-  const prefs: Immutable<MatchmakingPreferences1v1> | Record<string, never> =
-    useAppSelector(
-      s =>
-        s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.preferences as
-          | Immutable<MatchmakingPreferences1v1>
-          | Record<string, never>
-          | undefined,
-    ) ?? {}
+  const prefs = useAppSelector(
+    s =>
+      s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.preferences as
+        | Immutable<MatchmakingPreferences1v1>
+        | Record<string, never>
+        | undefined,
+  )
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.mapPoolOutdated ?? false,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(MatchmakingType.Match1v1))
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
-    [prefs.mapSelections, mapPool],
+    () => (prefs?.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
+    [prefs?.mapSelections, mapPool],
   )
 
   const selfId = selfUser.id
@@ -192,7 +191,7 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
     [disabled, mapPoolId, onSubmit, selfId],
   )
 
-  return (
+  return prefs ? (
     <Form1v1
       ref={formRef}
       disabled={disabled}
@@ -207,5 +206,7 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />
+  ) : (
+    <LoadingDotsArea />
   )
 }

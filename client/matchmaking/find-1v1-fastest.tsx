@@ -158,14 +158,13 @@ function model1v1FastestToPrefs(model: Model1v1Fastest, userId: SbUserId, mapPoo
 export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
-  const prefs: Immutable<MatchmakingPreferences1v1Fastest> | Record<string, never> =
-    useAppSelector(
-      s =>
-        s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1Fastest)?.preferences as
-          | Immutable<MatchmakingPreferences1v1Fastest>
-          | Record<string, never>
-          | undefined,
-    ) ?? {}
+  const prefs = useAppSelector(
+    s =>
+      s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1Fastest)?.preferences as
+        | Immutable<MatchmakingPreferences1v1Fastest>
+        | Record<string, never>
+        | undefined,
+  )
   const mapPoolOutdated = useAppSelector(
     s =>
       s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1Fastest)?.mapPoolOutdated ??
@@ -173,8 +172,8 @@ export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchCon
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(MatchmakingType.Match1v1Fastest))
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
-    [prefs.mapSelections, mapPool],
+    () => (prefs?.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
+    [prefs?.mapSelections, mapPool],
   )
 
   const selfId = selfUser.id
@@ -205,7 +204,7 @@ export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchCon
     [disabled, mapPoolId, onSubmit, selfId],
   )
 
-  return (
+  return prefs ? (
     <Form1v1Fastest
       ref={formRef}
       disabled={disabled}
@@ -220,5 +219,7 @@ export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchCon
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />
+  ) : (
+    <LoadingDotsArea />
   )
 }
