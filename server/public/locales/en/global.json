@@ -221,7 +221,6 @@
     "blurb": "Download the ShieldBattery client to:",
     "download": "Download",
     "downloadClient": "Download client",
-    "exploreMaps": "Explore maps",
     "onlyInApp": "This feature is only available in the app.",
     "playGames": "Play games",
     "supportProjectText": "Want to support the project?",
@@ -419,11 +418,6 @@
       "systemRequirementsAnswer": "<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>",
       "systemRequirementsQuestion": "What are the system requirements to play on ShieldBattery?",
       "title": "Frequently Asked Questions"
-    },
-    "topLinks": {
-      "faq": "FAQ",
-      "home": "Home",
-      "login": "Log in"
     }
   },
   "leagues": {
@@ -610,6 +604,7 @@
       "noOfficialMaps": "No official maps have been uploaded yet.",
       "noResults": "No results.",
       "noUploadedMaps": "You haven't uploaded any maps. You can upload a map by clicking on the browse button below.",
+      "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
       "sortMaps": {
         "option": {
@@ -696,6 +691,7 @@
         "dialogTitle": "Error searching for a match",
         "loadingRank": "There was a problem loading your current rank.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
+        "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :("
       },
       "mapPool": "Map pool",
@@ -722,8 +718,6 @@
       "playerVsPlayer": "vs"
     },
     "navEntry": {
-      "cancelSearch": "Cancel search",
-      "elapsedTime": "Time: ",
       "matchFound": "Match found!",
       "searchingForMatch": "Searching for {{matchmakingType}}"
     },
@@ -766,6 +760,7 @@
       "appMenu": "Menu",
       "home": "Home",
       "play": "Play",
+      "playIngame": "Game in progress",
       "social": "Toggle social (ALT + H)",
       "userMenu": "User menu"
     },
@@ -781,9 +776,11 @@
     },
     "leftNav": {
       "chatChannels": "Chat channels",
+      "customGame": "Custom game",
       "joinChannel": "Join a channel (Alt + H)",
       "loadingChannel": "Loading…",
       "logOut": "Log out",
+      "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
       "startWhisper": "Start a whisper (Alt + W)",
       "viewChangelog": "View changelog",
@@ -798,6 +795,7 @@
       "unread": "Notifications - unread (Alt + N)"
     },
     "errors": {
+      "clear": "An error occurred while clearing notifications",
       "markRead": "An error occurred while marking a notification read"
     },
     "list": {

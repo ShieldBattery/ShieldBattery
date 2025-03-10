@@ -43,6 +43,7 @@ const Buttons = styled.div`
 const ActionButton = styled(TextButton)`
   color: var(--theme-inverse-primary);
   --sb-ripple-color: var(--theme-inverse-primary);
+  font-variation-settings: 'wght' 600;
 `
 
 const CloseButton = styled(IconButton)`
@@ -76,7 +77,7 @@ export function Snackbar({
         {actionLabel ? <ActionButton label={actionLabel} onClick={onAction} /> : undefined}
         <CloseButton
           onClick={onDismiss}
-          icon={<MaterialIcon icon='close' />}
+          icon={<MaterialIcon icon='close' invertColor={true} />}
           aria-label={t('common.actions.close', 'Close')}
         />
       </Buttons>
