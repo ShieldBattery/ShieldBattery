@@ -160,7 +160,7 @@ export interface RippleController {
   /**
    * Tell the ripple that the component it belongs to has been focused.
    */
-  onFocus(): void
+  onFocus(event: React.FocusEvent): void
   /**
    * Tell the ripple that the component it belongs to is no longer focused.
    */
@@ -378,8 +378,10 @@ export const Ripple = React.memo(
           }
         },
 
-        onFocus() {
-          setFocused(true)
+        onFocus(event) {
+          if (event.target.matches(':focus-visible')) {
+            setFocused(true)
+          }
         },
 
         onBlur() {

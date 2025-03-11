@@ -96,8 +96,10 @@ export function useButtonState({
   )
   const handleFocus = useCallback(
     (event: React.FocusEvent) => {
-      setFocused(true)
-      rippleRef.current?.onFocus()
+      if (event.target.matches(':focus-visible')) {
+        setFocused(true)
+      }
+      rippleRef.current?.onFocus(event)
       if (onFocus) {
         onFocus(event)
       }
