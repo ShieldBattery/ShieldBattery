@@ -22,301 +22,36 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
   }
 
   test('message as a normal text', () => {
-    expect(doRender('This is test message')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      This is test message
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('This is test message')).toMatchSnapshot()
   })
 
   test('message with a link', () => {
-    expect(doRender('here is a link http://www.example.com')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      here is a link 
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('here is a link http://www.example.com')).toMatchSnapshot()
   })
 
   test('message with a mention', () => {
-    expect(doRender('hey <@123>')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      hey
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('hey <@123>')).toMatchSnapshot()
   })
 
   test('message with a link before a mention', () => {
-    expect(doRender('http://www.example.com go here <@123>')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-       go here
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('http://www.example.com go here <@123>')).toMatchSnapshot()
   })
 
   test('message with a link between mentions', () => {
-    expect(doRender('hey <@123> see http://www.example.com go here <@123>')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      hey
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-       see 
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-       go here
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('hey <@123> see http://www.example.com go here <@123>')).toMatchSnapshot()
   })
 
   test('message with a mention before a link', () => {
-    expect(doRender('<@123> go to http://www.example.com')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-       go to 
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('<@123> go to http://www.example.com')).toMatchSnapshot()
   })
 
   test('message with a mention between links', () => {
-    expect(doRender('http://www.example.com go here <@123> or here http://www.example.com')).
-toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-       go here
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-       or here 
-      <ExternalLink
-        href="http://www.example.com"
-      >
-        http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(
+      doRender('http://www.example.com go here <@123> or here http://www.example.com'),
+    ).toMatchSnapshot()
   })
 
   test('message with a mention of self user', () => {
-    expect(doRender('Hey <@1>')).toMatchInlineSnapshot(`
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={true}
-    onContextMenu={[Function]}
-    time={0}
-  >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
-      : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      Hey
-       
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={1}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
-`)
+    expect(doRender('Hey <@1>')).toMatchSnapshot()
   })
 })
