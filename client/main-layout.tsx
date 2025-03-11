@@ -960,6 +960,9 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   useShowPolicyNotificationsIfNeeded()
 
   const isLoggedIn = useIsLoggedIn()
+  // FIXME: change to a "pin" state instead. When not pinned, the sidebar is an overly and dismisses
+  // upon any action being taken. When pinned, the sidebar takes up space in the main layout and
+  // stays open unless explicitly dismissed.
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
