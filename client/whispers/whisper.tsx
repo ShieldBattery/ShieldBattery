@@ -42,7 +42,7 @@ const LoadingArea = styled.div`
 
 const UserInfoContainer = styled.div`
   flex-shrink: 0;
-  width: 256px;
+  width: 280px;
   height: calc(100% - 8px);
   margin-bottom: 8px;
 
@@ -51,6 +51,7 @@ const UserInfoContainer = styled.div`
   background: var(--theme-container-low);
   border-radius: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
 `
 
 export interface ConnectedWhisperProps {

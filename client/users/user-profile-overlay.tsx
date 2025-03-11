@@ -62,6 +62,7 @@ const PopoverContents = styled.div`
 
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 `
 
@@ -92,6 +93,7 @@ const ViewProfileHover = styled.div`
 `
 
 const IdentityArea = styled.div`
+  width: 100%;
   height: 64px;
   display: flex;
   align-items: center;
@@ -110,6 +112,7 @@ const AvatarContainer = styled.div`
   position: relative;
   width: 64px;
   height: 64px;
+  flex-shrink: 0;
 `
 
 const AvatarCircle = styled.div`
@@ -132,6 +135,8 @@ const StyledAvatar = styled(ConnectedAvatar)`
 
 const UsernameAndTitle = styled.div`
   flex-grow: 1;
+  flex-shrink: 1;
+  overflow: hidden;
 `
 
 const Username = styled.div`
