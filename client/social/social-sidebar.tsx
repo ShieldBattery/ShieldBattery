@@ -85,6 +85,10 @@ const FriendsListContainer = styled.div`
   flex-direction: column;
 `
 
+const ChatSpacer = styled.div`
+  height: 8px;
+`
+
 export function SocialSidebar({
   className,
   onShowSidebar,
@@ -129,7 +133,10 @@ export function SocialSidebar({
         </Tabs>
       </TabsContainer>
       {activeTab === SocialTab.Chat ? (
-        <ChatContent />
+        <>
+          <ChatSpacer />
+          <ChatContent />
+        </>
       ) : (
         <FriendsListContainer>
           <FriendsList />
@@ -323,7 +330,6 @@ const EntryRoot = styled(Link)<{ $isCurrentPath: boolean; $isActive?: boolean }>
 
   display: flex;
   align-items: center;
-  gap: 16px;
 
   --_state-bg: ${props =>
     props.$isCurrentPath || props.$isActive ? 'var(--theme-grey-blue-container)' : 'transparent'};
@@ -363,8 +369,9 @@ const EntryText = styled.span`
 `
 
 const EntryButton = styled.div`
-  height: 100%;
   flex-shrink: 0;
+  height: 100%;
+  margin-left: 8px;
 
   display: flex;
   align-items: center;
@@ -391,6 +398,7 @@ const EntryIcon = styled.div`
   flex-shrink: 0;
   width: 40px;
   height: 40px;
+  margin-right: 16px;
 `
 
 const EntryRipple = styled(Ripple)`
