@@ -1,6 +1,8 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
+import { SbChannelId } from '../../common/chat'
 import { randomColorForString } from '../avatars/colors'
+import { useAppSelector } from '../redux-hooks'
 import { pickTextColor } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
 
@@ -67,6 +69,7 @@ export function ChannelBadge({ src, channelName, className, testName }: ChannelB
       viewBox='0 0 40 40'
       preserveAspectRatio='xMinYMin meet'
       className={className}
+      data-test={testName}
       style={
         {
           '--sb-badge-color': badgeColor,
@@ -79,5 +82,40 @@ export function ChannelBadge({ src, channelName, className, testName }: ChannelB
         </PlaceholderTextContainer>
       </foreignObject>
     </ChannelBadgePlaceholder>
+  )
+}
+
+const LoadingBadge = styled.div`
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+
+  background-color: var(--theme-skeleton);
+  border-radius: 100%;
+`
+
+export interface ConnectedChannelBadgeProps {
+  channelId: SbChannelId
+  className?: string
+  testName?: string
+}
+
+export function ConnectedChannelBadge({
+  channelId,
+  className,
+  testName,
+}: ConnectedChannelBadgeProps) {
+  const basic = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
+  const detailed = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
+
+  return basic && detailed ? (
+    <ChannelBadge
+      src={detailed.badgePath}
+      channelName={basic.name}
+      className={className}
+      testName={testName}
+    />
+  ) : (
+    <LoadingBadge className={className} data-test={testName} />
   )
 }

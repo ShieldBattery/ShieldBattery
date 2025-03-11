@@ -134,8 +134,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
         const key = event.key ? event.key : String.fromCharCode(event.charCode)
         if (key && key.length === 1) {
-          if (key === ' ' && target.tagName === 'BUTTON') {
-            // Space bar should click the button, rather than doing any of this
+          if (key === ' ' && (target.tagName === 'BUTTON' || target.tagName === 'A')) {
+            // Space bar should click the button/link, rather than doing any of this
             return false
           }
 

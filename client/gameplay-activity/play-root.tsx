@@ -105,6 +105,7 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
     }
   }, [routeTab, lastActiveTab, setLastActiveTab])
 
+  // TODO(tec27): Show different content instead of the normal route if searching for a match?
   return (
     <CenteredContentContainer>
       <ContentGrid>

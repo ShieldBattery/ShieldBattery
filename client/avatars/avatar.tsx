@@ -64,7 +64,7 @@ const LoadingAvatar = styled.div`
   height: auto;
   aspect-ratio: 1 / 1;
 
-  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
+  background-color: var(--theme-skeleton);
   border-radius: 100%;
 `
 

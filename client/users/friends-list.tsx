@@ -512,12 +512,12 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
 
   &:hover {
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
   }
 
   ${props => {
     if (props.$isOverlayOpen) {
-      return 'background-color: rgba(255, 255, 255, 0.08);'
+      return 'background-color: rgb(from var(--theme-on-surface) r g b / 0.08);'
     }
     return ''
   }}

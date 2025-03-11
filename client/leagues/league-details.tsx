@@ -522,7 +522,7 @@ const LeaderboardRowRoot = styled.div`
 
   &:hover {
     &::after {
-      background-color: rgba(255, 255, 255, 0.04);
+      background-color: rgb(from var(--theme-on-surface) r g b / 0.04);
     }
   }
 `

@@ -41,6 +41,8 @@ const LoadingArea = styled.div`
 `
 
 const UserInfoContainer = styled.div`
+  flex-shrink: 0;
+  width: 256px;
   height: calc(100% - 8px);
   margin-bottom: 8px;
 

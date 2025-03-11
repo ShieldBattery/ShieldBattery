@@ -60,11 +60,8 @@ const RippleRoot = styled.div<{
   $activating: boolean
   $deactivating: boolean
 }>`
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
   position: absolute;
+  inset: 0;
 
   contain: strict;
   overflow: hidden;

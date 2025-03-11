@@ -835,7 +835,9 @@ function AppBar({
             </IconButtons>
             {avatarSpace}
           </LeftSideSmall>
-          <MenuItems $breakpoint={breakpoint}>{playButton}</MenuItems>
+          <MenuItems $breakpoint={breakpoint}>
+            <PlayButton />
+          </MenuItems>
         </>
       )}
       <IconButtons>

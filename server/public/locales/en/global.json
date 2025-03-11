@@ -152,6 +152,7 @@
       "userCount_other": "{{count}} members"
     },
     "channelList": {
+      "browseChannels": "Browse channels",
       "createChannel": "Create channel",
       "noMatchingChannels": "No matching chat channels.",
       "pageHeadline": "Chat channels",
@@ -214,6 +215,9 @@
       "active": "Active",
       "idle": "Idle",
       "offline": "Offline"
+    },
+    "whispers": {
+      "startWhisperButton": "Start a whisper"
     }
   },
   "clientDownload": {

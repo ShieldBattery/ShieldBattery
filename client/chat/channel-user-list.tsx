@@ -42,7 +42,6 @@ const userListRow = css`
 
   margin: 0 8px;
   padding: 0 8px;
-  line-height: 36px;
 `
 
 const OVERLINE_HEIGHT = 36 + 24
@@ -52,16 +51,16 @@ const UserListOverline = styled.div<{ $firstOverline: boolean }>`
   ${labelMedium}
   ${userListRow};
   height: ${props => (props.$firstOverline ? FIRST_OVERLINE_HEIGHT : OVERLINE_HEIGHT)}px;
-  color: var(--theme-on-surface-variant);
-
   padding-top: ${props => (props.$firstOverline ? '8px' : '24px')};
+
+  color: var(--theme-on-surface-variant);
+  line-height: 36px;
 `
 
 const StyledAvatar = styled(ConnectedAvatar)`
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
-
-  display: inline-block;
 
   margin: 2px 16px 2px 0;
 `
@@ -71,7 +70,7 @@ const LoadingName = styled.div`
   margin: 8px 0;
   display: inline-block;
 
-  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
+  background-color: var(--theme-skeleton);
   border-radius: 4px;
 `
 
@@ -95,14 +94,17 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
   padding-top: 4px;
   padding-bottom: 4px;
 
+  display: flex;
+  align-items: center;
+
   &:hover {
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
   }
 
   ${props => {
     if (props.$isOverlayOpen) {
-      return 'background-color: rgba(255, 255, 255, 0.08);'
+      return 'background-color: rgb(from var(--theme-on-surface) r g b / 0.08);'
     }
     return ''
   }}
@@ -117,7 +119,8 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
 
 const UserListName = styled.span`
   ${singleLine};
-  display: inline-block;
+  flex-grow: 1;
+  flex-shrink: 1;
 `
 
 interface UserListEntryProps {

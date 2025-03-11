@@ -88,6 +88,7 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   border-radius: 4px;
   background-color: var(--theme-inverse-surface);
   color: var(--theme-inverse-on-surface);
+  font-variation-settings: 'wght' 600;
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
   &::before {
