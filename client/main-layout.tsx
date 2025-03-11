@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useId, useLayoutEffect, useRef } from 'react'
+import React, { MouseEvent, useId, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -15,6 +15,7 @@ import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
 import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
+import { cancelFindMatch } from './matchmaking/action-creators'
 import { ElapsedTime } from './matchmaking/elapsed-time'
 import { isMatchmakingLoading } from './matchmaking/matchmaking-reducer'
 import {
@@ -415,11 +416,49 @@ const MatchmakingSearchPlayContent = styled(PlayButtonContent)`
   white-space: normal;
 `
 
+const HoverOnly = styled.div`
+  display: none;
+`
+
+const SearchInProgressContentRoot = styled(MatchmakingSearchPlayContent)`
+  width: 100%;
+  height: 100%;
+
+  &:hover {
+    & > ${HoverOnly} {
+      display: block;
+    }
+
+    & > :not(${HoverOnly}) {
+      display: none;
+    }
+  }
+`
+
 const StyledElapsedTime = styled(ElapsedTime)`
   ${titleSmall};
 `
 
-function PlayButton({ children }: { children?: React.ReactNode }) {
+function SearchInProgressContent() {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)!
+
+  const onClick = useStableCallback((event: MouseEvent) => {
+    event.preventDefault()
+    dispatch(cancelFindMatch())
+  })
+
+  return (
+    <SearchInProgressContentRoot onClick={onClick}>
+      <span>{matchmakingTypeToLabel(matchmakingSearchInfo.matchmakingType, t)}</span>
+      <StyledElapsedTime startTimeMs={matchmakingSearchInfo.startTime} />
+      <HoverOnly>{t('common.actions.cancel', 'Cancel')}</HoverOnly>
+    </SearchInProgressContentRoot>
+  )
+}
+
+function PlayButton() {
   const { t } = useTranslation()
   const gradientId = useId()
   const shadowId = useId()
@@ -481,7 +520,6 @@ function PlayButton({ children }: { children?: React.ReactNode }) {
       <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
     )
   } else if (matchmakingSearchInfo) {
-    // FIXME: make hovering provide a "cancel" option and handle the click instead
     targetPath = '/play/matchmaking'
     if (matchmakingMatch) {
       content = (
@@ -489,13 +527,9 @@ function PlayButton({ children }: { children?: React.ReactNode }) {
           {t('matchmaking.navEntry.matchFound', 'Match found!')}
         </MatchmakingSearchPlayContent>
       )
-    } else
-      content = (
-        <MatchmakingSearchPlayContent>
-          <span>{matchmakingTypeToLabel(matchmakingSearchInfo.matchmakingType, t)}</span>
-          <StyledElapsedTime startTimeMs={matchmakingSearchInfo.startTime} />
-        </MatchmakingSearchPlayContent>
-      )
+    } else {
+      content = <SearchInProgressContent />
+    }
   }
 
   return (
