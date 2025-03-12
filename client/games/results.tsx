@@ -732,7 +732,14 @@ function MmrChangeText({
 
   const PointsOverview = useCallback(
     (props: { $position: TooltipPosition }) => (
-      <TooltipContent $position={props.$position}>
+      <TooltipContent
+        $position={props.$position}
+        style={
+          {
+            '--theme-positive': 'var(--theme-positive-invert)',
+            '--theme-negative': 'var(--theme-negative-invert)',
+          } as any
+        }>
         <div>
           <div>
             {t('gameDetails.summary.pointsBase', 'Base')}:{' '}

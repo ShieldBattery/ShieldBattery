@@ -80,8 +80,10 @@ const colorSuccess = '#66bb6a'
 
 /** Color used to indicate something positive (e.g. winning). */
 const colorPositive = '#69f0ae'
+const colorPositiveInvert = '#2f6805'
 /** Color used to indicate something negative (e.g. losing). */
 const colorNegative = '#e66060'
+const colorNegativeInvert = '#ae061a'
 
 export const colorZerg = '#c1a3f5'
 export const colorProtoss = '#ead36d'
@@ -198,7 +200,9 @@ export const THEME_CSS = css`
   --theme-success: ${colorSuccess};
 
   --theme-positive: ${colorPositive};
+  --theme-positive-invert: ${colorPositiveInvert};
   --theme-negative: ${colorNegative};
+  --theme-negative-invert: ${colorNegativeInvert};
 
   --theme-color-zerg: ${colorZerg};
   --theme-color-protoss: ${colorProtoss};
