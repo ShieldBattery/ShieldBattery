@@ -722,8 +722,7 @@
       "playerVsPlayer": "vs"
     },
     "navEntry": {
-      "matchFound": "Match found!",
-      "searchingForMatch": "Searching for {{matchmakingType}}"
+      "matchFound": "Match found!"
     },
     "postMatchDialog": {
       "leagues": "Leagues",
@@ -781,12 +780,9 @@
     "leftNav": {
       "chatChannels": "Chat channels",
       "customGame": "Custom game",
-      "joinChannel": "Join a channel (Alt + H)",
-      "loadingChannel": "Loading…",
       "logOut": "Log out",
       "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
-      "startWhisper": "Start a whisper (Alt + W)",
       "viewChangelog": "View changelog",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
