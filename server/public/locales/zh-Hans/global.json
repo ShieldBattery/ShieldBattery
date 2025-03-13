@@ -30,7 +30,8 @@
             "block": "屏蔽",
             "edit": "编辑",
             "reveal": "显示",
-            "submit": "提交"
+            "submit": "提交",
+            "close": "关闭"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -356,7 +357,9 @@
         "downloadClient": "下载客户端",
         "playGames": "畅玩游戏",
         "supportProjectText": "愿意支持我们的项目吗？",
-        "watchReplays": "观看录像"
+        "watchReplays": "观看录像",
+        "download": "下载",
+        "onlyInApp": "该功能仅在应用程序中可用。"
     },
     "clientUpdate": {
         "overlay": {
@@ -439,7 +442,8 @@
                 "loadingRank": "加载您的当前排名时遇到问题。",
                 "matchmakingDisabled": "目前已禁用匹配功能",
                 "somethingWentWrong": "出错了 :(",
-                "dialogTitle": "匹配时遇到错误"
+                "dialogTitle": "匹配时遇到错误",
+                "searchAgainError": "搜索匹配项时出现问题"
             },
             "race": "种族",
             "rating": "评分",
@@ -482,6 +486,9 @@
         },
         "searchingOverlay": {
             "cancelSearch": "取消匹配"
+        },
+        "activity": {
+            "title": "匹配"
         }
     },
     "game": {
@@ -588,7 +595,8 @@
             "createChannel": "创建频道",
             "noMatchingChannels": "未找到匹配的聊天频道。",
             "pageHeadline": "聊天频道",
-            "retrievingError": "检索聊天频道时发生了错误。"
+            "retrievingError": "检索聊天频道时发生了错误。",
+            "browseChannels": "浏览频道"
         },
         "channelMenu": {
             "banAction": "封禁 {{user}}",
@@ -633,6 +641,9 @@
                 "saveErrorMessage": "保存设置时出错",
                 "inappropriateImageErrorMessage": "所选图像不合适。请选择不同的图像。"
             }
+        },
+        "whispers": {
+            "startWhisperButton": "开始私聊"
         }
     },
     "lobbies": {
@@ -782,7 +793,10 @@
                     "small": "小"
                 },
                 "title": "缩略图尺寸"
-            }
+            },
+            "favoritedMaps": "收藏的地图",
+            "regenerated": "图像重新生成",
+            "uploadedMap": "已上传地图"
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",
@@ -828,6 +842,14 @@
             "dialogText": "<0>此链接指向ShieldBattery之外的网站：</0><1>{{link}}</1><2>您确定要访问该网站吗？</2>",
             "openLink": "打开链接",
             "title": "外部链接"
+        },
+        "bar": {
+            "appMenu": "菜单",
+            "home": "家",
+            "play": "玩",
+            "playIngame": "游戏正在进行中……",
+            "social": "切换社交 (ALT + H)",
+            "userMenu": "用户菜单"
         }
     },
     "notifications": {
@@ -839,7 +861,8 @@
             "unread": "未读通知 (Alt + N)"
         },
         "errors": {
-            "markRead": "将通知标记为已读时遇到错误"
+            "markRead": "将通知标记为已读时遇到错误",
+            "clear": "清除通知时出错"
         },
         "list": {
             "title": "通知"
@@ -1129,5 +1152,18 @@
         "logUploadDescription": "您的错误报告将包括您计算机上的 ShieldBattery 日志，以帮助诊断问题。日志最多可保存 30 天，并且只有 ShieldBattery 员工才能查看。",
         "reportSubmitted": "已提交错误报告。",
         "title": "报告错误"
+    },
+    "games": {
+        "activity": {
+            "title": "游戏"
+        }
+    },
+    "social": {
+        "chat": {
+            "label": "聊天"
+        },
+        "friends": {
+            "label": "朋友 ({{friendCount}})"
+        }
     }
 }
