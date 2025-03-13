@@ -24,6 +24,7 @@ test('change password', async ({ context, page }) => {
     email,
   })
 
+  await page.waitForSelector('[data-test=app-bar-user-button]')
   await page.click('[data-test=settings-button]')
   await expect(page.locator('[data-test=email-verification-warning]')).toBeVisible()
 
@@ -57,7 +58,7 @@ test('change password', async ({ context, page }) => {
   await clearLocalState({ context, page })
   await loginPage.navigateTo()
   await loginPage.loginWith(username, 'new-password')
-  await page.waitForSelector('[data-test=left-nav]')
+  await page.waitForSelector('[data-test=app-bar-user-button]')
 })
 
 test('change email', async ({ page }) => {
@@ -72,6 +73,7 @@ test('change email', async ({ page }) => {
     email,
   })
 
+  await page.waitForSelector('[data-test=app-bar-user-button]')
   await page.click('[data-test=notifications-button]')
   await page.waitForSelector('[data-test=email-verification-notification]')
 

@@ -1,7 +1,7 @@
 import { Locator, Page } from '@playwright/test'
-import { LeftNav } from './left-nav'
+import { SocialSidebar } from './social-sidebar'
 
-export class ChatPage extends LeftNav {
+export class ChatPage extends SocialSidebar {
   private readonly buttonHeaderActions: Locator
 
   private readonly buttonChannelSettings: Locator

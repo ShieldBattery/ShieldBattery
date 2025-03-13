@@ -37,7 +37,7 @@ test('sign up and verify email with different user', async ({ context, page }) =
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await page.waitForSelector('[data-test=left-nav]')
+  await page.waitForSelector('[data-test=app-bar-user-button]')
 
   await page.goto(link!)
 

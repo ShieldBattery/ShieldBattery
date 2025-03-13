@@ -119,7 +119,7 @@ export function SocialSidebar({
   })
 
   return (
-    <Root className={className}>
+    <Root className={className} data-test='social-sidebar'>
       <TabsContainer>
         <Tabs activeTab={activeTab} onChange={setActiveTab}>
           <TabItem value={SocialTab.Chat} text={t('social.chat.label', 'Chat')} />
@@ -458,7 +458,7 @@ function Entry({
       onContextMenu={onContextMenu}>
       {icon ? <EntryIcon>{icon}</EntryIcon> : null}
       {needsAttention ? <AttentionIndicator /> : null}
-      <EntryText ref={textRef} title={isOverflowing ? title : undefined}>
+      <EntryText ref={textRef} title={isOverflowing ? title : undefined} data-test='entry-text'>
         {children}
       </EntryText>
       {button ? <EntryButton>{button}</EntryButton> : null}

@@ -2,9 +2,11 @@ import { expect, test } from '@playwright/test'
 import path from 'path'
 import { CHANNEL_BANNERS } from '../../../common/flags'
 import { ChatPage } from '../../pages/chat-page'
+import { HomePage } from '../../pages/home-page'
 import { LoginPage } from '../../pages/login-page'
 
 let loginPage: LoginPage
+let homePage: HomePage
 let chatPage: ChatPage
 
 const TEST_IMAGE_PATH = path.join(__dirname, '..', '..', 'test-image.png')
@@ -17,6 +19,7 @@ const TEST_IMAGE_PATH_INAPPROPRIATE = path.join(
 
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
+  homePage = new HomePage(page)
   chatPage = new ChatPage(page)
 })
 
@@ -27,6 +30,7 @@ test('changing channel banner', async ({ page }) => {
   }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
@@ -49,6 +53,7 @@ test('changing inappropriate channel banner', async ({ page }) => {
   }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
@@ -66,6 +71,7 @@ test('changing channel badge', async ({ page }) => {
   }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
@@ -88,6 +94,7 @@ test('changing inappropriate channel badge', async ({ page }) => {
   }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
@@ -103,6 +110,7 @@ test('changing channel description', async ({ page }) => {
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
@@ -120,6 +128,7 @@ test('changing channel topic', async ({ page }) => {
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
 
   await chatPage.openChannelSettings()
 
