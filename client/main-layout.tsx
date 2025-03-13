@@ -30,6 +30,11 @@ import { Divider } from './material/menu/divider'
 import { MenuItem } from './material/menu/item'
 import { usePopoverController } from './material/popover'
 import { Tooltip } from './material/tooltip'
+import {
+  NavigationMenuItem,
+  NavigationMenuOverlay,
+  useNavigationMenuState,
+} from './navigation/navigation-menu'
 import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
@@ -366,6 +371,15 @@ const PlayButtonRoot = styled.a`
       bottom: 0;
       background: var(--menu-item-fill);
     }
+  }
+
+  @media (max-width: 600px) {
+    /**
+      NOTE(tec27): We assume no device this small will have the ability to play games anyway.
+      This does make it hard to view the current lobby list but I think that's not a huge deal? If
+      it is we can probably throw that into the navigation menu somehow.
+    */
+    display: none;
   }
 `
 
@@ -741,6 +755,8 @@ function AppBar({
   const selfUser = useSelfUser()
   const [breakpointRef, breakpoint] = useBreakpoint(APP_BAR_BREAKPOINTS, AppBarBreakpoint.Normal)
   const [onLoginPage] = useRoute('/login')
+  const [appMenuOpen, onOpenAppMenu, onCloseAppMenu] = useNavigationMenuState('mainLayout.appMenu')
+  const appMenuFocusable = useRef<HTMLAnchorElement>(null)
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const profileEntryRef = useRef<HTMLButtonElement>(null)
@@ -817,124 +833,168 @@ function AppBar({
     </AvatarSpace>
   )
 
-  // FIXME: build app menu for small screens
   return (
-    <AppBarRoot ref={breakpointRef} $breakpoint={breakpoint}>
-      {breakpoint === AppBarBreakpoint.Normal ? (
-        <>
-          {avatarSpace}
-          <MenuItems $breakpoint={breakpoint}>
-            <MenuItemsStart>
-              <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O}>
-                {t('navigation.bar.home', 'Home')}
-              </AppBarMenuItem>
-              <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
-                {t('games.activity.title', 'Games')}
-              </AppBarMenuItem>
-              <AppBarMenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
-                {t('replays.activity.title', 'Replays')}
-              </AppBarMenuItem>
-            </MenuItemsStart>
-            <PlayButton />
-            <MenuItemsEnd>
-              <AppBarMenuItem href='/maps/' routePattern='/maps/*?' flipped={true} hotkey={ALT_M}>
-                {t('maps.activity.title', 'Maps')}
-              </AppBarMenuItem>
-              <AppBarMenuItem
-                href='/ladder/'
-                routePattern='/ladder/*?'
-                flipped={true}
-                hotkey={ALT_D}>
-                {t('ladder.activity.title', 'Ladder')}
-              </AppBarMenuItem>
-              <AppBarMenuItem
-                href='/leagues/'
-                routePattern='/leagues/*?'
-                flipped={true}
-                hotkey={ALT_A}>
-                {t('leagues.activity.title', 'Leagues')}
-              </AppBarMenuItem>
-            </MenuItemsEnd>
-          </MenuItems>
-        </>
-      ) : (
-        <>
-          <LeftSideSmall>
-            <IconButtons>
-              <IconButton
-                icon={<ShadowedIcon icon='menu' />}
-                ariaLabel={t('navigation.bar.appMenu', 'Menu')}
-                testName='app-menu-button'
-              />
-            </IconButtons>
-            {avatarSpace}
-          </LeftSideSmall>
-          <MenuItems $breakpoint={breakpoint}>
-            <PlayButton />
-          </MenuItems>
-        </>
-      )}
-      <IconButtons>
-        <Tooltip
-          text={t('settings.activity.title', 'Settings (Alt + S)')}
-          position='bottom'
-          tabIndex={-1}>
-          <IconButton
-            ref={settingsButtonRef}
-            icon={<ShadowedIcon icon='settings' />}
-            onClick={() => dispatch(openSettings())}
-            testName='settings-button'
-          />
-        </Tooltip>
-        {selfUser ? (
+    <>
+      <AppBarRoot ref={breakpointRef} $breakpoint={breakpoint}>
+        {breakpoint === AppBarBreakpoint.Normal ? (
           <>
-            <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
-            <Tooltip
-              text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
-              position='bottom'
-              tabIndex={-1}>
-              <IconButton
-                ref={chatButtonRef}
-                icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
-                onClick={onToggleSocial}
-                testName='social-sidebar-button'
-              />
-            </Tooltip>
+            {avatarSpace}
+            <MenuItems $breakpoint={breakpoint}>
+              <MenuItemsStart>
+                <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O}>
+                  {t('navigation.bar.home', 'Home')}
+                </AppBarMenuItem>
+                <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
+                  {t('games.activity.title', 'Games')}
+                </AppBarMenuItem>
+                <AppBarMenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
+                  {t('replays.activity.title', 'Replays')}
+                </AppBarMenuItem>
+              </MenuItemsStart>
+              <PlayButton />
+              <MenuItemsEnd>
+                <AppBarMenuItem href='/maps/' routePattern='/maps/*?' flipped={true} hotkey={ALT_M}>
+                  {t('maps.activity.title', 'Maps')}
+                </AppBarMenuItem>
+                <AppBarMenuItem
+                  href='/ladder/'
+                  routePattern='/ladder/*?'
+                  flipped={true}
+                  hotkey={ALT_D}>
+                  {t('ladder.activity.title', 'Ladder')}
+                </AppBarMenuItem>
+                <AppBarMenuItem
+                  href='/leagues/'
+                  routePattern='/leagues/*?'
+                  flipped={true}
+                  hotkey={ALT_A}>
+                  {t('leagues.activity.title', 'Leagues')}
+                </AppBarMenuItem>
+              </MenuItemsEnd>
+            </MenuItems>
           </>
-        ) : undefined}
-      </IconButtons>
-      <SelfProfileOverlay
-        popoverProps={{
-          open: profileOverlayOpen,
-          onDismiss: closeProfileOverlay,
-        }}
-        anchor={profileEntryRef.current}
-        username={selfUser?.name ?? ''}>
-        <MenuItem
-          icon={<MaterialIcon icon='account_box' />}
-          text={t('navigation.leftNav.viewProfile', 'View profile')}
-          onClick={onViewProfileClick}
-        />
-        <MenuItem
-          icon={<MaterialIcon icon='new_releases' />}
-          text={t('navigation.leftNav.viewChangelog', 'View changelog')}
-          onClick={onChangelogClick}
-        />
-        {IS_ELECTRON ? (
+        ) : (
+          <>
+            <LeftSideSmall>
+              <IconButtons>
+                <IconButton
+                  icon={<ShadowedIcon icon='menu' />}
+                  ariaLabel={t('navigation.bar.appMenu', 'Menu')}
+                  testName='app-menu-button'
+                  onClick={onOpenAppMenu}
+                />
+              </IconButtons>
+              {avatarSpace}
+            </LeftSideSmall>
+            <MenuItems $breakpoint={breakpoint}>
+              <PlayButton />
+            </MenuItems>
+          </>
+        )}
+        <IconButtons>
+          <Tooltip
+            text={t('settings.activity.title', 'Settings (Alt + S)')}
+            position='bottom'
+            tabIndex={-1}>
+            <IconButton
+              ref={settingsButtonRef}
+              icon={<ShadowedIcon icon='settings' />}
+              onClick={() => dispatch(openSettings())}
+              testName='settings-button'
+            />
+          </Tooltip>
+          {selfUser ? (
+            <>
+              <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
+              <Tooltip
+                text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
+                position='bottom'
+                tabIndex={-1}>
+                <IconButton
+                  ref={chatButtonRef}
+                  icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
+                  onClick={onToggleSocial}
+                  testName='social-sidebar-button'
+                />
+              </Tooltip>
+            </>
+          ) : undefined}
+        </IconButtons>
+        <SelfProfileOverlay
+          popoverProps={{
+            open: profileOverlayOpen,
+            onDismiss: closeProfileOverlay,
+          }}
+          anchor={profileEntryRef.current}
+          username={selfUser?.name ?? ''}>
           <MenuItem
-            icon={<MaterialIcon icon='bug_report' />}
-            text={t('navigation.leftNav.reportBug', 'Report a bug')}
-            onClick={onReportBugClick}
+            icon={<MaterialIcon icon='account_box' />}
+            text={t('navigation.leftNav.viewProfile', 'View profile')}
+            onClick={onViewProfileClick}
           />
-        ) : undefined}
-        <Divider />
-        <MenuItem
-          icon={<MaterialIcon icon='logout' />}
-          text={t('navigation.leftNav.logOut', 'Log out')}
-          onClick={onLogOutClick}
+          <MenuItem
+            icon={<MaterialIcon icon='new_releases' />}
+            text={t('navigation.leftNav.viewChangelog', 'View changelog')}
+            onClick={onChangelogClick}
+          />
+          {IS_ELECTRON ? (
+            <MenuItem
+              icon={<MaterialIcon icon='bug_report' />}
+              text={t('navigation.leftNav.reportBug', 'Report a bug')}
+              onClick={onReportBugClick}
+            />
+          ) : undefined}
+          <Divider />
+          <MenuItem
+            icon={<MaterialIcon icon='logout' />}
+            text={t('navigation.leftNav.logOut', 'Log out')}
+            onClick={onLogOutClick}
+          />
+        </SelfProfileOverlay>
+      </AppBarRoot>
+      <NavigationMenuOverlay
+        open={appMenuOpen}
+        onClose={onCloseAppMenu}
+        focusableRef={appMenuFocusable}>
+        <NavigationMenuItem
+          href='/'
+          routePattern='/'
+          icon={<MaterialIcon icon='home' />}
+          text={t('navigation.bar.home', 'Home')}
+          ref={appMenuFocusable}
         />
-      </SelfProfileOverlay>
-    </AppBarRoot>
+        <NavigationMenuItem
+          href='/games/'
+          routePattern='/games/*?'
+          icon={<MaterialIcon icon='strategy' />}
+          text={t('games.activity.title', 'Games')}
+        />
+        <NavigationMenuItem
+          href='/replays/'
+          routePattern='/replays/*?'
+          icon={<MaterialIcon icon='movie' />}
+          text={t('replays.activity.title', 'Replays')}
+        />
+        <NavigationMenuItem
+          href='/maps/'
+          routePattern='/maps/*?'
+          icon={<MaterialIcon icon='map' />}
+          text={t('maps.activity.title', 'Maps')}
+        />
+        <NavigationMenuItem
+          href='/ladder/'
+          routePattern='/ladder/*?'
+          icon={<MaterialIcon icon='military_tech' />}
+          text={t('ladder.activity.title', 'Ladder')}
+        />
+        <NavigationMenuItem
+          href='/leagues/'
+          routePattern='/leagues/*?'
+          icon={<MaterialIcon icon='social_leaderboard' />}
+          text={t('leagues.activity.title', 'Leagues')}
+        />
+      </NavigationMenuOverlay>
+    </>
   )
 }
 
@@ -960,9 +1020,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   useShowPolicyNotificationsIfNeeded()
 
   const isLoggedIn = useIsLoggedIn()
-  // FIXME: change to a "pin" state instead. When not pinned, the sidebar is an overly and dismisses
-  // upon any action being taken. When pinned, the sidebar takes up space in the main layout and
-  // stays open unless explicitly dismissed.
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)

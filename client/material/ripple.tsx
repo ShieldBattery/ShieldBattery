@@ -160,7 +160,7 @@ export interface RippleController {
   /**
    * Tell the ripple that the component it belongs to has been focused.
    */
-  onFocus(event: React.FocusEvent): void
+  onFocus(): void
   /**
    * Tell the ripple that the component it belongs to is no longer focused.
    */
@@ -378,14 +378,20 @@ export const Ripple = React.memo(
           }
         },
 
-        onFocus(event) {
-          if (event.target.matches(':focus-visible')) {
-            setFocused(true)
-          }
+        onFocus() {
+          setFocused(true)
         },
 
         onBlur() {
-          setFocused(false)
+          setFocused(f => {
+            console.log(`onBlur, focused=${f}`)
+            return false
+          })
+          // NOTE(tec27): Sometimes blurs occur even though we never saw focus (because we only
+          // usually get notifed of focused for :focus-visible elements). The code expects that we
+          // will still re-render the ripple in this case, but the above `setFocused` call won't
+          // trigger a re-render since it's the same value.
+          forceUpdate()
         },
 
         onMouseEnter() {
@@ -396,7 +402,7 @@ export const Ripple = React.memo(
           setHovered(false)
         },
       }),
-      [disabledRef, animateActivation, maybeRunDeactivation],
+      [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
     )
 
     const isStartingActivation = startActivationRef.current

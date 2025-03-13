@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -83,6 +83,7 @@ export function useButtonState({
 }: ButtonStateProps): ButtonState {
   const [focused, setFocused] = useState(false)
   const rippleRef = useRef<RippleController>(null)
+  const mouseUpIsBlur = useRef(false)
 
   const handleBlur = useCallback(
     (event: React.FocusEvent) => {
@@ -98,8 +99,10 @@ export function useButtonState({
     (event: React.FocusEvent) => {
       if (event.target.matches(':focus-visible')) {
         setFocused(true)
+        rippleRef.current?.onFocus()
+      } else {
+        mouseUpIsBlur.current = true
       }
-      rippleRef.current?.onFocus(event)
       if (onFocus) {
         onFocus(event)
       }
@@ -125,6 +128,10 @@ export function useButtonState({
   )
   const handleMouseUp = useCallback(() => {
     window.removeEventListener('mouseup', handleMouseUp)
+    if (mouseUpIsBlur.current) {
+      mouseUpIsBlur.current = false
+      rippleRef.current?.onBlur()
+    }
     rippleRef.current?.onDeactivate()
   }, [])
   const handleMouseDown = useCallback(
@@ -201,8 +208,8 @@ export function useButtonState({
     [onKeyUp],
   )
 
-  return [
-    {
+  const outputProps = useMemo<ButtonStateAppliedProps>(
+    () => ({
       disabled: disabled === true,
       onBlur: handleBlur,
       onFocus: handleFocus,
@@ -214,9 +221,23 @@ export function useButtonState({
       onKeyDown: handleKeyDown,
       onKeyUp: handleKeyUp,
       $focused: focused,
-    },
-    rippleRef,
-  ]
+    }),
+    [
+      disabled,
+      focused,
+      handleBlur,
+      handleClick,
+      handleFocus,
+      handleKeyDown,
+      handleKeyUp,
+      handleMouseDown,
+      handleMouseEnter,
+      handleMouseLeave,
+      onDoubleClick,
+    ],
+  )
+
+  return [outputProps, rippleRef]
 }
 
 export interface HotkeyProp {
