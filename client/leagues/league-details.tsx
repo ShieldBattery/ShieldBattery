@@ -477,6 +477,7 @@ const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
 const LeaderboardRoot = styled.div`
   border: 1px solid var(--theme-outline-variant);
   border-radius: 4px;
+  contain: content;
 `
 
 const LeaderboardHeaderRow = styled.div`
