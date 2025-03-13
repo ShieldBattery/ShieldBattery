@@ -30,7 +30,8 @@
             "test": "테스트",
             "edit": "편집",
             "reveal": "노출",
-            "submit": "제출하다"
+            "submit": "제출하다",
+            "close": "닫다"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -356,7 +357,9 @@
         "playGames": "게임하기",
         "supportProjectText": "프로젝트를 지원하고 싶습니까?",
         "watchReplays": "다시보기",
-        "andMore": "추가로!"
+        "andMore": "추가로!",
+        "download": "다운로드",
+        "onlyInApp": "이 기능은 앱에서만 사용할 수 있습니다."
     },
     "clientUpdate": {
         "overlay": {
@@ -434,7 +437,8 @@
                 "dialogTitle": "게임 검색 오류",
                 "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
-                "somethingWentWrong": "문제가 발생했습니다 :("
+                "somethingWentWrong": "문제가 발생했습니다 :(",
+                "searchAgainError": "매치를 검색하는 중 문제가 발생했습니다."
             },
             "mapPool": "맵 풀",
             "points": "포인트",
@@ -482,6 +486,9 @@
             "2v2": "2v2",
             "3v3": "3v3",
             "1v1fastest": "1대1 가장 빠름"
+        },
+        "activity": {
+            "title": "결혼 중매"
         }
     },
     "game": {
@@ -644,7 +651,8 @@
             "createChannel": "채널 만들기",
             "noMatchingChannels": "일치하는 채팅 채널이 없습니다.",
             "pageHeadline": "채팅 채널",
-            "retrievingError": "채팅 채널을 찾는 중에 오류가 발생했습니다."
+            "retrievingError": "채팅 채널을 찾는 중에 오류가 발생했습니다.",
+            "browseChannels": "채널 탐색"
         },
         "channelMenu": {
             "banAction": "차단 {{user}}",
@@ -714,6 +722,9 @@
                 "saveErrorMessage": "설정을 저장하는 중에 문제가 발생했습니다.",
                 "inappropriateImageErrorMessage": "선택한 이미지가 부적절합니다. 다른 이미지를 선택하세요."
             }
+        },
+        "whispers": {
+            "startWhisperButton": "귓속말을 시작하세요"
         }
     },
     "starcraft": {
@@ -802,7 +813,10 @@
                 "title": "필터 옵션"
             },
             "noCommunityMaps": "아직 커뮤니티에서 공개한 맵이 없습니다.",
-            "noResults": "결과가 없습니다."
+            "noResults": "결과가 없습니다.",
+            "uploadedMap": "업로드된 지도",
+            "favoritedMaps": "즐겨찾는 지도",
+            "regenerated": "이미지가 재생성됨"
         },
         "thumbnail": {
             "addToFavorites": "즐겨 찾기에 추가",
@@ -883,6 +897,14 @@
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
             "reportBug": "버그 신고"
+        },
+        "bar": {
+            "userMenu": "사용자 메뉴",
+            "appMenu": "메뉴",
+            "home": "집",
+            "play": "놀다",
+            "playIngame": "게임 진행 중",
+            "social": "소셜 토글(ALT + H)"
         }
     },
     "users": {
@@ -1050,7 +1072,8 @@
             "unread": "알림 - 읽지 않음(Alt + N)"
         },
         "errors": {
-            "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다"
+            "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다",
+            "clear": "알림 삭제 중 오류가 발생했습니다."
         },
         "list": {
             "title": "알림"
@@ -1129,5 +1152,18 @@
         "logUploadDescription": "버그 보고서에는 문제 진단에 도움이 되는 컴퓨터의 ShieldBattery 로그가 포함됩니다. 로그는 최대 30일 동안 보관될 수 있으며 ShieldBattery 직원만 볼 수 있습니다.",
         "reportSubmitted": "버그 보고서가 제출되었습니다.",
         "title": "버그 신고"
+    },
+    "games": {
+        "activity": {
+            "title": "계략"
+        }
+    },
+    "social": {
+        "chat": {
+            "label": "채팅"
+        },
+        "friends": {
+            "label": "친구들 ({{friendCount}})"
+        }
     }
 }
