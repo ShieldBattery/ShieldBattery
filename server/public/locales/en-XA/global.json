@@ -326,46 +326,28 @@
         }
     },
     "landing": {
-        "topLinks": {
-            "home": "$🗡Home🗡!"
-        },
         "splash": {
             "features": {
                 "teamMeleeReplaysDescription": "$🗡Play back any games played in Team Melee mode on ShieldBattery!🗡!",
-                "rankedLadderTitle": "$🗡Ranked ladder🗡!",
                 "remasteredSupportTitle": "$🗡StarCraft: Remastered support🗡!",
-                "webClientDescription": "$🗡Keep up with your friends (and enemies) without needing to install anything.🗡!",
                 "cloudHostingTitle": "$🗡Cloud-based map distribution and hosting🗡!",
-                "friendsListDescription": "$🗡Track when your friends are online, easily send them messages and invite them to games.🗡!",
                 "improvedNetcodeDescription": "$🗡Less lag, drops, and packet loss!🗡!",
-                "leaguesDescription": "$🗡Participate in exciting limited-time leagues organized by the community and facilitated by automated matchmaking.🗡!",
                 "matchmakingDescription": "$🗡Find matches quickly and easily, by yourself or with an arranged team.🗡!",
-                "partiesTitle": "$🗡Parties🗡!",
                 "fixesBugsExploitsDescription": "$🗡Avoid the hacks and exploits that plague the official servers. Things like worker duplication, mineral hacks, and permanently floating workers are a thing of the past here.🗡!"
             },
-            "featuresTitle": "$🗡Features🗡!",
             "linksHeader": "$🗡Links🗡!",
             "comingSoon": {
-                "3v3Description": "$🗡Easily find games for 3v3, with arranged or random teams.🗡!",
                 "automatedTournamentsDescription": "$🗡Find tournaments and leagues that match your skill level, run automatically.🗡!",
-                "builtInMapmakingDescription": "$🗡Destructible rocks, ideal worker starting positions, advanced creep placement, and more!🗡!",
                 "cloudReplaysDescription": "$🗡Automatic uploading for replays. Share them with others, watch them from anywhere!🗡!",
-                "fpReplaysDescription": "$🗡Record mouse and screen movements and play them back for all players.🗡!",
                 "liveStreamingDescription": "$🗡Jump into in-progress matches and watch them live, with all the benefits of ingame observing.🗡!",
-                "pixelScalingDescription": "$🗡Improve the look of SD graphics on modern screens with custom scaling algorithms🗡!",
                 "playerProfilesTitle": "$🗡Player profiles and statistics🗡!",
-                "sandboxModeDescription": "$🗡Test out new builds, practice your worker split, improve your micro.🗡!",
                 "umsPortalDescription": "$🗡Find and explore UMS maps with ease, then quickly gather players and get the game started.🗡!",
-                "cloudReplaysTitle": "$🗡Cloud-synced replays🗡!",
                 "playerProfilesDescription": "$🗡Check out your skills across different matchups and maps, find ways to improve, and see how you stack up against the competition.🗡!"
             },
-            "comingSoonTitle": "$🗡In the pipe <1>(coming soon)</1>🗡!",
             "benefits": {
                 "communityFirstTitle": "$🗡Community first🗡!",
-                "tacticallyFaithfulText": "$🗡Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We're keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.🗡!",
                 "fullPotentialText": "$🗡StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.🗡!"
-            },
-            "blurb": "$🗡ShieldBattery is the first community-run server that supports <2>StarCraft: Remastered.</2> Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!🗡!"
+            }
         },
         "bottomLinks": {
             "acceptableUsePolicy": "$🗡Acceptable Use Policy🗡!",
@@ -514,7 +496,6 @@
             "playerVsPlayer": "$🗡vs🗡!"
         },
         "navEntry": {
-            "elapsedTime": "$🗡Time: 🗡! ",
             "matchFound": "$🗡Match found!🗡!"
         },
         "postMatchDialog": {
@@ -528,9 +509,6 @@
         },
         "searchingOverlay": {
             "cancelSearch": "$🗡Cancel search🗡!"
-        },
-        "activity": {
-            "findMatch": "$🗡Find match🗡!"
         }
     },
     "chat": {
@@ -884,7 +862,6 @@
         "leftNav": {
             "chatChannels": "$🗡Chat channels🗡!",
             "customGame": "$🗡Custom game🗡!",
-            "joinChannel": "$🗡Join a channel (Alt + H)🗡!",
             "lobby": "$🗡Lobby🗡!",
             "logOut": "$🗡Log out🗡!",
             "rankedGame": "$🗡Ranked {{matchmakingType}}🗡!",

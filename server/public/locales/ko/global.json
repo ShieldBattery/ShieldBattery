@@ -324,9 +324,6 @@
         }
     },
     "landing": {
-        "topLinks": {
-            "home": "홈"
-        },
         "faq": {
             "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있습니까?",
             "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery에서 해당 단축키를 사용합니다.",
@@ -354,40 +351,25 @@
         },
         "splash": {
             "comingSoon": {
-                "expandedChatDescription": "감정 표현, 제작맵, 경기, 리플레이 등을 사용하여 자신을 표현하세요!",
                 "liveStreamingTitle": "실시간 매치 스트리밍",
-                "automatedTournamentsDescription": "수준에 맞는 토너먼트와 리그를 찾고 자동으로 실행됩니다.",
                 "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 일꾼 시작 위치, 고급 크립 배치 등!",
-                "cloudReplaysDescription": "리플레이 자동 업로드. 다른 사람과 공유하고 어디서나 시청하세요!",
                 "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
-                "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다",
                 "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요.",
-                "replayAnalysisDescription": "BWChart와 같은 리플레이 분석 및 고급 통계 및 차트 작성을 기본적으로 지원합니다.",
                 "sandboxModeDescription": "새 빌드를 테스트하고, 일꾼 나누기 연습을 하고, 컨트롤을 연습하십시오.",
-                "umsPortalDescription": "쉽게 유즈맵을 찾고 탐색한 다음 빠르게 플레이어를 모아 게임을 시작하세요.",
                 "3v3Title": "3v3 매치메이킹"
             },
             "benefits": {
-                "communityFirstTitle": "커뮤니티 우선",
-                "fullPotentialTitle": "전체 잠재력 잠금 해제",
-                "tacticallyFaithfulTitle": "전술적으로 충실하다"
+                "fullPotentialTitle": "전체 잠재력 잠금 해제"
             },
             "features": {
                 "rankedLadderTitle": "래더 순위",
-                "cloudHostingTitle": "클라우드 기반 지도 배포 및 호스팅",
                 "fixesBugsExploitsTitle": "버그 및 핵에 대한 수정",
-                "friendsListTitle": "친구 목록",
                 "improvedNetcodeTitle": "향상된 넷코드",
-                "leaguesTitle": "오픈 리그",
                 "matchmakingTitle": "1v1 및 2v2 매치메이킹",
-                "partiesTitle": "파티",
                 "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다.",
-                "teamMeleeReplaysDescription": "ShieldBattery에서 진행한 팀밀리 게임을 다시 재생해보세요!",
                 "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요."
             },
-            "comingSoonTitle": "파이프 <1>(출시 예정)</1>",
             "featuresTitle": "기능",
-            "linksHeader": "링크",
             "tagline": "최고의 커뮤니티 운영 플랫폼에서 스타크래프트 1을 플레이하세요"
         }
     },
@@ -504,8 +486,7 @@
             "title": "매치메이킹 비활성화됨"
         },
         "navEntry": {
-            "matchFound": "일치하는 항목을 찾았습니다!",
-            "cancelSearch": "검색 취소"
+            "matchFound": "일치하는 항목을 찾았습니다!"
         },
         "postMatchDialog": {
             "leagues": "리그",
@@ -524,9 +505,6 @@
             "2v2": "2v2",
             "3v3": "3v3",
             "1v1fastest": "1대1 가장 빠름"
-        },
-        "activity": {
-            "findMatch": "일치하는 항목 찾기"
         }
     },
     "game": {
@@ -921,7 +899,6 @@
         "leftNav": {
             "chatChannels": "채팅 채널",
             "customGame": "커스텀 게임",
-            "joinChannel": "채널 참여(Alt + H)",
             "lobby": "로비",
             "logOut": "로그 아웃",
             "rankedGame": "순위 {{matchmakingType}}",
@@ -929,7 +906,6 @@
             "viewProfile": "프로필보기",
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
-            "home": "집",
             "reportBug": "버그 신고"
         }
     },

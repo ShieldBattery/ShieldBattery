@@ -221,9 +221,6 @@
         }
     },
     "landing": {
-        "topLinks": {
-            "login": "登录"
-        },
         "faq": {
             "linuxSupportAnswer": "<0>目前我们尚未对此提供官方支持，</0><1>但有社区用户提供了ShieldBattery与Wine的整合包。请访问我们的<2>Discord</2>，了解如何在Wine上运行ShieldBattery。</1>",
             "officialSupportAnswer": "不，ShieldBattery由社区爱好者进行开发，没有得到暴雪的官方支持或认可。",
@@ -251,40 +248,25 @@
         },
         "splash": {
             "benefits": {
-                "communityFirstText": "ShieldBattery是属于所有《星际争霸》玩家与观众的活动中心。聊天界面显眼易用，轻松就可开始游玩，您的游戏体验是我们的第一事项。无论您是1998年还是这周刚刚开始玩星际，这里都是您的家。",
-                "fullPotentialText": "《星际争霸》作为电子竞技拥有辉煌的历史，而ShieldBattery将为您提供配得上这款伟大游戏的竞技与观战体验。ShieldBattery是社区驱动的开源项目，旨在为玩家提供最新最尖端的功能和游戏乐趣。这是《星际争霸》玩家社区掀起的一场革命。",
-                "tacticallyFaithfulTitle": "忠于原作"
+                "fullPotentialText": "《星际争霸》作为电子竞技拥有辉煌的历史，而ShieldBattery将为您提供配得上这款伟大游戏的竞技与观战体验。ShieldBattery是社区驱动的开源项目，旨在为玩家提供最新最尖端的功能和游戏乐趣。这是《星际争霸》玩家社区掀起的一场革命。"
             },
             "comingSoon": {
                 "3v3Title": "3v3匹配",
-                "playerProfilesTitle": "玩家档案和统计数据",
                 "replayAnalysisTitle": "录像分析",
-                "3v3Description": "轻松匹配3v3，无论是固定队伍还是随机队伍。",
                 "automatedTournamentsTitle": "自动化锦标赛与联赛",
-                "cloudReplaysDescription": "游戏录像自动上传，随时随地观看、分享！",
                 "expandedChatDescription": "使用表情、嵌入地图、比赛和录像尽情表达自己！",
-                "fpReplaysDescription": "所有玩家鼠标和屏幕的移动都会被记录，可以进行回放。",
                 "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。",
-                "pixelScalingDescription": "使用自定义缩放算法，改善现代显示屏上旧版图像的显示",
-                "sandboxModeTitle": "训练/沙盒模式",
-                "umsPortalTitle": "RPG门户"
+                "sandboxModeTitle": "训练/沙盒模式"
             },
             "features": {
                 "rankedLadderTitle": "天梯排位",
-                "cloudHostingDescription": "游玩官方地图库中的任何地图，或上传您自己的地图。您可以上传您喜爱的地图，与您的朋友分享，在其他电脑上也可以随时用它们建立游戏。",
                 "fixesBugsExploitsTitle": "修复错误和恶性bug",
-                "friendsListTitle": "好友列表",
                 "improvedNetcodeTitle": "网络代码改进",
-                "leaguesTitle": "公开联赛",
                 "matchmakingTitle": "1v1与2v2自动匹配",
-                "partiesTitle": "组队",
                 "remasteredSupportTitle": "支持重制版",
-                "teamMeleeReplaysTitle": "队伍对战录像",
                 "webClientTitle": "网页版聊天客户端"
             },
-            "comingSoonTitle": "尚未问世<1>（即将推出）</1>",
             "featuresTitle": "我们的优势",
-            "linksHeader": "链接",
             "tagline": "在最先进的社区运营平台上畅玩《星际争霸1》"
         }
     },
@@ -459,9 +441,6 @@
             "removedFromQueue": "您没有及时点击“我准备好了”，因此已被移除匹配队列。",
             "returningToQueue": "部分玩家没有及时准备好或加载失败。正在返回匹配队列……"
         },
-        "activity": {
-            "findMatch": "寻找对手"
-        },
         "disabledCard": {
             "description": "因维护和开发的需要，匹配功能有时会关闭。匹配功能目前已禁用。下一次匹配时段是：",
             "hours": "小时",
@@ -522,7 +501,6 @@
             "playerVsPlayer": "对"
         },
         "navEntry": {
-            "elapsedTime": "时间： ",
             "matchFound": "匹配成功！"
         },
         "searchingOverlay": {
@@ -857,7 +835,6 @@
             "customGame": "自定义游戏",
             "whispers": "私聊",
             "chatChannels": "聊天频道",
-            "loadingChannel": "加载中…",
             "lobby": "房间",
             "logOut": "登出",
             "rankedGame": "{{matchmakingType}}排位",

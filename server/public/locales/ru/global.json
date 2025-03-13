@@ -225,45 +225,27 @@
         }
     },
     "landing": {
-        "topLinks": {
-            "home": "Дом"
-        },
         "splash": {
             "featuresTitle": "Функции",
-            "linksHeader": "Ссылки",
             "tagline": "Играйте в StarCraft 1 на ведущей платформе сообщества",
             "features": {
-                "cloudHostingTitle": "Облачное распространение карт и хостинг",
                 "fixesBugsExploitsTitle": "Исправления ошибок и эксплойтов",
-                "friendsListTitle": "Список друзей",
                 "improvedNetcodeTitle": "Улучшенный сетевой код",
-                "leaguesTitle": "Открытые лиги",
                 "matchmakingTitle": "Подбор игроков 1 на 1 и 2 на 2",
-                "partiesTitle": "Стороны",
                 "rankedLadderTitle": "Рейтинговая лестница",
-                "remasteredSupportTitle": "StarCraft: обновленная поддержка",
-                "teamMeleeReplaysTitle": "Повторы рукопашной схватки рабочей команды",
-                "webClientTitle": "Веб-чат-клиент"
+                "teamMeleeReplaysTitle": "Повторы рукопашной схватки рабочей команды"
             },
             "comingSoon": {
                 "automatedTournamentsTitle": "Автоматизированные турниры и лиги",
-                "builtInMapmakingTitle": "Новые встроенные функции картографирования",
                 "pixelScalingTitle": "Настраиваемое масштабирование пикселей",
-                "playerProfilesTitle": "Профили игроков и статистика",
                 "replayAnalysisTitle": "Повторный анализ",
-                "sandboxModeTitle": "Режим обучения/песочницы",
                 "umsPortalTitle": "Используйте портал настроек карты",
-                "cloudReplaysDescription": "Автоматическая загрузка повторов. Поделитесь ими с другими, смотрите их из любого места!",
                 "expandedChatDescription": "Выражайте себя с помощью эмоций, встраивайте карты, матчи, повторы и многое другое!",
-                "fpReplaysDescription": "Записывайте движения мыши и экрана и воспроизводите их для всех игроков.",
-                "liveStreamingDescription": "Присоединяйтесь к текущим матчам и смотрите их в прямом эфире, используя все преимущества наблюдения за игрой.",
-                "3v3Description": "Легко находите игры 3 на 3, с организованными или случайными командами."
+                "liveStreamingDescription": "Присоединяйтесь к текущим матчам и смотрите их в прямом эфире, используя все преимущества наблюдения за игрой."
             },
             "disclaimerText": "StarCraft является зарегистрированным товарным знаком Blizzard Entertainment, Inc. ShieldBattery разработана исключительно членами сообщества, не связанными с Blizzard, и официально не одобрена и не поддерживается Blizzard.",
             "benefits": {
-                "communityFirstTitle": "Сначала сообщество",
-                "fullPotentialTitle": "Полный потенциал раскрыт",
-                "tacticallyFaithfulTitle": "Тактически верный"
+                "fullPotentialTitle": "Полный потенциал раскрыт"
             }
         },
         "faq": {
@@ -481,9 +463,6 @@
             "title": "Сватовство отключено",
             "hours": "Часы"
         },
-        "activity": {
-            "findMatch": "Найти совпадение"
-        },
         "match": {
             "gameFailedToLoad": "Не удалось загрузить игру.",
             "gameInProgress": "Идет игра…",
@@ -492,7 +471,6 @@
             "playerVsPlayer": "против"
         },
         "navEntry": {
-            "elapsedTime": "Время: ",
             "matchFound": "Совпадение найдено!"
         },
         "postMatchDialog": {
@@ -728,7 +706,6 @@
             "customGame": "Пользовательская игра",
             "whisperCloseError": "Ошибка закрытия сеанса шепота: {{errorMessage}}",
             "whispers": "шепот",
-            "joinChannel": "Присоединиться к каналу (Alt + H)",
             "lobby": "Лобби",
             "reportBug": "Сообщить об ошибке"
         },

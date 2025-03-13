@@ -328,9 +328,6 @@
         }
     },
     "landing": {
-        "topLinks": {
-            "home": "Hogar"
-        },
         "faq": {
             "hotkeyCustomizationAnswer": "Sí, admitimos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas de acceso rápido. Si desea utilizar teclas de acceso rápido personalizadas, inicie StarCraft: Remastered a través del lanzador de Blizzard y personalícelas allí primero. Después de hacerlo, los lanzamientos futuros a través de ShieldBattery usarán esas teclas de acceso rápido.",
             "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
@@ -353,40 +350,25 @@
         },
         "splash": {
             "benefits": {
-                "fullPotentialTitle": "Todo el potencial desbloqueado",
-                "tacticallyFaithfulTitle": "Tácticamente fiel",
-                "communityFirstTitle": "La comunidad primero"
+                "tacticallyFaithfulTitle": "Tácticamente fiel"
             },
             "comingSoon": {
                 "3v3Description": "Encuentra fácilmente juegos para 3v3, con equipos ordenados o aleatorios.",
-                "automatedTournamentsDescription": "Encuentra torneos y ligas que coincidan con tu nivel de habilidad, se ejecutan automáticamente.",
                 "builtInMapmakingDescription": "¡Rocas destructibles, posiciones iniciales ideales para los trabajadores, colocación avanzada de fluencia y más!",
-                "cloudReplaysDescription": "Carga automática de repeticiones. ¡Compártalos con otros, mírelos desde cualquier lugar!",
                 "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!",
-                "fpReplaysDescription": "Graba los movimientos del mouse y de la pantalla y reprodúcelos para todos los jugadores.",
                 "liveStreamingDescription": "Salta a los partidos en curso y míralos en vivo, con todos los beneficios de la observación dentro del juego.",
-                "pixelScalingDescription": "Mejore el aspecto de los gráficos SD en pantallas modernas con algoritmos de escala personalizados",
                 "playerProfilesDescription": "Compruebe sus habilidades en diferentes enfrentamientos y mapas, encuentre formas de mejorar y vea cómo se compara con la competencia.",
-                "replayAnalysisDescription": "Compatibilidad integrada con análisis de repeticiones similares a BWChart, así como estadísticas y gráficos más avanzados.",
-                "sandboxModeDescription": "Pruebe nuevas compilaciones, practique su división de trabajadores, mejore su micro.",
-                "umsPortalDescription": "Encuentre y explore mapas UMS con facilidad, luego reúna rápidamente a los jugadores y comience el juego."
+                "sandboxModeDescription": "Pruebe nuevas compilaciones, practique su división de trabajadores, mejore su micro."
             },
             "comingSoonTitle": "En la tubería <1>(próximamente)</1>",
             "features": {
-                "cloudHostingDescription": "Juega en cualquiera de los mapas de nuestra biblioteca oficial o sube uno propio. Cargue todos sus mapas favoritos, compártalos con sus amigos, alójelos desde cualquier lugar.",
                 "fixesBugsExploitsDescription": "Evita los hacks y exploits que plagan los servidores oficiales. Cosas como la duplicación de trabajadores, la piratería de minerales y los trabajadores flotantes permanentes son cosa del pasado aquí.",
-                "friendsListDescription": "Realice un seguimiento cuando sus amigos están en línea, envíeles mensajes fácilmente e invítelos a juegos.",
                 "improvedNetcodeDescription": "¡Menos retraso, caídas y pérdida de paquetes!",
-                "partiesDescription": "Reúnase con sus amigos para organizar fácilmente partidos privados, ver repeticiones juntos o unirse al emparejamiento.",
                 "rankedladderDescription": "Perfeccione sus habilidades en nuestro sistema de clasificación basado en Glicko para todos los modos de emparejamiento.",
-                "remasteredSupportDescription": "Compatibilidad con todas las funciones nuevas de Remastered, incluidos gráficos HD (si se compran en Blizzard) y teclas de acceso rápido personalizadas.",
                 "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!",
-                "webClientDescription": "Manténgase al día con sus amigos (y enemigos) sin necesidad de instalar nada.",
-                "improvedNetcodeTitle": "código de red mejorado",
-                "leaguesTitle": "ligas abiertas"
+                "improvedNetcodeTitle": "código de red mejorado"
             },
             "gameCount": "<0></0> juegos jugados",
-            "signUp": "Inscribirse",
             "featuresTitle": "Características"
         },
         "bottomLinks": {
@@ -507,7 +489,6 @@
             "playerVsPlayer": "contra"
         },
         "navEntry": {
-            "elapsedTime": "Tiempo: ",
             "matchFound": "¡Coincidencia encontrada!"
         },
         "postMatchDialog": {
@@ -521,9 +502,6 @@
         },
         "searchingOverlay": {
             "cancelSearch": "Cancelar búsqueda"
-        },
-        "activity": {
-            "findMatch": "Encontrar pareja"
         }
     },
     "clientUpdate": {
@@ -889,9 +867,7 @@
         "leftNav": {
             "chatChannels": "Canales de chat",
             "customGame": "Juego personalizado",
-            "joinChannel": "Unirse a un canal (Alt + H)",
             "loadingGame": "Cargando…",
-            "logIn": "Acceso",
             "logOut": "Cerrar sesión",
             "rankedGame": "Clasificado {{matchmakingType}}",
             "viewChangelog": "Ver registro de cambios",
