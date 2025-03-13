@@ -350,16 +350,12 @@
         },
         "splash": {
             "comingSoon": {
-                "3v3Description": "Encuentra fácilmente juegos para 3v3, con equipos ordenados o aleatorios.",
-                "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!",
-                "playerProfilesDescription": "Compruebe sus habilidades en diferentes enfrentamientos y mapas, encuentre formas de mejorar y vea cómo se compara con la competencia."
+                "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!"
             },
             "comingSoonTitle": "En la tubería <1>(próximamente)</1>",
             "features": {
-                "improvedNetcodeDescription": "¡Menos retraso, caídas y pérdida de paquetes!",
                 "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!"
-            },
-            "gameCount": "<0></0> juegos jugados"
+            }
         },
         "bottomLinks": {
             "privacyPolicy": "política de privacidad",

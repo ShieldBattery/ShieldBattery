@@ -248,16 +248,12 @@
         },
         "splash": {
             "comingSoon": {
-                "3v3Title": "3v3匹配",
-                "automatedTournamentsTitle": "自动化锦标赛与联赛",
-                "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。"
+                "automatedTournamentsTitle": "自动化锦标赛与联赛"
             },
             "features": {
                 "rankedLadderTitle": "天梯排位",
-                "improvedNetcodeTitle": "网络代码改进",
                 "remasteredSupportTitle": "支持重制版"
-            },
-            "featuresTitle": "我们的优势"
+            }
         }
     },
     "auth": {

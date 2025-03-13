@@ -226,17 +226,13 @@
     },
     "landing": {
         "splash": {
-            "tagline": "Играйте в StarCraft 1 на ведущей платформе сообщества",
             "features": {
-                "improvedNetcodeTitle": "Улучшенный сетевой код",
-                "rankedLadderTitle": "Рейтинговая лестница"
+                "improvedNetcodeTitle": "Улучшенный сетевой код"
             },
             "comingSoon": {
                 "automatedTournamentsTitle": "Автоматизированные турниры и лиги",
-                "replayAnalysisTitle": "Повторный анализ",
                 "expandedChatDescription": "Выражайте себя с помощью эмоций, встраивайте карты, матчи, повторы и многое другое!"
-            },
-            "disclaimerText": "StarCraft является зарегистрированным товарным знаком Blizzard Entertainment, Inc. ShieldBattery разработана исключительно членами сообщества, не связанными с Blizzard, и официально не одобрена и не поддерживается Blizzard."
+            }
         },
         "faq": {
             "hotkeyCustomizationAnswer": "Да, мы поддерживаем настраиваемые горячие клавиши, но в настоящее время у нас нет редактора горячих клавиш. Если вы хотите использовать настраиваемые горячие клавиши, запустите StarCraft: Remastered через программу запуска Blizzard и сначала настройте их там. После этого будущие запуски через ShieldBattery будут использовать эти горячие клавиши.",
