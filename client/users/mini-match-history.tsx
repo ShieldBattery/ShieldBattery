@@ -1,11 +1,10 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledResult, getResultLabel } from '../../common/games/results'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
 import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
@@ -16,15 +15,7 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  background700,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { Body1, body2, singleLine, subtitle1 } from '../styles/typography'
+import { BodyMedium, bodyLarge, singleLine, titleSmall } from '../styles/typography'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;
@@ -42,8 +33,8 @@ const GameList = styled.div`
 `
 
 const EmptyListText = styled.div`
-  ${subtitle1};
-  color: ${colorTextFaint};
+  ${bodyLarge};
+  color: var(--theme-on-surface-variant);
   margin-left: 16px;
 `
 
@@ -105,25 +96,26 @@ const GameListEntryTextRow = styled.div<{ $color?: 'primary' | 'secondary' }>`
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  color: ${props => (props.$color === 'secondary' ? colorTextSecondary : colorTextPrimary)};
+  color: ${props =>
+    props.$color === 'secondary' ? 'var(--theme-on-surface-variant)' : 'var(--theme-on-surface)'};
 `
 
 const MapName = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
   flex-shrink: 1;
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
-  ${body2};
+  ${titleSmall};
   color: ${props => {
     switch (props.$result) {
       case 'win':
-        return colorPositive
+        return 'var(--theme-positive)'
       case 'loss':
-        return colorNegative
+        return 'var(--theme-negative)'
       default:
-        return colorTextFaint
+        return 'var(--theme-on-surface-variant)'
     }
   }};
   padding-left: 8px;
@@ -182,9 +174,9 @@ export function ConnectedGameListEntry({
       </GameListEntryTextRow>
 
       <GameListEntryTextRow $color='secondary'>
-        <Body1>{matchType}</Body1>
+        <BodyMedium>{matchType}</BodyMedium>
         <Tooltip text={longTimestamp.format(startTime)} position='left'>
-          <Body1>{narrowDuration.format(startTime)}</Body1>
+          <BodyMedium>{narrowDuration.format(startTime)}</BodyMedium>
         </Tooltip>
       </GameListEntryTextRow>
 
@@ -211,13 +203,14 @@ const GamePreviewDetails = styled.div`
   display: flex;
   flex-direction: column;
 
-  background-color: ${background700};
+  --_surface-bg: var(--theme-container-low);
+  background-color: var(--_surface-bg);
   border-radius: 4px;
 `
 
 const NoGameText = styled.div`
-  ${subtitle1};
-  color: ${colorTextFaint};
+  ${bodyLarge};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -227,9 +220,19 @@ const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
   left: 16px;
   right: 16px;
 
-  padding-top: 48px;
+  padding-top: 24px;
 
-  background: linear-gradient(to bottom, ${rgba(background700, 0)}, ${background700} 40%);
+  background: linear-gradient(
+    to bottom,
+    rgb(from var(--_surface-bg) r g b / 0),
+    rgb(from var(--_surface-bg) r g b / 50%) 12px,
+    rgb(from var(--_surface-bg) r g b / 80%) 80%,
+    rgb(from var(--_surface-bg) r g b) 92%
+  );
+`
+
+const StyledMapThumbnail = styled(MapThumbnail)`
+  height: auto;
 `
 
 export interface ConnectedGamePreviewProps {
@@ -277,7 +280,9 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   return (
     <GamePreviewRoot>
       <GamePreviewDetails>
-        {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
+        {map ? (
+          <StyledMapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} />
+        ) : null}
         <StyledGamePlayersDisplay game={game} />
       </GamePreviewDetails>
       <TextButton

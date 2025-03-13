@@ -13,8 +13,7 @@ import { IconButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { Body1Old, Display1Old, SubheadingOld, singleLine } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium, singleLine } from '../styles/typography'
 import { getMapDetails, updateMap } from './action-creators'
 import { MapThumbnail } from './map-thumbnail'
 
@@ -31,8 +30,9 @@ const LoadingArea = styled.div`
   margin-top: 24px;
 `
 
-const ErrorText = styled(SubheadingOld)`
-  color: ${colorError};
+const ErrorText = styled.div`
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 const MapInfo = styled.div`
@@ -43,7 +43,8 @@ const MapInfo = styled.div`
   margin-right: 16px;
 `
 
-const MapName = styled(Display1Old)`
+const MapName = styled.div`
+  ${headlineMedium};
   flex-shrink: 0;
   position: relative;
   /* dialog max-width - dialog padding - map info margin - map image */
@@ -62,11 +63,11 @@ const MapDescriptionWrapper = styled.div`
   overflow-y: auto;
 `
 
-const MapDescription = styled(SubheadingOld)`
+const MapDescription = styled.div`
+  ${bodyLarge};
   position: relative;
   margin: 0;
   padding-right: ${props => (props.canEdit ? '68px' : '16px')};
-  letter-spacing: 0.5px;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   user-select: text;
@@ -84,9 +85,9 @@ const MapData = styled.div`
   margin-top: 16px;
 `
 
-const MapDataItem = styled(Body1Old)`
-  letter-spacing: 0.25px;
-  color: ${colorTextSecondary};
+const MapDataItem = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`

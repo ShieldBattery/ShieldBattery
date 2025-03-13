@@ -1,17 +1,6 @@
-import { rgba } from 'polished'
 import React, { useCallback, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import {
-  alphaDisabled,
-  alphaDividers,
-  amberA400,
-  colorBackground,
-  colorDividers,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { fastOutSlowIn } from './curve-constants'
+import { standardEasing } from './curve-constants'
 
 const BOX_WIDTH = 18
 const BOX_HEIGHT = 18
@@ -50,7 +39,7 @@ const Root = styled.div<{ $disabled?: boolean }>`
     margin-left: 10px; /* the box is 18px wide, so this hits a 4px multiple */
     line-height: 20px;
     pointer-events: none;
-    ${props => (props.$disabled ? `color: ${colorTextFaint};` : '')}
+    ${props => (props.$disabled ? `color: rgb(from var(--theme-on-surface) r g b / 0.38);` : '')};
   }
 `
 
@@ -65,7 +54,7 @@ export const CheckIconContainer = styled.div<{
   height: ${BOX_HEIGHT}px;
   pointer-events: none;
   background-color: ${props => {
-    if (props.$focused && !props.$disabled && !props.$checked) return colorDividers
+    if (props.$focused && !props.$disabled && !props.$checked) return 'var(--theme-outline-variant)'
     else return 'transparent'
   }};
   flex-shrink: 0;
@@ -79,14 +68,14 @@ export const CheckIconContainer = styled.div<{
     display: block;
 
     background-color: ${props => {
-      if (props.$disabled) return colorDividers
-      else if (props.$checked && props.$focused) return rgba(amberA400, Number(alphaDividers))
+      if (props.$disabled) return 'transparent'
+      else if (props.$checked && props.$focused) return 'rgb(from var(--theme-amber) r g b / 0.12)'
       else return 'transparent'
     }};
     border-radius: 50%;
     content: '';
     transition:
-      all 200ms ${fastOutSlowIn},
+      all 200ms ${standardEasing},
       background-color 150ms linear;
   }
 
@@ -112,24 +101,24 @@ export const CheckIcon = styled.div<{
   width: ${BOX_WIDTH}px;
   height: ${BOX_HEIGHT}px;
   border: 2px solid;
-  border-radius: 2px;
+  border-radius: 4px;
   transition:
     border-color 200ms linear,
     background-color 200ms linear,
     opacity 150ms linear;
 
   background-color: ${props => {
-    if (props.$checked && props.$disabled) return colorTextPrimary
-    else if (props.$checked) return amberA400
+    if (props.$checked && props.$disabled) return 'rgb(from var(--theme-amber) r g b / 0.38)'
+    else if (props.$checked) return 'var(--theme-amber)'
     else return 'transparent'
   }};
   border-color: ${props => {
-    if (props.$disabled) return colorTextPrimary
-    else if (props.$checked) return amberA400
-    else return colorTextSecondary
+    if (props.$disabled) return 'var(--theme-on-surface)'
+    else if (props.$checked) return 'var(--theme-amber)'
+    else return 'var(--theme-on-surface-variant)'
   }};
   opacity: ${props => {
-    if (props.$disabled) return alphaDisabled
+    if (props.$disabled) return '0.38'
     else return '1'
   }};
 
@@ -148,14 +137,18 @@ export const CheckIcon = styled.div<{
     display: table;
 
     border: 2px solid;
-    border-color: ${props => (props.$checked ? colorBackground : 'transparent')};
+    border-color: ${props => {
+      if (props.$disabled && props.$checked) return 'var(--theme-on-surface)'
+      else if (props.$checked) return 'var(--theme-on-amber)'
+      else return 'transparent'
+    }};
     border-top: 0;
     border-left: 0;
     content: '';
     transform: ${props => (props.$checked ? 'rotate(45deg)' : 'rotate(-135deg)')};
     transition:
       border-color 150ms linear,
-      transform 200ms ${fastOutSlowIn};
+      transform 200ms ${standardEasing};
   }
 `
 

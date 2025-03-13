@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 import { injectable } from 'tsyringe'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import { BanEnacter } from './ban-enacter'
 import {

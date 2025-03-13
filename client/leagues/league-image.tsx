@@ -1,16 +1,15 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
-import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues'
+import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues/leagues'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { background600, colorTextFaint } from '../styles/colors'
 
 const leagueImageCommon = css`
   width: 100%;
   height: auto;
   aspect-ratio: ${LEAGUE_IMAGE_WIDTH} / ${LEAGUE_IMAGE_HEIGHT};
-  background-color: ${background600};
-  border-radius: 2px;
+  background-color: var(--color-grey-blue30);
+  border-radius: 4px;
   contain: content;
 `
 
@@ -35,7 +34,7 @@ export function LeagueImage({ src }: { src: string }) {
 
 const PlaceholderContainer = styled.div`
   ${leagueImageCommon};
-  color: ${colorTextFaint};
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
 
   display: flex;
   align-items: center;

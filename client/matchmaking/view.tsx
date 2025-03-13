@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react'
-import { Route, Switch } from 'wouter'
+import { Redirect, Route, Switch } from 'wouter'
+import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
-import { GoToIndex } from '../navigation/index'
 import { replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
@@ -37,6 +37,7 @@ function MatchmakingMatchHolder() {
 }
 
 export default function MatchmakingView() {
+  const isLoggedIn = useIsLoggedIn()
   const gameIsActive = useAppSelector(s => s.activeGame.isActive)
   const gameId = useAppSelector(s => s.gameClient.gameId)
   const matchmakingIsLoading = useAppSelector(s => isMatchmakingLoading(s.matchmaking))
@@ -54,12 +55,17 @@ export default function MatchmakingView() {
     }
   }, [prevGameId, matchmakingIsLoading, gameIsActive, prevGameIsActive])
 
+  if (!isLoggedIn) {
+    redirectToLogin()
+    return undefined
+  }
+
   return (
     <Switch>
       <Route path='/matchmaking/countdown' component={MatchmakingMatchHolder} />
       <Route path='/matchmaking/game-starting' component={MatchmakingMatchHolder} />
       <Route path='/matchmaking/active-game' component={MatchmakingMatchHolder} />
-      <GoToIndex transitionFn={replace} />
+      <Redirect to='/' replace={true} />
     </Switch>
   )
 }

@@ -4,16 +4,15 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import {
   acceptFriendRequest,
@@ -27,7 +26,7 @@ import {
 import { userRelationshipErrorToString } from './relationship-errors'
 
 const LoadingItem = styled(MenuItem)`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 /**
@@ -93,6 +92,7 @@ function ConnectedUserContextMenuContents({
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const snackbarController = useSnackbarController()
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -175,24 +175,20 @@ function ConnectedUserContextMenuContents({
                 dispatch(
                   removeFriend(userId, {
                     onSuccess: () => {
-                      dispatch(
-                        openSnackbar({
-                          message: t('users.contextMenu.friendRemoved', 'Friend removed'),
-                        }),
+                      snackbarController.showSnackbar(
+                        t('users.contextMenu.friendRemoved', 'Friend removed'),
                       )
                     },
                     onError: err => {
-                      dispatch(
-                        openSnackbar({
-                          message: userRelationshipErrorToString(
-                            err,
-                            t(
-                              'users.errors.friendsList.errorRemovingFriend',
-                              'Error removing friend',
-                            ),
-                            t,
+                      snackbarController.showSnackbar(
+                        userRelationshipErrorToString(
+                          err,
+                          t(
+                            'users.errors.friendsList.errorRemovingFriend',
+                            'Error removing friend',
                           ),
-                        }),
+                          t,
+                        ),
                       )
                     },
                   }),
@@ -214,27 +210,20 @@ function ConnectedUserContextMenuContents({
                   dispatch(
                     removeFriendRequest(userId, {
                       onSuccess: () => {
-                        dispatch(
-                          openSnackbar({
-                            message: t(
-                              'users.contextMenu.friendRequestRemoved',
-                              'Friend request removed',
-                            ),
-                          }),
+                        snackbarController.showSnackbar(
+                          t('users.contextMenu.friendRequestRemoved', 'Friend request removed'),
                         )
                       },
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorRemovingFriendRequest',
-                                'Error removing friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorRemovingFriendRequest',
+                              'Error removing friend request',
                             ),
-                          }),
+                            t,
+                          ),
                         )
                       },
                     }),
@@ -254,27 +243,20 @@ function ConnectedUserContextMenuContents({
                   dispatch(
                     acceptFriendRequest(userId, {
                       onSuccess: () => {
-                        dispatch(
-                          openSnackbar({
-                            message: t(
-                              'users.contextMenu.friendRequestAccepted',
-                              'Friend request accepted',
-                            ),
-                          }),
+                        snackbarController.showSnackbar(
+                          t('users.contextMenu.friendRequestAccepted', 'Friend request accepted'),
                         )
                       },
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorAcceptingFriendRequest',
-                                'Error accepting friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorAcceptingFriendRequest',
+                              'Error accepting friend request',
                             ),
-                          }),
+                            t,
+                          ),
                         )
                       },
                     }),
@@ -296,24 +278,20 @@ function ConnectedUserContextMenuContents({
                 dispatch(
                   unblockUser(userId, {
                     onSuccess: () => {
-                      dispatch(
-                        openSnackbar({
-                          message: t('users.contextMenu.userUnblocked', 'User unblocked'),
-                        }),
+                      snackbarController.showSnackbar(
+                        t('users.contextMenu.userUnblocked', 'User unblocked'),
                       )
                     },
                     onError: err => {
-                      dispatch(
-                        openSnackbar({
-                          message: userRelationshipErrorToString(
-                            err,
-                            t(
-                              'users.errors.friendsList.errorUnblockingUser',
-                              'Error unblocking user',
-                            ),
-                            t,
+                      snackbarController.showSnackbar(
+                        userRelationshipErrorToString(
+                          err,
+                          t(
+                            'users.errors.friendsList.errorUnblockingUser',
+                            'Error unblocking user',
                           ),
-                        }),
+                          t,
+                        ),
                       )
                     },
                   }),
@@ -334,24 +312,20 @@ function ConnectedUserContextMenuContents({
                 dispatch(
                   sendFriendRequest(userId, {
                     onSuccess: () => {
-                      dispatch(
-                        openSnackbar({
-                          message: t('users.contextMenu.friendRequestSent', 'Friend request sent'),
-                        }),
+                      snackbarController.showSnackbar(
+                        t('users.contextMenu.friendRequestSent', 'Friend request sent'),
                       )
                     },
                     onError: err => {
-                      dispatch(
-                        openSnackbar({
-                          message: userRelationshipErrorToString(
-                            err,
-                            t(
-                              'users.errors.friendsList.errorSendingFriendRequest',
-                              'Error sending friend request',
-                            ),
-                            t,
+                      snackbarController.showSnackbar(
+                        userRelationshipErrorToString(
+                          err,
+                          t(
+                            'users.errors.friendsList.errorSendingFriendRequest',
+                            'Error sending friend request',
                           ),
-                        }),
+                          t,
+                        ),
                       )
                     },
                   }),
@@ -376,19 +350,17 @@ function ConnectedUserContextMenuContents({
               dispatch(
                 blockUser(userId, {
                   onSuccess: () => {
-                    dispatch(
-                      openSnackbar({ message: t('users.contextMenu.userBlocked', 'User blocked') }),
+                    snackbarController.showSnackbar(
+                      t('users.contextMenu.userBlocked', 'User blocked'),
                     )
                   },
                   onError: err => {
-                    dispatch(
-                      openSnackbar({
-                        message: userRelationshipErrorToString(
-                          err,
-                          t('users.errors.friendsList.errorBlockingUser', 'Error blocking user'),
-                          t,
-                        ),
-                      }),
+                    snackbarController.showSnackbar(
+                      userRelationshipErrorToString(
+                        err,
+                        t('users.errors.friendsList.errorBlockingUser', 'Error blocking user'),
+                        t,
+                      ),
                     )
                   },
                 }),

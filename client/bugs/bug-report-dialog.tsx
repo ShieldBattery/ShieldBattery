@@ -9,10 +9,9 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle1, body1, subtitle1 } from '../styles/typography'
+import { BodyLarge, bodyLarge, labelMedium } from '../styles/typography'
 import { reportBug } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
@@ -26,13 +25,13 @@ const Layout = styled.div`
 `
 
 const LogUploadDescription = styled.div`
-  ${body1};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 interface BugReportFormModel {
@@ -42,6 +41,7 @@ interface BugReportFormModel {
 export function BugReportDialog(props: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error>()
@@ -56,9 +56,7 @@ export function BugReportDialog(props: CommonDialogProps) {
           onSuccess: () => {
             setLoading(false)
             props.onCancel()
-            dispatch(
-              openSnackbar({ message: t('bugReport.reportSubmitted', 'Bug report submitted.') }),
-            )
+            snackbarController.showSnackbar(t('bugReport.reportSubmitted', 'Bug report submitted.'))
           },
           onError: err => {
             setLoading(false)
@@ -115,13 +113,13 @@ export function BugReportDialog(props: CommonDialogProps) {
             </ErrorText>
           ) : undefined}
 
-          <Subtitle1>
+          <BodyLarge>
             {t(
               'bugReport.detailsDescription',
               'Please describe the bug and provide as much detail as possible about what you ' +
                 'were doing when the bug occurred.',
             )}
-          </Subtitle1>
+          </BodyLarge>
           <TextField
             {...bindInput('details')}
             multiline={true}

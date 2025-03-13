@@ -12,16 +12,15 @@ import { apiUrl } from '../../common/urls'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { NumberTextField } from '../material/number-text-field'
 import { TextField } from '../material/text-field'
 import { fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
-import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Content = styled.div`
   max-width: 960px;
@@ -29,7 +28,7 @@ const Content = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-top: 16px;
   margin-bottom: 8px;
 `
@@ -44,7 +43,7 @@ const HeadlineAndButton = styled.div`
 `
 
 const Row = styled.div<{ $editable?: boolean }>`
-  ${subtitle1};
+  ${bodyLarge};
   min-height: 48px;
   display: flex;
   align-items: center;
@@ -306,11 +305,11 @@ export function EditServerRow({
 }
 
 export function AdminRallyPoint() {
-  const dispatch = useAppDispatch()
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const [servers, setServers] = useState<RallyPointServer[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [editing, setEditing] = useState<number>()
+  const snackbarController = useSnackbarController()
 
   const onAddClick = useCallback(() => {
     setIsAdding(true)
@@ -331,11 +330,11 @@ export function AdminRallyPoint() {
           triggerRefresh()
         })
         .catch(err => {
-          dispatch(openSnackbar({ message: 'Error adding server' }))
+          snackbarController.showSnackbar('Error adding server')
           console.error(err)
         })
     },
-    [dispatch, triggerRefresh],
+    [snackbarController, triggerRefresh],
   )
   const onAddCancel = useCallback(() => {
     setIsAdding(false)
@@ -362,11 +361,11 @@ export function AdminRallyPoint() {
           triggerRefresh()
         })
         .catch(err => {
-          dispatch(openSnackbar({ message: 'Error editing server' }))
+          snackbarController.showSnackbar('Error editing server')
           console.error(err)
         })
     },
-    [dispatch, triggerRefresh],
+    [snackbarController, triggerRefresh],
   )
   const onEditCancel = useCallback(() => {
     setEditing(undefined)
@@ -376,17 +375,17 @@ export function AdminRallyPoint() {
     fetchJson<GetRallyPointServersResponse>(apiUrl`admin/rally-point/`)
       .then(data => setServers(data.servers))
       .catch(err => {
-        dispatch(openSnackbar({ message: 'Error retrieving servers' }))
+        snackbarController.showSnackbar('Error retrieving servers')
         console.error(err)
       })
-  }, [dispatch, refreshToken])
+  }, [refreshToken, snackbarController])
 
   return (
     <CenteredContentContainer>
       <Content>
         <HeadlineAndButton>
           <PageHeadline>Rally-point servers</PageHeadline>
-          <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+          <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
         </HeadlineAndButton>
         {servers.map(s =>
           editing === s.id ? (
@@ -398,7 +397,7 @@ export function AdminRallyPoint() {
         {isAdding ? (
           <AddServerRow onSubmit={onAddSubmit} onCancel={onAddCancel} />
         ) : (
-          <RaisedButton color='primary' label={'Add'} onClick={onAddClick} />
+          <ElevatedButton color='primary' label={'Add'} onClick={onAddClick} />
         )}
       </Content>
     </CenteredContentContainer>

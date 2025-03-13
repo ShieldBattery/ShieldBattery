@@ -1,6 +1,5 @@
 import styled from 'styled-components'
-import { colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { overline, singleLine, subtitle2 } from '../styles/typography'
+import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 
 export const RegularSlots = styled.div`
   width: 100%;
@@ -60,12 +59,12 @@ export const SlotRight = styled.div`
 `
 
 export const TeamName = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   line-height: 24px;
   height: 24px;
   display: block;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   ${Slot} + & {
     margin-top: 8px;
@@ -92,13 +91,13 @@ export const SlotEmptyAvatar = styled.span`
   margin-right: 16px;
 
   border-radius: 50%;
-  border: 1px solid ${colorDividers};
+  border: 1px solid var(--theme-outline);
   text-align: center;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export const SlotName = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
   max-width: 256px;
   flex-grow: 1;
@@ -107,5 +106,5 @@ export const SlotName = styled.div`
 `
 
 export const SlotEmptyName = styled(SlotName)`
-  color: ${colorTextFaint};
+  color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
 `

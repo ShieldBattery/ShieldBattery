@@ -7,7 +7,9 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { ALL_MATCHMAKING_TYPES, MatchmakingSeasonJson, SeasonId } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
@@ -16,23 +18,15 @@ import { TabItem, Tabs } from '../material/tabs'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  amberA400,
-  backgroundSaturatedDark,
-  backgroundSaturatedLight,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
-  Subtitle2,
-  caption,
-  headline3,
-  headline6,
-  overline,
+  bodyLarge,
+  headlineLarge,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
+  TitleMedium,
 } from '../styles/typography'
 import {
   correctUsernameForProfile,
@@ -49,14 +43,8 @@ const LoadableAdminUserPage = React.lazy(async () => ({
   default: (await import('./user-profile-admin')).AdminUserPage,
 }))
 
-const Container = styled.div`
-  max-width: 960px;
-  /* 12px + 24px from tab = 36px from left */
-  padding: 24px 12px;
-`
-
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 40px;
   margin-bottom: 48px;
@@ -154,6 +142,7 @@ export function ConnectedUserProfilePage({
 const TopSection = styled.div`
   height: 100px;
   width: 100%;
+  margin-top: 24px;
   margin-bottom: 32px;
   padding: 0 24px;
 
@@ -166,8 +155,8 @@ const AvatarCircle = styled.div`
   height: 100px;
   position: relative;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 12px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 12px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -186,9 +175,9 @@ const UsernameAndTitle = styled.div`
 `
 
 const Username = styled.div`
-  ${headline3};
+  ${headlineLarge};
   ${singleLine};
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 const TabArea = styled.div`
@@ -196,6 +185,10 @@ const TabArea = styled.div`
   max-width: 720px;
   margin-bottom: 24px;
   padding: 0 24px;
+`
+
+const BottomSpacer = styled.div`
+  height: 24px;
 `
 
 export interface UserProfilePageProps {
@@ -256,14 +249,14 @@ export function UserProfilePage({
   }
 
   return (
-    <Container>
+    <CenteredContentContainer>
       <TopSection>
         <AvatarCircle>
           <StyledAvatar userId={user.id} />
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
-          <Subtitle2>{title}</Subtitle2>
+          <TitleMedium>{title}</TitleMedium>
         </UsernameAndTitle>
       </TopSection>
 
@@ -292,14 +285,15 @@ export function UserProfilePage({
       </TabArea>
 
       {content}
-    </Container>
+      <BottomSpacer />
+    </CenteredContentContainer>
   )
 }
 
 const SectionOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   margin: 12px 24px;
 `
 
@@ -333,9 +327,9 @@ const TotalGamesSpacer = styled.div`
 `
 
 const EmptyListText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin: 0 24px;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 interface RaceStats {
@@ -445,8 +439,8 @@ const RaceCircle = styled.div`
   position: relative;
   margin-right: 12px;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 6px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 6px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -457,17 +451,17 @@ const RaceCircleIcon = styled(RaceIcon)`
   top: calc(50% - 20px);
   left: calc(50% - 20px);
 
-  fill: ${colorTextPrimary};
+  fill: var(--theme-on-surface);
 `
 
 const TotalGamesText = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
 `
 
 const WinLossText = styled.div`
-  ${caption};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number; losses: number }) {

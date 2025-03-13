@@ -2,18 +2,11 @@ import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
-import {
-  alphaDisabled,
-  background700,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import { body2, overline, singleLine } from '../styles/typography'
+import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   areUserEntriesEqual,
   sortUserEntries,
@@ -27,12 +20,19 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
-  padding-top: 10px;
 
-  background-color: ${background700};
+  contain: content;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
-const VertPadding = styled.div<{ context?: unknown }>`
+const PaddingHeader = styled.div<{ context?: unknown }>`
+  width: 100%;
+  height: 10px;
+`
+
+const PaddingFooter = styled.div<{ context?: unknown }>`
   width: 100%;
   height: 8px;
 `
@@ -42,26 +42,25 @@ const userListRow = css`
 
   margin: 0 8px;
   padding: 0 8px;
-  line-height: 36px;
 `
 
 const OVERLINE_HEIGHT = 36 + 24
 const FIRST_OVERLINE_HEIGHT = 36 + 8
 
 const UserListOverline = styled.div<{ $firstOverline: boolean }>`
-  ${overline}
+  ${labelMedium}
   ${userListRow};
   height: ${props => (props.$firstOverline ? FIRST_OVERLINE_HEIGHT : OVERLINE_HEIGHT)}px;
-  color: ${colorTextSecondary};
-
   padding-top: ${props => (props.$firstOverline ? '8px' : '24px')};
+
+  color: var(--theme-on-surface-variant);
+  line-height: 36px;
 `
 
 const StyledAvatar = styled(ConnectedAvatar)`
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
-
-  display: inline-block;
 
   margin: 2px 16px 2px 0;
 `
@@ -71,14 +70,14 @@ const LoadingName = styled.div`
   margin: 8px 0;
   display: inline-block;
 
-  background-color: ${colorDividers};
-  border-radius: 2px;
+  background-color: var(--theme-skeleton);
+  border-radius: 4px;
 `
 
 const fadedCss = css`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   ${StyledAvatar}, ${LoadingName} {
-    opacity: ${alphaDisabled};
+    opacity: var(--theme-disabled-opacity);
   }
 `
 
@@ -88,21 +87,24 @@ interface UserListEntryItemProps {
 }
 
 const UserListEntryItem = styled.div<UserListEntryItemProps>`
-  ${body2};
+  ${titleSmall};
   ${userListRow};
   height: 44px;
-  border-radius: 2px;
+  border-radius: 4px;
   padding-top: 4px;
   padding-bottom: 4px;
 
+  display: flex;
+  align-items: center;
+
   &:hover {
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
   }
 
   ${props => {
     if (props.$isOverlayOpen) {
-      return 'background-color: rgba(255, 255, 255, 0.08);'
+      return 'background-color: rgb(from var(--theme-on-surface) r g b / 0.08);'
     }
     return ''
   }}
@@ -117,7 +119,8 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
 
 const UserListName = styled.span`
   ${singleLine};
-  display: inline-block;
+  flex-grow: 1;
+  flex-shrink: 1;
 `
 
 interface UserListEntryProps {
@@ -200,11 +203,11 @@ interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
   offline: SbUserId[]
+  className?: string
 }
 
-const UserList = React.memo((props: UserListProps) => {
+const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
   const { t } = useTranslation()
-  const { active, idle, offline } = props
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
     let result: UserListRowData[] = [
@@ -253,8 +256,12 @@ const UserList = React.memo((props: UserListProps) => {
   }, [])
 
   return (
-    <UserListContainer>
-      <Virtuoso components={{ Footer: VertPadding }} data={rowData} itemContent={renderRow} />
+    <UserListContainer className={className}>
+      <Virtuoso
+        components={{ Header: PaddingHeader, Footer: PaddingFooter }}
+        data={rowData}
+        itemContent={renderRow}
+      />
     </UserListContainer>
   )
 })
@@ -263,10 +270,12 @@ export function ChannelUserList({
   active,
   idle,
   offline,
+  className,
 }: {
   active?: ReadonlySet<SbUserId>
   idle?: ReadonlySet<SbUserId>
   offline?: ReadonlySet<SbUserId>
+  className?: string
 }) {
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
@@ -282,5 +291,12 @@ export function ChannelUserList({
     [offlineUserEntries],
   )
 
-  return <UserList active={sortedActiveUsers} idle={sortedIdleUsers} offline={sortedOfflineUsers} />
+  return (
+    <UserList
+      className={className}
+      active={sortedActiveUsers}
+      idle={sortedIdleUsers}
+      offline={sortedOfflineUsers}
+    />
+  )
 }

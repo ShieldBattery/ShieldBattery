@@ -21,7 +21,8 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/sb-user'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
 import { Avatar } from '../avatars/avatar'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
@@ -34,7 +35,7 @@ import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
@@ -43,23 +44,15 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks'
-import {
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-  getRaceColor,
-} from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
-  Headline6,
-  body1,
-  caption,
-  overline,
+  TitleLarge,
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
   singleLine,
-  subtitle1,
-  subtitle2,
+  titleMedium,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
@@ -73,17 +66,20 @@ import {
 const LadderPage = styled.div`
   width: 100%;
   height: 100%;
+  padding-top: 16px;
 
   display: flex;
   flex-direction: column;
+
+  align-items: center;
   overflow: hidden;
 `
 
 const PageHeader = styled.div`
   position: relative;
   width: 100%;
-  max-width: 832px;
-  padding: 8px 16px;
+  max-width: 848px;
+  padding: 8px 24px;
   flex-shrink: 0;
 
   display: flex;
@@ -109,12 +105,11 @@ const Content = styled.div`
 `
 
 const LastUpdatedText = styled.div`
-  ${body1};
-  padding-right: 16px;
+  ${bodyMedium};
   flex-grow: 1;
   flex-shrink: 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
@@ -329,7 +324,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   return (
     <LadderPage>
       <PageHeader>
-        <Headline6>{t('ladder.pageHeadline', 'Ladder')}</Headline6>
+        <TitleLarge>{t('ladder.pageHeadline', 'Ladder')}</TitleLarge>
         <TabsContainer>
           <Tabs activeTab={matchmakingType} onChange={onTabChange}>
             <TabItem
@@ -381,23 +376,30 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
 }
 
 const TableContainer = styled.div`
+  position: relative;
   width: 100%;
   height: 100%;
-  position: relative;
+  margin: 0;
+  /*
+    NOTE(tec27): since we always have a scrollbar gutter, that effectively adds padding to the
+    right side, so we need less there to make it even
+  */
+  padding: 0 8px 0 24px;
 
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 `
 
 const FiltersContainer = styled.div`
+  width: 100%;
+  max-width: 800px;
+  margin: 16px auto 8px;
+
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-
-  width: 100%;
-  max-width: min(800px, 100% - 32px);
-  margin: 16px 16px 8px;
 `
 
 const StyledSearchInput = styled(SearchInput)`
@@ -414,18 +416,19 @@ const DivisionSelect = styled(Select)`
 
 const Table = styled.div`
   width: 100%;
+  max-width: 800px;
   height: auto;
-  max-width: min(800px, 100% - 32px);
-  margin: 8px 16px 0px;
+  margin: 8px auto 0px;
   padding-bottom: 16px;
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
   ${buttonReset};
 
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   height: 72px;
   padding: 0;
@@ -439,7 +442,7 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
 const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
 
 const HeaderRowContainer = styled.div<{ context?: unknown }>`
-  ${overline};
+  ${labelMedium};
   width: 100%;
   height: 48px;
   position: sticky !important;
@@ -448,15 +451,15 @@ const HeaderRowContainer = styled.div<{ context?: unknown }>`
   display: flex;
   align-items: center;
 
-  background-color: ${background800};
-  color: ${colorTextSecondary} !important;
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant) !important;
   contain: content;
 
   --sb-ladder-row-height: 48px;
 
   .${HEADER_STUCK_CLASS} & {
-    ${shadow4dp};
-    border-bottom: 1px solid ${colorDividers};
+    ${elevationPlus2};
+    border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
 
@@ -511,7 +514,7 @@ const WinLossCell = styled(BaseCell)`
 const LastPlayedCell = styled(BaseCell)`
   width: 140px;
   padding: 0 16px 0 32px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
@@ -523,34 +526,40 @@ const StyledAvatar = styled(Avatar)`
 `
 
 const PlayerNameAndRace = styled.div`
+  width: 100%;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+
+  overflow: hidden;
 `
 
 const PlayerName = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
+  max-width: 100%;
+  overflow: hidden;
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${caption};
+  ${labelMedium};
   color: ${props => getRaceColor(props.$race)};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
   text-align: center;
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -842,7 +851,7 @@ const FillerRow = styled.div.attrs<{ height: number }>(props => ({
 }))<{ height: number }>``
 
 const UnratedText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const DivisionIcon = styled(LadderPlayerIcon)`

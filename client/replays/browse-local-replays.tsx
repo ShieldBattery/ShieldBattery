@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { closeOverlay } from '../activities/action-creators'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   ExpansionPanelProps,
@@ -15,7 +14,6 @@ import {
 } from '../file-browser/file-browser-types'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useAppDispatch } from '../redux-hooks'
-import { background400 } from '../styles/colors'
 import { startReplay } from './action-creators'
 import { ReplayInfoDisplay } from './replay-info-display'
 
@@ -32,7 +30,7 @@ const sortByDateReverse = (a: FileBrowserFileEntry, b: FileBrowserFileEntry) => 
 
 const StyledReplayInfoDisplay = styled(ReplayInfoDisplay)`
   padding: 16px;
-  background-color: ${background400};
+  background-color: var(--theme-container-low);
 `
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
@@ -52,7 +50,6 @@ export function BrowseLocalReplays() {
 
   const onStartReplay = useCallback(
     (replay: FileBrowserFileEntry) => {
-      dispatch(closeOverlay() as any)
       dispatch(startReplay(replay))
     },
     [dispatch],

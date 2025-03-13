@@ -1,26 +1,27 @@
 import styled, { css } from 'styled-components'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, singleLine } from '../styles/typography'
 
 export const InputBase = styled.div<{
   $floatingLabel?: boolean
   $dense?: boolean
-  $disabled?: boolean
   $focused?: boolean
   $multiline?: boolean
   $leadingIconsLength?: number
   $trailingIconsLength?: number
 }>`
-  ${subtitle1};
+  ${bodyLarge};
   flex-grow: 1;
   order: 2;
   width: 100%;
   padding: ${props => (props.$floatingLabel ? '17px 12px 4px' : '12px')};
+
   border: none;
   border-radius: 0;
   outline: none;
+
   background: none;
-  color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
+  caret-color: var(--theme-primary);
+  color: var(--theme-on-surface);
   line-height: inherit;
   -ms-flex-preferred-size: inherit;
   user-select: inherit;

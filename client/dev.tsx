@@ -1,17 +1,17 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
-import DevActivities from './activities/devonly/routes'
 import { DevDownload } from './download/devonly/routes'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
-import { colorDividers } from './styles/colors'
 
 const Container = styled.div`
-  padding: 0 !important;
+  width: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0px));
+  overflow: hidden;
 `
 
 const DescriptionText = styled.div`
@@ -23,7 +23,7 @@ const HomeLink = styled.div`
   height: 32px;
   padding-left: 16px;
   line-height: 32px;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 `
 
 const Content = styled.div`
@@ -39,9 +39,6 @@ function DevDashboard() {
         of the app.
       </DescriptionText>
       <ul>
-        <li>
-          <Link href='/dev/activities'>Activity components</Link>
-        </li>
         <li>
           <Link href='/dev/download'>Download components</Link>
         </li>
@@ -73,7 +70,6 @@ export default function Dev() {
       </HomeLink>
       <Content>
         <Switch>
-          <Route path='/dev/activities/*?' component={DevActivities} />
           <Route path='/dev/download/*?' component={DevDownload} />
           <Route path='/dev/ladder/*?' component={DevLadder} />
           <Route path='/dev/lists/*?' component={DevLists} />

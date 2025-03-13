@@ -26,22 +26,21 @@ import { graphql, useFragment } from '../../gql'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { useAutoFocusRef } from '../../material/auto-focus'
-import { RaisedButton, TextButton } from '../../material/button'
-import Card from '../../material/card'
+import { ElevatedButton, TextButton } from '../../material/button'
+import { Card } from '../../material/card'
 import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { useAppDispatch } from '../../redux-hooks'
-import { openSnackbar } from '../../snackbars/action-creators'
+import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { useStableCallback } from '../../state-hooks'
-import { amberA400, colorDividers, colorError, colorTextSecondary } from '../../styles/colors'
 import {
-  Body1,
-  Subtitle1,
-  Subtitle2,
-  headline5,
-  overline,
-  subtitle1,
+  BodyLarge,
+  BodyMedium,
+  TitleMedium,
+  bodyLarge,
+  labelMedium,
+  titleLarge,
 } from '../../styles/typography'
 
 const Root = styled.div`
@@ -53,13 +52,13 @@ const Root = styled.div`
 const Section = styled.div``
 
 const SectionHeader = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-bottom: 16px;
 `
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
-  color: ${amberA400};
+  color: var(--theme-amber);
 `
 
 const EmailVerificationWarning = styled.div`
@@ -67,8 +66,8 @@ const EmailVerificationWarning = styled.div`
   display: flex;
   padding: 16px;
 
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
   gap: 16px;
   margin-bottom: 16px;
 `
@@ -86,8 +85,8 @@ const EditableItem = styled.div`
 `
 
 const EditableOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const EditableContent = styled.div`
@@ -173,9 +172,9 @@ export function AccountSettings() {
               <EditableOverline>
                 {t('settings.user.account.displayName', 'Display name')}
               </EditableOverline>
-              <Subtitle2>{currentUser.name}</Subtitle2>
+              <TitleMedium>{currentUser.name}</TitleMedium>
             </EditableContent>
-            <RaisedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <ElevatedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
 
           <EditableItem>
@@ -183,17 +182,17 @@ export function AccountSettings() {
               <EditableOverline>
                 {t('settings.user.account.loginName', 'Login name')}
               </EditableOverline>
-              <Subtitle2>{currentUser.loginName}</Subtitle2>
+              <TitleMedium>{currentUser.loginName}</TitleMedium>
             </EditableContent>
-            <RaisedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <ElevatedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
 
           <EditableItem>
             <EditableContent>
               <EditableOverline>{t('settings.user.account.email', 'Email')}</EditableOverline>
               <EmailItem>
-                <Subtitle1 data-test='account-email-text'>{emailText}</Subtitle1>
-                <Body1>
+                <BodyLarge data-test='account-email-text'>{emailText}</BodyLarge>
+                <BodyMedium>
                   <a
                     href='#'
                     data-test='reveal-email-link'
@@ -205,10 +204,10 @@ export function AccountSettings() {
                       ? t('common.actions.hide', 'Hide')
                       : t('common.actions.reveal', 'Reveal')}
                   </a>
-                </Body1>
+                </BodyMedium>
               </EmailItem>
             </EditableContent>
-            <RaisedButton
+            <ElevatedButton
               label={t('common.actions.edit', 'Edit')}
               onClick={onEditEmail}
               testName='edit-email-button'
@@ -221,7 +220,7 @@ export function AccountSettings() {
         <SectionHeader>
           {t('settings.user.account.authenticationHeader', 'Authentication')}
         </SectionHeader>
-        <RaisedButton
+        <ElevatedButton
           label={t('settings.user.account.changePasswordButton', 'Change password')}
           onClick={onChangePassword}
           testName='change-password-button'
@@ -240,8 +239,8 @@ const FormSpacer = styled.div`
 `
 
 const ErrorMessage = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
   padding-bottom: 16px;
 `
 
@@ -283,7 +282,7 @@ interface ChangePasswordFormModel {
 }
 
 export function ChangePasswordDialog(props: CommonDialogProps) {
-  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const { t } = useTranslation()
   const [{ fetching }, changePassword] = useMutation(ChangePasswordMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -337,13 +336,8 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
                 )
               }
             } else {
-              dispatch(
-                openSnackbar({
-                  message: t(
-                    'settings.user.account.changePassword.success',
-                    'Password changed successfully.',
-                  ),
-                }),
+              snackbarController.showSnackbar(
+                t('settings.user.account.changePassword.success', 'Password changed successfully.'),
               )
               onCancel()
             }
@@ -441,7 +435,7 @@ export interface ChangeEmailDialogProps extends CommonDialogProps {
 }
 
 export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
-  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const { t } = useTranslation()
   const [{ fetching }, changeEmail] = useMutation(ChangeEmailMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
@@ -494,13 +488,8 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
                 )
               }
             } else {
-              dispatch(
-                openSnackbar({
-                  message: t(
-                    'settings.user.account.changeEmail.success',
-                    'Email changed successfully.',
-                  ),
-                }),
+              snackbarController.showSnackbar(
+                t('settings.user.account.changeEmail.success', 'Email changed successfully.'),
               )
               onCancel()
             }

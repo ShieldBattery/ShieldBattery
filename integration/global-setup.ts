@@ -27,7 +27,7 @@ setup('create admin account', async ({ page, request, baseURL }) => {
   const loginPage = new LoginPage(page)
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
-  await page.waitForSelector('[data-test=left-nav]')
+  await page.waitForSelector('[data-test=app-bar-user-button]')
 
   await page.goto('/users/1/admin/admin')
   await page.waitForSelector('[data-test=permissions-form]')

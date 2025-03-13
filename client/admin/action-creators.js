@@ -21,7 +21,7 @@ import {
   ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
 } from '../actions'
 import { fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 
 export async function fetchUserId(username) {
   const value = await fetchJson(apiUrl`admin/users/${username}`)
@@ -76,7 +76,7 @@ export function createMapPool(type, maps, maxVetoCount, startDate = Date.now()) 
       type: ADMIN_MAP_POOL_CREATE,
       payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(type)}`, params).then(
         mapPool => {
-          dispatch(openSnackbar({ message: 'New map pool created' }))
+          externalShowSnackbar('New map pool created')
           return mapPool
         },
       ),
@@ -95,7 +95,7 @@ export function deleteMapPool(type, id) {
       type: ADMIN_MAP_POOL_DELETE,
       payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(id)}`, {
         method: 'delete',
-      }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted' }))),
+      }).then(() => externalShowSnackbar('Map pool deleted')),
       meta: { type, id },
     })
   }
@@ -160,7 +160,7 @@ export function addMatchmakingTime(type, startDate = Date.now(), enabled = false
       type: ADMIN_MATCHMAKING_TIMES_ADD,
       payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`, params).then(
         matchmakingTime => {
-          dispatch(openSnackbar({ message: 'New matchmaking time created' }))
+          externalShowSnackbar('New matchmaking time created')
           return matchmakingTime
         },
       ),
@@ -179,7 +179,7 @@ export function deleteMatchmakingTime(type, id) {
       type: ADMIN_MATCHMAKING_TIMES_DELETE,
       payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(id)}`, {
         method: 'delete',
-      }).then(() => dispatch(openSnackbar({ message: 'Matchmaking time deleted' }))),
+      }).then(() => externalShowSnackbar('Matchmaking time deleted')),
       meta: { type, id },
     })
   }

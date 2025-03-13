@@ -14,14 +14,13 @@ import { Select } from '../../material/select/select'
 import Slider from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { colorTextSecondary } from '../../styles/colors'
-import { overline } from '../../styles/typography'
+import { labelMedium } from '../../styles/typography'
 import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const AnnouncerOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
   margin-bottom: 8px;
 `
 

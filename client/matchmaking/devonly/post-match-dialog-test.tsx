@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { GameSource, GameType } from '../../../common/games/configuration'
+import { GameSource } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
+import {
+  ClientLeagueUserChangeJson,
+  LeagueJson,
+  makeLeagueId,
+} from '../../../common/leagues/leagues'
 import {
   makeSeasonId,
   MatchmakingResult,
@@ -11,16 +16,16 @@ import {
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { RaisedButton } from '../../material/button'
-import Card from '../../material/card'
+import { ElevatedButton } from '../../material/button'
+import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { useAppDispatch } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { Body1 } from '../../styles/typography'
+import { BodyMedium } from '../../styles/typography'
 
 const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)
@@ -217,10 +222,10 @@ export function PostMatchDialogTest() {
   return (
     <div>
       <ControlsCard>
-        <Body1>
+        <BodyMedium>
           Input a desired MMR change to show a dialog for. Point/rating change values will
           automatically change their sign for win/loss, so always input positive amounts.
-        </Body1>
+        </BodyMedium>
         <CheckBox
           name='outcome'
           label='Win?'
@@ -297,7 +302,7 @@ export function PostMatchDialogTest() {
           value={lifetimeGames}
           onChange={setLifetimeGames}
         />
-        <RaisedButton label='Show dialog' onClick={onClick} />
+        <ElevatedButton label='Show dialog' onClick={onClick} />
       </ControlsCard>
     </div>
   )

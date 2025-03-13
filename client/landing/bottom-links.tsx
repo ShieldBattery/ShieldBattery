@@ -2,10 +2,10 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { body2 } from '../styles/typography'
+import { titleSmall } from '../styles/typography'
 
 const BottomLinksList = styled.ul`
-  ${body2};
+  ${titleSmall};
 
   width: 100%;
   height: 40px;

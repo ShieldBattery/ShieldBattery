@@ -5,18 +5,11 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { DISCORD_URL } from '../../common/url-constants'
 import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
-import { shadowDef4dp } from '../material/shadow-constants'
+import { elevationPlus2 } from '../material/shadows'
 import { makePublicAssetUrl } from '../network/server-url'
-import {
-  background700,
-  background800,
-  blue400,
-  colorDividers,
-  colorTextSecondary,
-} from '../styles/colors'
-import { headline1, headline4, headline5 } from '../styles/typography'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
-import { TopLinks } from './top-links'
 
 const makeQuestionId = (question: string) => {
   return encodeURIComponent(question.replace(/\s/g, '-').replace('?', ''))
@@ -30,7 +23,7 @@ const pageWidth = css`
 const QuestionSectionRoot = styled.div`
   ${pageWidth};
   padding: 48px 48px 48px 0;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 
   @media screen and (max-width: 980px) {
     padding: 16px;
@@ -48,7 +41,7 @@ const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, 
   margin-right: 16px;
 
   display: inline-block;
-  color: ${blue400};
+  color: var(--color-blue80);
   vertical-align: middle;
 
   @media screen and (max-width: 980px) {
@@ -57,11 +50,11 @@ const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, 
 `
 
 const QuestionText = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin: 0;
   display: inline-block;
 
-  color: ${blue400};
+  color: var(--color-blue90);
   line-height: 48px;
   vertical-align: middle;
 
@@ -71,10 +64,10 @@ const QuestionText = styled.div`
 `
 
 const AnswerText = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin: 8px 0 0 80px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   font-weight: 300;
 
   & > p {
@@ -128,7 +121,7 @@ const Splash = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: ${background800};
+  background-color: var(--theme-container-low);
   overflow: auto;
 
   & * {
@@ -176,13 +169,13 @@ const StyledLogoText = styled(LogoText)`
 `
 
 const Intro = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  ${elevationPlus2};
   display: flex;
   flex-direction: row;
   justify-content: center;
   width: 100%;
   margin-top: 142px;
-  background-color: ${background700};
-  box-shadow: ${shadowDef4dp};
 
   @media screen and (max-width: 980px) {
     margin-top: 86px;
@@ -201,7 +194,7 @@ const FaqHeaderContainer = styled.div`
 `
 
 const FaqHeader = styled.div`
-  ${headline1};
+  ${displayLarge};
   width: 100%;
   max-width: 464px;
   margin: 0;
@@ -222,7 +215,7 @@ const FaqToc = styled.div`
 
   font-size: 20px;
   line-height: 1.5;
-  border-bottom: 1px solid ${colorDividers};
+  border-bottom: 1px solid var(--theme-outline);
 
   @media screen and (max-width: 980px) {
     padding: 32px 16px;
@@ -230,7 +223,7 @@ const FaqToc = styled.div`
 `
 
 const FaqTitle = styled.div`
-  ${headline4}
+  ${headlineMedium}
 `
 
 export function Faq() {
@@ -428,7 +421,6 @@ export function Faq() {
 
   return (
     <Splash>
-      <TopLinks />
       <LogoContainer>
         <Logo src={makePublicAssetUrl('/images/splash-logo.png')} />
         <StyledLogoText />

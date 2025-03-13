@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
-import { fastOutSlowIn } from '../../material/curve-constants'
+import { standardEasing } from '../../material/curve-constants'
 
 export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
   font-family: 'Material Symbols Outlined';
@@ -16,7 +16,10 @@ export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertCo
   word-wrap: normal;
   direction: ltr;
   -webkit-font-feature-settings: 'liga';
+
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
 
   width: ${props => props.$size}px;
   height: ${props => props.$size}px;
@@ -26,7 +29,7 @@ export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertCo
     'opsz' ${props => Math.min(48, Math.max(20, props.$size))},
     'GRAD' ${props => (props.$invertColor ? 0 : -25)};
 
-  transition: font-variation-settings 125ms ${fastOutSlowIn};
+  transition: font-variation-settings 125ms ${standardEasing};
 `
 
 export interface MaterialIconProps {

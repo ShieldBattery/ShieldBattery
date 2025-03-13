@@ -1,15 +1,6 @@
 import { createGlobalStyle } from 'styled-components'
-import {
-  amberA200,
-  amberA400,
-  background300,
-  background700,
-  CardLayer,
-  colorBackground,
-  colorTextFaint,
-  colorTextPrimary,
-} from './colors'
-import { body1 } from './typography'
+import { THEME_CSS } from './colors'
+import { bodyMedium, inter } from './typography'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {
@@ -22,18 +13,39 @@ const GlobalStyle = createGlobalStyle`
     user-select: none;
   }
 
+  :root {
+    ${THEME_CSS};
+  }
+
   html {
-    ${body1};
-    font-family: Inter, sans-serif;
+    ${inter};
+    ${bodyMedium};
+
+    accent-color: var(--theme-amber);
+    font-optical-sizing: auto;
     font-weight: normal;
-    color: ${colorTextPrimary};
+    color: var(--theme-on-surface);
     font-size: 14px;
     line-height: 1.42857;
-    background-color: ${colorBackground};
-    --sb-color-background: ${colorBackground};
+
+    background-color: var(--theme-surface);
+    --sb-color-background: var(--theme-surface);
 
     /** This will be overridden on the body styles in Electron */
     --sb-system-bar-height: 0px;
+
+    /**
+      Values to adjust for if centering content so that the content's edges don't end up on
+      half pixels.
+    */
+    // NOTE(tec27): Rounding seems very weird here, I know, BUT... Chrome seems to implement vw/vh
+    // extremely literally from the spec, which defines them as e.g. "1vw = 1% of viewport width."
+    // Thus, they pre-divide them by 100, and for some values (such as 954px):
+    //  954 / 100 * 100 => 953.9999999
+    // When this occurs, rem and mod by 2px can return 2px instead of the 0px they should. Other
+    // browsers (e.g. Firefox) don't seem to have this issue.
+    --pixel-shove-x: rem(round(100dvw, 0.25px), 2px);
+    --pixel-shove-y: rem(round(100dvh, 0.25px), 2px);
   }
 
   html, body, #app {
@@ -48,22 +60,13 @@ const GlobalStyle = createGlobalStyle`
     overflow: hidden;
   }
 
-  #app > div {
-    width: 100%;
-    height: calc(100% - var(--sb-system-bar-height, 0px));
-  }
-
-  [disabled] {
-    color: ${colorTextFaint};
-  }
-
   a:link, a:visited {
-    color: ${amberA400};
+    color: var(--color-amber70);
     text-decoration: none;
   }
 
   a:hover, a:active {
-    color: ${amberA200};
+    color: var(--color-amber80);
     text-decoration: underline;
   }
 
@@ -72,44 +75,40 @@ const GlobalStyle = createGlobalStyle`
   }
 
   input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0px 1000px ${background700} inset !important;
-    box-shadow: 0 0 0px 1000px ${background700} inset !important;
-    -webkit-text-fill-color: ${colorTextPrimary} !important;
-    caret-color: #fff !important;
-
-    ${CardLayer} & {
-      -webkit-box-shadow: 0 0 0px 1000px ${background300} inset !important;
-      box-shadow: 0 0 0px 1000px ${background300} inset !important;
-      -webkit-text-fill-color: ${colorTextPrimary} !important;
-      caret-color: #fff !important;
-    }
+    box-shadow: 0 0 0px 1000px var(--theme-container-highest) inset !important;
+    -webkit-text-fill-color: var(--theme-on-surface) !important;
+    caret-color: var(--theme-amber) !important;
   }
 
   /** Style default scrollbar (at least in Webkit-based browsers) */
   *::-webkit-scrollbar {
+    box-sizing: border-box;
     width: 16px;
   }
 
   *::-webkit-scrollbar-track {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
+    box-sizing: border-box;
+    background-color: rgb(from var(--color-grey-blue10) r g b / 80%);
+    border-radius: 4px;
+    border: 1px solid rgb(from var(--color-grey-blue30) r g b / 80%);
   }
 
   *::-webkit-scrollbar-thumb {
+    box-sizing: border-box;
     width: 100%;
     border: 2px solid transparent;
     margin-left: auto;
     margin-right: auto;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: var(--color-grey-blue40);
     background-clip: padding-box;
     /**
      * NOTE(tec27): This is more than the "usual" because it is inside of something that already
      * has border-radius, this makes it appear to match the outer radius
      */
-    border-radius: 4px;
+    border-radius: 6px;
 
     &:hover, &:active {
-      background-color: rgba(255, 255, 255, 0.16);
+      background-color: var(--color-grey-blue50);
     }
   }
 

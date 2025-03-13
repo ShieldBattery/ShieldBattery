@@ -1,5 +1,4 @@
 import styled from 'styled-components'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 
 export const Label = styled.label<{
   $dense?: boolean
@@ -18,8 +17,11 @@ export const Label = styled.label<{
   }};
   top: 0;
   transform: ${props => (props.$dense ? 'translate3d(0, 11px, 0)' : 'translate3d(0, 19px, 0)')};
-  z-index: 1;
-  color: ${props => (props.$disabled ? colorTextFaint : colorTextSecondary)};
+
   pointer-events: none;
+  z-index: 1;
+
+  color: ${props =>
+    props.$disabled ? 'var(--theme-on-surface)' : 'var(--theme-on-surface-variant)'};
   opacity: ${props => (props.$hasValue ? 0 : 1)};
 `

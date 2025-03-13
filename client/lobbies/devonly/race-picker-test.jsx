@@ -1,7 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Card from '../../material/card'
-import { background500 } from '../../styles/colors'
+import { Card } from '../../material/card'
 import { RacePicker } from '../race-picker'
 import SelectedRace from '../selected-race'
 
@@ -19,7 +18,7 @@ const StyledCard = styled(Card)`
   width: 100%;
   max-width: 640px;
   margin-left: 16px;
-  background-color: ${background500};
+  background-color: var(--theme-container-low);
 `
 
 export default class RacePickerTest extends React.Component {

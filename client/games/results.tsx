@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
+import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
+import { isTeamType } from '../../common/games/game-type'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import {
   ReconciledPlayerResult,
@@ -12,7 +13,7 @@ import {
 } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
@@ -22,11 +23,11 @@ import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.s
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton, useButtonState } from '../material/button'
+import { ElevatedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -34,20 +35,13 @@ import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
-  amberA200,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import {
-  Headline3,
-  body1,
-  body2,
-  headline6,
-  overline,
+  DisplaySmall,
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
+  titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
@@ -60,6 +54,7 @@ import {
 import { ResultsSubPage } from './results-sub-page'
 
 const Container = styled.div`
+  width: 100%;
   min-width: 640px;
   max-width: 960px;
   padding: 0px 12px 24px;
@@ -110,35 +105,31 @@ const HeaderInfo = styled.div`
 
 const HeaderInfoItem = styled.div`
   display: flex;
-  align-items: center;
+  align-items: baseline;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const HeaderInfoLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   width: 88px;
   margin-right: 16px;
 
-  // The all-caps variation used for overlines doesn't really align vertically between these fonts
-  // so we adjust manually
-  line-height: 23px;
-  padding-top: 1px;
-
+  color: var(--theme-on-surface-variant);
   text-align: right;
 `
 
 const HeaderInfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
 `
 
 const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
-  color: ${props => (props.$isLive ? amberA200 : colorTextFaint)};
+  color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface)')};
 `
 
 const StyledFindMatchIcon = styled(FindMatchIcon)`
@@ -307,7 +298,7 @@ export function ConnectedGameResultsPage({
   return (
     <Container>
       <HeaderArea>
-        <Headline3>{headline}</Headline3>
+        <DisplaySmall>{headline}</DisplaySmall>
         <HeaderInfo>
           {game ? (
             <>
@@ -336,7 +327,7 @@ export function ConnectedGameResultsPage({
       </HeaderArea>
       <ButtonBar>
         {showSearchAgain ? (
-          <RaisedButton
+          <ElevatedButton
             label={t('gameDetails.buttonSearchAgain', 'Search again')}
             iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}
@@ -369,6 +360,7 @@ const ComingSoonRoot = styled.div`
   /* 34px + 6px from tab = 40px */
   margin-top: 34px;
   padding: 0 24px;
+  text-align: center;
 `
 
 function ComingSoonPage() {
@@ -380,7 +372,7 @@ function ComingSoonPage() {
 }
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 32px;
   margin-bottom: 48px;
@@ -412,11 +404,12 @@ const MapContainer = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
+  height: auto;
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-top: 8px;
 `
@@ -430,14 +423,14 @@ const PlayerListCard = styled(Card)`
 `
 
 const TeamLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 24px;
   line-height: 24px;
   margin: 0 8px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 type ConfigAndResult = [config: GameConfigPlayer, result: ReconciledPlayerResult | undefined]
@@ -617,11 +610,11 @@ const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
   width: 40px;
   height: 40px;
   margin-left: 8px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayerName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-left: 16px;
   margin-right: 8px;
@@ -643,14 +636,14 @@ const GameResultColumn = styled.div`
 `
 
 const StyledGameResultText = styled(GameResultText)`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
   width: 100%;
   text-align: right;
 `
 
 const StyledPointsChangeText = styled(MmrChangeText)`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
   text-align: right;
 `
@@ -698,11 +691,11 @@ export interface GameResultTextProps {
 }
 
 const PositiveText = styled.span`
-  color: ${colorPositive};
+  color: var(--theme-positive);
 `
 
 const NegativeText = styled.span`
-  color: ${colorNegative};
+  color: var(--theme-negative);
 `
 
 export function GameResultText({ className, result }: GameResultTextProps) {
@@ -739,7 +732,14 @@ function MmrChangeText({
 
   const PointsOverview = useCallback(
     (props: { $position: TooltipPosition }) => (
-      <TooltipContent $position={props.$position}>
+      <TooltipContent
+        $position={props.$position}
+        style={
+          {
+            '--theme-positive': 'var(--theme-positive-invert)',
+            '--theme-negative': 'var(--theme-negative-invert)',
+          } as any
+        }>
         <div>
           <div>
             {t('gameDetails.summary.pointsBase', 'Base')}:{' '}

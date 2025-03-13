@@ -1,276 +1,809 @@
-import { Immutable } from 'immer'
 import keycode from 'keycode'
-import { rgba } from 'polished'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { MouseEvent, useId, useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { Route, Switch } from 'wouter'
-import { NEWS_PAGE } from '../common/flags'
-import { MapInfoJson } from '../common/maps'
-import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
-import { ReduxAction } from './action-types'
-import { openOverlay } from './activities/action-creators'
-import ActivityBar from './activities/activity-bar'
-import { ActivityButton } from './activities/activity-button'
-import { ActivityOverlay } from './activities/activity-overlay'
-import { ActivityOverlayType } from './activities/activity-overlay-type'
-import { VersionText } from './activities/version-text'
-import { useIsAdmin } from './admin/admin-permissions'
-import { openChangelogIfNecessary } from './changelog/action-creators'
-import { ChannelRouteComponent } from './chat/route'
+import styled, { css } from 'styled-components'
+import { Link, useRoute } from 'wouter'
+import { matchmakingTypeToLabel } from '../common/matchmaking'
+import { urlPath } from '../common/urls'
+import { logOut } from './auth/action-creators'
+import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
+import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
+import { ConnectedAvatar } from './avatars/avatar'
+import { openChangelog } from './changelog/action-creators'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
-import { DispatchFunction } from './dispatch-registry'
-import { FileDropZone } from './file-browser/file-drop-zone'
-import { GamesRouteComponent } from './games/route'
-import { Home } from './home'
+import { useBreakpoint } from './dom/dimension-hooks'
 import { MaterialIcon } from './icons/material/material-icon'
-import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
-import { navigateToLadder } from './ladder/action-creators'
-import { LadderRouteComponent } from './ladder/ladder'
-import { navigateToLeaguesList } from './leagues/action-creators'
-import { LeagueRoot } from './leagues/league-list'
-import { LobbyView } from './lobbies/view'
-import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
-import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
-import MatchmakingView from './matchmaking/view'
-import { IconButton, useButtonHotkey } from './material/button'
-import Card from './material/card'
+import { ElapsedTime } from './matchmaking/elapsed-time'
+import { isMatchmakingLoading } from './matchmaking/matchmaking-reducer'
+import {
+  ElevatedButton,
+  HotkeyProp,
+  IconButton,
+  keyEventMatches,
+  useButtonHotkey,
+} from './material/button'
+import { emphasizedAccelerateEasing, emphasizedDecelerateEasing } from './material/curve-constants'
+import { Divider } from './material/menu/divider'
+import { MenuItem } from './material/menu/item'
 import { usePopoverController } from './material/popover'
-import { shadowDef8dp } from './material/shadow-constants'
 import { Tooltip } from './material/tooltip'
-import { ConnectedLeftNav } from './navigation/connected-left-nav'
-import { GoToIndex } from './navigation/index'
-import { replace } from './navigation/routing'
-import { addLocalNotification } from './notifications/action-creators'
+import {
+  NavigationMenuItem,
+  NavigationMenuOverlay,
+  useNavigationMenuState,
+} from './navigation/navigation-menu'
+import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
-import {
-  addAcceptableUseNotificationIfNeeded,
-  addPrivacyPolicyNotificationIfNeeded,
-  addTermsOfServiceNotificationIfNeeded,
-} from './policies/action-creators'
-import LoadingIndicator from './progress/dots'
+import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
-import { showReplayInfo } from './replays/action-creators'
 import { openSettings } from './settings/action-creators'
-import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
-import { StarcraftStatus } from './starcraft/starcraft-reducer'
-import { useStableCallback } from './state-hooks'
-import { amberA400, colorTextSecondary, dialogScrim } from './styles/colors'
-import { FlexSpacer } from './styles/flex-spacer'
-import { Subtitle1 } from './styles/typography'
-import { FriendsListActivityButton } from './users/friends-list'
-import { ProfileRouteComponent } from './users/route'
-import { WhisperRouteComponent } from './whispers/route'
+import { SocialSidebar } from './social/social-sidebar'
+import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
+import { singleLine, sofiaSans, titleSmall } from './styles/typography'
+import { navigateToUserProfile } from './users/action-creators'
+import { SelfProfileOverlay } from './users/self-profile-overlay'
 
+const ALT_A = { keyCode: keycode('a'), altKey: true }
 const ALT_B = { keyCode: keycode('b'), altKey: true }
 const ALT_C = { keyCode: keycode('c'), altKey: true }
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
 const ALT_G = { keyCode: keycode('g'), altKey: true }
+const ALT_H = { keyCode: keycode('h'), altKey: true }
 const ALT_J = { keyCode: keycode('j'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
 const ALT_R = { keyCode: keycode('r'), altKey: true }
 const ALT_S = { keyCode: keycode('s'), altKey: true }
 
-const Container = styled.div`
-  display: flex;
+const SIDEBAR_WIDTH = 320
+
+const Root = styled.div<{ $sidebarOpen?: boolean }>`
+  width: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0px));
   overflow: hidden;
+
+  --sb-sidebar-width: ${SIDEBAR_WIDTH}px;
+
+  display: grid;
+  grid-template-columns: 0 minmax(min-content, 1fr) ${props =>
+      props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0'};
+  grid-template-areas:
+    'appbar appbar appbar'
+    'padding content sidebar';
+  grid-template-rows: auto 1fr;
+
+  transition: grid-template-columns ${props => (props.$sidebarOpen ? '400ms' : '200ms')}
+    ${props => (props.$sidebarOpen ? emphasizedDecelerateEasing : emphasizedAccelerateEasing)};
+
+  @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
+    grid-template-columns:
+      ${props => (props.$sidebarOpen ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))' : '0')}
+      minmax(min-content, 1fr)
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+  }
+
+  @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
+    grid-template-columns:
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')}
+      minmax(min-content, 1fr)
+      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+  }
 `
 
-const Content = styled.div`
-  flex-grow: 1;
-  flex-shrink: 1;
-  overflow-x: hidden;
-`
+const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
+  ${singleLine};
 
-let lobbyRoute = <></>
-let matchmakingRoute = <></>
-if (IS_ELECTRON) {
-  // TODO(2Pac): Remove `any` once the `LobbyView` is TS-ified
-  lobbyRoute = <Route path='/lobbies/:lobby/*?' component={LobbyView} />
-  matchmakingRoute = <Route path='/matchmaking/*?' component={MatchmakingView} />
-}
+  position: relative;
+  min-width: 140px;
+  height: 64px;
+  padding: 0 20px;
 
-const AdminPanelComponent = React.lazy(() => import('./admin/panel'))
+  display: block;
 
-function LoadableAdminPanel() {
-  // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
-  // place?)
-  return (
-    <React.Suspense fallback={<LoadingIndicator />}>
-      <AdminPanelComponent />
-    </React.Suspense>
-  )
-}
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 64px;
+  text-align: center;
+  text-decoration: none;
+  text-shadow: 1px 1px rgb(from var(--color-grey-blue10) r g b / 50%);
+  text-transform: uppercase;
 
-const MiniActivityButtonsContainer = styled.div`
-  width: 100%;
-  display: flex;
+  --menu-item-fill: none;
 
-  flex-wrap: wrap-reverse;
-  justify-content: center;
-`
+  &:link,
+  &:visited {
+    color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'inherit')};
+  }
 
-/**
- * Tracks if this is the first time this user has logged in on this client. Pretty dumb, if we need
- * more smarts we can add it as a Context var or put it in the store or something.
- */
-let firstLoggedIn = true
+  @media (hover: hover) {
+    &:hover {
+      color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+      text-decoration: none;
+      --menu-item-fill: var(--color-grey-blue40);
 
-/**
- * Calls the specified callback only if the StarCraft and ShieldBattery installations are "healthy".
- *
- * The deps argument here won't be linted so you should ensure that it's a complete list.
- */
-function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
-  dispatch: DispatchFunction<ReduxAction>,
-  starcraft: StarcraftStatus,
-  callback: T,
-  deps: any[] = [],
-) {
-  return useCallback(
-    (...args: Parameters<T>) => {
-      if (!isShieldBatteryHealthy({ starcraft })) {
-        dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
-      } else if (!isStarcraftHealthy({ starcraft })) {
-        dispatch(openDialog({ type: DialogType.StarcraftHealth }))
-      } else {
-        callback(...args)
+      &:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 20px;
+        right: 20px;
+        bottom: 0;
+        background: var(--menu-item-fill);
       }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dispatch, starcraft, callback, ...deps],
+    }
+
+    &:focus-visible {
+      outline: none;
+
+      &:after {
+        content: '';
+        position: absolute;
+        top: 16px;
+        left: 20px;
+        right: 20px;
+        bottom: 16px;
+        outline: 2px solid var(--theme-amber);
+        border-radius: 4px;
+      }
+    }
+  }
+
+  &:active {
+    color: ${({ $isActive }) => ($isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+    text-decoration: none;
+    --menu-item-fill: var(--color-grey-blue50);
+
+    &:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20px;
+      right: 20px;
+      bottom: 0;
+      background: var(--menu-item-fill);
+    }
+  }
+`
+
+const MenuItemContent = styled.span`
+  position: relative;
+  display: inline-block;
+`
+
+const MenuItemLeftEdge = styled.svg`
+  position: absolute;
+  left: 0px;
+  width: 20px;
+  height: 100%;
+`
+
+const MenuItemRightEdge = styled.svg`
+  position: absolute;
+  right: 0px;
+  width: 20px;
+  height: 100%;
+`
+
+const MenuItemLeftActiveStroke = styled(MenuItemLeftEdge)`
+  width: 24px;
+`
+const MenuItemRightActiveStroke = styled(MenuItemRightEdge)`
+  width: 24px;
+`
+
+const MenuItemBottomActiveStroke = styled.div`
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 0;
+  height: 2px;
+  background: var(--theme-amber);
+`
+
+function MenuItemStrokeGradient({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1='0' x2='0' y1='0' y2='1'>
+        <stop offset='20%' stopColor='var(--theme-amber)' stopOpacity={0} />
+        <stop offset='100%' stopColor='var(--theme-amber)' stopOpacity={1} />
+      </linearGradient>
+    </defs>
   )
 }
 
-const StyledFileDropZone = styled(FileDropZone)`
-  position: absolute;
-  inset: 0;
+interface MenuItemProps {
+  href: string
+  routePattern: string
+  flipped?: boolean
+  hotkey: HotkeyProp
+  children: React.ReactNode
+}
+
+const AppBarMenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
+  ({ href, routePattern, flipped, hotkey, children }, ref) => {
+    const [isActive] = useRoute(routePattern)
+    const strokeLeftId = useId()
+    const strokeRightId = useId()
+
+    const [linkRef, setLinkRef] = useMultiRef(ref)
+    useButtonHotkey({ ref: linkRef, hotkey })
+
+    return (
+      <Link href={href} asChild={true}>
+        <MenuItemRoot ref={setLinkRef} $isActive={isActive} draggable={false}>
+          <MenuItemLeftEdge viewBox='0 0 20 64'>
+            <polygon
+              points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}
+              fill='var(--menu-item-fill)'
+            />
+          </MenuItemLeftEdge>
+          <MenuItemContent>{children}</MenuItemContent>
+          <MenuItemRightEdge viewBox='0 0 20 64'>
+            <polygon
+              points={!flipped ? '0,0 20,64 0,64' : '0,64, 20,0, 0,0'}
+              fill='var(--menu-item-fill)'
+            />
+          </MenuItemRightEdge>
+
+          {isActive ? (
+            <>
+              {/*
+                Draw outline in 3 pieces (with some overlap to prevent gaps) to allow it to
+                stretch if needed
+              */}
+              <MenuItemLeftActiveStroke viewBox='0 0 24 64'>
+                <MenuItemStrokeGradient id={strokeLeftId} />
+                <path
+                  d={
+                    !flipped
+                      ? 'M1.36,1 L20.735,63 L24,63 L20.735,63 Z'
+                      : 'M20.735,1 L1.36,63 L24,63 L1.36,63 Z'
+                  }
+                  fill='none'
+                  stroke={`url(#${strokeLeftId})`}
+                  strokeWidth='2'
+                />
+              </MenuItemLeftActiveStroke>
+              <MenuItemBottomActiveStroke />
+              <MenuItemRightActiveStroke viewBox='0 0 24 64'>
+                <MenuItemStrokeGradient id={strokeRightId} />
+                <path
+                  d={
+                    !flipped
+                      ? 'M3.265,1 L22.64,63 L0,63 L22.64,63 Z'
+                      : 'M22.64,1 L3.265,63 L0,63 L3.265,63 Z'
+                  }
+                  fill='none'
+                  stroke={`url(#${strokeRightId})`}
+                  strokeWidth='2'
+                />
+              </MenuItemRightActiveStroke>
+            </>
+          ) : null}
+        </MenuItemRoot>
+      </Link>
+    )
+  },
+)
+
+const MenuItemsStart = styled.div`
+  display: flex;
+  justify-content: flex-end;
+
+  & > ${MenuItemRoot} {
+    margin-inline-start: -20px;
+  }
 `
 
-const FileDropContents = styled.div`
-  width: 100%;
-  height: 100%;
+const MenuItemsEnd = styled.div`
+  display: flex;
+  justify-content: flex-start;
+
+  & > ${MenuItemRoot} {
+    margin-inline-end: -20px;
+  }
+`
+
+const PlayButtonRoot = styled.a`
+  position: relative;
+  width: 240px;
+  height: 72px;
+  margin: 0 -16px;
+  padding-inline: 24px;
+  z-index: 5;
 
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible; /* Allow the shadow to exceed bounds */
 
-  background: ${rgba(dialogScrim, 0.42)};
-  pointer-events: none;
+  color: var(--theme-on-surface);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 1px 1px rgb(from var(--color-blue10) r g b / 50%);
+  text-transform: uppercase;
+
+  &:link,
+  &:visited {
+    color: var(--theme-on-surface);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      color: var(--theme-on-surface);
+      text-decoration: none;
+    }
+
+    &:focus-visible {
+      outline: none;
+
+      &:after {
+        content: '';
+        position: absolute;
+        top: 16px;
+        left: 20px;
+        right: 20px;
+        bottom: 16px;
+        outline: 2px solid var(--theme-amber);
+        border-radius: 4px;
+      }
+    }
+  }
+
+  &:active {
+    color: var(--theme-on-surface);
+    text-decoration: none;
+    --menu-item-fill: var(--color-grey-blue50);
+
+    &:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20px;
+      right: 20px;
+      bottom: 0;
+      background: var(--menu-item-fill);
+    }
+  }
+
+  @media (max-width: 600px) {
+    /**
+      NOTE(tec27): We assume no device this small will have the ability to play games anyway.
+      This does make it hard to view the current lobby list but I think that's not a huge deal? If
+      it is we can probably throw that into the navigation menu somehow.
+    */
+    display: none;
+  }
 `
 
-const FileDropCard = styled(Card)`
+const PlayButtonBackground = styled.svg`
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  max-width: 480px;
-  aspect-ratio: 16 / 9;
-  padding-bottom: 32px;
+  height: 100%;
 
+  && {
+    overflow: visible; /* Allow the shadow to exceed bounds */
+  }
+`
+
+const PlayButtonContent = styled.div`
+  contain: paint;
+`
+
+const LobbyPlayContent = styled(PlayButtonContent)`
+  font-size: 28px;
+  text-transform: none;
+
+  white-space: normal;
+`
+
+const MatchLoadingPlayContent = styled(PlayButtonContent)`
+  font-size: 24px;
+  text-transform: none;
+  white-space: normal;
+`
+
+const IngamePlayContent = styled(PlayButtonContent)`
+  font-size: 24px;
+  text-transform: none;
+  white-space: normal;
+`
+
+const MatchmakingSearchPlayContent = styled(PlayButtonContent)`
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 4px;
 
-  border: 4px dashed ${rgba(amberA400, 0.7)};
-  border-radius: 16px;
-  box-shadow: ${shadowDef8dp};
-  contain: paint;
-
-  color: ${colorTextSecondary};
-  text-align: center;
+  font-size: 24px;
+  text-transform: none;
+  white-space: normal;
 `
 
-function GlobalDropZone() {
-  const dispatch = useAppDispatch()
-  const { t } = useTranslation()
+const HoverOnly = styled.div`
+  display: none;
+`
 
-  const onFilesDropped = useStableCallback((files: File[]) => {
-    // TODO(tec27): Support multiple replay files being dropped at once: create a playlist/watch
-    // them in succession
-    const file = files[0]
-    dispatch(showReplayInfo(file.path))
+const SearchInProgressContentRoot = styled(MatchmakingSearchPlayContent)`
+  width: 100%;
+  height: 100%;
+
+  &:hover {
+    & > ${HoverOnly} {
+      display: block;
+    }
+
+    & > :not(${HoverOnly}) {
+      display: none;
+    }
+  }
+`
+
+const StyledElapsedTime = styled(ElapsedTime)`
+  ${titleSmall};
+`
+
+function SearchInProgressContent() {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)!
+
+  const onClick = useStableCallback((event: MouseEvent) => {
+    event.preventDefault()
+    dispatch(cancelFindMatch())
   })
 
   return (
-    <StyledFileDropZone extensions={['rep']} onFilesDropped={onFilesDropped}>
-      <FileDropContents>
-        <FileDropCard>
-          <MaterialIcon icon='file_open' size={80} />
-          <Subtitle1>
-            {t('replays.fileDropText', 'Drop replays here to watch them with ShieldBattery.')}
-          </Subtitle1>
-        </FileDropCard>
-      </FileDropContents>
-    </StyledFileDropZone>
+    <SearchInProgressContentRoot onClick={onClick}>
+      <span>{matchmakingTypeToLabel(matchmakingSearchInfo.matchmakingType, t)}</span>
+      <StyledElapsedTime startTimeMs={matchmakingSearchInfo.startTime} />
+      <HoverOnly>{t('common.actions.cancel', 'Cancel')}</HoverOnly>
+    </SearchInProgressContentRoot>
   )
 }
 
-export function MainLayout() {
+function PlayButton() {
+  const { t } = useTranslation()
+  const gradientId = useId()
+  const shadowId = useId()
+
+  const isLobbyLoading = useAppSelector(s => s.lobby.info.isLoading)
+  const lobbyName = useAppSelector(s => s.lobby.info.name)
+  const isMatchLoading = useAppSelector(s => isMatchmakingLoading(s.matchmaking))
+  const matchmakingType = useAppSelector(s => s.matchmaking.match?.type)
+  const matchmakingLaunching = useAppSelector(s => s.matchmaking.isLaunching)
+  const matchmakingCountingDown = useAppSelector(s => s.matchmaking.isCountingDown)
+  const matchmakingStarting = useAppSelector(s => s.matchmaking.isStarting)
+
+  const isInActiveGame = useAppSelector(s => s.activeGame.isActive)
+  const gameInfo = useAppSelector(s => s.activeGame.info)
+
+  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)
+  const matchmakingMatch = useAppSelector(s => s.matchmaking.match)
+
+  let targetPath = '/play/'
+  let content = <PlayButtonContent>{t('navigation.bar.play', 'Play')}</PlayButtonContent>
+  if (isLobbyLoading) {
+    targetPath = urlPath`/lobbies/${lobbyName}/loading-game`
+    content = (
+      <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
+    )
+  } else if (isMatchLoading) {
+    content = (
+      <MatchLoadingPlayContent>
+        {t('navigation.leftNav.rankedGame', {
+          defaultValue: 'Ranked {{matchmakingType}}',
+          matchmakingType: matchmakingType ? matchmakingTypeToLabel(matchmakingType, t) : '',
+        })}
+      </MatchLoadingPlayContent>
+    )
+
+    if (matchmakingLaunching) {
+      targetPath = '/matchmaking/countdown'
+    } else if (matchmakingCountingDown) {
+      targetPath = '/matchmaking/countdown'
+    } else if (matchmakingStarting) {
+      targetPath = '/matchmaking/game-starting'
+    } else {
+      // This should never really happen but it makes TS happy
+      targetPath = '/matchmaking/countdown'
+    }
+  } else if (isInActiveGame) {
+    content = (
+      <IngamePlayContent>{t('navigation.bar.playIngame', 'Game in progress')}</IngamePlayContent>
+    )
+    if (gameInfo?.type === 'lobby') {
+      targetPath = urlPath`/lobbies/${gameInfo.extra.lobby.info.name}/active-game`
+    } else if (gameInfo?.type === 'matchmaking') {
+      targetPath = '/matchmaking/active-game'
+    }
+  } else if (inLobby) {
+    targetPath = urlPath`/lobbies/${lobbyName}`
+    content = (
+      <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
+    )
+  } else if (matchmakingSearchInfo) {
+    targetPath = '/play/matchmaking'
+    if (matchmakingMatch) {
+      content = (
+        <MatchmakingSearchPlayContent>
+          {t('matchmaking.navEntry.matchFound', 'Match found!')}
+        </MatchmakingSearchPlayContent>
+      )
+    } else {
+      content = <SearchInProgressContent />
+    }
+  }
+
+  return (
+    <Link href={targetPath} asChild={true}>
+      <PlayButtonRoot draggable={false}>
+        <PlayButtonBackground viewBox='0 0 240 72'>
+          <defs>
+            <linearGradient
+              id={gradientId}
+              x1='52'
+              y1='-20'
+              x2='188'
+              y2='88'
+              gradientUnits='userSpaceOnUse'>
+              <stop stopColor='var(--color-blue70)' />
+              <stop offset='0.418214' stopColor='var(--color-blue50)' />
+              <stop offset='0.68' stopColor='var(--color-blue50)' />
+              <stop offset='1' stopColor='var(--color-blue60)' />
+            </linearGradient>
+            {/*
+            NOTE(tec27): This is a level 2 elevation shadow copied out of figma, we could probably
+            simplify this a bunch
+          */}
+            <filter
+              id={shadowId}
+              x='-10'
+              y='0'
+              width='260'
+              height='80'
+              filterUnits='userSpaceOnUse'
+              colorInterpolationFilters='sRGB'>
+              <feFlood floodOpacity='0' result='BackgroundImageFix' />
+              <feColorMatrix
+                in='SourceAlpha'
+                type='matrix'
+                values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0'
+                result='hardAlpha'
+              />
+              <feMorphology
+                radius='2'
+                operator='dilate'
+                in='SourceAlpha'
+                result='effect1_dropShadow_634_1625'
+              />
+              <feOffset dy='2' />
+              <feGaussianBlur stdDeviation='3' />
+              <feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0' />
+              <feBlend
+                mode='normal'
+                in2='BackgroundImageFix'
+                result='effect1_dropShadow_634_1625'
+              />
+              <feColorMatrix
+                in='SourceAlpha'
+                type='matrix'
+                values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0'
+                result='hardAlpha'
+              />
+              <feOffset dy='1' />
+              <feGaussianBlur stdDeviation='1' />
+              <feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.3 0' />
+              <feBlend
+                mode='normal'
+                in2='effect1_dropShadow_634_1625'
+                result='effect2_dropShadow_634_1625'
+              />
+              <feBlend
+                mode='normal'
+                in='SourceGraphic'
+                in2='effect2_dropShadow_634_1625'
+                result='shape'
+              />
+            </filter>
+          </defs>
+          <polygon
+            points={`0,0 240,0 218,72 22,72`}
+            fill={`url(#${gradientId})`}
+            filter={`url(#${shadowId})`}
+          />
+          <path
+            d={`
+            M 239,0
+            L 217,71
+            L 23,71
+            L 1,0
+            L 23,71
+            L 217,71
+            Z
+          `}
+            fill='none'
+            stroke='var(--color-blue90)'
+            strokeWidth='2'
+            strokeOpacity='0.4'
+            strokeLinecap='square'
+          />
+        </PlayButtonBackground>
+        {content}
+      </PlayButtonRoot>
+    </Link>
+  )
+}
+
+const ShadowedIcon = styled(MaterialIcon)`
+  text-shadow: 1px 1px rgb(from var(--color-grey-blue10) r g b / 50%);
+`
+
+const ShadowedToggleIcon = styled(ShadowedIcon)<{ $active?: boolean }>`
+  ${props =>
+    props.$active
+      ? css`
+          color: var(--theme-amber);
+        `
+      : css``};
+  transition: color 250ms linear;
+`
+
+enum AppBarBreakpoint {
+  Small,
+  Normal,
+}
+
+const APP_BAR_BREAKPOINTS = [
+  [0, AppBarBreakpoint.Small],
+  [1320, AppBarBreakpoint.Normal],
+] satisfies ReadonlyArray<[number, AppBarBreakpoint]>
+
+const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
+  grid-area: appbar;
+  position: relative;
+
+  height: 72px;
+  margin-bottom: -8px;
+  padding: 0 4px 0 12px;
+
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+
+  color: var(--theme-on-surface-variant);
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--color-grey-blue30);
+  }
+
+  & > * {
+    /** Give these elements a new stacking context so they display over top of the ::before */
+    position: relative;
+  }
+`
+
+const AvatarSpace = styled.div`
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+
+  display: flex;
+  align-items: center;
+`
+
+const MenuItems = styled.div<{ $breakpoint: AppBarBreakpoint }>`
+  ${sofiaSans};
+  height: 100%;
+  margin-bottom: 0px; /* Allow play button to stretch the whole parent */
+  /* Need space for the diagonal edges of the outer menu items to draw */
+  padding: 0 20px 0 calc(20px + var(--pixel-shove-x));
+
+  display: grid;
+  grid-template-columns: ${props =>
+    props.$breakpoint === AppBarBreakpoint.Normal ? '1fr auto 1fr' : 'auto'};
+  align-items: start;
+`
+
+const IconButtons = styled.div`
+  margin-bottom: 8px;
+  padding-right: 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+`
+
+const LeftSideSmall = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const AvatarButton = styled(IconButton)`
+  width: 56px;
+  height: 56px;
+  margin: 4px;
+`
+
+function AppBar({
+  onToggleSocial,
+  sidebarOpen,
+}: {
+  onToggleSocial: () => void
+  sidebarOpen: boolean
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isAdmin = useIsAdmin()
-  const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
-  const isEmailVerified = useAppSelector(s => s.auth.self!.user.emailVerified)
-  const isMatchmakingSearching = useAppSelector(s => !!s.matchmaking.searchInfo)
-  const lobbyCount = useAppSelector(s => s.lobbyList.count)
-  const starcraft = useAppSelector(s => s.starcraft)
+  const selfUser = useSelfUser()
+  const [breakpointRef, breakpoint] = useBreakpoint(APP_BAR_BREAKPOINTS, AppBarBreakpoint.Normal)
+  const [onLoginPage] = useRoute('/login')
+  const [appMenuOpen, onOpenAppMenu, onCloseAppMenu] = useNavigationMenuState('mainLayout.appMenu')
+  const appMenuFocusable = useRef<HTMLAnchorElement>(null)
 
-  const [searchingMatchOverlayOpen, openSearchingMatchOverlay, closeSearchingMatchOverlay] =
-    usePopoverController(false)
-  const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
+  const profileEntryRef = useRef<HTMLButtonElement>(null)
+
+  const onLogIn = useStableCallback(() => {
+    redirectToLogin(push)
+  })
+  const onLogOutClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(logOut().action)
+  })
+  const onChangelogClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(openChangelog())
+  })
+  const onViewProfileClick = useStableCallback(() => {
+    closeProfileOverlay()
+    navigateToUserProfile(selfUser!.id, selfUser!.name)
+  })
+  const onReportBugClick = useStableCallback(() => {
+    closeProfileOverlay()
+    dispatch(openDialog({ type: DialogType.BugReport }))
+  })
 
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
+  const chatButtonRef = useRef<HTMLButtonElement>(null)
+  useButtonHotkey({ ref: chatButtonRef, hotkey: ALT_H })
 
-  useEffect(() => {
-    dispatch(openChangelogIfNecessary())
-
-    if (firstLoggedIn) {
-      firstLoggedIn = false
-      if (!isEmailVerified) {
-        dispatch(
-          addLocalNotification({
-            id: EMAIL_VERIFICATION_ID,
-            type: NotificationType.EmailVerification,
-          }),
-        )
-      }
-
-      dispatch(addPrivacyPolicyNotificationIfNeeded())
-      dispatch(addTermsOfServiceNotificationIfNeeded())
-      dispatch(addAcceptableUseNotificationIfNeeded())
-    }
-
-    return () => {
-      firstLoggedIn = true
-    }
-  }, [isEmailVerified, dispatch])
-
-  const onFindMatchClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    dispatch(openOverlay({ type: ActivityOverlayType.FindMatch }))
-  })
-
-  const onLobbiesClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    dispatch(openOverlay({ type: ActivityOverlayType.Lobby }))
-  })
-  // This reproduces the hotkeys we had for creating/joining a lobby before we combined the buttons
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if (!IS_ELECTRON) {
-        return false
-      }
-
-      if (event.keyCode === ALT_C.keyCode && event.altKey) {
-        dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { creating: true } }))
+      if (keyEventMatches(event, ALT_F)) {
+        if (location.pathname !== '/play/matchmaking') {
+          push('/play/matchmaking')
+        }
         return true
-      } else if (event.keyCode === ALT_J.keyCode && event.altKey) {
-        dispatch(openOverlay({ type: ActivityOverlayType.Lobby }))
+      }
+      if (keyEventMatches(event, ALT_B) || keyEventMatches(event, ALT_J)) {
+        if (location.pathname !== '/play/lobbies') {
+          push('/play/lobbies')
+        }
+        return true
+      }
+      if (IS_ELECTRON && keyEventMatches(event, ALT_C)) {
+        if (location.pathname !== '/play/lobbies/create') {
+          push('/play/lobbies/create')
+        }
         return true
       }
 
@@ -278,225 +811,227 @@ export function MainLayout() {
     },
   })
 
-  const onMapDetails = useCallback(
-    (map: Immutable<MapInfoJson>) => {
-      dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
-    },
-    [dispatch],
+  const avatarSpace = (
+    <AvatarSpace>
+      {selfUser ? (
+        <AvatarButton
+          ref={profileEntryRef}
+          icon={<ConnectedAvatar userId={selfUser.id} />}
+          testName='app-bar-user-button'
+          ariaLabel={t('navigation.bar.userMenu', 'User menu')}
+          onClick={openProfileOverlay}
+        />
+      ) : (
+        /* TODO(tec27): Use a filled button instead once implemented */
+        <ElevatedButton
+          label={t('auth.login.logIn', 'Log in')}
+          testName='app-bar-login'
+          onClick={onLogIn}
+          disabled={onLoginPage}
+        />
+      )}
+    </AvatarSpace>
   )
-
-  const onRemoveMap = useCallback(
-    (map: Immutable<MapInfoJson>) => {
-      dispatch(removeMap(map))
-    },
-    [dispatch],
-  )
-
-  const onRegenMapImage = useCallback(
-    (map: Immutable<MapInfoJson>) => {
-      dispatch(regenMapImage(map))
-    },
-    [dispatch],
-  )
-
-  const onMapUpload = useCallback(
-    (map: Immutable<MapInfoJson>) => {
-      // TODO(tec27): This leads to a weird activity stack (typically, [Server, Local, Server]),
-      // would probably be better to just pop the activity stack up to the first Server activity? Or
-      // just restructure this to not have separate activities for these things
-      dispatch(
-        openOverlay({
-          type: ActivityOverlayType.BrowseServerMaps,
-          initData: {
-            uploadedMap: map,
-            title: t('maps.activity.title', 'Maps'),
-            onMapUpload,
-            onMapSelect: onMapDetails,
-            onMapDetails,
-            onRemoveMap,
-            onRegenMapImage,
-          },
-        }),
-      )
-    },
-    [dispatch, onMapDetails, onRegenMapImage, onRemoveMap, t],
-  )
-
-  // TODO(tec27): Figure out why the hell this requires a valid starcraft installation and then fix
-  // that and remove this requirement
-  const onMapsClick = useHealthyStarcraftCallback(
-    dispatch,
-    starcraft,
-    () => {
-      dispatch(
-        openOverlay({
-          type: ActivityOverlayType.BrowseServerMaps,
-          initData: {
-            title: t('maps.activity.title', 'Maps'),
-            onMapUpload,
-            onMapSelect: onMapDetails,
-            onMapDetails,
-            onRemoveMap,
-            onRegenMapImage,
-          },
-        }),
-      )
-    },
-    [onMapDetails, onMapUpload, onRegenMapImage, onRemoveMap],
-  )
-
-  const onReplaysClick = useCallback(() => {
-    if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
-    } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog({ type: DialogType.StarcraftHealth }))
-    } else {
-      dispatch(openOverlay({ type: ActivityOverlayType.BrowseLocalReplays }))
-    }
-  }, [dispatch, starcraft])
-
-  const findMatchButton = !isMatchmakingSearching ? (
-    <ActivityButton
-      key='find-match'
-      icon={<FindMatchIcon />}
-      label={t('matchmaking.activity.findMatch', 'Find match')}
-      onClick={onFindMatchClick}
-      disabled={inGameplayActivity}
-      hotkey={ALT_F}
-    />
-  ) : (
-    <ActivityButton
-      key='searching-match'
-      ref={searchingMatchButtonRef}
-      icon={<FindMatchIcon />}
-      glowing={true}
-      label={t('matchmaking.activity.finding', 'Finding…')}
-      onClick={openSearchingMatchOverlay}
-      hotkey={ALT_F}
-    />
-  )
-  const activityButtons = IS_ELECTRON
-    ? [
-        findMatchButton,
-        <ActivityButton
-          key='lobbies'
-          icon={<MaterialIcon icon='holiday_village' size={36} />}
-          label={t('lobbies.activity.title', 'Lobbies')}
-          onClick={onLobbiesClick}
-          hotkey={ALT_B}
-          count={lobbyCount > 0 ? lobbyCount : undefined}
-        />,
-        <ActivityButton
-          key='maps'
-          icon={<MaterialIcon icon='map' size={36} />}
-          label={t('maps.activity.title', 'Maps')}
-          onClick={onMapsClick}
-          hotkey={ALT_M}
-        />,
-        <ActivityButton
-          key='replays'
-          icon={<MaterialIcon icon='movie' size={36} />}
-          label={t('replays.activity.title', 'Replays')}
-          onClick={onReplaysClick}
-          hotkey={ALT_R}
-        />,
-        <ActivityButton
-          key='ladder'
-          icon={<MaterialIcon icon='military_tech' size={36} />}
-          label={t('ladder.activity.title', 'Ladder')}
-          onClick={() => navigateToLadder()}
-          hotkey={ALT_D}
-        />,
-        <ActivityButton
-          key='leagues'
-          icon={<MaterialIcon icon='social_leaderboard' size={36} />}
-          label={t('leagues.activity.title', 'Leagues')}
-          onClick={() => navigateToLeaguesList()}
-          hotkey={ALT_G}
-        />,
-        <FlexSpacer key='spacer' />,
-      ]
-    : [
-        <ActivityButton
-          key='download'
-          icon={<MaterialIcon icon='download' size={36} />}
-          label={t('common.actions.download', 'Download')}
-          onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
-          hotkey={ALT_O}
-        />,
-        <ActivityButton
-          key='ladder'
-          icon={<MaterialIcon icon='military_tech' size={36} />}
-          label={t('ladder.activity.title', 'Ladder')}
-          onClick={() => navigateToLadder()}
-          hotkey={ALT_D}
-        />,
-        <ActivityButton
-          key='leagues'
-          icon={<MaterialIcon icon='social_leaderboard' size={36} />}
-          label={t('leagues.activity.title', 'Leagues')}
-          onClick={() => navigateToLeaguesList()}
-          hotkey={ALT_G}
-        />,
-        <FlexSpacer key='spacer' />,
-      ]
 
   return (
-    <Container>
-      <ConnectedLeftNav />
-      <Content>
-        <Switch>
-          {isAdmin ? <Route path='/admin/*?' component={LoadableAdminPanel} /> : null}
-          <Route path='/chat/*?' component={ChannelRouteComponent} />
-          <Route path='/games/*?' component={GamesRouteComponent} />
-          <Route path='/ladder/*?' component={LadderRouteComponent} />
-          <Route path='/leagues/*?' component={LeagueRoot} />
-          {lobbyRoute}
-          {matchmakingRoute}
-          <Route path='/users/*?' component={ProfileRouteComponent} />
-          <Route path='/whispers/*?' component={WhisperRouteComponent} />
-          {NEWS_PAGE ? (
-            <Route component={Home} />
-          ) : (
-            <Route>
-              <GoToIndex transitionFn={replace} />
-            </Route>
-          )}
-        </Switch>
-      </Content>
-      <ActivityBar>
-        {activityButtons}
-
-        <MiniActivityButtonsContainer key='mini-buttons'>
-          <NotificationsButton />
-          <Tooltip text={t('settings.activity.title', 'Settings (Alt + S)')} position='left'>
+    <>
+      <AppBarRoot ref={breakpointRef} $breakpoint={breakpoint}>
+        {breakpoint === AppBarBreakpoint.Normal ? (
+          <>
+            {avatarSpace}
+            <MenuItems $breakpoint={breakpoint}>
+              <MenuItemsStart>
+                <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O}>
+                  {t('navigation.bar.home', 'Home')}
+                </AppBarMenuItem>
+                <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>
+                  {t('games.activity.title', 'Games')}
+                </AppBarMenuItem>
+                <AppBarMenuItem href='/replays/' routePattern='/replays/*?' hotkey={ALT_R}>
+                  {t('replays.activity.title', 'Replays')}
+                </AppBarMenuItem>
+              </MenuItemsStart>
+              <PlayButton />
+              <MenuItemsEnd>
+                <AppBarMenuItem href='/maps/' routePattern='/maps/*?' flipped={true} hotkey={ALT_M}>
+                  {t('maps.activity.title', 'Maps')}
+                </AppBarMenuItem>
+                <AppBarMenuItem
+                  href='/ladder/'
+                  routePattern='/ladder/*?'
+                  flipped={true}
+                  hotkey={ALT_D}>
+                  {t('ladder.activity.title', 'Ladder')}
+                </AppBarMenuItem>
+                <AppBarMenuItem
+                  href='/leagues/'
+                  routePattern='/leagues/*?'
+                  flipped={true}
+                  hotkey={ALT_A}>
+                  {t('leagues.activity.title', 'Leagues')}
+                </AppBarMenuItem>
+              </MenuItemsEnd>
+            </MenuItems>
+          </>
+        ) : (
+          <>
+            <LeftSideSmall>
+              <IconButtons>
+                <IconButton
+                  icon={<ShadowedIcon icon='menu' />}
+                  ariaLabel={t('navigation.bar.appMenu', 'Menu')}
+                  testName='app-menu-button'
+                  onClick={onOpenAppMenu}
+                />
+              </IconButtons>
+              {avatarSpace}
+            </LeftSideSmall>
+            <MenuItems $breakpoint={breakpoint}>
+              <PlayButton />
+            </MenuItems>
+          </>
+        )}
+        <IconButtons>
+          <Tooltip
+            text={t('settings.activity.title', 'Settings (Alt + S)')}
+            position='bottom'
+            tabIndex={-1}>
             <IconButton
-              key='settings'
               ref={settingsButtonRef}
-              icon={<MaterialIcon icon='settings' />}
+              icon={<ShadowedIcon icon='settings' />}
               onClick={() => dispatch(openSettings())}
               testName='settings-button'
             />
           </Tooltip>
-          <FriendsListActivityButton />
-        </MiniActivityButtonsContainer>
-
-        <VersionText key='version' />
-      </ActivityBar>
-      {IS_ELECTRON && isMatchmakingSearching ? (
-        <MatchmakingSearchingOverlay
-          open={searchingMatchOverlayOpen}
-          anchor={searchingMatchButtonRef.current ?? undefined}
-          onCancelSearch={() => {
-            dispatch(cancelFindMatch())
-            closeSearchingMatchOverlay()
+          {selfUser ? (
+            <>
+              <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
+              <Tooltip
+                text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
+                position='bottom'
+                tabIndex={-1}>
+                <IconButton
+                  ref={chatButtonRef}
+                  icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
+                  onClick={onToggleSocial}
+                  testName='social-sidebar-button'
+                />
+              </Tooltip>
+            </>
+          ) : undefined}
+        </IconButtons>
+        <SelfProfileOverlay
+          popoverProps={{
+            open: profileOverlayOpen,
+            onDismiss: closeProfileOverlay,
           }}
-          onDismiss={closeSearchingMatchOverlay}
+          anchor={profileEntryRef.current}
+          username={selfUser?.name ?? ''}>
+          <MenuItem
+            icon={<MaterialIcon icon='account_box' />}
+            text={t('navigation.leftNav.viewProfile', 'View profile')}
+            onClick={onViewProfileClick}
+          />
+          <MenuItem
+            icon={<MaterialIcon icon='new_releases' />}
+            text={t('navigation.leftNav.viewChangelog', 'View changelog')}
+            onClick={onChangelogClick}
+          />
+          {IS_ELECTRON ? (
+            <MenuItem
+              icon={<MaterialIcon icon='bug_report' />}
+              text={t('navigation.leftNav.reportBug', 'Report a bug')}
+              onClick={onReportBugClick}
+            />
+          ) : undefined}
+          <Divider />
+          <MenuItem
+            icon={<MaterialIcon icon='logout' />}
+            text={t('navigation.leftNav.logOut', 'Log out')}
+            onClick={onLogOutClick}
+          />
+        </SelfProfileOverlay>
+      </AppBarRoot>
+      <NavigationMenuOverlay
+        open={appMenuOpen}
+        onClose={onCloseAppMenu}
+        focusableRef={appMenuFocusable}>
+        <NavigationMenuItem
+          href='/'
+          routePattern='/'
+          icon={<MaterialIcon icon='home' />}
+          text={t('navigation.bar.home', 'Home')}
+          ref={appMenuFocusable}
         />
-      ) : null}
-      <ActivityOverlay />
+        <NavigationMenuItem
+          href='/games/'
+          routePattern='/games/*?'
+          icon={<MaterialIcon icon='strategy' />}
+          text={t('games.activity.title', 'Games')}
+        />
+        <NavigationMenuItem
+          href='/replays/'
+          routePattern='/replays/*?'
+          icon={<MaterialIcon icon='movie' />}
+          text={t('replays.activity.title', 'Replays')}
+        />
+        <NavigationMenuItem
+          href='/maps/'
+          routePattern='/maps/*?'
+          icon={<MaterialIcon icon='map' />}
+          text={t('maps.activity.title', 'Maps')}
+        />
+        <NavigationMenuItem
+          href='/ladder/'
+          routePattern='/ladder/*?'
+          icon={<MaterialIcon icon='military_tech' />}
+          text={t('ladder.activity.title', 'Ladder')}
+        />
+        <NavigationMenuItem
+          href='/leagues/'
+          routePattern='/leagues/*?'
+          icon={<MaterialIcon icon='social_leaderboard' />}
+          text={t('leagues.activity.title', 'Leagues')}
+        />
+      </NavigationMenuOverlay>
+    </>
+  )
+}
+
+const Content = styled.div`
+  grid-area: content;
+  overflow: auto;
+`
+
+const Sidebar = styled(SocialSidebar)`
+  grid-area: sidebar;
+  min-width: var(--sb-sidebar-width);
+`
+
+export function MainLayout({ children }: { children?: React.ReactNode }) {
+  useLayoutEffect(() => {
+    document.body.style.setProperty('--sb-app-bar-height', '64px')
+    return () => {
+      document.body.style.removeProperty('--sb-app-bar-height')
+    }
+  }, [])
+
+  useShowEmailVerificationNotificationIfNeeded()
+  useShowPolicyNotificationsIfNeeded()
+
+  const isLoggedIn = useIsLoggedIn()
+  const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
+  // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
+  // [e.g. channels or whispers] based on how it got opened?)
+  const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
+  const onShowSocial = useStableCallback(() => setSidebarOpen(true))
+
+  return (
+    <Root $sidebarOpen={sidebarOpen}>
+      <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
+      <Content>{children}</Content>
+      {isLoggedIn ? <Sidebar onShowSidebar={onShowSocial} /> : <div></div>}
       <NotificationPopups />
-      {IS_ELECTRON ? <GlobalDropZone /> : null}
-    </Container>
+    </Root>
   )
 }

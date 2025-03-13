@@ -1,11 +1,9 @@
 import keycode from 'keycode'
-import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
 import { useMultiRef } from '../state-hooks'
-import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { buttonText, singleLine } from '../styles/typography'
+import { labelLarge, singleLine } from '../styles/typography'
 import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { Ripple } from './ripple'
@@ -35,7 +33,7 @@ const Container = styled.div`
 `
 
 export const TabTitle = styled.span`
-  ${buttonText};
+  ${labelLarge};
   ${singleLine};
 `
 
@@ -54,16 +52,19 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
   padding: 0 16px;
 
   background-color: ${props => (props.$isActiveTab ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
-  border: 1px solid ${props => (props.$isActiveTab ? rgba(amberA400, 0.24) : colorDividers)};
-  border-radius: 4px;
-  color: ${props => (props.$isActiveTab ? amberA400 : colorTextSecondary)};
+  border: 2px solid
+    ${props => (props.$isActiveTab ? 'var(--theme-amber)' : 'var(--theme-outline-variant)')};
+  border-radius: 6px;
+  color: ${props =>
+    props.$isActiveTab ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)'};
   transition:
-    background-color 15ms linear,
-    color 15ms linear;
+    background-color 30ms linear,
+    border 60ms linear,
+    color 30ms linear;
 
   &:disabled {
-    color: ${colorTextFaint};
     background-color: transparent;
+    opacity: var(--theme-disabled-opacity);
   }
 `
 

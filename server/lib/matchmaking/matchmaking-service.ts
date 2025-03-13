@@ -15,9 +15,9 @@ import {
   GameConfig,
   GameConfigPlayer,
   GameSource,
-  GameType,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
@@ -36,7 +36,7 @@ import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'

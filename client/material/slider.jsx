@@ -1,12 +1,10 @@
 import keycode from 'keycode'
-import { darken, rgba } from 'polished'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body1, caption } from '../styles/typography'
-import { fastOutSlowIn } from './curve-constants'
+import { labelLarge, labelMedium } from '../styles/typography'
+import { standardEasing } from './curve-constants'
 
 const transitionNames = {
   enter: 'enter',
@@ -61,7 +59,10 @@ const ValueTick = styled.div`
   height: 2px;
   margin-left: -1px;
   border-radius: 50%;
-  background-color: ${props => (props.filled ? darken(0.3, amberA400) : rgba(amberA400, 0.7))};
+  background-color: ${props =>
+    props.filled
+      ? 'rgb(from var(--theme-on-amber) r g b / 0.38)'
+      : 'rgb(from var(--theme-on-surface-variant) r g b / 0.38)'};
 `
 
 const Ticks = ({ show, value, min, max, step }) => {
@@ -95,8 +96,11 @@ const TrackRoot = styled.div`
   height: 4px;
   left: 0px;
   top: 54px;
-  border-radius: 2px;
-  background-color: ${props => (props.disabled ? rgba(colorTextFaint, 0.5) : rgba(amberA400, 0.3))};
+  border-radius: 4px;
+  background-color: ${props =>
+    props.disabled
+      ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.12))'
+      : 'rgb(from var(--theme-on-surface) r g b / 0.12)'};
 `
 
 // This wrapper is needed to make sure the border-radius doesn't get scaled with the filled track.
@@ -116,11 +120,11 @@ const FilledTrack = styled.div`
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: ${props => (props.disabled ? colorTextFaint : amberA400)};
+  background-color: ${props => (props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)')};
 
   transform: scaleX(1);
   transform-origin: 0% 50%;
-  transition: transform 150ms ${fastOutSlowIn};
+  transition: transform 150ms ${standardEasing};
   will-change: transform;
 `
 
@@ -145,17 +149,18 @@ const Root = styled.div`
   height: 72px;
   position: relative;
   contain: layout style;
+  opacity: ${props => (props.disabled ? 'var(--theme-disabled-opacity)' : '1')};
 
   ${props => (props.focused || props.disabled ? 'outline: none;' : '')}
 `
 
 const SliderLabel = styled.div`
-  ${body1};
+  ${labelLarge};
   position: absolute;
   top: 8px;
   left: 2px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   pointer-events: none;
 `
 
@@ -178,7 +183,7 @@ const ThumbContainer = styled.div`
   width: 100%;
   pointer-events: none;
   will-change: transform;
-  transition: transform 150ms ${fastOutSlowIn};
+  transition: transform 150ms ${standardEasing};
 `
 
 const Thumb = styled.div`
@@ -188,7 +193,7 @@ const Thumb = styled.div`
   left: ${THUMB_WIDTH_PX / -2}px;
   top: 2px;
 
-  background-color: ${props => (props.disabled ? colorTextFaint : amberA400)};
+  background-color: ${props => (props.disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)')};
   border-radius: 50%;
   pointer-events: none;
   transition: background-color 200ms linear;
@@ -216,14 +221,14 @@ const Balloon = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   border-radius: 50%;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--theme-on-amber);
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
   transition:
-    transform 150ms ${fastOutSlowIn},
+    transform 150ms ${standardEasing},
     background-color 200ms linear,
     color 200ms linear;
   will-change: transform, background-color, color;
@@ -234,7 +239,7 @@ const Balloon = styled.div`
     top: 19px;
 
     border-radius: 16px;
-    border-top: 16px solid ${amberA400};
+    border-top: 16px solid var(--theme-amber);
     border-left: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     border-right: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     content: '';
@@ -261,8 +266,7 @@ const Balloon = styled.div`
 `
 
 const BalloonText = styled.div`
-  ${caption};
-  font-weight: 600;
+  ${labelMedium};
   line-height: ${BALLOON_HEIGHT_PX}px;
   z-index: 2;
 `

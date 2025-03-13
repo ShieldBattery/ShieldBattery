@@ -3,35 +3,37 @@ import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
+import Lockup from '../logos/lockup-system-bar-24px.svg'
 import { IconButton } from '../material/button'
-import { shadow4dp } from '../material/shadows'
-import { zIndexAppBar } from '../material/zindex'
+import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
-import { blue800, colorError } from '../styles/colors'
-import { caption } from '../styles/typography'
+import { labelLarge, labelMedium } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
 
 const Container = styled.header`
-  ${shadow4dp};
   flex-grow: 0;
   flex-shrink: 0;
 
   width: 100%;
-  height: 24px;
+  height: 32px;
   margin: 0;
   padding: 0;
   position: relative;
 
   display: flex;
   flex-direction: row;
-  background-color: ${blue800};
+
+  background-color: var(--color-grey-blue20);
   overflow: hidden;
-  z-index: ${zIndexAppBar};
+  z-index: ${zIndexSystemBar};
 
   -webkit-app-region: drag;
 `
 
 const LeftSide = styled.div`
+  height: 100%;
+  padding: 0 2px;
+
   display: flex;
   align-items: center;
   gap: 8px;
@@ -45,27 +47,49 @@ const StyledIconButton = styled(IconButton)`
 `
 
 const DevIndicator = styled.div`
-  ${caption};
+  ${labelLarge};
 
-  width: 80px;
-  height: 16px;
-  margin-left: 4px;
+  width: 72px;
+  height: 20px;
+  margin-left: 8px;
+  padding-block: 2px;
 
-  background-color: ${colorError};
-  border-radius: 2px;
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
+  font-variation-settings: 'wght' 600;
+
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 2px;
   line-height: 16px;
-  opacity: 0.84;
   text-align: center;
   text-transform: uppercase;
   -webkit-app-region: no-drag;
 `
 
+const StyledLockup = styled(Lockup)`
+  width: auto;
+  height: 24px;
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const VersionTextRoot = styled.div`
+  ${labelMedium};
+
+  color: var(--theme-on-surface-variant);
+  letter-spacing: 1.25px;
+  line-height: 1;
+`
+
+const CUR_VERSION = __WEBPACK_ENV.VERSION
+
+export function VersionText() {
+  return <VersionTextRoot>v{CUR_VERSION}</VersionTextRoot>
+}
+
 export function SystemBar() {
   useLayoutEffect(() => {
-    document.body.style.setProperty('--sb-system-bar-height', '24px')
+    document.body.style.setProperty('--sb-system-bar-height', '32px')
     return () => {
       document.body.style.removeProperty('--sb-system-bar-height')
     }
@@ -81,6 +105,8 @@ export function SystemBar() {
       <SizeLeft />
       <SizeRight />
       <LeftSide>
+        <StyledLockup />
+        <VersionText />
         {DEV_INDICATOR ? (
           // TODO(tec27): Find a place for this + admin that will show up on the web version too
           <DevIndicator title='Go to dev pages' onClick={() => push('/dev')}>

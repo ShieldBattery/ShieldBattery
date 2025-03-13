@@ -1,5 +1,8 @@
 import { freeze, produce, Producer } from 'immer'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
+import { getErrorStack } from '../common/errors'
+import { useSelfUser } from './auth/auth-utils'
+import logger from './logging/logger'
 
 /**
  * A hook to access the previous value of some variable inside a functional component.
@@ -100,23 +103,34 @@ export function useMultiRef<T>(
  * different renders. This is useful for functions that depend on current props/state, but are used
  * as event handlers on their children.
  *
- * This is a not-completely-correct implementation of React's future `useEvent` hook, as described
+ * This is a not-completely-correct implementation of React's proposed `useEvent` hook, as described
  * here: https://github.com/reactjs/rfcs/blob/useevent/text/0000-useevent.md
  *
  * It differs in the following ways (and you should avoid causing any behavior that differs as a
  * result of these, so we can easily migrate in the future):
  *
- * - It doesn't throw if the stable callback is called during rendering
+ * - It doesn't throw if the stable callback is called during non-initial rendering
  * - The current function value gets swapped slightly later than React's future version
- *
- * TODO(tec27): Replace with React's `useEvent` once it is available
  */
 export function useStableCallback<A extends any[], R>(fn: (...args: A) => R): (...args: A) => R {
-  const ref = useRef<(...args: A) => R>(fn)
-  useLayoutEffect(() => {
-    ref.current = fn
+  const updatedRef = useRef<(...args: A) => R>(initStableCallbackValue as any)
+  useInsertionEffect(() => {
+    updatedRef.current = fn
   })
-  return useCallback((...args: A) => ref.current(...args), [])
+
+  const stableRef = useRef<(...args: A) => R>()
+  if (!stableRef.current) {
+    stableRef.current = (...args: A) => updatedRef.current(...args)
+  }
+
+  return stableRef.current
+}
+
+function initStableCallbackValue() {
+  throw new Error(
+    "useStableCallback was called before component was mounted, don't use this hook for " +
+      'callbacks that are called during render',
+  )
 }
 
 /**
@@ -141,4 +155,72 @@ export function useImmerState<T>(initialState: T): [T, (updater: Producer<T> | T
       }
     }, []),
   ]
+}
+
+function loadAndParseLocalStorage<T>(key: string): T | undefined {
+  const valueJson = localStorage.getItem(key)
+  if (valueJson === null) {
+    return undefined
+  }
+
+  try {
+    return JSON.parse(valueJson)
+  } catch (err) {
+    logger.error(`error parsing value for ${key}: ${getErrorStack(err)}`)
+    return undefined
+  }
+}
+
+/**
+ * Hook that is similar to `useState` but the value is stored in `LocalStorage`, keyed by user ID.
+ * T must be serializable to JSON. Parsing failures will be logged and act as if the value is unset.
+ */
+export function useUserLocalStorageValue<T>(
+  key: string,
+): [value: T | undefined, storeValue: (value: T | undefined) => void]
+
+/**
+ * Hook that is similar to `useState` but the value is stored in `LocalStorage`, keyed by user ID.
+ * T must be serializable to JSON. Parsing failures will be logged and act as if the value is unset.
+ * Any time the value is unset, `defaultValue` will be returned instead.
+ */
+export function useUserLocalStorageValue<T>(
+  key: string,
+  defaultValue: T,
+): [value: T, storeValue: (value: T | undefined) => void]
+
+export function useUserLocalStorageValue<T>(
+  key: string,
+  defaultValue?: T,
+): [value: T | undefined, storeValue: (value: T | undefined) => void] {
+  const currentUser = useSelfUser()?.id ?? 0
+  const userKey = `${String(currentUser)}|${key}`
+  const [value, setValue] = useState(() => loadAndParseLocalStorage<T>(userKey))
+
+  const storeValue = useCallback(
+    (newValue: T | undefined) => {
+      if (newValue === undefined) {
+        localStorage.removeItem(userKey)
+      } else {
+        localStorage.setItem(userKey, JSON.stringify(newValue))
+      }
+      setValue(newValue)
+    },
+    [userKey],
+  )
+
+  useEffect(() => {
+    function handleChange(event: StorageEvent) {
+      if (event.storageArea === localStorage && event.key === userKey) {
+        setValue(loadAndParseLocalStorage<T>(userKey))
+      }
+    }
+    window.addEventListener('storage', handleChange)
+
+    return () => {
+      window.removeEventListener('storage', handleChange)
+    }
+  }, [userKey])
+
+  return [value ?? defaultValue, storeValue]
 }

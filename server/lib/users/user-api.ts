@@ -33,6 +33,9 @@ import {
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
+import { SbUser, SEARCH_MATCH_HISTORY_LIMIT, SelfUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
+import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
@@ -46,16 +49,12 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SbUser,
-  SbUserId,
-  SEARCH_MATCH_HISTORY_LIMIT,
   SearchMatchHistoryResponse,
-  SelfUser,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   UserErrorCode,
-} from '../../../common/users/sb-user'
-import { ClientSessionInfo } from '../../../common/users/session'
+} from '../../../common/users/user-network'
+import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
@@ -208,6 +207,7 @@ export class UserApi {
     private clock: Clock,
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
+    private chatService: ChatService,
   ) {}
 
   @httpPost('/')
@@ -269,6 +269,8 @@ export class UserApi {
         ipAddress: ctx.ip,
         clientIds,
         locale,
+        joinInitialChannelFn: (userId, client, transactionCompleted) =>
+          this.chatService.joinInitialChannel(userId, client, transactionCompleted),
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {

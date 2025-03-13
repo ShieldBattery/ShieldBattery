@@ -8,12 +8,11 @@ import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { amberA400 } from '../styles/colors'
-import { Body1 } from '../styles/typography'
+import { BodyMedium } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 
 const ENTER = 'Enter'
@@ -31,7 +30,7 @@ const CenteredContainer = styled.div`
   margin: 32px 0;
 `
 
-const AcceptMatchButton = styled(RaisedButton)`
+const AcceptMatchButton = styled(ElevatedButton)`
   width: 162px;
 `
 
@@ -54,7 +53,7 @@ const FilledTimerBar = styled.div`
   left: 0;
   width: 100%;
   height: 8px;
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   transform: scaleX(var(--sb-timer-scale-x, 0));
   transform-origin: 0% 50%;
   transition: transform 1000ms linear;
@@ -131,7 +130,7 @@ function AcceptingStateView() {
   // leaving the default avatar for opponents (though maybe it's fine to show opponents too at
   // this point?).
   const acceptedAvatars = Array.from(range(0, match?.acceptedPlayers ?? 0), i => (
-    <StyledAvatar key={i} color={amberA400} glowing={true} />
+    <StyledAvatar key={i} color={'var(--theme-amber)'} glowing={true} />
   ))
   const unacceptedAvatars = Array.from(
     range(match?.acceptedPlayers ?? 0, match?.numPlayers ?? 0),
@@ -140,9 +139,9 @@ function AcceptingStateView() {
 
   return (
     <div>
-      <Body1>
+      <BodyMedium>
         {t('matchmaking.acceptMatch.body', 'All players must ready up for the match to start.')}
-      </Body1>
+      </BodyMedium>
       <CenteredContainer>
         {hasAccepted ? (
           [...acceptedAvatars, ...unacceptedAvatars]
@@ -192,7 +191,7 @@ function FailedStateView() {
           "You didn't ready up in time and have been removed from the queue.",
         )}
       </p>
-      <RaisedButton label='Ok' onClick={onFailedClick} />
+      <ElevatedButton label='Ok' onClick={onFailedClick} />
     </div>
   )
 }

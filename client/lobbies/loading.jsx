@@ -2,12 +2,11 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { gameTypeToLabel } from '../../common/games/configuration'
+import { gameTypeToLabel } from '../../common/games/game-type'
 import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
-import { shadow1dp } from '../material/shadows'
-import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, TitleOld } from '../styles/typography'
+import { elevationPlus1 } from '../material/shadows'
+import { HeadlineMedium, headlineMedium, titleMedium } from '../styles/typography'
 import PlayerCard from './player-card'
 
 const LOADING_MESSAGES = [
@@ -188,9 +187,10 @@ const LOADING_MESSAGES = [
   'Building a bot to perfectly emulate SlayerS`BoxeR`',
 ]
 
-const LoadingMessageContent = styled(TitleOld)`
+const LoadingMessageContent = styled.div`
+  ${titleMedium};
   margin-top: 24px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MESSAGE_TIME_MIN = 3000
@@ -240,15 +240,17 @@ const Content = styled.div`
   align-items: center;
 `
 
-const GameTypeMapBridge = styled(Display1Old)`
-  color: ${colorTextSecondary};
+const GameTypeMapBridge = styled.div`
+  ${headlineMedium};
+  color: var(--theme-on-surface-variant);
+  line-height: 40px;
 `
 
 const MapImageContainer = styled.div`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 256px;
   height: auto;
-  border-radius: 2px;
+  border-radius: 4px;
   margin-top: 16px;
   overflow: hidden;
 `
@@ -301,9 +303,11 @@ export default class LoadingScreen extends React.Component {
       <Content>
         <div>
           <Trans t={t} i18nKey='lobbies.loading.content'>
-            <Display1Old as='span'>{{ gameType: gameTypeToLabel(lobby.gameType, t) }}</Display1Old>
+            <HeadlineMedium as='span'>
+              {{ gameType: gameTypeToLabel(lobby.gameType, t) }}
+            </HeadlineMedium>
             <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
-            <Display1Old as='span'>{{ mapName: lobby.map.name }}</Display1Old>
+            <HeadlineMedium as='span'>{{ mapName: lobby.map.name }}</HeadlineMedium>
           </Trans>
         </div>
         <MapImageContainer>

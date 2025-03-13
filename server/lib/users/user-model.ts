@@ -9,8 +9,8 @@ import {
   TERMS_OF_SERVICE_VERSION,
 } from '../../../common/policies/versions'
 import { SbPermissions } from '../../../common/users/permissions'
-import { SbUser, SbUserId, SelfUser } from '../../../common/users/sb-user'
-import ChatService from '../chat/chat-service'
+import { SbUser, SelfUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql, sqlConcat, sqlRaw } from '../db/sql'
 import transact from '../db/transaction'
@@ -112,6 +112,7 @@ export async function createUser({
   createdDate = new Date(),
   clientIds,
   locale,
+  joinInitialChannelFn,
 }: {
   name: string
   email: string
@@ -120,6 +121,11 @@ export async function createUser({
   createdDate?: Date
   clientIds: ReadonlyArray<[type: number, hashStr: string]>
   locale?: string
+  joinInitialChannelFn: (
+    userId: SbUserId,
+    client: DbClient,
+    transactionCompleted: Promise<void>,
+  ) => Promise<void>
 }): Promise<{ user: SelfUser; permissions: SbPermissions }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
@@ -145,12 +151,11 @@ export async function createUser({
         VALUES (${userInternal.id}, ${hashedPassword});
       `)
 
-      const chatService = container.resolve(ChatService)
       const userIdManager = container.resolve(UserIdentifierManager)
 
       const [permissions] = await Promise.all([
         createPermissions(client, userInternal.id),
-        chatService.joinInitialChannel(userInternal.id, client, transactionCompleted),
+        joinInitialChannelFn(userInternal.id, client, transactionCompleted),
         createUserStats(client, userInternal.id),
         userIdManager.upsert(userInternal.id, clientIds, client),
       ])

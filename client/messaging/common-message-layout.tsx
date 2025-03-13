@@ -6,15 +6,14 @@ import { makeSbChannelId } from '../../common/chat'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
-import { SbUserId, makeSbUserId } from '../../common/users/sb-user'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { TransInterpolation } from '../i18n/i18next'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
-import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
   useChatMessageMenuItems,
@@ -35,11 +34,11 @@ const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const Username = styled.span`
-  ${body2};
+  ${titleSmall};
 
   margin-right: 8px;
 
-  color: ${amberA100};
+  color: var(--color-amber90);
   line-height: inherit;
 `
 
@@ -51,11 +50,11 @@ const Text = styled.span`
 `
 
 const MentionedUsername = styled(ConnectedUsername)`
-  color: ${blue100};
+  color: var(--color-blue95);
 `
 
 const MentionedChannelName = styled(ConnectedChannelName)`
-  color: ${blue100};
+  color: var(--color-blue95);
 `
 
 function* getAllMatches(text: string) {
@@ -180,7 +179,7 @@ export const TextMessage = React.memo<{
 })
 
 const BlockedText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
   line-height: inherit;
   overflow-wrap: break-word;
   overflow: hidden;
@@ -189,11 +188,11 @@ const BlockedText = styled.span`
 
 const BlockedDivider = styled.span`
   padding: 0 8px;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
 `
 
 const ShowHideLink = styled.a`
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue80);
 
   &:hover {
     cursor: pointer;
@@ -202,9 +201,9 @@ const ShowHideLink = styled.a`
 
 const VisibleBlockedMessage = styled.div`
   padding: 4px 0;
-  background-color: rgba(0, 0, 0, 0.12);
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  background-color: var(--theme-container-lowest);
+  border: 1px solid var(--theme-outline);
+  border-radius: 4px;
 `
 
 export const BlockedMessage = React.memo<{

@@ -13,21 +13,21 @@ import { CHANNEL_BANNERS } from '../../../common/flags'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { ThunkAction } from '../../dispatch-registry'
-import { RaisedButton } from '../../material/button'
+import { ElevatedButton } from '../../material/button'
 import { DestructiveMenuItem } from '../../material/menu/item'
-import { ChatContext, ChatContextValue } from '../../messaging/chat'
-import MessageList from '../../messaging/message-list'
+import { ChatContext, ChatContextValue } from '../../messaging/chat-context'
+import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
-import { openSnackbar } from '../../snackbars/action-creators'
+import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { useStableCallback } from '../../state-hooks'
-import { background700, background800, colorError } from '../../styles/colors'
+import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { headline6, subtitle1 } from '../../styles/typography'
+import { bodyLarge, titleLarge } from '../../styles/typography'
 import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
 import { renderChannelMessage } from '../channel'
 import { ChannelUserList } from '../channel-user-list'
@@ -83,33 +83,29 @@ function getChannelUsers(channelId: SbChannelId, spec: RequestHandlingSpec<SbUse
   })
 }
 
-const Container = styled.div`
-  width: 100%;
-  height: 100%;
-  padding: 0 16px;
-
+const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
   display: flex;
   flex-direction: column;
-
-  background-color: ${background700};
+  padding-top: 8px;
+  gap: 8px;
 `
 
 const ChannelHeaderContainer = styled.div`
   width: 100%;
-  max-width: 960px;
   height: 72px;
   padding: 8px;
-  padding-right: 8px;
-  background-color: ${background700};
 
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
 const ChannelHeadline = styled.div`
-  ${headline6};
+  ${titleLarge};
 `
 
 const ChannelContainer = styled.div`
@@ -118,20 +114,23 @@ const ChannelContainer = styled.div`
 
   flex-grow: 1;
   display: flex;
+  gap: 8px;
 `
 
 const StyledMessageList = styled(MessageList)`
   flex-grow: 1;
-  max-width: 960px;
   min-width: 320px;
-
-  background-color: ${background800};
+  padding-bottom: 8px;
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
+`
+
+const StyledUserList = styled(ChannelUserList)`
+  margin-bottom: 8px;
 `
 
 export function AdminChannelView({
@@ -142,6 +141,7 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
   const [error, setError] = useState<Error>()
 
@@ -243,11 +243,11 @@ export function AdminChannelView({
         spec: {
           onSuccess: () => {
             setIsRemovingBanner(false)
-            dispatch(openSnackbar({ message: 'Banner successfully removed.' }))
+            snackbarController.showSnackbar('Banner successfully removed.')
           },
           onError: err => {
             setIsRemovingBanner(false)
-            dispatch(openSnackbar({ message: 'Something went wrong while removing the banner.' }))
+            snackbarController.showSnackbar('Something went wrong while removing the banner.')
           },
         },
       }),
@@ -266,11 +266,11 @@ export function AdminChannelView({
         spec: {
           onSuccess: () => {
             setIsRemovingBadge(false)
-            dispatch(openSnackbar({ message: 'Badge successfully removed.' }))
+            snackbarController.showSnackbar('Badge successfully removed.')
           },
           onError: err => {
             setIsRemovingBadge(false)
-            dispatch(openSnackbar({ message: 'Something went wrong while removing the badge.' }))
+            snackbarController.showSnackbar('Something went wrong while removing the badge.')
           },
         },
       }),
@@ -297,10 +297,10 @@ export function AdminChannelView({
                   deleteMessageAsAdmin(channelInfo.id, messageId, {
                     onSuccess: () => {
                       setChannelMessages(prev => prev.filter(m => m.id !== messageId))
-                      dispatch(openSnackbar({ message: 'Message deleted' }))
+                      snackbarController.showSnackbar('Message deleted')
                     },
                     onError: () => {
-                      dispatch(openSnackbar({ message: 'Error deleting message' }))
+                      snackbarController.showSnackbar('Error deleting message')
                     },
                   }),
                 )
@@ -312,7 +312,7 @@ export function AdminChannelView({
         return items
       },
     }),
-    [channelInfo, dispatch],
+    [channelInfo, dispatch, snackbarController],
   )
 
   if (error) {
@@ -353,12 +353,12 @@ export function AdminChannelView({
 
             {CHANNEL_BANNERS ? (
               <>
-                <RaisedButton
+                <ElevatedButton
                   label='Remove banner'
                   disabled={isRemovingBanner}
                   onClick={onRemoveBannerClick}
                 />
-                <RaisedButton
+                <ElevatedButton
                   label='Remove badge'
                   disabled={isRemovingBadge}
                   onClick={onRemoveBadgeClick}
@@ -377,7 +377,7 @@ export function AdminChannelView({
                 refreshToken={channelInfo.id}
                 renderMessage={renderChannelMessage}
               />
-              <ChannelUserList active={activeUsers} />
+              <StyledUserList active={activeUsers} />
             </ChannelContainer>
           </ChatContext.Provider>
         </>

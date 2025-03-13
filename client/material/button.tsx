@@ -1,25 +1,15 @@
-import React, { useCallback, useRef, useState } from 'react'
-import styled from 'styled-components'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
+import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
-import {
-  CardLayer,
-  amberA400,
-  blue400,
-  blue500,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { buttonText } from '../styles/typography'
+import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple, RippleController } from './ripple'
-import { shadowDef4dp, shadowDef8dp } from './shadow-constants'
-import { shadow2dp } from './shadows'
+import { elevationPlus1, elevationPlus2 } from './shadows'
 
 export const Label = styled.span`
-  ${buttonText};
+  ${labelLarge};
   display: flex;
   justify-content: center;
   align-items: center;
@@ -93,6 +83,7 @@ export function useButtonState({
 }: ButtonStateProps): ButtonState {
   const [focused, setFocused] = useState(false)
   const rippleRef = useRef<RippleController>(null)
+  const mouseUpIsBlur = useRef(false)
 
   const handleBlur = useCallback(
     (event: React.FocusEvent) => {
@@ -106,8 +97,12 @@ export function useButtonState({
   )
   const handleFocus = useCallback(
     (event: React.FocusEvent) => {
-      setFocused(true)
-      rippleRef.current?.onFocus()
+      if (event.target.matches(':focus-visible')) {
+        setFocused(true)
+        rippleRef.current?.onFocus()
+      } else {
+        mouseUpIsBlur.current = true
+      }
       if (onFocus) {
         onFocus(event)
       }
@@ -133,6 +128,10 @@ export function useButtonState({
   )
   const handleMouseUp = useCallback(() => {
     window.removeEventListener('mouseup', handleMouseUp)
+    if (mouseUpIsBlur.current) {
+      mouseUpIsBlur.current = false
+      rippleRef.current?.onBlur()
+    }
     rippleRef.current?.onDeactivate()
   }, [])
   const handleMouseDown = useCallback(
@@ -209,8 +208,8 @@ export function useButtonState({
     [onKeyUp],
   )
 
-  return [
-    {
+  const outputProps = useMemo<ButtonStateAppliedProps>(
+    () => ({
       disabled: disabled === true,
       onBlur: handleBlur,
       onFocus: handleFocus,
@@ -222,9 +221,23 @@ export function useButtonState({
       onKeyDown: handleKeyDown,
       onKeyUp: handleKeyUp,
       $focused: focused,
-    },
-    rippleRef,
-  ]
+    }),
+    [
+      disabled,
+      focused,
+      handleBlur,
+      handleClick,
+      handleFocus,
+      handleKeyDown,
+      handleKeyUp,
+      handleMouseDown,
+      handleMouseEnter,
+      handleMouseLeave,
+      onDoubleClick,
+    ],
+  )
+
+  return [outputProps, rippleRef]
 }
 
 export interface HotkeyProp {
@@ -234,12 +247,21 @@ export interface HotkeyProp {
   ctrlKey?: boolean
 }
 
+export function keyEventMatches(event: KeyboardEvent, hotkey: HotkeyProp) {
+  return (
+    event.keyCode === hotkey.keyCode &&
+    event.altKey === !!hotkey.altKey &&
+    event.shiftKey === !!hotkey.shiftKey &&
+    event.ctrlKey === !!hotkey.ctrlKey
+  )
+}
+
 export interface ButtonHotkeyProps {
   // NOTE(tec27): The typings encode null-initialized refs as readonly, but there doesn't seem to be
   // any different handling on the React side, so converting them to MutableRefObjects in this case
   // seems to be safe.
   /** The reference to the button that should be pressed programmatically. */
-  ref: React.MutableRefObject<HTMLButtonElement | undefined | null>
+  ref: React.MutableRefObject<HTMLButtonElement | HTMLAnchorElement | undefined | null>
   /**
    * A hotkey, or an array of hotkeys, to register for the button. Pressing any of the specified
    * modifiers and key combinations will result in the button being clicked programmatically.
@@ -254,13 +276,7 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
     onKeyDown: (event: KeyboardEvent) => {
       const hotkeys = Array.isArray(hotkey) ? hotkey : [hotkey]
       for (const hotkey of hotkeys) {
-        if (
-          !disabled &&
-          event.keyCode === hotkey.keyCode &&
-          event.altKey === !!hotkey.altKey &&
-          event.shiftKey === !!hotkey.shiftKey &&
-          event.ctrlKey === !!hotkey.ctrlKey
-        ) {
+        if (!disabled && keyEventMatches(event, hotkey)) {
           ref.current?.click()
 
           return true
@@ -319,48 +335,60 @@ const IconContainer = styled.div`
   margin-right: 6px; // 8px - 2px of built-in padding in icons
 `
 
-interface RaisedButtonStyleProps {
+interface ElevatedButtonStyleProps {
   $color: 'primary' | 'accent'
 }
 
-const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
+const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
   ${buttonReset};
   ${fastOutSlowInShort};
-  ${shadow2dp};
+  ${elevationPlus1};
 
   min-width: 88px;
   min-height: 40px;
   padding: 0 16px;
   display: inline-table;
 
-  border-radius: 4px;
+  border-radius: 6px;
   contain: content;
   text-align: center;
 
-  background-color: ${props => (props.$color === 'accent' ? amberA400 : blue500)};
-  color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.87)' : colorTextPrimary)};
+  background-color: ${props =>
+    props.$color === 'accent' ? 'var(--theme-amber)' : 'var(--theme-primary)'};
+  color: ${props =>
+    props.$color === 'accent' ? 'var(--theme-on-amber)' : 'var(--theme-on-primary)'};
   --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
+
+  ${props => {
+    if (props.$color === 'accent') {
+      // Bump up the font weight for dark-on-light text colors so it looks even with light-on-dark
+      return css`
+        & ${Label} {
+          font-variation-settings: 'wght' 600;
+        }
+      `
+    } else {
+      return css``
+    }
+  }};
 
   &:hover,
   &:focus {
-    box-shadow: ${shadowDef4dp};
+    ${elevationPlus2}
   }
 
   &:active {
-    box-shadow: ${shadowDef8dp};
+    ${elevationPlus1}
   }
 
   &:disabled,
   &[disabled] {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
-    color: ${colorTextFaint};
-  }
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
 
-  ${CardLayer} && {
-    &:disabled,
-    &[disabled] {
-      background-color: rgba(255, 255, 255, 0.08);
+    & ${Label} {
+      font-variation-settings: inherit;
     }
   }
 
@@ -369,7 +397,7 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   }
 `
 
-export interface RaisedButtonProps {
+export interface ElevatedButtonProps {
   color?: 'primary' | 'accent'
   label: string | React.ReactNode
   /** An optional icon to place at the starting edge of the button. */
@@ -392,9 +420,9 @@ export interface RaisedButtonProps {
 
 /**
  * A button with a colored background that has elevation, used for high-emphasis actions.
- * RaisedButton should generally be used for actions that are considered primary to the app.
+ * ElevatedButton should generally be used for actions that are considered primary to the app.
  */
-export const RaisedButton = React.forwardRef(
+export const ElevatedButton = React.forwardRef(
   (
     {
       color = 'primary',
@@ -414,7 +442,7 @@ export const RaisedButton = React.forwardRef(
       as = 'button',
       children,
       testName,
-    }: RaisedButtonProps,
+    }: ElevatedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
@@ -427,7 +455,7 @@ export const RaisedButton = React.forwardRef(
     })
 
     return (
-      <RaisedButtonRoot
+      <ElevatedButtonRoot
         ref={ref}
         as={as}
         className={className}
@@ -444,7 +472,7 @@ export const RaisedButton = React.forwardRef(
           {label}
         </Label>
         <Ripple ref={rippleRef} disabled={disabled} />
-      </RaisedButtonRoot>
+      </ElevatedButtonRoot>
     )
   },
 )
@@ -462,7 +490,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   padding: 0 16px;
   display: inline-table;
 
-  border-radius: 4px;
+  border-radius: 6px;
   contain: content;
   text-align: center;
 
@@ -470,11 +498,11 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   color: ${props => {
     switch (props.$color) {
       case 'normal':
-        return colorTextSecondary
+        return 'var(--theme-on-surface-variant)'
       case 'primary':
-        return blue400
+        return 'var(--color-blue90)'
       case 'accent':
-        return amberA400
+        return 'var(--theme-amber)'
       default:
         return assertUnreachable(props.$color)
     }
@@ -492,7 +520,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   }};
 
   &:disabled {
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
 `
 
@@ -581,13 +609,13 @@ const IconButtonRoot = styled.button`
   justify-content: center;
 
   background-color: transparent;
-  border-radius: 8px;
-  color: ${colorTextSecondary};
+  border-radius: 6px;
+  color: var(--theme-on-surface-variant);
   contain: content;
   --sb-ripple-color: #ffffff;
 
   &:disabled {
-    color: ${colorTextFaint};
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
 `
 

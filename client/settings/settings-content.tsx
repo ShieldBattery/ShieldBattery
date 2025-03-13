@@ -1,6 +1,5 @@
 import styled from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
+import { labelMedium } from '../styles/typography'
 
 export const FormContainer = styled.div`
   width: 100%;
@@ -11,6 +10,6 @@ export const FormContainer = styled.div`
 `
 
 export const SectionOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `

@@ -26,10 +26,9 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useAppDispatch } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
-import { background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { Caption, caption, headline6, singleLine } from '../styles/typography'
+import { BodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 
@@ -40,13 +39,15 @@ const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
   height: ${CHANNEL_HEADER_HEIGHT}px;
   padding: 8px;
   padding-right: ${props => (props.$hasActions ? '8px' : '0')};
-  background-color: ${background700};
 
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
 `
 
 const StyledMenuList = styled(MenuList)`
@@ -77,7 +78,7 @@ const NameAndTopicContainer = styled.div`
 `
 
 const ChannelName = styled.div`
-  ${headline6};
+  ${titleLarge};
   flex-shrink: 0;
 `
 
@@ -92,9 +93,9 @@ const StyledTooltipContent = styled(TooltipContent)`
 `
 
 const ChannelTopic = styled.div`
-  ${caption};
+  ${labelMedium};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 
   // NOTE(2Pac): This increases the topic hit area a bit so it's easier to trigger the tooltip, but
   // keeps the text at the same vertical position.
@@ -113,11 +114,11 @@ const UserCountContainer = styled.div`
   align-items: center;
   gap: 4px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledIconButton = styled(IconButton)`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 export interface ChannelHeaderProps {
@@ -137,6 +138,7 @@ export function ChannelHeader({
 }: ChannelHeaderProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const user = useSelfUser()
   const selfPermissions = useSelfPermissions()
 
@@ -209,13 +211,11 @@ export function ChannelHeader({
         {
           onSuccess: () => {},
           onError: err => {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'chat.channelHeader.errors.toggleBannerVisibility',
-                  'Something went wrong toggling the banner visibility',
-                ),
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'chat.channelHeader.errors.toggleBannerVisibility',
+                'Something went wrong toggling the banner visibility',
+              ),
             )
           },
         },
@@ -295,7 +295,7 @@ export function ChannelHeader({
       <ActionsArea>
         <UserCountContainer>
           <MaterialIcon icon='groups' size={20} />
-          <Caption>{detailedChannelInfo.userCount}</Caption>
+          <BodySmall>{detailedChannelInfo.userCount}</BodySmall>
         </UserCountContainer>
         {actions.length > 0 ? (
           <StyledIconButton

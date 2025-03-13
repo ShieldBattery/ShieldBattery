@@ -1,27 +1,24 @@
-import keycode from 'keycode'
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
-import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
-import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
-import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { body2, headline6, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -34,49 +31,22 @@ import { ConnectedUserContextMenu } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
-const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
-
 const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const FadedFriendAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accounts' })`
-  color: ${colorTextSecondary};
-`
-
-const IconContainer = styled.div``
-
-const CountText = styled.div`
-  ${singleLine};
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  line-height: 12px;
-`
-
-export function NumberedFriendsIcon({ count }: { count: number }) {
-  return (
-    <IconContainer>
-      <FadedFriendsIcon />
-      <CountText>{count}</CountText>
-    </IconContainer>
-  )
-}
-
-const PopoverContents = styled.div`
-  height: calc(var(--sb-popover-max-height) * 0.667);
-  width: 320px;
-  display: flex;
-  flex-direction: column;
+  color: var(--theme-on-surface-variant);
 `
 
 function useRelationshipsLoader() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const userId = useAppSelector(s => s.auth.self?.user.id)
 
   useEffect(() => {
@@ -86,10 +56,8 @@ function useRelationshipsLoader() {
         signal: controller.signal,
         onSuccess: () => {},
         onError: () => {
-          dispatch(
-            openSnackbar({
-              message: t('users.errors.friendsList.load', 'Failed to load friends list'),
-            }),
+          snackbarController.showSnackbar(
+            t('users.errors.friendsList.load', 'Failed to load friends list'),
           )
         },
       }),
@@ -98,50 +66,7 @@ function useRelationshipsLoader() {
     return () => {
       controller.abort()
     }
-  }, [dispatch, t, userId])
-}
-
-export function FriendsListActivityButton() {
-  const { t } = useTranslation()
-
-  useRelationshipsLoader()
-  const [friendsListOpen, openFriendsList, closeFriendsList] = usePopoverController()
-
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: buttonRef, hotkey: ALT_E })
-
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
-
-  const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
-  const friendCount = useMemo(() => {
-    return Array.from(friendActivityStatus.values()).filter(
-      status => status !== FriendActivityStatus.Offline,
-    ).length
-  }, [friendActivityStatus])
-
-  return (
-    <>
-      <Tooltip text={t('users.friendsList.tooltip', 'Friends (Alt + E)')} position='left'>
-        <IconButton
-          ref={buttonRef}
-          icon={<NumberedFriendsIcon count={friendCount} />}
-          onClick={openFriendsList}
-          testName={'friends-list-button'}
-        />
-      </Tooltip>
-      <Popover
-        open={friendsListOpen}
-        onDismiss={closeFriendsList}
-        anchorX={(anchorX ?? 0) - 8}
-        anchorY={(anchorY ?? 0) - 8}
-        originX='right'
-        originY='bottom'>
-        <PopoverContents>
-          <FriendsPopover onDismiss={closeFriendsList} />
-        </PopoverContents>
-      </Popover>
-    </>
-  )
+  }, [dispatch, snackbarController, t, userId])
 }
 
 enum FriendsListTab {
@@ -161,20 +86,19 @@ const FriendsListHeader = styled.div`
 const FriendsListTabsContainer = styled.div`
   max-width: 212px;
   margin: 0 auto;
-  padding-left: var(--pixel-shove-x, 0px);
   padding-bottom: 16px;
 `
 
 const TitleText = styled.div`
-  ${headline6};
-  color: ${colorTextSecondary};
+  ${titleLarge};
+  color: var(--theme-on-surface);
 `
 
 const FriendsListContent = styled.div`
   flex-grow: 1;
 `
 
-export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
+export function FriendsList() {
   const { t } = useTranslation()
 
   useRelationshipsLoader()
@@ -183,7 +107,6 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
   const activeTab = savedFriendsListTab.getValue() ?? FriendsListTab.List
   const onTabChange = useStableCallback((tab: FriendsListTab) => {
     if (tab === FriendsListTab.Settings) {
-      onDismiss()
       // TODO(tec27): Open to the correct part of settings once it's there
       dispatch(openSettings())
       return
@@ -238,9 +161,9 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
       <FriendsListContent ref={dimensionRef}>
         {topElem}
         {activeTab === FriendsListTab.Requests ? (
-          <FriendRequestsList height={contentRect?.height ?? 0} />
+          <VirtualizedFriendRequestsList height={contentRect?.height ?? 0} />
         ) : (
-          <FriendsList height={contentRect?.height ?? 0} />
+          <VirtualizedFriendsList height={contentRect?.height ?? 0} />
         )}
         {bottomElem}
       </FriendsListContent>
@@ -249,20 +172,20 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
 }
 
 const EmptyList = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 32px 16px 48px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
 const ListOverline = styled.div<{ $firstOverline?: boolean }>`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   margin: 0 8px;
   padding: ${props => (props.$firstOverline ? '4px' : '20px')} 8px 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   line-height: 36px;
 `
 
@@ -295,7 +218,7 @@ interface OfflineData {
 
 type FriendsListRowData = HeaderData | OnlineData | OfflineData
 
-function FriendsList({ height }: { height: number }) {
+function VirtualizedFriendsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const friends = useAppSelector(s => s.relationships.friends)
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
@@ -383,9 +306,10 @@ interface FriendRequestsUserData {
 
 type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
 
-function FriendRequestsList({ height }: { height: number }) {
+function VirtualizedFriendRequestsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const incomingRequests = useAppSelector(s => s.relationships.incomingRequests)
   const outgoingRequests = useAppSelector(s => s.relationships.outgoingRequests)
@@ -457,18 +381,16 @@ function FriendRequestsList({ height }: { height: number }) {
                     removeFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorRemovingFriendRequest',
-                                'Error removing friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorRemovingFriendRequest',
+                              'Error removing friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -486,18 +408,16 @@ function FriendRequestsList({ height }: { height: number }) {
                     declineFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorDecliningFriendRequest',
-                                'Error declining friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorDecliningFriendRequest',
+                              'Error declining friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -512,18 +432,16 @@ function FriendRequestsList({ height }: { height: number }) {
                     acceptFriendRequest(row.userId, {
                       onSuccess: () => {},
                       onError: err => {
-                        dispatch(
-                          openSnackbar({
-                            message: userRelationshipErrorToString(
-                              err,
-                              t(
-                                'users.errors.friendsList.errorAcceptingFriendRequest',
-                                'Error accepting friend request',
-                              ),
-                              t,
+                        snackbarController.showSnackbar(
+                          userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorAcceptingFriendRequest',
+                              'Error accepting friend request',
                             ),
-                            time: TIMING_LONG,
-                          }),
+                            t,
+                          ),
+                          DURATION_LONG,
                         )
                       },
                     }),
@@ -535,7 +453,7 @@ function FriendRequestsList({ height }: { height: number }) {
         return <FriendEntry userId={row.userId} key={row.userId} actions={actions} />
       }
     },
-    [selfUser.id, t, dispatch],
+    [selfUser.id, t, dispatch, snackbarController],
   )
 
   return rowData.length === 0 ? (
@@ -564,14 +482,14 @@ const LoadingName = styled.div`
   margin: 8px 0;
   display: inline-block;
 
-  background-color: ${colorDividers};
-  border-radius: 2px;
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
+  border-radius: 4px;
 `
 
 const fadedCss = css`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   ${StyledAvatar}, ${LoadingName} {
-    opacity: ${alphaDisabled};
+    opacity: var(--theme-disabled-opacity);
   }
 `
 
@@ -581,7 +499,7 @@ const FriendEntryActions = styled.div`
 `
 
 const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean }>`
-  ${body2};
+  ${titleSmall};
   height: 44px;
   margin: 0 8px;
   padding: 4px 8px;
@@ -589,17 +507,17 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
   display: flex;
   align-items: center;
 
-  border-radius: 2px;
+  border-radius: 4px;
   line-height: 36px;
 
   &:hover {
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
   }
 
   ${props => {
     if (props.$isOverlayOpen) {
-      return 'background-color: rgba(255, 255, 255, 0.08);'
+      return 'background-color: rgb(from var(--theme-on-surface) r g b / 0.08);'
     }
     return ''
   }}

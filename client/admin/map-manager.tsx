@@ -5,19 +5,12 @@ import { useSelfPermissions } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { getExtension } from '../maps/upload'
-import { RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState, useStableCallback } from '../state-hooks'
-import {
-  amberA400,
-  background600,
-  colorError,
-  colorSuccess,
-  colorTextSecondary,
-} from '../styles/colors'
-import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
   const permissions = useSelfPermissions()
@@ -124,7 +117,7 @@ function UploadMaps() {
       )}
 
       {maps.length > 0 ? (
-        <RaisedButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
+        <ElevatedButton label='Upload' disabled={disableUploadButton} onClick={() => onSubmit()} />
       ) : null}
     </SectionContainer>
   )
@@ -173,7 +166,7 @@ function MassDeleteMaps() {
     <SectionContainer>
       <SectionTitle>Delete all maps</SectionTitle>
 
-      <RaisedButton
+      <ElevatedButton
         label='Delete all maps'
         disabled={isDeleting}
         onClick={() => setAreYouSure(true)}
@@ -214,7 +207,7 @@ const HeadlineContainer = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const Content = styled.div`
@@ -235,7 +228,7 @@ const SelectedFiles = styled.ul`
   width: 100%;
   margin: 8px 0;
   padding: 8px 0;
-  background-color: ${background600};
+  background-color: var(--theme-container-low);
   border-radius: 8px;
 `
 
@@ -260,16 +253,16 @@ const StatusContainer = styled.div`
 `
 
 const StyledSuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const SectionTitle = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 
   padding: 4px 0;
 `
@@ -279,11 +272,11 @@ const StyledLoadingIndicator = styled(LoadingIndicator)`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1}
-  color: ${colorError};
+  ${bodyLarge}
+  color: var(--theme-error);
 `
 
 const WarningText = styled.p`
-  ${subtitle1}
-  color: ${amberA400};
+  ${bodyLarge}
+  color: var(--theme-amber);
 `

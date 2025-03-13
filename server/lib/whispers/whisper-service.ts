@@ -4,7 +4,8 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { urlPath } from '../../../common/urls'
-import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
   WhisperEvent,

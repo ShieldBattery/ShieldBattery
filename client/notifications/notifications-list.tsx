@@ -5,8 +5,7 @@ import styled from 'styled-components'
 import { SbNotification } from '../../common/notifications'
 import { TextButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleMedium } from '../styles/typography'
 import { clearNotifications } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
@@ -27,8 +26,8 @@ const TitleArea = styled.div`
 `
 
 const TitleText = styled.div`
-  ${headline6};
-  color: ${colorTextSecondary};
+  ${titleMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const ListArea = styled.div`
@@ -37,10 +36,10 @@ const ListArea = styled.div`
 `
 
 const EmptyList = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 32px 16px 48px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

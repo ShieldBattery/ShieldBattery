@@ -725,7 +725,7 @@ async function createWindow() {
     minHeight: 600,
 
     acceptFirstMouse: true,
-    backgroundColor: '#0E1B2A',
+    backgroundColor: '#10151e', // NOTE(tec27): This should always match the background in root CSS
     frame: false,
     transparent: false,
     show: false,

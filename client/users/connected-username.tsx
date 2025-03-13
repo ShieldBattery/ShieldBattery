@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import { getBatchUserInfo } from './action-creators'
 import { ConnectedUserContextMenu, MenuItemCategory } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
@@ -17,8 +16,8 @@ const Username = styled.span`
 
 const LoadingName = styled.span`
   margin-right: 0.25em;
-  background-color: ${colorDividers};
-  border-radius: 2px;
+  background-color: var(--theme-skeleton);
+  border-radius: 4px;
 `
 
 export interface ConnectedUsernameProps {

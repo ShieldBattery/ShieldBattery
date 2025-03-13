@@ -7,7 +7,7 @@ import TerranIcon from '../icons/starcraft/marine_24px.svg'
 import ProtossIcon from '../icons/starcraft/zealot_24px.svg'
 import { getRaceColor } from '../styles/colors'
 
-const RandomIcon = styled(AutoSizeMaterialIcon).attrs({ icon: 'casino' })``
+const RandomIcon = styled(AutoSizeMaterialIcon).attrs({ icon: 'Ifl' })``
 
 const ICONS: Record<RaceChar, React.ComponentType<any>> = {
   r: RandomIcon,

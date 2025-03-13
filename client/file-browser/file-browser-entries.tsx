@@ -4,8 +4,7 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
-import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { Caption, Subtitle1 } from '../styles/typography'
+import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,
   FileBrowserFileEntryConfig,
@@ -21,11 +20,10 @@ const EntryContainer = styled.div<{ $focused: boolean }>`
   padding: 0 16px;
   display: flex;
   align-items: center;
-  background-color: ${props =>
-    props.$focused ? 'rgba(255, 255, 255, 0.24) !important' : 'transparent'};
+  background-color: ${props => (props.$focused ? 'var(--color-blue30) !important' : 'transparent')};
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: var(--color-blue20);
     cursor: pointer;
   }
 `
@@ -38,7 +36,7 @@ const EntryIcon = styled.div`
   flex-grow: 0;
   flex-shrink: 0;
 
-  background: ${colorTextSecondary};
+  background: var(--theme-on-surface-variant);
   border-radius: 50%;
   color: rgba(0, 0, 0, 0.54);
 `
@@ -66,14 +64,14 @@ export function UpOneDir({
       <EntryIcon>
         <MaterialIcon icon='subdirectory_arrow_left' />
       </EntryIcon>
-      <Subtitle1>{upOneDir.name}</Subtitle1>
+      <BodyLarge>{upOneDir.name}</BodyLarge>
     </EntryContainer>
   )
 }
 
 const FolderEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
-    background: ${amberA400};
+    background: var(--theme-amber);
   }
 `
 
@@ -91,7 +89,7 @@ export function FolderEntry({
         <MaterialIcon icon='folder' invertColor={true} />
       </EntryIcon>
       <InfoContainer>
-        <Subtitle1>{folder.name}</Subtitle1>
+        <BodyLarge>{folder.name}</BodyLarge>
       </InfoContainer>
     </FolderEntryContainer>
   )
@@ -110,8 +108,8 @@ const SelectButton = styled(TextButton)<{ $focused: boolean }>`
 
 const FileEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
-    background: ${blue700};
-    color: ${colorTextPrimary};
+    background: var(--color-blue60);
+    color: var(--theme-on-surface);
   }
 
   &:hover ${SelectButton} {
@@ -152,8 +150,8 @@ export const FileEntry = React.memo(
         <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
           <EntryIcon>{icon}</EntryIcon>
           <InfoContainer>
-            <Subtitle1>{file.name}</Subtitle1>
-            <Caption>{longTimestamp.format(file.date)}</Caption>
+            <BodyLarge>{file.name}</BodyLarge>
+            <BodySmall>{longTimestamp.format(file.date)}</BodySmall>
           </InfoContainer>
           {ExpansionPanelComponent ? (
             <SelectButton $focused={isFocused} label={onSelectTitle} onClick={onSelectClick} />

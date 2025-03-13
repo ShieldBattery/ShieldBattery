@@ -8,19 +8,10 @@ import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
-import {
-  amberA400,
-  colorDividers,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
 
 export interface FindMatchFormRef {
@@ -35,7 +26,7 @@ export interface FindMatchContentsProps {
 }
 
 export const SectionTitle = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin: 8px 0 4px;
 `
 
@@ -44,8 +35,8 @@ export const StyledRaceSelect = styled(RaceSelect)`
 `
 
 export const DescriptionText = styled.span`
-  ${body1};
-  color: ${colorTextSecondary};
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 export const MapSelectionsHeader = styled.div`
@@ -56,12 +47,12 @@ export const MapSelectionsHeader = styled.div`
 `
 
 export const OutdatedIndicator = styled.span`
-  ${body2};
+  ${titleSmall};
   margin-left: 16px;
   padding: 0 4px;
-  color: ${amberA400};
+  color: var(--theme-amber);
   text-transform: uppercase;
-  border: 1px solid ${amberA400};
+  border: 1px solid var(--theme-amber);
   border-radius: 4px;
 `
 
@@ -78,16 +69,16 @@ export const MapSelections = styled.div`
 `
 
 export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boolean }>`
-  ${shadow4dp};
+  ${elevationPlus1};
 
   --sb-selectable-map-border: ${props =>
-    props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : colorDividers};
+    props.$selected ? 'var(--sb-map-thumbnail-selected-color)' : 'var(--theme-outline)'};
   --sb-map-thumbnail-selected-icon-size: 48px;
 
   width: ${MAP_THUMB_SIZE_PX}px;
   height: ${MAP_THUMB_SIZE_PX}px;
   position: relative;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: strict;
   pointer-events: ${props => (props.$disabled ? 'none' : 'auto')};
 
@@ -102,21 +93,21 @@ export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boole
     pointer-events: none;
 
     border: 1px solid var(--sb-selectable-map-border);
-    border-radius: 2px;
+    border-radius: 4px;
   }
 `
 
 const VetoStatus = styled.div`
-  ${body2};
+  ${titleSmall};
   margin-top: 24px;
 `
 
 const VetoStatusLabel = styled.span`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const VetoStatusValue = styled.span<{ $exhausted: boolean }>`
-  color: ${props => (props.$exhausted ? colorTextFaint : colorTextPrimary)};
+  color: ${props => (props.$exhausted ? 'var(--theme-negative)' : 'var(--theme-on-surface)')};
 `
 
 interface ConnectedSelectableMapProps {
@@ -207,7 +198,8 @@ export function MapVetoesControl({
   const vetoesLeft = mapPool.maxVetoCount - (value?.length ?? 0)
   return (
     <div className={className}>
-      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorNegative } as any}>
+      <MapSelections
+        style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-negative)' } as any}>
         {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}
@@ -265,8 +257,8 @@ export function VetoDescriptionText({
 }
 
 const ErrorText = styled.div`
-  ${body2};
-  color: ${colorNegative};
+  ${titleSmall};
+  color: var(--theme-error);
 `
 
 /** Control for doing positive map selection (e.g. "I want to play on these specific maps"). */
@@ -300,7 +292,8 @@ export function MapSelectionControl({
 
   return (
     <div className={className}>
-      <MapSelections style={{ '--sb-map-thumbnail-selected-color': colorPositive } as any}>
+      <MapSelections
+        style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-positive)' } as any}>
         {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}

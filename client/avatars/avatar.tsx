@@ -1,8 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
-import { amberA400, colorDividers } from '../styles/colors'
 import PlaceholderIcon from './avatar-placeholder.svg'
 import { randomColorForString } from './colors'
 
@@ -11,7 +10,7 @@ export const ImageAvatar = styled.img<{ $glowing?: boolean }>`
   height: 40px;
   display: inline-block;
   border-radius: 50%;
-  ${props => (props.$glowing ? `box-shadow: 0 0 8px ${amberA400}` : '')};
+  ${props => (props.$glowing ? `box-shadow: 0 0 8px var(--theme-amber)` : '')};
 `
 
 export const IconContainer = styled.div`
@@ -62,9 +61,10 @@ export function Avatar({ image, user, color, glowing, className }: AvatarProps) 
 
 const LoadingAvatar = styled.div`
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
 
-  background-color: ${colorDividers};
+  background-color: var(--theme-skeleton);
   border-radius: 100%;
 `
 

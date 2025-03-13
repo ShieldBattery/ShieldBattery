@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LeagueJson } from '../../common/leagues'
+import { LeagueJson } from '../../common/leagues/leagues'
 import {
   MatchmakingDivision,
   MatchmakingDivisionWithBounds,
@@ -24,7 +24,7 @@ import { searchAgainFromGame } from '../games/action-creators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { LeagueBadge } from '../leagues/league-badge'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
 import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { defaultSpring } from '../material/springs'
@@ -32,15 +32,7 @@ import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplay } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import {
-  caption,
-  headline4,
-  headline5,
-  headline6,
-  overline,
-  singleLine,
-} from '../styles/typography'
+import { headlineMedium, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
@@ -58,7 +50,7 @@ const Content = styled.div`
 `
 
 const SideOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   text-align: center;
   overflow-x: hidden;
@@ -106,7 +98,7 @@ const Leagues = styled.div`
     left: 0;
     top: 4px;
     content: '';
-    background-color: ${colorDividers};
+    background-color: var(--theme-outline-variant);
     z-index: 20;
   }
 `
@@ -197,13 +189,13 @@ export function PostMatchDialog({
       $hasLeagues={leagueValues.length > 0}>
       <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />
       <ButtonBar>
-        <RaisedButton
+        <ElevatedButton
           label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
           iconStart={<SizedSearchAgainIcon />}
           onClick={onSearchAgain}
           disabled={!canSearchMatchmaking}
         />
-        <RaisedButton
+        <ElevatedButton
           label={t('matchmaking.postMatchDialog.watchReplay', 'Watch replay')}
           iconStart={<MaterialIcon icon='videocam' />}
           onClick={onWatchReplay}
@@ -444,7 +436,7 @@ function RatedUserContent({
 }
 
 const DeltaItemRoot = styled.div`
-  ${headline4};
+  ${headlineMedium};
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -457,13 +449,13 @@ const DeltaItemRoot = styled.div`
 const DeltaValue = styled.div`
   width: 104px;
   flex-grow: 0;
-  color: ${colorTextPrimary};
+  color: var(--theme-on-surface);
   text-align: right;
 `
 
 const DeltaLabel = styled.div`
-  ${headline6};
-  color: ${colorTextSecondary};
+  ${titleLarge};
+  color: var(--theme-on-surface-variant);
 `
 
 function DeltaItem({
@@ -489,7 +481,7 @@ function DeltaItem({
 }
 
 const LeagueDeltaRoot = styled.div`
-  ${headline5};
+  ${titleLarge};
   display: flex;
   align-items: center;
   gap: 16px;
@@ -533,7 +525,7 @@ const StyledDivisionIcon = styled(DivisionIcon)`
 `
 
 const RankLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   padding-top: 8px;
   text-align: center;
@@ -597,8 +589,8 @@ const PointsBar = styled.div`
   width: 100%;
   height: 20px;
 
-  background-color: rgba(0, 0, 0, 0.24);
-  border: 2px solid ${colorDividers};
+  background-color: var(--theme-container-lowest);
+  border: 2px solid var(--theme-outline-variant);
   border-radius: 9999px;
   contain: paint;
 
@@ -626,7 +618,7 @@ const PointsLabelMover = styled.div`
 `
 
 const PointsLabel = styled.div`
-  ${caption};
+  ${labelMedium};
   position: absolute;
   transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
 `

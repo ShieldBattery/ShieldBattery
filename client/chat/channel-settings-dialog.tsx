@@ -18,9 +18,8 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 import { updateChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
@@ -69,8 +68,8 @@ const BannerButtonsContainer = styled.div`
 `
 
 const ErrorText = styled.span`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 const DisabledOverlay = styled.div`

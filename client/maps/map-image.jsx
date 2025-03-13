@@ -3,8 +3,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { background700, colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { BodyLarge } from '../styles/typography'
 
 const ImgContainer = styled.div`
   position: relative;
@@ -28,8 +27,8 @@ const NoImageContainer = styled.div`
   width: 100%;
   height: 100%;
   min-height: 220px;
-  background-color: ${background700};
-  color: ${colorTextFaint};
+  background-color: var(--theme-container);
+  color: var(--theme-on-surface-variant);
 `
 
 const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 90 })`
@@ -41,7 +40,7 @@ export const MapNoImage = () => {
   return (
     <NoImageContainer>
       <NoImageIcon />
-      <Subtitle1>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</Subtitle1>
+      <BodyLarge>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</BodyLarge>
     </NoImageContainer>
   )
 }

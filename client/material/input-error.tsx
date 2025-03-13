@@ -1,8 +1,7 @@
 import React, { useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { colorError } from '../styles/colors'
-import { fastOutLinearIn, linearOutSlowIn } from './curve-constants'
+import { accelerateEasing, decelerateEasing } from './curve-constants'
 
 const StyledTransitionGroup = styled(TransitionGroup)`
   display: flex;
@@ -16,7 +15,7 @@ const StyledTransitionGroup = styled(TransitionGroup)`
 const ErrorText = styled.div`
   font-size: 12px;
   line-height: 20px;
-  color: ${colorError};
+  color: var(--theme-error);
   pointer-events: none;
 
   &.enter {
@@ -27,7 +26,7 @@ const ErrorText = styled.div`
   &.enterActive {
     opacity: 1;
     transform: translate3d(0, 0, 0);
-    transition: all 250ms ${linearOutSlowIn};
+    transition: all 250ms ${decelerateEasing};
   }
 
   &.exit {
@@ -38,7 +37,7 @@ const ErrorText = styled.div`
   &.exitActive {
     opacity: 0.01;
     transform: translate3d(0, -30%, 0);
-    transition: all 250ms ${fastOutLinearIn};
+    transition: all 250ms ${accelerateEasing};
   }
 `
 

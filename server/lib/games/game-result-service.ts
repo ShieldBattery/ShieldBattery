@@ -1,7 +1,8 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource, GameType } from '../../../common/games/configuration'
+import { GameSource } from '../../../common/games/configuration'
+import { GameType } from '../../../common/games/game-type'
 import {
   GameRecord,
   GameRecordUpdate,
@@ -10,7 +11,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
-import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues'
+import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
 import {
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingType,
@@ -19,7 +20,7 @@ import {
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'

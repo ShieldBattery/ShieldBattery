@@ -4,10 +4,10 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
-import { shadow2dp, shadow8dp } from '../material/shadows'
+import { elevationPlus1, elevationPlus2 } from '../material/shadows'
 import { useStableCallback } from '../state-hooks'
-import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { subtitle1 } from '../styles/typography'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { bodyLarge, labelLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
@@ -20,15 +20,18 @@ const Container = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`
   text-shadow: 0 0 8px #000;
 `
 
-export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
+const BrowseButton = styled.div<{ $isFocused?: boolean }>`
+  ${containerStyles(ContainerLevel.Low)};
+  ${elevationPlus1};
+
   position: relative;
   display: flex;
   flex-direction: column;
@@ -36,55 +39,62 @@ export const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: ${background400};
-  border-radius: 2px;
-  ${props => (props.$isFocused ? shadow8dp : shadow2dp)};
+  border-radius: 4px;
 
   &:after {
     position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     content: '';
 
     background-color: white;
     opacity: ${props => (props.$isFocused ? '0.16 !important' : '0')};
     transition: opacity 150ms linear;
+
+    pointer-events: none;
+  }
+
+  &:hover {
+    ${elevationPlus2};
+    cursor: pointer;
   }
 
   &:hover:after {
     opacity: 0.08;
-    cursor: pointer;
   }
 
   &:active:after {
     opacity: 0.12;
-    ${shadow8dp};
   }
 `
 
 const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const BrowseText = styled.div`
-  ${subtitle1};
-  color: ${colorTextSecondary};
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+  margin-top: 8px;
+  margin-bottom: 8px;
 `
 
+export interface MapSelectionValue {
+  /** The currently selected map (if any). */
+  mapId?: string | null
+  /** A list of map IDs that have been selected recently, for easy choosing without browsing. */
+  recentMaps?: string[]
+}
+
 export interface MapSelectProps {
-  /** A list of potential map IDs available in the quick select (available without browsing). */
-  quickMaps: ReadonlyArray<string>
-  value?: string | null
+  value?: MapSelectionValue | null
   disabled?: boolean
   errorText?: string
-  onChange: (selectedId: string) => void
+  onChange: (newValue: MapSelectionValue) => void
   onMapBrowse: (event: KeyboardEvent | React.MouseEvent) => void
+  numRecentMaps: number
 }
 
 export function MapSelect({
-  quickMaps,
   value,
   disabled = false,
   errorText,
@@ -96,8 +106,15 @@ export function MapSelect({
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
   const onMapSelect = useStableCallback((id: string) => {
-    if (!disabled && id !== value) {
-      onChange(id)
+    if (!disabled && id !== value?.mapId) {
+      onChange({
+        mapId: id,
+        // NOTE(tec27): We don't need to update this, as we can only select things that are already
+        // in the recent maps list and we don't want to move those around while the user is making
+        // a selection. If the selection is confirmed (e.g. the lobby is created with this map),
+        // we'll move it to the front of the list at that point.
+        recentMaps: value?.recentMaps,
+      })
     }
   })
   const onMouseDown = useStableCallback((event: React.MouseEvent) => {
@@ -113,15 +130,16 @@ export function MapSelect({
         return false
       }
 
-      if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= quickMaps.length) {
-        if (focusedIndex === quickMaps.length) {
+      const recentMapsLength = value?.recentMaps?.length ?? 0
+      if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= recentMapsLength) {
+        if (focusedIndex === recentMapsLength) {
           onMapBrowse(event)
         } else {
-          onMapSelect(quickMaps[focusedIndex])
+          onMapSelect(value!.recentMaps![focusedIndex])
         }
         return true
       } else if (event.code === TAB) {
-        if (focusedIndex === (event.shiftKey ? 0 : quickMaps.length)) {
+        if (focusedIndex === (event.shiftKey ? 0 : recentMapsLength)) {
           setIsFocused(false)
           setFocusedIndex(-1)
           return true
@@ -151,6 +169,8 @@ export function MapSelect({
     setFocusedIndex(-1)
   })
 
+  const recentMaps = value?.recentMaps ?? []
+
   // TODO(tec27): After moving to normal tabindex usage, change BrowseButton to an actual button
   // and use the standard ripple stuff instead of all its custom hover/focus states (and disable it
   // when this component is disabled)
@@ -158,14 +178,14 @@ export function MapSelect({
     <Container tabIndex={0} onMouseDown={onMouseDown} onFocus={onFocus} onBlur={onBlur}>
       {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
       <ImageList $columnCount={3} $padding={4}>
-        {quickMaps.map((id, i) => (
+        {recentMaps.map((id, i) => (
           <ConnectedMapThumbnail
             key={id}
             map={id}
             forceAspectRatio={1}
             size={256}
             showMapName={true}
-            isSelected={id === value}
+            isSelected={id === value?.mapId}
             isFocused={isFocused && focusedIndex === i}
             selectedIcon={<StyledSelectedIcon />}
             onClick={() => onMapSelect(id)}
@@ -173,7 +193,7 @@ export function MapSelect({
         ))}
         <BrowseButton
           onClick={disabled ? undefined : onMapBrowse}
-          $isFocused={isFocused && focusedIndex === quickMaps.length}>
+          $isFocused={isFocused && focusedIndex === recentMaps.length}>
           <BrowseIcon />
           <BrowseText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseText>
         </BrowseButton>

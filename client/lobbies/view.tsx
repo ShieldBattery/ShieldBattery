@@ -5,20 +5,18 @@ import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
-import { openOverlay } from '../activities/action-creators'
-import { ActivityOverlayType } from '../activities/activity-overlay-type'
-import { useSelfUser } from '../auth/auth-utils'
+import { urlPath } from '../../common/urls'
+import { redirectToLogin, useIsLoggedIn, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
   addComputer,
@@ -59,6 +57,7 @@ export interface LobbyViewProps {
 
 export function LobbyView(props: LobbyViewProps) {
   const dispatch = useAppDispatch()
+  const isLoggedIn = useIsLoggedIn()
   const routeLobby = decodeURIComponent(props.params.lobby)
   const inLobby = useAppSelector(s => s.lobby.inLobby)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
@@ -109,6 +108,11 @@ export function LobbyView(props: LobbyViewProps) {
       dispatch(deactivateLobby() as any)
     }
   }, [dispatch, inLobby, routeLobby])
+
+  if (!isLoggedIn) {
+    redirectToLogin()
+    return undefined
+  }
 
   return (
     <Switch>
@@ -305,10 +309,10 @@ const StateMessageIcon = styled(MaterialIcon).attrs({
   size: 96,
   filled: false,
 })`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
-const StateMessageActionButton = styled(RaisedButton)`
+const StateMessageActionButton = styled(ElevatedButton)`
   margin-top: 32px;
 `
 
@@ -320,20 +324,13 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='other_houses' />
-          <Subtitle1>
+          <BodyLarge>
             {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create it?')}
-          </Subtitle1>
+          </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
-            onClick={() =>
-              dispatch(
-                openOverlay({
-                  type: ActivityOverlayType.Lobby,
-                  initData: { creating: true, initName: routeLobby },
-                }),
-              )
-            }
+            onClick={() => push(urlPath`/play/lobbies/create/${routeLobby}`)}
           />
         </StateMessageLayout>
       )
@@ -347,12 +344,12 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='meeting_room' />
-          <Subtitle1>
+          <BodyLarge>
             {t(
               'lobbies.state.exists',
               "You're not currently in this lobby. Would you like to join it?",
             )}
-          </Subtitle1>
+          </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.joinLobby.action', 'Join lobby')}
             iconStart={<MaterialIcon icon='add' />}
@@ -365,9 +362,9 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
       return (
         <StateMessageLayout>
           <StateMessageIcon icon='avg_pace' />
-          <Subtitle1>
+          <BodyLarge>
             {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
-          </Subtitle1>
+          </BodyLarge>
         </StateMessageLayout>
       )
     default:

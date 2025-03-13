@@ -10,7 +10,7 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { BaseFetchFailure } from '../network/fetch-errors'
-import { MatchmakingMatch } from './matchmaking-reducer'
+import { MatchmakingMatch } from './matchmaking-match-state'
 
 export type MatchmakingActions =
   | GetCurrentMapPoolBegin

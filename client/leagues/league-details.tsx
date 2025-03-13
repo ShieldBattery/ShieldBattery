@@ -7,7 +7,12 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
+import {
+  ClientLeagueUserJson,
+  LeagueErrorCode,
+  LeagueId,
+  LeagueJson,
+} from '../../common/leagues/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
@@ -17,9 +22,9 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -28,25 +33,17 @@ import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
-import {
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-  getRaceColor,
-} from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
-  caption,
-  headline3,
-  headline5,
-  overline,
+  bodyLarge,
+  headlineLarge,
+  labelMedium,
   singleLine,
-  subtitle1,
-  subtitle2,
+  titleLarge,
+  titleMedium,
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
@@ -65,7 +62,10 @@ const PageRoot = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 0 24px 12px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 
   overflow-x: hidden;
   overflow-y: auto;
@@ -118,10 +118,12 @@ export function LeagueDetailsPage() {
 }
 
 const DetailsRoot = styled.div`
-  max-width: 704px;
-  min-height: min-content;
+  width: 100%;
+  max-width: 752px;
   height: 100%;
-  padding-top: 12px;
+  min-height: min-content;
+  margin-top: 24px;
+  padding: 0 24px;
 
   display: flex;
   flex-direction: column;
@@ -152,7 +154,7 @@ const TitleRow = styled.div`
 `
 
 const Title = styled.div`
-  ${headline3};
+  ${headlineLarge};
 `
 
 const SummaryRow = styled.div`
@@ -162,8 +164,8 @@ const SummaryRow = styled.div`
 `
 
 const FormatAndDate = styled.div`
-  ${subtitle1};
-  color: ${colorTextSecondary};
+  ${bodyLarge};
+  color: var(--theme-on-surface-variant);
   flex-shrink: 0;
 `
 
@@ -172,7 +174,7 @@ const DateTooltip = styled(Tooltip)`
 `
 
 const LeagueLink = styled(ExternalLink)`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
   min-width: 80px;
   text-align: right;
@@ -194,7 +196,7 @@ const InfoSection = styled.div`
 `
 
 const InfoSectionHeader = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const LeagueImageContainer = styled.div`
@@ -214,8 +216,8 @@ const ErrorLayout = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 export interface LeagueDetailsProps {
@@ -227,6 +229,7 @@ export interface LeagueDetailsProps {
 export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
 
@@ -247,28 +250,22 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       joinLeague(id, {
         onSuccess() {
           setIsJoining(false)
-          dispatch(
-            openSnackbar({ message: t('leagues.leagueDetails.leagueJoined', 'League joined') }),
-          )
+          snackbarController.showSnackbar(t('leagues.leagueDetails.leagueJoined', 'League joined'))
         },
         onError(err) {
           setIsJoining(false)
           if (isFetchError(err) && err.code === LeagueErrorCode.AlreadyEnded) {
-            dispatch(
-              openSnackbar({
-                message: t(
-                  'leagues.leagueDetails.leagueEndedError',
-                  "Couldn't join because the league has already ended",
-                ),
-              }),
+            snackbarController.showSnackbar(
+              t(
+                'leagues.leagueDetails.leagueEndedError',
+                "Couldn't join because the league has already ended",
+              ),
             )
           } else {
-            dispatch(
-              openSnackbar({
-                message: t('leagues.leagueDetails.joinError', {
-                  defaultValue: "Couldn't join league: {{errorMessage}}",
-                  errorMessage: isFetchError(err) ? err.statusText : err.message,
-                }),
+            snackbarController.showSnackbar(
+              t('leagues.leagueDetails.joinError', {
+                defaultValue: "Couldn't join league: {{errorMessage}}",
+                errorMessage: isFetchError(err) ? err.statusText : err.message,
               }),
             )
           }
@@ -376,7 +373,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
           )}
         </Tabs>
         {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
-          <RaisedButton
+          <ElevatedButton
             label={
               selfLeagueUser
                 ? t('leagues.leagueDetails.joined', 'Joined')
@@ -475,15 +472,15 @@ const FillerRow = styled.div.attrs<{ height: number }>(props => ({
   style: { height: `${props.height}px` },
 }))<{ height: number }>``
 
-const LeaderboardRoot = styled.div`
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
-`
-
 const HEADER_STUCK_CLASS = 'sb-leaderboard-table-sticky-header'
 
+const LeaderboardRoot = styled.div`
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+`
+
 const LeaderboardHeaderRow = styled.div`
-  ${overline};
+  ${labelMedium};
   width: 100%;
   height: 48px;
   position: sticky !important;
@@ -493,18 +490,18 @@ const LeaderboardHeaderRow = styled.div`
   display: flex;
   align-items: center;
 
-  background-color: ${background800};
-  color: ${colorTextSecondary};
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant);
   contain: content;
 
   .${HEADER_STUCK_CLASS} & {
-    ${shadow4dp};
-    border-bottom: 1px solid ${colorDividers};
+    ${elevationPlus2};
+    border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
 
 const LeaderboardRowRoot = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   position: relative;
   width: 100%;
   height: 72px;
@@ -525,7 +522,7 @@ const LeaderboardRowRoot = styled.div`
 
   &:hover {
     &::after {
-      background-color: rgba(255, 255, 255, 0.04);
+      background-color: rgb(from var(--theme-on-surface) r g b / 0.04);
     }
   }
 `
@@ -569,6 +566,7 @@ const WinLossCell = styled(NumericCell)`
 const LastPlayedCell = styled(NumericCell)`
   width: 156px;
   padding: 0 16px 0 32px;
+  color: var(--theme-on-surface-variant);
 `
 
 const LeaderboardError = styled(ErrorText)`
@@ -577,10 +575,10 @@ const LeaderboardError = styled(ErrorText)`
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -739,12 +737,12 @@ const PlayerNameAndRace = styled.div`
 `
 
 const PlayerName = styled(ConnectedUsername)`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
-  ${caption};
+  ${labelMedium};
   color: ${props => getRaceColor(props.$race)};
 `
 

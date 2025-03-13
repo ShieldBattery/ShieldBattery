@@ -8,8 +8,9 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../../common/constants'
-import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
+import { SelfUser } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
+import { UserErrorCode } from '../../../common/users/user-network'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'

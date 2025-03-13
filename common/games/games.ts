@@ -2,14 +2,15 @@ import type { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues/leagues'
 import { MapInfoJson } from '../maps'
 import {
   MatchmakingSeasonJson,
   PublicMatchmakingRatingChangeJson,
   matchmakingTypeToLabel,
 } from '../matchmaking'
-import { SbUser, SbUserId } from '../users/sb-user'
+import { SbUser } from '../users/sb-user'
+import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
 

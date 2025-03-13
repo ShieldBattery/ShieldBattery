@@ -1,5 +1,5 @@
 import { BugReport } from '../../../common/bugs'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'

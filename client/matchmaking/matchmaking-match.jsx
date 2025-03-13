@@ -4,9 +4,8 @@ import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import PlayerCard from '../lobbies/player-card'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors'
-import { Headline1, Headline3, Headline4, headline5 } from '../styles/typography'
+import { elevationPlus1 } from '../material/shadows'
+import { DisplayLarge, DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -29,8 +28,8 @@ const TopHalfContainer = styled.div`
 const Spacer = styled.div``
 
 const StyledMapThumbnail = styled(MapThumbnail)`
+  ${elevationPlus1};
   width: 320px;
-  box-shadow: ${shadowDef2dp};
 `
 
 const StatusContainer = styled.div`
@@ -40,8 +39,8 @@ const StatusContainer = styled.div`
 `
 
 const StatusText = styled.div`
-  ${headline5};
-  color: ${colorTextSecondary};
+  ${titleLarge};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayersContainer = styled.div`
@@ -95,7 +94,7 @@ export default class MatchmakingMatch extends React.Component {
     if (isLaunching) {
       return <StatusText>{t('matchmaking.match.gameLoading', 'Game launching…')}</StatusText>
     } else if (isCountingDown) {
-      return <Headline1>{countdownTimer}</Headline1>
+      return <DisplayLarge>{countdownTimer}</DisplayLarge>
     } else if (isStarting) {
       return <StatusText>{t('matchmaking.match.gameStarting', 'Game starting…')}</StatusText>
     } else {
@@ -115,7 +114,7 @@ export default class MatchmakingMatch extends React.Component {
 
     return (
       <Container>
-        <Headline3>{map?.name ?? ''}</Headline3>
+        <DisplaySmall>{map?.name ?? ''}</DisplaySmall>
         <TopHalfContainer>
           <Spacer />
           <StyledMapThumbnail map={map} size={320} />
@@ -124,7 +123,7 @@ export default class MatchmakingMatch extends React.Component {
         <PlayersContainer>
           <TeamContainer>{team1}</TeamContainer>
           <VsContainer>
-            <Headline4>{t('matchmaking.match.playerVsPlayer', 'vs')}</Headline4>
+            <HeadlineMedium>{t('matchmaking.match.playerVsPlayer', 'vs')}</HeadlineMedium>
           </VsContainer>
           <TeamContainer>{team2}</TeamContainer>
         </PlayersContainer>

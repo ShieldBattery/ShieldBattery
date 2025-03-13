@@ -10,7 +10,7 @@ import {
   replayGameTypeToLabel,
   replayRaceToChar,
 } from '../../common/replays'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
@@ -21,12 +21,11 @@ import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { startReplay } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -40,10 +39,10 @@ async function getReplayMetadata(
 const Root = styled.div``
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const InfoContainer = styled.div`
@@ -59,13 +58,13 @@ const PlayerListContainer = styled.div`
 `
 
 const TeamLabel = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 24px;
   line-height: 24px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const PlayerContainer = styled.div`
@@ -94,7 +93,7 @@ const StyledRaceIcon = styled(RaceIcon)`
 `
 
 const PlayerName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin-left: 16px;
   margin-right: 8px;
@@ -112,28 +111,28 @@ const ReplayInfoContainer = styled.div`
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
   margin: 12px 0 16px;
 `
 
 const ReplayInfoText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
   margin: 4px 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MapNoImageContainer = styled.div`
   position: relative;
   width: 100%;
   height: auto;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 

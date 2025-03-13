@@ -8,7 +8,7 @@ import {
   getTotalBonusPoolForSeason,
   wasPlayerInactive,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { LeagueUser, LeagueUserChange } from '../leagues/league-models'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
 

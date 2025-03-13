@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import { suppressChangelog } from '../../changelog-utils'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
 import { getVerificationLink, signupWith } from './utils'
@@ -11,7 +10,6 @@ test('wrong token -> resend -> first token -> second token', async ({ page }) =>
   // stuck registering as "not verified" despite being verified in the DB. It ensures that
   // submitting tokens once an account is verified is a no-op but completes successfully.
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`

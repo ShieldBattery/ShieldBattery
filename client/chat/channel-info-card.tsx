@@ -5,20 +5,19 @@ import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton } from '../material/button'
-import Card from '../material/card'
+import { ElevatedButton, IconButton } from '../material/button'
+import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { shadow2dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { body1, caption, headline6 } from '../styles/typography'
+import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
 import {
   getBatchChannelInfo,
   joinChannelWithErrorHandling,
@@ -51,7 +50,7 @@ export const ChannelBannerAndBadge = styled.div`
 `
 
 export const ChannelCardBadge = styled.div`
-  ${shadow2dp};
+  ${elevationPlus1};
   position: absolute;
   left: 12px;
   bottom: 0;
@@ -64,18 +63,18 @@ export const ChannelCardBadge = styled.div`
 `
 
 export const ChannelName = styled.div`
-  ${headline6};
+  ${titleLarge};
   margin-top: 4px;
   padding: 0 16px;
 `
 
 const ChannelUserCount = styled.div`
-  ${caption};
+  ${labelMedium};
   padding: 0 16px;
 `
 
 const PrivateChannelDescriptionContainer = styled.div`
-  ${body1};
+  ${bodyMedium};
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -84,16 +83,16 @@ const PrivateChannelDescriptionContainer = styled.div`
 
 const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
   margin-bottom: 8px;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const PrivateChannelDescriptionText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
 export const ChannelDescriptionContainer = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin-top: 16px;
   padding: 0 16px;
 
@@ -106,7 +105,7 @@ export const ChannelDescriptionContainer = styled.div`
 `
 
 const NoChannelDescriptionText = styled.span`
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 export const ChannelActions = styled.div`
@@ -117,13 +116,13 @@ export const ChannelActions = styled.div`
 `
 
 const JoinedIndicator = styled.div`
-  ${body1};
+  ${bodyMedium};
 
   display: flex;
   align-items: center;
   gap: 4px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 export interface ConnectedChannelInfoCardProps {
@@ -225,12 +224,12 @@ export function ConnectedChannelInfoCard({
 
   let action
   if (isUserInChannel) {
-    action = <RaisedButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
+    action = <ElevatedButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
   } else if (basicChannelInfo?.private || isUserBanned) {
-    action = <RaisedButton label={t('common.actions.join', 'Join')} disabled={true} />
+    action = <ElevatedButton label={t('common.actions.join', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
     action = (
-      <RaisedButton
+      <ElevatedButton
         label={t('common.actions.join', 'Join')}
         disabled={isJoinInProgress}
         onClick={onJoinClick}

@@ -1,5 +1,4 @@
 import styled from 'styled-components'
-import { amberA400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
 
 export const FloatingLabel = styled.label<{
@@ -23,16 +22,16 @@ export const FloatingLabel = styled.label<{
   z-index: 1;
   color: ${props => {
     if (props.$error) {
-      return colorError
+      return 'var(--theme-error)'
     }
     if (props.$disabled) {
-      return colorTextFaint
+      return 'var(--theme-on-surface)'
     }
     if (props.$focused) {
-      return amberA400
+      return 'var(--theme-amber)'
     }
 
-    return colorTextSecondary
+    return 'var(--theme-on-surface-variant)'
   }};
   pointer-events: none;
   transform: ${props => {

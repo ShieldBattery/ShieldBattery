@@ -14,7 +14,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { NumberTextField } from '../material/number-text-field'
@@ -22,8 +22,7 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { body1, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium } from '../styles/typography'
 import {
   clearSearch,
   createMapPool,
@@ -88,8 +87,8 @@ const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', si
 `
 
 const SectionTitle = styled.div`
-  ${subtitle1};
-  color: ${colorTextSecondary};
+  ${bodyLarge};
+  color: var(--theme-on-surface-secondary);
 `
 
 const DateInputContainer = styled.div`
@@ -102,17 +101,17 @@ const DateInput = styled.input`
 `
 
 const InvalidDateInput = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin-left: 16px;
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
   margin-left: 8px;
 `
 
-const CreatePoolButton = styled(RaisedButton)`
+const CreatePoolButton = styled(ElevatedButton)`
   margin: 16px 0;
 `
 
@@ -126,7 +125,7 @@ const HistoryContainer = styled.table`
   }
 
   th {
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-secondary);
     text-align: left;
     font-weight: 500;
   }
@@ -152,8 +151,8 @@ const LoadingArea = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 export class MapPoolEditor extends React.Component {

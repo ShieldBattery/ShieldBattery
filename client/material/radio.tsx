@@ -1,9 +1,8 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { body1, overline } from '../styles/typography'
+import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'
-import { fastOutSlowIn } from './curve-constants'
+import { standardEasing } from './curve-constants'
 import { Ripple } from './ripple'
 
 const noop = () => {}
@@ -17,8 +16,8 @@ const RadioGroupContainer = styled.div`
 `
 
 const RadioOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 
   padding: 4px 0;
 `
@@ -111,9 +110,9 @@ const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
   height: 48px;
 
   color: ${props => {
-    if (props.$disabled) return colorTextFaint
-    else if (props.$selected) return amberA400
-    else return colorTextSecondary
+    if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
+    else if (props.$selected) return 'var(--theme-amber)'
+    else return 'var(--theme-on-surface-variant)'
   }};
 `
 
@@ -153,7 +152,7 @@ const RadioIcon = styled.div<{ $selected?: boolean }>`
     background-color: currentColor;
 
     transform: ${props => (props.$selected ? 'scale(1)' : 'scale(0)')};
-    transition: transform 150ms ${fastOutSlowIn};
+    transition: transform 150ms ${standardEasing};
   }
 `
 
@@ -163,12 +162,13 @@ const StyledRipple = styled(Ripple)`
 `
 
 const Label = styled.label<{ $disabled?: boolean }>`
-  ${body1};
+  ${bodyMedium};
 
   flex-grow: 1;
   padding: 4px 0;
 
-  color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
+  color: ${props =>
+    props.$disabled ? 'rgb(from var(--theme-on-surface) r g b / 0.38)' : 'var(--theme-on-surface)'};
 `
 
 export const RadioButton = React.memo(

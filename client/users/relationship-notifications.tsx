@@ -1,25 +1,24 @@
 import React, { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
-import { blue300 } from '../styles/colors'
-import { body2 } from '../styles/typography'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { titleSmall } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
 const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 })`
   flex-shrink: 0;
-  color: ${blue300};
+  color: var(--color-blue80);
 `
 
 const Username = styled.span`
-  ${body2};
+  ${titleSmall};
 `
 
 export interface FriendRequestNotificationUiProps {
@@ -34,6 +33,7 @@ export const FriendRequestNotificationUi = React.memo(
     const { t } = useTranslation()
     const { notificationId, from } = props
     const dispatch = useAppDispatch()
+    const snackbarController = useSnackbarController()
     const username = useAppSelector(s => s.users.byId.get(from)?.name)
 
     useEffect(() => {
@@ -64,13 +64,11 @@ export const FriendRequestNotificationUi = React.memo(
                 declineFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(
-                      openSnackbar({
-                        message: t(
-                          'users.errors.friendsList.errorDecliningFriendRequest',
-                          'Error declining friend request',
-                        ),
-                      }),
+                    snackbarController.showSnackbar(
+                      t(
+                        'users.errors.friendsList.errorDecliningFriendRequest',
+                        'Error declining friend request',
+                      ),
                     )
                   },
                 }),
@@ -87,13 +85,11 @@ export const FriendRequestNotificationUi = React.memo(
                 acceptFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(
-                      openSnackbar({
-                        message: t(
-                          'users.errors.friendsList.errorAcceptingFriendRequest',
-                          'Error accepting friend request',
-                        ),
-                      }),
+                    snackbarController.showSnackbar(
+                      t(
+                        'users.errors.friendsList.errorAcceptingFriendRequest',
+                        'Error accepting friend request',
+                      ),
                     )
                   },
                 }),
@@ -109,7 +105,7 @@ export const FriendRequestNotificationUi = React.memo(
 
 const ColoredFriendStartIcon = styled(MaterialIcon).attrs({ icon: 'group', size: 36 })`
   flex-shrink: 0;
-  color: ${blue300};
+  color: var(--color-blue80);
 `
 
 export interface FriendStartNotificationUiProps {

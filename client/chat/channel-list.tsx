@@ -9,34 +9,35 @@ import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { useAutoFocusRef } from '../material/auto-focus'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { headline4, subtitle1 } from '../styles/typography'
+import { bodyLarge, headlineMedium } from '../styles/typography'
 import { searchChannels } from './action-creators'
 
 const Container = styled.div`
-  padding: 16px 24px;
+  width: 100%;
+  padding: 24px;
 
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 `
 
 const TitleBar = styled.div`
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
   margin-bottom: 16px;
 `
 
 const PageHeadline = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const StyledSearchInput = styled(SearchInput)`
@@ -44,22 +45,25 @@ const StyledSearchInput = styled(SearchInput)`
 `
 
 const SearchResults = styled.div`
+  width: 100%;
+
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
+  overflow-x: hidden;
 `
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export function ChannelList() {
@@ -172,7 +176,7 @@ export function ChannelList() {
       <TitleBar>
         <PageHeadline>{t('chat.channelList.pageHeadline', 'Chat channels')}</PageHeadline>
         <FlexSpacer />
-        <RaisedButton
+        <ElevatedButton
           label={t('chat.channelList.createChannel', 'Create channel')}
           iconStart={<MaterialIcon icon='add' />}
           onClick={onCreateChannelClick}

@@ -1,4 +1,3 @@
-import { rgba } from 'polished'
 import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -6,15 +5,14 @@ import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FocusTrap } from '../dom/focus-trap'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { amberA400, dialogScrim } from '../styles/colors'
-import { Body1, Subtitle1 } from '../styles/typography'
+import { BodyLarge, BodyMedium } from '../styles/typography'
 import {
   UpdateProgress,
   UpdateStateChangeHandler,
@@ -35,13 +33,11 @@ const Scrim = styled(animated.div)`
   right: 0;
   bottom: 0;
 
+  background: var(--theme-dialog-scrim);
   z-index: ${zIndexDialogScrim};
 
   -webkit-app-region: no-drag;
 `
-
-const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
-const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.84)
 
 export function UpdateOverlay() {
   const [hasUpdate, setHasUpdate] = useState(false)
@@ -59,10 +55,10 @@ export function UpdateOverlay() {
 
   const scrimTransition = useTransition(hasUpdate, {
     from: {
-      background: INVISIBLE_SCRIM_COLOR,
+      opacity: 0,
     },
-    enter: { background: VISIBLE_SCRIM_COLOR },
-    leave: { background: INVISIBLE_SCRIM_COLOR },
+    enter: { opacity: 0.84 },
+    leave: { opacity: 0 },
     config: {
       ...defaultSpring,
       clamp: true,
@@ -135,7 +131,7 @@ export function UpdateDialog({
   let content = <span />
   if (hasDownloadError) {
     content = (
-      <Subtitle1>
+      <BodyLarge>
         <Trans t={t} i18nKey='clientUpdate.overlay.errorBody'>
           There was an error downloading the update. Please restart and try again, or visit{' '}
           <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
@@ -143,19 +139,19 @@ export function UpdateDialog({
           </a>{' '}
           to download the latest version.
         </Trans>
-      </Subtitle1>
+      </BodyLarge>
     )
   } else if (readyToInstall) {
     content = (
       <Content>
-        <Subtitle1>
+        <BodyLarge>
           {t(
             'clientUpdate.overlay.newUpdateReady',
             'A new update has been downloaded and is ready to install. ' +
               'Please restart the application to continue.',
           )}
-        </Subtitle1>
-        <RaisedButton
+        </BodyLarge>
+        <ElevatedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
           label={t('clientUpdate.overlay.restartNow', 'Restart now')}
         />
@@ -164,13 +160,13 @@ export function UpdateDialog({
   } else if (hasUpdate) {
     content = (
       <Content>
-        <Subtitle1>
+        <BodyLarge>
           {t(
             'clientUpdate.overlay.newUpdateDownloading',
             'A new update is being downloaded. ' +
               'Please wait for the download to complete in order to continue.',
           )}
-        </Subtitle1>
+        </BodyLarge>
         {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>
     )
@@ -196,7 +192,7 @@ const FilledProgressBar = styled.div<{ $filledScale: number }>`
   left: 0;
   width: 100%;
   height: 12px;
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   transform: ${props => `scaleX(${props.$filledScale})`};
   transform-origin: 0% 50%;
   transition: transform 80ms linear;
@@ -223,12 +219,12 @@ function UpdateProgressUi({ progress }: { progress: UpdateProgress }) {
       <ProgressBar>
         <FilledProgressBar $filledScale={bytesTransferred / totalBytes} />
       </ProgressBar>
-      <Body1>
+      <BodyMedium>
         <Trans t={t} i18nKey='clientUpdate.overlay.progress'>
           {{ transferred: prettyBytesTransferred }} / {{ total: prettyTotalBytes }} at{' '}
           {{ perSecond: prettyBytesPerSecond }}/s
         </Trans>
-      </Body1>
+      </BodyMedium>
     </ProgressContainer>
   )
 }

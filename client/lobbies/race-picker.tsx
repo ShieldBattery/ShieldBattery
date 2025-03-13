@@ -3,9 +3,9 @@ import styled from 'styled-components'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
-import { fastOutSlowIn } from '../material/curve-constants'
+import { standardEasing } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
-import { colorDividers, colorTextFaint, getRaceColor } from '../styles/colors'
+import { getRaceColor } from '../styles/colors'
 import { RaceIcon } from './race-icon'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
@@ -39,7 +39,7 @@ export const RaceButton = styled.button<{
   }
 
   --sb-race-color: ${props => getRaceColor(props.$race)};
-  color: ${props => (props.$active ? 'var(--sb-race-color)' : colorTextFaint)};
+  color: ${props => (props.$active ? 'var(--sb-race-color)' : 'var(--theme-on-surface-variant)')};
 
   &:hover,
   &:active {
@@ -47,7 +47,7 @@ export const RaceButton = styled.button<{
   }
 
   &:disabled {
-    color: ${props => (props.$active ? 'var(--sb-race-color)' : colorTextFaint)};
+    color: ${props => (props.$active ? 'var(--sb-race-color)' : 'var(--theme-on-surface-variant)')};
   }
 `
 
@@ -61,7 +61,7 @@ export const StyledRaceIcon = styled(RaceIcon)<{
   overflow: hidden;
 
   fill: currentColor;
-  transition: color 150ms ${fastOutSlowIn};
+  transition: color 150ms ${standardEasing};
 `
 
 const HiddenRaceIcon = styled.span`
@@ -85,7 +85,7 @@ const HiddenRaceIcon = styled.span`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: ${colorDividers};
+    background-color: var(--theme-skeleton);
   }
 `
 

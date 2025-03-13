@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { makeSeasonId, MatchmakingSeasonJson, MatchmakingType } from '../../../common/matchmaking'
-import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUser } from '../../../common/users/sb-user'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DivisionFilter, LadderTable } from '../ladder'
 
 const SEASON: MatchmakingSeasonJson = {

@@ -12,14 +12,13 @@ import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton, RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
-import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle2, headline5, headline6, subtitle1 } from '../styles/typography'
+import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
 
 const Container = styled.div`
   height: 100%;
@@ -31,7 +30,7 @@ const Container = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-top: 16px;
   margin-bottom: 8px;
 `
@@ -47,35 +46,35 @@ const HeadlineAndButton = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin-bottom: 8px;
   padding: 0 8px;
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const Row = styled.div<{ $current?: boolean }>`
-  ${subtitle1};
+  ${bodyLarge};
   min-height: 48px;
   padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 32px;
 
-  border: ${props => (props.$current ? '1px' : '0px')} solid ${amberA400};
+  border: ${props => (props.$current ? '1px' : '0px')} solid var(--theme-amber);
 `
 
 const StartDate = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const SeasonName = styled.div`
-  ${headline6};
+  ${titleLarge};
   flex-grow: 1;
 `
 
 const ModifierText = styled.span`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function SeasonRow({
@@ -112,7 +111,7 @@ const FormContainer = styled.div`
 `
 
 const FormTitle = styled.div`
-  ${headline5};
+  ${titleLarge};
   margin-bottom: 16px;
   padding: 0 8px;
 `
@@ -158,7 +157,7 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
         <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
 
-        <RaisedButton label='Submit' color='primary' onClick={onSubmit} />
+        <ElevatedButton label='Submit' color='primary' onClick={onSubmit} />
       </form>
     </FormContainer>
   )
@@ -221,7 +220,7 @@ export function AdminMatchmakingSeasons() {
     <Container>
       <HeadlineAndButton>
         <PageHeadline>Matchmaking seasons</PageHeadline>
-        <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+        <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
       {requestError ? <ErrorText>{String(requestError)}</ErrorText> : undefined}
       {seasons.map(s =>
@@ -235,7 +234,7 @@ export function AdminMatchmakingSeasons() {
         ) : (
           <Row key={s.id}>
             <div>
-              Really delete <Subtitle2 as='span'>{s.name}</Subtitle2>?
+              Really delete <TitleMedium as='span'>{s.name}</TitleMedium>?
             </div>
             <TextButton
               color='accent'

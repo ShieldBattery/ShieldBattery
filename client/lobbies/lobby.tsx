@@ -5,14 +5,14 @@ import { WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
+import { gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import {
-  Team,
   canAddObservers,
   canRemoveObservers,
   findSlotByName,
   hasOpposingSides,
   isUms,
+  Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
@@ -20,13 +20,12 @@ import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton } from '../material/button'
-import Card from '../material/card'
-import { shadow2dp } from '../material/shadows'
+import { ElevatedButton } from '../material/button'
+import { Card } from '../material/card'
+import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
-import { colorTextSecondary } from '../styles/colors'
-import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
+import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
 import ClosedSlot from './closed-slot'
 import {
   BanLobbyPlayerMessage,
@@ -62,6 +61,7 @@ const SlotsCard = styled(Card)`
 `
 
 const ContentArea = styled.div`
+  width: 100%;
   max-width: 1140px;
   height: 100%;
   padding: 0 16px;
@@ -91,12 +91,12 @@ const Info = styled.div`
 `
 
 const MapName = styled.div`
-  ${headline6};
+  ${titleLarge};
   margin: 24px 0 0;
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
+  ${elevationPlus1};
   width: 256px;
   height: auto;
   margin-top: 8px;
@@ -105,26 +105,26 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 const InfoItem = styled.div`
   margin: 8px 0 0;
   display: flex;
-  align-items: center;
+  align-items: baseline;
 `
 
 const InfoLabel = styled.div`
-  ${body1};
-  color: ${colorTextSecondary};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const InfoValue = styled.div`
-  ${subtitle1};
+  ${labelLarge};
   margin-left: 16px;
   flex-grow: 1;
 `
 
-const StartButton = styled(RaisedButton)`
+const StartButton = styled(ElevatedButton)`
   margin-top: 24px;
 `
 
 const Countdown = styled.div`
-  ${headline4};
+  ${headlineMedium};
   margin: 16px 0;
 `
 
@@ -371,7 +371,7 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
           <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
-          <RaisedButton
+          <ElevatedButton
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
           />

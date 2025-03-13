@@ -1,6 +1,6 @@
 import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'

@@ -3,6 +3,8 @@ import {
   GetRelationshipsResponse,
   UserRelationshipJson,
 } from '../../common/users/relationships'
+import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import {
   AdminBanUserResponse,
   AdminGetBansResponse,
@@ -10,10 +12,8 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SbUser,
-  SbUserId,
   SearchMatchHistoryResponse,
-} from '../../common/users/sb-user'
+} from '../../common/users/user-network'
 
 export type UserActions =
   | GetUserProfile

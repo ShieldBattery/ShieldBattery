@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'
-import { ActivityBackButton } from '../activities/activity-back-button'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   FileBrowserFileEntry,
@@ -15,7 +15,8 @@ import {
 import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { uploadLocalMap } from './action-creators'
 
 const LoadingArea = styled.div`
@@ -32,9 +33,10 @@ async function getDocumentsMapsPath() {
   return [await ipcRenderer.invoke('pathsGetDocumentsPath'), 'Starcraft', 'maps'].join('\\')
 }
 
-export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void }) {
+export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfoJson>) => void }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const lastUploadError = useAppSelector(s => s.localMaps.lastError)
   const isUploading = useAppSelector(s => s.localMaps.isUploading)
   const localStarcraftPath = useAppSelector(s => s.settings.local.starcraftPath)
@@ -48,14 +50,12 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
 
   useEffect(() => {
     if (lastUploadError) {
-      dispatch(
-        openSnackbar({
-          message: t('maps.local.uploadError', 'There was a problem uploading the map'),
-          time: TIMING_LONG,
-        }),
+      snackbarController.showSnackbar(
+        t('maps.local.uploadError', 'There was a problem uploading the map'),
+        DURATION_LONG,
       )
     }
-  }, [dispatch, lastUploadError, t])
+  }, [snackbarController, lastUploadError, t])
 
   const onMapSelect = useCallback(
     (map: FileBrowserFileEntry) => {
@@ -100,11 +100,11 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
     )
   }
 
+  // TODO(tec27): add back button if needed (always?)
   return (
     <FileBrowser
       browserType={FileBrowserType.Maps}
       title={t('maps.local.title', 'Local Maps')}
-      titleButton={<ActivityBackButton />}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
     />

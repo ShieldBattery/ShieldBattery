@@ -152,6 +152,7 @@
       "userCount_other": "{{count}} members"
     },
     "channelList": {
+      "browseChannels": "Browse channels",
       "createChannel": "Create channel",
       "noMatchingChannels": "No matching chat channels.",
       "pageHeadline": "Chat channels",
@@ -214,13 +215,17 @@
       "active": "Active",
       "idle": "Idle",
       "offline": "Offline"
+    },
+    "whispers": {
+      "startWhisperButton": "Start a whisper"
     }
   },
   "clientDownload": {
     "andMore": "And more!",
     "blurb": "Download the ShieldBattery client to:",
+    "download": "Download",
     "downloadClient": "Download client",
-    "exploreMaps": "Explore maps",
+    "onlyInApp": "This feature is only available in the app.",
     "playGames": "Play games",
     "supportProjectText": "Want to support the project?",
     "watchReplays": "Watch replays"
@@ -244,13 +249,12 @@
     "actions": {
       "accept": "Accept",
       "apply": "Apply",
-      "back": "Back",
       "block": "Block",
       "cancel": "Cancel",
       "clear": "Clear",
+      "close": "Close",
       "continue": "Continue",
       "decline": "Decline",
-      "download": "Download",
       "edit": "Edit",
       "hide": "Hide",
       "join": "Join",
@@ -361,6 +365,11 @@
     "tabStats": "Stats",
     "tabSummary": "Summary"
   },
+  "games": {
+    "activity": {
+      "title": "Games"
+    }
+  },
   "ladder": {
     "activity": {
       "title": "Ladder"
@@ -413,79 +422,6 @@
       "systemRequirementsAnswer": "<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>",
       "systemRequirementsQuestion": "What are the system requirements to play on ShieldBattery?",
       "title": "Frequently Asked Questions"
-    },
-    "splash": {
-      "benefits": {
-        "communityFirstText": "ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you've been playing since 1998 or just picked up the game this week, you'll find a home here.",
-        "communityFirstTitle": "Community first",
-        "fullPotentialText": "StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.",
-        "fullPotentialTitle": "Full potential unlocked",
-        "tacticallyFaithfulText": "Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We're keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.",
-        "tacticallyFaithfulTitle": "Tactically faithful"
-      },
-      "blurb": "ShieldBattery is the first community-run server that supports <2>StarCraft: Remastered.</2> Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!",
-      "comingSoon": {
-        "3v3Description": "Easily find games for 3v3, with arranged or random teams.",
-        "3v3Title": "3v3 matchmaking",
-        "automatedTournamentsDescription": "Find tournaments and leagues that match your skill level, run automatically.",
-        "automatedTournamentsTitle": "Automated tournaments and leagues",
-        "builtInMapmakingDescription": "Destructible rocks, ideal worker starting positions, advanced creep placement, and more!",
-        "builtInMapmakingTitle": "New built-in mapmaking features",
-        "cloudReplaysDescription": "Automatic uploading for replays. Share them with others, watch them from anywhere!",
-        "cloudReplaysTitle": "Cloud-synced replays",
-        "expandedChatDescription": "Express yourself using emotes, embed maps, matches, and replays, and more!",
-        "expandedChatTitle": "Expanded chat features",
-        "fpReplaysDescription": "Record mouse and screen movements and play them back for all players.",
-        "fpReplaysTitle": "First person replays",
-        "liveStreamingDescription": "Jump into in-progress matches and watch them live, with all the benefits of ingame observing.",
-        "liveStreamingTitle": "Live match streaming",
-        "pixelScalingDescription": "Improve the look of SD graphics on modern screens with custom scaling algorithms",
-        "pixelScalingTitle": "Configurable pixel scaling",
-        "playerProfilesDescription": "Check out your skills across different matchups and maps, find ways to improve, and see how you stack up against the competition.",
-        "playerProfilesTitle": "Player profiles and statistics",
-        "replayAnalysisDescription": "Built-in support for BWChart-like replay analysis, as well as more advanced statistics and charting.",
-        "replayAnalysisTitle": "Replay analysis",
-        "sandboxModeDescription": "Test out new builds, practice your worker split, improve your micro.",
-        "sandboxModeTitle": "Training/sandbox mode",
-        "umsPortalDescription": "Find and explore UMS maps with ease, then quickly gather players and get the game started.",
-        "umsPortalTitle": "Use Map Settings portal"
-      },
-      "comingSoonTitle": "In the pipe <1>(coming soon)</1>",
-      "disclaimerText": "StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.",
-      "features": {
-        "cloudHostingDescription": "Play on any of the maps in our official library, or upload your own. Upload all your favorite maps, share them with your friends, host them from anywhere.",
-        "cloudHostingTitle": "Cloud-based map distribution and hosting",
-        "fixesBugsExploitsDescription": "Avoid the hacks and exploits that plague the official servers. Things like worker duplication, mineral hacks, and permanently floating workers are a thing of the past here.",
-        "fixesBugsExploitsTitle": "Fixes for bugs and exploits",
-        "friendsListDescription": "Track when your friends are online, easily send them messages and invite them to games.",
-        "friendsListTitle": "Friends list",
-        "improvedNetcodeDescription": "Less lag, drops, and packet loss!",
-        "improvedNetcodeTitle": "Improved netcode",
-        "leaguesDescription": "Participate in exciting limited-time leagues organized by the community and facilitated by automated matchmaking.",
-        "leaguesTitle": "Open Leagues",
-        "matchmakingDescription": "Find matches quickly and easily, by yourself or with an arranged team.",
-        "matchmakingTitle": "1v1 and 2v2 Matchmaking",
-        "partiesDescription": "Party up with your friends to easily host private matches, watch replays together, or join matchmaking.",
-        "partiesTitle": "Parties",
-        "rankedladderDescription": "Hone your skills in our Glicko-based ranking system for all matchmaking modes.",
-        "rankedLadderTitle": "Ranked ladder",
-        "remasteredSupportDescription": "Support for all the new Remastered features, including HD graphics (if purchased from Blizzard) and custom hotkeys.",
-        "remasteredSupportTitle": "StarCraft: Remastered support",
-        "teamMeleeReplaysDescription": "Play back any games played in Team Melee mode on ShieldBattery!",
-        "teamMeleeReplaysTitle": "Working Team Melee replays",
-        "webClientDescription": "Keep up with your friends (and enemies) without needing to install anything.",
-        "webClientTitle": "Web-based chat client"
-      },
-      "featuresTitle": "Features",
-      "gameCount": "<0></0> games played",
-      "linksHeader": "Links",
-      "signUp": "Sign Up",
-      "tagline": "Play StarCraft 1 on the premier community-run platform"
-    },
-    "topLinks": {
-      "faq": "FAQ",
-      "home": "Home",
-      "login": "Log in"
     }
   },
   "leagues": {
@@ -543,7 +479,7 @@
   },
   "lobbies": {
     "activity": {
-      "title": "Lobbies"
+      "title": "Lobbies ({{lobbyCount}})"
     },
     "createLobby": {
       "advancedSettings": "Advanced settings",
@@ -654,6 +590,7 @@
       "allMaps": "All maps",
       "browseLocal": "Browse local maps",
       "error": "Something went wrong: {{errorMessage}}",
+      "favoritedMaps": "Favorited maps",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
@@ -671,6 +608,7 @@
       "noOfficialMaps": "No official maps have been uploaded yet.",
       "noResults": "No results.",
       "noUploadedMaps": "You haven't uploaded any maps. You can upload a map by clicking on the browse button below.",
+      "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
       "sortMaps": {
         "option": {
@@ -692,7 +630,8 @@
           "small": "Small"
         },
         "title": "Thumbnail size"
-      }
+      },
+      "uploadedMap": "Uploaded map"
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",
@@ -724,8 +663,7 @@
       "returningToQueue": "Some players didn't ready up in time or failed to load. Returning to the matchmaking queue…"
     },
     "activity": {
-      "finding": "Finding…",
-      "findMatch": "Find match"
+      "title": "Matchmaking"
     },
     "disabledCard": {
       "days": "Days",
@@ -757,6 +695,7 @@
         "dialogTitle": "Error searching for a match",
         "loadingRank": "There was a problem loading your current rank.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
+        "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :("
       },
       "mapPool": "Map pool",
@@ -783,10 +722,7 @@
       "playerVsPlayer": "vs"
     },
     "navEntry": {
-      "cancelSearch": "Cancel search",
-      "elapsedTime": "Time: ",
-      "matchFound": "Match found!",
-      "searchingForMatch": "Searching for {{matchmakingType}}"
+      "matchFound": "Match found!"
     },
     "postMatchDialog": {
       "leagues": "Leagues",
@@ -823,6 +759,14 @@
     "sendMessage": "Send a message"
   },
   "navigation": {
+    "bar": {
+      "appMenu": "Menu",
+      "home": "Home",
+      "play": "Play",
+      "playIngame": "Game in progress",
+      "social": "Toggle social (ALT + H)",
+      "userMenu": "User menu"
+    },
     "copyLink": {
       "copiedText": "Copied!",
       "defaultText": "Copy link"
@@ -836,25 +780,14 @@
     "leftNav": {
       "chatChannels": "Chat channels",
       "customGame": "Custom game",
-      "gameInProgress": "Game in progress…",
-      "home": "Home",
-      "joinChannel": "Join a channel (Alt + H)",
-      "loadingChannel": "Loading…",
-      "loadingGame": "Loading…",
-      "lobby": "Lobby",
-      "logIn": "Log in",
       "logOut": "Log out",
       "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
-      "startWhisper": "Start a whisper (Alt + W)",
       "viewChangelog": "View changelog",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
       "whispers": "Whispers"
     }
-  },
-  "network": {
-    "connecting": "Connecting…"
   },
   "notifications": {
     "activityButton": {
@@ -862,6 +795,7 @@
       "unread": "Notifications - unread (Alt + N)"
     },
     "errors": {
+      "clear": "An error occurred while clearing notifications",
       "markRead": "An error occurred while marking a notification read"
     },
     "list": {
@@ -884,7 +818,6 @@
     "activity": {
       "title": "Replays"
     },
-    "fileDropText": "Drop replays here to watch them with ShieldBattery.",
     "loading": {
       "dialogTitle": "Loading replay…",
       "errorGeneric": "Something went wrong while loading the replay.",
@@ -1093,6 +1026,14 @@
       "title": "User"
     }
   },
+  "social": {
+    "chat": {
+      "label": "Chat"
+    },
+    "friends": {
+      "label": "Friends ({{friendCount}})"
+    }
+  },
   "starcraft": {
     "shieldbatteryHealth": {
       "bottomContents": "If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!",
@@ -1175,8 +1116,7 @@
       "title": {
         "addFriends": "Add friends",
         "friends": "Friends"
-      },
-      "tooltip": "Friends (Alt + E)"
+      }
     },
     "profile": {
       "achievements": "Achievements",

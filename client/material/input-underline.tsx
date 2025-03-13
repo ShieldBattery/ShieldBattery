@@ -1,57 +1,56 @@
 import React from 'react'
 import styled from 'styled-components'
-import { amberA400, colorDividers, colorError } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
 
-const UnderlineContainer = styled.div<{ $error?: boolean }>`
-  order: 3;
+const UnderlineContainer = styled.div<{ $error?: boolean; $focused?: boolean }>`
   position: absolute;
   left: 0;
   bottom: 0;
   right: 0;
-  width: 100%;
-  margin: 0;
+  height: 3px;
+
+  color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-amber)')};
   pointer-events: none;
-  color: ${props => (props.$error ? colorError : amberA400)};
+
+  --_inactive-underline-color: ${props =>
+    props.$error ? 'var(--theme-error)' : 'var(--theme-on-surface-variant)'};
+  --_focused-underline-opacity: ${props => (props.$focused ? '1' : '0')};
+  --_hover-underline-color: ${props =>
+    props.$error ? 'var(--theme-error)' : 'var(--theme-on-surface)'};
+
+  *:hover > & {
+    --_inactive-underline-color: var(--_hover-underline-color);
+  }
 `
 
-const Underline = styled.hr<{ $error?: boolean }>`
+const Underline = styled.hr`
+  box-sizing: border-box;
+
   width: 100%;
+  height: 100%;
   margin: 0;
+
   border: none;
-  border-bottom: 2px solid ${colorDividers};
-  ${props => (props.$error ? `border-color: ${colorError}` : '')};
+  border-bottom: 1px solid var(--_inactive-underline-color, --theme-on-surface-variant);
 `
 
-const FocusedUnderline = styled(Underline)<{ $focused?: boolean }>`
+const FocusedUnderline = styled(Underline)`
   position: absolute;
   top: 0px;
   width: 100%;
   margin-top: 0px;
   color: inherit;
-  border-bottom-width: 2px;
+  border-bottom-width: 3px;
   border-color: currentColor;
-  transform: ${props => (props.$focused ? 'scaleX(1)' : 'scaleX(0)')};
+  opacity: var(--_focused-underline-opacity, 0);
   ${fastOutSlowInShort};
 `
 
-export const InputUnderline = ({
-  disabled,
-  error,
-  focused,
-}: {
-  disabled?: boolean
-  error?: boolean
-  focused?: boolean
-}) => {
-  if (disabled) {
-    return null
-  }
-
+export const InputUnderline = ({ error, focused }: { error?: boolean; focused?: boolean }) => {
   return (
-    <UnderlineContainer $error={error}>
-      <Underline $error={error} />
-      <FocusedUnderline $focused={focused} />
+    <UnderlineContainer $error={error} $focused={focused}>
+      <Underline />
+      <FocusedUnderline />
     </UnderlineContainer>
   )
 }

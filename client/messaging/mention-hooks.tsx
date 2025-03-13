@@ -1,7 +1,7 @@
 import React, { useCallback, useContext } from 'react'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { MenuItemCategory } from '../users/user-context-menu'
-import { ChatContext } from './chat'
+import { ChatContext } from './chat-context'
 
 /**
  * Hook that returns a function to pass as the `filterClick` method to `useUserOverlays` (or

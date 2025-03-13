@@ -15,12 +15,12 @@ import { SbNotification } from '../../common/notifications'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
-import { shadow6dp } from '../material/shadows'
+import { elevationPlus3 } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { background300, background400 } from '../styles/colors'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
@@ -28,10 +28,11 @@ const POPOVER_DURATION = 10000
 
 const PopupsContainer = styled.div`
   position: fixed;
-  right: 32px;
-  bottom: 32px;
-  width: 368px;
+  right: 24px;
+  bottom: 24px;
+  width: calc(368px + 16px);
   max-height: calc(100% - 112px);
+  padding: 8px;
   z-index: ${zIndexMenu};
 
   display: flex;
@@ -45,12 +46,16 @@ const PopupsContainer = styled.div`
 `
 
 const Popup = styled(animated.div)`
+  ${elevationPlus3};
+  ${containerStyles(ContainerLevel.High)};
+
+  contain: content;
+
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  background-color: ${background400};
-  ${shadow6dp};
-  border-radius: 2px;
+
+  border-radius: 8px;
 
   &:not(:first-child) {
     margin-top: 16px;
@@ -61,7 +66,8 @@ const MarkAsReadButton = styled(IconButton)`
   flex-shrink: 0;
   height: 100%;
   border-radius: 0;
-  background-color: ${background300};
+  background-color: var(--theme-grey-blue-container);
+  color: var(--theme-on-grey-blue-container);
 `
 
 export default function NotificationPopups() {

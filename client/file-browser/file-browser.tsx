@@ -11,11 +11,10 @@ import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton } from '../material/button'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { shadow4dp } from '../material/shadows'
+import { elevationPlus2 } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { blue800, colorError, colorTextFaint } from '../styles/colors'
-import { Headline5, subtitle1 } from '../styles/typography'
+import { TitleLarge, bodyLarge } from '../styles/typography'
 import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
 import {
@@ -57,8 +56,8 @@ const Root = styled.div`
 `
 
 const TopBar = styled.div`
-  ${shadow4dp};
-  background: ${blue800};
+  ${elevationPlus2};
+  background: var(--color-blue50);
 `
 
 const TitleContainer = styled.div`
@@ -100,18 +99,18 @@ const VertPadding = styled.div<{ context?: unknown }>`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorError};
+  color: var(--theme-error);
   text-align: center;
 `
 
 const EmptyText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -500,7 +499,7 @@ export function FileBrowser({
       <TopBar>
         <TitleContainer>
           {titleButton ? titleButton : null}
-          <Headline5>{title}</Headline5>
+          <TitleLarge>{title}</TitleLarge>
         </TitleContainer>
         {Object.values(rootFolders).length > 1 ? (
           <RootFolderSelect

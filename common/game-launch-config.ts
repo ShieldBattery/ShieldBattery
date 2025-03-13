@@ -1,10 +1,10 @@
-import { GameType } from './games/configuration'
+import { GameType } from './games/game-type'
 import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { BwTurnRate, BwUserLatency } from './network'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
-import { SbUserId } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 /**
  * Configuration for a particular player in a game. This is similar to Lobby's `Slot` structure,

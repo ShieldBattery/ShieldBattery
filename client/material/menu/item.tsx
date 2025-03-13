@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import { colorError } from '../../styles/colors'
 import { singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { buttonReset } from '../button-reset'
@@ -20,7 +19,7 @@ const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   align-items: center;
   flex-shrink: 0;
 
-  border-radius: 2px;
+  border-radius: 4px;
   text-align: left;
 `
 
@@ -88,5 +87,5 @@ export function MenuItem({
 MenuItem[MenuItemSymbol] = MenuItemType.Default
 
 export const DestructiveMenuItem = styled(MenuItem)`
-  color: ${colorError};
+  color: var(--theme-negative);
 `

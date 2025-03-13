@@ -12,7 +12,7 @@ import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -179,7 +179,7 @@ export function Login() {
               inputProps={{ tabIndex: 1 }}
             />
             <Spacer />
-            <RaisedButton
+            <ElevatedButton
               label={t('auth.login.logIn', 'Log in')}
               onClick={onSubmit}
               tabIndex={1}

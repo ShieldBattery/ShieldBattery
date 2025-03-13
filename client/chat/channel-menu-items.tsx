@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { DestructiveMenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { useStableCallback } from '../state-hooks'
 import { MenuItemCategory } from '../users/user-context-menu'
 import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
@@ -30,6 +30,7 @@ export function addChannelUserMenuItems(
   /* eslint-disable react-hooks/rules-of-hooks */
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfPermissions = useSelfPermissions()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
@@ -61,21 +62,17 @@ export function addChannelUserMenuItems(
     dispatch(
       moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
         onSuccess: () =>
-          dispatch(
-            openSnackbar({
-              message: t('chat.channelMenu.userKicked', {
-                defaultValue: '{{user}} was kicked',
-                user: user.name,
-              }),
+          snackbarController.showSnackbar(
+            t('chat.channelMenu.userKicked', {
+              defaultValue: '{{user}} was kicked',
+              user: user.name,
             }),
           ),
         onError: () =>
-          dispatch(
-            openSnackbar({
-              message: t('chat.channelMenu.kickingError', {
-                defaultValue: 'Error kicking {{user.name}}',
-                user: user.name,
-              }),
+          snackbarController.showSnackbar(
+            t('chat.channelMenu.kickingError', {
+              defaultValue: 'Error kicking {{user.name}}',
+              user: user.name,
             }),
           ),
       }),
@@ -188,6 +185,7 @@ export function addChannelMessageMenuItems(
   /* eslint-disable react-hooks/rules-of-hooks */
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfPermissions = useSelfPermissions()
   /* eslint-enable react-hooks/rules-of-hooks */
 
@@ -200,17 +198,13 @@ export function addChannelMessageMenuItems(
           dispatch(
             deleteMessageAsAdmin(channelId, messageId, {
               onSuccess: () => {
-                dispatch(
-                  openSnackbar({
-                    message: t('chat.messageMenu.messageDeleted', 'Message deleted'),
-                  }),
+                snackbarController.showSnackbar(
+                  t('chat.messageMenu.messageDeleted', 'Message deleted'),
                 )
               },
               onError: () => {
-                dispatch(
-                  openSnackbar({
-                    message: t('chat.messageMenu.deleteError', 'Error deleting message'),
-                  }),
+                snackbarController.showSnackbar(
+                  t('chat.messageMenu.deleteError', 'Error deleting message'),
                 )
               },
             }),

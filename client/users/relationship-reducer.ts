@@ -5,7 +5,7 @@ import {
   UserRelationshipJson,
   UserRelationshipKind,
 } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface RelationshipState {

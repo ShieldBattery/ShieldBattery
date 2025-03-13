@@ -8,8 +8,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { RaceIcon } from '../lobbies/race-icon'
 import { useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
-import { colorTextSecondary } from '../styles/colors'
-import { body2, overline, singleLine } from '../styles/typography'
+import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 
 const GamePreviewPlayers = styled.div`
   column-count: 2;
@@ -18,15 +17,15 @@ const GamePreviewPlayers = styled.div`
 `
 
 const GamePreviewTeamOverline = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   margin-bottom: 8px;
 `
 
 const GamePreviewPlayer = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   height: 20px;

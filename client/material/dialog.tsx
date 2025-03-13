@@ -1,16 +1,15 @@
 import keycode from 'keycode'
-import { rgba } from 'polished'
 import React, { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { CardLayer, background900, colorDividers } from '../styles/colors'
-import { headline5 } from '../styles/typography'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
-import { shadowDef8dp } from './shadow-constants'
+import { elevationPlus3 } from './shadows'
 import { zIndexDialog } from './zindex'
 
 const ESCAPE = keycode('esc')
@@ -36,9 +35,17 @@ const Container = styled.div`
   justify-content: space-around;
   pointer-events: none;
   z-index: ${zIndexDialog};
+
+  & > * {
+    --pixel-shove-x: 0;
+    --pixel-shove-y: 0;
+  }
 `
 
-const Surface = styled(animated(CardLayer))<{ $isTopDialog?: boolean }>`
+const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
+  ${elevationPlus3};
+  ${containerStyles(ContainerLevel.Normal)};
+
   width: calc(100% - 160px);
   max-width: 768px;
   max-height: calc(100% - 160px);
@@ -49,8 +56,7 @@ const Surface = styled(animated(CardLayer))<{ $isTopDialog?: boolean }>`
   display: flex;
   flex-direction: column;
 
-  border-radius: 2px;
-  box-shadow: ${shadowDef8dp};
+  border-radius: 4px;
   contain: paint;
   overscroll-behavior: contain;
   pointer-events: ${props => (props.$isTopDialog ? 'auto' : 'none')};
@@ -67,7 +73,7 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
           left: 0;
           width: 100%;
 
-          background-color: ${rgba(background900, 0.6)};
+          background-color: rgb(from var(--color-blue10) r g b / 0.5);
           opacity: 0;
           transition: opacity 75ms linear;
           z-index: 1;
@@ -91,14 +97,15 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }
 `
 
 const Title = styled.div`
-  ${headline5};
+  ${titleLarge};
   flex-grow: 1;
   padding: 24px 24px 20px;
 `
@@ -135,7 +142,8 @@ const Actions = styled.div<{ $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }
@@ -152,7 +160,8 @@ const TabsContainer = styled.div<{ $showDivider?: boolean }>`
     width: 100%;
     height: 1px;
 
-    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    background-color: ${props =>
+      props.$showDivider ? 'var(--theme-outline-variant)' : 'transparent'};
     content: '';
     transition: background-color 125ms linear;
   }

@@ -7,8 +7,7 @@ import { SeasonId } from '../../common/matchmaking'
 import { SbUser } from '../../common/users/sb-user'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorError, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { headline6, subtitle1 } from '../styles/typography'
+import { bodyLarge, titleLarge } from '../styles/typography'
 import { getUserRankingHistory } from './action-creators'
 import { UserRankDisplay } from './user-rank-display'
 
@@ -21,15 +20,15 @@ const Container = styled.div`
 `
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 export function UserProfileSeasons({ user }: { user: SbUser }) {
@@ -104,8 +103,8 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
 }
 
 const SeasonHeader = styled.div`
-  ${headline6};
-  color: ${colorTextPrimary};
+  ${titleLarge};
+  color: var(--theme-on-surface);
   margin-bottom: 16px;
 `
 

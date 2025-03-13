@@ -5,16 +5,15 @@ import { BugReportJson, GetBugReportResponseJson } from '../../common/bugs'
 import { urlPath } from '../../common/urls'
 import { NarrowDuration, longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { colorDividers, colorError } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
-import { headline5, subtitle1, subtitle2 } from '../styles/typography'
+import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { adminGetBugReport, adminListBugReports, adminResolveBugReport } from './action-creators'
 
@@ -25,7 +24,7 @@ const Content = styled.div`
 `
 
 const PageHeadline = styled.div`
-  ${headline5};
+  ${titleLarge};
 `
 
 const HeadlineAndButton = styled.div`
@@ -44,14 +43,14 @@ const ButtonWithCheckBox = styled.div`
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 const ReportTable = styled.div`
   width: 100%;
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
 `
 
 const TableRow = styled.div`
@@ -159,7 +158,7 @@ function AdminBugReportsList() {
             checked={includeResolved}
             onChange={() => setIncludeResolved(!includeResolved)}
           />
-          <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+          <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
         </ButtonWithCheckBox>
       </HeadlineAndButton>
       {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
@@ -207,22 +206,22 @@ const Item = styled.div`
 `
 
 const ItemLabel = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   width: 128px;
   flex: 0 0 auto;
   text-align: right;
 `
 const ItemValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 `
 
 const DetailsValue = styled.pre`
-  ${subtitle1};
+  ${bodyLarge};
 
   margin: 0;
   padding: 8px 0 8px 8px;
 
-  border-left: 1px solid ${colorDividers};
+  border-left: 1px solid var(--theme-outline-variant);
   font-family: inherit;
   white-space: pre-line;
 `
@@ -285,7 +284,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
       <HeadlineAndButton>
         <PageHeadline>Bug report</PageHeadline>
         {loading ? <LoadingDotsArea /> : null}
-        <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+        <ElevatedButton color='primary' label='Refresh' onClick={triggerRefresh} />
       </HeadlineAndButton>
       {error ? <ErrorText>Error: ${error.message}</ErrorText> : null}
       {bugReport ? (
@@ -345,7 +344,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
             <Item>
               <ItemLabel></ItemLabel>
               <ItemValue>
-                <RaisedButton label='Mark resolved' onClick={onResolveClick} />
+                <ElevatedButton label='Mark resolved' onClick={onResolveClick} />
               </ItemValue>
             </Item>
           )}

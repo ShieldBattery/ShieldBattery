@@ -1,0 +1,283 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`client/messaging/common-message-layout/TextMessage message as a normal text 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      This is test message
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a link 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      here is a link 
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a link before a mention 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+       go here
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a link between mentions 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      hey
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+       see 
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+       go here
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a mention 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      hey
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a mention before a link 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+       go to 
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a mention between links 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={false}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+       go here
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={123}
+      />
+       or here 
+      <ExternalLink
+        href="http://www.example.com"
+      >
+        http://www.example.com
+      </ExternalLink>
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage message with a mention of self user 1`] = `
+<React.Fragment>
+  <TimestampMessageLayout
+    active={false}
+    highlighted={true}
+    onContextMenu={[Function]}
+    time={0}
+  >
+    <common-message-layout__Username>
+      <ConnectedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        userId={2}
+      />
+    </common-message-layout__Username>
+    <message-layout__Separator>
+      : 
+    </message-layout__Separator>
+    <common-message-layout__Text>
+      Hey
+       
+      <common-message-layout__MentionedUsername
+        filterClick={[Function]}
+        modifyMenuItems={[Function]}
+        prefix="@"
+        userId={1}
+      />
+    </common-message-layout__Text>
+  </TimestampMessageLayout>
+</React.Fragment>
+`;

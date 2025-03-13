@@ -2,8 +2,8 @@ import React, { useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useStableCallback } from '../../state-hooks'
-import { CardLayer } from '../../styles/colors'
-import { body1, subtitle1 } from '../../styles/typography'
+import { ContainerLevel, containerStyles } from '../../styles/colors'
+import { bodyLarge, bodyMedium } from '../../styles/typography'
 import { zIndexMenu } from '../zindex'
 import { isMenuItem } from './menu-item-symbol'
 
@@ -27,8 +27,9 @@ const ITEMS_SHOWN_DENSE = 11
 const MENU_MAX_HEIGHT = ITEM_HEIGHT * (ITEMS_SHOWN + 0.5) + VERT_PADDING
 const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VERT_PADDING
 
-export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
-  ${props => (props.$dense ? body1 : subtitle1)};
+export const Overlay = styled.div<{ $dense?: boolean }>`
+  ${props => (props.$dense ? bodyMedium : bodyLarge)};
+  ${containerStyles(ContainerLevel.Low)}
 
   --sb-menu-min-width: 160px;
 
@@ -40,7 +41,7 @@ export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
   flex-direction: column;
 
   z-index: ${zIndexMenu};
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
   overflow-x: hidden;
   overflow-y: auto;

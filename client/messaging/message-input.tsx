@@ -5,7 +5,6 @@ import { useSelfUser } from '../auth/auth-utils'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers } from '../styles/colors'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -21,7 +20,8 @@ const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
     top: 0;
 
     content: '';
-    border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
+    border-top: 1px solid
+      ${props => (props.showDivider ? 'var(--theme-outline-variant)' : 'transparent')};
     transition: border 250ms linear;
   }
 `
@@ -134,8 +134,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
         const key = event.key ? event.key : String.fromCharCode(event.charCode)
         if (key && key.length === 1) {
-          if (key === ' ' && target.tagName === 'BUTTON') {
-            // Space bar should click the button, rather than doing any of this
+          if (key === ' ' && (target.tagName === 'BUTTON' || target.tagName === 'A')) {
+            // Space bar should click the button/link, rather than doing any of this
             return false
           }
 

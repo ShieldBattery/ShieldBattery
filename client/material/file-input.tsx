@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { RaisedButton } from './button'
+import { ElevatedButton } from './button'
 import { InputError } from './input-error'
 
 function isValueAndFileListSame(value: File | File[], fileList: FileList): boolean {
@@ -97,13 +97,13 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     return (
       <div className={className}>
         <InputContainer>
-          <RaisedButton
+          <ElevatedButton
             as='div'
             label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
             disabled={disabled}
             tabIndex={-1}>
             <input ref={inputRef} data-test={testName} {...internalInputProps} />
-          </RaisedButton>
+          </ElevatedButton>
         </InputContainer>
 
         {allowErrors ? <InputError error={errorText} /> : null}

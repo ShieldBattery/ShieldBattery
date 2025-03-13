@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { useIsLoggedIn } from '../auth/auth-utils'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -19,15 +20,12 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { useStableCallback } from '../state-hooks'
 import {
-  background700,
-  background800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { body2, caption, headline4, overline, singleLine } from '../styles/typography'
+  headlineMedium,
+  labelMedium,
+  labelSmall,
+  singleLine,
+  titleSmall,
+} from '../styles/typography'
 import { changeSettingsSubPage, closeSettings } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
@@ -49,8 +47,11 @@ const ESCAPE = 'Escape'
 
 export function ConnectedSettings() {
   const dispatch = useAppDispatch()
+  const isLoggedIn = useIsLoggedIn()
   const isOpen = useAppSelector(s => s.settings.open)
-  const subPage = useAppSelector(s => s.settings.subPage)
+  const subPage =
+    useAppSelector(s => s.settings.subPage) ??
+    (isLoggedIn ? UserSettingsSubPage.Account : UserSettingsSubPage.Language)
   const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
@@ -107,34 +108,34 @@ const Container = styled(animated.div)`
   display: flex;
   flex-direction: row;
 
-  background-color: ${background800};
+  background-color: var(--theme-container-lowest);
   z-index: ${zIndexSettings};
 `
 
 const NavContainer = styled.div`
   width: 272px;
   padding: 16px 0;
-  background-color: ${background700};
+  background-color: var(--color-grey-blue30);
 
   flex-shrink: 0;
 `
 
 const NavSectionTitle = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
 
   height: 36px;
   line-height: 36px;
   padding: 0 16px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const NavSectionSeparator = styled.div`
   height: 1px;
   margin: 7px 16px 8px;
 
-  background-color: ${colorDividers};
+  background-color: var(--theme-outline-variant);
 `
 
 function Settings({
@@ -151,6 +152,7 @@ function Settings({
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
+  const isLoggedIn = useIsLoggedIn()
 
   useKeyListener({
     onKeyDown(event) {
@@ -183,7 +185,8 @@ function Settings({
     <Container style={style}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
-        {[UserSettingsSubPage.Account, UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+        {(isLoggedIn ? [UserSettingsSubPage.Account] : []).map(getNavEntriesMapper())}
+        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
           <>
@@ -228,8 +231,12 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
   contain: content;
   cursor: pointer;
 
-  --sb-ripple-color: ${colorTextPrimary};
-  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+  --sb-ripple-color: var(--theme-on-surface);
+  background-color: ${props =>
+    props.$isActive ? 'rgb(from var(--theme-on-surface) r g b / 0.08)' : 'transparent'};
+  color: ${props => (props.$isActive ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+
+  transition: color 125ms linear;
 
   &[disabled] {
     cursor: auto;
@@ -241,23 +248,24 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
 `
 
 const NavEntryText = styled(SettingsSubPageTitle)`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   height: 100%;
   line-height: 36px;
 `
 
-const NavEntryIcon = styled(MaterialIcon).attrs({ size: 16 })`
+const NavEntryIcon = styled(MaterialIcon).attrs({ size: 20 })`
   margin-right: 4px;
 `
 
 const ErrorIcon = styled(NavEntryIcon).attrs({ icon: 'error', filled: false })`
-  color: ${colorError};
+  color: var(--theme-error);
+  margin-bottom: 2px;
 `
 
 const ErrorText = styled(NavEntryText)`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 function NavEntry({
@@ -322,7 +330,7 @@ const TitleBar = styled.div`
 `
 
 const Title = styled(SettingsSubPageTitle)`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const CloseButton = styled(IconButton)`
@@ -331,18 +339,18 @@ const CloseButton = styled(IconButton)`
     position: absolute;
     width: 100%;
     height: 100%;
-    border: 2px solid ${colorDividers};
+    border: 2px solid var(--theme-outline);
     border-radius: inherit;
   }
 `
 
 const LabeledCloseButton = styled.div`
-  ${caption};
+  ${labelSmall};
   display: flex;
   flex-direction: column;
   gap: 4px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 

@@ -1,6 +1,6 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { UserRelationshipServiceErrorCode } from '../../../common/users/relationships'
-import { UserErrorCode } from '../../../common/users/sb-user'
+import { UserErrorCode } from '../../../common/users/user-network'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { UserRelationshipServiceError } from './user-relationship-service'

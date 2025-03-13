@@ -19,7 +19,7 @@ import {
   regex,
   required,
 } from '../forms/validators'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { recoverUsername, resetPassword, startPasswordReset } from './action-creators'
@@ -169,7 +169,7 @@ class ForgotUserForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton
+          <ElevatedButton
             label={this.props.t('auth.forgot.user.recoverUsername', 'Recover username')}
             onClick={onSubmit}
             tabIndex={1}
@@ -235,7 +235,7 @@ class ForgotPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton
+          <ElevatedButton
             label={this.props.t('auth.forgot.password.sendResetEmail', 'Send reset email')}
             onClick={onSubmit}
             tabIndex={1}
@@ -328,7 +328,7 @@ class ResetPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton
+          <ElevatedButton
             label={this.props.t('auth.forgot.reset.setNewPassword', 'Set new password')}
             onClick={onSubmit}
             tabIndex={1}

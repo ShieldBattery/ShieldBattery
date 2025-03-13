@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledResult, getResultLabel } from '../../common/games/results'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
 import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
@@ -13,31 +13,30 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
-import { shadow1dp } from '../material/shadows'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import {
-  background500,
-  colorError,
-  colorNegative,
-  colorPositive,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, caption, headline4, singleLine, subtitle1 } from '../styles/typography'
+  bodyLarge,
+  bodyMedium,
+  headlineMedium,
+  labelMedium,
+  singleLine,
+  titleSmall,
+} from '../styles/typography'
 import { searchMatchHistory } from './action-creators'
 
 const NoResults = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
 
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const SearchResults = styled.div`
@@ -151,7 +150,7 @@ const PlayersCell = styled(BaseCell)`
 `
 
 const GameLengthCell = styled(BaseCell)`
-  ${headline4};
+  ${headlineMedium};
   width: 128px;
 
   display: flex;
@@ -168,24 +167,24 @@ const MapAndGameTypeCell = styled(BaseCell)`
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
-  ${headline4};
+  ${headlineMedium};
   color: ${props => {
     switch (props.$result) {
       case 'win':
-        return colorPositive
+        return 'var(--theme-positive)'
       case 'loss':
-        return colorNegative
+        return 'var(--theme-negative)'
       default:
-        return colorTextSecondary
+        return 'var(--theme-on-surface-variant)'
     }
   }};
   flex-shrink: 0;
 `
 
 const GameDate = styled.div`
-  ${caption};
+  ${labelMedium};
   ${singleLine};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const MapNameAndGameTypeContainer = styled.div`
@@ -196,7 +195,7 @@ const MapNameAndGameTypeContainer = styled.div`
 `
 
 const MapName = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
 
   min-width: 0;
@@ -204,23 +203,23 @@ const MapName = styled.div`
 `
 
 const GameType = styled.div`
-  ${body1};
+  ${bodyMedium};
   ${singleLine};
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 
   min-width: 0;
   width: 100%;
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 64px;
   height: 64px;
   flex-shrink: 0;
 `
 
 const MapNoImageContainer = styled.div`
-  ${shadow1dp};
+  ${elevationPlus1};
   width: 64px;
   height: 64px;
   flex-shrink: 0;
@@ -229,8 +228,8 @@ const MapNoImageContainer = styled.div`
   justify-content: center;
   align-items: center;
 
-  border-radius: 2px;
-  background-color: ${background500};
+  border-radius: 4px;
+  background-color: var(--theme-container);
 `
 
 const MapNoImageIcon = styled(MaterialIcon).attrs({ icon: 'question_mark', size: 36 })`

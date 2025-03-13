@@ -47,7 +47,8 @@ RUN pnpm prune --prod
 # Second stage copies the built dependencies from first stage and runs the app in production mode
 FROM node:22-alpine
 
-RUN corepack enable
+# Run pnpm once so we ensure it gets installed by corepack during the container build
+RUN corepack enable && pnpm --version
 
 ENV NODE_ENV=production
 # Tell the server not to try and run webpack

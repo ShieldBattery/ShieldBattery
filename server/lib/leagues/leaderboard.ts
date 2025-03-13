@@ -1,5 +1,5 @@
-import { LeagueId } from '../../../common/leagues'
-import { makeSbUserId, SbUserId } from '../../../common/users/sb-user'
+import { LeagueId } from '../../../common/leagues/leagues'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { Redis } from '../redis/redis'
 import { LeagueUser } from './league-models'
 

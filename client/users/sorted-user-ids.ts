@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { RootState } from '../root-reducer'
 
 // Utilities for constructing a list of user IDs sorted by their associated usernames.

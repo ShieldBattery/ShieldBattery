@@ -1,6 +1,5 @@
 import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { colorTextSecondary } from '../styles/colors'
 
 const bounce = keyframes`
   0%, 80%, 100% {
@@ -30,8 +29,7 @@ const delayedShowCss = css`
 const Root = styled.div<{ $showImmediately?: boolean }>`
   height: 24px;
   padding: 4px 8px;
-  color: ${colorTextSecondary};
-  opacity: 0.7;
+  color: var(--color-blue70);
 
   ${props => (!props.$showImmediately ? delayedShowCss : '')};
 `
@@ -68,7 +66,7 @@ interface DotsIndicatorProps {
   className?: string
 }
 
-export default function DotsIndicator({ showImmediately = false, className }: DotsIndicatorProps) {
+export function DotsIndicator({ showImmediately = false, className }: DotsIndicatorProps) {
   return (
     <Root className={className} $showImmediately={showImmediately}>
       <Dot $delay='-1200ms' />
@@ -78,6 +76,8 @@ export default function DotsIndicator({ showImmediately = false, className }: Do
     </Root>
   )
 }
+
+export default DotsIndicator
 
 const LoadingArea = styled.div<{ $showImmediately?: boolean }>`
   display: flex;

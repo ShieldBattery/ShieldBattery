@@ -1,16 +1,14 @@
 import React from 'react'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint } from '../styles/colors'
 import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple } from './ripple'
-import { shadowDef12dp, shadowDef8dp } from './shadow-constants'
-import { shadow6dp } from './shadows'
+import { elevationPlus3, elevationPlus4 } from './shadows'
 
 const Root = styled.button`
   ${buttonReset};
-  ${shadow6dp};
+  ${elevationPlus3};
   ${fastOutSlowInShort};
 
   width: 56px;
@@ -19,25 +17,21 @@ const Root = styled.button`
   align-items: center;
   justify-content: center;
 
-  background-color: ${amberA400};
+  background-color: var(--theme-amber);
   border-radius: 50%;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--theme-on-amber-container);
   contain: content;
   --sb-ripple-color: #000000;
 
   &:hover,
   &:focus {
-    box-shadow: ${shadowDef8dp};
-  }
-
-  &:active {
-    box-shadow: ${shadowDef12dp};
+    ${elevationPlus4};
   }
 
   &:disabled {
-    background-color: ${colorTextFaint};
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
-    color: rgba(0, 0, 0, 0.54);
+    color: rgb(from var(--theme-on-surface) r g b / 0.38);
   }
 `
 

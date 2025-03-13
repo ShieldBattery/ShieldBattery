@@ -11,7 +11,7 @@ import {
   matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'
@@ -21,24 +21,14 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
-  background500,
-  background900,
-  backgroundSaturatedDark,
-  backgroundSaturatedLight,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import {
-  Body1,
-  body1,
-  body2,
-  buttonText,
-  caption,
-  headline6,
-  overline,
+  BodyMedium,
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
+  labelSmall,
   singleLine,
-  subtitle1,
+  titleLarge,
+  titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
 
@@ -72,16 +62,17 @@ const PopoverContents = styled.div`
 
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 `
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
 `
 
 const ViewProfileHover = styled.div`
-  ${buttonText};
+  ${labelSmall};
 
   position: absolute;
   width: 100%;
@@ -90,17 +81,19 @@ const ViewProfileHover = styled.div`
   left: 0;
   padding: 8px 0;
 
-  background: ${background900};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  background: var(--color-blue10);
   border-radius: 100%;
   opacity: 0;
   transition: opacity 75ms linear;
-
-  font-size: 10px;
-  line-height: 20px;
-  text-align: center;
 `
 
 const IdentityArea = styled.div`
+  width: 100%;
   height: 64px;
   display: flex;
   align-items: center;
@@ -119,6 +112,7 @@ const AvatarContainer = styled.div`
   position: relative;
   width: 64px;
   height: 64px;
+  flex-shrink: 0;
 `
 
 const AvatarCircle = styled.div`
@@ -126,8 +120,8 @@ const AvatarCircle = styled.div`
   height: 64px;
   position: relative;
 
-  background-color: ${backgroundSaturatedDark};
-  border: 8px solid ${backgroundSaturatedLight};
+  background-color: var(--color-blue30);
+  border: 8px solid var(--color-blue40);
   border-radius: 50%;
 `
 
@@ -141,10 +135,12 @@ const StyledAvatar = styled(ConnectedAvatar)`
 
 const UsernameAndTitle = styled.div`
   flex-grow: 1;
+  flex-shrink: 1;
+  overflow: hidden;
 `
 
 const Username = styled.div`
-  ${headline6};
+  ${titleLarge};
   ${singleLine};
 `
 
@@ -153,25 +149,25 @@ const LoadingUsername = styled.div`
   height: 20px;
   margin: 4px 0;
 
-  background-color: ${colorDividers};
-  border-radius: 2px;
+  background-color: rgb(from var(--theme-on-surface-variant) r g b / 0.7);
+  border-radius: 4px;
 `
 
 const Title = styled.div`
-  ${body2};
-  color: ${colorTextSecondary};
+  ${titleSmall};
+  color: var(--theme-on-surface-variant);
 `
 
 const SectionHeader = styled.div`
-  ${overline};
+  ${labelMedium};
   ${singleLine};
   margin: 4px 0;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const HintText = styled.div`
-  ${caption};
-  color: ${colorTextFaint};
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplaySection = styled.div`
@@ -261,12 +257,12 @@ export function UserProfileOverlayContents({
           <div>
             <SectionHeader>{t('users.profileOverlay.info', 'Info')}</SectionHeader>
             <Tooltip text={longFormattedDate}>
-              <Body1>
+              <BodyMedium>
                 {t('users.profileOverlay.joined', {
                   defaultValue: 'Joined {{date}}',
                   date: joinDateFormat.format(profile.created),
                 })}
-              </Body1>
+              </BodyMedium>
             </Tooltip>
           </div>
 
@@ -307,12 +303,12 @@ export function UserProfileOverlayContents({
 }
 
 const TotalGameText = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   margin-right: 12px;
 `
 
 const WinLossText = styled.span`
-  ${body1};
+  ${bodyMedium};
 `
 
 function TotalGameStats({ userStats }: { userStats: UserStats }) {
@@ -341,7 +337,7 @@ const RankDisplayRoot = styled.div`
   flex-direction: column;
   align-items: center;
 
-  background-color: ${background500};
+  background-color: var(--theme-container-high);
   border-radius: 4px;
 `
 
@@ -351,10 +347,10 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 `
 
 const RankDisplayType = styled.div`
-  ${body2};
+  ${titleSmall};
   ${singleLine};
   padding-top: 4px;
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 function RankDisplay({

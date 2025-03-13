@@ -1,6 +1,6 @@
 import React from 'react'
 import { useRoute } from 'wouter'
-import { makeSbUserId } from '../../common/users/sb-user'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import { replace } from '../navigation/routing'
 import { ConnectedWhisper } from './whisper'
 
@@ -10,9 +10,6 @@ export function WhisperRouteComponent(props: { params: any }) {
   )
 
   if (!matches) {
-    queueMicrotask(() => {
-      replace('/')
-    })
     return null
   }
   const targetIdNum = Number(params!.targetId)

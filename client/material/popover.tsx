@@ -10,9 +10,9 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
-import { CardLayer } from '../styles/colors'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
-import { shadow10dp } from './shadows'
+import { elevationPlus3 } from './shadows'
 import { defaultSpring } from './springs'
 import { zIndexMenu } from './zindex'
 
@@ -87,15 +87,16 @@ const Container = styled(animated.div)`
   max-width: var(--sb-popover-max-width, none);
   max-height: var(--sb-popover-max-height, none);
 
-  border-radius: 2px;
+  border-radius: 4px;
   contain: layout;
   pointer-events: auto;
   transform-origin: var(--sb-transform-origin);
 `
 
-const Card = styled(CardLayer)`
-  ${shadow10dp};
-  border-radius: 2px;
+const Card = styled.div`
+  ${elevationPlus3};
+  ${containerStyles(ContainerLevel.Low)}
+  border-radius: 4px;
   contain: content;
 
   &:focus {

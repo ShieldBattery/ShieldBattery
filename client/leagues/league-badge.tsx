@@ -1,12 +1,11 @@
-import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LeagueId, LeagueJson } from '../../common/leagues'
+import { LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
-import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
-import { headline3 } from '../styles/typography'
+import { pickTextColor } from '../styles/colors'
+import { headlineLarge } from '../styles/typography'
 
 const badgeCommon = css`
   width: 40px;
@@ -17,8 +16,8 @@ const badgeCommon = css`
 
 const LeagueBadgePlaceholder = styled.svg`
   ${badgeCommon};
-  background-color: var(--sb-badge-color, ${blue400});
-  color: var(--sb-badge-text-color, ${colorTextPrimary});
+  background-color: var(--sb-badge-color, var(--color-blue70));
+  color: var(--sb-badge-text-color, var(--theme-on-surface));
 `
 
 const PlaceholderTextContainer = styled.div`
@@ -31,7 +30,7 @@ const PlaceholderTextContainer = styled.div`
 `
 
 const PlaceholderText = styled.div`
-  ${headline3};
+  ${headlineLarge};
   font-size: 28px;
   line-height: 40px;
 `
@@ -59,9 +58,7 @@ export function LeagueBadge({ league, className }: LeagueBadgeProps) {
   }
 
   const badgeColor = randomColorForString(league.name)
-  const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary).AA
-    ? colorTextPrimary
-    : colorTextInvert
+  const textColor = pickTextColor(badgeColor)
 
   return (
     <LeagueBadgePlaceholder

@@ -8,7 +8,7 @@ import React, {
 } from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks'
-import { fastOutSlowIn } from './curve-constants'
+import { standardEasing } from './curve-constants'
 
 const RIPPLE_PADDING = 8
 const INITIAL_ORIGIN_SCALE = 0.1
@@ -22,7 +22,7 @@ const FG_DEACTIVATION_MS = OPACITY_OUT_DURATION_MS
 
 const fgRadiusIn = keyframes`
   from {
-    animation-timing-function: ${fastOutSlowIn};
+    animation-timing-function: ${standardEasing};
     transform: translate(var(--sb-ripple-translate-start, 0)) scale(1);
   }
 
@@ -60,11 +60,8 @@ const RippleRoot = styled.div<{
   $activating: boolean
   $deactivating: boolean
 }>`
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
   position: absolute;
+  inset: 0;
 
   contain: strict;
   overflow: hidden;
@@ -387,6 +384,11 @@ export const Ripple = React.memo(
 
         onBlur() {
           setFocused(false)
+          // NOTE(tec27): Sometimes blurs occur even though we never saw focus (because we only
+          // usually get notifed of focused for :focus-visible elements). The code expects that we
+          // will still re-render the ripple in this case, but the above `setFocused` call won't
+          // trigger a re-render since it's the same value.
+          forceUpdate()
         },
 
         onMouseEnter() {
@@ -397,7 +399,7 @@ export const Ripple = React.memo(
           setHovered(false)
         },
       }),
-      [disabledRef, animateActivation, maybeRunDeactivation],
+      [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
     )
 
     const isStartingActivation = startActivationRef.current

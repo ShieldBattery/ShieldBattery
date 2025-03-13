@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { AdminBanUserRequest, SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
+import { AdminBanUserRequest } from '../../common/users/user-network'
 import { adminRequestContext } from '../admin-utils'
-import { suppressChangelog } from '../changelog-utils'
 import { LoginPage } from '../pages/login-page'
 import { generateUsername } from '../username-generator'
 import { signupWith } from './signup/utils'
@@ -15,7 +15,6 @@ test.beforeEach(async ({ page }) => {
 
 test('banned user can see message', async ({ page, baseURL }) => {
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`

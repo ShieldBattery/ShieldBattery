@@ -1,12 +1,11 @@
 import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
-import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
-import { fastOutSlowIn } from '../curve-constants'
+import { standardEasing } from '../curve-constants'
 import { InputBase } from '../input-base'
 import { InputError } from '../input-error'
 import { FloatingLabel } from '../input-floating-label'
@@ -20,42 +19,64 @@ const SPACE = 'Space'
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-const SelectContainer = styled.button<{ disabled?: boolean; $focused?: boolean; $dense?: boolean }>`
+const SelectContainer = styled.button<{
+  $disabled?: boolean
+  $focused?: boolean
+  $dense?: boolean
+}>`
   ${buttonReset};
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   position: relative;
   width: 100%;
   height: ${props => (props.$dense ? '40px' : '56px')};
   padding: 0;
-  cursor: ${props => (props.disabled ? 'default' : 'pointer')};
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  contain: layout paint style;
+
+  background-color: ${props =>
+    props.$disabled
+      ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.04))'
+      : 'var(--theme-container-highest)'};
+  border-radius: 4px 4px 0 0;
   font-size: 16px;
   line-height: 20px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 4px 4px 0 0;
-  contain: layout paint style;
-  transition: background-color 150ms linear;
+  opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
+
+  cursor: pointer;
+  pointer-events: ${props => (props.$disabled ? 'none' : 'unset')};
 
   &:focus {
     outline: none;
   }
+`
+
+const StateLayer = styled.div<{ $opened?: boolean }>`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(--theme-on-surface);
+  opacity: 0;
+  transition: opacity 75ms linear;
+
+  *:hover > & {
+    opacity: 0.08;
+  }
+
+  *:focus-within > & {
+    opacity: 0.12;
+  }
 
   ${props =>
-    !props.disabled
-      ? `
-        &:hover {
-          background-color: rgba(255, 255, 255, 0.12);
-        }
-      `
-      : ''}
-
-  ${props =>
-    props.$focused
-      ? `
-        background-color: rgba(255, 255, 255, 0.16) !important;
-      `
-      : ''}
+    props.$opened
+      ? css`
+          && {
+            opacity: 0.12;
+          }
+        `
+      : css``}
 `
 
 const DisplayValue = styled(InputBase)`
@@ -77,29 +98,25 @@ const Icon = styled.span<{
   margin-left: 4px;
   pointer-events: none;
   transform: translate3d(0, -50%, 0) ${props => (props.$opened ? 'rotate(180deg)' : '')};
-  transition: transform 150ms ${fastOutSlowIn};
+  transition:
+    transform 150ms ${standardEasing},
+    color 75ms linear;
+
+  color: ${props => {
+    if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
+    else if (props.$focused) return 'var(--theme-amber)'
+    else return 'var(--theme-on-surface)'
+  }};
 
   & > svg {
     width: 24px;
     height: 24px;
-    ${props => {
-      let color
-      if (props.$disabled) {
-        color = colorTextFaint
-      } else if (props.$focused) {
-        color = amberA400
-      } else {
-        color = colorTextPrimary
-      }
-
-      return `color: ${color}`
-    }};
   }
 `
 
 const StyledMenuList = styled(MenuList)<{ $overlayWidth: number }>`
   width: ${props => props.$overlayWidth}px;
-  background-color: ${background300};
+  background-color: var(--theme-container);
 `
 
 export interface SelectProps {
@@ -290,7 +307,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           ref={multiplexRefs}
           id={id}
           type='button'
-          disabled={disabled}
+          $disabled={disabled}
           $focused={focused}
           $dense={dense}
           tabIndex={disabled ? undefined : (tabIndex ?? 0)}
@@ -308,13 +325,14 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
               {label}
             </FloatingLabel>
           ) : null}
-          <DisplayValue as='span' $floatingLabel={!!label} $disabled={disabled} $dense={dense}>
+          <DisplayValue as='span' $floatingLabel={!!label} $dense={dense}>
             {displayValue}
           </DisplayValue>
           <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
             <MaterialIcon icon='arrow_drop_down' />
           </Icon>
-          <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
+          <InputUnderline focused={focused} error={!!errorText} />
+          <StateLayer $opened={opened} />
         </SelectContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
         <Popover

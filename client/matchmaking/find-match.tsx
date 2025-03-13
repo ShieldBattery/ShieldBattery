@@ -15,36 +15,25 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
-import { closeOverlay } from '../activities/action-creators'
-import { DisabledOverlay } from '../activities/disabled-content'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
-import { JsonLocalStorageValue } from '../local-storage'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useUserLocalStorageValue } from '../state-hooks'
 import {
-  amberA400,
-  background600,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import {
-  Headline5,
-  body1,
-  caption,
-  headline5,
-  headline6,
+  TitleLarge,
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
   singleLine,
-  subtitle1,
+  titleLarge,
 } from '../styles/typography'
 import { findMatch, getCurrentMapPool } from './action-creators'
 import { Contents1v1 } from './find-1v1'
@@ -97,6 +86,24 @@ const TabArea = styled.div`
   flex-shrink: 0;
 `
 
+const DisabledOverlay = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  background-color: var(--theme-dialog-scrim);
+  opacity: var(--theme-dialog-scrim-opacity);
+  contain: strict;
+  z-index: 100;
+`
+
 interface DisabledContentsProps {
   matchmakingType: MatchmakingType
   isMatchmakingDisabled: boolean
@@ -119,11 +126,6 @@ function DisabledContents(props: DisabledContentsProps) {
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
 type ExpandedMatchmakingType = MatchmakingType | '3v3'
 
-// TODO(tec27): Write a hook for user-specific storage of this
-const lastActiveTabStorage = new JsonLocalStorageValue<ExpandedMatchmakingType>(
-  'matchmaking.findMatch.lastActiveTab',
-)
-
 function normalizeExpandedMatchmakingType(type?: string): ExpandedMatchmakingType {
   switch (type) {
     case MatchmakingType.Match1v1:
@@ -138,7 +140,10 @@ function normalizeExpandedMatchmakingType(type?: string): ExpandedMatchmakingTyp
 
 export function FindMatch() {
   const { t } = useTranslation()
-  const lastActiveTab = normalizeExpandedMatchmakingType(lastActiveTabStorage.getValue())
+  const [storedLastActiveTab, setLastActiveTab] = useUserLocalStorageValue<ExpandedMatchmakingType>(
+    'matchmaking.findMatch.lastActiveTab',
+  )
+  const lastActiveTab = normalizeExpandedMatchmakingType(storedLastActiveTab)
   const [activeTab, setActiveTab] = useState(lastActiveTab)
   useTrackPageView(urlPath`/matchmaking/find/${activeTab}`)
 
@@ -152,10 +157,13 @@ export function FindMatch() {
   })
   const formRef = useRef<FindMatchFormRef>(null)
 
-  const onTabChange = useCallback((tab: ExpandedMatchmakingType) => {
-    lastActiveTabStorage.setValue(tab)
-    setActiveTab(tab)
-  }, [])
+  const onTabChange = useCallback(
+    (tab: ExpandedMatchmakingType) => {
+      setLastActiveTab(tab)
+      setActiveTab(tab)
+    },
+    [setLastActiveTab],
+  )
 
   const onSubmit = useCallback(
     (prefs: Immutable<MatchmakingPreferences>) => {
@@ -164,7 +172,6 @@ export function FindMatch() {
       }
 
       dispatch(findMatch(activeTab, prefs))
-      dispatch(closeOverlay() as any)
     },
     [activeTab, dispatch],
   )
@@ -222,7 +229,7 @@ export function FindMatch() {
   return (
     <Container>
       <TitleBar>
-        <Headline5>{t('matchmaking.findMatch.title', 'Find match')}</Headline5>
+        <TitleLarge>{t('matchmaking.findMatch.title', 'Find match')}</TitleLarge>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
@@ -259,7 +266,7 @@ export function FindMatch() {
           </Contents>
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
-            <RaisedButton
+            <ElevatedButton
               label={t('matchmaking.findMatch.action', 'Find match')}
               disabled={isMatchmakingDisabled}
               onClick={onFindClick}
@@ -288,13 +295,13 @@ const RankInfoContainer = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${background600};
+  background-color: var(--theme-container-low);
   border-radius: 4px;
 `
 
 const RankLoadingError = styled.div`
-  ${body1};
-  color: ${colorError};
+  ${bodyMedium};
+  color: var(--theme-error);
 `
 
 const DivisionInfo = styled.div`
@@ -302,7 +309,7 @@ const DivisionInfo = styled.div`
   flex-direction: column;
   align-items: center;
 
-  border-right: 1px solid ${colorDividers};
+  border-right: 1px solid var(--theme-outline-variant);
   padding-right: 15px;
 `
 
@@ -312,7 +319,7 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 `
 
 const RankDisplayDivisionLabel = styled.div`
-  ${headline6};
+  ${titleLarge};
   padding-top: 12px;
 `
 
@@ -325,7 +332,7 @@ const RankDisplayInfo = styled.div`
   justify-content: center;
   gap: 24px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface);
 `
 
 const RankDisplayInfoRow = styled.div`
@@ -342,13 +349,13 @@ const RankDisplayInfoEntry = styled.div`
 `
 
 const RankDisplayInfoLabel = styled.div`
-  ${caption};
+  ${labelMedium};
   ${singleLine};
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 const RankDisplayInfoValue = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   ${singleLine};
 `
 
@@ -362,7 +369,7 @@ const BonusBar = styled.div`
   height: 20px;
   margin: 2px 0;
 
-  border: 2px solid ${colorDividers};
+  border: 2px solid var(--theme-outline-variant);
   border-radius: 9999px;
   contain: paint;
 
@@ -374,14 +381,14 @@ const BonusBar = styled.div`
     width: 100%;
     height: 100%;
 
-    background-color: ${amberA400};
+    background-color: var(--theme-amber);
     transform: scaleX(var(--sb-bonus-bar-scale, 0));
     transform-origin: 0% 50%;
   }
 `
 
 const UnratedText = styled.div`
-  ${headline5};
+  ${titleLarge};
   text-align: center;
 `
 

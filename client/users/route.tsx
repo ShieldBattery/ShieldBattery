@@ -1,6 +1,6 @@
 import React from 'react'
 import { useRoute } from 'wouter'
-import { makeSbUserId } from '../../common/users/sb-user'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import { replace } from '../navigation/routing'
 import { ConnectedUserProfilePage } from './user-profile'
 import { ALL_USER_PROFILE_SUB_PAGES, UserProfileSubPage } from './user-profile-sub-page'
@@ -11,9 +11,6 @@ export function ProfileRouteComponent(props: { params: any }) {
   )
 
   if (!matches) {
-    queueMicrotask(() => {
-      replace('/')
-    })
     return null
   }
   const userIdNum = Number(params!.userId)

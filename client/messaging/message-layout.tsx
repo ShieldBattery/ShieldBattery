@@ -2,15 +2,7 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
-import {
-  amberA100,
-  blue100,
-  blue200,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
-import { body1, body2, caption } from '../styles/typography'
+import { bodyMedium, labelMedium, titleSmall } from '../styles/typography'
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`
@@ -32,13 +24,13 @@ const StyledTooltip = styled(Tooltip)`
 // pleasing way. We effectively pad everything and then push the timestamps into the padding. By
 // doing this we also ensure copy+paste looks decent (instead of on separate lines)
 const Timestamp = styled.span`
-  ${caption};
+  ${labelMedium};
   width: 72px;
   display: inline-block;
   /** 8px when we add 1px for the separator */
   padding-right: 7px;
   line-height: inherit;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue70);
   text-align: right;
 `
 
@@ -57,7 +49,7 @@ export const MessageTimestamp = (props: MessageTimestampProps) => (
 )
 
 const messageContainerBase = css`
-  ${body1};
+  ${bodyMedium};
 
   width: 100%;
   position: relative;
@@ -69,7 +61,7 @@ const messageContainerBase = css`
 
 const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean }>`
   ${messageContainerBase};
-  ${body1};
+  ${bodyMedium};
 
   padding: 4px 8px 4px 72px;
 
@@ -81,7 +73,7 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
       return ''
     }
 
-    return `
+    return css`
       background-color: rgba(255, 255, 255, 0.16);
 
       &::before {
@@ -91,7 +83,7 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
         left: 0;
         bottom: 0;
         width: 2px;
-        background-color: ${amberA100};
+        background-color: var(--color-amber90);
       }
     `
   }}
@@ -142,12 +134,12 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
 }
 
 export const SystemMessage = styled(TimestampMessageLayout)`
-  color: ${blue200};
+  color: var(--color-blue90);
 `
 
 export const SystemImportant = styled.span`
-  ${body2};
-  color: ${blue100};
+  ${titleSmall};
+  color: var(--color-blue95);
   line-height: inherit;
 `
 
@@ -158,7 +150,7 @@ const InfoMessageContainer = styled.div`
 
 const InfoDivider = styled.hr`
   border: none;
-  border-top: 1px solid ${colorDividers};
+  border-top: 1px solid var(--theme-outline-variant);
   margin: 0;
 `
 
@@ -188,8 +180,8 @@ export const InfoMessageLayout = (props: InfoMessageLayoutProps) => {
 }
 
 export const InfoImportant = styled.span`
-  ${body2};
-  color: ${colorTextSecondary};
+  ${titleSmall};
+  color: var(--theme-on-surface-variant);
   line-height: inherit;
 `
 
@@ -198,5 +190,5 @@ export const SeparatedInfoMessage = styled(InfoMessageLayout)`
   align-items: center;
   margin-top: 4px;
   margin-bottom: 4px;
-  color: ${colorTextFaint};
+  color: var(--color-grey-blue90);
 `

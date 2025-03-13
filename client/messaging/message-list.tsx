@@ -6,14 +6,13 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { ServerChatMessageType } from '../../common/chat'
 import { UserRelationshipJson } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
-import { colorTextFaint } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
-import { subtitle1 } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
 import { CommonMessageType, NewDayMessageRecord, SbMessage } from './message-records'
 
@@ -37,10 +36,10 @@ const Scrollable = styled.div`
 `
 
 const EmptyList = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 32px 16px 48px;
 
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
   text-align: center;
 `
 
@@ -189,11 +188,7 @@ interface MessageListSnapshot {
   lastScrollHeight: number
 }
 
-export default class MessageList extends React.Component<
-  MessageListProps,
-  never,
-  MessageListSnapshot
-> {
+export class MessageList extends React.Component<MessageListProps, never, MessageListSnapshot> {
   static propTypes = {
     messages: PropTypes.oneOfType([PropTypes.object.isRequired, PropTypes.array.isRequired]),
     // A function which is used to render messages

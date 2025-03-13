@@ -1,7 +1,8 @@
 import { Record } from 'immutable'
 import { ChatMessage } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
+import { BaseMessage } from './base-message-record'
 
 // TODO(2Pac): Move all the messaging-related services to immer like the chat service already is,
 // and remove this file.
@@ -14,15 +15,6 @@ import { LobbyMessage } from '../lobbies/lobby-message-records'
 export enum CommonMessageType {
   TextMessage = 'message',
   NewDayMessage = 'newDayMessage',
-}
-
-/**
- * The base fields for all messages. Any added messages should implement this.
- */
-export interface BaseMessage {
-  readonly id: string
-  readonly type: string
-  readonly time: number
 }
 
 // TODO(tec27): Write a function or something to declare just the extra parts + do the correct

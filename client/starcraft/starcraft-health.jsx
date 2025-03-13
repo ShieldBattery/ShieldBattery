@@ -1,37 +1,30 @@
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dialog } from '../material/dialog'
 import { openSettings } from '../settings/action-creators'
 import { GameSettingsSubPage } from '../settings/settings-sub-page'
-import { openSnackbar } from '../snackbars/action-creators'
-import { SubheadingOld } from '../styles/typography'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { BodyLarge } from '../styles/typography'
 import {
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
   isStarcraftHealthy,
 } from './is-starcraft-healthy'
 
-const HeaderText = styled(SubheadingOld)`
-  margin-top: 0;
-`
-
 @withTranslation()
 @connect(state => ({ starcraft: state.starcraft }))
 export default class StarcraftHealthCheckupDialog extends React.Component {
   componentDidUpdate(prevProps) {
     if (isStarcraftHealthy(this.props)) {
-      this.props.dispatch(
-        openSnackbar({
-          message: this.props.t(
-            'starcraft.starcraftHealth.noProblems',
-            'Your local installation is now free of problems.',
-          ),
-        }),
+      externalShowSnackbar(
+        this.props.t(
+          'starcraft.starcraftHealth.noProblems',
+          'Your local installation is now free of problems.',
+        ),
       )
       this.props.dispatch(closeDialog(DialogType.StarcraftHealth))
     }
@@ -92,13 +85,13 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
         onCancel={this.props.onCancel}
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
-        <HeaderText as='p'>
+        <BodyLarge>
           {this.props.t(
             'starcraft.starcraftHealth.header',
             'The following problems need to be corrected before you can play games on ' +
               'ShieldBattery:',
           )}
-        </HeaderText>
+        </BodyLarge>
         {this.renderInstallPathInfo()}
         {this.renderStarcraftVersionInfo()}
       </Dialog>

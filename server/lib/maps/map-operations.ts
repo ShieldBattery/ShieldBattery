@@ -1,12 +1,13 @@
 import { writeFile as fsWriteFile } from 'fs/promises'
 import { withFile as withTmpFile } from 'tmp-promise'
 import { MapInfo } from '../../../common/maps'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { readFile } from '../file-upload'
-import { MapParseResult, mapPath, parseMap } from '../maps/store'
+import { MapParseResult, parseMap } from '../maps/store'
 import { getMapInfo, updateParseData } from './map-models'
 import { MapParseData } from './parse-data'
 import { MAP_PARSER_VERSION } from './parser-version'
+import { mapPath } from './paths'
 
 /**
  * Retrieves a map from storage so it can be processed locally (e.g. to regenerate images or

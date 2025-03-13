@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useId, useState } from 'react'
 import { UseTransitionProps, useTransition } from 'react-spring'
 import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
-import { background900 } from '../styles/colors'
-import { caption } from '../styles/typography'
+import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
-import { shadow2dp } from './shadows'
+import { elevationPlus2 } from './shadows'
 import { defaultSpring } from './springs'
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
@@ -73,8 +72,8 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
 }
 
 export const TooltipContent = styled.div<{ $position: TooltipPosition; $interactive?: boolean }>`
-  ${caption};
-  ${shadow2dp};
+  ${labelMedium};
+  ${elevationPlus2};
 
   position: relative;
   min-height: 24px;
@@ -87,7 +86,9 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
 
   border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 4px;
-  background-color: ${background900};
+  background-color: var(--theme-inverse-surface);
+  color: var(--theme-inverse-on-surface);
+  font-variation-settings: 'wght' 600;
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
   &::before {
@@ -199,7 +200,10 @@ export function Tooltip({
     setMouseAnchorElem(undefined)
   }, [])
   const onFocus = useCallback((event: React.FocusEvent) => {
-    setFocusAnchorElem(event.currentTarget as HTMLElement)
+    if (event.target.matches(':focus-visible')) {
+      // Only show a tooltip for focus if the element was focused via keyboard (i.e. not by click)
+      setFocusAnchorElem(event.currentTarget as HTMLElement)
+    }
   }, [])
   const onBlur = useCallback(() => {
     setFocusAnchorElem(undefined)

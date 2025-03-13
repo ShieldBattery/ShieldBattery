@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import { suppressChangelog } from '../../changelog-utils'
 import { clearLocalState } from '../../clear-local-state'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
@@ -15,7 +14,6 @@ test.beforeEach(async ({ page }) => {
 
 test('change password', async ({ context, page }) => {
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
@@ -26,6 +24,7 @@ test('change password', async ({ context, page }) => {
     email,
   })
 
+  await page.waitForSelector('[data-test=app-bar-user-button]')
   await page.click('[data-test=settings-button]')
   await expect(page.locator('[data-test=email-verification-warning]')).toBeVisible()
 
@@ -59,12 +58,11 @@ test('change password', async ({ context, page }) => {
   await clearLocalState({ context, page })
   await loginPage.navigateTo()
   await loginPage.loginWith(username, 'new-password')
-  await page.waitForSelector('[data-test=left-nav]')
+  await page.waitForSelector('[data-test=app-bar-user-button]')
 })
 
 test('change email', async ({ page }) => {
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
@@ -75,6 +73,7 @@ test('change email', async ({ page }) => {
     email,
   })
 
+  await page.waitForSelector('[data-test=app-bar-user-button]')
   await page.click('[data-test=notifications-button]')
   await page.waitForSelector('[data-test=email-verification-notification]')
 

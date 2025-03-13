@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceIcon } from '../lobbies/race-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { Popover, PopoverOpenState, useAnchorPosition } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
-import { Headline6, headline3 } from '../styles/typography'
+import { TitleLarge, displaySmall } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
 
 const Contents = styled.div`
@@ -45,7 +45,7 @@ const StyledRaceIcon = styled(RaceIcon)`
 `
 
 const StyledElapsedTime = styled(ElapsedTime)`
-  ${headline3};
+  ${displaySmall};
 `
 
 export interface MatchmakingSearchingOverlayProps {
@@ -80,7 +80,7 @@ export function MatchmakingSearchingOverlay({
       originX='right'
       originY='top'>
       <Contents>
-        <Headline6>{matchmakingTypeToLabel(searchInfo.matchmakingType, t)}</Headline6>
+        <TitleLarge>{matchmakingTypeToLabel(searchInfo.matchmakingType, t)}</TitleLarge>
         <InfoContainer>
           <InfoItem>
             <StyledRaceIcon race={searchInfo.race} />
@@ -89,7 +89,7 @@ export function MatchmakingSearchingOverlay({
             <StyledElapsedTime startTimeMs={searchInfo.startTime} />
           </InfoItem>
         </InfoContainer>
-        <RaisedButton
+        <ElevatedButton
           label={t('matchmaking.searchingOverlay.cancelSearch', 'Cancel search')}
           onClick={onCancelSearch}
           disabled={isMatched}

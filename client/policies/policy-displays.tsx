@@ -4,13 +4,12 @@ import styled from 'styled-components'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { BottomLinks } from '../landing/bottom-links'
-import TopLinks from '../landing/top-links'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
-import { body1, body2, headline3, headline5, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, displaySmall, titleLarge, titleSmall } from '../styles/typography'
 
 const PolicyRoot = styled.div`
-  ${body1};
+  ${bodyMedium};
   user-select: text;
 
   & * {
@@ -18,16 +17,16 @@ const PolicyRoot = styled.div`
   }
 
   h3 {
-    ${headline5};
+    ${titleLarge};
   }
 
   h4 {
-    ${subtitle1};
+    ${bodyLarge};
     font-weight: 500;
   }
 
   h5 {
-    ${body2};
+    ${titleSmall};
   }
 
   b,
@@ -48,7 +47,7 @@ const PageContentRoot = styled.div`
 `
 
 const PageHeader = styled.div`
-  ${headline3};
+  ${displaySmall};
   margin-bottom: 16px;
 `
 
@@ -56,7 +55,6 @@ function PolicyPage(props: { title: string; children: React.ReactNode }) {
   return (
     <PageRoot>
       <PageContentRoot>
-        <TopLinks />
         <PageHeader>{props.title}</PageHeader>
         <React.Suspense fallback={<LoadingDotsArea />}>{props.children}</React.Suspense>
         <BottomLinks />

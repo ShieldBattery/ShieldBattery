@@ -1,17 +1,16 @@
 import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline6 } from '../styles/typography'
+import { titleLarge } from '../styles/typography'
 
 const BreadcrumbPiece = styled.span<{ $active: boolean }>`
-  ${headline6};
+  ${titleLarge};
   padding: 8px;
   flex-grow: 0;
   flex-shrink: 0;
 
-  font-weight: normal;
-  color: ${props => (props.$active ? colorTextPrimary : colorTextSecondary)};
+  color: ${props =>
+    props.$active ? 'var(--theme-on-surface)' : 'var(--theme-on-surface-variant)'};
   cursor: ${props => (props.$active ? 'auto' : 'pointer')};
 `
 
@@ -19,7 +18,7 @@ const BreadcrumbSeparator = styled(MaterialIcon).attrs({ icon: 'chevron_right' }
   display: inline-block;
   flex-grow: 0;
   flex-shrink: 0;
-  color: ${colorTextFaint};
+  color: var(--theme-on-surface-variant);
 `
 
 interface PathBreadcrumbsProps {

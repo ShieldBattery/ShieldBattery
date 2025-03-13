@@ -3,9 +3,8 @@ import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors'
-import { Headline3, Headline4, headline5 } from '../styles/typography'
+import { elevationPlus1 } from '../material/shadows'
+import { DisplaySmall, HeadlineMedium, titleLarge } from '../styles/typography'
 import PlayerCard from './player-card'
 
 const Container = styled.div`
@@ -29,9 +28,9 @@ const TopHalfContainer = styled.div`
 const Spacer = styled.div``
 
 const StyledMapThumbnail = styled(MapThumbnail)`
+  ${elevationPlus1};
   width: 320px;
-  border-radius: 2px;
-  box-shadow: ${shadowDef2dp};
+  border-radius: 4px;
 `
 
 const StatusContainer = styled.div`
@@ -41,8 +40,8 @@ const StatusContainer = styled.div`
 `
 
 const StatusText = styled.div`
-  ${headline5};
-  color: ${colorTextSecondary};
+  ${titleLarge};
+  color: var(--theme-on-surface-variant);
 `
 
 const TeamsContainer = styled.div`
@@ -122,7 +121,7 @@ export default class ActiveLobby extends React.Component {
 
     return (
       <Container>
-        <Headline3>{lobby.map.name}</Headline3>
+        <DisplaySmall>{lobby.map.name}</DisplaySmall>
         <TopHalfContainer>
           <Spacer />
           <StyledMapThumbnail map={lobby.map} size={320} />
@@ -134,7 +133,7 @@ export default class ActiveLobby extends React.Component {
           <TeamsContainer>
             <TeamContainer>{teams.get(0)}</TeamContainer>
             <VsContainer>
-              <Headline4>{t('matchmaking.match.playerVsPlayer', 'vs')}</Headline4>
+              <HeadlineMedium>{t('matchmaking.match.playerVsPlayer', 'vs')}</HeadlineMedium>
             </VsContainer>
             <TeamContainer>{teams.get(1)}</TeamContainer>
           </TeamsContainer>

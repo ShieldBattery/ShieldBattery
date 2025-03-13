@@ -7,14 +7,13 @@ import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
-import { RaisedButton } from '../../material/button'
+import { ElevatedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { background500, colorError, colorSuccess } from '../../styles/colors'
 import { selectableTextContainer } from '../../styles/text-selection'
-import { Overline, Subtitle1, body1, subtitle1, subtitle2 } from '../../styles/typography'
+import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionOverline } from '../settings-content'
 
@@ -44,30 +43,30 @@ const CurrentPathValueContainer = styled.div`
 `
 
 const CurrentPathValue = styled.div`
-  ${subtitle2};
-  padding: 0 4px;
-  background-color: ${background500};
-  border-radius: 2px;
+  ${titleMedium};
+  padding: 8px 12px;
+  background-color: var(--theme-container-highest);
+  border-radius: 4px;
 `
 
 const ValidIcon = styled(MaterialIcon).attrs({ icon: 'check' })`
-  color: ${colorSuccess};
+  color: var(--theme-success);
 `
 
 const InvalidIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
-  color: ${colorError};
+  color: var(--theme-error);
 `
 
 const Instructions = styled.div`
-  ${body1};
+  ${bodyMedium};
 `
 
 const DetectionFailure = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
-const AdvancedOverline = styled(Overline)`
+const AdvancedOverline = styled(LabelMedium)`
   margin-top: 48px;
 `
 
@@ -152,9 +151,9 @@ export function StarcraftSettings() {
       <FormContainer>
         <Layout>
           <CurrentPath>
-            <Subtitle1>
+            <BodyLarge>
               {t('settings.game.starcraft.currentPathLabel', 'Current game path:')}
-            </Subtitle1>
+            </BodyLarge>
             {localSettings.starcraftPath ? (
               <>
                 <CurrentPathValueContainer>
@@ -202,7 +201,7 @@ export function StarcraftSettings() {
             </DetectionFailure>
           ) : undefined}
 
-          <RaisedButton
+          <ElevatedButton
             onClick={onDetectPathClick}
             label={t('settings.game.starcraft.detectPath', 'Detect installation')}
           />
@@ -217,7 +216,7 @@ export function StarcraftSettings() {
             )}
           </Instructions>
 
-          <RaisedButton
+          <ElevatedButton
             ref={browseButtonRef}
             label={t('settings.game.starcraft.browseManually', 'Browse manually')}
             onClick={onBrowseClick}

@@ -2,12 +2,10 @@ import keycode from 'keycode'
 import React, { useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { ConnectedNotificationsList } from './notifications-list'
 
@@ -20,7 +18,7 @@ const UnreadIndicator = styled.div`
   left: 8px;
   top: 12px;
 
-  background-color: ${amberA200};
+  background-color: var(--color-amber80);
   border-radius: 50%;
   pointer-events: none;
 `
@@ -42,7 +40,7 @@ const PopoverContents = styled.div`
   width: 320px;
 `
 
-export function NotificationsButton() {
+export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const idToNotification = useAppSelector(s => s.notifications.byId)
@@ -82,7 +80,7 @@ export function NotificationsButton() {
   const buttonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: buttonRef, hotkey: ALT_N })
 
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
+  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', buttonRef.current)
 
   return (
     <>
@@ -93,10 +91,11 @@ export function NotificationsButton() {
               ? t('notifications.activityButton.unread', 'Notifications - unread (Alt + N)')
               : t('notifications.activityButton.read', 'Notifications (Alt + N)')
           }
-          position='left'>
+          position='bottom'
+          tabIndex={-1}>
           <IconButton
             ref={buttonRef}
-            icon={<MaterialIcon icon='notifications' />}
+            icon={icon}
             onClick={openActivityBar}
             testName='notifications-button'
           />
@@ -106,10 +105,10 @@ export function NotificationsButton() {
       <Popover
         open={activityBarOpen}
         onDismiss={onDismiss}
-        anchorX={(anchorX ?? 0) - 8}
+        anchorX={anchorX ?? 0}
         anchorY={(anchorY ?? 0) - 8}
-        originX='right'
-        originY='bottom'>
+        originX='center'
+        originY='top'>
         <PopoverScrollable>
           <PopoverContents>
             <ConnectedNotificationsList />

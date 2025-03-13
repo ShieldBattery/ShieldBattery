@@ -1,5 +1,4 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -12,14 +11,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  amberA100,
-  background700,
-  background900,
-  colorTextFaint,
-  colorTextPrimary,
-} from '../styles/colors'
-import { singleLine, subtitle2 } from '../styles/typography'
+import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
@@ -27,7 +19,7 @@ const Container = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: 4px;
   contain: content;
 `
 
@@ -85,14 +77,13 @@ const Overlay = styled.div<{
     content: '';
     pointer-events: none;
 
-    background-color: var(--sb-map-thumbnail-selected-color, ${amberA100});
+    background-color: var(--sb-map-thumbnail-selected-color, var(--color-amber95));
     opacity: ${props => {
-      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
-      // selected.
-      if (props.$isSelected) {
-        return 0.36
-      } else if (props.$isFocused) {
-        return 0.16
+      // TODO(tec27): Use a focus outline for :focus-visible instead of changing opacity only
+      if (props.$isFocused) {
+        return 0.32
+      } else if (props.$isSelected) {
+        return 0.24
       } else {
         return 0
       }
@@ -102,12 +93,10 @@ const Overlay = styled.div<{
 
   &:hover::before {
     opacity: ${props => {
-      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
-      // selected.
-      if (props.$isSelected) {
-        return 0.24
-      } else if (props.$isFocused) {
-        return 0.16
+      if (props.$isFocused) {
+        return 0.36
+      } else if (props.$isSelected) {
+        return 0.28
       } else {
         return 0.12
       }
@@ -133,25 +122,28 @@ const TextProtection = styled.div`
   width: 100%;
   height: ${TEXT_PROTECTION_HEIGHT_PX}px;
   padding: 0 4px 0 12px;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: ${rgba(background900, 0.6)};
+
+  background-color: rgb(from var(--color-blue10) r g b / 0.5);
 `
 
 const MapName = styled.div`
-  ${subtitle2};
+  ${titleMedium};
   ${singleLine};
-  color: ${colorTextPrimary};
+  color: var(--theme-on-surface);
 `
 
 const MapActionButton = styled(IconButton)`
   flex-shrink: 0;
   min-height: 40px;
   width: 40px;
-  padding: 0;
-  line-height: 40px;
   margin-left: 4px;
+  padding: 0;
+
+  line-height: 40px;
 `
 
 const NoImageContainer = styled.div`
@@ -163,8 +155,8 @@ const NoImageContainer = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${background700};
-  color: ${colorTextFaint};
+  background-color: var(--theme-container);
+  color: var(--theme-on-surface-variant);
 `
 
 const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 96 })`

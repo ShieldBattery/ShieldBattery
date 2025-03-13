@@ -2,26 +2,21 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useMutation, useQuery } from 'urql'
-import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../common/users/sb-user'
+import { SbUser, SelfUser } from '../../common/users/sb-user'
+import { BanHistoryEntryJson, UserIpInfoJson } from '../../common/users/user-network'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { graphql, useFragment } from '../gql'
 import { AdminUserProfile_PermissionsFragment } from '../gql/graphql'
 import { logger } from '../logging/logger'
-import { RaisedButton, TextButton } from '../material/button'
+import { ElevatedButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import {
-  colorDividers,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography'
+import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, labelMedium } from '../styles/typography'
 import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
 import { ConnectedUsername } from './connected-username'
 
@@ -41,13 +36,13 @@ const AdminSection = styled.div<{ $gridColumn?: string }>`
   block-size: min-content;
   padding: 16px 16px 0;
 
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
   grid-column: ${props => props.$gridColumn ?? 'auto'};
 `
 
 const LoadingError = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   width: 100%;
   margin-top: 40px;
   margin-bottom: 48px;
@@ -152,7 +147,7 @@ function PermissionsEditor({
 
   return (
     <AdminSection $gridColumn='span 3'>
-      <Headline5>Permissions</Headline5>
+      <TitleLarge>Permissions</TitleLarge>
       {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
       <form noValidate={true} onSubmit={onSubmit} data-test='permissions-form'>
         <CheckBox
@@ -310,7 +305,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
 
   return (
     <AdminSection $gridColumn='span 6' data-test='ban-history-section'>
-      <Headline5>Ban history</Headline5>
+      <TitleLarge>Ban history</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
       {!isSelf ? (
@@ -326,14 +321,14 @@ const BanTable = styled.table`
 
   th,
   td {
-    ${body1};
+    ${bodyMedium};
 
     min-width: 100px;
     max-width: 150px;
     padding: 4px;
 
-    border: 1px solid ${colorDividers};
-    border-radius: 2px;
+    border: 1px solid var(--theme-outline-variant);
+    border-radius: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: top;
@@ -341,18 +336,21 @@ const BanTable = styled.table`
   }
 
   th {
-    ${caption};
-    color: ${colorTextSecondary};
+    ${labelMedium};
+    color: var(--theme-on-surface-variant);
   }
 `
 
 const BanRow = styled.tr<{ $expired?: boolean }>`
-  color: ${props => (!props.$expired ? colorTextPrimary : colorTextFaint)};
+  color: ${props =>
+    !props.$expired
+      ? 'var(--theme-on-surface)'
+      : 'rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity)'};
 `
 
 const EmptyState = styled.td`
-  ${subtitle1};
-  color: ${colorTextFaint};
+  ${bodyLarge};
+  color: var(--theme-on-surface-variant);
 `
 
 const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -422,7 +420,7 @@ function BanUserForm({
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
-      <Headline5>Ban user</Headline5>
+      <TitleLarge>Ban user</TitleLarge>
       <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
         <SelectOption value={3} text='3 Hours' />
         <SelectOption value={24} text='1 Day' />
@@ -430,7 +428,7 @@ function BanUserForm({
         <SelectOption value={24 * 7 * 4} text='1 Month' />
         <SelectOption value={24 * 365 * 999} text='Permanent!' />
       </Select>
-      <Body1>This reason will be visible to the user!</Body1>
+      <BodyMedium>This reason will be visible to the user!</BodyMedium>
       <TextField
         {...bindInput('reason')}
         label='Ban reason'
@@ -443,7 +441,7 @@ function BanUserForm({
           spellCheck: false,
         }}
       />
-      <RaisedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
+      <ElevatedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
     </form>
   )
 }
@@ -483,7 +481,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
 
   return (
     <AdminSection $gridColumn='span 5'>
-      <Headline5>IP addresses</Headline5>
+      <TitleLarge>IP addresses</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {ips === undefined ? <LoadingDotsArea /> : <IpList ips={ips} relatedUsers={relatedUsers!} />}
     </AdminSection>
@@ -491,7 +489,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
 }
 
 const IpListRoot = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   padding: 16px 0;
   display: flex;
   flex-direction: column;
@@ -519,15 +517,15 @@ const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const IpDateRange = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const SeenCount = styled.div`
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const RelatedUsers = styled.div`
-  ${body1};
+  ${bodyMedium};
   margin: 16px 0;
   padding-left: 40px;
 

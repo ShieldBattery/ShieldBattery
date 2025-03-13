@@ -13,7 +13,7 @@ import {
   JoinLeagueResponse,
   LeagueId,
   LeagueJson,
-} from '../../common/leagues'
+} from '../../common/leagues/leagues'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'

@@ -7,7 +7,7 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUserId } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
@@ -104,20 +104,20 @@ function model2v2ToPrefs(model: Model2v2, userId: SbUserId, mapPoolId: number) {
 export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
-  const prefs: Immutable<MatchmakingPreferences2v2> | Record<string, never> = useAppSelector(
+  const prefs = useAppSelector(
     s =>
-      (s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.preferences as
+      s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.preferences as
         | Immutable<MatchmakingPreferences2v2>
         | Record<string, never>
-        | undefined) ?? {},
+        | undefined,
   )
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.mapPoolOutdated ?? false,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(MatchmakingType.Match2v2))
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
-    [prefs.mapSelections, mapPool],
+    () => (prefs?.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
+    [prefs?.mapSelections, mapPool],
   )
 
   const selfId = selfUser.id
@@ -148,7 +148,7 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
     [disabled, mapPoolId, onSubmit, selfId],
   )
 
-  return (
+  return prefs ? (
     <Form2v2
       ref={formRef}
       disabled={disabled}
@@ -161,5 +161,7 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />
+  ) : (
+    <LoadingDotsArea />
   )
 }

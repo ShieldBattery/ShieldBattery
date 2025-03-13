@@ -5,21 +5,20 @@ import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
+import { ElevatedButton } from '../material/button'
+import { bodyLarge, titleLarge } from '../styles/typography'
 
 const Blurb = styled.div`
-  ${headline5};
+  ${titleLarge};
   font-weight: 300;
 `
 
 const BlurbList = styled.ul`
-  ${headline5};
+  ${titleLarge};
   margin: 0;
   padding: 0;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   font-weight: 300;
 
   & > li {
@@ -29,7 +28,7 @@ const BlurbList = styled.ul`
 `
 
 const SupportText = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   margin-top: 32px;
 `
 
@@ -47,14 +46,14 @@ const SupportLinks = styled.div`
     height: 48px;
     display: flex;
     align-items: center;
-    color: ${colorTextSecondary};
+    color: var(--theme-on-surface-variant);
     padding-left: 16px;
     padding-right: 16px;
     overflow: hidden;
 
     &:hover,
     &:active {
-      color: ${colorTextPrimary};
+      color: var(--theme-on-surface);
     }
   }
 `
@@ -76,7 +75,7 @@ const InstallerLinks = styled.div`
 `
 
 const InstallerButtonLabel = styled.span`
-  ${subtitle1};
+  ${bodyLarge};
   height: 48px;
   display: flex;
   align-items: center;
@@ -96,11 +95,10 @@ export function Download() {
       <BlurbList>
         <li>{t('clientDownload.playGames', 'Play games')}</li>
         <li>{t('clientDownload.watchReplays', 'Watch replays')}</li>
-        <li>{t('clientDownload.exploreMaps', 'Explore maps')}</li>
         <li>{t('clientDownload.andMore', 'And more!')}</li>
       </BlurbList>
       <InstallerLinks>
-        <RaisedButton
+        <ElevatedButton
           onClick={onDownloadClick}
           iconStart={<MaterialIcon icon='download' />}
           label={

@@ -1,28 +1,60 @@
-import React from 'react'
+import React, { useLayoutEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
-import { RaisedButton } from './material/button'
-import { colorTextSecondary } from './styles/colors'
+import { ElevatedButton } from './material/button'
+import { zIndexSystemBar } from './material/zindex'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
-import { Headline5, subtitle1 } from './styles/typography'
-import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
+import { TitleLarge, bodyLarge } from './styles/typography'
+import { WindowControls } from './system-bar/window-controls'
 
 export interface RootErrorBoundaryProps {
   /** A class name that will be applied to the root container that displays errors. */
   className?: string
   children: React.ReactNode
+  isVeryTopLevel?: boolean
 }
 
 interface RootErrorBoundaryState {
   error?: Error
 }
 
+// Dumb replacement for the system bar that doesn't need Redux to function
+const SystemBarReplacementRoot = styled.header`
+  flex-grow: 0;
+  flex-shrink: 0;
+
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  position: relative;
+
+  display: flex;
+  flex-direction: row;
+
+  background-color: var(--color-grey-blue20);
+  overflow: hidden;
+  z-index: ${zIndexSystemBar};
+
+  -webkit-app-region: drag;
+`
+
+function SystemBarReplacement() {
+  useLayoutEffect(() => {
+    document.body.style.setProperty('--sb-system-bar-height', '32px')
+    return () => {
+      document.body.style.removeProperty('--sb-system-bar-height')
+    }
+  }, [])
+  return <SystemBarReplacementRoot />
+}
+
 const Container = styled.div`
   width: 100%;
-  height: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0px));
 
   display: flex;
   flex-direction: column;
@@ -31,11 +63,11 @@ const Container = styled.div`
 `
 
 const ErrorInfo = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   max-width: 960px;
   margin: 16px;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
   white-space: pre;
 
   &,
@@ -45,7 +77,7 @@ const ErrorInfo = styled.div`
 `
 
 const Instructions = styled.div`
-  ${subtitle1};
+  ${bodyLarge};
   max-width: 960px;
   margin: 16px 16px 32px;
 `
@@ -78,10 +110,14 @@ export class RootErrorBoundary extends React.Component<
 
       return (
         <>
-          <ResetStyle />
-          <GlobalStyle />
-          <WindowControlsStyle />
-          <WindowControls />
+          {this.props.isVeryTopLevel ? (
+            <>
+              <ResetStyle />
+              <GlobalStyle />
+              {IS_ELECTRON ? <WindowControls /> : undefined}
+              {IS_ELECTRON ? <SystemBarReplacement /> : undefined}
+            </>
+          ) : undefined}
           <Container>
             <ContentsErrorBoundary rootError={error} />
           </Container>
@@ -150,7 +186,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
 
   return (
     <>
-      <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
+      <TitleLarge>{t('rootErrorBoundary.title', 'Something went wrong :(')}</TitleLarge>
       <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
       <Instructions>
         <Trans t={t} i18nKey='rootErrorBoundary.contents'>
@@ -161,7 +197,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
           .
         </Trans>
       </Instructions>
-      <RaisedButton
+      <ElevatedButton
         label={t('rootErrorBoundary.reloadApp', 'Reload app')}
         color='primary'
         onClick={onReloadAppClick}
@@ -173,7 +209,7 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
 function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
   return (
     <>
-      <Headline5>Something went wrong :(</Headline5>
+      <TitleLarge>Something went wrong :(</TitleLarge>
       <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
       <Instructions>
         Please report this issue to us in our{' '}
@@ -182,7 +218,7 @@ function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps
         </a>
         .
       </Instructions>
-      <RaisedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
+      <ElevatedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
     </>
   )
 }

@@ -5,10 +5,9 @@ import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { RaceIcon } from '../lobbies/race-icon'
-import Card from '../material/card'
+import { Card } from '../material/card'
 import { fastOutSlowInShort } from '../material/curves'
-import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { HeadlineOld, cabin, singleLine } from '../styles/typography'
+import { singleLine, titleLarge } from '../styles/typography'
 
 const Container = styled(Card)`
   display: flex;
@@ -18,26 +17,28 @@ const Container = styled(Card)`
   padding: 12px;
   overflow: hidden;
 
-  color: ${props => (props.ready ? colorTextPrimary : colorTextFaint)};
-  --player-component-opacity: ${props => (props.ready ? 1 : alphaDisabled)};
+  color: var(--theme-on-surface);
+  --player-component-opacity: ${props => (props.ready ? '1' : 'var(--theme-disabled-opacity)')};
 `
 
 const StyledAvatar = styled(Avatar)`
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  opacity: ${props => (props.$ready ? 1 : alphaDisabled)};
+  opacity: var(--player-component-opacity);
   ${fastOutSlowInShort};
 `
 
-const PlayerName = styled(HeadlineOld)`
-  flex-grow: 1;
-  font-weight: 500;
-  margin: 0 16px;
-  color: inherit;
+const PlayerName = styled.div`
+  ${titleLarge};
   ${singleLine};
-  ${cabin};
   ${fastOutSlowInShort};
+
+  flex-grow: 1;
+  margin: 0 16px;
+
+  color: inherit;
+  opacity: var(--player-component-opacity);
 `
 
 const StyledRaceIcon = styled(RaceIcon)`

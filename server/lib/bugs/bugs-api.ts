@@ -9,7 +9,7 @@ import {
   ReportBugResponse,
   toBugReportJson,
 } from '../../../common/bugs'
-import { SbUserId } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import transact from '../db/transaction'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
 import { deleteFile, getSignedUrl, writeFile } from '../file-upload'

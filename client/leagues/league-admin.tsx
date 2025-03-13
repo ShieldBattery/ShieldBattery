@@ -10,7 +10,7 @@ import {
   LEAGUE_IMAGE_WIDTH,
   LeagueJson,
   makeLeagueId,
-} from '../../common/leagues'
+} from '../../common/leagues/leagues'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
@@ -21,7 +21,7 @@ import { FormHook, useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { FileInput } from '../material/file-input'
 import { SelectOption } from '../material/select/option'
@@ -32,29 +32,31 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { body1, headline4, subtitle1 } from '../styles/typography'
+import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
 import {
   adminAddLeague,
   adminGetLeague,
   adminGetLeagues,
   adminUpdateLeague,
 } from './action-creators'
+import { LeagueCard } from './league-card'
 import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
-import { LeagueCard, LeagueSectionType } from './league-list'
+import { LeagueSectionType } from './league-section-type'
 import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
-  padding: 12px 24px;
+  width: 100%;
+  max-width: 1248px;
+  padding: 16px 24px;
 `
 
 const Title = styled.div`
-  ${headline4};
+  ${headlineMedium};
 `
 
 const ErrorText = styled.div`
-  ${subtitle1};
-  color: ${colorError};
+  ${bodyLarge};
+  color: var(--theme-error);
 `
 
 const ListRoot = styled.div`
@@ -115,7 +117,7 @@ export function LeagueAdmin() {
             <ListRoot>
               <Title>Manage leagues</Title>
               <div>
-                <RaisedButton
+                <ElevatedButton
                   label='Add league'
                   iconStart={<MaterialIcon icon='add' />}
                   onClick={() => push('/leagues/admin/new')}
@@ -144,10 +146,10 @@ export function LeagueAdmin() {
 }
 
 const FieldLabel = styled.label`
-  ${body1};
+  ${bodyMedium};
   display: block;
 
-  color: ${colorTextSecondary};
+  color: var(--theme-on-surface-variant);
 `
 
 const DateInput = styled.input`
@@ -157,8 +159,8 @@ const DateInput = styled.input`
 `
 
 const DateError = styled.div`
-  ${body1};
-  color: ${colorError};
+  ${bodyMedium};
+  color: var(--theme-error);
 `
 
 // TODO(tec27): Write a real version of this
@@ -202,8 +204,8 @@ const LeagueForm = styled.form`
   flex-direction: column;
   gap: 12px;
 
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
 `
 
 const LeaguePreview = styled.div`
@@ -215,8 +217,8 @@ const LeaguePreview = styled.div`
   flex-direction: column;
   gap: 16px;
 
-  border: 1px solid ${colorDividers};
-  border-radius: 2px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
 `
 
 interface LeagueModel {
@@ -408,7 +410,7 @@ function CreateLeague() {
             inputProps={{ tabIndex: 0 }}
           />
 
-          <RaisedButton label='Create league' color='primary' onClick={onSubmit} />
+          <ElevatedButton label='Create league' color='primary' onClick={onSubmit} />
         </LeagueForm>
         <LeaguePreview>
           {previewLeague ? (
@@ -714,7 +716,7 @@ function EditLeagueForm({
         inputProps={{ tabIndex: 0 }}
       />
 
-      <RaisedButton label='Save league' color='primary' onClick={onSubmit} />
+      <ElevatedButton label='Save league' color='primary' onClick={onSubmit} />
     </LeagueForm>
   )
 }
