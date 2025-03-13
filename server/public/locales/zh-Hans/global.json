@@ -247,27 +247,17 @@
             "termsOfService": "服务条款"
         },
         "splash": {
-            "benefits": {
-                "fullPotentialText": "《星际争霸》作为电子竞技拥有辉煌的历史，而ShieldBattery将为您提供配得上这款伟大游戏的竞技与观战体验。ShieldBattery是社区驱动的开源项目，旨在为玩家提供最新最尖端的功能和游戏乐趣。这是《星际争霸》玩家社区掀起的一场革命。"
-            },
             "comingSoon": {
                 "3v3Title": "3v3匹配",
-                "replayAnalysisTitle": "录像分析",
                 "automatedTournamentsTitle": "自动化锦标赛与联赛",
-                "expandedChatDescription": "使用表情、嵌入地图、比赛和录像尽情表达自己！",
-                "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。",
-                "sandboxModeTitle": "训练/沙盒模式"
+                "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。"
             },
             "features": {
                 "rankedLadderTitle": "天梯排位",
-                "fixesBugsExploitsTitle": "修复错误和恶性bug",
                 "improvedNetcodeTitle": "网络代码改进",
-                "matchmakingTitle": "1v1与2v2自动匹配",
-                "remasteredSupportTitle": "支持重制版",
-                "webClientTitle": "网页版聊天客户端"
+                "remasteredSupportTitle": "支持重制版"
             },
-            "featuresTitle": "我们的优势",
-            "tagline": "在最先进的社区运营平台上畅玩《星际争霸1》"
+            "featuresTitle": "我们的优势"
         }
     },
     "auth": {
@@ -835,7 +825,6 @@
             "customGame": "自定义游戏",
             "whispers": "私聊",
             "chatChannels": "聊天频道",
-            "lobby": "房间",
             "logOut": "登出",
             "rankedGame": "{{matchmakingType}}排位",
             "viewChangelog": "查看更新日志",

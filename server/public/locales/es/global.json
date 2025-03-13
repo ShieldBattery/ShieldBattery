@@ -349,27 +349,17 @@
             "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
         },
         "splash": {
-            "benefits": {
-                "tacticallyFaithfulTitle": "Tácticamente fiel"
-            },
             "comingSoon": {
                 "3v3Description": "Encuentra fácilmente juegos para 3v3, con equipos ordenados o aleatorios.",
-                "builtInMapmakingDescription": "¡Rocas destructibles, posiciones iniciales ideales para los trabajadores, colocación avanzada de fluencia y más!",
                 "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!",
-                "liveStreamingDescription": "Salta a los partidos en curso y míralos en vivo, con todos los beneficios de la observación dentro del juego.",
-                "playerProfilesDescription": "Compruebe sus habilidades en diferentes enfrentamientos y mapas, encuentre formas de mejorar y vea cómo se compara con la competencia.",
-                "sandboxModeDescription": "Pruebe nuevas compilaciones, practique su división de trabajadores, mejore su micro."
+                "playerProfilesDescription": "Compruebe sus habilidades en diferentes enfrentamientos y mapas, encuentre formas de mejorar y vea cómo se compara con la competencia."
             },
             "comingSoonTitle": "En la tubería <1>(próximamente)</1>",
             "features": {
-                "fixesBugsExploitsDescription": "Evita los hacks y exploits que plagan los servidores oficiales. Cosas como la duplicación de trabajadores, la piratería de minerales y los trabajadores flotantes permanentes son cosa del pasado aquí.",
                 "improvedNetcodeDescription": "¡Menos retraso, caídas y pérdida de paquetes!",
-                "rankedladderDescription": "Perfeccione sus habilidades en nuestro sistema de clasificación basado en Glicko para todos los modos de emparejamiento.",
-                "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!",
-                "improvedNetcodeTitle": "código de red mejorado"
+                "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!"
             },
-            "gameCount": "<0></0> juegos jugados",
-            "featuresTitle": "Características"
+            "gameCount": "<0></0> juegos jugados"
         },
         "bottomLinks": {
             "privacyPolicy": "política de privacidad",
@@ -867,7 +857,6 @@
         "leftNav": {
             "chatChannels": "Canales de chat",
             "customGame": "Juego personalizado",
-            "loadingGame": "Cargando…",
             "logOut": "Cerrar sesión",
             "rankedGame": "Clasificado {{matchmakingType}}",
             "viewChangelog": "Ver registro de cambios",

@@ -351,26 +351,16 @@
         },
         "splash": {
             "comingSoon": {
-                "liveStreamingTitle": "실시간 매치 스트리밍",
                 "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 일꾼 시작 위치, 고급 크립 배치 등!",
-                "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
                 "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요.",
-                "sandboxModeDescription": "새 빌드를 테스트하고, 일꾼 나누기 연습을 하고, 컨트롤을 연습하십시오.",
                 "3v3Title": "3v3 매치메이킹"
-            },
-            "benefits": {
-                "fullPotentialTitle": "전체 잠재력 잠금 해제"
             },
             "features": {
                 "rankedLadderTitle": "래더 순위",
-                "fixesBugsExploitsTitle": "버그 및 핵에 대한 수정",
                 "improvedNetcodeTitle": "향상된 넷코드",
-                "matchmakingTitle": "1v1 및 2v2 매치메이킹",
-                "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다.",
-                "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요."
+                "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다."
             },
-            "featuresTitle": "기능",
-            "tagline": "최고의 커뮤니티 운영 플랫폼에서 스타크래프트 1을 플레이하세요"
+            "featuresTitle": "기능"
         }
     },
     "clientDownload": {
@@ -899,7 +889,6 @@
         "leftNav": {
             "chatChannels": "채팅 채널",
             "customGame": "커스텀 게임",
-            "lobby": "로비",
             "logOut": "로그 아웃",
             "rankedGame": "순위 {{matchmakingType}}",
             "viewChangelog": "변경 로그 보기",
