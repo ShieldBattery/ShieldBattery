@@ -223,6 +223,13 @@ export default [
               message: 'Use ./common/ipc instead.',
             },
           ],
+          patterns: [
+            {
+              group: ['motion/react'],
+              importNames: ['motion'],
+              message: "Use m instead: import * as m from 'motion/react-m'",
+            },
+          ],
         },
       ],
       'no-return-assign': 'error',

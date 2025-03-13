@@ -1,7 +1,8 @@
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useIsLoggedIn } from '../auth/auth-utils'
@@ -12,7 +13,6 @@ import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { IconButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
-import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
@@ -64,24 +64,13 @@ export function ConnectedSettings() {
     dispatch(closeSettings())
   })
 
-  const settingsTransition = useTransition<boolean, UseTransitionProps<boolean>>(isOpen, {
-    from: { opacity: 0 },
-    enter: { opacity: 1 },
-    leave: { opacity: 0 },
-    config: {
-      ...defaultSpring,
-      clamp: true,
-    },
-  })
-
   return ReactDOM.createPortal(
-    settingsTransition((style, isOpen) =>
-      isOpen ? (
+    <AnimatePresence>
+      {isOpen && (
         <KeyListenerBoundary>
           <FocusTrap focusableRef={focusableRef}>
             <span ref={focusableRef} tabIndex={-1}>
               <Settings
-                style={style}
                 subPage={subPage}
                 isStarcraftHealthy={checkIsStarcraftHealthy({ starcraft })}
                 onChangeSubPage={onChangeSubPage}
@@ -90,13 +79,13 @@ export function ConnectedSettings() {
             </span>
           </FocusTrap>
         </KeyListenerBoundary>
-      ) : undefined,
-    ),
+      )}
+    </AnimatePresence>,
     portalRef.current,
   )
 }
 
-const Container = styled(animated.div)`
+const Container = styled(m.div)`
   position: absolute;
   top: var(--sb-system-bar-height, 0);
   left: 0;
@@ -138,14 +127,17 @@ const NavSectionSeparator = styled.div`
   background-color: var(--theme-outline-variant);
 `
 
+const variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+}
+
 function Settings({
-  style,
   subPage,
   isStarcraftHealthy,
   onChangeSubPage,
   onCloseSettings,
 }: {
-  style: React.CSSProperties
   subPage: SettingsSubPage
   isStarcraftHealthy: boolean
   onChangeSubPage: (subPage: SettingsSubPage) => void
@@ -182,7 +174,13 @@ function Settings({
   }
 
   return (
-    <Container style={style}>
+    <Container
+      key='settings'
+      variants={variants}
+      initial='hidden'
+      animate='visible'
+      exit='hidden'
+      transition={{ type: 'spring', visualDuration: 0.2, bounce: 0 }}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
         {(isLoggedIn ? [UserSettingsSubPage.Account] : []).map(getNavEntriesMapper())}
