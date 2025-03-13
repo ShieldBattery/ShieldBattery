@@ -247,12 +247,8 @@
             "termsOfService": "服务条款"
         },
         "splash": {
-            "comingSoon": {
-                "automatedTournamentsTitle": "自动化锦标赛与联赛"
-            },
             "features": {
-                "rankedLadderTitle": "天梯排位",
-                "remasteredSupportTitle": "支持重制版"
+                "rankedLadderTitle": "天梯排位"
             }
         }
     },

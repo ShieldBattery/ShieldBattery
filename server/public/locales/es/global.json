@@ -349,13 +349,7 @@
             "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
         },
         "splash": {
-            "comingSoon": {
-                "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!"
-            },
-            "comingSoonTitle": "En la tubería <1>(próximamente)</1>",
-            "features": {
-                "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!"
-            }
+            "comingSoonTitle": "En la tubería <1>(próximamente)</1>"
         },
         "bottomLinks": {
             "privacyPolicy": "política de privacidad",

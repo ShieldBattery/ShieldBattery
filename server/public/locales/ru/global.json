@@ -226,12 +226,8 @@
     },
     "landing": {
         "splash": {
-            "features": {
-                "improvedNetcodeTitle": "Улучшенный сетевой код"
-            },
             "comingSoon": {
-                "automatedTournamentsTitle": "Автоматизированные турниры и лиги",
-                "expandedChatDescription": "Выражайте себя с помощью эмоций, встраивайте карты, матчи, повторы и многое другое!"
+                "automatedTournamentsTitle": "Автоматизированные турниры и лиги"
             }
         },
         "faq": {

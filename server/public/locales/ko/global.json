@@ -350,12 +350,8 @@
             "termsOfService": "서비스 약관"
         },
         "splash": {
-            "comingSoon": {
-                "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요."
-            },
             "features": {
-                "rankedLadderTitle": "래더 순위",
-                "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다."
+                "rankedLadderTitle": "래더 순위"
             }
         }
     },

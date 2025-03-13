@@ -327,12 +327,8 @@
     },
     "landing": {
         "splash": {
-            "features": {
-                "improvedNetcodeDescription": "$🗡Less lag, drops, and packet loss!🗡!"
-            },
             "comingSoon": {
-                "automatedTournamentsDescription": "$🗡Find tournaments and leagues that match your skill level, run automatically.🗡!",
-                "umsPortalDescription": "$🗡Find and explore UMS maps with ease, then quickly gather players and get the game started.🗡!"
+                "automatedTournamentsDescription": "$🗡Find tournaments and leagues that match your skill level, run automatically.🗡!"
             }
         },
         "bottomLinks": {
