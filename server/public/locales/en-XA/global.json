@@ -32,7 +32,8 @@
             "test": "$🗡Test🗡!",
             "edit": "$🗡Edit🗡!",
             "reveal": "$🗡Reveal🗡!",
-            "submit": "$🗡Submit🗡!"
+            "submit": "$🗡Submit🗡!",
+            "close": "$🗡Close🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -358,7 +359,9 @@
         "supportProjectText": "$🗡Want to support the project?🗡!",
         "watchReplays": "$🗡Watch replays🗡!",
         "blurb": "$🗡Download the ShieldBattery client to:🗡!",
-        "playGames": "$🗡Play games🗡!"
+        "playGames": "$🗡Play games🗡!",
+        "download": "$🗡Download🗡!",
+        "onlyInApp": "$🗡This feature is only available in the app.🗡!"
     },
     "clientUpdate": {
         "overlay": {
@@ -446,7 +449,8 @@
                 "dialogTitle": "$🗡Error searching for a match🗡!",
                 "loadingRank": "$🗡There was a problem loading your current rank.🗡!",
                 "somethingWentWrong": "$🗡Something went wrong :(🗡!",
-                "matchmakingDisabled": "$🗡Matchmaking is currently disabled🗡!"
+                "matchmakingDisabled": "$🗡Matchmaking is currently disabled🗡!",
+                "searchAgainError": "$🗡There was a problem searching for a match🗡!"
             },
             "mapPool": "$🗡Map pool🗡!",
             "points": "$🗡Points🗡!",
@@ -486,6 +490,9 @@
         },
         "searchingOverlay": {
             "cancelSearch": "$🗡Cancel search🗡!"
+        },
+        "activity": {
+            "title": "$🗡Matchmaking🗡!"
         }
     },
     "chat": {
@@ -552,7 +559,8 @@
             "noMatchingChannels": "$🗡No matching chat channels.🗡!",
             "pageHeadline": "$🗡Chat channels🗡!",
             "retrievingError": "$🗡There was an error retrieving the chat channels.🗡!",
-            "createChannel": "$🗡Create channel🗡!"
+            "createChannel": "$🗡Create channel🗡!",
+            "browseChannels": "$🗡Browse channels🗡!"
         },
         "channelName": {
             "deletedChannel": "$🗡deleted-channel🗡!"
@@ -591,6 +599,9 @@
                 "saveErrorMessage": "$🗡Something went wrong while saving the settings🗡!",
                 "inappropriateImageErrorMessage": "$🗡The selected image is inappropriate. Please select a different image.🗡!"
             }
+        },
+        "whispers": {
+            "startWhisperButton": "$🗡Start a whisper🗡!"
         }
     },
     "fileBrowser": {
@@ -788,7 +799,10 @@
                     "small": "$🗡Small🗡!"
                 },
                 "title": "$🗡Thumbnail size🗡!"
-            }
+            },
+            "uploadedMap": "$🗡Uploaded map🗡!",
+            "favoritedMaps": "$🗡Favorited maps🗡!",
+            "regenerated": "$🗡Images regenerated🗡!"
         },
         "thumbnail": {
             "addToFavorites": "$🗡Add to favorites🗡!",
@@ -846,6 +860,14 @@
             "whispers": "$🗡Whispers🗡!",
             "viewChangelog": "$🗡View changelog🗡!",
             "reportBug": "$🗡Report a bug🗡!"
+        },
+        "bar": {
+            "social": "$🗡Toggle social (ALT + H)🗡!",
+            "userMenu": "$🗡User menu🗡!",
+            "play": "$🗡Play🗡!",
+            "appMenu": "$🗡Menu🗡!",
+            "home": "$🗡Home🗡!",
+            "playIngame": "$🗡Game in progress🗡!"
         }
     },
     "notifications": {
@@ -854,7 +876,8 @@
             "unread": "$🗡Notifications - unread (Alt + N)🗡!"
         },
         "errors": {
-            "markRead": "$🗡An error occurred while marking a notification read🗡!"
+            "markRead": "$🗡An error occurred while marking a notification read🗡!",
+            "clear": "$🗡An error occurred while clearing notifications🗡!"
         },
         "list": {
             "title": "$🗡Notifications🗡!"
@@ -1061,7 +1084,7 @@
             "started": "$🗡This lobby has already started and cannot be joined.🗡!"
         },
         "activity": {
-            "title": "$🗡Lobbies🗡!"
+            "title": "$🗡Lobbies ({{lobbyCount}})🗡!"
         }
     },
     "leagues": {
@@ -1135,5 +1158,18 @@
         "logUploadDescription": "$🗡Your bug report will include ShieldBattery logs from your machine to help diagnose the issue. Logs may be kept for up to 30 days and are viewable only by ShieldBattery staff.🗡!",
         "reportSubmitted": "$🗡Bug report submitted.🗡!",
         "title": "$🗡Report a bug🗡!"
+    },
+    "games": {
+        "activity": {
+            "title": "$🗡Games🗡!"
+        }
+    },
+    "social": {
+        "friends": {
+            "label": "$🗡Friends ({{friendCount}})🗡!"
+        },
+        "chat": {
+            "label": "$🗡Chat🗡!"
+        }
     }
 }
