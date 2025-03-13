@@ -34,7 +34,8 @@
             "test": "Prueba",
             "edit": "Editar",
             "reveal": "Revelar",
-            "submit": "Entregar"
+            "submit": "Entregar",
+            "close": "Cerca"
         },
         "lists": {
             "empty": "Nada que ver aqui"
@@ -387,7 +388,9 @@
         "downloadClient": "Descargar cliente",
         "playGames": "Jugar juegos",
         "supportProjectText": "¿Quieres apoyar el proyecto?",
-        "watchReplays": "Ver repeticiones"
+        "watchReplays": "Ver repeticiones",
+        "download": "Descargar",
+        "onlyInApp": "Esta función solo está disponible en la aplicación."
     },
     "comingSoon": {
         "subtitle": "Ayude a financiar el desarrollo de ShieldBattery",
@@ -438,7 +441,8 @@
                 "dialogTitle": "Error al buscar una coincidencia",
                 "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
-                "somethingWentWrong": "Algo salió mal :("
+                "somethingWentWrong": "Algo salió mal :(",
+                "searchAgainError": "Hubo un problema al buscar una coincidencia."
             },
             "mapPool": "Grupo de mapas",
             "points": "Puntos",
@@ -479,6 +483,9 @@
         },
         "searchingOverlay": {
             "cancelSearch": "Cancelar búsqueda"
+        },
+        "activity": {
+            "title": "Casamentero"
         }
     },
     "clientUpdate": {
@@ -512,7 +519,8 @@
             "createChannel": "Crear canal",
             "noMatchingChannels": "No hay canales de chat coincidentes.",
             "pageHeadline": "Canales de chat",
-            "retrievingError": "Hubo un error al recuperar los canales de chat."
+            "retrievingError": "Hubo un error al recuperar los canales de chat.",
+            "browseChannels": "Explorar canales"
         },
         "channelMenu": {
             "kickingError": "Error al patear {{user.name}}",
@@ -596,6 +604,9 @@
                 "saveErrorMessage": "Algo salió mal al guardar la configuración.",
                 "inappropriateImageErrorMessage": "La imagen seleccionada es inapropiada. Seleccione una imagen diferente."
             }
+        },
+        "whispers": {
+            "startWhisperButton": "Iniciar un susurro"
         }
     },
     "fileBrowser": {
@@ -793,7 +804,10 @@
                     "tileset": "Conjunto de fichas"
                 },
                 "title": "Opciones de filtro"
-            }
+            },
+            "favoritedMaps": "Mapas favoritos",
+            "regenerated": "Imágenes regeneradas",
+            "uploadedMap": "Mapa subido"
         },
         "thumbnail": {
             "addToFavorites": "Agregar a los favoritos",
@@ -851,6 +865,14 @@
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "susurros",
             "reportBug": "Reportar un error"
+        },
+        "bar": {
+            "playIngame": "Juego en progreso",
+            "home": "Hogar",
+            "play": "Jugar",
+            "social": "Activar o desactivar redes sociales (ALT + H)",
+            "userMenu": "Menú de usuario",
+            "appMenu": "Menú"
         }
     },
     "notifications": {
@@ -859,7 +881,8 @@
             "unread": "Notificaciones - no leídas (Alt + N)"
         },
         "errors": {
-            "markRead": "Ocurrió un error al marcar una notificación como leída"
+            "markRead": "Ocurrió un error al marcar una notificación como leída",
+            "clear": "Se produjo un error al borrar las notificaciones"
         },
         "list": {
             "title": "Notificaciones"
@@ -1141,5 +1164,18 @@
         "logUploadDescription": "Su informe de error incluirá registros de ShieldBattery de su máquina para ayudar a diagnosticar el problema. Los registros se pueden conservar hasta por 30 días y solo el personal de ShieldBattery puede verlos.",
         "reportSubmitted": "Informe de error enviado.",
         "title": "Reportar un error"
+    },
+    "social": {
+        "chat": {
+            "label": "Charlar"
+        },
+        "friends": {
+            "label": "Amigos ({{friendCount}})"
+        }
+    },
+    "games": {
+        "activity": {
+            "title": "Juegos"
+        }
     }
 }
