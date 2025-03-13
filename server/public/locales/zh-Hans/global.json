@@ -245,11 +245,6 @@
             "acceptableUsePolicy": "可接受的使用政策",
             "privacyPolicy": "隐私政策",
             "termsOfService": "服务条款"
-        },
-        "splash": {
-            "features": {
-                "rankedLadderTitle": "天梯排位"
-            }
         }
     },
     "auth": {

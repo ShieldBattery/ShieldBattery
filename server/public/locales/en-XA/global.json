@@ -326,11 +326,6 @@
         }
     },
     "landing": {
-        "splash": {
-            "comingSoon": {
-                "automatedTournamentsDescription": "$🗡Find tournaments and leagues that match your skill level, run automatically.🗡!"
-            }
-        },
         "bottomLinks": {
             "acceptableUsePolicy": "$🗡Acceptable Use Policy🗡!",
             "privacyPolicy": "$🗡Privacy Policy🗡!",
