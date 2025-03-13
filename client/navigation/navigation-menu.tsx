@@ -29,16 +29,17 @@ const Root = styled.div`
 
   background-color: var(--theme-container-low);
   border-radius: 0 12px 12px 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  contain: content;
+  overflow: hidden;
+`
 
-  & > *:first-child {
-    margin-top: 24px;
-  }
+// NOTE(tec27): This exists to allow the scrollbar to be clipped by the rounded corners
+const ScrollableContent = styled.div`
+  width: 100%;
+  height: 100%;
+  padding-block: 24px;
 
-  & > *:last-child {
-    margin-bottom: 24px;
-  }
+  overflow: auto;
 `
 
 export type NavigationOpenState = Tagged<boolean, 'NavigationOpenState'>
@@ -94,8 +95,10 @@ export function NavigationMenuOverlay({
       <Scrim onClick={onScrimClick} />
       <FocusTrap focusableRef={focusableRef ?? internalFocusableRef}>
         <Root className={className}>
-          {focusableRef ? null : <span ref={internalFocusableRef} tabIndex={-1} />}
-          {children}
+          <ScrollableContent>
+            {focusableRef ? null : <span ref={internalFocusableRef} tabIndex={-1} />}
+            {children}
+          </ScrollableContent>
         </Root>
       </FocusTrap>
     </>
