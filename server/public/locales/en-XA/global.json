@@ -8,7 +8,6 @@
             "minLength_other": "$🗡Enter at least {{count}} characters🗡!"
         },
         "actions": {
-            "back": "$🗡Back🗡!",
             "cancel": "$🗡Cancel🗡!",
             "continue": "$🗡Continue🗡!",
             "save": "$🗡Save🗡!",
@@ -19,7 +18,6 @@
             "refresh": "$🗡Refresh🗡!",
             "search": "$🗡Search🗡!",
             "show": "$🗡Show🗡!",
-            "download": "$🗡Download🗡!",
             "apply": "$🗡Apply🗡!",
             "remove": "$🗡Remove🗡!",
             "next": "$🗡Next🗡!",
@@ -329,77 +327,45 @@
     },
     "landing": {
         "topLinks": {
-            "faq": "$🗡FAQ🗡!",
-            "home": "$🗡Home🗡!",
-            "login": "$🗡Log in🗡!"
+            "home": "$🗡Home🗡!"
         },
         "splash": {
             "features": {
                 "teamMeleeReplaysDescription": "$🗡Play back any games played in Team Melee mode on ShieldBattery!🗡!",
-                "rankedladderDescription": "$🗡Hone your skills in our Glicko-based ranking system for all matchmaking modes.🗡!",
                 "rankedLadderTitle": "$🗡Ranked ladder🗡!",
-                "remasteredSupportDescription": "$🗡Support for all the new Remastered features, including HD graphics (if purchased from Blizzard) and custom hotkeys.🗡!",
                 "remasteredSupportTitle": "$🗡StarCraft: Remastered support🗡!",
-                "teamMeleeReplaysTitle": "$🗡Working Team Melee replays🗡!",
                 "webClientDescription": "$🗡Keep up with your friends (and enemies) without needing to install anything.🗡!",
-                "webClientTitle": "$🗡Web-based chat client🗡!",
                 "cloudHostingTitle": "$🗡Cloud-based map distribution and hosting🗡!",
-                "fixesBugsExploitsTitle": "$🗡Fixes for bugs and exploits🗡!",
                 "friendsListDescription": "$🗡Track when your friends are online, easily send them messages and invite them to games.🗡!",
-                "friendsListTitle": "$🗡Friends list🗡!",
                 "improvedNetcodeDescription": "$🗡Less lag, drops, and packet loss!🗡!",
-                "improvedNetcodeTitle": "$🗡Improved netcode🗡!",
                 "leaguesDescription": "$🗡Participate in exciting limited-time leagues organized by the community and facilitated by automated matchmaking.🗡!",
-                "leaguesTitle": "$🗡Open Leagues🗡!",
                 "matchmakingDescription": "$🗡Find matches quickly and easily, by yourself or with an arranged team.🗡!",
-                "matchmakingTitle": "$🗡1v1 and 2v2 Matchmaking🗡!",
                 "partiesTitle": "$🗡Parties🗡!",
-                "cloudHostingDescription": "$🗡Play on any of the maps in our official library, or upload your own. Upload all your favorite maps, share them with your friends, host them from anywhere.🗡!",
-                "fixesBugsExploitsDescription": "$🗡Avoid the hacks and exploits that plague the official servers. Things like worker duplication, mineral hacks, and permanently floating workers are a thing of the past here.🗡!",
-                "partiesDescription": "$🗡Party up with your friends to easily host private matches, watch replays together, or join matchmaking.🗡!"
+                "fixesBugsExploitsDescription": "$🗡Avoid the hacks and exploits that plague the official servers. Things like worker duplication, mineral hacks, and permanently floating workers are a thing of the past here.🗡!"
             },
             "featuresTitle": "$🗡Features🗡!",
-            "gameCount": "$🗡<0></0> games played🗡!",
             "linksHeader": "$🗡Links🗡!",
-            "signUp": "$🗡Sign Up🗡!",
             "comingSoon": {
                 "3v3Description": "$🗡Easily find games for 3v3, with arranged or random teams.🗡!",
-                "3v3Title": "$🗡3v3 matchmaking🗡!",
                 "automatedTournamentsDescription": "$🗡Find tournaments and leagues that match your skill level, run automatically.🗡!",
-                "automatedTournamentsTitle": "$🗡Automated tournaments and leagues🗡!",
                 "builtInMapmakingDescription": "$🗡Destructible rocks, ideal worker starting positions, advanced creep placement, and more!🗡!",
-                "builtInMapmakingTitle": "$🗡New built-in mapmaking features🗡!",
                 "cloudReplaysDescription": "$🗡Automatic uploading for replays. Share them with others, watch them from anywhere!🗡!",
-                "expandedChatTitle": "$🗡Expanded chat features🗡!",
                 "fpReplaysDescription": "$🗡Record mouse and screen movements and play them back for all players.🗡!",
-                "fpReplaysTitle": "$🗡First person replays🗡!",
                 "liveStreamingDescription": "$🗡Jump into in-progress matches and watch them live, with all the benefits of ingame observing.🗡!",
-                "liveStreamingTitle": "$🗡Live match streaming🗡!",
                 "pixelScalingDescription": "$🗡Improve the look of SD graphics on modern screens with custom scaling algorithms🗡!",
-                "pixelScalingTitle": "$🗡Configurable pixel scaling🗡!",
                 "playerProfilesTitle": "$🗡Player profiles and statistics🗡!",
-                "replayAnalysisTitle": "$🗡Replay analysis🗡!",
                 "sandboxModeDescription": "$🗡Test out new builds, practice your worker split, improve your micro.🗡!",
-                "sandboxModeTitle": "$🗡Training/sandbox mode🗡!",
                 "umsPortalDescription": "$🗡Find and explore UMS maps with ease, then quickly gather players and get the game started.🗡!",
-                "umsPortalTitle": "$🗡Use Map Settings portal🗡!",
                 "cloudReplaysTitle": "$🗡Cloud-synced replays🗡!",
-                "expandedChatDescription": "$🗡Express yourself using emotes, embed maps, matches, and replays, and more!🗡!",
-                "playerProfilesDescription": "$🗡Check out your skills across different matchups and maps, find ways to improve, and see how you stack up against the competition.🗡!",
-                "replayAnalysisDescription": "$🗡Built-in support for BWChart-like replay analysis, as well as more advanced statistics and charting.🗡!"
+                "playerProfilesDescription": "$🗡Check out your skills across different matchups and maps, find ways to improve, and see how you stack up against the competition.🗡!"
             },
             "comingSoonTitle": "$🗡In the pipe <1>(coming soon)</1>🗡!",
             "benefits": {
-                "communityFirstText": "$🗡ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you've been playing since 1998 or just picked up the game this week, you'll find a home here.🗡!",
                 "communityFirstTitle": "$🗡Community first🗡!",
-                "fullPotentialTitle": "$🗡Full potential unlocked🗡!",
                 "tacticallyFaithfulText": "$🗡Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We're keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.🗡!",
-                "tacticallyFaithfulTitle": "$🗡Tactically faithful🗡!",
                 "fullPotentialText": "$🗡StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.🗡!"
             },
-            "tagline": "$🗡Play StarCraft 1 on the premier community-run platform🗡!",
-            "blurb": "$🗡ShieldBattery is the first community-run server that supports <2>StarCraft: Remastered.</2> Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!🗡!",
-            "disclaimerText": "$🗡StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.🗡!"
+            "blurb": "$🗡ShieldBattery is the first community-run server that supports <2>StarCraft: Remastered.</2> Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!🗡!"
         },
         "bottomLinks": {
             "acceptableUsePolicy": "$🗡Acceptable Use Policy🗡!",
@@ -433,8 +399,7 @@
         "supportProjectText": "$🗡Want to support the project?🗡!",
         "watchReplays": "$🗡Watch replays🗡!",
         "blurb": "$🗡Download the ShieldBattery client to:🗡!",
-        "playGames": "$🗡Play games🗡!",
-        "exploreMaps": "$🗡Explore maps🗡!"
+        "playGames": "$🗡Play games🗡!"
     },
     "clientUpdate": {
         "overlay": {
@@ -549,10 +514,8 @@
             "playerVsPlayer": "$🗡vs🗡!"
         },
         "navEntry": {
-            "cancelSearch": "$🗡Cancel search🗡!",
             "elapsedTime": "$🗡Time: 🗡! ",
-            "matchFound": "$🗡Match found!🗡!",
-            "searchingForMatch": "$🗡Searching for {{matchmakingType}}🗡!"
+            "matchFound": "$🗡Match found!🗡!"
         },
         "postMatchDialog": {
             "leagues": "$🗡Leagues🗡!",
@@ -567,7 +530,6 @@
             "cancelSearch": "$🗡Cancel search🗡!"
         },
         "activity": {
-            "finding": "$🗡Finding…🗡!",
             "findMatch": "$🗡Find match🗡!"
         }
     },
@@ -757,9 +719,6 @@
         "newDayMessage": "$🗡Day changed to <2>{{day}}</2>🗡!",
         "sendMessage": "$🗡Send a message🗡!"
     },
-    "network": {
-        "connecting": "$🗡Connecting…🗡!"
-    },
     "policy": {
         "acceptableUse": "$🗡Acceptable use🗡!",
         "policyUpdateNotification": "$🗡ShieldBattery's <2>{{label}}</2> has been updated.🗡!",
@@ -781,7 +740,6 @@
         "activity": {
             "title": "$🗡Replays🗡!"
         },
-        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!",
         "loading": {
             "dialogTitle": "$🗡Loading replay…🗡!",
             "errorGeneric": "$🗡Something went wrong while loading the replay.🗡!",
@@ -926,20 +884,14 @@
         "leftNav": {
             "chatChannels": "$🗡Chat channels🗡!",
             "customGame": "$🗡Custom game🗡!",
-            "gameInProgress": "$🗡Game in progress…🗡!",
             "joinChannel": "$🗡Join a channel (Alt + H)🗡!",
-            "loadingChannel": "$🗡Loading…🗡!",
             "lobby": "$🗡Lobby🗡!",
-            "logIn": "$🗡Log in🗡!",
             "logOut": "$🗡Log out🗡!",
             "rankedGame": "$🗡Ranked {{matchmakingType}}🗡!",
-            "startWhisper": "$🗡Start a whisper (Alt + W)🗡!",
             "viewProfile": "$🗡View profile🗡!",
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
-            "loadingGame": "$🗡Loading…🗡!",
             "viewChangelog": "$🗡View changelog🗡!",
-            "home": "$🗡Home🗡!",
             "reportBug": "$🗡Report a bug🗡!"
         }
     },
@@ -1048,8 +1000,7 @@
             "title": {
                 "addFriends": "$🗡Add friends🗡!",
                 "friends": "$🗡Friends🗡!"
-            },
-            "tooltip": "$🗡Friends (Alt + E)🗡!"
+            }
         },
         "profile": {
             "achievements": "$🗡Achievements🗡!",

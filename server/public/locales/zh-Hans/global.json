@@ -6,13 +6,11 @@
             "minLength_other": "不能输入少于 {{count}} 个字符"
         },
         "actions": {
-            "back": "后退",
             "cancel": "取消",
             "continue": "继续",
             "okay": "好的",
             "save": "保存",
             "clear": "清除",
-            "download": "下载",
             "hide": "隐藏",
             "join": "加入",
             "next": "下一个",
@@ -224,9 +222,7 @@
     },
     "landing": {
         "topLinks": {
-            "home": "返回首页",
-            "login": "登录",
-            "faq": "常见问题"
+            "login": "登录"
         },
         "faq": {
             "linuxSupportAnswer": "<0>目前我们尚未对此提供官方支持，</0><1>但有社区用户提供了ShieldBattery与Wine的整合包。请访问我们的<2>Discord</2>，了解如何在Wine上运行ShieldBattery。</1>",
@@ -255,70 +251,40 @@
         },
         "splash": {
             "benefits": {
-                "tacticallyFaithfulText": "本项目开发组在《星际争霸》中摸爬滚打数十年，我们知道游戏的魅力所在。我们在关键之处保留了原汁原味的体验，同时用全新的功能和改进让您的游戏体验更上一层。",
                 "communityFirstText": "ShieldBattery是属于所有《星际争霸》玩家与观众的活动中心。聊天界面显眼易用，轻松就可开始游玩，您的游戏体验是我们的第一事项。无论您是1998年还是这周刚刚开始玩星际，这里都是您的家。",
-                "communityFirstTitle": "社区第一",
                 "fullPotentialText": "《星际争霸》作为电子竞技拥有辉煌的历史，而ShieldBattery将为您提供配得上这款伟大游戏的竞技与观战体验。ShieldBattery是社区驱动的开源项目，旨在为玩家提供最新最尖端的功能和游戏乐趣。这是《星际争霸》玩家社区掀起的一场革命。",
-                "fullPotentialTitle": "释放全部潜力",
                 "tacticallyFaithfulTitle": "忠于原作"
             },
             "comingSoon": {
-                "builtInMapmakingTitle": "地图制作新功能",
                 "3v3Title": "3v3匹配",
-                "playerProfilesDescription": "了解您在不同对抗和地图上的水平，找到改进的方法，并直观地看出您的水平和其他人的对比。",
                 "playerProfilesTitle": "玩家档案和统计数据",
-                "replayAnalysisDescription": "内置类似BWChart的录像分析功能，还有更高级的统计和图表。",
                 "replayAnalysisTitle": "录像分析",
-                "sandboxModeDescription": "测试新的开局，练习分农民和微操技巧。",
                 "3v3Description": "轻松匹配3v3，无论是固定队伍还是随机队伍。",
-                "automatedTournamentsDescription": "锦标赛和联赛自动运行，总有一款适合您的技术水平。",
                 "automatedTournamentsTitle": "自动化锦标赛与联赛",
-                "builtInMapmakingDescription": "可破坏的岩石、农民起始位置优化、菌毯布置优化，还有更多！",
                 "cloudReplaysDescription": "游戏录像自动上传，随时随地观看、分享！",
-                "cloudReplaysTitle": "云端录像",
                 "expandedChatDescription": "使用表情、嵌入地图、比赛和录像尽情表达自己！",
-                "expandedChatTitle": "聊天功能强化",
                 "fpReplaysDescription": "所有玩家鼠标和屏幕的移动都会被记录，可以进行回放。",
-                "fpReplaysTitle": "第一视角录像",
                 "liveStreamingDescription": "随时加入正在进行的比赛实时观战，享受游戏内观战的所有功能。",
-                "liveStreamingTitle": "比赛直播",
                 "pixelScalingDescription": "使用自定义缩放算法，改善现代显示屏上旧版图像的显示",
-                "pixelScalingTitle": "可设置的像素缩放",
                 "sandboxModeTitle": "训练/沙盒模式",
-                "umsPortalDescription": "轻松查找和探索RPG地图，然后快速聚集玩家并开始游戏。",
                 "umsPortalTitle": "RPG门户"
             },
             "features": {
-                "cloudHostingTitle": "基于云的地图分发和托管",
                 "rankedLadderTitle": "天梯排位",
-                "remasteredSupportDescription": "支持所有《重制版》中新增的功能，包括高清图像（需要从暴雪官方渠道购买）和自定义热键。",
                 "cloudHostingDescription": "游玩官方地图库中的任何地图，或上传您自己的地图。您可以上传您喜爱的地图，与您的朋友分享，在其他电脑上也可以随时用它们建立游戏。",
-                "fixesBugsExploitsDescription": "跟官方服务器上的外挂和恶性bug说再见吧。复制农民、刷钱外挂和永久叠农民在这里统统不存在。",
                 "fixesBugsExploitsTitle": "修复错误和恶性bug",
-                "friendsListDescription": "跟踪您好友的在线状况，轻松向他们发送消息并邀请他们参加游戏。",
                 "friendsListTitle": "好友列表",
-                "improvedNetcodeDescription": "延迟、掉线、丢包问题均有大幅改善！",
                 "improvedNetcodeTitle": "网络代码改进",
-                "leaguesDescription": "在社区组织的限时联赛中大展身手，自动匹配功能则使举办赛事更加便利。",
                 "leaguesTitle": "公开联赛",
-                "matchmakingDescription": "无论是自己单排还是和好友组队，都可以轻松而迅速地找到对手。",
                 "matchmakingTitle": "1v1与2v2自动匹配",
-                "partiesDescription": "与好友们一起举办私人比赛、观看录像或组队匹配。",
                 "partiesTitle": "组队",
-                "rankedladderDescription": "我们在所有匹配模式中都应用了基于Glicko排名系统，让您直观地看出自己的进步。",
                 "remasteredSupportTitle": "支持重制版",
-                "teamMeleeReplaysDescription": "队伍对战模式下的录像在ShieldBattery上能够正常播放！",
                 "teamMeleeReplaysTitle": "队伍对战录像",
-                "webClientDescription": "无需安装任何程序即可与您的朋友（和敌人）保持联系。",
                 "webClientTitle": "网页版聊天客户端"
             },
-            "blurb": "ShieldBattery是全球首个支持<2>星际争霸：重制版</2>的社区服务器。我们使用自定义启动器对游戏客户端进行增强，保留核心玩法不变的同时让您享受更好的星际争霸1体验。下载我们的启动器，只需点击几下即可开始畅玩！",
             "comingSoonTitle": "尚未问世<1>（即将推出）</1>",
-            "disclaimerText": "《星际争霸》是Blizzard Entertainment, Inc. 的注册商标。ShieldBattery仅由社区成员开发，与Blizzard无关，并且未得到Blizzard的正式认可或支持。",
             "featuresTitle": "我们的优势",
-            "gameCount": "已进行<0></0> 场游戏",
             "linksHeader": "链接",
-            "signUp": "注册",
             "tagline": "在最先进的社区运营平台上畅玩《星际争霸1》"
         }
     },
@@ -429,7 +395,6 @@
         "andMore": "还有更多！",
         "blurb": "将ShieldBattery客户端下载到：",
         "downloadClient": "下载客户端",
-        "exploreMaps": "探索地图",
         "playGames": "畅玩游戏",
         "supportProjectText": "愿意支持我们的项目吗？",
         "watchReplays": "观看录像"
@@ -495,7 +460,6 @@
             "returningToQueue": "部分玩家没有及时准备好或加载失败。正在返回匹配队列……"
         },
         "activity": {
-            "finding": "正在寻找对手…",
             "findMatch": "寻找对手"
         },
         "disabledCard": {
@@ -558,10 +522,8 @@
             "playerVsPlayer": "对"
         },
         "navEntry": {
-            "cancelSearch": "取消匹配",
             "elapsedTime": "时间： ",
-            "matchFound": "匹配成功！",
-            "searchingForMatch": "正在搜索{{matchmakingType}}"
+            "matchFound": "匹配成功！"
         },
         "searchingOverlay": {
             "cancelSearch": "取消匹配"
@@ -893,21 +855,15 @@
     "navigation": {
         "leftNav": {
             "customGame": "自定义游戏",
-            "gameInProgress": "游戏进行中……",
             "whispers": "私聊",
             "chatChannels": "聊天频道",
-            "joinChannel": "加入频道（Alt + H）",
             "loadingChannel": "加载中…",
-            "loadingGame": "加载中…",
             "lobby": "房间",
-            "logIn": "登录",
             "logOut": "登出",
             "rankedGame": "{{matchmakingType}}排位",
-            "startWhisper": "开始私聊 (Alt + W)",
             "viewChangelog": "查看更新日志",
             "viewProfile": "查看资料",
             "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
-            "home": "首页",
             "reportBug": "报告错误"
         },
         "copyLink": {
@@ -920,9 +876,6 @@
             "openLink": "打开链接",
             "title": "外部链接"
         }
-    },
-    "network": {
-        "connecting": "正在连接…"
     },
     "notifications": {
         "popup": {
@@ -960,7 +913,6 @@
             "title": "本地录像",
             "watchReplay": "观看录像"
         },
-        "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。",
         "loading": {
             "dialogTitle": "正在加载录像…",
             "errorGeneric": "加载录像时遇到问题。",
@@ -1083,7 +1035,6 @@
                 "addFriends": "添加好友",
                 "friends": "好友"
             },
-            "tooltip": "好友（Alt + E）",
             "receivedFriendRequest": "<0>{{user}}</0>向您发送了好友请求。"
         },
         "profile": {

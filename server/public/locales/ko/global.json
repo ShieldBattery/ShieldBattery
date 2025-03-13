@@ -6,7 +6,6 @@
             "minLength_other": "최소 {{count}}자 이상 입력하세요"
         },
         "actions": {
-            "back": "뒤로가기",
             "cancel": "취소",
             "continue": "계속",
             "okay": "OK",
@@ -24,7 +23,6 @@
             "search": "찾기",
             "accept": "수락",
             "decline": "감소",
-            "download": "다운로드",
             "hide": "숨기기",
             "next": "다음",
             "previous": "이전",
@@ -327,9 +325,7 @@
     },
     "landing": {
         "topLinks": {
-            "faq": "자주하는 질문",
-            "home": "홈",
-            "login": "로그인"
+            "home": "홈"
         },
         "faq": {
             "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있습니까?",
@@ -358,77 +354,46 @@
         },
         "splash": {
             "comingSoon": {
-                "cloudReplaysTitle": "클라우드에 동기화된 리플레이",
                 "expandedChatDescription": "감정 표현, 제작맵, 경기, 리플레이 등을 사용하여 자신을 표현하세요!",
-                "liveStreamingDescription": "진행 중인 경기에 뛰어들어 게임 내 관전의 모든 기능과 함께 경기를 실시간으로 시청하세요.",
                 "liveStreamingTitle": "실시간 매치 스트리밍",
-                "3v3Description": "편성된 팀 또는 무작위 팀이 있는 3v3 게임을 쉽게 찾을 수 있습니다.",
                 "automatedTournamentsDescription": "수준에 맞는 토너먼트와 리그를 찾고 자동으로 실행됩니다.",
-                "automatedTournamentsTitle": "자동화된 토너먼트 및 리그",
                 "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 일꾼 시작 위치, 고급 크립 배치 등!",
-                "builtInMapmakingTitle": "새로운 지도 제작 기능",
                 "cloudReplaysDescription": "리플레이 자동 업로드. 다른 사람과 공유하고 어디서나 시청하세요!",
-                "expandedChatTitle": "확장된 채팅 기능",
                 "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
-                "fpReplaysTitle": "1인칭 리플레이",
                 "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다",
-                "pixelScalingTitle": "구성 가능한 픽셀 스케일링",
                 "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 성장하는지 확인하세요.",
-                "playerProfilesTitle": "플레이어 프로필 및 통계",
                 "replayAnalysisDescription": "BWChart와 같은 리플레이 분석 및 고급 통계 및 차트 작성을 기본적으로 지원합니다.",
-                "replayAnalysisTitle": "리플레이 분석",
                 "sandboxModeDescription": "새 빌드를 테스트하고, 일꾼 나누기 연습을 하고, 컨트롤을 연습하십시오.",
-                "sandboxModeTitle": "훈련/샌드박스 모드",
                 "umsPortalDescription": "쉽게 유즈맵을 찾고 탐색한 다음 빠르게 플레이어를 모아 게임을 시작하세요.",
-                "umsPortalTitle": "유즈맵 모음",
                 "3v3Title": "3v3 매치메이킹"
             },
             "benefits": {
-                "communityFirstText": "ShieldBattery는 StarCraft를 플레이하거나 시청하는 모든 사람을 위한 활기찬 허브입니다. 채팅이 가장 중요하고, 게임에 원활하고 쉽게 참여할 수 있으며, 귀하의 경험이 우리의 최우선 관심사입니다. 1998년부터 플레이했든 이번 주에 게임을 시작했든 관계없이 여기에서 편하게 즐기세요.",
                 "communityFirstTitle": "커뮤니티 우선",
-                "fullPotentialText": "StarCraft는 놀라운 경쟁 역사를 가지고 있으며 ShieldBattery는 최고 수준의 플레이 및 시청 경험을 제공하기 위한 기반입니다. 오픈 소스, 커뮤니티 중심, 현대 게임에서도 원하는 기능과 경험 제공: ShieldBattery는 StarCraft 커뮤니티를 위한 혁신적인 단계입니다.",
                 "fullPotentialTitle": "전체 잠재력 잠금 해제",
-                "tacticallyFaithfulText": "수십 년간의 StarCraft 경험을 가진 커뮤니티 회원들이 만든 저희는 무엇이 게임을 흥겹게 만드는지 알고 있습니다. 중요한 사항은 동일하게 유지하면서 StarCraft 경험을 그 어느 때보다 향상시키기 위해 완전히 새로운 기능과 개선 사항을 구축하고 있습니다.",
                 "tacticallyFaithfulTitle": "전술적으로 충실하다"
             },
-            "blurb": "ShieldBattery는 <2>스타크래프트: 리마스터</2>를 지원하는 최초의 커뮤니티 운영 서버입니다. 맞춤형 런처는 고급 플랫폼과 함께 작동하도록 실제 게임 클라이언트를 향상시켜 충실하고 사실적인 게임 플레이를 유지하면서 스타크래프트 1 경험을 개선합니다. 런처를 다운로드하고 몇 번의 클릭만으로 게임을 시작하세요!",
             "features": {
                 "rankedLadderTitle": "래더 순위",
-                "cloudHostingDescription": "공식 라이브러리의 지도에서 플레이하거나 직접 업로드하세요. 즐겨찾는 지도를 모두 업로드하고 친구와 공유하고 어디에서나 호스트하세요.",
                 "cloudHostingTitle": "클라우드 기반 지도 배포 및 호스팅",
-                "fixesBugsExploitsDescription": "공식 서버에 존재하는 핵 및 버그를 피하세요. 일꾼 복사, 미네랄 핵, 날아다니는 일꾼 같은 것은 이곳에서 과거의 일입니다.",
                 "fixesBugsExploitsTitle": "버그 및 핵에 대한 수정",
-                "friendsListDescription": "친구가 온라인 상태일 때 추적하고 쉽게 메시지를 보내고 게임에 초대하세요.",
                 "friendsListTitle": "친구 목록",
-                "improvedNetcodeDescription": "적은 렉, 드랍, 패킷 손실!",
                 "improvedNetcodeTitle": "향상된 넷코드",
-                "leaguesDescription": "커뮤니티에서 주최하고 자동화된 매치메이킹을 통해 진행되는 흥미진진한 기간제 리그에 참여하십시오.",
                 "leaguesTitle": "오픈 리그",
-                "matchmakingDescription": "혼자서 또는 팀과 함께 쉽고 빠르게 매치를 찾으세요.",
                 "matchmakingTitle": "1v1 및 2v2 매치메이킹",
-                "partiesDescription": "친구들과 파티를 만들어 쉽게 개인 경기를 주최하거나 함께 리플레이를 시청하거나 매치메이킹에 참여하세요.",
                 "partiesTitle": "파티",
-                "rankedladderDescription": "모든 매치메이킹 모드에 대한 Glicko 기반 순위 시스템에서 실력을 길러보세요.",
                 "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다.",
-                "remasteredSupportTitle": "스타크래프트: 리마스터 지원",
                 "teamMeleeReplaysDescription": "ShieldBattery에서 진행한 팀밀리 게임을 다시 재생해보세요!",
-                "teamMeleeReplaysTitle": "팀밀리 리플레이",
-                "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요.",
-                "webClientTitle": "웹 기반 채팅 클라이언트"
+                "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요."
             },
             "comingSoonTitle": "파이프 <1>(출시 예정)</1>",
-            "disclaimerText": "StarCraft는 Blizzard Entertainment, Inc.의 등록 상표입니다. ShieldBattery는 Blizzard와 무관한 커뮤니티 구성원에 의해서만 개발되며 Blizzard에서 공식적으로 보증하거나 지원하지 않습니다.",
             "featuresTitle": "기능",
-            "gameCount": "<0></0> 게임 플레이",
             "linksHeader": "링크",
-            "signUp": "가입하기",
             "tagline": "최고의 커뮤니티 운영 플랫폼에서 스타크래프트 1을 플레이하세요"
         }
     },
     "clientDownload": {
         "blurb": "다음 위치에 ShieldBattery 클라이언트를 다운로드합니다:",
         "downloadClient": "클라이언트 다운로드",
-        "exploreMaps": "지도 탐색",
         "playGames": "게임하기",
         "supportProjectText": "프로젝트를 지원하고 싶습니까?",
         "watchReplays": "다시보기",
@@ -539,9 +504,7 @@
             "title": "매치메이킹 비활성화됨"
         },
         "navEntry": {
-            "elapsedTime": "시간: ",
             "matchFound": "일치하는 항목을 찾았습니다!",
-            "searchingForMatch": "{{matchmakingType}} 검색 중",
             "cancelSearch": "검색 취소"
         },
         "postMatchDialog": {
@@ -563,7 +526,6 @@
             "1v1fastest": "1대1 가장 빠름"
         },
         "activity": {
-            "finding": "찾는중…",
             "findMatch": "일치하는 항목 찾기"
         }
     },
@@ -919,7 +881,6 @@
         "activity": {
             "title": "리플레이"
         },
-        "fileDropText": "ShieldBattery로 시청하려면 여기에 리플레이를 드롭하세요.",
         "loading": {
             "dialogTitle": "다시보기 로드 중…",
             "errorGeneric": "리플레이를 로드하는 중에 문제가 발생했습니다.",
@@ -960,19 +921,14 @@
         "leftNav": {
             "chatChannels": "채팅 채널",
             "customGame": "커스텀 게임",
-            "gameInProgress": "게임 진행 중…",
             "joinChannel": "채널 참여(Alt + H)",
-            "loadingChannel": "로드 중…",
             "lobby": "로비",
-            "logIn": "로그인",
             "logOut": "로그 아웃",
             "rankedGame": "순위 {{matchmakingType}}",
-            "startWhisper": "귓속말 시작(Alt + W)",
             "viewChangelog": "변경 로그 보기",
             "viewProfile": "프로필보기",
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
-            "loadingGame": "로드 중…",
             "home": "집",
             "reportBug": "버그 신고"
         }
@@ -1031,7 +987,6 @@
                 "addFriends": "친구 추가",
                 "friends": "친구"
             },
-            "tooltip": "친구 (Alt + E)",
             "friendStart": "이제 <2>{{user}}</2>와 친구가 되었습니다.",
             "header": {
                 "incoming": "들어오는",
@@ -1136,9 +1091,6 @@
         "tabBuildOrders": "빌드 오더",
         "tabStats": "통계",
         "tabSummary": "요약"
-    },
-    "network": {
-        "connecting": "연결 중…"
     },
     "notifications": {
         "activityButton": {
