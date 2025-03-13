@@ -526,14 +526,20 @@ const StyledAvatar = styled(Avatar)`
 `
 
 const PlayerNameAndRace = styled.div`
+  width: 100%;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+
+  overflow: hidden;
 `
 
 const PlayerName = styled.div`
   ${titleMedium};
   ${singleLine};
+  max-width: 100%;
+  overflow: hidden;
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`

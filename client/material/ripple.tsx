@@ -383,10 +383,7 @@ export const Ripple = React.memo(
         },
 
         onBlur() {
-          setFocused(f => {
-            console.log(`onBlur, focused=${f}`)
-            return false
-          })
+          setFocused(false)
           // NOTE(tec27): Sometimes blurs occur even though we never saw focus (because we only
           // usually get notifed of focused for :focus-visible elements). The code expects that we
           // will still re-render the ripple in this case, but the above `setFocused` call won't
