@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test'
-import { suppressChangelog } from '../../changelog-utils'
 import { clearLocalState } from '../../clear-local-state'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
@@ -15,7 +14,6 @@ test.beforeEach(async ({ page }) => {
 
 test('change password', async ({ context, page }) => {
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
@@ -64,7 +62,6 @@ test('change password', async ({ context, page }) => {
 
 test('change email', async ({ page }) => {
   await page.goto('/signup')
-  await suppressChangelog(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
