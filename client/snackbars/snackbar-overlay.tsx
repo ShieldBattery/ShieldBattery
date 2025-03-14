@@ -1,17 +1,10 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { Snackbar } from '../material/snackbar'
 import { zIndexSnackbar } from '../material/zindex'
+import { useStableCallback } from '../state-hooks'
 import {
   registerSnackbarController,
   SnackbarController,
@@ -78,8 +71,7 @@ const transition: Transition = {
 export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0)
   const [displayedSnackbar, setDisplayedSnackbar] = useState<QueuedSnackbar>()
-  // TODO(tec27): Would probably be nice to reset/hold the timer when the user mouses over the
-  // snackbar and/or focuses anything inside it
+  const [isHovering, setIsHovering] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
   const [queue, setQueue] = useState<QueuedSnackbar[]>([])
   const controller = useMemo<SnackbarController>(
@@ -92,24 +84,46 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
     [],
   )
 
-  const onDismiss = useCallback(() => {
+  const onDismiss = useStableCallback(() => {
     setDisplayedSnackbar(undefined)
+    setIsHovering(false)
     if (timerRef.current) {
       clearTimeout(timerRef.current)
     }
     timerRef.current = undefined
-  }, [])
+  })
 
-  const onAnimationComplete = useCallback(
-    (definition: string) => {
-      if (definition === 'visible' && displayedSnackbar) {
-        timerRef.current = setTimeout(() => {
-          onDismiss()
-        }, displayedSnackbar.durationMillis)
-      }
-    },
-    [displayedSnackbar, onDismiss],
-  )
+  const startDismissTimer = useStableCallback((duration: number) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+    }
+
+    timerRef.current = setTimeout(() => {
+      onDismiss()
+    }, duration)
+  })
+
+  const onAnimationComplete = useStableCallback((definition: string) => {
+    if (definition === 'visible' && displayedSnackbar && !isHovering) {
+      startDismissTimer(displayedSnackbar.durationMillis)
+    }
+  })
+
+  const onMouseEnter = useStableCallback(() => {
+    setIsHovering(true)
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = undefined
+    }
+  })
+
+  const onMouseLeave = useStableCallback(() => {
+    setIsHovering(false)
+    if (displayedSnackbar) {
+      // Use half the original duration when hover ends
+      startDismissTimer(Math.round(displayedSnackbar.durationMillis / 2))
+    }
+  })
 
   useEffect(() => {
     registerSnackbarController(controller)
@@ -157,6 +171,10 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
             animate='visible'
             exit='exit'
             transition={transition}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            onTouchStart={onMouseEnter}
+            onTouchEnd={onMouseLeave}
             onAnimationComplete={onAnimationComplete}>
             <Snackbar
               message={displayedSnackbar.message}
