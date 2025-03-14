@@ -1,12 +1,10 @@
+import { AnimatePresence } from 'motion/react'
 import React, { useCallback, useEffect, useId, useState } from 'react'
-import { UseTransitionProps, useTransition } from 'react-spring'
 import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
-import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
 import { elevationPlus2 } from './shadows'
-import { defaultSpring } from './springs'
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
 
@@ -108,6 +106,19 @@ const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
+// Define animation variants for the tooltip
+const tooltipVariants = {
+  entering: { opacity: 0, scale: 0.667 },
+  visible: { opacity: 1, scale: 1 },
+  exiting: { opacity: 0, scale: 0.333 },
+}
+
+// Define transition configuration
+const tooltipTransition = {
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
+  scale: { type: 'spring', duration: 0.4 },
+}
+
 export interface TooltipProps {
   /** The react node (usually string) that should be displayed in the Tooltip. */
   text: React.ReactNode
@@ -176,14 +187,6 @@ export function Tooltip({
   // NOTE(2Pac): This is only used when the tooltip is interactive, so we can keep the tooltip open
   // while the mouse is over it as well.
   const [isTooltipHovered, setIsTooltipHovered] = useState(false)
-
-  const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
-    from: { opacity: 0, scale: 0.667 },
-    enter: { opacity: 1, scale: 1 },
-    leave: { opacity: 0, scale: 0.333 },
-    config: (item, index, phase) => key =>
-      phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
-  })
 
   const anchorOriginX = position === 'top' || position === 'bottom' ? 'center' : position
   const anchorOriginY = position === 'left' || position === 'right' ? 'center' : position
@@ -265,30 +268,30 @@ export function Tooltip({
         tabIndex={tabIndex}>
         {children}
       </TooltipChildrenContainer>
-      {transition(
-        (styles, open) =>
-          !disabled &&
-          open && (
-            <NoPointerPortal open={open}>
-              <KeyListenerBoundary>
-                <PopoverContentComponent
-                  role='tooltip'
-                  id={contentId}
-                  anchorX={anchorX}
-                  anchorY={anchorY}
-                  originX={originX}
-                  originY={originY}
-                  styles={styles}
-                  onMouseEnter={interactive ? onTooltipMouseEnter : undefined}
-                  onMouseLeave={interactive ? onTooltipMouseLeave : undefined}>
-                  <ContentComponent $position={position} $interactive={interactive}>
-                    {text}
-                  </ContentComponent>
-                </PopoverContentComponent>
-              </KeyListenerBoundary>
-            </NoPointerPortal>
-          ),
-      )}
+      <AnimatePresence>
+        {!disabled && open && (
+          <NoPointerPortal open={open}>
+            <PopoverContentComponent
+              role='tooltip'
+              id={contentId}
+              anchorX={anchorX}
+              anchorY={anchorY}
+              originX={originX}
+              originY={originY}
+              motionVariants={tooltipVariants}
+              motionInitial='entering'
+              motionAnimate='visible'
+              motionExit='exiting'
+              motionTransition={tooltipTransition}
+              onMouseEnter={interactive ? onTooltipMouseEnter : undefined}
+              onMouseLeave={interactive ? onTooltipMouseLeave : undefined}>
+              <ContentComponent $position={position} $interactive={interactive}>
+                {text}
+              </ContentComponent>
+            </PopoverContentComponent>
+          </NoPointerPortal>
+        )}
+      </AnimatePresence>
     </>
   )
 }

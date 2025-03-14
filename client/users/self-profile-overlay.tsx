@@ -1,9 +1,8 @@
+import { Transition, Variants } from 'motion/react'
 import React from 'react'
-import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import { Popover, PopoverProps, useAnchorPosition } from '../material/popover'
-import { defaultSpring } from '../material/springs'
 import { bodyMedium, singleLine, titleLarge } from '../styles/typography'
 
 const PopoverContents = styled.div`
@@ -44,12 +43,15 @@ interface SelfProfileOverlayProps {
   children: React.ReactNode
 }
 
-const VERTICAL_TRANSITION: UseTransitionProps<boolean> = {
-  from: { opacity: 0, scaleY: 0.5 },
-  enter: { opacity: 1, scaleY: 1 },
-  leave: { opacity: 0, scaleY: 0 },
-  config: (item, index, phase) => key =>
-    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
+const popoverVariants: Variants = {
+  entering: { opacity: 0, scaleY: 0.5 },
+  visible: { opacity: 1, scaleY: 1 },
+  exiting: { opacity: 0, scaleY: 0 },
+}
+
+const transition: Transition = {
+  opacity: { type: 'spring', duration: 0.35, bounce: 0 },
+  scaleY: { type: 'spring', duration: 0.5 },
 }
 
 export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
@@ -63,7 +65,11 @@ export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
       anchorY={(anchorY ?? 0) - 8}
       originX='left'
       originY='top'
-      transitionProps={VERTICAL_TRANSITION}>
+      motionVariants={popoverVariants}
+      motionInitial='entering'
+      motionAnimate='visible'
+      motionExit='exiting'
+      motionTransition={transition}>
       <PopoverContents>
         <Header>
           <StyledAvatar user={username} />

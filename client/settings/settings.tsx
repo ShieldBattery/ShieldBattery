@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
@@ -127,9 +127,15 @@ const NavSectionSeparator = styled.div`
   background-color: var(--theme-outline-variant);
 `
 
-const variants = {
+const variants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
+}
+
+const transition: Transition = {
+  type: 'spring',
+  duration: 0.5,
+  bounce: 0,
 }
 
 function Settings({
@@ -180,7 +186,7 @@ function Settings({
       initial='hidden'
       animate='visible'
       exit='hidden'
-      transition={{ type: 'spring', visualDuration: 0.2, bounce: 0 }}>
+      transition={transition}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
         {(isLoggedIn ? [UserSettingsSubPage.Account] : []).map(getNavEntriesMapper())}

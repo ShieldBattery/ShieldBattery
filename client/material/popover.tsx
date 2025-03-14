@@ -1,19 +1,23 @@
-import { useTransition } from '@react-spring/core'
-import { animated } from '@react-spring/web'
+import {
+  AnimatePresence,
+  TargetAndTransition,
+  Transition,
+  VariantLabels,
+  Variants,
+} from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useCallback, useRef, useState } from 'react'
-import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import { Tagged } from 'type-fest'
+import { SetOptional, Tagged } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
-import { useForceUpdate, usePreviousDefined } from '../state-hooks'
+import { useForceUpdate, usePrevious, usePreviousDefined, useStableCallback } from '../state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { elevationPlus3 } from './shadows'
-import { defaultSpring } from './springs'
 import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
@@ -76,7 +80,7 @@ const PositioningArea = styled.div`
   z-index: ${zIndexMenu};
 `
 
-const Container = styled(animated.div)`
+const Container = styled(m.div)`
   position: absolute;
   top: var(--sb-popover-top, unset);
   right: var(--sb-popover-right, unset);
@@ -137,21 +141,41 @@ export interface PopoverProps {
   className?: string
 
   /**
-   * Custom configuration for the open/close transition. Optional, defaults to a uniform scale
-   * and opacity change.
+   * Custom animation variants for the open/close animation.
    */
-  transitionProps?: Omit<UseTransitionProps<boolean>, 'onRest'>
+  motionVariants?: Variants
+
+  /**
+   * Custom configuration for animation transition.
+   */
+  motionTransition?: Transition
+
+  /**
+   * Animation state to use initially
+   */
+  motionInitial?: VariantLabels | TargetAndTransition
+
+  /**
+   * Animation state to use when active
+   */
+  motionAnimate?: VariantLabels | TargetAndTransition
+
+  /**
+   * Animation state to use when exiting
+   */
+  motionExit?: VariantLabels | TargetAndTransition
 }
 
-export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
-  from: { opacity: 0, scale: 0.667 },
-  enter: { opacity: 1, scale: 1 },
-  leave: { opacity: 0, scale: 0.333 },
-  config: (item, index, phase) => key =>
-    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
+export const DEFAULT_VARIANTS: Variants = {
+  entering: { opacity: 0, scale: 0.667 },
+  visible: { opacity: 1, scale: 1 },
+  exiting: { opacity: 0, scale: 0.333, pointerEvents: 'none' },
 }
 
-type PopoverOnRest = Extract<UseTransitionProps<boolean>['onRest'], (...args: any[]) => any>
+export const DEFAULT_TRANSITION: Transition = {
+  opacity: { type: 'spring', visualDuration: 0.2, bounce: 0 },
+  scale: { type: 'spring', visualDuration: 0.2 },
+}
 
 /**
  * A UI element that floats over the rest of the document contents. This is generally used for
@@ -162,35 +186,45 @@ type PopoverOnRest = Extract<UseTransitionProps<boolean>['onRest'], (...args: an
  */
 export function Popover(props: PopoverProps) {
   const focusableRef = useRef<HTMLDivElement>(null)
+  const {
+    open,
+    onDismiss,
+    motionVariants = DEFAULT_VARIANTS,
+    motionTransition = DEFAULT_TRANSITION,
+    motionInitial = 'entering',
+    motionAnimate = 'visible',
+    motionExit = 'exiting',
+    ...restProps
+  } = props
 
-  const onRest = useCallback<PopoverOnRest>((_result: unknown, _ctrl: unknown, open: boolean) => {
-    if (open) {
-      if (focusableRef.current) {
-        window.dispatchEvent(new Event('resize'))
-
-        // We need to focus the element here because the browser prevents it prior to this (not
-        // entirely sure why, I assume because the element is either not yet in the DOM or it is not
-        // visible)
-        focusableRef.current.focus()
-      }
+  const onAnimationComplete = useStableCallback((state: VariantLabels) => {
+    if (state === motionAnimate && focusableRef.current) {
+      window.dispatchEvent(new Event('resize'))
+      focusableRef.current.focus()
     }
-  }, [])
-  const transitionProps: UseTransitionProps<boolean> = {
-    ...(props.transitionProps ?? DEFAULT_TRANSITION),
-    onRest,
-  }
-  const transition = useTransition<boolean, UseTransitionProps<boolean>>(
-    props.open,
-    transitionProps,
-  )
+  })
 
-  return transition(
-    (styles, open) =>
-      open && (
-        <Portal onDismiss={props.onDismiss} open={open}>
+  const lastOpen = usePrevious(open)
+  const key = useRef(0)
+  if (lastOpen !== open) {
+    key.current += 1
+  }
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <Portal onDismiss={onDismiss} open={open}>
           <KeyListenerBoundary>
             <FocusTrap focusableRef={focusableRef}>
-              <PopoverContent {...props} styles={styles}>
+              <PopoverContent
+                {...restProps}
+                onDismiss={onDismiss}
+                motionVariants={motionVariants}
+                motionInitial={motionInitial}
+                motionAnimate={motionAnimate}
+                motionExit={motionExit}
+                motionTransition={motionTransition}
+                onAnimationComplete={onAnimationComplete}>
                 <Card ref={focusableRef} tabIndex={-1}>
                   {props.children}
                 </Card>
@@ -198,19 +232,18 @@ export function Popover(props: PopoverProps) {
             </FocusTrap>
           </KeyListenerBoundary>
         </Portal>
-      ),
+      )}
+    </AnimatePresence>
   )
 }
 
-export interface PopoverContentProps extends Omit<PopoverProps, 'open' | 'onDismiss'> {
-  open?: boolean
-  onDismiss?: (event?: MouseEvent) => void
+export interface PopoverContentProps extends SetOptional<Omit<PopoverProps, 'open'>, 'onDismiss'> {
   id?: string
   /** The ARIA role to use for the content container. */
   role?: React.AriaRole
-  styles: React.CSSProperties
   onMouseEnter?: (event: React.MouseEvent | React.FocusEvent) => void
   onMouseLeave?: (event: React.MouseEvent | React.FocusEvent) => void
+  onAnimationComplete?: (state: string | VariantLabels) => void
 }
 
 /**
@@ -225,12 +258,17 @@ export function PopoverContent({
   className,
   id,
   role,
-  onDismiss,
   originX,
   originY,
-  styles,
+  motionVariants,
+  motionTransition,
+  motionInitial,
+  motionAnimate,
+  motionExit,
   onMouseEnter,
   onMouseLeave,
+  onAnimationComplete,
+  onDismiss,
 }: PopoverContentProps) {
   const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
@@ -344,7 +382,13 @@ export function PopoverContent({
         className={className}
         id={id}
         role={role}
-        style={{ ...styles, ...(containerStyle as any) }}
+        style={containerStyle as any}
+        variants={motionVariants}
+        initial={motionInitial}
+        animate={motionAnimate}
+        exit={motionExit}
+        transition={motionTransition}
+        onAnimationComplete={onAnimationComplete}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}>
         {children}

@@ -99,7 +99,7 @@ export default function App() {
                 <MotionConfig
                   reducedMotion='user'
                   nonce={(window as any).SB_CSP_NONCE}
-                  transition={{ type: 'spring', visualDuration: 0.3, bounce: 0.3 }}>
+                  transition={{ type: 'spring', duration: 0.3, bounce: 0.5 }}>
                   <FileDropZoneProvider>
                     <React.Suspense fallback={<LoadingDotsArea />}>
                       <SnackbarOverlay>

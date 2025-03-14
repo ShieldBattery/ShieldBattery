@@ -1,3 +1,4 @@
+import { useIsPresent } from 'motion/react'
 import React, { useContext, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
@@ -92,6 +93,8 @@ export interface PortalProps {
 export function Portal(props: PortalProps) {
   const { onDismiss, open, children } = props
 
+  const isPresent = useIsPresent()
+
   const parentPortal = useContext(PortalContext)
 
   const portalRef = useExternalElementRef()
@@ -162,7 +165,7 @@ export function Portal(props: PortalProps) {
   )
 
   useEffect(() => {
-    if (open) {
+    if (open && isPresent) {
       if (!parentPortal) {
         // If this portal has no portal ancestors, it registers document handlers to deal with
         // clicks
@@ -200,6 +203,7 @@ export function Portal(props: PortalProps) {
     open,
     parentPortal,
     contextValue,
+    isPresent,
   ])
 
   return ReactDOM.createPortal(

@@ -1,5 +1,5 @@
+import { Variants } from 'motion/react'
 import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { UseTransitionProps } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
@@ -13,7 +13,6 @@ import { InputUnderline } from '../input-underline'
 import { MenuList } from '../menu/menu'
 import { isSelectableMenuItem } from '../menu/menu-item-symbol'
 import { Popover, useAnchorPosition, usePopoverController } from '../popover'
-import { defaultSpring } from '../springs'
 
 const SPACE = 'Space'
 const ENTER = 'Enter'
@@ -174,12 +173,15 @@ export interface SelectRef {
   blur: () => void
 }
 
-const MENU_TRANSITION: UseTransitionProps<boolean> = {
-  from: { opacity: 0, scaleY: 0.5 },
-  enter: { opacity: 1, scaleY: 1 },
-  leave: { opacity: 0, scaleY: 0 },
-  config: (item, index, phase) => key =>
-    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
+const menuVariants: Variants = {
+  entering: { opacity: 0, scaleY: 0.5 },
+  visible: { opacity: 1, scaleY: 1 },
+  exiting: { opacity: 0, scaleY: 0 },
+}
+
+const menuTransition = {
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
+  scaleY: { type: 'spring', duration: 0.4 },
 }
 
 export const Select = React.forwardRef<SelectRef, SelectProps>(
@@ -342,7 +344,11 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           anchorY={anchorY ?? 0}
           originX='center'
           originY='top'
-          transitionProps={MENU_TRANSITION}>
+          motionVariants={menuVariants}
+          motionInitial='entering'
+          motionAnimate='visible'
+          motionExit='exiting'
+          motionTransition={menuTransition}>
           <StyledMenuList $overlayWidth={overlayWidth} dense={dense}>
             {options}
           </StyledMenuList>
