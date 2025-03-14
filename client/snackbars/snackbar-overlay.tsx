@@ -1,3 +1,5 @@
+import { AnimatePresence, Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, {
   useCallback,
   useContext,
@@ -7,10 +9,8 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { Snackbar } from '../material/snackbar'
-import { defaultSpring } from '../material/springs'
 import { zIndexSnackbar } from '../material/zindex'
 import {
   registerSnackbarController,
@@ -21,6 +21,7 @@ import {
 import { DURATION_SHORT } from './snackbar-durations'
 
 interface QueuedSnackbar {
+  id: number
   message: string
   durationMillis: number
   options?: SnackbarOptions
@@ -35,7 +36,7 @@ export function useSnackbarController() {
   return useContext(SnackbarControllerContext)
 }
 
-const AnimatedContainer = styled(animated.div)`
+const AnimatedContainer = styled(m.div)`
   position: fixed;
   left: 50%;
   top: calc(var(--sb-system-bar-height, 0px) + var(--sb-app-bar-height, 0px) + 24px);
@@ -44,11 +45,38 @@ const AnimatedContainer = styled(animated.div)`
   z-index: ${zIndexSnackbar};
 `
 
+const snackbarVariants: Variants = {
+  initial: {
+    opacity: 0,
+    y: -100,
+    translateX: '-50%',
+    pointerEvents: 'none',
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    translateX: '-50%',
+    pointerEvents: 'auto',
+  },
+  exit: {
+    opacity: 0,
+    y: -200,
+    translateX: '-50%',
+    pointerEvents: 'none',
+  },
+}
+
+const transition: Transition = {
+  default: { type: 'spring', duration: 0.4 },
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
+}
+
 /**
  * Container component that provides a controller via `useSnackbarController` to any descendants and
  * will display snackbars over top of any content it contains when requested.
  */
 export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
+  const idRef = useRef(0)
   const [displayedSnackbar, setDisplayedSnackbar] = useState<QueuedSnackbar>()
   // TODO(tec27): Would probably be nice to reset/hold the timer when the user mouses over the
   // snackbar and/or focuses anything inside it
@@ -57,7 +85,8 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
   const controller = useMemo<SnackbarController>(
     () => ({
       showSnackbar(message, durationMillis = DURATION_SHORT, options) {
-        setQueue(q => [...q, { message, durationMillis, options }])
+        setQueue(q => [...q, { id: idRef.current, message, durationMillis, options }])
+        idRef.current = (idRef.current + 1) % Number.MAX_SAFE_INTEGER
       },
     }),
     [],
@@ -71,33 +100,16 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
     timerRef.current = undefined
   }, [])
 
-  const transition = useTransition(displayedSnackbar, {
-    from: {
-      opacity: 0,
-      transform: 'translate(-50%, -100%)',
-      pointerEvents: 'auto' as 'auto' | 'none',
-    },
-    enter: {
-      opacity: 1,
-      transform: 'translate(-50%, 0%)',
-      pointerEvents: 'auto' as 'auto' | 'none',
-    },
-    leave: {
-      opacity: -0.5,
-      transform: 'translate(-50%, -200%)',
-      pointerEvents: 'none' as 'auto' | 'none',
-    },
-    config: (item, index, phase) => key =>
-      phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
-    exitBeforeEnter: true,
-    onRest: () => {
-      if (displayedSnackbar) {
+  const onAnimationComplete = useCallback(
+    (definition: string) => {
+      if (definition === 'visible' && displayedSnackbar) {
         timerRef.current = setTimeout(() => {
           onDismiss()
         }, displayedSnackbar.durationMillis)
       }
     },
-  })
+    [displayedSnackbar, onDismiss],
+  )
 
   useEffect(() => {
     registerSnackbarController(controller)
@@ -136,18 +148,25 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
   return (
     <SnackbarControllerContext.Provider value={controller}>
       {children}
-      {transition((style, item) =>
-        item ? (
-          <AnimatedContainer style={style}>
+      <AnimatePresence mode='wait'>
+        {displayedSnackbar && (
+          <AnimatedContainer
+            key={displayedSnackbar.id}
+            variants={snackbarVariants}
+            initial='initial'
+            animate='visible'
+            exit='exit'
+            transition={transition}
+            onAnimationComplete={onAnimationComplete}>
             <Snackbar
-              message={item.message}
-              actionLabel={item.options?.action?.label}
-              onAction={item.options?.action?.onClick}
+              message={displayedSnackbar.message}
+              actionLabel={displayedSnackbar.options?.action?.label}
+              onAction={displayedSnackbar.options?.action?.onClick}
               onDismiss={onDismiss}
             />
           </AnimatedContainer>
-        ) : undefined,
-      )}
+        )}
+      </AnimatePresence>
     </SnackbarControllerContext.Provider>
   )
 }
