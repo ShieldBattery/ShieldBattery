@@ -14,7 +14,7 @@ import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
-import { useForceUpdate, usePrevious, usePreviousDefined, useStableCallback } from '../state-hooks'
+import { useForceUpdate, usePreviousDefined, useStableCallback } from '../state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { elevationPlus3 } from './shadows'
@@ -203,12 +203,6 @@ export function Popover(props: PopoverProps) {
       focusableRef.current.focus()
     }
   })
-
-  const lastOpen = usePrevious(open)
-  const key = useRef(0)
-  if (lastOpen !== open) {
-    key.current += 1
-  }
 
   return (
     <AnimatePresence>

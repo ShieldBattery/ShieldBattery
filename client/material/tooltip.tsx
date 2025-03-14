@@ -106,14 +106,12 @@ const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
-// Define animation variants for the tooltip
 const tooltipVariants = {
   entering: { opacity: 0, scale: 0.667 },
   visible: { opacity: 1, scale: 1 },
   exiting: { opacity: 0, scale: 0.333 },
 }
 
-// Define transition configuration
 const tooltipTransition = {
   opacity: { type: 'spring', duration: 0.3, bounce: 0 },
   scale: { type: 'spring', duration: 0.4 },
