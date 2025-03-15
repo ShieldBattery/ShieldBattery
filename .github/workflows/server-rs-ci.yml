@@ -136,4 +136,19 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            const util = require('node:util')
+            const node_exec = util.promisify(require('node:child_process').exec)
+
+            const { FILES_CHANGED, CHANGED_FILES } = process.env
+
+            console.log(`Files changed: ${FILES_CHANGED}`)
+            console.log(`Changed files: ${CHANGED_FILES}`)
+
+            async function runGitDiff() {
+              const { stdout, stderr } = await node_exec('git diff')
+              console.log('stdout:', stdout)
+              console.error('stderr:', stderr)
+            }
+            runGitDiff()
+
             core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files.')
