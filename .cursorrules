@@ -20,7 +20,8 @@
   children), then appearance, then miscellaneous properties.
 - `server/`, `client/`, and `app/` are separate and should not depend on each other. Any of them can
   depend on code in `common/`.
-- Use single-quotes for strings or backticks if they need to include variables.
+- Use single-quotes for strings or backticks if they need to include variables,
+  including in JSX (e.g. `<MyComponent value='foo' other={'bar'} />`)
 - Avoid unnecessary casts (`as`)
 
 # Rust

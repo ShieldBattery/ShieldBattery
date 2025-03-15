@@ -1,14 +1,14 @@
+import { AnimatePresence, Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FocusTrap } from '../dom/focus-trap'
 import { ElevatedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
-import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
@@ -22,14 +22,10 @@ import {
 
 const ipcRenderer = new TypedIpcRenderer()
 
-const StyledPortal = styled(Portal)`
-  z-index: 99999;
-`
-
-const Scrim = styled(animated.div)`
+const Scrim = styled(m.div)`
   position: fixed;
   left: 0;
-  top: var(--sb-system-bar-height, 0);
+  top: var(--sb-system-bar-height, 0px);
   right: 0;
   bottom: 0;
 
@@ -38,6 +34,17 @@ const Scrim = styled(animated.div)`
 
   -webkit-app-region: no-drag;
 `
+
+const scrimVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 0.84 },
+}
+
+const scrimTransition: Transition = {
+  type: 'spring',
+  duration: 0.3,
+  bounce: 0,
+}
 
 export function UpdateOverlay() {
   const [hasUpdate, setHasUpdate] = useState(false)
@@ -52,18 +59,6 @@ export function UpdateOverlay() {
     setReadyToInstall(state.readyToInstall)
     setProgress(state.progress)
   }, [])
-
-  const scrimTransition = useTransition(hasUpdate, {
-    from: {
-      opacity: 0,
-    },
-    enter: { opacity: 0.84 },
-    leave: { opacity: 0 },
-    config: {
-      ...defaultSpring,
-      clamp: true,
-    },
-  })
 
   useEffect(() => {
     const handler = changeHandler
@@ -80,22 +75,32 @@ export function UpdateOverlay() {
     }
   }, [hasUpdate])
 
-  return hasUpdate ? (
-    <StyledPortal open={true}>
-      {scrimTransition((styles, open) => open && <Scrim style={styles} />)}
-
-      <FocusTrap focusableRef={focusableRef}>
-        <span ref={focusableRef} tabIndex={-1}>
-          <UpdateDialog
-            hasUpdate={hasUpdate}
-            hasDownloadError={hasDownloadError}
-            readyToInstall={readyToInstall}
-            progress={progress}
+  return (
+    <AnimatePresence>
+      {hasUpdate && (
+        <Portal open={true}>
+          <Scrim
+            variants={scrimVariants}
+            initial='hidden'
+            animate='visible'
+            exit='hidden'
+            transition={scrimTransition}
           />
-        </span>
-      </FocusTrap>
-    </StyledPortal>
-  ) : null
+
+          <FocusTrap focusableRef={focusableRef}>
+            <span ref={focusableRef} tabIndex={-1}>
+              <UpdateDialog
+                hasUpdate={hasUpdate}
+                hasDownloadError={hasDownloadError}
+                readyToInstall={readyToInstall}
+                progress={progress}
+              />
+            </span>
+          </FocusTrap>
+        </Portal>
+      )}
+    </AnimatePresence>
+  )
 }
 
 const StyledDialog = styled(Dialog)`

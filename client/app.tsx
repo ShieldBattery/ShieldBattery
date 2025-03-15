@@ -98,13 +98,13 @@ export default function App() {
         <ResetStyle />
         <GlobalStyle />
         <KeyListenerBoundary>
-          <RootErrorBoundary>
-            <UrqlProvider value={graphqlClient}>
-              <LazyMotion strict={true} features={loadMotionFeatures}>
-                <MotionConfig
-                  reducedMotion='user'
-                  nonce={(window as any).SB_CSP_NONCE}
-                  transition={DEFAULT_MOTION_CONFIG}>
+          <LazyMotion strict={true} features={loadMotionFeatures}>
+            <MotionConfig
+              reducedMotion='user'
+              nonce={(window as any).SB_CSP_NONCE}
+              transition={DEFAULT_MOTION_CONFIG}>
+              <RootErrorBoundary>
+                <UrqlProvider value={graphqlClient}>
                   <FileDropZoneProvider>
                     <React.Suspense fallback={<LoadingDotsArea />}>
                       <SnackbarOverlay>
@@ -112,11 +112,11 @@ export default function App() {
                       </SnackbarOverlay>
                     </React.Suspense>
                   </FileDropZoneProvider>
-                </MotionConfig>
-              </LazyMotion>
-            </UrqlProvider>
-          </RootErrorBoundary>
-          <UpdateOverlay />
+                </UrqlProvider>
+              </RootErrorBoundary>
+              <UpdateOverlay />
+            </MotionConfig>
+          </LazyMotion>
         </KeyListenerBoundary>
       </>
     </StyleSheetManager>
