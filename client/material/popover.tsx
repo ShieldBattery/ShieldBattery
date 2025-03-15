@@ -167,14 +167,14 @@ export interface PopoverProps {
 }
 
 export const DEFAULT_VARIANTS: Variants = {
-  entering: { opacity: 0, scale: 0.667 },
-  visible: { opacity: 1, scale: 1 },
-  exiting: { opacity: 0, scale: 0.333, pointerEvents: 'none' },
+  entering: { opacity: 0, scaleX: 0.667, scaleY: 0.5 },
+  visible: { opacity: 1, scaleX: 1, scaleY: 1 },
+  exiting: { opacity: 0, scaleX: 0.333, scaleY: 0.175, pointerEvents: 'none' },
 }
 
 export const DEFAULT_TRANSITION: Transition = {
-  opacity: { type: 'spring', visualDuration: 0.2, bounce: 0 },
-  scale: { type: 'spring', visualDuration: 0.2 },
+  default: { type: 'spring', duration: 0.4 },
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
 }
 
 /**

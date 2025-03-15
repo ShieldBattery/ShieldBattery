@@ -1,7 +1,8 @@
 import { Immutable } from 'immer'
+import { AnimatePresence, Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useCallback, useMemo, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
@@ -17,9 +18,8 @@ import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
 import { PostMatchDialog } from '../matchmaking/post-match-dialog'
-import { DialogContext } from '../material/dialog'
+import { DialogContext, DialogContextValue } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
-import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { ExternalLinkDialog } from '../navigation/external-link-dialog'
 import {
@@ -40,7 +40,7 @@ import { DialogState } from './dialog-reducer'
 import { DialogType } from './dialog-type'
 import { SimpleDialog } from './simple-dialog'
 
-const Scrim = styled(animated.div)`
+const Scrim = styled(m.div)`
   position: fixed;
   left: 0;
   top: var(--sb-system-bar-height, 0);
@@ -128,7 +128,6 @@ export const ConnectedDialogOverlay = () => {
     portalRef.current,
   )
 }
-
 function DialogOverlayContent({
   dialogHistory,
   onCancel,
@@ -136,35 +135,35 @@ function DialogOverlayContent({
   dialogHistory: Immutable<DialogState[]>
   onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
 }) {
-  const dialogTransition = useTransition<Immutable<DialogState>, UseTransitionProps<DialogState>>(
-    dialogHistory,
-    {
-      keys: useCallback((dialog: Immutable<DialogState>) => dialog.id, []),
-      from: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
-      enter: { opacity: 1, transform: 'translate3d(0, 0%, 0) scale(1, 1)' },
-      leave: { opacity: -0.5, transform: 'translate3d(0, -120%, 0) scale(0.4, 0.15)' },
-      config: (_item, _index, phase) => key =>
-        key === 'opacity' || phase === 'leave' ? { ...defaultSpring, clamp: true } : defaultSpring,
-    },
+  return (
+    <AnimatePresence>
+      {dialogHistory.map((dialogState, index) => (
+        <DialogDisplay
+          key={dialogState.id}
+          dialogState={dialogState}
+          isTopDialog={dialogHistory.length - 1 === index}
+          onCancel={onCancel}
+        />
+      ))}
+    </AnimatePresence>
   )
+}
 
-  return dialogTransition((dialogStyles, dialogState, transition, index) => (
-    <DialogDisplay
-      dialogStyles={dialogStyles}
-      dialogState={dialogState}
-      isTopDialog={dialogHistory.length - 1 === index}
-      onCancel={onCancel}
-    />
-  ))
+const scrimVariants: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: dialogScrimOpacity },
+  exit: { opacity: 0 },
+}
+
+const scrimTransition: Transition = {
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
 }
 
 function DialogDisplay({
-  dialogStyles,
   dialogState,
   isTopDialog,
   onCancel: propsOnCancel,
 }: {
-  dialogStyles: React.CSSProperties
   dialogState: Immutable<DialogState>
   isTopDialog: boolean
   onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
@@ -175,38 +174,33 @@ function DialogDisplay({
   const focusableRef = useRef<HTMLSpanElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
 
-  const scrimTransition = useTransition(isTopDialog, {
-    key: isTopDialog,
-    from: {
-      opacity: 0,
-    },
-    enter: { opacity: dialogScrimOpacity },
-    leave: { opacity: 0 },
-    config: {
-      ...defaultSpring,
-      clamp: true,
-    },
-  })
-
   const onCancel = useMemo(
     () => (modal ? noop : (event: React.MouseEvent) => propsOnCancel(dialogType, event)),
     [propsOnCancel, modal, dialogType],
   )
 
+  const contextValue = useMemo<DialogContextValue>(() => ({ isTopDialog }), [isTopDialog])
+
   return (
     <>
-      {scrimTransition((scrimStyles, show) => {
-        return show ? <Scrim style={scrimStyles} onClick={onCancel} key='scrim' /> : undefined
-      })}
+      <AnimatePresence propagate={true}>
+        {isTopDialog && (
+          <Scrim
+            key='scrim'
+            variants={scrimVariants}
+            initial='initial'
+            animate='animate'
+            exit='exit'
+            transition={scrimTransition}
+            onClick={onCancel}
+          />
+        )}
+      </AnimatePresence>
 
       <KeyListenerBoundary active={isTopDialog} key='dialog-content'>
         <FocusTrap focusableRef={focusableRef}>
           <span ref={focusableRef} tabIndex={-1}>
-            <DialogContext.Provider
-              value={{
-                styles: dialogStyles,
-                isTopDialog,
-              }}>
+            <DialogContext.Provider value={contextValue}>
               <DialogComponent
                 dialogRef={dialogRef}
                 key={dialogState.id}

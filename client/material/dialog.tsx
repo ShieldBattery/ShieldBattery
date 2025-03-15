@@ -1,7 +1,8 @@
 import keycode from 'keycode'
+import { Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
-import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -15,11 +16,9 @@ import { zIndexDialog } from './zindex'
 const ESCAPE = keycode('esc')
 
 export interface DialogContextValue {
-  styles: React.CSSProperties
   isTopDialog: boolean
 }
 export const DialogContext = React.createContext<DialogContextValue>({
-  styles: {},
   isTopDialog: true,
 })
 
@@ -42,7 +41,7 @@ const Container = styled.div`
   }
 `
 
-const Surface = styled(animated.div)<{ $isTopDialog?: boolean }>`
+const Surface = styled(m.div)<{ $isTopDialog?: boolean }>`
   ${elevationPlus3};
   ${containerStyles(ContainerLevel.Normal)};
 
@@ -167,8 +166,21 @@ const TabsContainer = styled.div<{ $showDivider?: boolean }>`
   }
 `
 
+const dialogVariants: Variants = {
+  initial: { opacity: 0, y: '-100%', scaleX: 0.6, scaleY: 0.2 },
+  animate: { opacity: 1, y: '0%', scaleX: 1, scaleY: 1 },
+  exit: { opacity: 0, y: '-120%', scaleX: 0.4, scaleY: 0.15 },
+}
+
+const dialogTransition: Transition = {
+  default: { type: 'spring', duration: 0.6 },
+  opacity: { type: 'spring', duration: 0.35, bounce: 0 },
+  scaleX: { type: 'spring', duration: 0.45, bounce: 0 },
+  scaleY: { type: 'spring', duration: 0.45, bounce: 0 },
+}
+
 export interface DialogProps {
-  buttons?: React.ReactNodeArray
+  buttons?: React.ReactNode[]
   children: React.ReactNode
   className?: string
   dialogRef?: React.Ref<HTMLDivElement>
@@ -232,8 +244,13 @@ export function Dialog({
     <Container role='dialog' data-test={testName}>
       <Surface
         className={className}
-        style={{ ...style, ...dialogContext.styles }}
+        style={style}
         ref={dialogRef}
+        variants={dialogVariants}
+        initial='initial'
+        animate='animate'
+        exit='exit'
+        transition={dialogTransition}
         $isTopDialog={dialogContext.isTopDialog}>
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
           <Title>{title}</Title>

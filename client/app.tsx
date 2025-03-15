@@ -1,4 +1,4 @@
-import { LazyMotion, MotionConfig } from 'motion/react'
+import { LazyMotion, MotionConfig, Transition } from 'motion/react'
 import React, { useEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
@@ -84,6 +84,11 @@ function useUserSpecificGraphqlClient() {
 
 const loadMotionFeatures = () => import('./motion-features').then(m => m.domMax)
 
+const DEFAULT_MOTION_CONFIG: Transition = {
+  default: { type: 'spring', duration: 0.4, bounce: 0.5 },
+  opacity: { type: 'spring', duration: 0.3, bounce: 0 },
+}
+
 export default function App() {
   const graphqlClient = useUserSpecificGraphqlClient()
 
@@ -99,7 +104,7 @@ export default function App() {
                 <MotionConfig
                   reducedMotion='user'
                   nonce={(window as any).SB_CSP_NONCE}
-                  transition={{ type: 'spring', duration: 0.3, bounce: 0.5 }}>
+                  transition={DEFAULT_MOTION_CONFIG}>
                   <FileDropZoneProvider>
                     <React.Suspense fallback={<LoadingDotsArea />}>
                       <SnackbarOverlay>

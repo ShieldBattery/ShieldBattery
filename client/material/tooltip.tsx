@@ -107,14 +107,14 @@ const NoPointerPopoverContent = styled(PopoverContent)`
 `
 
 const tooltipVariants = {
-  entering: { opacity: 0, scale: 0.667 },
-  visible: { opacity: 1, scale: 1 },
-  exiting: { opacity: 0, scale: 0.333 },
+  entering: { opacity: 0, scaleX: 0.5, scaleY: 0.667 },
+  visible: { opacity: 1, scaleX: 1, scaleY: 1 },
+  exiting: { opacity: 0, scaleX: 0.175, scaleY: 0.333 },
 }
 
 const tooltipTransition = {
+  default: { type: 'spring', duration: 0.4, bounce: 0 },
   opacity: { type: 'spring', duration: 0.3, bounce: 0 },
-  scale: { type: 'spring', duration: 0.4 },
 }
 
 export interface TooltipProps {
