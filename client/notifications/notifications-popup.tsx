@@ -1,22 +1,14 @@
-import { Immutable } from 'immer'
+import { AnimatePresence, Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import {
-  AnimationResult,
-  Controller,
-  UseTransitionProps,
-  animated,
-  useTransition,
-} from 'react-spring'
 import styled from 'styled-components'
 import { subtract, union } from '../../common/data-structures/sets'
-import { SbNotification } from '../../common/notifications'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { elevationPlus3 } from '../material/shadows'
-import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
@@ -28,24 +20,23 @@ const POPOVER_DURATION = 10000
 
 const PopupsContainer = styled.div`
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: calc(368px + 16px);
-  max-height: calc(100% - 112px);
-  padding: 8px;
+  right: 0;
+  bottom: 0;
+  width: calc(368px + 64px);
+  height: calc(100% - 96px);
+  padding: 32px;
   z-index: ${zIndexMenu};
 
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   align-items: flex-end;
 
-  overflow-y: auto;
-  &::-webkit-scrollbar {
-    width: 0px;
-  }
+  overflow: hidden;
+  pointer-events: none;
 `
 
-const Popup = styled(animated.div)`
+const Popup = styled(m.div)`
   ${elevationPlus3};
   ${containerStyles(ContainerLevel.High)};
 
@@ -56,6 +47,7 @@ const Popup = styled(animated.div)`
   align-items: flex-start;
 
   border-radius: 8px;
+  pointer-events: auto;
 
   &:not(:first-child) {
     margin-top: 16px;
@@ -64,20 +56,105 @@ const Popup = styled(animated.div)`
 
 const MarkAsReadButton = styled(IconButton)`
   flex-shrink: 0;
-  height: 100%;
+  align-self: stretch;
   border-radius: 0;
   background-color: var(--theme-grey-blue-container);
   color: var(--theme-on-grey-blue-container);
 `
 
+const popupVariants: Variants = {
+  initial: { opacity: 0, y: 40 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, x: 400 },
+}
+
+const popupTransition: Transition = {
+  default: {
+    type: 'spring',
+    duration: 0.5,
+  },
+  opacity: {
+    type: 'spring',
+    duration: 0.3,
+    bounce: 0,
+  },
+}
+
+interface NotificationPopupProps {
+  notificationId: string
+  onDismiss: (notificationId: string) => void
+}
+
+const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProps>(
+  ({ notificationId, onDismiss }, ref) => {
+    const { t } = useTranslation()
+    const dispatch = useAppDispatch()
+    const notification = useAppSelector(s => s.notifications.byId.get(notificationId))
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+
+    // Schedule auto-dismissal when the animation completes
+    const scheduleRemoval = useCallback(() => {
+      timeoutRef.current = setTimeout(() => {
+        onDismiss(notificationId)
+      }, POPOVER_DURATION)
+    }, [notificationId, onDismiss])
+
+    // Clear timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+      }
+    }, [])
+
+    const onMarkAsRead = useCallback(() => {
+      if (!notification) {
+        return
+      }
+
+      if (notification.local) {
+        dispatch(markLocalNotificationsRead([notification.id]))
+      } else {
+        dispatch(markNotificationsRead([notification.id]))
+      }
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+
+      onDismiss(notification.id)
+    }, [dispatch, notification, onDismiss])
+
+    return (
+      <Popup
+        ref={ref}
+        layout={true}
+        variants={popupVariants}
+        initial='initial'
+        animate='visible'
+        exit='exit'
+        transition={popupTransition}
+        onAnimationComplete={scheduleRemoval}>
+        {notification
+          ? notificationToUi(notification, notification.id, false /* showDivider */, null)
+          : null}
+        <MarkAsReadButton
+          icon={<MaterialIcon icon='check' />}
+          title={t('notifications.popup.markAsRead', 'Mark as read')}
+          onClick={onMarkAsRead}
+        />
+      </Popup>
+    )
+  },
+)
+
 export default function NotificationPopups() {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
   const idToNotification = useAppSelector(s => s.notifications.byId)
   const notificationIds = useAppSelector(s => s.notifications.orderedIds)
   const unreadIds = useRef(new Set<string>())
   const prevIds = usePrevious(unreadIds.current)
-  const [newIds, removedIds] = useMemo(() => {
+  const newIds = useMemo(() => {
     const filtered = new Set(notificationIds.filter(id => !idToNotification.get(id)?.read))
     if (
       filtered.size !== unreadIds.current.size ||
@@ -85,103 +162,40 @@ export default function NotificationPopups() {
     ) {
       unreadIds.current = filtered
       const newIds = subtract(unreadIds.current, prevIds ?? [])
-      const removedIds = subtract(prevIds ?? new Set<string>(), unreadIds.current)
 
-      return [newIds, removedIds]
+      return newIds
     } else {
       // unread IDs didn't change
-      return [new Set<string>(), new Set<string>()]
+      return new Set<string>()
     }
   }, [notificationIds, prevIds, idToNotification])
 
-  const popupElems = useRef(new Map<string, HTMLDivElement>())
-  const cancelFuncs = useRef(new Map<string, () => Controller>())
   const portalRef = useExternalElementRef()
-  const [notificationItems, setNotificationItems] = useState<Immutable<SbNotification[]>>([])
+  const [notificationItems, setNotificationItems] = useState<string[]>([])
 
   useEffect(() => {
     setNotificationItems(items =>
-      Array.from(newIds, id => idToNotification.get(id)!).concat(
+      Array.from(newIds).concat(
         // NOTE(tec27): There seems to be some way that things can interleave such that newItems
         // get added to items but then the next `newItems` still contains the ID. We don't expect
         // there to be *that* many popups so doing this precautionary filter to avoid duplicate
         // notifications seems fine
-        items.filter(item => !newIds.has(item.id)),
+        items.filter(item => !newIds.has(item)),
       ),
     )
   }, [idToNotification, newIds])
 
-  useEffect(() => {
-    for (const id of removedIds) {
-      const cancelFunc = cancelFuncs.current.get(id)
-      if (cancelFunc) {
-        cancelFunc()
-        cancelFuncs.current.delete(id)
-      }
-    }
-  }, [removedIds, cancelFuncs])
-
-  const popupTransition = useTransition<SbNotification, UseTransitionProps<SbNotification>>(
-    notificationItems,
-    {
-      from: { opacity: 0, height: 0, duration: '100%' },
-      enter: item => async (next, cancel) => {
-        cancelFuncs.current.set(item.id, cancel)
-        await next({ opacity: 1, height: popupElems.current?.get(item.id)?.offsetHeight })
-        await next({ duration: '0%' })
-      },
-      leave: { opacity: 0, height: 0 },
-      onRest: (result: AnimationResult, ctrl: Controller, item: SbNotification) => {
-        setNotificationItems(state => state.filter(i => i.id !== item.id))
-      },
-      // Force the react-spring to remove the notification element from the DOM as soon as its
-      // 'leave' animation has finished, so the popup's container scroll height can be recalculated
-      // and work as expected.
-      expires: 1,
-      config: (item, index, phase) => key => {
-        return {
-          ...defaultSpring,
-          clamp: true,
-          duration: phase === 'enter' && key === 'duration' ? POPOVER_DURATION : undefined,
-        }
-      },
-    },
-  )
-
-  const onMarkAsRead = useCallback(
-    (notification: SbNotification) => {
-      if (notification.local) {
-        dispatch(markLocalNotificationsRead([notification.id]))
-      } else {
-        dispatch(markNotificationsRead([notification.id]))
-      }
-    },
-    [dispatch],
-  )
+  const onDismiss = useCallback((notificationId: string) => {
+    setNotificationItems(items => items.filter(item => item !== notificationId))
+  }, [])
 
   return ReactDOM.createPortal(
     <PopupsContainer>
-      {popupTransition((styles, item) => (
-        <Popup style={styles}>
-          {notificationToUi(
-            item,
-            item.id /* key */,
-            false /* showDivider */,
-            (elem: HTMLDivElement | null) => {
-              if (elem) {
-                popupElems.current.set(item.id, elem)
-              } else {
-                popupElems.current.delete(item.id)
-              }
-            },
-          )}
-          <MarkAsReadButton
-            icon={<MaterialIcon icon='check' />}
-            title={t('notifications.popup.markAsRead', 'Mark as read')}
-            onClick={() => onMarkAsRead(item)}
-          />
-        </Popup>
-      ))}
+      <AnimatePresence mode='popLayout'>
+        {notificationItems.map(id => (
+          <NotificationPopup key={id} notificationId={id} onDismiss={onDismiss} />
+        ))}
+      </AnimatePresence>
     </PopupsContainer>,
     portalRef.current,
   )
