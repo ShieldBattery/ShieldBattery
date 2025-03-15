@@ -151,4 +151,4 @@ jobs:
             }
             runGitDiff()
 
-            core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files.')
+            core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files. You may need to run "cargo install typeshare-cli" to get an updated version first.')
