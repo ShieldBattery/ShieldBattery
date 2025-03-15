@@ -57,31 +57,39 @@ jobs:
         id: gen-email-templates
         run: pnpm gen-emails
 
+      - name: Generate graphql files
+        id: gen-graphql
+        run: pnpm gen-graphql
+
+      - name: Get changed files
+        uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
+        id: get-changed-files
+        with:
+          return-pipe: true
+
       - name: Check email templates
-        uses: tj-actions/verify-changed-files@v15
+        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-email-templates
         with:
-          files: server/email/*.html
+          pipe: ${{ steps.get-changed-files.outputs.pipe }}
+          pattern: server/email/*.html
 
       - name: Display email template error
-        if: ${{ steps.check-email-templates.outputs.files_changed == 'true' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
+        if: ${{ steps.check-email-templates.outputs.matches != '' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
         uses: actions/github-script@v6
         with:
           script: |
             core.setFailed('The email templates seem outdated. Please run "pnpm gen-emails" in the directory root and commit the updated email templates.')
 
-      - name: Generate graphql files
-        id: gen-graphql
-        run: pnpm gen-graphql
-
       - name: Check graphql codegen
-        uses: tj-actions/verify-changed-files@v15
+        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-graphql
         with:
-          files: client/gql/*
+          pipe: ${{ steps.get-changed-files.outputs.pipe }}
+          pattern: client/gql/*
 
       - name: Display graphql error
-        if: ${{ steps.check-graphql.outputs.files_changed == 'true' || failure() && steps.gen-graphql.conclusion == 'failure' }}
+        if: ${{ steps.check-graphql.outputs.matches != '' || failure() && steps.gen-graphql.conclusion == 'failure' }}
         uses: actions/github-script@v6
         with:
           script: |

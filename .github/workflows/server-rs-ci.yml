@@ -81,16 +81,10 @@ jobs:
 
       - name: cargo run --bin gen-schema
         id: gen-schema
-        run: cargo run --bin gen-schema
-
-      - name: Check graphql schema
-        uses: tj-actions/verify-changed-files@v15
-        id: check-schema
-        with:
-          files: ./schema.graphql
+        run: cargo run --bin gen-schema -- --fail-on-update
 
       - name: Display graphql error
-        if: ${{ steps.check-schema.outputs.files_changed == 'true' || failure() && steps.gen-schema.conclusion == 'failure' }}
+        if: ${{ failure() && steps.gen-schema.conclusion == 'failure' }}
         uses: actions/github-script@v6
         with:
           script: |
@@ -124,33 +118,22 @@ jobs:
         id: gen-typeshare
         run: pnpm gen-typeshare
 
+      - name: Get changed files
+        uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
+        id: get-changed-files
+        with:
+          return-pipe: true
+
       - name: Check typeshare
-        uses: tj-actions/verify-changed-files@v20
+        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-typeshare
         with:
-          files: common/typeshare.ts
+          pipe: ${{ steps.get-changed-files.outputs.pipe }}
+          pattern: common/typeshare.ts
 
       - name: Display typeshare
-        if: ${{ steps.check-typeshare.outputs.files_changed == 'true' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
-        env:
-          FILES_CHANGED: ${{ steps.check-typeshare.outputs.files_changed }}
-          CHANGED_FILES: ${{ steps.check-typeshare.outputs.changed_files }}
+        if: ${{ steps.check-typeshare.outputs.matches != '' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
         uses: actions/github-script@v6
         with:
           script: |
-            const util = require('node:util')
-            const node_exec = util.promisify(require('node:child_process').exec)
-
-            const { FILES_CHANGED, CHANGED_FILES } = process.env
-
-            console.log(`Files changed: ${FILES_CHANGED}`)
-            console.log(`Changed files: ${CHANGED_FILES}`)
-
-            async function runGitDiff() {
-              const { stdout, stderr } = await node_exec('git diff')
-              console.log('stdout:', stdout)
-              console.error('stderr:', stderr)
-            }
-            runGitDiff()
-
             core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files.')
