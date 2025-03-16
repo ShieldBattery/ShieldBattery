@@ -66,7 +66,7 @@ type ButtonState = [
    */
   buttonProps: ButtonStateAppliedProps,
   /** A ref to attach to a `Ripple` component inside of the button. */
-  rippleRef: React.RefObject<RippleController>,
+  rippleRef: React.RefObject<RippleController | null>,
 ]
 
 export function useButtonState({
@@ -257,11 +257,8 @@ export function keyEventMatches(event: KeyboardEvent, hotkey: HotkeyProp) {
 }
 
 export interface ButtonHotkeyProps {
-  // NOTE(tec27): The typings encode null-initialized refs as readonly, but there doesn't seem to be
-  // any different handling on the React side, so converting them to MutableRefObjects in this case
-  // seems to be safe.
   /** The reference to the button that should be pressed programmatically. */
-  ref: React.MutableRefObject<HTMLButtonElement | HTMLAnchorElement | undefined | null>
+  ref: React.RefObject<HTMLButtonElement | HTMLAnchorElement | undefined | null>
   /**
    * A hotkey, or an array of hotkeys, to register for the button. Pressing any of the specified
    * modifiers and key combinations will result in the button being clicked programmatically.

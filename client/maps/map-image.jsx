@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -46,14 +45,6 @@ export const MapNoImage = () => {
 }
 
 export default class MapImage extends React.Component {
-  static propTypes = {
-    map: PropTypes.object.isRequired,
-    size: PropTypes.number,
-    altText: PropTypes.string,
-    noImageElem: PropTypes.element,
-    forceAspectRatio: PropTypes.number,
-  }
-
   static defaultProps = {
     size: 256,
     noImageElem: <MapNoImage />,

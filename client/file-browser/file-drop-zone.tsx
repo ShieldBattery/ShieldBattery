@@ -18,7 +18,7 @@ export interface FileDropZoneProviderProps {
 
 export function FileDropZoneProvider({ children }: FileDropZoneProviderProps) {
   const [isDocumentDragging, setIsDocumentDragging] = useState(false)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const onDragging = useStableCallback((event?: DragEvent) => {
     // Only consider it dragging if it contains files, so we don't trigger the drag UI for someone

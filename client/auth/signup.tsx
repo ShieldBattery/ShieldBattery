@@ -154,7 +154,7 @@ export function Signup() {
 
   const [usernameAvailable] = useState(() => usernameAvailableValidator())
 
-  const abortControllerRef = useRef<AbortController>()
+  const abortControllerRef = useRef<AbortController>(undefined)
 
   const onFormSubmit = useStableCallback((model: SignupModel) => {
     setIsLoading(true)

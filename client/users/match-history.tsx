@@ -56,7 +56,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   const [isLoadingMoreGames, setIsLoadingMoreGames] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
-  const abortControllerRef = useRef<AbortController>()
+  const abortControllerRef = useRef<AbortController>(undefined)
 
   const onLoadMoreGames = useStableCallback(() => {
     setIsLoadingMoreGames(true)

@@ -153,7 +153,7 @@ export function AdminChannelView({
 
   const [channelUsers, setChannelUsers] = useState<SbUser[]>([])
 
-  const getChannelMessagesAbortControllerRef = useRef<AbortController>()
+  const getChannelMessagesAbortControllerRef = useRef<AbortController>(undefined)
 
   useEffect(() => {
     if (channelInfo && channelNameFromRoute !== channelInfo.name) {

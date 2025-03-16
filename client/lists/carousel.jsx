@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -57,13 +56,6 @@ const CarouselButton = styled(IconButton)`
 
 @withTranslation('global', { withRef: true })
 export default class Carousel extends React.Component {
-  static propTypes = {
-    isLoading: PropTypes.bool,
-    // Whether the carousel has more items that could be requested
-    hasMoreItems: PropTypes.bool,
-    onLoadMoreData: PropTypes.func,
-  }
-
   state = {
     translateWidth: 0,
     carouselWidth: 0,

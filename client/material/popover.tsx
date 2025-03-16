@@ -417,8 +417,8 @@ export function useAnchorPosition(
   useWindowListener('resize', forceUpdate)
 
   // These let us use previous positions if the anchor gets removed
-  const xRef = useRef<number>()
-  const yRef = useRef<number>()
+  const xRef = useRef<number>(undefined)
+  const yRef = useRef<number>(undefined)
 
   if (element || element === null) {
     ref(element)

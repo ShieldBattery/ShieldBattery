@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -271,12 +270,6 @@ const StyledPlayerCard = styled(PlayerCard)`
 
 @withTranslation()
 export default class LoadingScreen extends React.Component {
-  static propTypes = {
-    lobby: PropTypes.object.isRequired,
-    gameStatus: PropTypes.object.isRequired,
-    user: PropTypes.object.isRequired,
-  }
-
   render() {
     const { lobby, gameStatus, user, t } = this.props
 

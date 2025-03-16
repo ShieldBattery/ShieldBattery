@@ -1,4 +1,5 @@
 import { ReactElement } from 'react'
+import { BaseMenuItemProps } from './item'
 
 export enum MenuItemType {
   Default = 'Default',
@@ -19,7 +20,7 @@ export const MenuItemSymbol = Symbol('MenuItem')
  * Returns true if the specified child has a type marked as a MenuItem (rather than static or
  * decorative content).
  */
-export function isMenuItem(child: unknown): child is ReactElement {
+export function isMenuItem(child: unknown): child is ReactElement<BaseMenuItemProps> {
   return (
     child &&
     (child as any).type &&

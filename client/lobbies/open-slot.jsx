@@ -1,30 +1,13 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RacePicker } from './race-picker'
-import SelectedRace from './selected-race'
+import { SelectedRace } from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
 @withTranslation()
 export default class OpenSlot extends React.Component {
-  static propTypes = {
-    onAddComputer: PropTypes.func,
-    onSetRace: PropTypes.func,
-    onSwitchClick: PropTypes.func,
-    onCloseSlot: PropTypes.func,
-    // Indicates if this is a `controlledOpen` type slot
-    controlledOpen: PropTypes.bool,
-    // In `controlledOpen` slots, indicates if it can be set race to
-    canSetRace: PropTypes.bool,
-    isHost: PropTypes.bool,
-    race: PropTypes.string,
-    isObserver: PropTypes.bool,
-    canMakeObserver: PropTypes.bool,
-    canRemoveObserver: PropTypes.bool,
-  }
-
   state = {
     isHovered: false,
   }

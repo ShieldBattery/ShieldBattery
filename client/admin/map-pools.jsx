@@ -1,5 +1,4 @@
 import { List, OrderedMap } from 'immutable'
-import PropTypes from 'prop-types'
 import React, { useCallback } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
@@ -156,16 +155,6 @@ const ErrorText = styled.div`
 `
 
 export class MapPoolEditor extends React.Component {
-  static propTypes = {
-    initialMaps: PropTypes.instanceOf(List),
-    searchResult: PropTypes.object,
-    searchQuery: PropTypes.string,
-    onSearchClick: PropTypes.func.isRequired,
-    onLoadMoreMaps: PropTypes.func.isRequired,
-    onCreate: PropTypes.func.isRequired,
-    hasVetoes: PropTypes.bool,
-  }
-
   state = {
     maps: new OrderedMap(),
     startDate: '',
@@ -438,19 +427,7 @@ const MapPoolHistoryRow = React.memo(props => {
   )
 })
 
-MapPoolHistoryRow.propTypes = {
-  mapPool: PropTypes.object.isRequired,
-  onUseAsTemplate: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-}
-
 class MapPoolHistory extends React.PureComponent {
-  static propTypes = {
-    history: PropTypes.object,
-    onUseAsTemplate: PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
-  }
-
   render() {
     const { history } = this.props
 

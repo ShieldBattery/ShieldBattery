@@ -90,7 +90,7 @@ const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProp
     const { t } = useTranslation()
     const dispatch = useAppDispatch()
     const notification = useAppSelector(s => s.notifications.byId.get(notificationId))
-    const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     // Schedule auto-dismissal when the animation completes
     const scheduleRemoval = useCallback(() => {

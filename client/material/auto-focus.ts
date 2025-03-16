@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef } from 'react'
  */
 export function useAutoFocusRef<T extends { focus: () => void }>(delayMillis = 0) {
   const hasFocused = useRef<boolean>(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
-  const ref = useRef<T>()
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const ref = useRef<T>(null)
   const setRef = useCallback(
     (newRef: T) => {
       ref.current = newRef

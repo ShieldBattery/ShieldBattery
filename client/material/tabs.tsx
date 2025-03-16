@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useMemo } from 'react'
+import React, { ReactElement, useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
 import { useMultiRef } from '../state-hooks'
@@ -148,7 +148,7 @@ export const TabItem = React.memo(
 )
 
 export interface TabsProps<T> {
-  children: Array<ReturnType<typeof TabItem> | null>
+  children: Array<ReactElement<TabItemProps<T>> | null | undefined>
   activeTab: T
   onChange?: (value: T) => void
   className?: string
@@ -188,6 +188,8 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
       }
     }
     // Remove the last spacer since we don't want spacers on the outside
+    // NOTE(tec27): I have zero earthly idea why the eslint plugin thinks this is a floating promise
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     tabElems.pop()
     return tabElems
   }, [activeTab, children, onChange])
@@ -200,7 +202,7 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         }
 
         let activeTabIndex = 0
-        const enabledChildren: React.ReactElement[] = []
+        const enabledChildren: React.ReactElement<TabItemProps<T>>[] = []
         React.Children.forEach(children, child => {
           if (!child || typeof child !== 'object' || !('props' in child)) {
             // Skip nulls to allow for optional tabs

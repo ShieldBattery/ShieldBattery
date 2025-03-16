@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Card } from '../../material/card'
 import { RacePicker } from '../race-picker'
-import SelectedRace from '../selected-race'
+import { SelectedRace } from '../selected-race'
 
 const Container = styled.div`
   display: flex;

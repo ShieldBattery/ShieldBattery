@@ -117,6 +117,7 @@ interface TimestampMessageLayoutProps {
   className?: string
   children: React.ReactNode
   onContextMenu?: (event: React.MouseEvent) => void
+  testId?: string
 }
 
 export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
@@ -126,7 +127,8 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
       $highlighted={props.highlighted}
       className={props.className}
       role='document'
-      onContextMenu={props.onContextMenu}>
+      onContextMenu={props.onContextMenu}
+      data-testid={props.testId}>
       <MessageTimestamp time={props.time} />
       {props.children}
     </MessageContainer>

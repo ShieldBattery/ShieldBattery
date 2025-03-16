@@ -96,7 +96,7 @@ export function useResizeObserver<T extends Element>(
     resizeObserver = new ResizeObserver(onResizeObserved)
   }
 
-  const ref = useRef<T>()
+  const ref = useRef<T>(undefined)
   const setRef = useCallback(
     (node: T | null) => {
       if (ref.current) {

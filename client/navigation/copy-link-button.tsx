@@ -38,7 +38,7 @@ export function CopyLinkButton({
   copiedText = i18n.t('navigation.copyLink.copiedText', 'Copied!'),
 }: CopyLinkButtonProps) {
   const [text, setText] = useState(startingText)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const onClick = useStableCallback(() => {
     if (timeoutRef.current) {

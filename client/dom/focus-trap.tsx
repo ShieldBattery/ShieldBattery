@@ -10,7 +10,7 @@ export interface FocusTrapProps {
    * **Note:** This element **must** have a tabIndex set. If it should not normally be
    * keyboard-navigable, this can be `-1`, and should probably be `0` otherwise.
    */
-  focusableRef: React.RefObject<HTMLElement>
+  focusableRef: React.RefObject<HTMLElement | null>
 }
 
 /**

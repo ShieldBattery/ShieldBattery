@@ -1,4 +1,4 @@
-import React, { InputHTMLAttributes, useId } from 'react'
+import React, { InputHTMLAttributes, ReactElement, useId } from 'react'
 import styled from 'styled-components'
 import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'
@@ -39,12 +39,14 @@ export function RadioGroup<T>({
   onChange,
   className,
 }: RadioGroupProps<T>) {
-  const radioButtons = React.Children.map(children, (child, i) => {
-    if (!child || typeof child !== 'object' || !('props' in child)) {
-      return child
+  const radioButtons = React.Children.map(children, (_child, i) => {
+    if (!_child || typeof _child !== 'object' || !('props' in _child)) {
+      return _child
     }
 
-    const isSelected = value === (child.props as RadioButtonProps<T>).value
+    const child = _child as ReactElement<RadioButtonProps<T>>
+
+    const isSelected = value === child.props.value
     return React.cloneElement(child, {
       key: `button-${i}`,
       name,

@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React, { useEffect } from 'react'
 
 export interface WindowListenerProps {
@@ -13,11 +12,6 @@ export interface WindowListenerProps {
  * ignores any changes to them.
  */
 export default class WindowListener extends React.Component<WindowListenerProps> {
-  static propTypes = {
-    event: PropTypes.string.isRequired,
-    listener: PropTypes.func.isRequired,
-  }
-
   private rafId: number | undefined
   private lastEvent: Event | undefined
 

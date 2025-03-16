@@ -1,30 +1,12 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { RacePicker } from './race-picker'
-import SelectedRace from './selected-race'
+import { SelectedRace } from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
 @withTranslation()
-export default class slots extends React.Component {
-  static propTypes = {
-    onAddComputer: PropTypes.func,
-    onSetRace: PropTypes.func,
-    onOpenSlot: PropTypes.func,
-    onMakeObserver: PropTypes.func,
-    onRemoveObserver: PropTypes.func,
-    // Indicates if this is a `controlledClosed` type slot
-    controlledClosed: PropTypes.bool,
-    // In `controlledClosed` slots, indicates if it can be set race to
-    canSetRace: PropTypes.bool,
-    isHost: PropTypes.bool,
-    race: PropTypes.string,
-    isObserver: PropTypes.bool,
-    canMakeObserver: PropTypes.bool,
-    canRemoveObserver: PropTypes.bool,
-  }
-
+export default class ClosedSlot extends React.Component {
   renderControls() {
     const { controlledClosed, canSetRace, race, onSetRace } = this.props
     if (controlledClosed) {

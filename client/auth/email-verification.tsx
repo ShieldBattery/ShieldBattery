@@ -33,7 +33,7 @@ export function EmailVerificationUi() {
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<Error>()
   const [emailResent, setEmailResent] = useState(false)
-  const reqIdRef = useRef<string>()
+  const reqIdRef = useRef<string>(undefined)
 
   const urlParams = useMemo(() => {
     try {

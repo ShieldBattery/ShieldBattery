@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -51,12 +50,6 @@ const StyledRaceIcon = styled(RaceIcon)`
 
 @withTranslation()
 export default class PlayerCard extends React.Component {
-  static propTypes = {
-    player: PropTypes.object.isRequired,
-    isComputer: PropTypes.bool,
-    isReady: PropTypes.bool,
-  }
-
   static defaultProps = {
     isReady: true,
   }

@@ -72,7 +72,7 @@ export interface NavigationMenuOverlayProps {
   onClose: () => void
   children: React.ReactNode
   className?: string
-  focusableRef?: React.RefObject<HTMLElement>
+  focusableRef?: React.RefObject<HTMLElement | null>
 }
 
 export function NavigationMenuOverlay({

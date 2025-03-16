@@ -1,11 +1,10 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { RacePicker } from './race-picker'
-import SelectedRace from './selected-race'
+import { SelectedRace } from './selected-race'
 import { Slot, SlotLeft, SlotName, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
@@ -19,25 +18,6 @@ const StyledAvatar = styled(Avatar)`
 
 @withTranslation()
 export default class PlayerSlot extends React.Component {
-  static propTypes = {
-    name: PropTypes.string.isRequired,
-    race: PropTypes.string,
-    isComputer: PropTypes.bool,
-    onSetRace: PropTypes.func,
-    onOpenSlot: PropTypes.func,
-    onCloseSlot: PropTypes.func,
-    onKickPlayer: PropTypes.func,
-    onBanPlayer: PropTypes.func,
-    // Whether or not this slot can be set race to
-    canSetRace: PropTypes.bool,
-    isHost: PropTypes.bool,
-    // Whether or not this slot is the current user's own slot
-    isSelf: PropTypes.bool,
-    isObserver: PropTypes.bool,
-    canMakeObserver: PropTypes.bool,
-    canRemoveObserver: PropTypes.bool,
-  }
-
   renderControls() {
     const { isObserver, canSetRace, race, onSetRace } = this.props
     if (isObserver) {

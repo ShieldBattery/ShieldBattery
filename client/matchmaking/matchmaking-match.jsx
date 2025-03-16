@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -79,15 +78,6 @@ const VsContainer = styled.div`
 
 @withTranslation()
 export default class MatchmakingMatch extends React.Component {
-  static propTypes = {
-    isLaunching: PropTypes.bool,
-    isCountingDown: PropTypes.bool,
-    countdownTimer: PropTypes.number,
-    isStarting: PropTypes.bool,
-    map: PropTypes.object,
-    players: PropTypes.array,
-  }
-
   renderStatus() {
     const { isCountingDown, countdownTimer, isLaunching, isStarting, t } = this.props
 

@@ -37,6 +37,7 @@ export const PasswordTextField = React.forwardRef<HTMLInputElement, TextFieldPro
         }
         $dense={props.dense}
         onClick={onToggleVisibility}
+        tabIndex={0}
       />
     )
 

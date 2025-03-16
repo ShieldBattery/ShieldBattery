@@ -78,7 +78,7 @@ export function ChannelList() {
   const [isLoadingMoreChannels, setIsLoadingMoreChannels] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
-  const abortControllerRef = useRef<AbortController>()
+  const abortControllerRef = useRef<AbortController>(undefined)
 
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const debouncedSearchRef = useRef(

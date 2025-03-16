@@ -7,7 +7,7 @@ import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 
 const LoadableMarkdown = React.lazy(() => import('react-markdown'))
 
-const StyledMarkdown = styled(LoadableMarkdown)`
+const Root = styled.div`
   &,
   & * {
     user-select: text;
@@ -92,9 +92,11 @@ const COMPONENTS: Components = {
 export function Markdown({ source, className }: MarkdownProps) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
-      <StyledMarkdown className={className} skipHtml={true} components={COMPONENTS}>
-        {source}
-      </StyledMarkdown>
+      <Root className={className}>
+        <LoadableMarkdown skipHtml={true} components={COMPONENTS}>
+          {source}
+        </LoadableMarkdown>
+      </Root>
     </Suspense>
   )
 }

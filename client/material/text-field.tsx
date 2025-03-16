@@ -286,10 +286,9 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
     }
 
     const leadingIconsElements = leadingIcons.map((leadingIcon, index) => {
-      const elem = React.cloneElement(leadingIcon, { tabIndex: -1 })
       return (
         <LeadingIcon key={index} $index={index} $dense={dense}>
-          {elem}
+          {leadingIcon}
         </LeadingIcon>
       )
     })
@@ -297,10 +296,9 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
       .slice() // Don't mutate the original array
       .reverse()
       .map((trailingIcon, index) => {
-        const elem = React.cloneElement(trailingIcon, { tabIndex: -1 })
         return (
           <TrailingIcon key={index} $index={index} $dense={dense} $multiline={multiline}>
-            {elem}
+            {trailingIcon}
           </TrailingIcon>
         )
       })

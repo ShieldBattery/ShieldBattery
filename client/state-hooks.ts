@@ -16,7 +16,7 @@ import logger from './logging/logger'
  * }
  */
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>()
+  const ref = useRef<T>(undefined)
   useEffect(() => {
     ref.current = value
   })
@@ -28,7 +28,7 @@ export function usePrevious<T>(value: T): T | undefined {
  * been seen yet, `undefined` will be returned.
  */
 export function usePreviousDefined<T>(value: T | undefined): T | undefined {
-  const ref = useRef<T>()
+  const ref = useRef<T>(undefined)
   useEffect(() => {
     if (value !== undefined) {
       ref.current = value
@@ -50,7 +50,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  *   return <button title='Count' onClick={onClick} />
  * }
  */
-export function useValueAsRef<T>(value: T): React.MutableRefObject<T> {
+export function useValueAsRef<T>(value: T): React.RefObject<T> {
   const ref = useRef(value)
   ref.current = value
 
@@ -79,8 +79,8 @@ export function useForceUpdate(): () => void {
  */
 export function useMultiRef<T>(
   ref: React.ForwardedRef<T>,
-): [elemRef: React.MutableRefObject<T | undefined>, setElemRef: (elem: T | null) => void] {
-  const elemRef = useRef<T>()
+): [elemRef: React.RefObject<T | undefined>, setElemRef: (elem: T | null) => void] {
+  const elemRef = useRef<T>(undefined)
   const setElemRef = useCallback(
     (elem: T | null) => {
       elemRef.current = elem ?? undefined
@@ -118,7 +118,7 @@ export function useStableCallback<A extends any[], R>(fn: (...args: A) => R): (.
     updatedRef.current = fn
   })
 
-  const stableRef = useRef<(...args: A) => R>()
+  const stableRef = useRef<(...args: A) => R>(undefined)
   if (!stableRef.current) {
     stableRef.current = (...args: A) => updatedRef.current(...args)
   }

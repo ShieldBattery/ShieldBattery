@@ -69,8 +69,9 @@ export const TextMessage = React.memo<{
   selfUserId: SbUserId
   time: number
   text: string
+  testId?: string
 }>(props => {
-  const { msgId, userId, selfUserId, time, text } = props
+  const { msgId, userId, selfUserId, time, text, testId } = props
   const filterClick = useMentionFilterClick()
   const addUserMenuItems = useChatUserMenuItems()
   const addMessageMenuItems = useChatMessageMenuItems()
@@ -157,7 +158,8 @@ export const TextMessage = React.memo<{
         time={time}
         active={contextMenuPopoverProps.open}
         highlighted={isHighlighted}
-        onContextMenu={onContextMenu}>
+        onContextMenu={onContextMenu}
+        testId={testId}>
         <Username>
           <ConnectedUsername
             userId={userId}

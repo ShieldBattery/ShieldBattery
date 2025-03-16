@@ -6,7 +6,7 @@ import { useForceUpdate } from '../state-hooks'
  * object URLs are revoked.
  */
 export function useObjectUrl(file?: Blob): string | undefined {
-  const objectUrlRef = useRef<string>()
+  const objectUrlRef = useRef<string>(undefined)
   const forceUpdate = useForceUpdate()
 
   useEffect(() => {

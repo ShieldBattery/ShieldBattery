@@ -53,7 +53,7 @@ export function Login() {
 
   useRedirectAfterLogin()
 
-  const abortControllerRef = useRef<AbortController>()
+  const abortControllerRef = useRef<AbortController>(undefined)
 
   const onFormSubmit = useStableCallback((model: LoginModel) => {
     setIsLoading(true)

@@ -1,24 +1,30 @@
+import { render, screen } from '@testing-library/react'
 import React from 'react'
-import ShallowRenderer from 'react-test-renderer/shallow'
+import { Provider as ReduxProvider } from 'react-redux'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import createStore from '../create-store'
 import { TextMessage } from './common-message-layout'
 
 const selfUserId = makeSbUserId(1)
 const userId = makeSbUserId(2)
 
 describe('client/messaging/common-message-layout/TextMessage', () => {
-  const renderer = ShallowRenderer.createRenderer()
-  const doRender = (text: string): React.ReactElement => {
-    renderer.render(
-      <TextMessage
-        msgId='MESSAGE_ID'
-        userId={userId}
-        selfUserId={selfUserId}
-        time={0}
-        text={text}
-      />,
+  const store = createStore()
+  const doRender = (text: string): HTMLElement => {
+    render(
+      <ReduxProvider store={store}>
+        <div data-testid='message-container'>
+          <TextMessage
+            msgId='MESSAGE_ID'
+            userId={userId}
+            selfUserId={selfUserId}
+            time={0}
+            text={text}
+          />
+        </div>
+      </ReduxProvider>,
     )
-    return renderer.getRenderOutput()
+    return screen.getByTestId('message-container')
   }
 
   test('message as a normal text', () => {

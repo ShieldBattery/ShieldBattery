@@ -585,7 +585,7 @@ export interface LadderTableProps {
   season: MatchmakingSeasonJson | undefined
   onSeasonChange: (seasonId: SeasonId) => void
   lastError?: Error
-  searchInputRef?: React.RefObject<SearchInputHandle>
+  searchInputRef?: React.RefObject<SearchInputHandle | null>
   searchQuery: string
   onSearchChange: (value: string) => void
   filteredDivision: DivisionFilter

@@ -1,5 +1,4 @@
 import { List } from 'immutable'
-import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -188,18 +187,7 @@ interface MessageListSnapshot {
   lastScrollHeight: number
 }
 
-export class MessageList extends React.Component<MessageListProps, never, MessageListSnapshot> {
-  static propTypes = {
-    messages: PropTypes.oneOfType([PropTypes.object.isRequired, PropTypes.array.isRequired]),
-    // A function which is used to render messages
-    renderMessage: PropTypes.func,
-    // Whether we are currently requesting more history for this message list
-    loading: PropTypes.bool,
-    // Whether this message list has more history available that could be requested
-    hasMoreHistory: PropTypes.bool,
-    onScrollUpdate: PropTypes.func,
-  }
-
+export class MessageList extends React.Component<MessageListProps> {
   private scrollableRef = React.createRef<HTMLDivElement>()
   private onScroll = animationFrameHandler(target => {
     if (target && this.props.onScrollUpdate) {

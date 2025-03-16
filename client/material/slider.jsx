@@ -1,5 +1,4 @@
 import keycode from 'keycode'
-import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
@@ -272,28 +271,6 @@ const BalloonText = styled.div`
 `
 
 class Slider extends React.Component {
-  static propTypes = {
-    min: PropTypes.number.isRequired,
-    max: PropTypes.number.isRequired,
-    value: PropTypes.number.isRequired,
-    step: props => {
-      if (typeof props.step !== 'number') {
-        return new Error('`step` must be a number.')
-      }
-      if ((props.max - props.min) % props.step !== 0) {
-        return new Error(
-          'The range between `min` and `max` needs to be evenly divisible by `step`.',
-        )
-      }
-      return null
-    },
-    disabled: PropTypes.bool,
-    showTicks: PropTypes.bool,
-    label: PropTypes.string,
-    tabIndex: PropTypes.number,
-    onChange: PropTypes.func,
-  }
-
   static defaultProps = {
     step: 1,
     showTicks: true,

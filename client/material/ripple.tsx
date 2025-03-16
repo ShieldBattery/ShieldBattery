@@ -216,10 +216,10 @@ export const Ripple = React.memo(
 
     const activationStateRef = useRef<ActivationState>({})
     const styleRef = useRef<RippleStyle>({})
-    const activationTimerRef = useRef<ReturnType<typeof setTimeout>>()
-    const fgDeactivationRemovalTimerRef = useRef<ReturnType<typeof setTimeout>>()
-    const clearActivatedTargetsReqRef = useRef<number>()
-    const runDeactivationReqRef = useRef<number>()
+    const activationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+    const fgDeactivationRemovalTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+    const clearActivatedTargetsReqRef = useRef<number>(undefined)
+    const runDeactivationReqRef = useRef<number>(undefined)
 
     const [focused, setFocused] = useState(false)
     const [hovered, setHovered] = useState(false)

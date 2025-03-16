@@ -38,7 +38,7 @@ export function AppSoundSettings() {
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
   const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
-  const playingSoundRef = useRef<AudioBufferSourceNode>()
+  const playingSoundRef = useRef<AudioBufferSourceNode>(undefined)
 
   const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
     dispatch(

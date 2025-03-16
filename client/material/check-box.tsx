@@ -169,7 +169,7 @@ export const CheckBox = React.forwardRef<HTMLInputElement, CheckBoxProps>(
     const id = useId()
     const [isKeyboardFocused, setIsKeyboardFocused] = useState(false)
     const mouseActiveRef = useRef(false)
-    const clearMouseActiveRef = useRef<ReturnType<typeof setTimeout>>()
+    const clearMouseActiveRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     const onBlur = useCallback(() => {
       setIsKeyboardFocused(false)

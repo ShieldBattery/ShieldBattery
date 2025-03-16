@@ -228,7 +228,7 @@ const FaqTitle = styled.div`
 
 export function Faq() {
   const { t } = useTranslation()
-  const lastHash = useRef<string>()
+  const lastHash = useRef<string>(undefined)
 
   useLayoutEffect(() => {
     const onHashChange = () => {

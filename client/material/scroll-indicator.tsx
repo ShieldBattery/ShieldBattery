@@ -83,7 +83,7 @@ export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStatePr
   /** An element that should be placed at the bottom of the content area. */
   bottomElem: React.ReactNode,
 ] {
-  const observerRef = useRef<IntersectionObserver>()
+  const observerRef = useRef<IntersectionObserver>(undefined)
   const topElemRef = useRef<HTMLDivElement>(null)
   const bottomElemRef = useRef<HTMLDivElement>(null)
 

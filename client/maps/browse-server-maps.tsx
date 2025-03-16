@@ -239,7 +239,7 @@ export function BrowseServerMaps({
     )
   })
 
-  const debouncedSetSearchQuery = useRef<DebouncedFunc<typeof setSearchQuery>>()
+  const debouncedSetSearchQuery = useRef<DebouncedFunc<typeof setSearchQuery>>(undefined)
   const reset = useStableCallback(() => {
     debouncedSetSearchQuery.current?.cancel()
     dispatch(clearMapsList())

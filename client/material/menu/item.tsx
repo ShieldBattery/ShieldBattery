@@ -37,15 +37,18 @@ const ItemIcon = styled.span`
   overflow: hidden;
 `
 
-export interface MenuItemProps {
+export interface BaseMenuItemProps {
   text: string
   className?: string
-  icon?: React.ReactNode
   focused?: boolean
   dense?: boolean
   trailingContent?: React.ReactNode
   testName?: string
-  onClick?: (event: React.MouseEvent) => void
+  onClick?: (event: React.MouseEvent | KeyboardEvent) => void
+}
+
+export interface MenuItemProps extends BaseMenuItemProps {
+  icon?: React.ReactNode
 }
 
 export function MenuItem({

@@ -83,7 +83,7 @@ export default function InfiniteList(props: InfiniteListProps) {
   const onLoadNextDataRef = useValueAsRef(props.onLoadNextData)
   const prevTargetRef = useRef<HTMLDivElement>(null)
   const nextTargetRef = useRef<HTMLDivElement>(null)
-  const observer = useRef<IntersectionObserver>()
+  const observer = useRef<IntersectionObserver>(undefined)
 
   const startObserving = useCallback(() => {
     if (!observer.current) {

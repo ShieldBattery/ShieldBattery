@@ -13,6 +13,7 @@ import { InputUnderline } from '../input-underline'
 import { MenuList } from '../menu/menu'
 import { isSelectableMenuItem } from '../menu/menu-item-symbol'
 import { Popover, useAnchorPosition, usePopoverController } from '../popover'
+import { SelectOptionProps } from './option'
 
 const SPACE = 'Space'
 const ENTER = 'Enter'
@@ -205,7 +206,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
     const hookId = useId()
     const id = propsId ?? hookId
     const [focused, setFocused] = useState(false)
-    const inputRef = useRef<HTMLButtonElement>()
+    const inputRef = useRef<HTMLButtonElement>(undefined)
 
     const [opened, openSelect, closeSelect] = usePopoverController()
     const [anchorRef, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
@@ -250,7 +251,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
       (index: number) => {
         if (onChange) {
           const activeChild = React.Children.toArray(children)[index]
-          onChange((activeChild as React.ReactElement).props.value)
+          onChange((activeChild as React.ReactElement<SelectOptionProps>).props.value)
         }
         onClose()
       },
@@ -281,8 +282,10 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
 
     const [displayValue, options] = useMemo(() => {
       let displayText: string | undefined
-      const options = React.Children.map(children, (child, index) => {
-        if (!isSelectableMenuItem(child)) return child
+      const options = React.Children.map(children, (_child, index) => {
+        if (!isSelectableMenuItem(_child)) return _child
+
+        const child = _child as React.ReactElement<SelectOptionProps>
 
         let selected = false
         if (value !== undefined && child.props.value !== undefined) {

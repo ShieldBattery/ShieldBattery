@@ -72,7 +72,7 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0)
   const [displayedSnackbar, setDisplayedSnackbar] = useState<QueuedSnackbar>()
   const [isHovering, setIsHovering] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [queue, setQueue] = useState<QueuedSnackbar[]>([])
   const controller = useMemo<SnackbarController>(
     () => ({

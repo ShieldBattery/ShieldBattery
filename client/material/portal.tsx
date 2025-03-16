@@ -11,7 +11,7 @@ function useDismissalClickHandler(
   onCapture: (event: MouseEvent, isContained: boolean) => void,
   onBubble: (event: MouseEvent) => void,
 ] {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const capturedRef = useRef(false)
   // We capture the event and check if it will dismiss there, so that we can mark it as a
   // dismissal for other scrim or scrim-like handlers to avoid dismissing their UIs when a popover

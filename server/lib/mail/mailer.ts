@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import formData from 'form-data'
-import Mailgun, { MailgunMessageData } from 'mailgun.js'
+import Mailgun from 'mailgun.js'
+import { MailgunMessageData } from 'mailgun.js/definitions.js'
 import log from '../logging/logger'
 
 const enabled = !!process.env.SB_MAILGUN_KEY

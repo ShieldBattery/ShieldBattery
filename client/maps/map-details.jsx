@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
@@ -189,10 +188,6 @@ class DescriptionForm extends React.Component {
 @withTranslation()
 @connect(state => ({ auth: state.auth, mapDetails: state.mapDetails }))
 export default class MapDetails extends React.Component {
-  static propTypes = {
-    mapId: PropTypes.string.isRequired,
-  }
-
   state = {
     isEditingName: false,
     isEditingDescription: false,

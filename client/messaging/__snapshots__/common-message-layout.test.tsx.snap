@@ -1,283 +1,601 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`client/messaging/common-message-layout/TextMessage message as a normal text 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
       This is test message
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a link 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
       here is a link 
-      <ExternalLink
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      </a>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a link before a mention 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      <ExternalLink
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
+      </a>
        go here
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a link between mentions 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
       hey
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
        see 
-      <ExternalLink
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
+      </a>
        go here
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a mention 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
       hey
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a mention before a link 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
        go to 
-      <ExternalLink
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      </a>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a mention between links 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={false}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
-      <ExternalLink
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
+      </a>
        go here
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={123}
-      />
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
        or here 
-      <ExternalLink
+      <a
         href="http://www.example.com"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
       >
         http://www.example.com
-      </ExternalLink>
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      </a>
+    </span>
+  </div>
+</div>
 `;
 
 exports[`client/messaging/common-message-layout/TextMessage message with a mention of self user 1`] = `
-<React.Fragment>
-  <TimestampMessageLayout
-    active={false}
-    highlighted={true}
-    onContextMenu={[Function]}
-    time={0}
+<div
+  data-testid="message-container"
+>
+  <div
+    class="message-layout__MessageContainer-sc-5nek6h-3 kdbbZg"
+    role="document"
   >
-    <common-message-layout__Username>
-      <ConnectedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        userId={2}
-      />
-    </common-message-layout__Username>
-    <message-layout__Separator>
+    <div
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      tabindex="0"
+    >
+      <span
+        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+      >
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          [
+        </i>
+        4:00 PM
+        <i
+          aria-hidden="true"
+          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+    >
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+      >
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+    >
       : 
-    </message-layout__Separator>
-    <common-message-layout__Text>
+    </i>
+    <span
+      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+    >
       Hey
        
-      <common-message-layout__MentionedUsername
-        filterClick={[Function]}
-        modifyMenuItems={[Function]}
-        prefix="@"
-        userId={1}
-      />
-    </common-message-layout__Text>
-  </TimestampMessageLayout>
-</React.Fragment>
+      <span
+        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+        >
+                     
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
 `;

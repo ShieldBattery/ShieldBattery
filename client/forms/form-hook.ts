@@ -336,9 +336,9 @@ function useFormGetterSetters<ModelType>({
   setModelValue,
   setValidationErrors,
 }: {
-  stateModelRef: React.MutableRefObject<Readonly<ModelType>>
-  dirtyFieldsRef: React.MutableRefObject<Map<keyof ModelType, boolean>>
-  validationErrorsRef: React.MutableRefObject<Partial<Record<keyof ModelType, string>>>
+  stateModelRef: React.RefObject<Readonly<ModelType>>
+  dirtyFieldsRef: React.RefObject<Map<keyof ModelType, boolean>>
+  validationErrorsRef: React.RefObject<Partial<Record<keyof ModelType, string>>>
   setModelValue: StateSetter<Readonly<ModelType>>
   setValidationErrors: StateSetter<Partial<Record<keyof ModelType, string>>>
 }) {

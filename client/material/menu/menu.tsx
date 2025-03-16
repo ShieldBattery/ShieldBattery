@@ -124,7 +124,7 @@ export function MenuList({ children, className, dense }: MenuListProps) {
       } else if (event.code === ENTER || event.code === ENTER_NUMPAD || event.code === SPACE) {
         const activeItem = menuItems[activeIndex]
         if (isMenuItem(activeItem)) {
-          activeItem.props.onClick()
+          activeItem.props.onClick?.(event)
         }
       }
 

@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -101,10 +100,6 @@ const PlayersContainer = styled.div`
 
 @withTranslation()
 export default class ActiveLobby extends React.Component {
-  static propTypes = {
-    lobby: PropTypes.object.isRequired,
-  }
-
   render() {
     const { lobby, t } = this.props
     // TODO(2Pac): For now we're special-casing only TvB lobbies and using default display for all

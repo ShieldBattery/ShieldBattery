@@ -5,6 +5,31 @@ import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../ma
 import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'
 import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
 
+export interface UserOverlaysProps {
+  userId: SbUserId
+  profileAnchorX?: OriginX
+  profileAnchorY?: OriginY
+  profileOriginX?: OriginX
+  profileOriginY?: OriginY
+  profileOffsetX?: number
+  profileOffsetY?: number
+  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+  modifyMenuItems?: (
+    userId: SbUserId,
+    items: Map<MenuItemCategory, React.ReactNode[]>,
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => Map<MenuItemCategory, React.ReactNode[]>
+}
+
+export interface UserOverlays<E extends HTMLElement = HTMLElement> {
+  clickableElemRef: React.RefObject<E | null>
+  profileOverlayProps: ConnectedUserProfileOverlayProps
+  contextMenuProps: ConnectedUserContextMenuProps
+  onClick: (event: React.MouseEvent) => void
+  onContextMenu: (event: React.MouseEvent) => void
+  isOverlayOpen: boolean
+}
+
 /**
  * Returns nodes to render various types of user overlay UIs, and event handlers to attach to
  * elements that should trigger them. These can generally be used anywhere we display a username.
@@ -19,28 +44,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetY = 0,
   filterClick,
   modifyMenuItems,
-}: {
-  userId: SbUserId
-  profileAnchorX?: OriginX
-  profileAnchorY?: OriginY
-  profileOriginX?: OriginX
-  profileOriginY?: OriginY
-  profileOffsetX?: number
-  profileOffsetY?: number
-  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
-  modifyMenuItems?: (
-    userId: SbUserId,
-    items: Map<MenuItemCategory, React.ReactNode[]>,
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => Map<MenuItemCategory, React.ReactNode[]>
-}): {
-  clickableElemRef: React.RefObject<E>
-  profileOverlayProps: ConnectedUserProfileOverlayProps
-  contextMenuProps: ConnectedUserContextMenuProps
-  onClick: (event: React.MouseEvent) => void
-  onContextMenu: (event: React.MouseEvent) => void
-  isOverlayOpen: boolean
-} {
+}: UserOverlaysProps): UserOverlays<E> {
   const clickableElemRef = useRef<E>(null)
   const [, anchorX, anchorY] = useAnchorPosition(
     profileAnchorX,

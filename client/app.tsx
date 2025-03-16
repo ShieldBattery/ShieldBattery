@@ -151,7 +151,9 @@ function MainLayoutRoute() {
 
   return (
     <MainLayout key={selfUser?.id ?? -1}>
-      <AppRoutes />
+      <React.Suspense fallback={<LoadingDotsArea />}>
+        <AppRoutes />
+      </React.Suspense>
     </MainLayout>
   )
 }

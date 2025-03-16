@@ -393,7 +393,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   const [browsingMaps, setBrowsingMaps] = useState(MapBrowseState.None)
-  const mapSelectCallbackRef = useRef<(mapId: string) => void>()
+  const mapSelectCallbackRef = useRef<(mapId: string) => void>(undefined)
 
   const onCreateClick = useStableCallback(() => {
     formRef.current?.submit()

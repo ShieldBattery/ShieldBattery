@@ -232,7 +232,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
   const [loading, setLoading] = useState(false)
   const [bugReport, setBugReport] = useState<GetBugReportResponseJson>()
   const [error, setError] = useState<Error>()
-  const abortControllerRef = useRef<AbortController>()
+  const abortControllerRef = useRef<AbortController>(undefined)
 
   const onResolveClick = useStableCallback(() => {
     setLoading(true)

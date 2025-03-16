@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
@@ -88,15 +87,6 @@ const FinishedText = styled.span`
 `
 
 class MatchmakingTimesHistory extends React.PureComponent {
-  static propTypes = {
-    history: PropTypes.object,
-    futureTimesPage: PropTypes.number.isRequired,
-    pastTimesPage: PropTypes.number.isRequired,
-    onLoadMoreFuture: PropTypes.func.isRequired,
-    onLoadMorePast: PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
-  }
-
   render() {
     const { history, futureTimesPage, pastTimesPage, onLoadMoreFuture, onLoadMorePast, onDelete } =
       this.props

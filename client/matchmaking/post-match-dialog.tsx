@@ -305,7 +305,7 @@ function RatedUserContent({
     }
   }, [])
 
-  const scoreSoundRef = useRef<AudioBufferSourceNode | undefined>()
+  const scoreSoundRef = useRef<AudioBufferSourceNode>(undefined)
 
   const [pointsAnimScope, pointsAnimate] = useAnimate()
   const [animatingPoints, setAnimatingPoints] = useState(false)
