@@ -1,5 +1,5 @@
 import { enableMapSet, setAutoFreeze } from 'immer'
-import React from 'react'
+import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Router } from 'wouter'
@@ -175,15 +175,17 @@ rootElemPromise
     window.fathom?.trackPageview()
 
     root.render(
-      <RootErrorBoundary isVeryTopLevel={true}>
-        <ReduxProvider store={store}>
-          <Router>
-            <>
-              <App />
-              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-            </>
-          </Router>
-        </ReduxProvider>
-      </RootErrorBoundary>,
+      <StrictMode>
+        <RootErrorBoundary isVeryTopLevel={true}>
+          <ReduxProvider store={store}>
+            <Router>
+              <>
+                <App />
+                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+              </>
+            </Router>
+          </ReduxProvider>
+        </RootErrorBoundary>
+      </StrictMode>,
     )
   })

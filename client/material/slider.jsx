@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React from 'react'
+import React, { useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
 import { labelLarge, labelMedium } from '../styles/typography'
@@ -65,6 +65,8 @@ const ValueTick = styled.div`
 `
 
 const Ticks = ({ show, value, min, max, step }) => {
+  const nodeRef = useRef(null)
+
   let container
   if (show) {
     const numSteps = (max - min) / step + 1
@@ -80,8 +82,8 @@ const Ticks = ({ show, value, min, max, step }) => {
     elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
 
     container = (
-      <CSSTransition classNames={transitionNames} timeout={150}>
-        <TickContainer>{elems}</TickContainer>
+      <CSSTransition classNames={transitionNames} timeout={150} nodeRef={nodeRef}>
+        <TickContainer ref={nodeRef}>{elems}</TickContainer>
       </CSSTransition>
     )
   }
