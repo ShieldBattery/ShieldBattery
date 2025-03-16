@@ -53,6 +53,9 @@
           "./jest-client-setup.ts"
         ],
         "testEnvironment": "jsdom",
+        "testEnvironmentOptions": {
+          "html": "<html lang=\"en-US\"></html>"
+        },
         "testMatch": [
           "<rootDir>/client/**/*.test.[jt]s?(x)"
         ]

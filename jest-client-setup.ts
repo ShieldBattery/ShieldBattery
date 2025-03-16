@@ -14,3 +14,10 @@
   })),
   destination: {},
 }))
+
+// Ensure consistent timezone and time formatting in tests
+process.env.TZ = 'UTC'
+Object.defineProperty(window.navigator, 'language', {
+  get: () => 'en-US',
+  configurable: true,
+})
