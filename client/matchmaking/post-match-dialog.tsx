@@ -1,4 +1,3 @@
-import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
@@ -642,17 +641,13 @@ const PointsBarView = animated(
 
     const background = useMemo(() => {
       const divColor = getDivisionColor(division)
-      const isSilver =
-        division === MatchmakingDivision.Silver1 ||
-        division === MatchmakingDivision.Silver2 ||
-        division === MatchmakingDivision.Silver3
 
       return `linear-gradient(to right,
-        ${darken(0.14, saturate(0.1, divColor))} 0%,
+        oklch(from ${divColor} calc(0.75 * l) calc(1.1 * c) h) 0%,
         ${divColor} 33%,
         ${divColor} 75%,
-        ${lighten(0.12, saturate(isSilver ? 0.16 : 0.4, divColor))} 94%,
-        ${lighten(0.14, saturate(isSilver ? 0.24 : 0.6, divColor))} 100%)`
+        oklch(from ${divColor} calc(l * 1.12) calc(1.25 * c) h) 94%,
+        oklch(from ${divColor} calc(l * 1.2) calc(1.35 * c) h) 100%)`
     }, [division])
 
     return (
