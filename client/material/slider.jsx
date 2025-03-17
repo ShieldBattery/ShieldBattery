@@ -1,16 +1,10 @@
 import keycode from 'keycode'
-import React, { useRef } from 'react'
-import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
+import React from 'react'
 import styled from 'styled-components'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { standardEasing } from './curve-constants'
-
-const transitionNames = {
-  enter: 'enter',
-  enterActive: 'enterActive',
-  exit: 'exit',
-  exitActive: 'exitActive',
-}
 
 const LEFT = keycode('left')
 const RIGHT = keycode('right')
@@ -24,32 +18,28 @@ const THUMB_HEIGHT_PX = 20
 const BALLOON_WIDTH_PX = 28
 const BALLOON_HEIGHT_PX = 28
 
-const TickContainer = styled.span`
+const tickVariants = {
+  hidden: {
+    opacity: 0,
+  },
+  visible: {
+    opacity: 1,
+  },
+}
+
+const tickTransition = {
+  type: 'spring',
+  duration: 0.15,
+  bounce: 0,
+}
+
+const TickContainer = styled(m.span)`
   position: absolute;
   width: calc(100% - 12px);
   height: 100%;
   left: 6px;
   display: flex;
   align-items: center;
-  opacity: 1;
-
-  &.enter {
-    opacity: 0;
-    transition: opacity 150ms linear;
-  }
-
-  &.enterActive {
-    opacity: 1;
-  }
-
-  &.exit {
-    opacity: 1;
-    transition: opacity 150ms linear;
-  }
-
-  &.exitActive {
-    opacity: 0;
-  }
 `
 
 const ValueTick = styled.div`
@@ -65,9 +55,7 @@ const ValueTick = styled.div`
 `
 
 const Ticks = ({ show, value, min, max, step }) => {
-  const nodeRef = useRef(null)
-
-  let container
+  let content = null
   if (show) {
     const numSteps = (max - min) / step + 1
     const stepPercentage = (step / (max - min)) * 100
@@ -81,14 +69,23 @@ const Ticks = ({ show, value, min, max, step }) => {
     }
     elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
 
-    container = (
-      <CSSTransition classNames={transitionNames} timeout={150} nodeRef={nodeRef}>
-        <TickContainer ref={nodeRef}>{elems}</TickContainer>
-      </CSSTransition>
-    )
+    content = elems
   }
 
-  return <TransitionGroup>{container}</TransitionGroup>
+  return (
+    <AnimatePresence>
+      {show && (
+        <TickContainer
+          variants={tickVariants}
+          initial='hidden'
+          animate='visible'
+          exit='hidden'
+          transition={tickTransition}>
+          {content}
+        </TickContainer>
+      )}
+    </AnimatePresence>
+  )
 }
 
 const TrackRoot = styled.div`
@@ -211,7 +208,26 @@ const ClickableArea = styled.div`
   cursor: ${props => (props.disabled ? 'auto' : 'pointer')};
 `
 
-const Balloon = styled.div`
+const balloonVariants = {
+  hidden: {
+    scaleX: 0,
+    scaleY: 0,
+    opacity: 0,
+  },
+  visible: {
+    scaleX: 1,
+    scaleY: 1,
+    opacity: 1,
+  },
+}
+
+const balloonTransition = {
+  scaleX: { type: 'spring', duration: 0.2 },
+  scaleY: { type: 'spring', duration: 0.3 },
+  opacity: { type: 'spring', duration: 0.2, bounce: 0 },
+}
+
+const Balloon = styled(m.div)`
   position: absolute;
   width: ${BALLOON_WIDTH_PX}px;
   height: ${BALLOON_HEIGHT_PX}px;
@@ -228,10 +244,6 @@ const Balloon = styled.div`
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
-  transition:
-    transform 150ms ${standardEasing},
-    background-color 200ms linear,
-    color 200ms linear;
   will-change: transform, background-color, color;
 
   &::before {
@@ -247,22 +259,6 @@ const Balloon = styled.div`
     transition: border-top-color 250ms linear;
     will-change: border-top-color;
     z-index: 1;
-  }
-
-  &.enter {
-    transform: scale(0, 0);
-  }
-
-  &.enterActive {
-    transform: scale(1, 1);
-  }
-
-  &.exit {
-    transform: scale(1, 1);
-  }
-
-  &.exitActive {
-    transform: scale(0, 0);
   }
 `
 
@@ -312,14 +308,24 @@ class Slider extends React.Component {
   }
 
   _renderBalloon() {
-    if (!(this.state.isFocused || this.state.isClicked)) return null
+    const { value } = this.props
+    const { isFocused, isClicked } = this.state
+    const showBalloon = isFocused || isClicked
 
     return (
-      <CSSTransition classNames={transitionNames} timeout={300} nodeRef={this.balloonRef}>
-        <Balloon ref={this.balloonRef}>
-          <BalloonText>{this.props.value}</BalloonText>
-        </Balloon>
-      </CSSTransition>
+      <AnimatePresence>
+        {showBalloon && (
+          <Balloon
+            ref={this.balloonRef}
+            variants={balloonVariants}
+            initial='hidden'
+            animate='visible'
+            exit='hidden'
+            transition={balloonTransition}>
+            <BalloonText>{value}</BalloonText>
+          </Balloon>
+        )}
+      </AnimatePresence>
     )
   }
 
@@ -379,7 +385,7 @@ class Slider extends React.Component {
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
             <Thumb disabled={this.props.disabled} />
-            <TransitionGroup>{this._renderBalloon()}</TransitionGroup>
+            {this._renderBalloon()}
           </ThumbContainer>
         </OverflowClip>
         <ClickableArea
