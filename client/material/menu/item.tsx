@@ -5,7 +5,7 @@ import { useButtonState } from '../button'
 import { buttonReset } from '../button-reset'
 import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
-import { MenuItemSymbol, MenuItemType } from './menu-item-symbol'
+import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
 const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   ${buttonReset};
@@ -36,16 +36,6 @@ const ItemIcon = styled.span`
   margin-right: 12px;
   overflow: hidden;
 `
-
-export interface BaseMenuItemProps {
-  text: string
-  className?: string
-  focused?: boolean
-  dense?: boolean
-  trailingContent?: React.ReactNode
-  testName?: string
-  onClick?: (event: React.MouseEvent | KeyboardEvent) => void
-}
 
 export interface MenuItemProps extends BaseMenuItemProps {
   icon?: React.ReactNode

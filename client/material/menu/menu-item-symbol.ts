@@ -1,5 +1,4 @@
-import { ReactElement } from 'react'
-import { BaseMenuItemProps } from './item'
+import React, { ReactElement } from 'react'
 
 export enum MenuItemType {
   Default = 'Default',
@@ -36,4 +35,14 @@ export function isSelectableMenuItem(child: unknown): child is ReactElement {
   return (
     child && (child as any).type && (child as any).type[MenuItemSymbol] === MenuItemType.Selectable
   )
+}
+
+export interface BaseMenuItemProps {
+  text: string
+  className?: string
+  focused?: boolean
+  dense?: boolean
+  trailingContent?: React.ReactNode
+  testName?: string
+  onClick?: (event: React.MouseEvent | KeyboardEvent) => void
 }

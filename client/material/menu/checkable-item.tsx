@@ -1,7 +1,7 @@
 import React from 'react'
 import { CheckIcon, CheckIconContainer } from '../check-box'
-import { BaseMenuItemProps, MenuItem } from './item'
-import { MenuItemSymbol, MenuItemType } from './menu-item-symbol'
+import { MenuItem } from './item'
+import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
 export interface CheckableMenuItemProps extends BaseMenuItemProps {
   checked?: boolean
