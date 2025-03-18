@@ -13,6 +13,7 @@
     ["@babel/preset-typescript", { "allExtensions": true, "isTSX": true }]
   ],
   "plugins": [
+    ["babel-plugin-react-compiler"],
     ["babel-plugin-styled-components"],
     ["@babel/plugin-proposal-decorators", { "legacy": true }],
     ["babel-plugin-const-enum"]

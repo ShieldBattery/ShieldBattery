@@ -1,5 +1,5 @@
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useValueAsRef } from '../state-hooks'
+import { useValueAsRef } from '../react/state-hooks'
 
 export type DimensionsHookResult<T extends Element> = [
   ref: React.RefCallback<T>,
@@ -21,10 +21,6 @@ export function useObservedDimensions<T extends Element>(): DimensionsHookResult
 }
 
 type ResizeObserverHookCallback = (entry: ResizeObserverEntry) => void
-// NOTE(tec27): Using multiple ResizeObservers seems to be a lot more expensive that using a single
-// one to observe multiple elements, at least according to some casual googling. So instead of
-// creating one for each hook, we lazily create a single one and use it for all of them.
-let resizeObserver: ResizeObserver | undefined
 const observedResizeElements = new WeakMap<Element, ResizeObserverHookCallback>()
 
 function onResizeObserved(entries: ResizeObserverEntry[]) {
@@ -35,6 +31,11 @@ function onResizeObserved(entries: ResizeObserverEntry[]) {
     }
   }
 }
+
+// NOTE(tec27): Using multiple ResizeObservers seems to be a lot more expensive that using a single
+// one to observe multiple elements, at least according to some casual googling. So instead of
+// creating one for each hook, we lazily create a single one and use it for all of them.
+const resizeObserver = new ResizeObserver(onResizeObserved)
 
 export function useResizeObserver<T extends Element>(
   options: ResizeObserverOptions = {},
@@ -91,10 +92,6 @@ export function useResizeObserver<T extends Element>(
     },
     [box, observerEntryRef],
   )
-
-  if (!resizeObserver) {
-    resizeObserver = new ResizeObserver(onResizeObserved)
-  }
 
   const ref = useRef<T>(undefined)
   const setRef = useCallback(
@@ -165,14 +162,13 @@ export function useElementRect(): [
 
   // NOTE(tec27): This won't cause an infinite chain of updates because the state will only be
   // changed if the bounds change (or the element ref changes)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (elementRef.current) {
       updateRect(elementRef.current)
     } else {
       setRect(undefined)
     }
-  })
+  }, [updateRect])
 
   return [setElementRef, rect]
 }

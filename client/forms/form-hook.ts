@@ -240,10 +240,14 @@ export function useForm<ModelType>(
     [validate, validations],
   )
 
+  // eslint-disable-next-line react-compiler/react-compiler
   validationErrorsRef.current = validationErrors
+  // eslint-disable-next-line react-compiler/react-compiler
   callbacksRef.current = callbacks
 
+  // eslint-disable-next-line react-compiler/react-compiler
   const lastModelValue = stateModelRef.current
+  // eslint-disable-next-line react-compiler/react-compiler
   stateModelRef.current = modelValue
 
   useEffect(() => {
@@ -296,14 +300,14 @@ export function useForm<ModelType>(
         checkValidations()
       }
     }
+    // eslint-disable-next-line react-compiler/react-compiler
   }, [lastModelValue, modelValue, validate])
 
   useEffect(() => {
+    const validationPromises = validationPromisesRef.current
     return () => {
       // Ensure that validations do nothing once unmounted
-      // Disabling lint because it's fine if the value of this ref has changed at this point
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      validationPromisesRef.current.clear()
+      validationPromises.clear()
       callbacksRef.current = {}
     }
   }, [])

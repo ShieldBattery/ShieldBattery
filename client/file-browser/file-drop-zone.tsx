@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 
 interface FileDropZoneState {
   isDocumentDragging: boolean

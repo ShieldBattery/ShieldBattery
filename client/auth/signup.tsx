@@ -32,8 +32,8 @@ import { InputError } from '../material/input-error'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { signUp } from './action-creators'
 import {
   AuthBody,

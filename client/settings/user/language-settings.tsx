@@ -10,8 +10,8 @@ import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { changeUserLanguage } from '../../i18n/action-creators'
 import { RadioButton, RadioGroup } from '../../material/radio'
+import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch } from '../../redux-hooks'
-import { useStableCallback } from '../../state-hooks'
 import { FormContainer } from '../settings-content'
 
 interface UserLanguageSettingsModel {

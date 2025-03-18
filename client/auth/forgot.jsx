@@ -44,8 +44,8 @@ import {
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
 import { Trans, useTranslation } from 'react-i18next'
+import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious, useStableCallback } from '../state-hooks'
 
 const emailValidator = composeValidators(
   required(t => t('auth.emailValidator.required', 'Enter an email address')),

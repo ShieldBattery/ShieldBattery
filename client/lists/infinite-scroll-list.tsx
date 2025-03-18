@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import LoadingIndicator from '../progress/dots'
-import { useValueAsRef } from '../state-hooks'
+import { useValueAsRef } from '../react/state-hooks'
 
 const LoadingArea = styled.div`
   display: flex;

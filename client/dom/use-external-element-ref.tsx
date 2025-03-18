@@ -1,5 +1,5 @@
-import { RefObject, useLayoutEffect, useRef } from 'react'
-import { useValueAsRef } from '../state-hooks'
+import { RefObject, useLayoutEffect, useMemo } from 'react'
+import { useValueAsRef } from '../react/state-hooks'
 
 /**
  * A React hook that creates an external (outside the React root) element on mount and returns a ref
@@ -11,10 +11,14 @@ import { useValueAsRef } from '../state-hooks'
 export function useExternalElementRef(
   createCb?: (elem: HTMLDivElement) => void,
 ): RefObject<HTMLDivElement> {
-  const elemRef = useRef<HTMLDivElement>(null)
-  if (!elemRef.current) {
-    elemRef.current = document.createElement('div')
-  }
+  // NOTE(tec27): We manually construct a ref object here to that we don't violate the rules of
+  // react and make react-compiler deopt (assigning a ref in render)
+  const elemRef = useMemo<RefObject<HTMLDivElement>>(() => {
+    return {
+      current: document.createElement('div'),
+    }
+  }, [])
+
   const createCbRef = useValueAsRef(createCb)
   useLayoutEffect(() => {
     const elem = elemRef.current
@@ -26,9 +30,7 @@ export function useExternalElementRef(
     return () => {
       document.body.removeChild(elem!)
     }
-  }, [createCbRef])
+  }, [createCbRef, elemRef])
 
-  // NOTE(tec27): This cast is safe as this will have always been set to a non-null value before we
-  // return it, and this makes it a far more usable value for consumers of this hook.
-  return elemRef as RefObject<HTMLDivElement>
+  return elemRef
 }

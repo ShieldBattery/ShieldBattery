@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'
@@ -31,9 +31,9 @@ import { ExternalLink } from '../navigation/external-link'
 import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
@@ -71,20 +71,7 @@ const PageRoot = styled.div`
 `
 
 export function LeagueDetailsPage() {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const forceUpdate = useForceUpdate()
-  const setContainerRef = useCallback(
-    (ref: HTMLDivElement | null) => {
-      if (containerRef.current !== ref) {
-        containerRef.current = ref
-        if (ref !== null) {
-          forceUpdate()
-        }
-      }
-    },
-    [forceUpdate],
-  )
-
+  const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
   const [match, params] = useRoute('/leagues/:routeId/:slugStr?/:subPage?')
   // TODO(tec27): Remove explicit typecast here once https://github.com/lukeed/regexparam/issues/31
   // is fixed and wouter includes the fix
@@ -110,8 +97,8 @@ export function LeagueDetailsPage() {
   }
 
   return (
-    <PageRoot ref={setContainerRef}>
-      <LeagueDetails id={id!} subPage={subPage} container={containerRef.current} />
+    <PageRoot ref={setContainerElem}>
+      <LeagueDetails id={id!} subPage={subPage} container={containerElem} />
     </PageRoot>
   )
 }

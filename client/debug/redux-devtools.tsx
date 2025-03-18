@@ -3,9 +3,8 @@ import { CacheProvider } from '@emotion/react'
 import { createDevTools } from '@redux-devtools/core'
 import { DockMonitor } from '@redux-devtools/dock-monitor'
 import { InspectorMonitor } from '@redux-devtools/inspector-monitor'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { useForceUpdate } from '../state-hooks'
 
 const emotionCache = createEmotionCache({
   key: 'redux-dev',
@@ -15,7 +14,11 @@ const emotionCache = createEmotionCache({
 const Container = styled.div<{ $hidden?: boolean }>`
   position: fixed !important;
   z-index: 99999999 !important;
-  pointer-events: ${props => (props.$hidden ? 'none' : 'auto')};
+  pointer-events: none;
+
+  .redux-devtools-visible & {
+    pointer-events: auto;
+  }
 
   /* Root of DockMonitor */
   & > div {
@@ -39,13 +42,17 @@ const Container = styled.div<{ $hidden?: boolean }>`
   }
 `
 
-let updateRoot = () => {}
-let updateInspectorMonitor = () => {}
+const updateInspectorMonitorListeners: Array<() => void> = []
 let isVisible = false
 const setIsVisible = (val: boolean) => {
   isVisible = val
-  updateInspectorMonitor()
-  updateRoot()
+  document.body.classList.toggle('redux-devtools-visible', val)
+
+  queueMicrotask(() => {
+    for (const listener of updateInspectorMonitorListeners) {
+      listener()
+    }
+  })
 }
 
 // NOTE(tec27): This prevents a flash of white as the drawer closes
@@ -63,7 +70,21 @@ const EmptyComponent = styled.div`
  * annoying if the UI isn't even onscreen.
  */
 function PerformantInspectorMonitor(props: any) {
-  updateInspectorMonitor = useForceUpdate()
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const update = () => {
+      setIsVisible(document.body.classList.contains('redux-devtools-visible'))
+    }
+    updateInspectorMonitorListeners.push(update)
+
+    return () => {
+      const index = updateInspectorMonitorListeners.indexOf(update)
+      if (index !== -1) {
+        updateInspectorMonitorListeners.splice(index, 1)
+      }
+    }
+  }, [])
 
   return isVisible ? (
     <InspectorMonitor {...props} theme='nicinabox' invertTheme={false} supportImmutable={true} />
@@ -87,11 +108,9 @@ export const DevTools: any = createDevTools(
 )
 
 export default function DevToolsContainer() {
-  updateRoot = useForceUpdate()
-
   return (
     <CacheProvider value={emotionCache}>
-      <Container $hidden={!isVisible}>
+      <Container>
         <DevTools />
       </Container>
     </CacheProvider>

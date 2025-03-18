@@ -2,7 +2,7 @@ import { useIsPresent } from 'motion/react'
 import React, { useContext, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { markEventAsHandledDismissal } from './dismissal-events'
 
 function useDismissalClickHandler(

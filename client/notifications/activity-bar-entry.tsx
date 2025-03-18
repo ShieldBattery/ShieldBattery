@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -77,10 +77,10 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
     }
   }, [closeActivityBar, localUnreadNotifications, serverUnreadNotifications, dispatch])
 
-  const buttonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: buttonRef, hotkey: ALT_N })
+  const [buttonElem, setButtonElem] = useState<HTMLButtonElement | null>(null)
+  useButtonHotkey({ elem: buttonElem, hotkey: ALT_N })
 
-  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', buttonRef.current)
+  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', buttonElem)
 
   return (
     <>
@@ -94,7 +94,7 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
           position='bottom'
           tabIndex={-1}>
           <IconButton
-            ref={buttonRef}
+            ref={setButtonElem}
             icon={icon}
             onClick={openActivityBar}
             testName='notifications-button'

@@ -1,19 +1,21 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { subtract, union } from '../../common/data-structures/sets'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { elevationPlus3 } from '../material/shadows'
 import { zIndexMenu } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious } from '../state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
+import {
+  markLocalNotificationsRead,
+  markNotificationShown,
+  markNotificationsRead,
+} from './action-creators'
 import { notificationToUi } from './notification-to-ui'
 
 const POPOVER_DURATION = 10000
@@ -150,50 +152,26 @@ const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProp
 )
 
 export default function NotificationPopups() {
+  const dispatch = useAppDispatch()
   const idToNotification = useAppSelector(s => s.notifications.byId)
-  const notificationIds = useAppSelector(s => s.notifications.orderedIds)
-  const unreadIds = useRef(new Set<string>())
-  const prevIds = usePrevious(unreadIds.current)
-  const newIds = useMemo(() => {
-    const filtered = new Set(notificationIds.filter(id => !idToNotification.get(id)?.read))
-    if (
-      filtered.size !== unreadIds.current.size ||
-      union(filtered, unreadIds.current).size > filtered.size
-    ) {
-      unreadIds.current = filtered
-      const newIds = subtract(unreadIds.current, prevIds ?? [])
+  const orderedIds = useAppSelector(s => s.notifications.orderedIds)
+  const shownIds = useAppSelector(s => s.notifications.shownIds)
 
-      return newIds
-    } else {
-      // unread IDs didn't change
-      return new Set<string>()
-    }
-  }, [notificationIds, prevIds, idToNotification])
-
+  const unshown = orderedIds.filter(id => {
+    const notification = idToNotification.get(id)
+    return notification && !notification.read && !shownIds.has(id)
+  })
   const portalRef = useExternalElementRef()
-  const [notificationItems, setNotificationItems] = useState<string[]>([])
-
-  useEffect(() => {
-    setNotificationItems(items =>
-      Array.from(newIds).concat(
-        // NOTE(tec27): There seems to be some way that things can interleave such that newItems
-        // get added to items but then the next `newItems` still contains the ID. We don't expect
-        // there to be *that* many popups so doing this precautionary filter to avoid duplicate
-        // notifications seems fine
-        items.filter(item => !newIds.has(item)),
-      ),
-    )
-  }, [idToNotification, newIds])
-
-  const onDismiss = useCallback((notificationId: string) => {
-    setNotificationItems(items => items.filter(item => item !== notificationId))
-  }, [])
 
   return ReactDOM.createPortal(
     <PopupsContainer>
       <AnimatePresence mode='popLayout'>
-        {notificationItems.map(id => (
-          <NotificationPopup key={id} notificationId={id} onDismiss={onDismiss} />
+        {unshown.map(id => (
+          <NotificationPopup
+            key={id}
+            notificationId={id}
+            onDismiss={id => dispatch(markNotificationShown(id))}
+          />
         ))}
       </AnimatePresence>
     </PopupsContainer>,

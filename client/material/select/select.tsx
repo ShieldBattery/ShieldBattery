@@ -1,9 +1,10 @@
 import { Variants } from 'motion/react'
-import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useId, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
-import { useValueAsRef } from '../../state-hooks'
+import { assignRef } from '../../react/refs'
+import { useValueAsRef } from '../../react/state-hooks'
 import { buttonReset } from '../button-reset'
 import { standardEasing } from '../curve-constants'
 import { InputBase } from '../input-base'
@@ -165,13 +166,7 @@ export interface SelectProps {
    * Called to compare two input values. Optional, defaults to `Object.is`.
    */
   compareValues?: (a: any, b: any) => boolean
-}
-
-export interface SelectRef {
-  /** Focuses the Select. */
-  focus: () => void
-  /** Unfocuses the Select. */
-  blur: () => void
+  ref?: React.Ref<HTMLButtonElement | null>
 }
 
 const menuVariants: Variants = {
@@ -185,178 +180,161 @@ const menuTransition = {
   scaleY: { type: 'spring', duration: 0.4 },
 }
 
-export const Select = React.forwardRef<SelectRef, SelectProps>(
-  (
-    {
-      children,
-      value,
-      className,
-      allowErrors = true,
-      errorText,
-      dense = false,
-      label,
-      disabled,
-      tabIndex,
-      onChange,
-      compareValues = Object.is,
-      id: propsId,
-    },
-    forwardedRef,
-  ) => {
-    const hookId = useId()
-    const id = propsId ?? hookId
-    const [focused, setFocused] = useState(false)
-    const inputRef = useRef<HTMLButtonElement>(undefined)
+export function Select({
+  children,
+  value,
+  className,
+  allowErrors = true,
+  errorText,
+  dense = false,
+  label,
+  disabled,
+  tabIndex,
+  onChange,
+  compareValues = Object.is,
+  id: propsId,
+  ref,
+}: SelectProps) {
+  const hookId = useId()
+  const id = propsId ?? hookId
+  const [focused, setFocused] = useState(false)
+  const [inputElem, setInputElem] = useState<HTMLButtonElement | null>(null)
 
-    const [opened, openSelect, closeSelect] = usePopoverController()
-    const [anchorRef, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
+  const [opened, openSelect, closeSelect] = usePopoverController()
+  const [anchorRef, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
 
-    useImperativeHandle(forwardedRef, () => ({
-      focus() {
-        inputRef.current?.focus()
-      },
+  const focusedRef = useValueAsRef(focused)
+  const openedRef = useValueAsRef(opened)
 
-      blur() {
-        inputRef.current?.blur()
-      },
-    }))
-
-    const focusedRef = useValueAsRef(focused)
-    const openedRef = useValueAsRef(opened)
-
-    const onOpen = useCallback(
-      (event: React.MouseEvent) => {
-        if (!disabled) {
-          openSelect(event)
-        }
-      },
-      [disabled, openSelect],
-    )
-    const onClose = useCallback(() => {
-      closeSelect()
-      inputRef.current?.focus()
-    }, [closeSelect])
-    const onFocus = useCallback(() => {
+  const onOpen = useCallback(
+    (event: React.MouseEvent) => {
       if (!disabled) {
-        setFocused(true)
+        openSelect(event)
       }
-    }, [disabled])
-    const onBlur = useCallback(() => {
+    },
+    [disabled, openSelect],
+  )
+  const onClose = () => {
+    closeSelect()
+    inputElem?.focus()
+  }
+  const onFocus = () => {
+    if (!disabled) {
+      setFocused(true)
+    }
+  }
+  const onBlur = () => {
+    if (!openedRef.current) {
+      // If we're opened, leave isFocused since we'll be reassigning focus on close
+      setFocused(false)
+    }
+  }
+  const onOptionChanged = (index: number) => {
+    if (onChange) {
+      const activeChild = React.Children.toArray(children)[index]
+      onChange((activeChild as React.ReactElement<SelectOptionProps>).props.value)
+    }
+    onClose()
+  }
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (!focusedRef.current) return false
+
       if (!openedRef.current) {
-        // If we're opened, leave isFocused since we'll be reassigning focus on close
-        setFocused(false)
+        if (event.code === SPACE || event.code === ENTER || event.code === ENTER_NUMPAD) {
+          openSelect(event)
+          return true
+        }
       }
-    }, [openedRef])
-    const onOptionChanged = useCallback(
-      (index: number) => {
-        if (onChange) {
-          const activeChild = React.Children.toArray(children)[index]
-          onChange((activeChild as React.ReactElement<SelectOptionProps>).props.value)
-        }
-        onClose()
-      },
-      [onChange, onClose, children],
-    )
-    useKeyListener({
-      onKeyDown: (event: KeyboardEvent) => {
-        if (!focusedRef.current) return false
 
-        if (!openedRef.current) {
-          if (event.code === SPACE || event.code === ENTER || event.code === ENTER_NUMPAD) {
-            openSelect(event)
-            return true
-          }
-        }
+      return false
+    },
+  })
 
-        return false
-      },
+  const options = React.Children.map(children, (_child, index) => {
+    if (!isSelectableMenuItem(_child)) return _child
+
+    const child = _child as React.ReactElement<SelectOptionProps>
+
+    let selected = false
+    if (value !== undefined && child.props.value !== undefined) {
+      if (compareValues(value, child.props.value)) {
+        selected = true
+      }
+    }
+
+    return React.cloneElement(child, {
+      selected,
+      onClick: () => onOptionChanged(index),
     })
+  })
 
-    const multiplexRefs = useCallback(
-      (elem: HTMLButtonElement | null) => {
-        inputRef.current = elem !== null ? elem : undefined
-        anchorRef(elem)
-      },
-      [anchorRef],
-    )
+  let displayValue: string | undefined
+  React.Children.forEach(options, _child => {
+    if (!isSelectableMenuItem(_child)) return
 
-    const [displayValue, options] = useMemo(() => {
-      let displayText: string | undefined
-      const options = React.Children.map(children, (_child, index) => {
-        if (!isSelectableMenuItem(_child)) return _child
+    const child = _child as React.ReactElement<SelectOptionProps>
+    if (child.props.selected) {
+      displayValue = child.props.text
+    }
+  })
 
-        const child = _child as React.ReactElement<SelectOptionProps>
+  const overlayWidth = inputElem?.offsetWidth ?? 0
 
-        let selected = false
-        if (value !== undefined && child.props.value !== undefined) {
-          if (compareValues(value, child.props.value)) {
-            displayText = child.props.text
-            selected = true
-          }
-        }
-
-        return React.cloneElement(child, {
-          selected,
-          onClick: () => onOptionChanged(index),
-        })
-      })
-
-      return [displayText, options]
-    }, [children, compareValues, onOptionChanged, value])
-
-    const overlayWidth = inputRef.current?.offsetWidth ?? 0
-
-    return (
-      <div className={className}>
-        <SelectContainer
-          ref={multiplexRefs}
-          id={id}
-          type='button'
-          $disabled={disabled}
-          $focused={focused}
-          $dense={dense}
-          tabIndex={disabled ? undefined : (tabIndex ?? 0)}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          onClick={onOpen}>
-          {label ? (
-            <FloatingLabel
-              htmlFor={id}
-              $hasValue={value !== undefined}
-              $dense={dense}
-              $focused={focused}
-              $disabled={disabled}
-              $error={!!errorText}>
-              {label}
-            </FloatingLabel>
-          ) : null}
-          <DisplayValue as='span' $floatingLabel={!!label} $dense={dense}>
-            {displayValue}
-          </DisplayValue>
-          <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
-            <MaterialIcon icon='arrow_drop_down' />
-          </Icon>
-          <InputUnderline focused={focused} error={!!errorText} />
-          <StateLayer $opened={opened} />
-        </SelectContainer>
-        {allowErrors ? <InputError error={errorText} /> : null}
-        <Popover
-          open={opened}
-          onDismiss={onClose}
-          anchorX={anchorX ?? 0}
-          anchorY={anchorY ?? 0}
-          originX='center'
-          originY='top'
-          motionVariants={menuVariants}
-          motionInitial='entering'
-          motionAnimate='visible'
-          motionExit='exiting'
-          motionTransition={menuTransition}>
-          <StyledMenuList $overlayWidth={overlayWidth} dense={dense}>
-            {options}
-          </StyledMenuList>
-        </Popover>
-      </div>
-    )
-  },
-)
+  return (
+    <div className={className}>
+      <SelectContainer
+        ref={elem => {
+          setInputElem(elem)
+          anchorRef(elem)
+          return assignRef(ref, elem)
+        }}
+        id={id}
+        type='button'
+        $disabled={disabled}
+        $focused={focused}
+        $dense={dense}
+        tabIndex={disabled ? undefined : (tabIndex ?? 0)}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onClick={onOpen}>
+        {label ? (
+          <FloatingLabel
+            htmlFor={id}
+            $hasValue={value !== undefined}
+            $dense={dense}
+            $focused={focused}
+            $disabled={disabled}
+            $error={!!errorText}>
+            {label}
+          </FloatingLabel>
+        ) : null}
+        <DisplayValue as='span' $floatingLabel={!!label} $dense={dense}>
+          {displayValue}
+        </DisplayValue>
+        <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
+          <MaterialIcon icon='arrow_drop_down' />
+        </Icon>
+        <InputUnderline focused={focused} error={!!errorText} />
+        <StateLayer $opened={opened} />
+      </SelectContainer>
+      {allowErrors ? <InputError error={errorText} /> : null}
+      <Popover
+        open={opened}
+        onDismiss={onClose}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='center'
+        originY='top'
+        motionVariants={menuVariants}
+        motionInitial='entering'
+        motionAnimate='visible'
+        motionExit='exiting'
+        motionTransition={menuTransition}>
+        <StyledMenuList $overlayWidth={overlayWidth} dense={dense}>
+          {options}
+        </StyledMenuList>
+      </Popover>
+    </div>
+  )
+}

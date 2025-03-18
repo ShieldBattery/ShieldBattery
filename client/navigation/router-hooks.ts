@@ -1,5 +1,5 @@
 import { useLocationProperty } from 'wouter/use-browser-location'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { replace } from './routing'
 
 /**

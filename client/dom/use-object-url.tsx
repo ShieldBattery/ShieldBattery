@@ -1,24 +1,22 @@
-import { useEffect, useRef } from 'react'
-import { useForceUpdate } from '../state-hooks'
+import { useEffect, useState } from 'react'
 
 /**
  * A hook which creates an object URL out of the received file, while also making sure that stale
  * object URLs are revoked.
  */
 export function useObjectUrl(file?: Blob): string | undefined {
-  const objectUrlRef = useRef<string>(undefined)
-  const forceUpdate = useForceUpdate()
+  const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    objectUrlRef.current = file ? URL.createObjectURL(file) : undefined
-    forceUpdate()
+    const url = file ? URL.createObjectURL(file) : undefined
+    setObjectUrl(url)
 
     return () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current)
+      if (url) {
+        URL.revokeObjectURL(url)
       }
     }
-  }, [file, forceUpdate])
+  }, [file])
 
-  return objectUrlRef.current
+  return objectUrl
 }

@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks'
+import { useForceUpdate, usePrevious, useValueAsRef } from '../react/state-hooks'
 import { standardEasing } from './curve-constants'
 
 const RIPPLE_PADDING = 8
@@ -402,6 +402,7 @@ export const Ripple = React.memo(
       [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
     )
 
+    // eslint-disable-next-line react-compiler/react-compiler
     const isStartingActivation = startActivationRef.current
     useLayoutEffect(() => {
       if (wasDeactivating && !deactivating) {
@@ -415,6 +416,7 @@ export const Ripple = React.memo(
         setActivating(true)
         activationTimerRef.current = setTimeout(onActivationTimer, DEACTIVATION_TIMEOUT_MS)
       }
+      // eslint-disable-next-line react-compiler/react-compiler
     }, [wasDeactivating, deactivating, isStartingActivation, onActivationTimer])
     useLayoutEffect(() => {
       if (wasActivating && !activating) {
@@ -453,6 +455,7 @@ export const Ripple = React.memo(
       <RippleRoot
         ref={rootRef}
         className={className}
+        // eslint-disable-next-line react-compiler/react-compiler
         style={styleRef.current}
         $hovered={!disabled && hovered}
         $focused={!disabled && focused}

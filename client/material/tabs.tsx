@@ -1,8 +1,8 @@
 import keycode from 'keycode'
-import React, { ReactElement, useCallback, useMemo } from 'react'
+import React, { ReactElement, useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
-import { useMultiRef } from '../state-hooks'
+import { assignRef } from '../react/refs'
 import { labelLarge, singleLine } from '../styles/typography'
 import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
 import { buttonReset } from './button-reset'
@@ -98,54 +98,51 @@ export interface TabItemProps<T> {
    * should not be passed directly.
    */
   onSelected?: (value: T) => void
+  ref?: React.Ref<HTMLButtonElement | null>
 }
 
-export const TabItem = React.memo(
-  React.forwardRef(
-    <T,>(
-      {
-        text,
-        value,
-        active,
-        disabled,
-        hotkeys,
-        onSelected,
-        className,
-        title: tooltipText,
-      }: TabItemProps<T>,
-      ref: React.ForwardedRef<HTMLButtonElement>,
-    ) => {
-      const onClick = useCallback(() => {
-        if (!disabled && onSelected) {
-          onSelected(value)
-        }
-      }, [disabled, value, onSelected])
-      const [buttonProps, rippleRef] = useButtonState({
-        disabled,
-        onClick,
-      })
+export function TabItem<T>({
+  text,
+  value,
+  active,
+  disabled,
+  hotkeys,
+  onSelected,
+  className,
+  title: tooltipText,
+  ref,
+}: TabItemProps<T>) {
+  const onClick = useCallback(() => {
+    if (!disabled && onSelected) {
+      onSelected(value)
+    }
+  }, [disabled, value, onSelected])
+  const [buttonProps, rippleRef] = useButtonState({
+    disabled,
+    onClick,
+  })
+  const [tabItemElem, setTabItemElem] = useState<HTMLButtonElement | null>(null)
+  useButtonHotkey({ elem: tabItemElem, disabled, hotkey: hotkeys! })
 
-      const [tabItemRef, setTabItemRef] = useMultiRef<HTMLButtonElement>(ref)
-      useButtonHotkey({ ref: tabItemRef, disabled, hotkey: hotkeys! })
+  // TODO(tec27): Use `<Tooltip>` instead for this (and maybe only set the title from `text` if
+  // it's overflowing?)
+  const title = !tooltipText && typeof text === 'string' ? text : tooltipText
 
-      // TODO(tec27): Use `<Tooltip>` instead for this (and maybe only set the title from `text` if
-      // it's overflowing?)
-      const title = !tooltipText && typeof text === 'string' ? text : tooltipText
-
-      return (
-        <TabItemContainer
-          ref={setTabItemRef}
-          className={className}
-          $isActiveTab={active ?? false}
-          title={title}
-          {...buttonProps}>
-          {typeof text === 'string' ? <TabTitle>{text}</TabTitle> : text}
-          <Ripple ref={rippleRef} disabled={disabled} />
-        </TabItemContainer>
-      )
-    },
-  ),
-)
+  return (
+    <TabItemContainer
+      ref={r => {
+        setTabItemElem(r)
+        return assignRef(ref, r)
+      }}
+      className={className}
+      $isActiveTab={active ?? false}
+      title={title}
+      {...buttonProps}>
+      {typeof text === 'string' ? <TabTitle>{text}</TabTitle> : text}
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </TabItemContainer>
+  )
+}
 
 export interface TabsProps<T> {
   children: Array<ReactElement<TabItemProps<T>> | null | undefined>

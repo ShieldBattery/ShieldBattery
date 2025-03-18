@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { UserErrorCode } from '../../common/users/user-network'
@@ -33,7 +33,7 @@ export function EmailVerificationUi() {
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<Error>()
   const [emailResent, setEmailResent] = useState(false)
-  const reqIdRef = useRef<string>(undefined)
+  const [reqId, setReqId] = useState<string | undefined>(undefined)
 
   const urlParams = useMemo(() => {
     try {
@@ -60,7 +60,7 @@ export function EmailVerificationUi() {
 
   const onSwitchUserClick = useCallback(() => {
     const { id, action, promise } = logOut()
-    reqIdRef.current = id
+    setReqId(id)
     promise
       .then(() => {
         onLogInClick()
@@ -95,7 +95,7 @@ export function EmailVerificationUi() {
   useEffect(() => {
     if (isLoggedIn && curUserId === forUserId && !emailVerified) {
       const { id, action } = verifyEmail(curUserId!, String(token))
-      reqIdRef.current = id
+      setReqId(id)
       dispatch(action)
     }
   }, [emailVerified, token, forUserId, isLoggedIn, curUserId, dispatch])
@@ -150,7 +150,7 @@ export function EmailVerificationUi() {
         testName='switch-user-button'
       />
     )
-  } else if (reqIdRef.current && lastFailure && lastFailure.reqId === reqIdRef.current) {
+  } else if (reqId && lastFailure && lastFailure.reqId === reqId) {
     if (lastFailure.code === UserErrorCode.InvalidCode) {
       contents = (
         <ErrorsContainer data-test='invalid-code-error'>

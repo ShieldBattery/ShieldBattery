@@ -9,7 +9,7 @@ import { ElevatedButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
-import { useImmerState, useStableCallback } from '../state-hooks'
+import { useImmerState, useStableCallback } from '../react/state-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {

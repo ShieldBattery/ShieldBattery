@@ -6,7 +6,7 @@ import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { makeServerUrl } from '../network/server-url'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 
 const StyledIconButton = styled(IconButton)`
   color: var(--theme-on-surface-variant);

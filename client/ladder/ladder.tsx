@@ -41,9 +41,9 @@ import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
+import { useStableCallback, useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
-import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks'
 import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
@@ -423,6 +423,7 @@ const Table = styled.div`
 
   border: 1px solid var(--theme-outline-variant);
   border-radius: 4px;
+  contain: content;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
@@ -595,19 +596,7 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const forceUpdate = useForceUpdate()
-  const setContainerRef = useCallback(
-    (ref: HTMLDivElement | null) => {
-      if (containerRef.current !== ref) {
-        containerRef.current = ref
-        if (ref !== null) {
-          forceUpdate()
-        }
-      }
-    },
-    [forceUpdate],
-  )
+  const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
   const {
     players,
@@ -737,7 +726,7 @@ export function LadderTable(props: LadderTableProps) {
   }, [players, filteredDivision, bonusPool])
 
   return (
-    <TableContainer ref={setContainerRef}>
+    <TableContainer ref={setContainerElem}>
       {topNode}
       <FiltersContainer>
         <StyledSearchInput
@@ -794,10 +783,10 @@ export function LadderTable(props: LadderTableProps) {
         </DivisionSelect>
       </FiltersContainer>
       {topHeaderNode}
-      {containerRef.current && (data?.length ?? 0) > 0 ? (
+      {containerElem && (data?.length ?? 0) > 0 ? (
         <TableVirtuoso
           className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
-          customScrollParent={containerRef.current}
+          customScrollParent={containerElem}
           fixedHeaderContent={Header}
           components={{
             Table,

@@ -10,7 +10,12 @@ import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { fetchJson } from '../network/fetch'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
+import {
+  AddNotification,
+  ClearNotificationById,
+  MarkNotificationShown,
+  MarkNotificationsRead,
+} from './actions'
 
 export function clearNotifications(): ThunkAction {
   return (dispatch, getState) => {
@@ -105,5 +110,12 @@ export function markNotificationsRead(notificationIds: ReadonlyArray<string>): T
       }),
       meta: { notificationIds },
     })
+  }
+}
+
+export function markNotificationShown(notificationId: string): MarkNotificationShown {
+  return {
+    type: '@notifications/markShown',
+    payload: { notificationId },
   }
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
-import { usePrevious, useStableCallback } from '../state-hooks'
+import { usePrevious, useStableCallback } from '../react/state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'

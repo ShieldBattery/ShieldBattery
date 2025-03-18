@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
@@ -22,7 +22,7 @@ export interface UserOverlaysProps {
 }
 
 export interface UserOverlays<E extends HTMLElement = HTMLElement> {
-  clickableElemRef: React.RefObject<E | null>
+  clickableElemRef: React.RefCallback<E | null>
   profileOverlayProps: ConnectedUserProfileOverlayProps
   contextMenuProps: ConnectedUserContextMenuProps
   onClick: (event: React.MouseEvent) => void
@@ -45,12 +45,8 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   filterClick,
   modifyMenuItems,
 }: UserOverlaysProps): UserOverlays<E> {
-  const clickableElemRef = useRef<E>(null)
-  const [, anchorX, anchorY] = useAnchorPosition(
-    profileAnchorX,
-    profileAnchorY,
-    clickableElemRef.current ?? null,
-  )
+  const [clickableElem, setClickableElem] = useState<E | null>(null)
+  const [, anchorX, anchorY] = useAnchorPosition(profileAnchorX, profileAnchorY, clickableElem)
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
@@ -67,7 +63,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   }, [closeProfileOverlay])
 
   return {
-    clickableElemRef,
+    clickableElemRef: setClickableElem,
     onClick,
     onContextMenu,
     isOverlayOpen: profileOverlayOpen || contextMenuPopoverProps.open,

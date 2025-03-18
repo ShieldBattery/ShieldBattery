@@ -258,7 +258,7 @@ export function keyEventMatches(event: KeyboardEvent, hotkey: HotkeyProp) {
 
 export interface ButtonHotkeyProps {
   /** The reference to the button that should be pressed programmatically. */
-  ref: React.RefObject<HTMLButtonElement | HTMLAnchorElement | undefined | null>
+  elem: HTMLButtonElement | HTMLAnchorElement | undefined | null
   /**
    * A hotkey, or an array of hotkeys, to register for the button. Pressing any of the specified
    * modifiers and key combinations will result in the button being clicked programmatically.
@@ -268,13 +268,13 @@ export interface ButtonHotkeyProps {
   disabled?: boolean
 }
 
-export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
+export function useButtonHotkey({ elem, disabled, hotkey }: ButtonHotkeyProps) {
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       const hotkeys = Array.isArray(hotkey) ? hotkey : [hotkey]
       for (const hotkey of hotkeys) {
         if (!disabled && keyEventMatches(event, hotkey)) {
-          ref.current?.click()
+          elem?.click()
 
           return true
         }

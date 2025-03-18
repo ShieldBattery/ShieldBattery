@@ -21,6 +21,10 @@ export interface NotificationState {
    * newest notification first). This will be kept in sync with `idSet`.
    */
   orderedIds: string[]
+  /**
+   * Ids of notifications that have been shown (as popups) to the user.
+   */
+  shownIds: Set<string>
 
   /**
    * Internal bookkeeping for notifications that have been cleared, but the request to do so on
@@ -33,6 +37,7 @@ const DEFAULT_STATE: Immutable<NotificationState> = {
   byId: new Map(),
   idSet: new Set(),
   orderedIds: [],
+  shownIds: new Set(),
 
   clearRequests: new Map(),
 }
@@ -41,6 +46,7 @@ function removeNotification(state: NotificationState, id: string): void {
   state.byId.delete(id)
   if (state.idSet.has(id)) {
     state.idSet.delete(id)
+    state.shownIds.delete(id)
     const index = state.orderedIds.indexOf(id)
     if (index >= 0) {
       state.orderedIds.splice(index, 1)
@@ -171,7 +177,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         if (n) {
           n.read = true
         }
+        // Any read notification should be considered shown, so we don't need the extra storage
+        state.shownIds.delete(id)
       }
     }
+  },
+
+  ['@notifications/markShown'](state, { payload: { notificationId } }) {
+    state.shownIds.add(notificationId)
   },
 })

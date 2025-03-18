@@ -1,9 +1,9 @@
 import keycode from 'keycode'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { standardEasing } from './curve-constants'
 
@@ -326,13 +326,14 @@ export function Slider({
   disabled,
   className,
   onChange,
+  ref,
 }: SliderProps) {
   const [isFocused, setIsFocused] = useState(false)
   const [isClicked, setIsClicked] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [keyDownCount, setKeyDownCount] = useState(0)
 
-  const rootRef = useRef<HTMLDivElement>(null)
+  const id = useId()
   const trackAreaRef = useRef<HTMLDivElement>(null)
   const balloonRef = useRef<HTMLDivElement>(null)
   const sliderDimensionsRef = useRef<DOMRect | null>(null)
@@ -495,7 +496,8 @@ export function Slider({
 
   return (
     <Root
-      ref={rootRef}
+      ref={ref}
+      id={id}
       $focused={isFocused}
       $disabled={disabled}
       className={className}
@@ -505,7 +507,7 @@ export function Slider({
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}>
       {label ? (
-        <SliderLabel as='label' htmlFor={rootRef.current?.id}>
+        <SliderLabel as='label' htmlFor={id}>
           {label}
         </SliderLabel>
       ) : null}

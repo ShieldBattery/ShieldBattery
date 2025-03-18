@@ -10,9 +10,9 @@ import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { useStableCallback } from '../state-hooks'
 import { navigateToWhisper } from '../whispers/action-creators'
 import {
   acceptFriendRequest,

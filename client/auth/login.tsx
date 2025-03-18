@@ -15,8 +15,8 @@ import { detectedLocale } from '../i18n/i18next'
 import { ElevatedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { logIn } from './action-creators'
 import {
   AuthBody,

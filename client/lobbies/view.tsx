@@ -14,8 +14,8 @@ import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators
 import { ElevatedButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
+import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious, useStableCallback } from '../state-hooks'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,

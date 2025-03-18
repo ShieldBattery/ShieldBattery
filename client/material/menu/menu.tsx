@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../../keyboard/key-listener'
-import { useStableCallback } from '../../state-hooks'
+import { useStableCallback } from '../../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, bodyMedium } from '../../styles/typography'
 import { zIndexMenu } from '../zindex'

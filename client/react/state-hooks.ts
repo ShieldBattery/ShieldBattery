@@ -1,8 +1,8 @@
 import { freeze, produce, Producer } from 'immer'
 import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
-import { getErrorStack } from '../common/errors'
-import { useSelfUser } from './auth/auth-utils'
-import logger from './logging/logger'
+import { getErrorStack } from '../../common/errors'
+import { useSelfUser } from '../auth/auth-utils'
+import logger from '../logging/logger'
 
 /**
  * A hook to access the previous value of some variable inside a functional component.
@@ -20,6 +20,7 @@ export function usePrevious<T>(value: T): T | undefined {
   useEffect(() => {
     ref.current = value
   })
+  // eslint-disable-next-line react-compiler/react-compiler
   return ref.current
 }
 
@@ -35,6 +36,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
     }
   })
 
+  // eslint-disable-next-line react-compiler/react-compiler
   return ref.current
 }
 
@@ -52,6 +54,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  */
 export function useValueAsRef<T>(value: T): React.RefObject<T> {
   const ref = useRef(value)
+  // eslint-disable-next-line react-compiler/react-compiler
   ref.current = value
 
   return ref
@@ -65,37 +68,15 @@ export function useValueAsRef<T>(value: T): React.RefObject<T> {
  *   const forceUpdate = useForceUpdate()
  *   return <span onClick={() => forceUpdate()}>Date: {new Date().toString()}</span>
  * }
+ *
+ * @deprecated Re-think the component structure, as this should basically never be necessary unless
+ * you are misusing refs in render.
  */
 export function useForceUpdate(): () => void {
-  const [, forceUpdater] = useState<Record<string, never>>()
-  return useCallback(() => {
-    forceUpdater({})
-  }, [])
-}
-
-/**
- * A hook which multiplexes the given ref with a local one. Mostly useful when needing to create a
- * local ref in a component that already forwards a ref to another component below it.
- */
-export function useMultiRef<T>(
-  ref: React.ForwardedRef<T>,
-): [elemRef: React.RefObject<T | undefined>, setElemRef: (elem: T | null) => void] {
-  const elemRef = useRef<T>(undefined)
-  const setElemRef = useCallback(
-    (elem: T | null) => {
-      elemRef.current = elem ?? undefined
-      if (ref) {
-        if (typeof ref === 'function') {
-          ref(elem)
-        } else {
-          ref.current = elem
-        }
-      }
-    },
-    [ref],
-  )
-
-  return [elemRef, setElemRef]
+  const [, forceUpdater] = useState<number>(0)
+  return () => {
+    forceUpdater(v => (v + 1) % Number.MAX_SAFE_INTEGER)
+  }
 }
 
 /**
@@ -118,12 +99,13 @@ export function useStableCallback<A extends any[], R>(fn: (...args: A) => R): (.
     updatedRef.current = fn
   })
 
-  const stableRef = useRef<(...args: A) => R>(undefined)
-  if (!stableRef.current) {
-    stableRef.current = (...args: A) => updatedRef.current(...args)
-  }
+  const [stableCallback] = useState(
+    () =>
+      (...args: A) =>
+        updatedRef.current(...args),
+  )
 
-  return stableRef.current
+  return stableCallback
 }
 
 function initStableCallbackValue() {
@@ -157,7 +139,7 @@ export function useImmerState<T>(initialState: T): [T, (updater: Producer<T> | T
   ]
 }
 
-function loadAndParseLocalStorage<T>(key: string): T | undefined {
+function loadAndParseLocalStorage(key: string): unknown {
   const valueJson = localStorage.getItem(key)
   if (valueJson === null) {
     return undefined
@@ -187,40 +169,47 @@ export function useUserLocalStorageValue<T>(
 export function useUserLocalStorageValue<T>(
   key: string,
   defaultValue: T,
+  validate?: (value: unknown) => T | undefined,
 ): [value: T, storeValue: (value: T | undefined) => void]
 
 export function useUserLocalStorageValue<T>(
   key: string,
   defaultValue?: T,
+  validate?: (value: unknown) => T | undefined,
 ): [value: T | undefined, storeValue: (value: T | undefined) => void] {
   const currentUser = useSelfUser()?.id ?? 0
   const userKey = `${String(currentUser)}|${key}`
-  const [value, setValue] = useState(() => loadAndParseLocalStorage<T>(userKey))
 
-  const storeValue = useCallback(
-    (newValue: T | undefined) => {
-      if (newValue === undefined) {
-        localStorage.removeItem(userKey)
-      } else {
-        localStorage.setItem(userKey, JSON.stringify(newValue))
-      }
-      setValue(newValue)
-    },
-    [userKey],
-  )
+  const load = useCallback(() => {
+    const parsed = loadAndParseLocalStorage(userKey)
+    return validate ? validate(parsed) : (parsed as T | undefined)
+  }, [userKey, validate])
+
+  const [value, setValue] = useState(() => load())
+
+  const storeValue = (newValue: T | undefined) => {
+    if (newValue === undefined) {
+      localStorage.removeItem(userKey)
+    } else {
+      localStorage.setItem(userKey, JSON.stringify(newValue))
+    }
+    setValue(newValue)
+  }
 
   useEffect(() => {
     function handleChange(event: StorageEvent) {
       if (event.storageArea === localStorage && event.key === userKey) {
-        setValue(loadAndParseLocalStorage<T>(userKey))
+        setValue(load())
       }
     }
+
     window.addEventListener('storage', handleChange)
+    setValue(load())
 
     return () => {
       window.removeEventListener('storage', handleChange)
     }
-  }, [userKey])
+  }, [load, userKey])
 
   return [value ?? defaultValue, storeValue]
 }

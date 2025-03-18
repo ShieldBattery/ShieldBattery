@@ -1,6 +1,6 @@
 import { Set } from 'immutable'
 import { debounce, DebouncedFunc } from 'lodash-es'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -20,7 +20,6 @@ import { TabItem, Tabs } from '../material/tabs'
 import { useRefreshToken } from '../network/refresh-token'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
 import {
   clearMapsList,
@@ -30,7 +29,6 @@ import {
   regenMapImage,
   removeMap,
   toggleFavoriteMap,
-  updateMapPreferences,
 } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
 import { MapThumbnail } from './map-thumbnail'
@@ -219,15 +217,8 @@ export function BrowseServerMaps({
 
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const onRemoveMap = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    dispatch(removeMap(map))
-  })
-
-  const onRegenMapImage = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    dispatch(regenMapImage(map))
-  })
-
-  const savePreferences = useStableCallback(() => {
+  const savePreferences = useCallback(() => {
+    /* TODO(#1133): Just save this locally
     dispatch(
       updateMapPreferences({
         visibility: tabToVisibility(activeTab),
@@ -237,16 +228,19 @@ export function BrowseServerMaps({
         tilesetFilter: tilesetFilter.toArray(),
       }),
     )
-  })
+    */
+  }, [])
 
-  const debouncedSetSearchQuery = useRef<DebouncedFunc<typeof setSearchQuery>>(undefined)
-  const reset = useStableCallback(() => {
-    debouncedSetSearchQuery.current?.cancel()
-    dispatch(clearMapsList())
-    setCurrentPage(0)
-    triggerRefresh()
-  })
-  debouncedSetSearchQuery.current = useMemo(
+  const reset = useCallback(
+    (debouncedSetSearchQuery?: DebouncedFunc<typeof setSearchQuery>) => {
+      debouncedSetSearchQuery?.cancel()
+      dispatch(clearMapsList())
+      setCurrentPage(0)
+      triggerRefresh()
+    },
+    [dispatch, triggerRefresh],
+  )
+  const debouncedSetSearchQuery = useMemo(
     () =>
       debounce((query: string) => {
         setSearchQuery(query)
@@ -263,12 +257,12 @@ export function BrowseServerMaps({
         dispatch(clearMapsList())
         savePreferences()
         window.removeEventListener('beforeunload', savePreferences)
-        debouncedSetSearchQuery.current?.cancel()
+        debouncedSetSearchQuery.cancel()
       }
     }
 
     return () => {}
-  }, [dispatch, savePreferences, selfUser])
+  }, [debouncedSetSearchQuery, dispatch, savePreferences, selfUser])
 
   useEffect(() => {
     const {
@@ -292,53 +286,6 @@ export function BrowseServerMaps({
     }
   }, [mapPreferences, uploadedMap])
 
-  const onLoadMoreMaps = useStableCallback(() => {
-    dispatch(
-      getMapsList({
-        visibility: tabToVisibility(activeTab),
-        limit: MAPS_LIMIT,
-        page: currentPage,
-        sort: sortOption,
-        numPlayers: numPlayersFilter.toArray(),
-        tileset: tilesetFilter.toArray(),
-        searchQuery,
-      }),
-    )
-    setCurrentPage(p => p + 1)
-  })
-
-  const onMapPreview = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    dispatch(openMapPreviewDialog(map.id))
-  })
-
-  const onToggleFavoriteMap = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    dispatch(toggleFavoriteMap(map))
-  })
-
-  const onThumbnailSizeChange = useStableCallback((size: number) => {
-    if (thumbnailSize !== size) {
-      setThumbnailSize(size)
-    }
-  })
-
-  const onFilterApply = useStableCallback((players: Set<NumPlayers>, tileset: Set<Tileset>) => {
-    setNumPlayersFilter(players)
-    setTilesetFilter(tileset)
-    reset()
-  })
-
-  const onSortOptionChange = useStableCallback((option: MapSortType) => {
-    if (sortOption !== option) {
-      setSortOption(option)
-      reset()
-    }
-  })
-
-  const onTabChange = useStableCallback((value: MapTab) => {
-    setActiveTab(value)
-    reset()
-  })
-
   const renderMaps = (header: string, maps: ReadonlyDeep<MapInfoJson[]>) => {
     return (
       <>
@@ -353,11 +300,11 @@ export function BrowseServerMaps({
             thumbnailSize={thumbnailSize}
             favoriteStatusRequests={mapsState.favoriteStatusRequests}
             onMapSelect={onMapSelect}
-            onMapPreview={onMapPreview}
-            onToggleFavoriteMap={onToggleFavoriteMap}
+            onMapPreview={map => dispatch(openMapPreviewDialog(map.id))}
+            onToggleFavoriteMap={map => dispatch(toggleFavoriteMap(map))}
             onMapDetails={onMapDetails}
-            onRemoveMap={onRemoveMap}
-            onRegenMapImage={onRegenMapImage}
+            onRemoveMap={map => dispatch(removeMap(map))}
+            onRegenMapImage={map => dispatch(regenMapImage(map))}
           />
         </ImageList>
       </>
@@ -431,7 +378,12 @@ export function BrowseServerMaps({
         <TitleLarge>{title}</TitleLarge>
       </TitleBar>
       <TabArea>
-        <Tabs activeTab={activeTab} onChange={onTabChange}>
+        <Tabs
+          activeTab={activeTab}
+          onChange={(value: MapTab) => {
+            setActiveTab(value)
+            reset(debouncedSetSearchQuery)
+          }}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
           {selfUser ? (
             <TabItem text={t('maps.server.tab.myMaps', 'My maps')} value={MapTab.MyMaps} />
@@ -461,7 +413,20 @@ export function BrowseServerMaps({
                 isLoadingNext={mapsState.isRequesting}
                 hasNextData={hasMoreMaps}
                 refreshToken={refreshToken}
-                onLoadNextData={onLoadMoreMaps}>
+                onLoadNextData={() => {
+                  dispatch(
+                    getMapsList({
+                      visibility: tabToVisibility(activeTab),
+                      limit: MAPS_LIMIT,
+                      page: currentPage,
+                      sort: sortOption,
+                      numPlayers: numPlayersFilter.toArray(),
+                      tileset: tilesetFilter.toArray(),
+                      searchQuery,
+                    }),
+                  )
+                  setCurrentPage(p => p + 1)
+                }}>
                 {renderAllMaps()}
               </InfiniteScrollList>
             </>
@@ -472,14 +437,23 @@ export function BrowseServerMaps({
       <Footer
         onBrowseLocalMaps={selfUser ? onBrowseLocalMaps : undefined}
         thumbnailSize={thumbnailSize}
-        onSizeChange={onThumbnailSizeChange}
+        onSizeChange={setThumbnailSize}
         numPlayersFilter={numPlayersFilter}
         tilesetFilter={tilesetFilter}
-        onFilterApply={onFilterApply}
+        onFilterApply={(players, tileset) => {
+          setNumPlayersFilter(players)
+          setTilesetFilter(tileset)
+          reset(debouncedSetSearchQuery)
+        }}
         sortOption={sortOption}
-        onSortChange={onSortOptionChange}
+        onSortChange={option => {
+          if (sortOption !== option) {
+            setSortOption(option)
+            reset(debouncedSetSearchQuery)
+          }
+        }}
         searchQuery={searchQuery}
-        onSearchChange={debouncedSetSearchQuery.current}
+        onSearchChange={debouncedSetSearchQuery}
       />
     </Container>
   )

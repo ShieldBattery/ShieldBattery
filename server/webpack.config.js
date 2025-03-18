@@ -45,6 +45,7 @@ const babelOpts = {
     ['@babel/preset-typescript', { allExtensions: true, isTSX: true }],
   ],
   plugins: [
+    ['babel-plugin-react-compiler'],
     [
       require('@graphql-codegen/client-preset').babelOptimizerPlugin,
       { artifactDirectory: './client/gql/', gqlTagName: 'graphql' },

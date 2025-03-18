@@ -2,7 +2,7 @@ import { Set } from 'immutable'
 import React, { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ALL_TILESETS, NumPlayers, Tileset, tilesetToName } from '../../common/maps'
+import { ALL_TILESETS, MapSortType, NumPlayers, Tileset, tilesetToName } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
@@ -12,8 +12,8 @@ import { FloatingActionButton } from '../material/floating-action-button'
 import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { useValueAsRef } from '../react/state-hooks'
 import { SearchInput } from '../search/search-input'
-import { useValueAsRef } from '../state-hooks'
 import { labelMedium } from '../styles/typography'
 
 const ENTER = 'Enter'
@@ -100,7 +100,7 @@ export interface BrowserFooterProps {
   searchQuery: string
   onSizeChange: (index: number) => void
   onFilterApply: (numPlayersFilter: Set<NumPlayers>, tilesetFilter: Set<Tileset>) => void
-  onSortChange: (index: number) => void
+  onSortChange: (index: MapSortType) => void
   onSearchChange: (value: string) => void
   onBrowseLocalMaps?: () => void
 }

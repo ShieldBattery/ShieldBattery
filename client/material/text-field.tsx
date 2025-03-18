@@ -1,7 +1,8 @@
-import React, { useCallback, useId, useLayoutEffect, useState } from 'react'
+import React, { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { useMultiRef, useStableCallback } from '../state-hooks'
+import { assignRef } from '../react/refs'
+import { useStableCallback } from '../react/state-hooks'
 import { IconButton } from './button'
 import { InputBase } from './input-base'
 import { InputError } from './input-error'
@@ -181,220 +182,220 @@ export interface TextFieldProps {
   trailingIcons?: React.ReactElement[]
   type?: string
   value: string
+  ref?: React.Ref<HTMLInputElement | HTMLTextAreaElement | null>
 }
 
 /**
  * A Material text field component with single-line, multi-line and text area variants, supporting
  * with and without floating labels.
  */
-export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
-  (
-    {
-      allowErrors = true,
-      className,
-      dense,
-      disabled,
-      errorText,
-      floatingLabel,
-      hasClearButton,
-      inputProps,
-      label,
-      leadingIcons = [],
-      maxRows,
-      multiline,
-      name,
-      testName,
-      onBlur,
-      onChange,
-      onEnterKeyDown,
-      onFocus,
-      onKeyDown,
-      rows = 1,
-      trailingIcons = [],
-      type = 'text',
-      value,
+export function TextField({
+  allowErrors = true,
+  className,
+  dense,
+  disabled,
+  errorText,
+  floatingLabel,
+  hasClearButton,
+  inputProps,
+  label,
+  leadingIcons = [],
+  maxRows,
+  multiline,
+  name,
+  testName,
+  onBlur,
+  onChange,
+  onEnterKeyDown,
+  onFocus,
+  onKeyDown,
+  rows = 1,
+  trailingIcons = [],
+  type = 'text',
+  value,
+  ref,
+}: TextFieldProps) {
+  const id = useId()
+  const [isFocused, setIsFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+
+  const autoSize = useCallback((elem: HTMLInputElement | HTMLTextAreaElement) => {
+    // Needed in order to lower the height when deleting text
+    elem.style.height = 'auto'
+    elem.style.height = `${elem.scrollHeight}px`
+    // Textarea doesn't scroll completely to the end when adding a new line, just to the
+    // baseline of the added text it seems, so we scroll manually to the end here
+    elem.scrollTop = elem.scrollHeight
+  }, [])
+
+  useLayoutEffect(() => {
+    if (multiline && inputRef.current) {
+      autoSize(inputRef.current)
+    }
+  }, [autoSize, inputRef, multiline])
+
+  const onInputBlur = useCallback(
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      setIsFocused(false)
+      onBlur?.(event)
     },
-    ref,
-  ) => {
-    const id = useId()
-    const [isFocused, setIsFocused] = useState(false)
-    const [inputRef, setInputRef] = useMultiRef<HTMLInputElement>(ref)
+    [onBlur],
+  )
 
-    const autoSize = useCallback((elem: HTMLInputElement) => {
-      // Needed in order to lower the height when deleting text
-      elem.style.height = 'auto'
-      elem.style.height = `${elem.scrollHeight}px`
-      // Textarea doesn't scroll completely to the end when adding a new line, just to the
-      // baseline of the added text it seems, so we scroll manually to the end here
-      elem.scrollTop = elem.scrollHeight
-    }, [])
+  const onInputFocus = useCallback(
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      setIsFocused(true)
+      onFocus?.(event)
+    },
+    [onFocus],
+  )
 
-    useLayoutEffect(() => {
-      if (multiline && inputRef.current) {
-        autoSize(inputRef.current)
-      }
-    }, [autoSize, inputRef, multiline])
-
-    const onInputBlur = useCallback(
-      (event: React.FocusEvent<HTMLInputElement>) => {
-        setIsFocused(false)
-        onBlur?.(event)
-      },
-      [onBlur],
-    )
-
-    const onInputFocus = useCallback(
-      (event: React.FocusEvent<HTMLInputElement>) => {
-        setIsFocused(true)
-        onFocus?.(event)
-      },
-      [onFocus],
-    )
-
-    const onInputChange = useCallback(
-      (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (multiline) {
-          autoSize(event.target)
-        }
-
-        onChange?.(event)
-      },
-      [autoSize, multiline, onChange],
-    )
-
-    const onInputKeyDown = useCallback(
-      (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-          onEnterKeyDown?.(event)
-        }
-
-        onKeyDown?.(event)
-      },
-      [onEnterKeyDown, onKeyDown],
-    )
-
-    const internalInputProps = {
-      id,
-      value,
-      type,
-      name,
-      disabled,
-      onBlur: onInputBlur,
-      onChange: onInputChange,
-      onFocus: onInputFocus,
-      onKeyDown: onInputKeyDown,
-    }
-
-    const leadingIconsElements = leadingIcons.map((leadingIcon, index) => {
-      return (
-        <LeadingIcon key={index} $index={index} $dense={dense}>
-          {leadingIcon}
-        </LeadingIcon>
-      )
-    })
-    const trailingIconsElements = trailingIcons
-      .slice() // Don't mutate the original array
-      .reverse()
-      .map((trailingIcon, index) => {
-        return (
-          <TrailingIcon key={index} $index={index} $dense={dense} $multiline={multiline}>
-            {trailingIcon}
-          </TrailingIcon>
-        )
-      })
-
-    const clearAndFocusInput = useStableCallback(() => {
-      if (!inputRef.current) {
-        return
+  const onInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (multiline) {
+        autoSize(event.target)
       }
 
-      // React overrides the input value setter so we have to do shenanigans to set a value
-      // manually. See this answer for more info: https://stackoverflow.com/a/46012210/398302
-      const nativeInputValue = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        'value',
-      )
-      nativeInputValue?.set?.call(inputRef.current, '')
-      const changeEvent = new Event('input', { bubbles: true })
-      inputRef.current.dispatchEvent(changeEvent)
-      inputRef.current?.focus()
-    })
+      onChange?.(event)
+    },
+    [autoSize, multiline, onChange],
+  )
 
-    if (hasClearButton && value) {
-      trailingIconsElements.push(
-        <TrailingIcon
-          key={trailingIconsElements.length}
-          $index={trailingIconsElements.length}
-          $dense={dense}
-          $multiline={multiline}>
-          <ClearTooltip text='Clear'>
-            <ClearButton icon={<MaterialIcon icon='close' />} onClick={clearAndFocusInput} />
-          </ClearTooltip>
-        </TrailingIcon>,
-      )
-    }
+  const onInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        onEnterKeyDown?.(event)
+      }
 
-    let renderLabel
-    if (!label) {
-      renderLabel = null
-    } else if (floatingLabel) {
-      renderLabel = (
-        <FloatingLabel
-          htmlFor={id}
-          $hasValue={!!value}
-          $dense={dense}
-          $focused={isFocused}
-          $disabled={disabled}
-          $error={!!errorText}
-          $leadingIconsLength={leadingIcons.length}>
-          {label}
-        </FloatingLabel>
-      )
-    } else {
-      renderLabel = (
-        <Label
-          htmlFor={id}
-          $hasValue={!!value}
-          $dense={dense}
-          $disabled={disabled}
-          $leadingIconsLength={leadingIcons.length}>
-          {label}
-        </Label>
-      )
-    }
+      onKeyDown?.(event)
+    },
+    [onEnterKeyDown, onKeyDown],
+  )
 
+  const internalInputProps = {
+    id,
+    value,
+    type,
+    name,
+    disabled,
+    onBlur: onInputBlur,
+    onChange: onInputChange,
+    onFocus: onInputFocus,
+    onKeyDown: onInputKeyDown,
+  }
+
+  const leadingIconsElements = leadingIcons.map((leadingIcon, index) => {
     return (
-      <div className={className}>
-        <TextFieldContainer
-          $disabled={disabled}
+      <LeadingIcon key={index} $index={index} $dense={dense}>
+        {leadingIcon}
+      </LeadingIcon>
+    )
+  })
+  const trailingIconsElements = trailingIcons
+    .slice() // Don't mutate the original array
+    .reverse()
+    .map((trailingIcon, index) => {
+      return (
+        <TrailingIcon key={index} $index={index} $dense={dense} $multiline={multiline}>
+          {trailingIcon}
+        </TrailingIcon>
+      )
+    })
+
+  const clearAndFocusInput = useStableCallback(() => {
+    if (!inputRef.current) {
+      return
+    }
+
+    // React overrides the input value setter so we have to do shenanigans to set a value
+    // manually. See this answer for more info: https://stackoverflow.com/a/46012210/398302
+    const nativeInputValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )
+    nativeInputValue?.set?.call(inputRef.current, '')
+    const changeEvent = new Event('input', { bubbles: true })
+    inputRef.current.dispatchEvent(changeEvent)
+    inputRef.current?.focus()
+  })
+
+  if (hasClearButton && value) {
+    trailingIconsElements.push(
+      <TrailingIcon
+        key={trailingIconsElements.length}
+        $index={trailingIconsElements.length}
+        $dense={dense}
+        $multiline={multiline}>
+        <ClearTooltip text='Clear'>
+          <ClearButton icon={<MaterialIcon icon='close' />} onClick={clearAndFocusInput} />
+        </ClearTooltip>
+      </TrailingIcon>,
+    )
+  }
+
+  let renderLabel
+  if (!label) {
+    renderLabel = null
+  } else if (floatingLabel) {
+    renderLabel = (
+      <FloatingLabel
+        htmlFor={id}
+        $hasValue={!!value}
+        $dense={dense}
+        $focused={isFocused}
+        $disabled={disabled}
+        $error={!!errorText}
+        $leadingIconsLength={leadingIcons.length}>
+        {label}
+      </FloatingLabel>
+    )
+  } else {
+    renderLabel = (
+      <Label
+        htmlFor={id}
+        $hasValue={!!value}
+        $dense={dense}
+        $disabled={disabled}
+        $leadingIconsLength={leadingIcons.length}>
+        {label}
+      </Label>
+    )
+  }
+
+  return (
+    <div className={className}>
+      <TextFieldContainer
+        $disabled={disabled}
+        $focused={isFocused}
+        $floatingLabel={floatingLabel}
+        $dense={dense}
+        $multiline={multiline}
+        $maxRows={maxRows}
+        onClick={() => inputRef.current?.focus()}>
+        {renderLabel}
+        {leadingIconsElements.length > 0 ? leadingIconsElements : null}
+        <InputBase
+          ref={(r: HTMLInputElement | HTMLTextAreaElement | null) => {
+            inputRef.current = r
+            return assignRef(ref, r)
+          }}
+          as={multiline ? 'textarea' : 'input'}
+          rows={rows}
           $focused={isFocused}
           $floatingLabel={floatingLabel}
           $dense={dense}
           $multiline={multiline}
-          $maxRows={maxRows}
-          onClick={() => inputRef.current?.focus()}>
-          {renderLabel}
-          {leadingIconsElements.length > 0 ? leadingIconsElements : null}
-          <InputBase
-            ref={setInputRef}
-            as={multiline ? 'textarea' : 'input'}
-            rows={rows}
-            $focused={isFocused}
-            $floatingLabel={floatingLabel}
-            $dense={dense}
-            $multiline={multiline}
-            $leadingIconsLength={leadingIcons.length}
-            $trailingIconsLength={trailingIcons.length}
-            data-test={testName}
-            {...inputProps}
-            {...internalInputProps}
-          />
-          {trailingIconsElements.length > 0 ? trailingIconsElements : null}
-          <InputUnderline focused={isFocused} error={!!errorText} />
-          <StateLayer />
-        </TextFieldContainer>
-        {allowErrors ? <InputError error={errorText} /> : null}
-      </div>
-    )
-  },
-)
+          $leadingIconsLength={leadingIcons.length}
+          $trailingIconsLength={trailingIcons.length}
+          data-test={testName}
+          {...inputProps}
+          {...internalInputProps}
+        />
+        {trailingIconsElements.length > 0 ? trailingIconsElements : null}
+        <InputUnderline focused={isFocused} error={!!errorText} />
+        <StateLayer />
+      </TextFieldContainer>
+      {allowErrors ? <InputError error={errorText} /> : null}
+    </div>
+  )
+}

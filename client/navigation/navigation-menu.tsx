@@ -8,7 +8,7 @@ import { useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { zIndexMenu, zIndexMenuBackdrop } from '../material/zindex'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { labelLarge, singleLine } from '../styles/typography'
 import { pushCurrentWithState } from './routing'
 

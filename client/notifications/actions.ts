@@ -11,6 +11,7 @@ export type NotificationActions =
   | MarkNotificationsReadBegin
   | MarkNotificationsRead
   | MarkNotificationsReadFailure
+  | MarkNotificationShown
 
 /**
  * Action which initializes the client's list of notifications with all the visible, server-side
@@ -80,4 +81,13 @@ export interface MarkNotificationsRead {
 
 export interface MarkNotificationsReadFailure extends BaseFetchFailure<'@notifications/markRead'> {
   meta: { notificationIds: ReadonlyArray<string> }
+}
+
+/**
+ * Marks a notification as shown, i.e. it has been displayed to the user as a popup.
+ */
+export interface MarkNotificationShown {
+  type: '@notifications/markShown'
+  payload: { notificationId: string }
+  error?: false
 }

@@ -4,7 +4,7 @@ import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import styled from 'styled-components'
 import { Snackbar } from '../material/snackbar'
 import { zIndexSnackbar } from '../material/zindex'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import {
   registerSnackbarController,
   SnackbarController,

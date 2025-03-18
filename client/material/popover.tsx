@@ -14,7 +14,7 @@ import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
-import { useForceUpdate, usePreviousDefined, useStableCallback } from '../state-hooks'
+import { useForceUpdate, usePreviousDefined, useStableCallback } from '../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { elevationPlus3 } from './shadows'
@@ -424,7 +424,9 @@ export function useAnchorPosition(
     ref(element)
   }
 
+  // eslint-disable-next-line react-compiler/react-compiler
   let x = xRef.current
+  // eslint-disable-next-line react-compiler/react-compiler
   let y = yRef.current
   if (rect) {
     switch (originX) {
@@ -455,9 +457,12 @@ export function useAnchorPosition(
         y = assertUnreachable(originY)
     }
 
+    // eslint-disable-next-line react-compiler/react-compiler
     xRef.current = x
+    // eslint-disable-next-line react-compiler/react-compiler
     yRef.current = y
   }
 
+  // eslint-disable-next-line react-compiler/react-compiler
   return [ref, x, y]
 }

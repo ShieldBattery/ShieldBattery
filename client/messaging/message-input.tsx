@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { useSelfUser } from '../auth/auth-utils'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;

@@ -3,7 +3,7 @@ import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
-import { useStableCallback } from '../state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { BodyLarge, BodySmall } from '../styles/typography'
 import {
   FileBrowserFileEntry,

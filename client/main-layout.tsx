@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { MouseEvent, useId, useLayoutEffect, useRef } from 'react'
+import React, { MouseEvent, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -39,10 +39,10 @@ import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
+import { useStableCallback, useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
-import { useMultiRef, useStableCallback, useUserLocalStorageValue } from './state-hooks'
 import { singleLine, sofiaSans, titleSmall } from './styles/typography'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
@@ -230,12 +230,12 @@ const AppBarMenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
     const strokeLeftId = useId()
     const strokeRightId = useId()
 
-    const [linkRef, setLinkRef] = useMultiRef(ref)
-    useButtonHotkey({ ref: linkRef, hotkey })
+    const [linkElem, setLinkElem] = useState<HTMLAnchorElement | null>(null)
+    useButtonHotkey({ elem: linkElem, hotkey })
 
     return (
       <Link href={href} asChild={true}>
-        <MenuItemRoot ref={setLinkRef} $isActive={isActive} draggable={false}>
+        <MenuItemRoot ref={setLinkElem} $isActive={isActive} draggable={false}>
           <MenuItemLeftEdge viewBox='0 0 20 64'>
             <polygon
               points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}
@@ -759,7 +759,7 @@ function AppBar({
   const appMenuFocusable = useRef<HTMLAnchorElement>(null)
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
-  const profileEntryRef = useRef<HTMLButtonElement>(null)
+  const [profileEntryElem, setProfileEntryElem] = useState<HTMLButtonElement | null>(null)
 
   const onLogIn = useStableCallback(() => {
     redirectToLogin(push)
@@ -772,19 +772,21 @@ function AppBar({
     closeProfileOverlay()
     dispatch(openChangelog())
   })
-  const onViewProfileClick = useStableCallback(() => {
-    closeProfileOverlay()
-    navigateToUserProfile(selfUser!.id, selfUser!.name)
-  })
+  const onViewProfileClick = () => {
+    if (selfUser) {
+      closeProfileOverlay()
+      navigateToUserProfile(selfUser.id, selfUser.name)
+    }
+  }
   const onReportBugClick = useStableCallback(() => {
     closeProfileOverlay()
     dispatch(openDialog({ type: DialogType.BugReport }))
   })
 
-  const settingsButtonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
-  const chatButtonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: chatButtonRef, hotkey: ALT_H })
+  const [settingsButton, setSettingsButton] = useState<HTMLButtonElement | null>(null)
+  useButtonHotkey({ elem: settingsButton, hotkey: ALT_S })
+  const [chatButton, setChatButton] = useState<HTMLButtonElement | null>(null)
+  useButtonHotkey({ elem: chatButton, hotkey: ALT_H })
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -815,7 +817,7 @@ function AppBar({
     <AvatarSpace>
       {selfUser ? (
         <AvatarButton
-          ref={profileEntryRef}
+          ref={setProfileEntryElem}
           icon={<ConnectedAvatar userId={selfUser.id} />}
           testName='app-bar-user-button'
           ariaLabel={t('navigation.bar.userMenu', 'User menu')}
@@ -897,7 +899,7 @@ function AppBar({
             position='bottom'
             tabIndex={-1}>
             <IconButton
-              ref={settingsButtonRef}
+              ref={setSettingsButton}
               icon={<ShadowedIcon icon='settings' />}
               onClick={() => dispatch(openSettings())}
               testName='settings-button'
@@ -911,7 +913,7 @@ function AppBar({
                 position='bottom'
                 tabIndex={-1}>
                 <IconButton
-                  ref={chatButtonRef}
+                  ref={setChatButton}
                   icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
                   onClick={onToggleSocial}
                   testName='social-sidebar-button'
@@ -925,7 +927,7 @@ function AppBar({
             open: profileOverlayOpen,
             onDismiss: closeProfileOverlay,
           }}
-          anchor={profileEntryRef.current}
+          anchor={profileEntryElem}
           username={selfUser?.name ?? ''}>
           <MenuItem
             icon={<MaterialIcon icon='account_box' />}

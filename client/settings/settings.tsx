@@ -16,9 +16,9 @@ import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
-import { useStableCallback } from '../state-hooks'
 import {
   headlineMedium,
   labelMedium,

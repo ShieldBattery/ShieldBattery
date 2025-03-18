@@ -9,15 +9,14 @@ import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
+import { useStableCallback, useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
@@ -75,8 +74,6 @@ enum FriendsListTab {
   Settings = 'Settings',
 }
 
-const savedFriendsListTab = new JsonLocalStorageValue<FriendsListTab>('friendsListTab')
-
 const FriendsListHeader = styled.div`
   position: relative;
   flex-shrink: 0;
@@ -98,13 +95,20 @@ const FriendsListContent = styled.div`
   flex-grow: 1;
 `
 
+function validateFriendsListTab(value: unknown): FriendsListTab | undefined {
+  return value as FriendsListTab
+}
+
 export function FriendsList() {
   const { t } = useTranslation()
 
   useRelationshipsLoader()
   const dispatch = useAppDispatch()
-  const forceUpdate = useForceUpdate()
-  const activeTab = savedFriendsListTab.getValue() ?? FriendsListTab.List
+  const [activeTab, setActiveTab] = useUserLocalStorageValue(
+    'friendsList.tab',
+    FriendsListTab.List,
+    validateFriendsListTab,
+  )
   const onTabChange = useStableCallback((tab: FriendsListTab) => {
     if (tab === FriendsListTab.Settings) {
       // TODO(tec27): Open to the correct part of settings once it's there
@@ -112,11 +116,7 @@ export function FriendsList() {
       return
     }
 
-    savedFriendsListTab.setValue(tab)
-    // TODO(tec27): Would probably be nice to write a hook that uses useSyncExternalStore to
-    // subscribe to the local storage value instead of forcing an update here, would be useful
-    // elsewhere as well
-    forceUpdate()
+    setActiveTab(tab)
   })
 
   // NOTE(tec27): We grab the height of the content container here so we can increase the viewport
