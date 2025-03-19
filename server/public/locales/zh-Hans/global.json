@@ -3,7 +3,8 @@
         "validators": {
             "required": "必填",
             "maxLength_other": "不能输入超过{{count}}个字符",
-            "minLength_other": "不能输入少于 {{count}} 个字符"
+            "minLength_other": "不能输入少于 {{count}} 个字符",
+            "validatorError": "验证此字段时发生未知错误"
         },
         "actions": {
             "cancel": "取消",
