@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import { container } from 'tsyringe'
 import uid from 'uid-safe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
@@ -95,6 +96,7 @@ import {
 import { UserIdentifierCleanupJob } from './user-identifier-cleanup'
 import { UserIdentifierManager } from './user-identifier-manager'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
+import { UserIpsCleanupJob } from './user-ips-cleanup'
 import {
   createUser,
   findSelfById,
@@ -200,15 +202,15 @@ export class UserApi {
     private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
     private userRelationshipService: UserRelationshipService,
-    // NOTE(tec27): Don't delete this. It shouldn't get garbage collected anyway since it's a
-    // singleton, but better safe than sorry for future code changes :)
-    private _userIdentifierCleanup: UserIdentifierCleanupJob,
     private userService: UserService,
     private clock: Clock,
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private chatService: ChatService,
-  ) {}
+  ) {
+    container.resolve(UserIdentifierCleanupJob)
+    container.resolve(UserIpsCleanupJob)
+  }
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))

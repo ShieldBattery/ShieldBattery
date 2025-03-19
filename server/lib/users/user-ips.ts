@@ -91,3 +91,23 @@ export async function retrieveRelatedUsersForIps(
     done()
   }
 }
+
+/**
+ * Removes user IP records that haven't been used since before the specified date.
+ * Returns the number of records that were removed.
+ */
+export async function cleanupOldUserIps(
+  removeBefore: Date,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const res = await client.query(sql`
+      DELETE FROM user_ips
+      WHERE last_used < ${removeBefore}
+    `)
+    return res.rowCount ?? 0
+  } finally {
+    done()
+  }
+}
