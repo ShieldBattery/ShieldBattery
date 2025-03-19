@@ -282,7 +282,8 @@
       "maxLength_other": "Enter at most {{count}} characters",
       "minLength_one": "Enter at least {{count}} character",
       "minLength_other": "Enter at least {{count}} characters",
-      "required": "Required"
+      "required": "Required",
+      "validatorError": "An unknown error occurred while validating this field"
     }
   },
   "fileBrowser": {
@@ -700,7 +701,6 @@
       },
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
-      "mapSelectionValidation": "Select at least one map.",
       "points": "Points",
       "race": "Race",
       "rating": "Rating",
