@@ -803,11 +803,13 @@
                     "numberOfPlayers": "Número de jugadores",
                     "tileset": "Conjunto de fichas"
                 },
-                "title": "Opciones de filtro"
+                "title": "Opciones de filtro",
+                "numberOfPlayers": "{{numPlayers}} jugadores"
             },
             "favoritedMaps": "Mapas favoritos",
             "regenerated": "Imágenes regeneradas",
-            "uploadedMap": "Mapa subido"
+            "uploadedMap": "Mapa subido",
+            "noUploadedMapsWeb": "No has subido ningún mapa."
         },
         "thumbnail": {
             "addToFavorites": "Agregar a los favoritos",
