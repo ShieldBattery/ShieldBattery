@@ -185,7 +185,7 @@ export function useForm<ModelType extends Record<string, any>>(
 
       const validator = validations[name]!
       const controller = new AbortController()
-      const resultPromise = Promise.resolve(
+      const resultPromise = Promise.try(() =>
         validator(
           (model as ModelType)[name],
           model,
