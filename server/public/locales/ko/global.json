@@ -3,7 +3,8 @@
         "validators": {
             "required": "필수",
             "maxLength_other": "최대 {{count}}자까지 입력하세요",
-            "minLength_other": "최소 {{count}}자 이상 입력하세요"
+            "minLength_other": "최소 {{count}}자 이상 입력하세요",
+            "validatorError": "이 필드를 검증하는 동안 알 수 없는 오류가 발생했습니다."
         },
         "actions": {
             "cancel": "취소",
