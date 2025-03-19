@@ -810,13 +810,15 @@
                     "numberOfPlayers": "플레이어 수",
                     "tileset": "타일셋"
                 },
-                "title": "필터 옵션"
+                "title": "필터 옵션",
+                "numberOfPlayers": "{{numPlayers}} 플레이어"
             },
             "noCommunityMaps": "아직 커뮤니티에서 공개한 맵이 없습니다.",
             "noResults": "결과가 없습니다.",
             "uploadedMap": "업로드된 지도",
             "favoritedMaps": "즐겨찾는 지도",
-            "regenerated": "이미지가 재생성됨"
+            "regenerated": "이미지가 재생성됨",
+            "noUploadedMapsWeb": "지도를 업로드하지 않았습니다."
         },
         "thumbnail": {
             "addToFavorites": "즐겨 찾기에 추가",
