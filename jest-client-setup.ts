@@ -14,6 +14,11 @@
   })),
   destination: {},
 }))
+;(global as any).ResizeObserver = jest.fn(() => ({
+  observe: jest.fn(),
+  disconnect: jest.fn(),
+  unobserve: jest.fn(),
+}))
 
 // Ensure consistent locale formatting in tests
 Object.defineProperty(window.navigator, 'language', {

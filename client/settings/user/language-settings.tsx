@@ -6,11 +6,10 @@ import {
   TranslationLanguage,
   translationLanguageToLabel,
 } from '../../../common/i18n'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { changeUserLanguage } from '../../i18n/action-creators'
 import { RadioButton, RadioGroup } from '../../material/radio'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { FormContainer } from '../settings-content'
 
@@ -33,20 +32,21 @@ export function UserLanguageSettings() {
     }, 200),
   )
 
-  const onValidatedChange = useStableCallback((model: Readonly<UserLanguageSettingsModel>) => {
-    debouncedChangeUserLanguageRef.current(model.language)
-  })
-
-  const { bindInput, onSubmit } = useForm(
+  const { bindInput, submit, form } = useForm<UserLanguageSettingsModel>(
     {
       language: i18n.language as TranslationLanguage,
     },
     {},
-    { onValidatedChange },
   )
 
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
+      debouncedChangeUserLanguageRef.current(model.language)
+    },
+  })
+
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>

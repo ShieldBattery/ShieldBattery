@@ -8,7 +8,7 @@ import {
   makeSeasonId,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -128,8 +128,8 @@ interface AddSeasonModel {
   resetMmr: boolean
 }
 
-function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
-  const { onSubmit, bindInput, bindCheckable } = useForm<AddSeasonModel>(
+function AddSeasonForm({ onSubmit }: { onSubmit: (model: AddSeasonModel) => void }) {
+  const { submit, bindInput, bindCheckable, form } = useForm<AddSeasonModel>(
     {
       resetMmr: false,
     },
@@ -138,15 +138,18 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
         !value || Date.parse(value) < Date.now() ? 'Start date must be in the future' : undefined,
       name: value => (value && value.length ? undefined : 'Season name must be provided'),
     },
-    { onSubmit: props.onSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit,
+  })
 
   // TODO(tec27): Display validation errors on date input (or create a Material-ish date input)
   return (
     <FormContainer>
       <FormTitle>Add new season</FormTitle>
 
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SubmitOnEnter />
         <TextField
           {...bindInput('name')}
@@ -157,7 +160,7 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
         <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
 
-        <ElevatedButton label='Submit' color='primary' onClick={onSubmit} />
+        <ElevatedButton label='Submit' color='primary' onClick={submit} />
       </form>
     </FormContainer>
   )
@@ -177,35 +180,6 @@ export function AdminMatchmakingSeasons() {
         setRequestError(undefined)
         setSeasons(data.seasons)
         setCurrentSeasonId(data.current)
-      })
-      .catch(err => {
-        setRequestError(err)
-      })
-  })
-  const confirmDelete = useStableCallback((id: SeasonId) => {
-    setRequestError(undefined)
-    fetchJson<void>(apiUrl`matchmaking/seasons/${id}`, { method: 'delete' })
-      .then(() => {
-        setConfirmingDeleteId(curId => (curId === id ? undefined : curId))
-        loadSeasons()
-      })
-      .catch(err => {
-        setRequestError(err)
-      })
-  })
-  const addSeason = useStableCallback((model: AddSeasonModel) => {
-    setRequestError(undefined)
-    fetchJson<void>(apiUrl`matchmaking/seasons`, {
-      method: 'post',
-      body: encodeBodyAsParams<AddMatchmakingSeasonRequest>({
-        startDate: Date.parse(model.startDate!),
-        name: model.name!,
-        resetMmr: model.resetMmr,
-      }),
-    })
-      .then(() => {
-        setFormVersion(version => version + 1)
-        loadSeasons()
       })
       .catch(err => {
         setRequestError(err)
@@ -241,12 +215,48 @@ export function AdminMatchmakingSeasons() {
               label='Cancel'
               onClick={() => setConfirmingDeleteId(undefined)}
             />
-            <TextButton color='accent' label='Delete it' onClick={() => confirmDelete(s.id)} />
+            <TextButton
+              color='accent'
+              label='Delete it'
+              onClick={() =>
+                ((id: SeasonId) => {
+                  setRequestError(undefined)
+                  fetchJson<void>(apiUrl`matchmaking/seasons/${id}`, { method: 'delete' })
+                    .then(() => {
+                      setConfirmingDeleteId(curId => (curId === id ? undefined : curId))
+                      loadSeasons()
+                    })
+                    .catch(err => {
+                      setRequestError(err)
+                    })
+                })(s.id)
+              }
+            />
           </Row>
         ),
       )}
 
-      <AddSeasonForm onSubmit={addSeason} key={formVersion} />
+      <AddSeasonForm
+        onSubmit={model => {
+          setRequestError(undefined)
+          fetchJson<void>(apiUrl`matchmaking/seasons`, {
+            method: 'post',
+            body: encodeBodyAsParams<AddMatchmakingSeasonRequest>({
+              startDate: Date.parse(model.startDate!),
+              name: model.name!,
+              resetMmr: model.resetMmr,
+            }),
+          })
+            .then(() => {
+              setFormVersion(version => version + 1)
+              loadSeasons()
+            })
+            .catch(err => {
+              setRequestError(err)
+            })
+        }}
+        key={formVersion}
+      />
     </Container>
   )
 }

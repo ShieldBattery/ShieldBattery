@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { ReadonlyDeep } from 'type-fest'
 import { AsyncValidator, Validator } from './form-hook'
 
 /**
@@ -24,24 +25,27 @@ export function debounceValidator<ValueType, ModelType>(
   delayMillis: number,
 ): Validator<ValueType, ModelType> {
   let timeoutPromise: Promise<string | undefined> | undefined
-  let lastValue: Readonly<ValueType> | undefined
-  let lastModel: ModelType | undefined
+  let lastValue: ReadonlyDeep<ValueType> | undefined
+  let lastModel: ReadonlyDeep<ModelType> | undefined
   let lastDirty: ReadonlyMap<keyof ModelType, boolean> | undefined
   let lastT: TFunction | undefined
-  return (value, model, dirty, t) => {
+  let lastSignal: AbortSignal | undefined
+  return (value, model, dirty, t, signal) => {
     lastValue = value
     lastModel = model
     lastDirty = dirty
     lastT = t
+    lastSignal = signal
     if (!timeoutPromise) {
       timeoutPromise = new Promise(resolve =>
         setTimeout(() => {
-          resolve(validator(lastValue!, lastModel!, lastDirty!, lastT!))
+          resolve(validator(lastValue!, lastModel!, lastDirty!, lastT!, lastSignal!))
           timeoutPromise = undefined
           lastValue = undefined
           lastModel = undefined
           lastDirty = undefined
           lastT = undefined
+          lastSignal = undefined
         }, delayMillis),
       )
     }
@@ -104,7 +108,7 @@ export function matchesOther<ValueType, ModelType>(
   msg: string | ((t: TFunction) => string),
 ): Validator<ValueType, ModelType> {
   return (val, model, _dirty, t) => {
-    if (val === model[otherName]) {
+    if (val === (model as ModelType)[otherName]) {
       return undefined
     }
 

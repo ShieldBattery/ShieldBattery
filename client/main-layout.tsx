@@ -761,28 +761,6 @@ function AppBar({
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const [profileEntryElem, setProfileEntryElem] = useState<HTMLButtonElement | null>(null)
 
-  const onLogIn = useStableCallback(() => {
-    redirectToLogin(push)
-  })
-  const onLogOutClick = useStableCallback(() => {
-    closeProfileOverlay()
-    dispatch(logOut().action)
-  })
-  const onChangelogClick = useStableCallback(() => {
-    closeProfileOverlay()
-    dispatch(openChangelog())
-  })
-  const onViewProfileClick = () => {
-    if (selfUser) {
-      closeProfileOverlay()
-      navigateToUserProfile(selfUser.id, selfUser.name)
-    }
-  }
-  const onReportBugClick = useStableCallback(() => {
-    closeProfileOverlay()
-    dispatch(openDialog({ type: DialogType.BugReport }))
-  })
-
   const [settingsButton, setSettingsButton] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: settingsButton, hotkey: ALT_S })
   const [chatButton, setChatButton] = useState<HTMLButtonElement | null>(null)
@@ -816,19 +794,66 @@ function AppBar({
   const avatarSpace = (
     <AvatarSpace>
       {selfUser ? (
-        <AvatarButton
-          ref={setProfileEntryElem}
-          icon={<ConnectedAvatar userId={selfUser.id} />}
-          testName='app-bar-user-button'
-          ariaLabel={t('navigation.bar.userMenu', 'User menu')}
-          onClick={openProfileOverlay}
-        />
+        <>
+          <AvatarButton
+            ref={setProfileEntryElem}
+            icon={<ConnectedAvatar userId={selfUser.id} />}
+            testName='app-bar-user-button'
+            ariaLabel={t('navigation.bar.userMenu', 'User menu')}
+            onClick={openProfileOverlay}
+          />
+          <SelfProfileOverlay
+            popoverProps={{
+              open: profileOverlayOpen,
+              onDismiss: closeProfileOverlay,
+            }}
+            anchor={profileEntryElem}
+            username={selfUser?.name ?? ''}>
+            <MenuItem
+              icon={<MaterialIcon icon='account_box' />}
+              text={t('navigation.leftNav.viewProfile', 'View profile')}
+              onClick={() => {
+                closeProfileOverlay()
+                navigateToUserProfile(selfUser.id, selfUser.name)
+              }}
+            />
+            <MenuItem
+              icon={<MaterialIcon icon='new_releases' />}
+              text={t('navigation.leftNav.viewChangelog', 'View changelog')}
+              onClick={() => {
+                closeProfileOverlay()
+                dispatch(openChangelog())
+              }}
+            />
+            {IS_ELECTRON ? (
+              <MenuItem
+                icon={<MaterialIcon icon='bug_report' />}
+                text={t('navigation.leftNav.reportBug', 'Report a bug')}
+                onClick={() => {
+                  closeProfileOverlay()
+                  dispatch(openDialog({ type: DialogType.BugReport }))
+                }}
+              />
+            ) : undefined}
+            <Divider />
+            <MenuItem
+              icon={<MaterialIcon icon='logout' />}
+              text={t('navigation.leftNav.logOut', 'Log out')}
+              onClick={() => {
+                closeProfileOverlay()
+                dispatch(logOut().action)
+              }}
+            />
+          </SelfProfileOverlay>
+        </>
       ) : (
         /* TODO(tec27): Use a filled button instead once implemented */
         <ElevatedButton
           label={t('auth.login.logIn', 'Log in')}
           testName='app-bar-login'
-          onClick={onLogIn}
+          onClick={() => {
+            redirectToLogin(push)
+          }}
           disabled={onLoginPage}
         />
       )}
@@ -922,37 +947,6 @@ function AppBar({
             </>
           ) : undefined}
         </IconButtons>
-        <SelfProfileOverlay
-          popoverProps={{
-            open: profileOverlayOpen,
-            onDismiss: closeProfileOverlay,
-          }}
-          anchor={profileEntryElem}
-          username={selfUser?.name ?? ''}>
-          <MenuItem
-            icon={<MaterialIcon icon='account_box' />}
-            text={t('navigation.leftNav.viewProfile', 'View profile')}
-            onClick={onViewProfileClick}
-          />
-          <MenuItem
-            icon={<MaterialIcon icon='new_releases' />}
-            text={t('navigation.leftNav.viewChangelog', 'View changelog')}
-            onClick={onChangelogClick}
-          />
-          {IS_ELECTRON ? (
-            <MenuItem
-              icon={<MaterialIcon icon='bug_report' />}
-              text={t('navigation.leftNav.reportBug', 'Report a bug')}
-              onClick={onReportBugClick}
-            />
-          ) : undefined}
-          <Divider />
-          <MenuItem
-            icon={<MaterialIcon icon='logout' />}
-            text={t('navigation.leftNav.logOut', 'Log out')}
-            onClick={onLogOutClick}
-          />
-        </SelfProfileOverlay>
       </AppBarRoot>
       <NavigationMenuOverlay
         open={appMenuOpen}

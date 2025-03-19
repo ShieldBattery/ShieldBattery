@@ -7,7 +7,7 @@ import { useCallback, useState } from 'react'
 export function useRefreshToken(): [token: number, triggerRefresh: () => void] {
   const [value, setValue] = useState<number>(0)
   const triggerRefresh = useCallback(() => {
-    setValue(v => v + 1)
+    setValue(v => (v + 1) % Number.MAX_SAFE_INTEGER)
   }, [])
 
   return [value, triggerRefresh]

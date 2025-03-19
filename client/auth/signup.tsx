@@ -13,7 +13,7 @@ import {
 } from '../../common/constants'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { Validator, useForm } from '../forms/form-hook'
+import { Validator, useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
   composeValidators,
@@ -156,35 +156,8 @@ export function Signup() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const onFormSubmit = useStableCallback((model: SignupModel) => {
-    setIsLoading(true)
-    setLastError(undefined)
-
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
-
-    dispatch(
-      signUp(
-        {
-          username: model.username,
-          email: model.email,
-          password: model.password,
-          locale: detectedLocale.getValue(),
-        },
-        {
-          onSuccess: () => {},
-          onError: err => {
-            setIsLoading(false)
-            setLastError(err)
-          },
-          signal: abortControllerRef.current.signal,
-        },
-      ),
-    )
-  })
-
   const queryModel: { username?: string } = queryString.parse(window.location.search)
-  const { onSubmit, bindInput, bindCheckable } = useForm<SignupModel>(
+  const { submit, bindInput, bindCheckable, form } = useForm<SignupModel>(
     {
       username: queryModel.username ?? '',
       email: '',
@@ -221,8 +194,36 @@ export function Signup() {
       ageConfirmation: requireChecked(),
       policyAgreement: requireChecked(),
     },
-    { onSubmit: onFormSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setIsLoading(true)
+      setLastError(undefined)
+
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = new AbortController()
+
+      dispatch(
+        signUp(
+          {
+            username: model.username,
+            email: model.email,
+            password: model.password,
+            locale: detectedLocale.getValue(),
+          },
+          {
+            onSuccess: () => {},
+            onError: err => {
+              setIsLoading(false)
+              setLastError(err)
+            },
+            signal: abortControllerRef.current.signal,
+          },
+        ),
+      )
+    },
+  })
 
   const onLogInClick = useStableCallback(() => {
     const { search } = window.location
@@ -251,7 +252,7 @@ export function Signup() {
         <AuthTitle>{t('auth.signup.title', 'Create account')}</AuthTitle>
         <AuthBody>
           {lastError ? <UserErrorDisplay error={lastError} /> : null}
-          <form noValidate={true} onSubmit={onSubmit}>
+          <form noValidate={true} onSubmit={submit}>
             <SubmitOnEnter />
             <FieldRow>
               <AuthTextField
@@ -317,7 +318,7 @@ export function Signup() {
             <FieldRow>
               <ElevatedButton
                 label={t('auth.signup.createAccount', 'Create account')}
-                onClick={onSubmit}
+                onClick={submit}
                 tabIndex={1}
                 testName='submit-button'
               />

@@ -12,7 +12,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
-import { useStableCallback, useUserLocalStorageValue } from '../react/state-hooks'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
@@ -109,15 +109,6 @@ export function FriendsList() {
     FriendsListTab.List,
     validateFriendsListTab,
   )
-  const onTabChange = useStableCallback((tab: FriendsListTab) => {
-    if (tab === FriendsListTab.Settings) {
-      // TODO(tec27): Open to the correct part of settings once it's there
-      dispatch(openSettings())
-      return
-    }
-
-    setActiveTab(tab)
-  })
 
   // NOTE(tec27): We grab the height of the content container here so we can increase the viewport
   // of Virtuoso. Virtuoso uses getBoundingClientRect() to retrieve viewport dimensions (and cannot
@@ -133,7 +124,16 @@ export function FriendsList() {
     <>
       <FriendsListHeader>
         <FriendsListTabsContainer>
-          <Tabs activeTab={activeTab} onChange={onTabChange}>
+          <Tabs
+            activeTab={activeTab}
+            onChange={tab => {
+              if (tab === FriendsListTab.Settings) {
+                // TODO(tec27): Open to the correct part of settings once it's there
+                dispatch(openSettings())
+                return
+              }
+              setActiveTab(tab)
+            }}>
             <TabItem
               text={<FadedFriendsIcon />}
               title={t('users.friendsList.tabs.friendsList', 'Friends list')}

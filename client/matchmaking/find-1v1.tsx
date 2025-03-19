@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import React, { useImperativeHandle, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ReadonlyDeep } from 'type-fest'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences1v1,
@@ -9,7 +10,7 @@ import {
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { CheckBox } from '../material/check-box'
 import { LoadingDotsArea } from '../progress/dots'
@@ -37,24 +38,24 @@ interface Model1v1 {
 interface Form1v1Props {
   disabled: boolean
   model: Model1v1
-  mapPool?: Immutable<MatchmakingMapPool>
+  mapPool?: ReadonlyDeep<MatchmakingMapPool>
   mapPoolOutdated: boolean
-  onChange: (model: Model1v1) => void
-  onSubmit: (model: Model1v1) => void
+  onValidatedChange: (model: ReadonlyDeep<Model1v1>) => void
+  onSubmit: (model: ReadonlyDeep<Model1v1>) => void
 }
 
 const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
-  ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+  ({ disabled, model, mapPoolOutdated, mapPool, onValidatedChange, onSubmit }, ref) => {
     const { t } = useTranslation()
-    const {
-      onSubmit: handleSubmit,
-      bindCheckable,
-      bindCustom,
-      getInputValue,
-    } = useForm<Model1v1>(model, {}, { onChange, onSubmit })
+    const { submit, bindCheckable, bindCustom, getInputValue, form } = useForm<Model1v1>(model, {})
+
+    useFormCallbacks(form, {
+      onValidatedChange,
+      onSubmit,
+    })
 
     useImperativeHandle(ref, () => ({
-      submit: handleSubmit,
+      submit,
     }))
 
     const race = getInputValue('race')
@@ -62,7 +63,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     const hiddenAlternateRaces = race !== 'r' ? [race] : []
 
     return (
-      <form noValidate={true} onSubmit={handleSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SectionTitle>{t('matchmaking.findMatch.race', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
@@ -130,7 +131,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
   },
 )
 
-function model1v1ToPrefs(model: Model1v1, userId: SbUserId, mapPoolId: number) {
+function model1v1ToPrefs(model: ReadonlyDeep<Model1v1>, userId: SbUserId, mapPoolId: number) {
   return {
     userId,
     matchmakingType: MatchmakingType.Match1v1 as const,
@@ -165,31 +166,6 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
 
   const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
-  const onPrefsChanged = useCallback(
-    (model: Model1v1) => {
-      if (disabled) {
-        return
-      }
-
-      dispatch(
-        updateMatchmakingPreferences(
-          MatchmakingType.Match1v1,
-          model1v1ToPrefs(model, selfId, mapPoolId),
-        ),
-      )
-    },
-    [dispatch, mapPoolId, selfId, disabled],
-  )
-  const onFormSubmit = useCallback(
-    (model: Model1v1) => {
-      if (disabled) {
-        return
-      }
-
-      onSubmit(model1v1ToPrefs(model, selfId, mapPoolId))
-    },
-    [disabled, mapPoolId, onSubmit, selfId],
-  )
 
   return prefs ? (
     <Form1v1
@@ -201,8 +177,24 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
         alternateRace: prefs.data?.alternateRace ?? 'z',
         mapSelections,
       }}
-      onChange={onPrefsChanged}
-      onSubmit={onFormSubmit}
+      onValidatedChange={model => {
+        if (disabled) {
+          return
+        }
+
+        dispatch(
+          updateMatchmakingPreferences(
+            MatchmakingType.Match1v1,
+            model1v1ToPrefs(model, selfId, mapPoolId),
+          ),
+        )
+      }}
+      onSubmit={model => {
+        if (disabled) {
+          return
+        }
+        onSubmit(model1v1ToPrefs(model, selfId, mapPoolId))
+      }}
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />

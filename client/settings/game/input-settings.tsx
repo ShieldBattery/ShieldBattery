@@ -1,10 +1,9 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { Slider } from '../../material/slider'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
@@ -24,34 +23,33 @@ export function GameInputSettings() {
   const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
-  const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          keyboardScrollSpeed: model.keyboardScrollSpeed,
-          mouseScrollSpeed: model.mouseScrollSpeed,
-          mouseSensitivityOn: model.mouseSensitivityOn,
-          mouseSensitivity: model.mouseSensitivity,
-          mouseScalingOn: model.mouseScalingOn,
-          hardwareCursorOn: model.hardwareCursorOn,
-          mouseConfineOn: model.mouseConfineOn,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
+  const { bindCustom, bindCheckable, getInputValue, submit, form } =
+    useForm<GameInputSettingsModel>({ ...scrSettings }, {})
+
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
+      dispatch(
+        mergeScrSettings(
+          {
+            keyboardScrollSpeed: model.keyboardScrollSpeed,
+            mouseScrollSpeed: model.mouseScrollSpeed,
+            mouseSensitivityOn: model.mouseSensitivityOn,
+            mouseSensitivity: model.mouseSensitivity,
+            mouseScalingOn: model.mouseScalingOn,
+            hardwareCursorOn: model.hardwareCursorOn,
+            mouseConfineOn: model.mouseConfineOn,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    },
   })
 
-  const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    { ...scrSettings },
-    {},
-    { onValidatedChange },
-  )
-
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>

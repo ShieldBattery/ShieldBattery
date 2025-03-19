@@ -8,7 +8,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
 import { useObjectUrl } from '../dom/use-object-url'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -16,7 +16,6 @@ import { SingleFileInput } from '../material/file-input'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { bodyLarge } from '../styles/typography'
@@ -110,48 +109,50 @@ export function ChannelSettingsDialog({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const onFormSubmit = useStableCallback((model: Readonly<ChannelSettingsModel>) => {
-    const patch: EditChannelRequest = {
-      description:
-        model.description !== detailedChannelInfo.description ? model.description : undefined,
-      topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
-      deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
-      deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
-    }
-
-    setIsSaving(true)
-    setError(undefined)
-
-    dispatch(
-      updateChannel({
-        channelId: basicChannelInfo.id,
-        channelChanges: patch,
-        channelBanner: model.banner,
-        channelBadge: model.badge,
-        spec: {
-          onSuccess: () => {
-            setIsSaving(false)
-            dispatch(closeDialog(DialogType.ChannelSettings))
-          },
-          onError: err => {
-            setIsSaving(false)
-            setError(err)
-          },
-        },
-      }),
+  const { submit, bindCustom, bindInput, getInputValue, setInputValue, form } =
+    useForm<ChannelSettingsModel>(
+      {
+        description: detailedChannelInfo.description,
+        topic: joinedChannelInfo.topic,
+        uploadedBannerPath: detailedChannelInfo.bannerPath,
+        uploadedBadgePath: detailedChannelInfo.badgePath,
+      },
+      {},
     )
-  })
 
-  const { bindCustom, bindInput, getInputValue, setInputValue, onSubmit } = useForm(
-    {
-      description: detailedChannelInfo.description,
-      topic: joinedChannelInfo.topic,
-      uploadedBannerPath: detailedChannelInfo.bannerPath,
-      uploadedBadgePath: detailedChannelInfo.badgePath,
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      const patch: EditChannelRequest = {
+        description:
+          model.description !== detailedChannelInfo.description ? model.description : undefined,
+        topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
+        deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
+        deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
+      }
+
+      setIsSaving(true)
+      setError(undefined)
+
+      dispatch(
+        updateChannel({
+          channelId: basicChannelInfo.id,
+          channelChanges: patch,
+          channelBanner: model.banner,
+          channelBadge: model.badge,
+          spec: {
+            onSuccess: () => {
+              setIsSaving(false)
+              dispatch(closeDialog(DialogType.ChannelSettings))
+            },
+            onError: err => {
+              setIsSaving(false)
+              setError(err)
+            },
+          },
+        }),
+      )
     },
-    {},
-    { onSubmit: onFormSubmit },
-  )
+  })
 
   const bannerUrl = useObjectUrl(getInputValue('banner')) ?? getInputValue('uploadedBannerPath')
   const badgeUrl = useObjectUrl(getInputValue('badge')) ?? getInputValue('uploadedBadgePath')
@@ -168,7 +169,7 @@ export function ChannelSettingsDialog({
       key='save'
       color='accent'
       disabled={isSaving}
-      onClick={() => onSubmit()}
+      onClick={() => submit()}
       testName='channel-settings-save-button'
     />,
   ]
@@ -197,7 +198,7 @@ export function ChannelSettingsDialog({
 
         <Content>
           <FormContainer>
-            <StyledForm noValidate={true} onSubmit={onSubmit}>
+            <StyledForm noValidate={true} onSubmit={submit}>
               {CHANNEL_BANNERS ? (
                 <BannerButtonsContainer>
                   <SingleFileInput

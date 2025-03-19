@@ -6,7 +6,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
@@ -116,8 +116,19 @@ export function ChannelBanUserDialog({
   const user = useAppSelector(s => s.users.byId.get(userId))!
   const [banUserError, setBanUserError] = useState<Error>()
 
-  const onFormSubmit = useCallback(
-    (model: BanUserModel) => {
+  const {
+    submit: handleSubmit,
+    bindInput,
+    form,
+  } = useForm<BanUserModel>(
+    {
+      banReason: '',
+    },
+    {},
+  )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
       dispatch(
         moderateUser(
           channelId,
@@ -139,14 +150,7 @@ export function ChannelBanUserDialog({
         ),
       )
     },
-    [dispatch, channelId, user.id, user.name, snackbarController, t],
-  )
-
-  const { onSubmit: handleSubmit, bindInput } = useForm<BanUserModel>(
-    { banReason: '' },
-    {},
-    { onSubmit: onFormSubmit },
-  )
+  })
 
   const onBanClick = useCallback(() => handleSubmit(), [handleSubmit])
 

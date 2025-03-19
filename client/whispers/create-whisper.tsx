@@ -6,7 +6,7 @@ import { whisperServiceErrorToString } from '../../common/whispers'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
@@ -14,7 +14,6 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
@@ -44,29 +43,31 @@ export function CreateWhisper(props: CommonDialogProps) {
   const inputRef = useAutoFocusRef<HTMLInputElement>()
   const [loading, setLoading] = useState(false)
   const [lastError, setLastError] = useState<Error>()
-  const onFormSubmit = useStableCallback(({ target }: CreateWhisperFormModel) => {
-    setLoading(true)
-    dispatch(
-      startWhisperSessionByName(target, {
-        onSuccess: ({ userId }) => {
-          dispatch(closeDialog(DialogType.Whispers))
-          navigateToWhisper(userId, target)
-        },
-        onError: err => {
-          setLoading(false)
-          setLastError(err)
-        },
-      }),
-    )
-  })
 
-  const { onSubmit, bindInput } = useForm<CreateWhisperFormModel>(
+  const { submit, bindInput, form } = useForm<CreateWhisperFormModel>(
     { target: '' },
     {
       target: usernameValidator,
     },
-    { onSubmit: onFormSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: ({ target }) => {
+      setLoading(true)
+      dispatch(
+        startWhisperSessionByName(target, {
+          onSuccess: ({ userId }) => {
+            dispatch(closeDialog(DialogType.Whispers))
+            navigateToWhisper(userId, target)
+          },
+          onError: err => {
+            setLoading(false)
+            setLastError(err)
+          },
+        }),
+      )
+    },
+  })
 
   const buttons = [
     <TextButton
@@ -79,7 +80,7 @@ export function CreateWhisper(props: CommonDialogProps) {
       label={t('common.actions.start', 'Start')}
       key='send'
       color='accent'
-      onClick={onSubmit}
+      onClick={submit}
     />,
   ]
 
@@ -105,7 +106,7 @@ export function CreateWhisper(props: CommonDialogProps) {
               </Trans>
             </ErrorText>
           ) : undefined}
-          <form noValidate={true} onSubmit={onSubmit}>
+          <form noValidate={true} onSubmit={submit}>
             <TextField
               {...bindInput('target')}
               label={t('whispers.createWhisper.username', 'Username')}

@@ -1,23 +1,15 @@
 import { debounce } from 'lodash-es'
-import React, {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
-import { MapInfoJson } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
 import { useTrackPageView } from '../analytics/analytics'
-import { useForm, Validator } from '../forms/form-hook'
+import { useForm, useFormCallbacks, Validator } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -137,9 +129,10 @@ interface CreateLobbyFormHandle {
 interface CreateLobbyFormProps {
   disabled: boolean
   model: CreateLobbyModel
-  onSubmit: (model: CreateLobbyModel) => void
-  onValidatedChange: (model: CreateLobbyModel) => void
+  onSubmit: (model: ReadonlyDeep<CreateLobbyModel>) => void
+  onValidatedChange: (model: ReadonlyDeep<CreateLobbyModel>) => void
   onMapBrowse: (onMapSelect: (mapId: string) => void) => void
+  ref?: React.Ref<CreateLobbyFormHandle>
 }
 
 /** Updates the list of recent maps given that `selectedId` is a newly selected map. */
@@ -153,185 +146,188 @@ function updateRecentMaps(
 
 const TURN_RATE_OPTIONS: ReadonlyArray<BwTurnRate> = ALL_TURN_RATES.slice(0).sort((a, b) => b - a)
 
-const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormProps>(
-  (props, ref) => {
-    const { t } = useTranslation()
-    const { onSubmit, bindInput, bindCustom, bindCheckable, getInputValue, setInputValue } =
-      useForm(
-        props.model,
-        { name: lobbyNameValidator, mapSelection: mapSelectionValidator },
-        { onSubmit: props.onSubmit, onValidatedChange: props.onValidatedChange },
-      )
-    const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
-
-    useImperativeHandle(ref, () => ({
-      submit: onSubmit,
-    }))
-
-    const { disabled, onMapBrowse } = props
-
-    const mapSelection = getInputValue('mapSelection')
-    const selectedMap = mapSelection.mapId
-    const gameType = getInputValue('gameType')
-
-    const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
-
-    const onBrowseClick = useStableCallback(() => {
-      onMapBrowse(mapId => {
-        setInputValue('mapSelection', {
-          mapId,
-          recentMaps: updateRecentMaps(mapId, NUM_RECENT_MAPS, mapSelection.recentMaps),
-        })
-      })
+function CreateLobbyForm(props: CreateLobbyFormProps) {
+  const { t } = useTranslation()
+  const { submit, bindInput, bindCustom, bindCheckable, getInputValue, setInputValue, form } =
+    useForm<CreateLobbyModel>(props.model, {
+      name: lobbyNameValidator,
+      mapSelection: mapSelectionValidator,
     })
 
-    useEffect(() => {
-      if (!selectedMapInfo || !isTeamType(gameType)) return
+  useFormCallbacks(form, {
+    onChange: props.onValidatedChange,
+    onSubmit: props.onSubmit,
+  })
 
-      const subType = getInputValue('gameSubType')
+  const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
+
+  useImperativeHandle(props.ref, () => ({
+    submit,
+  }))
+
+  const { disabled, onMapBrowse } = props
+
+  const mapSelection = getInputValue('mapSelection')
+  const selectedMap = mapSelection.mapId
+  const gameType = getInputValue('gameType')
+
+  const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
+
+  const onBrowseClick = useStableCallback(() => {
+    onMapBrowse(mapId => {
+      setInputValue('mapSelection', {
+        mapId,
+        recentMaps: updateRecentMaps(mapId, NUM_RECENT_MAPS, mapSelection.recentMaps),
+      })
+    })
+  })
+
+  useEffect(() => {
+    if (!selectedMapInfo || !isTeamType(gameType)) return
+
+    const subType = getInputValue('gameSubType')
+    const {
+      mapData: { slots },
+    } = selectedMapInfo
+
+    // Ensure that the game sub-type is always valid for the selected map
+    if (gameType === 'topVBottom') {
+      const maxTopSlots = slots - 1
+      if (subType > maxTopSlots) {
+        setInputValue('gameSubType', Math.min(maxTopSlots, Math.max(0, subType)))
+      }
+    } else {
+      const maxTeams = Math.min(4, slots)
+      if (subType > Math.min(4, slots)) {
+        setInputValue('gameSubType', Math.min(maxTeams, Math.max(2, subType)))
+      }
+    }
+  }, [gameType, selectedMapInfo, form, getInputValue, setInputValue])
+
+  let gameSubTypeSelection: React.ReactNode
+  if (!isTeamType(gameType)) {
+    gameSubTypeSelection = null
+  } else {
+    if (!selectedMapInfo) {
+      gameSubTypeSelection = null
+    } else {
       const {
         mapData: { slots },
       } = selectedMapInfo
-
-      // Ensure that the game sub-type is always valid for the selected map
-      if (gameType === 'topVBottom') {
-        const maxTopSlots = slots - 1
-        if (subType > maxTopSlots) {
-          setInputValue('gameSubType', Math.min(maxTopSlots, Math.max(0, subType)))
-        }
+      if (gameType === GameType.TopVsBottom) {
+        gameSubTypeSelection = (
+          <Select
+            {...bindCustom('gameSubType')}
+            label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
+            disabled={disabled}
+            tabIndex={0}>
+            {Array.from(range(slots - 1, 0), top => (
+              <SelectOption
+                key={top}
+                value={top}
+                text={t('lobbies.createLobby.gameSubTypeOptionTvB', {
+                  defaultValue: '{{topSlots}} vs {{bottomSlots}}',
+                  topSlots: top,
+                  bottomSlots: slots - top,
+                })}
+              />
+            ))}
+          </Select>
+        )
       } else {
-        const maxTeams = Math.min(4, slots)
-        if (subType > Math.min(4, slots)) {
-          setInputValue('gameSubType', Math.min(maxTeams, Math.max(2, subType)))
-        }
-      }
-    }, [gameType, selectedMapInfo, getInputValue, setInputValue])
-
-    let gameSubTypeSelection: React.ReactNode
-    if (!isTeamType(gameType)) {
-      gameSubTypeSelection = null
-    } else {
-      if (!selectedMapInfo) {
-        gameSubTypeSelection = null
-      } else {
-        const {
-          mapData: { slots },
-        } = selectedMapInfo
-        if (gameType === GameType.TopVsBottom) {
-          gameSubTypeSelection = (
-            <Select
-              {...bindCustom('gameSubType')}
-              label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
-              disabled={disabled}
-              tabIndex={0}>
-              {Array.from(range(slots - 1, 0), top => (
-                <SelectOption
-                  key={top}
-                  value={top}
-                  text={t('lobbies.createLobby.gameSubTypeOptionTvB', {
-                    defaultValue: '{{topSlots}} vs {{bottomSlots}}',
-                    topSlots: top,
-                    bottomSlots: slots - top,
-                  })}
-                />
-              ))}
-            </Select>
-          )
-        } else {
-          gameSubTypeSelection = (
-            <Select
-              {...bindCustom('gameSubType')}
-              label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
-              disabled={disabled}
-              tabIndex={0}>
-              {Array.from(range(2, Math.min(slots, 4) + 1), numTeams => (
-                <SelectOption
-                  key={numTeams}
-                  value={numTeams}
-                  text={t('lobbies.createLobby.gameSubTypeOption', {
-                    defaultValue: '{{numTeams}} teams',
-                    numTeams,
-                  })}
-                />
-              ))}
-            </Select>
-          )
-        }
+        gameSubTypeSelection = (
+          <Select
+            {...bindCustom('gameSubType')}
+            label={t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}
+            disabled={disabled}
+            tabIndex={0}>
+            {Array.from(range(2, Math.min(slots, 4) + 1), numTeams => (
+              <SelectOption
+                key={numTeams}
+                value={numTeams}
+                text={t('lobbies.createLobby.gameSubTypeOption', {
+                  defaultValue: '{{numTeams}} teams',
+                  numTeams,
+                })}
+              />
+            ))}
+          </Select>
+        )
       }
     }
+  }
 
-    return (
-      <form noValidate={true} onSubmit={onSubmit}>
-        <SubmitOnEnter />
-        <TextField
-          {...bindInput('name')}
-          ref={autoFocusRef}
-          label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+  return (
+    <form noValidate={true} onSubmit={submit}>
+      <SubmitOnEnter />
+      <TextField
+        {...bindInput('name')}
+        ref={autoFocusRef}
+        label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+        disabled={disabled}
+        floatingLabel={true}
+        inputProps={{
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+          tabIndex: 0,
+        }}
+      />
+      <GameTypeAndSubType>
+        <Select
+          {...bindCustom('gameType')}
+          label={t('lobbies.createLobby.gameTypeHeader', 'Game type')}
           disabled={disabled}
-          floatingLabel={true}
-          inputProps={{
-            autoCapitalize: 'off',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-            tabIndex: 0,
-          }}
-        />
-        <GameTypeAndSubType>
-          <Select
-            {...bindCustom('gameType')}
-            label={t('lobbies.createLobby.gameTypeHeader', 'Game type')}
-            disabled={disabled}
-            tabIndex={0}>
-            {ALL_GAME_TYPES.map(type => (
-              <SelectOption key={type} value={type} text={gameTypeToLabel(type, t)} />
-            ))}
-          </Select>
-          {gameSubTypeSelection}
-        </GameTypeAndSubType>
+          tabIndex={0}>
+          {ALL_GAME_TYPES.map(type => (
+            <SelectOption key={type} value={type} text={gameTypeToLabel(type, t)} />
+          ))}
+        </Select>
+        {gameSubTypeSelection}
+      </GameTypeAndSubType>
 
-        <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
-        <MapSelect
-          {...bindCustom('mapSelection')}
+      <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
+      <MapSelect
+        {...bindCustom('mapSelection')}
+        disabled={disabled}
+        onMapBrowse={onBrowseClick}
+        numRecentMaps={NUM_RECENT_MAPS}
+      />
+
+      <AdvancedSettings>
+        <SectionHeader>
+          {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
+        </SectionHeader>
+        <Select
+          {...bindCustom('turnRate')}
+          label={t('lobbies.createLobby.turnRate', 'Turn rate')}
           disabled={disabled}
-          onMapBrowse={onBrowseClick}
-          numRecentMaps={NUM_RECENT_MAPS}
-        />
-
-        <AdvancedSettings>
-          <SectionHeader>
-            {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
-          </SectionHeader>
-          <Select
-            {...bindCustom('turnRate')}
-            label={t('lobbies.createLobby.turnRate', 'Turn rate')}
-            disabled={disabled}
-            tabIndex={0}>
-            <SelectOption
-              key='auto'
-              value={null}
-              text={t('lobbies.createLobby.turnRateAuto', 'Auto')}
-            />
-            {TURN_RATE_OPTIONS.map(t => (
-              <SelectOption key={t} value={t} text={String(t)} />
-            ))}
-            <SelectOption
-              key='dtr'
-              value={0}
-              text={t('lobbies.createLobby.turnRateDynamic', 'DTR (Not recommended)')}
-            />
-          </Select>
-          <CheckBox
-            {...bindCheckable('useLegacyLimits')}
-            label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
-            disabled={disabled}
-            inputProps={{ tabIndex: 0 }}
+          tabIndex={0}>
+          <SelectOption
+            key='auto'
+            value={null}
+            text={t('lobbies.createLobby.turnRateAuto', 'Auto')}
           />
-        </AdvancedSettings>
-      </form>
-    )
-  },
-)
+          {TURN_RATE_OPTIONS.map(t => (
+            <SelectOption key={t} value={t} text={String(t)} />
+          ))}
+          <SelectOption
+            key='dtr'
+            value={0}
+            text={t('lobbies.createLobby.turnRateDynamic', 'DTR (Not recommended)')}
+          />
+        </Select>
+        <CheckBox
+          {...bindCheckable('useLegacyLimits')}
+          label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
+          disabled={disabled}
+          inputProps={{ tabIndex: 0 }}
+        />
+      </AdvancedSettings>
+    </form>
+  )
+}
 
 export interface CreateLobbyProps {
   onNavigateToList: () => void
@@ -394,25 +390,8 @@ export function CreateLobby(props: CreateLobbyProps) {
 
   const [browsingMaps, setBrowsingMaps] = useState(MapBrowseState.None)
   const mapSelectCallbackRef = useRef<(mapId: string) => void>(undefined)
-
-  const onCreateClick = useStableCallback(() => {
-    formRef.current?.submit()
-  })
-  const onMapBrowse = useStableCallback((mapSelectCallback: (mapId: string) => void) => {
-    mapSelectCallbackRef.current = mapSelectCallback
-    setBrowsingMaps(MapBrowseState.Server)
-  })
-  const onBrowseLocalMaps = useStableCallback(() => {
-    setBrowsingMaps(MapBrowseState.Local)
-  })
-  const onMapSelect = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    mapSelectCallbackRef.current?.(map.id)
-    mapSelectCallbackRef.current = undefined
-    setBrowsingMaps(MapBrowseState.None)
-  })
-
-  const debouncedSavePrefrencesRef = useRef(
-    debounce((model: CreateLobbyModel) => {
+  const debouncedSavePreferencesRef = useRef(
+    debounce((model: ReadonlyDeep<CreateLobbyModel>) => {
       dispatch(
         updateLobbyPreferences({
           name: model.name,
@@ -426,52 +405,6 @@ export function CreateLobby(props: CreateLobbyProps) {
       )
     }, 200),
   )
-  const onSubmit = useCallback(
-    (model: CreateLobbyModel) => {
-      const {
-        name,
-        gameType,
-        gameSubType,
-        mapSelection: { mapId, recentMaps },
-        turnRate,
-        useLegacyLimits,
-      } = model
-      const subType = isTeamType(gameType) ? gameSubType : undefined
-
-      dispatch(
-        createLobby({
-          name,
-          map: mapId,
-          gameType,
-          gameSubType: subType,
-          turnRate: turnRate === null ? undefined : turnRate,
-          useLegacyLimits,
-        }),
-      )
-
-      debouncedSavePrefrencesRef.current.cancel()
-
-      const orderedRecentMaps = updateRecentMaps(mapId!, NUM_RECENT_MAPS, recentMaps)
-
-      dispatch(
-        updateLobbyPreferences({
-          name: model.name,
-          selectedMap: model.mapSelection.mapId,
-          recentMaps: orderedRecentMaps,
-          gameType: model.gameType,
-          gameSubType: model.gameSubType,
-          turnRate: model.turnRate !== null ? model.turnRate : undefined,
-          useLegacyLimits: model.useLegacyLimits,
-        }),
-      )
-
-      navigateToLobby(name)
-    },
-    [dispatch],
-  )
-  const onValidatedChange = useCallback((model: CreateLobbyModel) => {
-    debouncedSavePrefrencesRef.current(model)
-  }, [])
 
   useEffect(() => {
     dispatch(getLobbyPreferences())
@@ -498,12 +431,24 @@ export function CreateLobby(props: CreateLobbyProps) {
       {browsingMaps === MapBrowseState.Server ? (
         <BrowseServerMaps
           title={t('lobbies.createLobby.selectMap', 'Select map')}
-          onMapSelect={onMapSelect}
-          onBrowseLocalMaps={onBrowseLocalMaps}
+          onMapSelect={map => {
+            mapSelectCallbackRef.current?.(map.id)
+            mapSelectCallbackRef.current = undefined
+            setBrowsingMaps(MapBrowseState.None)
+          }}
+          onBrowseLocalMaps={() => {
+            setBrowsingMaps(MapBrowseState.Local)
+          }}
         />
       ) : undefined}
       {browsingMaps === MapBrowseState.Local ? (
-        <BrowseLocalMaps onMapSelect={onMapSelect} />
+        <BrowseLocalMaps
+          onMapSelect={map => {
+            mapSelectCallbackRef.current?.(map.id)
+            mapSelectCallbackRef.current = undefined
+            setBrowsingMaps(MapBrowseState.None)
+          }}
+        />
       ) : undefined}
       {/*
           NOTE(tec27): We use display: none on these instead of just not rendering them so they
@@ -517,9 +462,53 @@ export function CreateLobby(props: CreateLobbyProps) {
               ref={formRef}
               disabled={isDisabled}
               model={model}
-              onValidatedChange={onValidatedChange}
-              onSubmit={onSubmit}
-              onMapBrowse={onMapBrowse}
+              onValidatedChange={model => {
+                debouncedSavePreferencesRef.current(model)
+              }}
+              onSubmit={model => {
+                const {
+                  name,
+                  gameType,
+                  gameSubType,
+                  mapSelection: { mapId, recentMaps },
+                  turnRate,
+                  useLegacyLimits,
+                } = model
+                const subType = isTeamType(gameType) ? gameSubType : undefined
+
+                dispatch(
+                  createLobby({
+                    name,
+                    map: mapId,
+                    gameType,
+                    gameSubType: subType,
+                    turnRate: turnRate === null ? undefined : turnRate,
+                    useLegacyLimits,
+                  }),
+                )
+
+                debouncedSavePreferencesRef.current.cancel()
+
+                const orderedRecentMaps = updateRecentMaps(mapId!, NUM_RECENT_MAPS, recentMaps)
+
+                dispatch(
+                  updateLobbyPreferences({
+                    name: model.name,
+                    selectedMap: model.mapSelection.mapId,
+                    recentMaps: orderedRecentMaps,
+                    gameType: model.gameType,
+                    gameSubType: model.gameSubType,
+                    turnRate: model.turnRate !== null ? model.turnRate : undefined,
+                    useLegacyLimits: model.useLegacyLimits,
+                  }),
+                )
+
+                navigateToLobby(name)
+              }}
+              onMapBrowse={mapSelectCallback => {
+                mapSelectCallbackRef.current = mapSelectCallback
+                setBrowsingMaps(MapBrowseState.Server)
+              }}
             />
           ) : (
             <LoadingDotsArea />
@@ -532,7 +521,9 @@ export function CreateLobby(props: CreateLobbyProps) {
         <ElevatedButton
           label={t('lobbies.createLobby.title', 'Create lobby')}
           disabled={isDisabled}
-          onClick={onCreateClick}
+          onClick={() => {
+            formRef.current?.submit()
+          }}
         />
       </Actions>
     </Container>

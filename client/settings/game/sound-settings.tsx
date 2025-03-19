@@ -6,13 +6,12 @@ import {
   Announcer,
   getAnnouncerName,
 } from '../../../common/settings/blizz-settings'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { labelMedium } from '../../styles/typography'
 import { mergeScrSettings } from '../action-creators'
@@ -44,39 +43,38 @@ export function GameSoundSettings() {
   const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
-  const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          musicOn: model.musicOn,
-          musicVolume: model.musicVolume,
-          soundOn: model.soundOn,
-          soundVolume: model.soundVolume,
-          selectedAnnouncer: model.selectedAnnouncer,
-          unitSpeechOn: model.unitSpeechOn,
-          unitAcknowledgementsOn: model.unitAcknowledgementsOn,
-          backgroundSoundsOn: model.backgroundSoundsOn,
-          buildingSoundsOn: model.buildingSoundsOn,
-          gameSubtitlesOn: model.gameSubtitlesOn,
-          cinematicSubtitlesOn: model.cinematicSubtitlesOn,
-          originalVoiceOversOn: model.originalVoiceOversOn,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
+  const { bindCustom, bindCheckable, getInputValue, submit, form } =
+    useForm<GameSoundSettingsModel>({ ...scrSettings }, {})
+
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
+      dispatch(
+        mergeScrSettings(
+          {
+            musicOn: model.musicOn,
+            musicVolume: model.musicVolume,
+            soundOn: model.soundOn,
+            soundVolume: model.soundVolume,
+            selectedAnnouncer: model.selectedAnnouncer,
+            unitSpeechOn: model.unitSpeechOn,
+            unitAcknowledgementsOn: model.unitAcknowledgementsOn,
+            backgroundSoundsOn: model.backgroundSoundsOn,
+            buildingSoundsOn: model.buildingSoundsOn,
+            gameSubtitlesOn: model.gameSubtitlesOn,
+            cinematicSubtitlesOn: model.cinematicSubtitlesOn,
+            originalVoiceOversOn: model.originalVoiceOversOn,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    },
   })
 
-  const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    { ...scrSettings },
-    {},
-    { onValidatedChange },
-  )
-
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>

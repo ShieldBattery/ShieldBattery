@@ -1,10 +1,9 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionOverline } from '../settings-content'
@@ -25,34 +24,35 @@ export function AppSystemSettings() {
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
 
-  const onValidatedChange = useStableCallback((model: Readonly<AppSystemSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        {
-          quickOpenReplays: model.quickOpenReplays,
-          runAppAtSystemStart: model.runAppAtSystemStart,
-          runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  const { bindCheckable, onSubmit, getInputValue } = useForm(
+  const { bindCheckable, getInputValue, submit, form } = useForm<AppSystemSettingsModel>(
     {
       quickOpenReplays: localSettings.quickOpenReplays,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
       runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
     },
     {},
-    { onValidatedChange },
   )
 
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      dispatch(
+        mergeLocalSettings(
+          {
+            quickOpenReplays: model.quickOpenReplays,
+            runAppAtSystemStart: model.runAppAtSystemStart,
+            runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    },
+  })
+
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>

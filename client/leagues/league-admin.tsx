@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { Route, RouteComponentProps, Switch } from 'wouter'
 import {
   AdminEditLeagueRequest,
@@ -17,7 +18,7 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
-import { FormHook, useForm } from '../forms/form-hook'
+import { FormHook, useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -167,7 +168,7 @@ const DateError = styled.div`
 // Also fix it to properly deal with DST, right now we use `Date.parse` on these values which isn't
 // really correct since it uses the *current moment's timezone offset* rather than the timezone
 // offset of the time chosen
-function BadValidatedDateInput<ModelType>({
+function BadValidatedDateInput<ModelType extends Record<string, any>>({
   id,
   label,
   binds,
@@ -244,53 +245,14 @@ function CreateLeague() {
 
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
-  const onFormSubmit = useStableCallback((model: LeagueModel) => {
-    dispatch(
-      adminAddLeague(
-        {
-          name: model.name,
-          matchmakingType: model.matchmakingType,
-          description: model.description,
-          signupsAfter: Date.parse(model.signupsAfter),
-          startAt: Date.parse(model.startAt),
-          endAt: Date.parse(model.endAt),
-          rulesAndInfo: model.rulesAndInfo,
-          link: model.link,
-          image: model.image as File,
-          badge: model.badge as File,
-        },
-        {
-          onSuccess: () => {
-            setError(undefined)
-            adminContext.triggerRefresh()
-            history.back()
-          },
-          onError: err => {
-            setError(err)
-          },
-        },
-      ),
-    )
-  })
-
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
-  const onValidatedChange = useStableCallback((model: Readonly<LeagueModel>) => {
-    setPreviewLeague({
-      id: makeLeagueId('preview-league'),
-      name: model.name,
-      matchmakingType: model.matchmakingType,
-      description: model.description,
-      signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
-      startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
-      endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
-      rulesAndInfo: model.rulesAndInfo,
-      link: model.link,
-      imagePath: undefined, // TODO(tec27): We could make a blob URL for this
-      badgePath: undefined, // TODO(tec27): We could make a blob URL for this
-    })
-  })
 
-  const { onSubmit, bindInput, bindCustom } = useForm<LeagueModel>(
+  const {
+    submit: onSubmit,
+    bindInput,
+    bindCustom,
+    form,
+  } = useForm<LeagueModel>(
     {
       name: '',
       matchmakingType: MatchmakingType.Match1v1,
@@ -325,8 +287,52 @@ function CreateLeague() {
         }
       },
     },
-    { onSubmit: onFormSubmit, onValidatedChange },
   )
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      dispatch(
+        adminAddLeague(
+          {
+            name: model.name,
+            matchmakingType: model.matchmakingType,
+            description: model.description,
+            signupsAfter: Date.parse(model.signupsAfter),
+            startAt: Date.parse(model.startAt),
+            endAt: Date.parse(model.endAt),
+            rulesAndInfo: model.rulesAndInfo,
+            link: model.link,
+            image: model.image as File,
+            badge: model.badge as File,
+          },
+          {
+            onSuccess: () => {
+              setError(undefined)
+              adminContext.triggerRefresh()
+              history.back()
+            },
+            onError: err => {
+              setError(err)
+            },
+          },
+        ),
+      )
+    },
+    onValidatedChange: model => {
+      setPreviewLeague({
+        id: makeLeagueId('preview-league'),
+        name: model.name,
+        matchmakingType: model.matchmakingType,
+        description: model.description,
+        signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
+        startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
+        endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
+        rulesAndInfo: model.rulesAndInfo,
+        link: model.link,
+        imagePath: undefined, // TODO(tec27): We could make a blob URL for this
+        badgePath: undefined, // TODO(tec27): We could make a blob URL for this
+      })
+    },
+  })
 
   return (
     <CreateLeagueRoot>
@@ -455,66 +461,6 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
     return () => controller.abort()
   }, [id, dispatch])
 
-  const onFormSubmit = useStableCallback((model: EditLeagueModel) => {
-    const originalSignupsAfter = originalLeague
-      ? asDatetimeLocalValue(originalLeague.signupsAfter)
-      : ''
-    const originalStartAt = originalLeague ? asDatetimeLocalValue(originalLeague.startAt) : ''
-    const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
-
-    const patch: AdminEditLeagueRequest & { image?: Blob; badge?: Blob } = {
-      name: model.name !== originalLeague?.name ? model.name : undefined,
-      matchmakingType:
-        model.matchmakingType !== originalLeague?.matchmakingType
-          ? model.matchmakingType
-          : undefined,
-      description:
-        model.description !== originalLeague?.description ? model.description : undefined,
-      signupsAfter:
-        model.signupsAfter !== originalSignupsAfter ? Date.parse(model.signupsAfter) : undefined,
-      startAt: model.startAt !== originalStartAt ? Date.parse(model.startAt) : undefined,
-      endAt: model.endAt !== originalEndAt ? Date.parse(model.endAt) : undefined,
-      rulesAndInfo:
-        model.rulesAndInfo !== originalLeague?.rulesAndInfo ? model.rulesAndInfo : undefined,
-      link: model.link !== originalLeague?.link ? model.link : undefined,
-      image: model.deleteImage ? undefined : (model.image as File),
-      deleteImage: model.deleteImage ? true : undefined,
-      badge: model.deleteBadge ? undefined : (model.badge as File),
-      deleteBadge: model.deleteBadge ? true : undefined,
-    }
-
-    dispatch(
-      adminUpdateLeague(id, patch, {
-        onSuccess: () => {
-          setError(undefined)
-          adminContext.triggerRefresh()
-          history.back()
-        },
-        onError: err => {
-          setError(err)
-        },
-      }),
-    )
-  })
-
-  const onValidatedChange = useStableCallback((model: Readonly<EditLeagueModel>) => {
-    setPreviewLeague({
-      id: makeLeagueId('preview-league'),
-      name: model.name,
-      matchmakingType: model.matchmakingType,
-      description: model.description,
-      signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
-      startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
-      endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
-      rulesAndInfo: model.rulesAndInfo,
-      link: model.link,
-      // TODO(tec27): We could make a blob URL for this
-      imagePath: model.image || model.deleteImage ? undefined : originalLeague?.imagePath,
-      // TODO(tec27): We could make a blob URL for this
-      badgePath: model.badge || model.deleteBadge ? undefined : originalLeague?.badgePath,
-    })
-  })
-
   return (
     <div>
       <Title>Edit league</Title>
@@ -523,8 +469,70 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
         {originalLeague ? (
           <EditLeagueForm
             originalLeague={originalLeague}
-            onSubmit={onFormSubmit}
-            onValidatedChange={onValidatedChange}
+            onSubmit={model => {
+              const originalSignupsAfter = originalLeague
+                ? asDatetimeLocalValue(originalLeague.signupsAfter)
+                : ''
+              const originalStartAt = originalLeague
+                ? asDatetimeLocalValue(originalLeague.startAt)
+                : ''
+              const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
+
+              const patch: AdminEditLeagueRequest & { image?: Blob; badge?: Blob } = {
+                name: model.name !== originalLeague?.name ? model.name : undefined,
+                matchmakingType:
+                  model.matchmakingType !== originalLeague?.matchmakingType
+                    ? model.matchmakingType
+                    : undefined,
+                description:
+                  model.description !== originalLeague?.description ? model.description : undefined,
+                signupsAfter:
+                  model.signupsAfter !== originalSignupsAfter
+                    ? Date.parse(model.signupsAfter)
+                    : undefined,
+                startAt: model.startAt !== originalStartAt ? Date.parse(model.startAt) : undefined,
+                endAt: model.endAt !== originalEndAt ? Date.parse(model.endAt) : undefined,
+                rulesAndInfo:
+                  model.rulesAndInfo !== originalLeague?.rulesAndInfo
+                    ? model.rulesAndInfo
+                    : undefined,
+                link: model.link !== originalLeague?.link ? model.link : undefined,
+                image: model.deleteImage ? undefined : (model.image as File),
+                deleteImage: model.deleteImage ? true : undefined,
+                badge: model.deleteBadge ? undefined : (model.badge as File),
+                deleteBadge: model.deleteBadge ? true : undefined,
+              }
+
+              dispatch(
+                adminUpdateLeague(id, patch, {
+                  onSuccess: () => {
+                    setError(undefined)
+                    adminContext.triggerRefresh()
+                    history.back()
+                  },
+                  onError: err => {
+                    setError(err)
+                  },
+                }),
+              )
+            }}
+            onValidatedChange={model => {
+              setPreviewLeague({
+                id: makeLeagueId('preview-league'),
+                name: model.name,
+                matchmakingType: model.matchmakingType,
+                description: model.description,
+                signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
+                startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
+                endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
+                rulesAndInfo: model.rulesAndInfo,
+                link: model.link,
+                // TODO(tec27): We could make a blob URL for this
+                imagePath: model.image || model.deleteImage ? undefined : originalLeague?.imagePath,
+                // TODO(tec27): We could make a blob URL for this
+                badgePath: model.badge || model.deleteBadge ? undefined : originalLeague?.badgePath,
+              })
+            }}
           />
         ) : (
           <LoadingDotsArea />
@@ -564,12 +572,12 @@ interface EditLeagueModel extends LeagueModel {
 
 function EditLeagueForm({
   originalLeague,
-  onSubmit: onFormSubmit,
+  onSubmit,
   onValidatedChange,
 }: {
   originalLeague: LeagueJson
-  onSubmit?: (model: Readonly<EditLeagueModel>) => void
-  onValidatedChange?: (model: Readonly<EditLeagueModel>) => void
+  onSubmit?: (model: ReadonlyDeep<EditLeagueModel>) => void
+  onValidatedChange?: (model: ReadonlyDeep<EditLeagueModel>) => void
 }) {
   // NOTE(2Pac): Only using the translation function here to pass it to a common function (so we can
   // remove the optionality of the `t` param there). Not adding the translation strings to the rest
@@ -577,7 +585,7 @@ function EditLeagueForm({
   const { t } = useTranslation()
   const baseId = useId()
 
-  const { onSubmit, bindInput, bindCustom, bindCheckable } = useForm<EditLeagueModel>(
+  const { submit, bindInput, bindCustom, bindCheckable, form } = useForm<EditLeagueModel>(
     {
       name: originalLeague?.name ?? '',
       matchmakingType: originalLeague?.matchmakingType ?? MatchmakingType.Match1v1,
@@ -626,11 +634,11 @@ function EditLeagueForm({
         }
       },
     },
-    { onSubmit: onFormSubmit, onValidatedChange },
   )
+  useFormCallbacks(form, { onSubmit, onValidatedChange })
 
   return (
-    <LeagueForm noValidate={true} onSubmit={onSubmit}>
+    <LeagueForm noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
 
       <div>
@@ -716,7 +724,7 @@ function EditLeagueForm({
         inputProps={{ tabIndex: 0 }}
       />
 
-      <ElevatedButton label='Save league' color='primary' onClick={onSubmit} />
+      <ElevatedButton label='Save league' color='primary' onClick={submit} />
     </LeagueForm>
   )
 }

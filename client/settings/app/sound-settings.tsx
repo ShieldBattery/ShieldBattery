@@ -1,13 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import audioManager, { AvailableSound } from '../../audio/audio-manager'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import { Slider } from '../../material/slider'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
@@ -40,49 +39,13 @@ export function AppSoundSettings() {
   const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
   const playingSoundRef = useRef<AudioBufferSourceNode>(undefined)
 
-  const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        { masterVolume: model.masterVolume },
-        {
-          onSuccess: () => {
-            audioManager.setMasterVolume(model.masterVolume)
-          },
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  const { bindCustom, onSubmit } = useForm(
-    {
-      masterVolume: localSettings.masterVolume,
-    },
-    {},
-    { onValidatedChange },
-  )
-
-  const cleanupSound = useStableCallback(() => {
+  const cleanupSound = useCallback(() => {
     if (playingSoundRef.current) {
       setIsPlayingTestSound(false)
       playingSoundRef.current.stop()
       playingSoundRef.current = undefined
     }
-  })
-
-  const onTestSoundClick = useStableCallback(() => {
-    cleanupSound()
-    const sound = audioManager.playSound(AvailableSound.MatchFound)
-    playingSoundRef.current = sound
-
-    const endedListener = () => {
-      sound?.removeEventListener('ended', endedListener)
-      cleanupSound()
-    }
-    sound?.addEventListener('ended', endedListener)
-
-    setIsPlayingTestSound(true)
-  })
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -90,8 +53,31 @@ export function AppSoundSettings() {
     }
   }, [cleanupSound])
 
+  const { bindCustom, submit, form } = useForm<AppSoundSettingsModel>(
+    {
+      masterVolume: localSettings.masterVolume,
+    },
+    {},
+  )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      dispatch(
+        mergeLocalSettings(
+          { masterVolume: model.masterVolume },
+          {
+            onSuccess: () => {
+              audioManager.setMasterVolume(model.masterVolume)
+            },
+            onError: () => {},
+          },
+        ),
+      )
+    },
+  })
+
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>
@@ -118,7 +104,19 @@ export function AppSoundSettings() {
                   <MaterialIcon icon='play_arrow' />
                 )
               }
-              onClick={onTestSoundClick}
+              onClick={() => {
+                cleanupSound()
+                const sound = audioManager.playSound(AvailableSound.MatchFound)
+                playingSoundRef.current = sound
+
+                const endedListener = () => {
+                  sound?.removeEventListener('ended', endedListener)
+                  cleanupSound()
+                }
+                sound?.addEventListener('ended', endedListener)
+
+                setIsPlayingTestSound(true)
+              }}
             />
           </VolumeSettings>
         </div>

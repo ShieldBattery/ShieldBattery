@@ -9,7 +9,7 @@ import {
   UpdateRallyPointServerResponse,
 } from '../../common/rally-point'
 import { apiUrl } from '../../common/urls'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ElevatedButton, IconButton, TextButton } from '../material/button'
@@ -101,7 +101,12 @@ export function AddServerRow(props: {
   onSubmit: (model: AddServerModel) => void
   onCancel: () => void
 }) {
-  const { onSubmit, bindInput, bindCustom } = useForm<AddServerModel>(
+  const {
+    submit: onSubmit,
+    bindInput,
+    bindCustom,
+    form,
+  } = useForm<AddServerModel>(
     { port: 14098 },
     {
       description: value => (value && value.length ? undefined : 'Description must be provided'),
@@ -109,8 +114,11 @@ export function AddServerRow(props: {
       port: value =>
         value <= 0 || value >= 65536 ? 'Enter a value between 1 and 65535' : undefined,
     },
-    { onSubmit: props.onSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: props.onSubmit,
+  })
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -231,7 +239,13 @@ export function EditServerRow({
     [onFormSubmit, serverState.id],
   )
 
-  const { onSubmit, bindCheckable, bindInput, bindCustom } = useForm<EditServerModel>(
+  const {
+    submit: onSubmit,
+    bindCheckable,
+    bindInput,
+    bindCustom,
+    form,
+  } = useForm<EditServerModel>(
     {
       enabled: server.enabled,
       description: server.description,
@@ -244,8 +258,11 @@ export function EditServerRow({
       port: value =>
         value <= 0 || value >= 65536 ? 'Enter a value between 1 and 65535' : undefined,
     },
-    { onSubmit: onSubmitCallback },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: onSubmitCallback,
+  })
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>

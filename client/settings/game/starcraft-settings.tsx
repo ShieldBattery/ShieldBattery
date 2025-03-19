@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../../common/flags'
 import { TypedIpcRenderer } from '../../../common/ipc'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
@@ -84,31 +84,33 @@ export function StarcraftSettings() {
   const browseButtonRef = useRef<HTMLButtonElement>(null)
   const [detectionFailed, setDetectionFailed] = useState(false)
 
-  const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        {
-          starcraftPath: model.starcraftPath,
-          launch64Bit: model.launch64Bit || false,
-          disableHd: model.disableHd || false,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
+  const { bindCheckable, getInputValue, setInputValue, submit, form } =
+    useForm<StarcraftSettingsModel>(
+      {
+        starcraftPath: localSettings.starcraftPath,
+        launch64Bit: localSettings.launch64Bit,
+        disableHd: localSettings.disableHd,
+      },
+      {},
     )
-  })
 
-  const { bindCheckable, getInputValue, setInputValue, onSubmit } = useForm(
-    {
-      starcraftPath: localSettings.starcraftPath,
-      launch64Bit: localSettings.launch64Bit,
-      disableHd: localSettings.disableHd,
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
+      dispatch(
+        mergeLocalSettings(
+          {
+            starcraftPath: model.starcraftPath,
+            launch64Bit: model.launch64Bit || false,
+            disableHd: model.disableHd || false,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
     },
-    {},
-    { onValidatedChange },
-  )
+  })
 
   const onDetectPathClick = useStableCallback(() => {
     setDetectionFailed(false)
@@ -146,7 +148,7 @@ export function StarcraftSettings() {
   })
 
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <Layout>

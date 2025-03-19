@@ -5,13 +5,12 @@ import {
   DisplayMode,
   getDisplayModeName,
 } from '../../../common/settings/blizz-settings'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
@@ -60,39 +59,38 @@ export function GameVideoSettings() {
   const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
-  const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          displayMode: model.displayMode,
-          sdGraphicsFilter: model.sdGraphicsFilter,
-          fpsLimitOn: model.fpsLimitOn,
-          fpsLimit: model.fpsLimit,
-          vsyncOn: model.vsyncOn,
-          hdGraphicsOn: model.hdGraphicsOn,
-          environmentEffectsOn: model.environmentEffectsOn,
-          realTimeLightingOn: model.realTimeLightingOn,
-          smoothUnitTurningOn: model.smoothUnitTurningOn,
-          shadowStackingOn: model.shadowStackingOn,
-          pillarboxOn: model.pillarboxOn,
-          showFps: model.showFps,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
+  const { bindCustom, bindCheckable, getInputValue, submit, form } =
+    useForm<GameVideoSettingsModel>({ ...scrSettings }, {})
+
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
+      dispatch(
+        mergeScrSettings(
+          {
+            displayMode: model.displayMode,
+            sdGraphicsFilter: model.sdGraphicsFilter,
+            fpsLimitOn: model.fpsLimitOn,
+            fpsLimit: model.fpsLimit,
+            vsyncOn: model.vsyncOn,
+            hdGraphicsOn: model.hdGraphicsOn,
+            environmentEffectsOn: model.environmentEffectsOn,
+            realTimeLightingOn: model.realTimeLightingOn,
+            smoothUnitTurningOn: model.smoothUnitTurningOn,
+            shadowStackingOn: model.shadowStackingOn,
+            pillarboxOn: model.pillarboxOn,
+            showFps: model.showFps,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    },
   })
 
-  const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    { ...scrSettings },
-    {},
-    { onValidatedChange },
-  )
-
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>

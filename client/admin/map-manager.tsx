@@ -2,14 +2,14 @@ import React, { useState } from 'react'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { useSelfPermissions } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { getExtension } from '../maps/upload'
 import { ElevatedButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
-import { useImmerState, useStableCallback } from '../react/state-hooks'
+import { useImmerState } from '../react/state-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
@@ -41,49 +41,54 @@ interface UploadMapsModel {
 }
 
 function UploadMaps() {
-  const [nameToUploadStatus, setNameToUploadStatus] = useImmerState<Map<File, UploadStatus>>(
-    new Map(),
+  const [nameToUploadStatus, setNameToUploadStatus] = useImmerState(
+    () => new Map<File, UploadStatus>(),
   )
 
-  const onFormSubmit = useStableCallback((model: Readonly<UploadMapsModel>) => {
-    setNameToUploadStatus(new Map(model.maps.map(m => [m, UploadStatus.Uploading])))
-
-    for (const map of model.maps) {
-      const formData = new FormData()
-      formData.append('extension', getExtension(map.name))
-      formData.append('file', map)
-
-      const fetchParams = {
-        method: 'post',
-        body: formData,
-      }
-
-      fetchJson('/api/1/maps/official', fetchParams)
-        .then(() => {
-          setNameToUploadStatus(draft => {
-            draft.set(map, UploadStatus.Success)
-          })
-        })
-        .catch(err => {
-          console.log(getErrorStack(err))
-          setNameToUploadStatus(draft => {
-            draft.set(map, UploadStatus.Error)
-          })
-        })
-    }
-  })
-
-  const onFormChange = useStableCallback((model: Readonly<UploadMapsModel>) => {
-    setNameToUploadStatus(new Map(model.maps.map(m => [m, UploadStatus.Pending])))
-  })
-
-  const { bindCustom, getInputValue, onSubmit } = useForm(
+  const {
+    submit: onSubmit,
+    bindCustom,
+    getInputValue,
+    form,
+  } = useForm<UploadMapsModel>(
     {
       maps: [],
     },
     {},
-    { onSubmit: onFormSubmit, onChange: onFormChange },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setNameToUploadStatus(new Map(model.maps.map(m => [m, UploadStatus.Uploading])))
+
+      for (const map of model.maps) {
+        const formData = new FormData()
+        formData.append('extension', getExtension(map.name))
+        formData.append('file', map)
+
+        const fetchParams = {
+          method: 'post',
+          body: formData,
+        }
+
+        fetchJson('/api/1/maps/official', fetchParams)
+          .then(() => {
+            setNameToUploadStatus(draft => {
+              draft.set(map, UploadStatus.Success)
+            })
+          })
+          .catch(err => {
+            console.log(getErrorStack(err))
+            setNameToUploadStatus(draft => {
+              draft.set(map, UploadStatus.Error)
+            })
+          })
+      }
+    },
+    onChange: model => {
+      setNameToUploadStatus(new Map(model.maps.map(m => [m, UploadStatus.Pending])))
+    },
+  })
 
   const maps = getInputValue('maps')
 

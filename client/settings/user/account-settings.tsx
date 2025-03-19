@@ -12,7 +12,7 @@ import { EmailVerificationWarningContent } from '../../auth/email-verification-n
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
-import { useForm } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import {
   composeValidators,
@@ -290,64 +290,65 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
 
   const { onCancel, dialogRef } = props
 
-  const { bindInput, onSubmit, setInputError } = useForm<ChangePasswordFormModel>(
+  const { submit, bindInput, setInputError, form } = useForm<ChangePasswordFormModel>(
     { currentPassword: '', newPassword: '', confirmNewPassword: '' },
     {
       currentPassword: currentPasswordValidator,
       newPassword: newPasswordValidator,
       confirmNewPassword: confirmNewPasswordValidator,
     },
-    {
-      onSubmit: model => {
-        setErrorMessage(undefined)
-        changePassword({
-          currentPassword: model.currentPassword,
-          newPassword: model.newPassword,
-        })
-          .then(result => {
-            if (result.error) {
-              if (result.error.networkError) {
-                setErrorMessage(
-                  t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
-                    errorMessage: result.error.networkError.message,
-                  }),
-                )
-              } else if (result.error.graphQLErrors?.length) {
-                for (const error of result.error.graphQLErrors) {
-                  // TODO(tec27): Either type these error codes or generate types for them from Rust
-                  // (with typeshare?)
-                  if (error.extensions?.code === 'INVALID_PASSWORD') {
-                    setInputError(
-                      'currentPassword',
-                      t(
-                        'settings.user.account.invalidCurrentPassword',
-                        'Current password is incorrect',
-                      ),
-                    )
-                    return
-                  }
-                }
-
-                setErrorMessage(
-                  t(
-                    'settings.user.account.unknownError',
-                    'Something went wrong, please try again later.',
-                  ),
-                )
-              }
-            } else {
-              snackbarController.showSnackbar(
-                t('settings.user.account.changePassword.success', 'Password changed successfully.'),
-              )
-              onCancel()
-            }
-          })
-          .catch(err => {
-            logger.error(`Error changing password: ${err.stack ?? err}`)
-          })
-      },
-    },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setErrorMessage(undefined)
+      changePassword({
+        currentPassword: model.currentPassword,
+        newPassword: model.newPassword,
+      })
+        .then(result => {
+          if (result.error) {
+            if (result.error.networkError) {
+              setErrorMessage(
+                t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
+                  errorMessage: result.error.networkError.message,
+                }),
+              )
+            } else if (result.error.graphQLErrors?.length) {
+              for (const error of result.error.graphQLErrors) {
+                // TODO(tec27): Either type these error codes or generate types for them from Rust
+                // (with typeshare?)
+                if (error.extensions?.code === 'INVALID_PASSWORD') {
+                  setInputError(
+                    'currentPassword',
+                    t(
+                      'settings.user.account.invalidCurrentPassword',
+                      'Current password is incorrect',
+                    ),
+                  )
+                  return
+                }
+              }
+
+              setErrorMessage(
+                t(
+                  'settings.user.account.unknownError',
+                  'Something went wrong, please try again later.',
+                ),
+              )
+            }
+          } else {
+            snackbarController.showSnackbar(
+              t('settings.user.account.changePassword.success', 'Password changed successfully.'),
+            )
+            onCancel()
+          }
+        })
+        .catch(err => {
+          logger.error(`Error changing password: ${err.stack ?? err}`)
+        })
+    },
+  })
 
   const buttons = [
     <TextButton
@@ -361,7 +362,7 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       label={t('common.actions.save', 'Save')}
       key='save'
       color='accent'
-      onClick={onSubmit}
+      onClick={submit}
       disabled={fetching}
       testName='save-button'
     />,
@@ -376,7 +377,7 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       dialogRef={dialogRef}
       testName='change-password-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SubmitOnEnter />
         <PasswordTextField
           {...bindInput('currentPassword')}
@@ -443,63 +444,64 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
 
   const { onCancel, dialogRef } = props
 
-  const { bindInput, onSubmit, setInputError } = useForm<ChangeEmailFormModel>(
+  const { submit, bindInput, setInputError, form } = useForm<ChangeEmailFormModel>(
     { currentPassword: '', email: props.currentEmail },
     {
       currentPassword: currentPasswordValidator,
       email: emailValidator,
     },
-    {
-      onSubmit: model => {
-        setErrorMessage(undefined)
-        changeEmail({
-          currentPassword: model.currentPassword,
-          email: model.email,
-        })
-          .then(result => {
-            if (result.error) {
-              if (result.error.networkError) {
-                setErrorMessage(
-                  t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
-                    errorMessage: result.error.networkError.message,
-                  }),
-                )
-              } else if (result.error.graphQLErrors?.length) {
-                for (const error of result.error.graphQLErrors) {
-                  // TODO(tec27): Either type these error codes or generate types for them from Rust
-                  // (with typeshare?)
-                  if (error.extensions?.code === 'INVALID_PASSWORD') {
-                    setInputError(
-                      'currentPassword',
-                      t(
-                        'settings.user.account.invalidCurrentPassword',
-                        'Current password is incorrect',
-                      ),
-                    )
-                    return
-                  }
-                }
-
-                setErrorMessage(
-                  t(
-                    'settings.user.account.unknownError',
-                    'Something went wrong, please try again later.',
-                  ),
-                )
-              }
-            } else {
-              snackbarController.showSnackbar(
-                t('settings.user.account.changeEmail.success', 'Email changed successfully.'),
-              )
-              onCancel()
-            }
-          })
-          .catch(err => {
-            logger.error(`Error changing password: ${err.stack ?? err}`)
-          })
-      },
-    },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setErrorMessage(undefined)
+      changeEmail({
+        currentPassword: model.currentPassword,
+        email: model.email,
+      })
+        .then(result => {
+          if (result.error) {
+            if (result.error.networkError) {
+              setErrorMessage(
+                t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
+                  errorMessage: result.error.networkError.message,
+                }),
+              )
+            } else if (result.error.graphQLErrors?.length) {
+              for (const error of result.error.graphQLErrors) {
+                // TODO(tec27): Either type these error codes or generate types for them from Rust
+                // (with typeshare?)
+                if (error.extensions?.code === 'INVALID_PASSWORD') {
+                  setInputError(
+                    'currentPassword',
+                    t(
+                      'settings.user.account.invalidCurrentPassword',
+                      'Current password is incorrect',
+                    ),
+                  )
+                  return
+                }
+              }
+
+              setErrorMessage(
+                t(
+                  'settings.user.account.unknownError',
+                  'Something went wrong, please try again later.',
+                ),
+              )
+            }
+          } else {
+            snackbarController.showSnackbar(
+              t('settings.user.account.changeEmail.success', 'Email changed successfully.'),
+            )
+            onCancel()
+          }
+        })
+        .catch(err => {
+          logger.error(`Error changing password: ${err.stack ?? err}`)
+        })
+    },
+  })
 
   const buttons = [
     <TextButton
@@ -513,7 +515,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       label={t('common.actions.save', 'Save')}
       key='save'
       color='accent'
-      onClick={onSubmit}
+      onClick={submit}
       disabled={fetching}
       testName='save-button'
     />,
@@ -528,7 +530,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       dialogRef={dialogRef}
       testName='change-email-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SubmitOnEnter />
         <PasswordTextField
           {...bindInput('currentPassword')}

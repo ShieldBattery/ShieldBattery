@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ChatServiceErrorCode } from '../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import logger from '../logging/logger'
@@ -11,7 +11,6 @@ import { useAutoFocusRef } from '../material/auto-focus'
 import { ElevatedButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, headlineMedium } from '../styles/typography'
 import { joinChannel, navigateToChannel } from './action-creators'
@@ -43,18 +42,7 @@ export function CreateChannel() {
   const [error, setError] = useState<Error>()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
-  const onFormSubmit = useStableCallback((model: JoinChannelModel) => {
-    const channelName = model.channel
-
-    dispatch(
-      joinChannel(channelName, {
-        onSuccess: channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name),
-        onError: err => setError(err),
-      }),
-    )
-  })
-
-  const { onSubmit, bindInput } = useForm<JoinChannelModel>(
+  const { submit, bindInput, form } = useForm<JoinChannelModel>(
     { channel: '' },
     {
       channel: composeValidators(
@@ -66,8 +54,20 @@ export function CreateChannel() {
         ),
       ),
     },
-    { onSubmit: onFormSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      const channelName = model.channel
+
+      dispatch(
+        joinChannel(channelName, {
+          onSuccess: channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name),
+          onError: err => setError(err),
+        }),
+      )
+    },
+  })
 
   let errorMessage
   if (error) {
@@ -97,7 +97,7 @@ export function CreateChannel() {
     <CreateChannelRoot>
       <Title>{t('chat.createChannel.title', 'Create channel')}</Title>
       {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SubmitOnEnter />
 
         <TextField
@@ -116,7 +116,7 @@ export function CreateChannel() {
         <ElevatedButton
           label={t('chat.createChannel.createAction', 'Create channel')}
           color='primary'
-          onClick={onSubmit}
+          onClick={submit}
         />
       </form>
     </CreateChannelRoot>

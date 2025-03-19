@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useMutation, useQuery } from 'urql'
 import { SbUser, SelfUser } from '../../common/users/sb-user'
 import { BanHistoryEntryJson, UserIpInfoJson } from '../../common/users/user-network'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql, useFragment } from '../gql'
 import { AdminUserProfile_PermissionsFragment } from '../gql/graphql'
 import { logger } from '../logging/logger'
@@ -123,23 +123,21 @@ function PermissionsEditor({
   const [{ fetching }, updatePermissions] = useMutation(UpdatePermissionsMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
 
-  const { onSubmit, bindCheckable } = useForm(
-    permissions,
-    {},
-    {
-      onSubmit: model => {
-        updatePermissions({ userId, permissions: model })
-          .then(result => {
-            if (result.error) {
-              setErrorMessage(result.error.message)
-            } else {
-              setErrorMessage(undefined)
-            }
-          })
-          .catch(err => logger.error(`Error changing permissions: ${err.stack ?? err}`))
-      },
+  const { submit, bindCheckable, form } = useForm(permissions, {})
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      updatePermissions({ userId, permissions: model })
+        .then(result => {
+          if (result.error) {
+            setErrorMessage(result.error.message)
+          } else {
+            setErrorMessage(undefined)
+          }
+        })
+        .catch(err => logger.error(`Error changing permissions: ${err.stack ?? err}`))
     },
-  )
+  })
 
   const inputProps = {
     tabIndex: 0,
@@ -149,7 +147,7 @@ function PermissionsEditor({
     <AdminSection $gridColumn='span 3'>
       <TitleLarge>Permissions</TitleLarge>
       {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
-      <form noValidate={true} onSubmit={onSubmit} data-test='permissions-form'>
+      <form noValidate={true} onSubmit={submit} data-test='permissions-form'>
         <CheckBox
           {...bindCheckable('editPermissions')}
           label='Edit permissions'
@@ -233,7 +231,7 @@ function PermissionsEditor({
           label='Save'
           color='accent'
           tabIndex={0}
-          onClick={onSubmit}
+          onClick={submit}
           disabled={fetching}
           testName='save-permissions-button'
         />
@@ -256,30 +254,6 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
 
   const userId = user.id
   const isSelf = userId === selfUser.id
-
-  const onFormSubmit = useCallback(
-    (model: BanFormModel) => {
-      dispatch(
-        adminBanUser(
-          { userId, banLengthHours: model.banLengthHours, reason: model.reason },
-          {
-            onSuccess: response => {
-              setBanHistory(history => {
-                if (!history?.some(b => b.id === response.ban.id)) {
-                  return [response.ban].concat(history || [])
-                }
-
-                return history
-              })
-              setRequestError(undefined)
-            },
-            onError: err => setRequestError(err),
-          },
-        ),
-      )
-    },
-    [userId, dispatch],
-  )
 
   useEffect(() => {
     cancelLoadRef.current.abort()
@@ -309,7 +283,30 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
       {!isSelf ? (
-        <BanUserForm key={`form-${userId}`} model={BAN_FORM_DEFAULTS} onSubmit={onFormSubmit} />
+        <BanUserForm
+          key={`form-${userId}`}
+          model={BAN_FORM_DEFAULTS}
+          onSubmit={model => {
+            dispatch(
+              adminBanUser(
+                { userId, banLengthHours: model.banLengthHours, reason: model.reason },
+                {
+                  onSuccess: response => {
+                    setBanHistory(history => {
+                      if (!history?.some(b => b.id === response.ban.id)) {
+                        return [response.ban].concat(history || [])
+                      }
+
+                      return history
+                    })
+                    setRequestError(undefined)
+                  },
+                  onError: err => setRequestError(err),
+                },
+              ),
+            )
+          }}
+        />
       ) : null}
     </AdminSection>
   )
@@ -405,21 +402,19 @@ interface BanFormModel {
 
 function BanUserForm({
   model,
-  onSubmit: onFormSubmit,
+  onSubmit,
 }: {
   model: BanFormModel
-  onSubmit: (model: BanFormModel) => void
+  onSubmit: (model: ReadonlyDeep<BanFormModel>) => void
 }) {
-  const { onSubmit, bindCustom, bindInput } = useForm(
-    model,
-    {},
-    {
-      onSubmit: onFormSubmit,
-    },
-  )
+  const { submit, bindInput, bindCustom, form } = useForm<BanFormModel>(model, {})
+
+  useFormCallbacks(form, {
+    onSubmit,
+  })
 
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <TitleLarge>Ban user</TitleLarge>
       <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
         <SelectOption value={3} text='3 Hours' />
@@ -441,7 +436,7 @@ function BanUserForm({
           spellCheck: false,
         }}
       />
-      <ElevatedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
+      <ElevatedButton label='Ban' color='primary' tabIndex={0} onClick={submit} />
     </form>
   )
 }

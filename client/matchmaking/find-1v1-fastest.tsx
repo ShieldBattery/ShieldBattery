@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import React, { useImperativeHandle, useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { ReadonlyDeep } from 'type-fest'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences1v1Fastest,
@@ -9,7 +10,7 @@ import {
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { CheckBox } from '../material/check-box'
 import { LoadingDotsArea } from '../progress/dots'
@@ -36,36 +37,27 @@ interface Model1v1Fastest {
 interface Form1v1FastestProps {
   disabled: boolean
   model: Model1v1Fastest
-  mapPool?: Immutable<MatchmakingMapPool>
+  mapPool?: ReadonlyDeep<MatchmakingMapPool>
   mapPoolOutdated: boolean
-  onChange: (model: Model1v1Fastest) => void
-  onSubmit: (model: Model1v1Fastest) => void
+  onValidatedChange: (model: ReadonlyDeep<Model1v1Fastest>) => void
+  onSubmit: (model: ReadonlyDeep<Model1v1Fastest>) => void
 }
 
 const Form1v1Fastest = React.forwardRef<FindMatchFormRef, Form1v1FastestProps>(
-  ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+  ({ disabled, model, mapPoolOutdated, mapPool, onValidatedChange, onSubmit }, ref) => {
     const { t } = useTranslation()
-    const {
-      onSubmit: handleSubmit,
-      bindCheckable,
-      bindCustom,
-      getInputValue,
-    } = useForm<Model1v1Fastest>(
+    const { submit, bindCheckable, bindCustom, getInputValue, form } = useForm<Model1v1Fastest>(
       model,
-      {
-        mapSelections: (value, model, dirty, t) => {
-          if (!value.length) {
-            return t('matchmaking.findMatch.mapSelectionValidation', 'Select at least one map.')
-          }
-
-          return undefined
-        },
-      },
-      { onChange, onSubmit },
+      {},
     )
 
+    useFormCallbacks(form, {
+      onValidatedChange,
+      onSubmit,
+    })
+
     useImperativeHandle(ref, () => ({
-      submit: handleSubmit,
+      submit,
     }))
 
     const race = getInputValue('race')
@@ -73,7 +65,7 @@ const Form1v1Fastest = React.forwardRef<FindMatchFormRef, Form1v1FastestProps>(
     const hiddenAlternateRaces = race !== 'r' ? [race] : []
 
     return (
-      <form noValidate={true} onSubmit={handleSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <SectionTitle>{t('matchmaking.findMatch.race', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
@@ -141,7 +133,11 @@ const Form1v1Fastest = React.forwardRef<FindMatchFormRef, Form1v1FastestProps>(
   },
 )
 
-function model1v1FastestToPrefs(model: Model1v1Fastest, userId: SbUserId, mapPoolId: number) {
+function model1v1FastestToPrefs(
+  model: ReadonlyDeep<Model1v1Fastest>,
+  userId: SbUserId,
+  mapPoolId: number,
+) {
   return {
     userId,
     matchmakingType: MatchmakingType.Match1v1Fastest as const,
@@ -178,31 +174,6 @@ export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchCon
 
   const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
-  const onPrefsChanged = useCallback(
-    (model: Model1v1Fastest) => {
-      if (disabled) {
-        return
-      }
-
-      dispatch(
-        updateMatchmakingPreferences(
-          MatchmakingType.Match1v1Fastest,
-          model1v1FastestToPrefs(model, selfId, mapPoolId),
-        ),
-      )
-    },
-    [dispatch, mapPoolId, selfId, disabled],
-  )
-  const onFormSubmit = useCallback(
-    (model: Model1v1Fastest) => {
-      if (disabled) {
-        return
-      }
-
-      onSubmit(model1v1FastestToPrefs(model, selfId, mapPoolId))
-    },
-    [disabled, mapPoolId, onSubmit, selfId],
-  )
 
   return prefs ? (
     <Form1v1Fastest
@@ -214,8 +185,25 @@ export function Contents1v1Fastest({ formRef, onSubmit, disabled }: FindMatchCon
         alternateRace: prefs.data?.alternateRace ?? 'z',
         mapSelections,
       }}
-      onChange={onPrefsChanged}
-      onSubmit={onFormSubmit}
+      onValidatedChange={model => {
+        if (disabled) {
+          return
+        }
+
+        dispatch(
+          updateMatchmakingPreferences(
+            MatchmakingType.Match1v1Fastest,
+            model1v1FastestToPrefs(model, selfId, mapPoolId),
+          ),
+        )
+      }}
+      onSubmit={model => {
+        if (disabled) {
+          return
+        }
+
+        onSubmit(model1v1FastestToPrefs(model, selfId, mapPoolId))
+      }}
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />

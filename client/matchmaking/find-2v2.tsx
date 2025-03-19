@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import React, { useImperativeHandle, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ReadonlyDeep } from 'type-fest'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences2v2,
@@ -9,7 +10,7 @@ import {
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -35,18 +36,20 @@ interface Form2v2Props {
   model: Model2v2
   mapPool?: Immutable<MatchmakingMapPool>
   mapPoolOutdated: boolean
-  onChange: (model: Model2v2) => void
-  onSubmit: (model: Model2v2) => void
+  onValidatedChange: (model: ReadonlyDeep<Model2v2>) => void
+  onSubmit: (model: ReadonlyDeep<Model2v2>) => void
 }
 
 const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
-  ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+  ({ disabled, model, mapPoolOutdated, mapPool, onValidatedChange, onSubmit }, ref) => {
     const { t } = useTranslation()
-    const { onSubmit: handleSubmit, bindCustom } = useForm<Model2v2>(
-      model,
-      {},
-      { onChange, onSubmit },
-    )
+    const { submit: handleSubmit, bindCustom, form } = useForm<Model2v2>(model, {})
+
+    useFormCallbacks(form, {
+      onValidatedChange,
+      onSubmit,
+      // other callbacks that were previously in the third parameter
+    })
 
     useImperativeHandle(ref, () => ({
       submit: handleSubmit,
@@ -90,7 +93,7 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
   },
 )
 
-function model2v2ToPrefs(model: Model2v2, userId: SbUserId, mapPoolId: number) {
+function model2v2ToPrefs(model: ReadonlyDeep<Model2v2>, userId: SbUserId, mapPoolId: number) {
   return {
     userId,
     matchmakingType: MatchmakingType.Match2v2 as const,
@@ -122,31 +125,6 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
 
   const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
-  const onPrefsChanged = useCallback(
-    (model: Model2v2) => {
-      if (disabled) {
-        return
-      }
-
-      dispatch(
-        updateMatchmakingPreferences(
-          MatchmakingType.Match2v2,
-          model2v2ToPrefs(model, selfId, mapPoolId),
-        ),
-      )
-    },
-    [dispatch, mapPoolId, selfId, disabled],
-  )
-  const onFormSubmit = useCallback(
-    (model: Model2v2) => {
-      if (disabled) {
-        return
-      }
-
-      onSubmit(model2v2ToPrefs(model, selfId, mapPoolId))
-    },
-    [disabled, mapPoolId, onSubmit, selfId],
-  )
 
   return prefs ? (
     <Form2v2
@@ -156,8 +134,25 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
         race: prefs.race ?? 'r',
         mapSelections,
       }}
-      onChange={onPrefsChanged}
-      onSubmit={onFormSubmit}
+      onValidatedChange={model => {
+        if (disabled) {
+          return
+        }
+
+        dispatch(
+          updateMatchmakingPreferences(
+            MatchmakingType.Match2v2,
+            model2v2ToPrefs(model, selfId, mapPoolId),
+          ),
+        )
+      }}
+      onSubmit={model => {
+        if (disabled) {
+          return
+        }
+
+        onSubmit(model2v2ToPrefs(model, selfId, mapPoolId))
+      }}
       mapPoolOutdated={mapPoolOutdated}
       mapPool={mapPool}
     />

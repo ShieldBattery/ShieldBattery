@@ -2,13 +2,12 @@ import React, { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { required } from '../forms/validators'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge, bodyLarge, labelMedium } from '../styles/typography'
@@ -46,36 +45,39 @@ export function BugReportDialog(props: CommonDialogProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const onFormSubmit = useStableCallback(({ details }: BugReportFormModel) => {
-    setError(undefined)
-    setLoading(true)
-    dispatch(
-      reportBug(
-        { details },
-        {
-          onSuccess: () => {
-            setLoading(false)
-            props.onCancel()
-            snackbarController.showSnackbar(t('bugReport.reportSubmitted', 'Bug report submitted.'))
-          },
-          onError: err => {
-            setLoading(false)
-            setError(err)
-          },
-        },
-      ),
-    )
-  })
-
-  const { onSubmit, bindInput } = useForm<BugReportFormModel>(
+  const { submit, bindInput, form } = useForm<BugReportFormModel>(
     {
       details: '',
     },
     {
       details: required(t => t('bugReport.detailsRequired', 'Bug reports must include details.')),
     },
-    { onSubmit: onFormSubmit },
   )
+
+  useFormCallbacks(form, {
+    onSubmit: ({ details }) => {
+      setError(undefined)
+      setLoading(true)
+      dispatch(
+        reportBug(
+          { details },
+          {
+            onSuccess: () => {
+              setLoading(false)
+              props.onCancel()
+              snackbarController.showSnackbar(
+                t('bugReport.reportSubmitted', 'Bug report submitted.'),
+              )
+            },
+            onError: err => {
+              setLoading(false)
+              setError(err)
+            },
+          },
+        ),
+      )
+    },
+  })
 
   const buttons = [
     <TextButton
@@ -89,7 +91,7 @@ export function BugReportDialog(props: CommonDialogProps) {
       label={t('common.actions.submit', 'Submit')}
       key='submit'
       color='accent'
-      onClick={onSubmit}
+      onClick={submit}
       disabled={loading}
     />,
   ]
@@ -100,7 +102,7 @@ export function BugReportDialog(props: CommonDialogProps) {
       buttons={buttons}
       onCancel={props.onCancel}
       dialogRef={props.dialogRef}>
-      <form noValidate={true} onSubmit={onSubmit}>
+      <form noValidate={true} onSubmit={submit}>
         <Layout>
           {error ? (
             <ErrorText>

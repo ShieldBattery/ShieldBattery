@@ -1,5 +1,6 @@
 import { freeze, produce, Producer } from 'immer'
 import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
+import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { useSelfUser } from '../auth/auth-utils'
 import logger from '../logging/logger'
@@ -123,17 +124,23 @@ function initStableCallbackValue() {
  * If you pass a non-function value to the setter, this hook behaves the same as `useState` and just
  * updates the state with that value.
  */
-export function useImmerState<T>(initialState: T): [T, (updater: Producer<T> | T) => void] {
-  const [value, setValue] = useState(() =>
-    freeze(initialState instanceof Function ? initialState() : initialState, true),
+export function useImmerState<T>(
+  initialState: (() => T) | T,
+): [ReadonlyDeep<T>, (updater: Producer<T> | T) => void] {
+  const [value, setValue] = useState<ReadonlyDeep<T>>(
+    () =>
+      freeze(
+        initialState instanceof Function ? initialState() : initialState,
+        true,
+      ) as ReadonlyDeep<T>,
   )
   return [
     value,
     useCallback((updater: Producer<T> | T) => {
       if (updater instanceof Function) {
-        setValue(produce(updater))
+        setValue(v => produce(v, updater))
       } else {
-        setValue(freeze(updater))
+        setValue(freeze(updater) as ReadonlyDeep<T>)
       }
     }, []),
   ]

@@ -8,7 +8,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
-import { useForm } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
@@ -55,35 +55,8 @@ export function Login() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const onFormSubmit = useStableCallback((model: LoginModel) => {
-    setIsLoading(true)
-    setLastError(undefined)
-
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
-
-    dispatch(
-      logIn(
-        {
-          username: model.username,
-          password: model.password,
-          remember: model.rememberMe,
-          locale: detectedLocale.getValue(),
-        },
-        {
-          onSuccess: () => {},
-          onError: err => {
-            setIsLoading(false)
-            setLastError(err)
-          },
-          signal: abortControllerRef.current.signal,
-        },
-      ),
-    )
-  })
-
   const queryModel: { username?: string } = queryString.parse(window.location.search)
-  const { onSubmit, bindInput, bindCheckable, getInputValue } = useForm<LoginModel>(
+  const { submit, bindInput, bindCheckable, getInputValue, form } = useForm<LoginModel>(
     {
       username: queryModel.username ?? '',
       password: '',
@@ -104,8 +77,35 @@ export function Login() {
         minLength(PASSWORD_MINLENGTH),
       ),
     },
-    { onSubmit: onFormSubmit },
   )
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setIsLoading(true)
+      setLastError(undefined)
+
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = new AbortController()
+
+      dispatch(
+        logIn(
+          {
+            username: model.username,
+            password: model.password,
+            remember: model.rememberMe,
+            locale: detectedLocale.getValue(),
+          },
+          {
+            onSuccess: () => {},
+            onError: err => {
+              setIsLoading(false)
+              setLastError(err)
+            },
+            signal: abortControllerRef.current.signal,
+          },
+        ),
+      )
+    },
+  })
 
   const onCreateAccountClick = useStableCallback(() => {
     const search = queryString.stringify({
@@ -129,7 +129,7 @@ export function Login() {
       <AuthContentContainer isLoading={isLoading || auth.authChangeInProgress}>
         <AuthTitle>{t('auth.login.title', 'Log in')}</AuthTitle>
         <AuthBody>{lastError ? <UserErrorDisplay error={lastError} /> : null}</AuthBody>
-        <form noValidate={true} onSubmit={onSubmit}>
+        <form noValidate={true} onSubmit={submit}>
           <SubmitOnEnter />
           <FieldRow>
             <RowEdge />
@@ -181,7 +181,7 @@ export function Login() {
             <Spacer />
             <ElevatedButton
               label={t('auth.login.logIn', 'Log in')}
-              onClick={onSubmit}
+              onClick={submit}
               tabIndex={1}
               testName='submit-button'
             />

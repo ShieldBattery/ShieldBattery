@@ -15,13 +15,12 @@ import {
   getStartingFogLabel,
   StartingFog,
 } from '../../../common/settings/local-settings'
-import { useForm, Validator } from '../../forms/form-hook'
+import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer, SectionOverline } from '../settings-content'
@@ -67,47 +66,33 @@ export function GameplaySettings() {
   const localSettings = useAppSelector(s => s.settings.local)
   const scrSettings = useAppSelector(s => s.settings.scr)
 
-  const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          apmAlertOn: model.apmAlertOn,
-          apmAlertColorOn: model.apmAlertColorOn,
-          apmAlertSoundOn: model.apmAlertSoundOn,
-          apmAlertValue: model.apmAlertValue,
-          apmDisplayOn: model.apmDisplayOn,
-          colorCyclingOn: model.colorCyclingOn,
-          consoleSkin: model.consoleSkin,
-          gameTimerOn: model.gameTimerOn,
-          minimapPosition: model.minimapPosition,
-          showBonusSkins: model.showBonusSkins,
-          selectedSkin: model.selectedSkin,
-          unitPortraits: model.unitPortraits,
-          showTurnRate: model.showTurnRate,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-    dispatch(
-      mergeLocalSettings(
-        {
-          startingFog: model.startingFog,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
+  const { bindCustom, bindCheckable, getInputValue, submit, form } = useForm<GameplaySettingsModel>(
+    {
+      ...scrSettings,
+      visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
+      startingFog: localSettings.startingFog,
+    },
+    { apmAlertValue: validateApmValue() },
+  )
 
-    if (DEV_INDICATOR) {
+  useFormCallbacks(form, {
+    onValidatedChange: model => {
       dispatch(
-        mergeLocalSettings(
+        mergeScrSettings(
           {
-            visualizeNetworkStalls: model.visualizeNetworkStalls,
+            apmAlertOn: model.apmAlertOn,
+            apmAlertColorOn: model.apmAlertColorOn,
+            apmAlertSoundOn: model.apmAlertSoundOn,
+            apmAlertValue: model.apmAlertValue,
+            apmDisplayOn: model.apmDisplayOn,
+            colorCyclingOn: model.colorCyclingOn,
+            consoleSkin: model.consoleSkin,
+            gameTimerOn: model.gameTimerOn,
+            minimapPosition: model.minimapPosition,
+            showBonusSkins: model.showBonusSkins,
+            selectedSkin: model.selectedSkin,
+            unitPortraits: model.unitPortraits,
+            showTurnRate: model.showTurnRate,
           },
           {
             onSuccess: () => {},
@@ -115,21 +100,36 @@ export function GameplaySettings() {
           },
         ),
       )
-    }
+      dispatch(
+        mergeLocalSettings(
+          {
+            startingFog: model.startingFog,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+
+      if (DEV_INDICATOR) {
+        dispatch(
+          mergeLocalSettings(
+            {
+              visualizeNetworkStalls: model.visualizeNetworkStalls,
+            },
+            {
+              onSuccess: () => {},
+              onError: () => {},
+            },
+          ),
+        )
+      }
+    },
   })
 
-  const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
-    {
-      ...scrSettings,
-      visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
-      startingFog: localSettings.startingFog,
-    },
-    { apmAlertValue: validateApmValue() },
-    { onValidatedChange },
-  )
-
   return (
-    <form noValidate={true} onSubmit={onSubmit}>
+    <form noValidate={true} onSubmit={submit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>
