@@ -7,7 +7,8 @@
             "maxLength_other": "Ingrese como máximo {{count}} caracteres",
             "minLength_one": "Ingrese al menos el carácter {{count}}",
             "minLength_many": "Ingrese al menos {{count}} de caracteres",
-            "minLength_other": "Ingrese al menos {{count}} caracteres"
+            "minLength_other": "Ingrese al menos {{count}} caracteres",
+            "validatorError": "Se produjo un error desconocido al validar este campo"
         },
         "actions": {
             "cancel": "Cancelar",
