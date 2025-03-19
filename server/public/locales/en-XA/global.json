@@ -5,7 +5,8 @@
             "maxLength_one": "$🗡Enter at most {{count}} character🗡!",
             "maxLength_other": "$🗡Enter at most {{count}} characters🗡!",
             "minLength_one": "$🗡Enter at least {{count}} character🗡!",
-            "minLength_other": "$🗡Enter at least {{count}} characters🗡!"
+            "minLength_other": "$🗡Enter at least {{count}} characters🗡!",
+            "validatorError": "$🗡An unknown error occurred while validating this field🗡!"
         },
         "actions": {
             "cancel": "$🗡Cancel🗡!",
