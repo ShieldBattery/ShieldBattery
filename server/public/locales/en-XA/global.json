@@ -782,7 +782,8 @@
                     "numberOfPlayers": "$🗡Number of players🗡!",
                     "tileset": "$🗡Tileset🗡!"
                 },
-                "title": "$🗡Filter options🗡!"
+                "title": "$🗡Filter options🗡!",
+                "numberOfPlayers": "$🗡{{numPlayers}} players🗡!"
             },
             "sortMaps": {
                 "option": {
@@ -802,7 +803,8 @@
             },
             "uploadedMap": "$🗡Uploaded map🗡!",
             "favoritedMaps": "$🗡Favorited maps🗡!",
-            "regenerated": "$🗡Images regenerated🗡!"
+            "regenerated": "$🗡Images regenerated🗡!",
+            "noUploadedMapsWeb": "$🗡You haven't uploaded any maps.🗡!"
         },
         "thumbnail": {
             "addToFavorites": "$🗡Add to favorites🗡!",
