@@ -599,6 +599,7 @@
         "removedError": "An error occurred while removing from favorites"
       },
       "filterOptions": {
+        "numberOfPlayers": "{{numPlayers}} players",
         "section": {
           "numberOfPlayers": "Number of players",
           "tileset": "Tileset"
@@ -609,6 +610,7 @@
       "noOfficialMaps": "No official maps have been uploaded yet.",
       "noResults": "No results.",
       "noUploadedMaps": "You haven't uploaded any maps. You can upload a map by clicking on the browse button below.",
+      "noUploadedMapsWeb": "You haven't uploaded any maps.",
       "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
       "sortMaps": {

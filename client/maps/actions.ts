@@ -4,7 +4,6 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapInfoJson,
-  MapPreferences,
   MapSortType,
   MapVisibility,
   NumPlayers,
@@ -38,12 +37,6 @@ export type MapsActions =
   | UpdateMapBegin
   | UpdateMapSuccess
   | UpdateMapFailure
-  | GetMapPreferencesBegin
-  | GetMapPreferencesSuccess
-  | GetMapPreferencesFailure
-  | UpdateMapPreferencesBegin
-  | UpdateMapPreferencesSuccess
-  | UpdateMapPreferencesFailure
   | GetBatchMapInfoSuccess
   | GetBatchMapInfoFailure
 
@@ -287,52 +280,4 @@ export interface UpdateMapSuccess {
  */
 export interface UpdateMapFailure extends BaseFetchFailure<'@maps/updateMap'> {
   meta: UpdateMapServerRequest
-}
-
-/**
- * A request is being made to the server to retrieve map preferences. These are the preferences
- * which are used by the server maps browser.
- */
-export interface GetMapPreferencesBegin {
-  type: '@maps/getMapPreferencesBegin'
-}
-
-/**
- * The server has returned the map preferences.
- */
-export interface GetMapPreferencesSuccess {
-  type: '@maps/getMapPreferences'
-  payload: MapPreferences
-  error?: false
-}
-
-/**
- * A request to get the map preferences has failed.
- */
-export type GetMapPreferencesFailure = BaseFetchFailure<'@maps/getMapPreferences'>
-
-/**
- * A request is being made to the server to update map preferences.
- */
-export interface UpdateMapPreferencesBegin {
-  type: '@maps/updateMapPreferencesBegin'
-  payload: MapPreferences
-}
-
-/**
- * The server has updated the map preferences.
- */
-export interface UpdateMapPreferencesSuccess {
-  type: '@maps/updateMapPreferences'
-  payload: MapPreferences
-  error?: false
-  meta: MapPreferences
-}
-
-/**
- * A request to update the map preferences has failed.
- */
-export interface UpdateMapPreferencesFailure
-  extends BaseFetchFailure<'@maps/updateMapPreferences'> {
-  meta: MapPreferences
 }

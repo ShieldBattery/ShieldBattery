@@ -62,6 +62,19 @@ export const ALL_MAP_SORT_TYPES: Readonly<MapSortType[]> = [
   MapSortType.Date,
 ]
 
+export function mapSortTypeToLabel(sortType: MapSortType, t: TFunction) {
+  switch (sortType) {
+    case MapSortType.Name:
+      return t('maps.server.sortMaps.option.name', 'Name')
+    case MapSortType.NumberOfPlayers:
+      return t('maps.server.sortMaps.option.numberOfPlayers', 'Number of players')
+    case MapSortType.Date:
+      return t('maps.server.sortMaps.option.dateUploaded', 'Date uploaded')
+    default:
+      return sortType satisfies never
+  }
+}
+
 export enum MapVisibility {
   Private = 'PRIVATE',
   Public = 'PUBLIC',
@@ -78,17 +91,6 @@ export interface MapFilters {
 
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
-
-export interface MapPreferences {
-  // TODO(2Pac): This should probably not be a part of map preferences, but instead should be a part
-  // of user's session, similar to the `lastQueuedMatchmakingType` used by the find-match overlay.
-  visibility: MapVisibility
-  // TODO(2Pac): This can probably be typed even further
-  thumbnailSize: number
-  sortOption: MapSortType
-  numPlayersFilter: NumPlayers[]
-  tilesetFilter: Tileset[]
-}
 
 export interface MapForcePlayer {
   id: number

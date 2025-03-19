@@ -40,6 +40,7 @@ export function MapsRoot() {
         <LoadableLocalMaps onMapSelect={onMapUpload} />
       ) : (
         <BrowseServerMaps
+          key={uploadedMap?.id ?? '-'}
           title={t('maps.activity.title', 'Maps')}
           uploadedMap={uploadedMap}
           onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}

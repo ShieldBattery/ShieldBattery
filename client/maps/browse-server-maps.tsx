@@ -1,6 +1,5 @@
-import { Set } from 'immutable'
-import { debounce, DebouncedFunc } from 'lodash-es'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { debounce } from 'lodash-es'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -18,12 +17,11 @@ import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
 import { useRefreshToken } from '../network/refresh-token'
-import LoadingIndicator from '../progress/dots'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
 import {
   clearMapsList,
-  getMapPreferences,
   getMapsList,
   openMapPreviewDialog,
   regenMapImage,
@@ -32,16 +30,9 @@ import {
 } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
 import { MapThumbnail } from './map-thumbnail'
+import { MapThumbnailSize } from './thumbnail-size'
 
 const MAPS_LIMIT = 30
-
-const LoadingArea = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-`
 
 const Container = styled.div`
   display: flex;
@@ -92,9 +83,9 @@ const ScrollDivider = styled.div<{ position: 'top' | 'bottom' }>`
 `
 
 enum MapTab {
-  OfficialMaps = 0,
-  MyMaps = 1,
-  CommunityMaps = 2,
+  OfficialMaps = 'Official',
+  MyMaps = 'MyMaps',
+  CommunityMaps = 'Community',
 }
 
 function tabToVisibility(tab: MapTab): MapVisibility {
@@ -110,30 +101,27 @@ function tabToVisibility(tab: MapTab): MapVisibility {
   }
 }
 
-function visibilityToTab(visibility: MapVisibility): MapTab {
-  switch (visibility) {
-    case MapVisibility.Official:
-      return MapTab.OfficialMaps
-    case MapVisibility.Private:
-      return MapTab.MyMaps
-    case MapVisibility.Public:
-      return MapTab.CommunityMaps
+function thumbnailSizeToLayout(thumbnailSize: MapThumbnailSize): {
+  columnCount: number
+  padding: number
+} {
+  switch (thumbnailSize) {
+    case MapThumbnailSize.Small:
+      return { columnCount: 4, padding: 4 }
+    case MapThumbnailSize.Medium:
+      return { columnCount: 3, padding: 4 }
+    case MapThumbnailSize.Large:
+      return { columnCount: 2, padding: 4 }
     default:
-      return visibility satisfies never
+      return thumbnailSize satisfies never
   }
 }
-
-const THUMBNAIL_SIZES = [
-  { columnCount: 4, padding: 4 },
-  { columnCount: 3, padding: 4 },
-  { columnCount: 2, padding: 4 },
-] as const
 
 interface MapListProps {
   maps: ReadonlyDeep<MapInfoJson[]>
   userId?: SbUserId
   canManageMaps: boolean
-  thumbnailSize: number
+  thumbnailSize: MapThumbnailSize
   favoriteStatusRequests: ReadonlySet<string>
   onMapSelect?: (map: ReadonlyDeep<MapInfoJson>) => void
   onMapPreview?: (map: ReadonlyDeep<MapInfoJson>) => void
@@ -156,30 +144,36 @@ function MapList({
   onRemoveMap,
   onRegenMapImage,
 }: MapListProps) {
-  return maps.map(map => {
-    const canRemoveMap =
-      onRemoveMap &&
-      ((map.visibility !== MapVisibility.Private && canManageMaps) ||
-        (map.visibility === MapVisibility.Private && map.uploadedBy.id === userId))
-    const canRegenMapImage = onRegenMapImage && canManageMaps
+  return (
+    <>
+      {maps.map(map => {
+        const canRemoveMap =
+          onRemoveMap &&
+          ((map.visibility !== MapVisibility.Private && canManageMaps) ||
+            (map.visibility === MapVisibility.Private && map.uploadedBy.id === userId))
+        const canRegenMapImage = onRegenMapImage && canManageMaps
 
-    return (
-      <MapThumbnail
-        key={map.id}
-        map={map}
-        forceAspectRatio={1}
-        size={THUMBNAIL_SIZES[thumbnailSize].columnCount === 2 ? 512 : 256}
-        showMapName={true}
-        isFavoriting={favoriteStatusRequests.has(map.id)}
-        onClick={onMapSelect ? () => onMapSelect(map) : undefined}
-        onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
-        onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
-        onMapDetails={onMapDetails ? () => onMapDetails(map) : undefined}
-        onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
-        onRegenMapImage={canRegenMapImage ? () => onRegenMapImage(map) : undefined}
-      />
-    )
-  })
+        const layout = thumbnailSizeToLayout(thumbnailSize)
+
+        return (
+          <MapThumbnail
+            key={map.id}
+            map={map}
+            forceAspectRatio={1}
+            size={layout.columnCount === 2 ? 512 : 256}
+            showMapName={true}
+            isFavoriting={favoriteStatusRequests.has(map.id)}
+            onClick={onMapSelect ? () => onMapSelect(map) : undefined}
+            onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
+            onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
+            onMapDetails={onMapDetails ? () => onMapDetails(map) : undefined}
+            onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
+            onRegenMapImage={canRegenMapImage ? () => onRegenMapImage(map) : undefined}
+          />
+        )
+      })}
+    </>
+  )
 }
 
 interface BrowseServerMapsProps {
@@ -202,97 +196,86 @@ export function BrowseServerMaps({
   const selfUser = useSelfUser()
   const selfPermissions = useSelfPermissions()
   const mapsState = useAppSelector(s => s.maps)
-  const mapPreferences = useAppSelector(s => s.mapPreferences)
 
-  const [activeTab, setActiveTab] = useState(uploadedMap ? MapTab.MyMaps : MapTab.OfficialMaps)
-  const [currentPage, setCurrentPage] = useState(0)
-  const [thumbnailSize, setThumbnailSize] = useState(1)
-  const [sortOption, setSortOption] = useState<MapSortType>(MapSortType.Name)
-  const [numPlayersFilter, setNumPlayersFilter] = useState<Set<NumPlayers>>(() =>
-    Set([2, 3, 4, 5, 6, 7, 8]),
+  const [activeTab, setActiveTab] = useUserLocalStorageValue<MapTab>(
+    'maps.browseServer.activeTab',
+    MapTab.OfficialMaps,
+    (value: unknown) =>
+      Object.values(MapTab).includes(value as MapTab) ? (value as MapTab) : undefined,
   )
-  const [tilesetFilter, setTilesetFilter] = useState<Set<Tileset>>(() => Set(ALL_TILESETS))
-  const [searchQuery, setSearchQuery] = useState('')
-  const [hasInitializedState, setHasInitializedState] = useState(false)
 
+  const [thumbnailSize, setThumbnailSize] = useUserLocalStorageValue<MapThumbnailSize>(
+    'maps.browseServer.thumbnailSize',
+    MapThumbnailSize.Medium,
+    (value: unknown) =>
+      Object.values(MapThumbnailSize).includes(value as MapThumbnailSize)
+        ? (value as MapThumbnailSize)
+        : undefined,
+  )
+  const [sortOption, setSortOption] = useUserLocalStorageValue<MapSortType>(
+    'maps.browseServer.sortOption',
+    MapSortType.Name,
+    (value: unknown) =>
+      Object.values(MapSortType).includes(value as MapSortType)
+        ? (value as MapSortType)
+        : undefined,
+  )
+  const [numPlayersFilter, setNumPlayersFilter] = useUserLocalStorageValue<NumPlayers[]>(
+    'maps.browseServer.numPlayersFilter',
+    [2, 3, 4, 5, 6, 7, 8],
+    (value: unknown) =>
+      Array.isArray(value) && value.every(v => typeof v === 'number' && v >= 2 && v <= 8)
+        ? (value as NumPlayers[])
+        : undefined,
+  )
+  const [tilesetFilter, setTilesetFilter] = useUserLocalStorageValue<Tileset[]>(
+    'maps.browseServer.tilesetFilter',
+    ALL_TILESETS.slice(),
+    (value: unknown) =>
+      Array.isArray(value) && value.every(v => ALL_TILESETS.includes(v))
+        ? (value as Tileset[])
+        : undefined,
+  )
+
+  const [currentPage, setCurrentPage] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const savePreferences = useCallback(() => {
-    /* TODO(#1133): Just save this locally
-    dispatch(
-      updateMapPreferences({
-        visibility: tabToVisibility(activeTab),
-        thumbnailSize,
-        sortOption,
-        numPlayersFilter: numPlayersFilter.toArray(),
-        tilesetFilter: tilesetFilter.toArray(),
-      }),
-    )
-    */
-  }, [])
-
-  const reset = useCallback(
-    (debouncedSetSearchQuery?: DebouncedFunc<typeof setSearchQuery>) => {
-      debouncedSetSearchQuery?.cancel()
-      dispatch(clearMapsList())
-      setCurrentPage(0)
-      triggerRefresh()
-    },
-    [dispatch, triggerRefresh],
-  )
   const debouncedSetSearchQuery = useMemo(
     () =>
       debounce((query: string) => {
         setSearchQuery(query)
-        reset()
-      }, 100),
-    [reset],
-  )
-
-  useEffect(() => {
-    if (selfUser) {
-      dispatch(getMapPreferences())
-      window.addEventListener('beforeunload', savePreferences)
-      return () => {
         dispatch(clearMapsList())
-        savePreferences()
-        window.removeEventListener('beforeunload', savePreferences)
-        debouncedSetSearchQuery.cancel()
-      }
-    }
-
-    return () => {}
-  }, [debouncedSetSearchQuery, dispatch, savePreferences, selfUser])
+        setCurrentPage(0)
+      }, 100),
+    [dispatch],
+  )
+  const reset = () => {
+    debouncedSetSearchQuery.cancel()
+    dispatch(clearMapsList())
+    setCurrentPage(0)
+    triggerRefresh()
+  }
 
   useEffect(() => {
-    const {
-      isRequesting,
-      visibility,
-      thumbnailSize: prefThumbnailSize,
-      sortOption: prefSortOption,
-      numPlayersFilter: prefNumPlayers,
-      tilesetFilter: prefTileset,
-      lastError,
-    } = mapPreferences
-    if (isRequesting) return
-
-    setHasInitializedState(true)
-    if (!lastError) {
-      setActiveTab(uploadedMap ? MapTab.MyMaps : visibilityToTab(visibility))
-      setThumbnailSize(prefThumbnailSize)
-      setSortOption(prefSortOption)
-      setNumPlayersFilter(Set(prefNumPlayers))
-      setTilesetFilter(Set(prefTileset))
+    return () => {
+      dispatch(clearMapsList())
+      debouncedSetSearchQuery.cancel()
     }
-  }, [mapPreferences, uploadedMap])
+  }, [debouncedSetSearchQuery, dispatch])
+
+  useEffect(() => {
+    if (uploadedMap) {
+      setActiveTab(MapTab.MyMaps)
+    }
+  }, [setActiveTab, uploadedMap])
 
   const renderMaps = (header: string, maps: ReadonlyDeep<MapInfoJson[]>) => {
+    const layout = thumbnailSizeToLayout(thumbnailSize)
     return (
       <>
         <SectionHeader>{header}</SectionHeader>
-        <ImageList
-          $columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
-          $padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
+        <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
           <MapList
             maps={maps}
             userId={selfUser?.id}
@@ -331,17 +314,23 @@ export function BrowseServerMaps({
   const renderAllMaps = () => {
     if (mapsState.total === -1) return null
     if (mapsState.total === 0) {
+      const hasFiltersApplied =
+        numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
       let text
-      if (searchQuery) {
+      if (searchQuery || hasFiltersApplied) {
         text = t('maps.server.noResults', 'No results.')
       } else if (activeTab === MapTab.OfficialMaps) {
         text = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
       } else if (activeTab === MapTab.MyMaps) {
-        text = t(
-          'maps.server.noUploadedMaps',
-          "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
-            'below.',
-        )
+        if (IS_ELECTRON) {
+          text = t(
+            'maps.server.noUploadedMaps',
+            "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
+              'below.',
+          )
+        } else {
+          text = t('maps.server.noUploadedMapsWeb', "You haven't uploaded any maps.")
+        }
       } else if (activeTab === MapTab.CommunityMaps) {
         text = t(
           'maps.server.noCommunityMaps',
@@ -359,16 +348,6 @@ export function BrowseServerMaps({
     return renderMaps(t('maps.server.allMaps', 'All maps'), Array.from(mapsState.byId.values()))
   }
 
-  if (mapPreferences.isRequesting) {
-    return (
-      <LoadingArea>
-        <LoadingIndicator />
-      </LoadingArea>
-    )
-  }
-
-  if (!hasInitializedState) return null
-
   const hasMoreMaps = mapsState.total === -1 || mapsState.total > mapsState.byId.size
 
   // TODO(tec27): Add back button if needed
@@ -382,7 +361,7 @@ export function BrowseServerMaps({
           activeTab={activeTab}
           onChange={(value: MapTab) => {
             setActiveTab(value)
-            reset(debouncedSetSearchQuery)
+            reset()
           }}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
           {selfUser ? (
@@ -420,8 +399,8 @@ export function BrowseServerMaps({
                       limit: MAPS_LIMIT,
                       page: currentPage,
                       sort: sortOption,
-                      numPlayers: numPlayersFilter.toArray(),
-                      tileset: tilesetFilter.toArray(),
+                      numPlayers: numPlayersFilter,
+                      tileset: tilesetFilter,
                       searchQuery,
                     }),
                   )
@@ -438,18 +417,18 @@ export function BrowseServerMaps({
         onBrowseLocalMaps={selfUser ? onBrowseLocalMaps : undefined}
         thumbnailSize={thumbnailSize}
         onSizeChange={setThumbnailSize}
-        numPlayersFilter={numPlayersFilter}
-        tilesetFilter={tilesetFilter}
+        numPlayersFilter={new Set(numPlayersFilter)}
+        tilesetFilter={new Set(tilesetFilter)}
         onFilterApply={(players, tileset) => {
-          setNumPlayersFilter(players)
-          setTilesetFilter(tileset)
-          reset(debouncedSetSearchQuery)
+          setNumPlayersFilter(Array.from(players))
+          setTilesetFilter(Array.from(tileset))
+          reset()
         }}
         sortOption={sortOption}
         onSortChange={option => {
           if (sortOption !== option) {
             setSortOption(option)
-            reset(debouncedSetSearchQuery)
+            reset()
           }
         }}
         searchQuery={searchQuery}

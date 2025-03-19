@@ -1,8 +1,16 @@
-import { Set } from 'immutable'
-import React, { useCallback, useMemo, useState } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ALL_TILESETS, MapSortType, NumPlayers, Tileset, tilesetToName } from '../../common/maps'
+import { ReadonlyDeep } from 'type-fest'
+import {
+  ALL_MAP_SORT_TYPES,
+  ALL_TILESETS,
+  MapSortType,
+  mapSortTypeToLabel,
+  NumPlayers,
+  Tileset,
+  tilesetToName,
+} from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
@@ -12,9 +20,10 @@ import { FloatingActionButton } from '../material/floating-action-button'
 import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { useValueAsRef } from '../react/state-hooks'
+import { useImmerState } from '../react/state-hooks'
 import { SearchInput } from '../search/search-input'
 import { labelMedium } from '../styles/typography'
+import { ALL_MAP_THUMBNAIL_SIZES, MapThumbnailSize, thumbnailSizeToLabel } from './thumbnail-size'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -93,111 +102,55 @@ const FilterActions = styled.div`
 `
 
 export interface BrowserFooterProps {
-  thumbnailSize: number
+  thumbnailSize: MapThumbnailSize
   sortOption: number
   numPlayersFilter: Set<NumPlayers>
   tilesetFilter: Set<Tileset>
   searchQuery: string
-  onSizeChange: (index: number) => void
-  onFilterApply: (numPlayersFilter: Set<NumPlayers>, tilesetFilter: Set<Tileset>) => void
-  onSortChange: (index: MapSortType) => void
+  onSizeChange: (size: MapThumbnailSize) => void
+  onFilterApply: (
+    numPlayersFilter: ReadonlyDeep<Set<NumPlayers>>,
+    tilesetFilter: ReadonlyDeep<Set<Tileset>>,
+  ) => void
+  onSortChange: (sortType: MapSortType) => void
   onSearchChange: (value: string) => void
   onBrowseLocalMaps?: () => void
 }
 
-export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
+export function BrowserFooter({
+  thumbnailSize,
+  sortOption,
+  numPlayersFilter,
+  tilesetFilter,
+  searchQuery,
+  onSizeChange,
+  onFilterApply,
+  onSearchChange,
+  onSortChange,
+  onBrowseLocalMaps,
+}: BrowserFooterProps) {
   const { t } = useTranslation()
   const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController()
   const [sizeMenuOpen, openSizeMenu, closeSizeMenu] = usePopoverController()
   const [sortMenuOpen, openSortMenu, closeSortMenu] = usePopoverController()
-  const [tempNumPlayersFilter, setTempNumPlayersFilter] = useState(props.numPlayersFilter)
-  const [tempTilesetFilter, setTempTilesetFilter] = useState(props.tilesetFilter)
+  const [localNumPlayersFilter, updateLocalNumPlayersFilter] = useImmerState(
+    () => new Set(numPlayersFilter),
+  )
+  const [localTilesetFilter, updateLocalTilesetFilter] = useImmerState(() => new Set(tilesetFilter))
 
   const [filterButtonRef, filterAnchorX, filterAnchorY] = useAnchorPosition('right', 'bottom')
   const [sizeRef, sizeAnchorX, sizeAnchorY] = useAnchorPosition('right', 'bottom')
   const [sortMenuRef, sortAnchorX, sortAnchorY] = useAnchorPosition('right', 'bottom')
 
-  const numPlayersFilterRef = useValueAsRef(props.numPlayersFilter)
-  const tilesetFilterRef = useValueAsRef(props.tilesetFilter)
-
-  const { searchQuery, onSearchChange, onSizeChange, onSortChange, onFilterApply } = props
-
-  // TODO(tec27): These should probably return focus to the button that opens these menus, so that
-  // keyboard navigation of this interface is reasonably possible
-  const onSizeSelected = useCallback(
-    (index: number) => {
-      onSizeChange(index)
-      closeSizeMenu()
-    },
-    [closeSizeMenu, onSizeChange],
-  )
-  const onSortSelected = useCallback(
-    (index: number) => {
-      onSortChange(index)
-      closeSortMenu()
-    },
-    [closeSortMenu, onSortChange],
-  )
-  const onNumPlayersFilterChange = useCallback((numPlayers: NumPlayers) => {
-    setTempNumPlayersFilter(value =>
-      value.has(numPlayers) ? value.delete(numPlayers) : value.add(numPlayers),
-    )
-  }, [])
-  const onTilesetFilterChange = useCallback((tilesetId: Tileset) => {
-    setTempTilesetFilter(value =>
-      value.has(tilesetId) ? value.delete(tilesetId) : value.add(tilesetId),
-    )
-  }, [])
-  const onFilterCancel = useCallback(() => {
-    // Since the filter overlay doesn't get unmounted after it's closed, we need to reset the
-    // temporary filter state to its initial value manually.
-    setTempNumPlayersFilter(numPlayersFilterRef.current)
-    setTempTilesetFilter(tilesetFilterRef.current)
-    closeFilterOverlay()
-  }, [numPlayersFilterRef, tilesetFilterRef, closeFilterOverlay])
-  const forwardOnFilterApply = useCallback(() => {
-    onFilterApply(tempNumPlayersFilter, tempTilesetFilter)
-    closeFilterOverlay()
-  }, [onFilterApply, tempNumPlayersFilter, tempTilesetFilter, closeFilterOverlay])
-
-  const numPlayersItems = useMemo(() => {
-    const values: Array<[n: NumPlayers, label: string]> = [
-      [2, '2 players'],
-      [3, '3 players'],
-      [4, '4 players'],
-      [5, '5 players'],
-      [6, '6 players'],
-      [7, '7 players'],
-      [8, '8 players'],
-    ]
-
-    return values.map(([numPlayers, label]) => (
-      <CheckBox
-        key={numPlayers}
-        label={label}
-        checked={tempNumPlayersFilter.has(numPlayers)}
-        onChange={() => onNumPlayersFilterChange(numPlayers)}
-      />
-    ))
-  }, [tempNumPlayersFilter, onNumPlayersFilterChange])
-  const tilesetItems = useMemo(() => {
-    return ALL_TILESETS.map(tilesetId => (
-      <CheckBox
-        key={tilesetId}
-        label={tilesetToName(tilesetId, t)}
-        checked={tempTilesetFilter.has(tilesetId)}
-        onChange={() => onTilesetFilterChange(tilesetId)}
-      />
-    ))
-  }, [t, tempTilesetFilter, onTilesetFilterChange])
-
+  // TODO(tec27): The overlays menus should probably return focus to the button that opens them, so
+  // that keyboard navigation of this interface is reasonably possible
   return (
     <Container>
-      {props.onBrowseLocalMaps ? (
+      {onBrowseLocalMaps ? (
         <PositionedFloatingActionButton
           title={t('maps.server.browseLocal', 'Browse local maps')}
           icon={<MaterialIcon icon='folder' invertColor={true} filled={false} />}
-          onClick={props.onBrowseLocalMaps}
+          onClick={onBrowseLocalMaps}
         />
       ) : undefined}
       <LeftActions>
@@ -211,7 +164,12 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
           ref={filterButtonRef}
           icon={<MaterialIcon icon='filter_list' />}
           title={t('maps.server.filterOptions.title', 'Filter options')}
-          onClick={openFilterOverlay}
+          onClick={event => {
+            // Ensure that our local state is in sync with our current props
+            updateLocalNumPlayersFilter(() => new Set(numPlayersFilter))
+            updateLocalTilesetFilter(() => new Set(tilesetFilter))
+            openFilterOverlay(event)
+          }}
         />
         <ActionButton
           ref={sortMenuRef}
@@ -231,16 +189,17 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         originX='right'
         originY='bottom'>
         <MenuList dense={true}>
-          {[
-            t('maps.server.thumbnailSize.option.small', 'Small'),
-            t('maps.server.thumbnailSize.option.medium', 'Medium'),
-            t('maps.server.thumbnailSize.option.large', 'Large'),
-          ].map((text, index) => (
+          {ALL_MAP_THUMBNAIL_SIZES.map(size => (
             <SelectableMenuItem
-              key={index}
-              text={text}
-              selected={props.thumbnailSize === index}
-              onClick={() => onSizeSelected(index)}
+              key={size}
+              text={thumbnailSizeToLabel(size, t)}
+              selected={thumbnailSize === size}
+              onClick={() =>
+                (size => {
+                  onSizeChange(size)
+                  closeSizeMenu()
+                })(size)
+              }
             />
           ))}
         </MenuList>
@@ -248,30 +207,73 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
 
       <Popover
         open={filterOverlayOpen}
-        onDismiss={onFilterCancel}
+        onDismiss={closeFilterOverlay}
         anchorX={filterAnchorX ?? 0}
         anchorY={filterAnchorY ?? 0}
         originX='right'
         originY='bottom'>
-        <FilterOverlay onApply={forwardOnFilterApply}>
+        <FilterOverlay
+          onApply={() => {
+            onFilterApply(localNumPlayersFilter, localTilesetFilter)
+            closeFilterOverlay()
+          }}>
           <SectionOverline>
             {t('maps.server.filterOptions.section.numberOfPlayers', 'Number of players')}
           </SectionOverline>
-          <ColumnGroup>{numPlayersItems}</ColumnGroup>
+          <ColumnGroup>
+            {([2, 3, 4, 5, 6, 7, 8] as NumPlayers[]).map((numPlayers: NumPlayers) => (
+              <CheckBox
+                key={numPlayers}
+                label={t('maps.server.filterOptions.numberOfPlayers', '{{numPlayers}} players', {
+                  numPlayers,
+                })}
+                checked={localNumPlayersFilter.has(numPlayers)}
+                onChange={event => {
+                  updateLocalNumPlayersFilter(value => {
+                    if (event.target.checked) {
+                      value.add(numPlayers)
+                    } else {
+                      value.delete(numPlayers)
+                    }
+                  })
+                }}
+              />
+            ))}
+          </ColumnGroup>
           <SectionOverline>
             {t('maps.server.filterOptions.section.tileset', 'Tileset')}
           </SectionOverline>
-          <ColumnGroup>{tilesetItems}</ColumnGroup>
+          <ColumnGroup>
+            {ALL_TILESETS.map(tilesetId => (
+              <CheckBox
+                key={tilesetId}
+                label={tilesetToName(tilesetId, t)}
+                checked={localTilesetFilter.has(tilesetId)}
+                onChange={event => {
+                  updateLocalTilesetFilter(value => {
+                    if (event.target.checked) {
+                      value.add(tilesetId)
+                    } else {
+                      value.delete(tilesetId)
+                    }
+                  })
+                }}
+              />
+            ))}
+          </ColumnGroup>
           <FilterActions>
             <TextButton
               label={t('common.actions.cancel', 'Cancel')}
               color='accent'
-              onClick={onFilterCancel}
+              onClick={closeFilterOverlay}
             />
             <TextButton
               label={t('common.actions.apply', 'Apply')}
               color='accent'
-              onClick={forwardOnFilterApply}
+              onClick={() => {
+                onFilterApply(localNumPlayersFilter, localTilesetFilter)
+                closeFilterOverlay()
+              }}
             />
           </FilterActions>
         </FilterOverlay>
@@ -285,20 +287,21 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         originX='right'
         originY='bottom'>
         <MenuList dense={true}>
-          {[
-            t('maps.server.sortMaps.option.name', 'Name'),
-            t('maps.server.sortMaps.option.numberOfPlayers', 'Number of players'),
-            t('maps.server.sortMaps.option.dateUploaded', 'Date uploaded'),
-          ].map((text, index) => (
-            <SelectableMenuItem
-              key={index}
-              text={text}
-              selected={props.sortOption === index}
-              onClick={() => onSortSelected(index)}
-            />
-          ))}
+          {ALL_MAP_SORT_TYPES.map(sortType => {
+            return (
+              <SelectableMenuItem
+                key={sortType}
+                text={mapSortTypeToLabel(sortType, t)}
+                selected={sortOption === sortType}
+                onClick={() => {
+                  onSortChange(sortType)
+                  closeSortMenu()
+                }}
+              />
+            )
+          })}
         </MenuList>
       </Popover>
     </Container>
   )
-})
+}

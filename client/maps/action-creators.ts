@@ -6,7 +6,6 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapInfoJson,
-  MapPreferences,
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
@@ -203,37 +202,6 @@ export function updateMap(mapId: string, name: string, description: string): Thu
         body: JSON.stringify(params),
       }),
       meta: params,
-    })
-  }
-}
-
-export function getMapPreferences(): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: '@maps/getMapPreferencesBegin',
-    })
-
-    dispatch({
-      type: '@maps/getMapPreferences',
-      payload: fetchJson<MapPreferences>(apiUrl`mapPreferences`),
-    })
-  }
-}
-
-export function updateMapPreferences(preferences: MapPreferences): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: '@maps/updateMapPreferencesBegin',
-      payload: preferences,
-    })
-
-    dispatch({
-      type: '@maps/updateMapPreferences',
-      payload: fetchJson<MapPreferences>(apiUrl`mapPreferences`, {
-        method: 'post',
-        body: JSON.stringify(preferences),
-      }),
-      meta: preferences,
     })
   }
 }

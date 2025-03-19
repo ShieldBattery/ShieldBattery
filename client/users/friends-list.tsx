@@ -96,7 +96,9 @@ const FriendsListContent = styled.div`
 `
 
 function validateFriendsListTab(value: unknown): FriendsListTab | undefined {
-  return value as FriendsListTab
+  return Object.values(FriendsListTab).includes(value as FriendsListTab)
+    ? (value as FriendsListTab)
+    : undefined
 }
 
 export function FriendsList() {
