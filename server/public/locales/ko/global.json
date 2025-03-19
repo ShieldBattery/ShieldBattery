@@ -446,8 +446,7 @@
             "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
             "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
             "mapSelectionDescription": "플레이하고 싶은 맵을 선택하세요. 선택된 맵만 선택됩니다.",
-            "unratedText": "평가 없음",
-            "mapSelectionValidation": "최소한 하나의 지도를 선택하세요."
+            "unratedText": "평가 없음"
         },
         "match": {
             "gameInProgress": "게임 진행 중…",

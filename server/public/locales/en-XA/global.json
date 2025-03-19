@@ -466,8 +466,7 @@
             "vetoDescriptionNoOverlap_one": "$🗡Veto up to {{count}} map. Vetoed maps will never be selected for play.🗡!",
             "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!",
             "mapSelectionDescription": "$🗡Select the maps you would like to play on. Only selected maps will be chosen.🗡!",
-            "unratedText": "$🗡No rating🗡!",
-            "mapSelectionValidation": "$🗡Select at least one map.🗡!"
+            "unratedText": "$🗡No rating🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
