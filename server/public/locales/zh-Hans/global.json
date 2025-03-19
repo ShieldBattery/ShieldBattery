@@ -766,7 +766,8 @@
                     "numberOfPlayers": "玩家人数",
                     "tileset": "地形类型"
                 },
-                "title": "筛选选项"
+                "title": "筛选选项",
+                "numberOfPlayers": "{{numPlayers}} 玩家"
             },
             "noCommunityMaps": "社区尚未公开任何地图。",
             "noOfficialMaps": "尚未上传任何官方地图。",
@@ -796,7 +797,8 @@
             },
             "favoritedMaps": "收藏的地图",
             "regenerated": "图像重新生成",
-            "uploadedMap": "已上传地图"
+            "uploadedMap": "已上传地图",
+            "noUploadedMapsWeb": "您尚未上传任何地图。"
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",
