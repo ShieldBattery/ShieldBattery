@@ -889,7 +889,8 @@
                     "numberOfPlayers": "Количество игроков",
                     "tileset": "Тайлсет"
                 },
-                "title": "Параметры фильтра"
+                "title": "Параметры фильтра",
+                "numberOfPlayers": "{{numPlayers}} игроков"
             },
             "sortMaps": {
                 "option": {
@@ -920,7 +921,8 @@
             "browseLocal": "Просмотр местных карт",
             "uploadedMap": "Загруженная карта",
             "favoritedMaps": "Избранные карты",
-            "regenerated": "Изображения регенерированы"
+            "regenerated": "Изображения регенерированы",
+            "noUploadedMapsWeb": "Вы не загрузили ни одной карты."
         },
         "activity": {
             "title": "Карты"
