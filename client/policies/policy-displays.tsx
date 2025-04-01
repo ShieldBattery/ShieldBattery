@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { BottomLinks } from '../landing/bottom-links'
+import { BottomLinks } from '../home/bottom-links'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodyLarge, bodyMedium, displaySmall, titleLarge, titleSmall } from '../styles/typography'
@@ -42,7 +42,7 @@ const PageRoot = styled.div`
 
 const PageContentRoot = styled.div`
   max-width: 840px;
-  margin: 0 auto !important;
+  margin: 16px auto !important;
   padding-right: var(--pixel-shove-x, 0) !important;
 `
 

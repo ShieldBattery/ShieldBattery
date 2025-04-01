@@ -9,6 +9,8 @@ import { Link, LinkProps } from 'wouter'
  * want to link somewhere.
  */
 export const StyledAnchor = styled.a`
+  position: relative;
+
   &:link,
   &:hover,
   &:active,
@@ -19,12 +21,19 @@ export const StyledAnchor = styled.a`
 `
 
 export function LinkButton(
-  props: Simplify<Omit<LinkProps, 'asChild' | 'to'> & { href: string; tabIndex?: number }>,
+  props: Simplify<
+    Omit<LinkProps, 'asChild' | 'to'> & {
+      href: string
+      tabIndex?: number
+      className?: string
+      ref?: React.Ref<HTMLAnchorElement>
+    }
+  >,
 ) {
-  const { children, tabIndex, ...rest } = props
+  const { children, tabIndex, className, ref, ...rest } = props
   return (
     <Link {...rest} asChild={true}>
-      <StyledAnchor {...rest} tabIndex={tabIndex}>
+      <StyledAnchor {...rest} ref={ref} className={className} tabIndex={tabIndex}>
         {children}
       </StyledAnchor>
     </Link>

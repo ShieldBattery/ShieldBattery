@@ -25,7 +25,7 @@ export type TransInterpolation = any
 
 /**
  * The locale that was reported to us by the user's browser. This locale can be overwritten by
- * user's explicit choice in the top-links dropdown. We send this locale to the server during
+ * user's explicit choice in the settings. We send this locale to the server during
  * login/signup/getCurrentSession actions.
  */
 export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')

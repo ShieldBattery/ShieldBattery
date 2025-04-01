@@ -1,29 +1,21 @@
 import React, { useLayoutEffect, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { DISCORD_URL } from '../../common/url-constants'
 import { MaterialIcon } from '../icons/material/material-icon'
-import LogoText from '../logos/logotext-640x100.svg'
-import { elevationPlus2 } from '../material/shadows'
-import { makePublicAssetUrl } from '../network/server-url'
-import { ContainerLevel, containerStyles } from '../styles/colors'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { withAttrs } from '../styles/styled-with-attrs'
-import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
+import { bodyLarge, headlineMedium, titleMedium } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
 const makeQuestionId = (question: string) => {
   return encodeURIComponent(question.replace(/\s/g, '-').replace('?', ''))
 }
 
-const pageWidth = css`
-  width: 100%;
-  max-width: 940px;
-`
-
 const QuestionSectionRoot = styled.div`
-  ${pageWidth};
-  padding: 48px 48px 48px 0;
+  padding-block: 24px;
+  padding-right: 16px;
   border-bottom: 1px solid var(--theme-outline);
 
   @media screen and (max-width: 980px) {
@@ -34,11 +26,12 @@ const QuestionSectionRoot = styled.div`
 const QuestionContainer = styled.div`
   display: flex;
   flex-direction: row;
+  align-items: center;
 `
 
 const StyledQuestionIcon = withAttrs(styled(MaterialIcon), {
   icon: 'help',
-  size: 48,
+  size: 32,
   filled: false,
 })`
   flex-shrink: 0;
@@ -46,8 +39,7 @@ const StyledQuestionIcon = withAttrs(styled(MaterialIcon), {
   margin-right: 16px;
 
   display: inline-block;
-  color: var(--color-blue80);
-  vertical-align: middle;
+  color: var(--theme-on-surface-variant);
 
   @media screen and (max-width: 980px) {
     margin-left: 0px;
@@ -55,12 +47,11 @@ const StyledQuestionIcon = withAttrs(styled(MaterialIcon), {
 `
 
 const QuestionText = styled.div`
-  ${titleLarge};
+  ${titleMedium};
   margin: 0;
   display: inline-block;
 
-  color: var(--color-blue90);
-  line-height: 48px;
+  color: var(--theme-on-surface-variant);
   vertical-align: middle;
 
   @media screen and (max-width: 980px) {
@@ -69,10 +60,10 @@ const QuestionText = styled.div`
 `
 
 const AnswerText = styled.div`
-  ${titleLarge};
-  margin: 8px 0 0 80px;
+  ${bodyLarge};
+  margin: 8px 0 0 64px;
 
-  color: var(--theme-on-surface-variant);
+  color: var(--theme-on-surface);
   font-weight: 300;
 
   & > p {
@@ -121,104 +112,20 @@ function FragmentLink({
   return <a href={`${to}#${fragment}`}>{children}</a>
 }
 
-const Splash = styled.div`
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: var(--theme-container-low);
-  overflow: auto;
-
+const Root = styled(CenteredContentContainer).attrs({ $targetWidth: 860 })`
   & * {
     user-select: text;
   }
 `
 
-const LogoContainer = styled.div`
-  ${pageWidth};
-  position: absolute;
-  top: 38px;
-  left: calc(50% - 940px / 2);
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-start;
-  pointer-events: none;
-
-  @media screen and (max-width: 980px) {
-    max-width: 100%;
-    left: 0;
-    justify-content: center;
-    padding: 0 16px;
-  }
-`
-
-const Logo = styled.img`
-  margin-top: 8px;
-  pointer-events: none;
-
-  @media screen and (max-width: 980px) {
-    display: none;
-  }
-`
-
-const StyledLogoText = styled(LogoText)`
-  width: 100%;
-  max-width: 464px;
-  margin-top: 80px;
-  pointer-events: none;
-
-  @media screen and (max-width: 980px) {
-    margin-top: 24px;
-  }
-`
-
-const Intro = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-  ${elevationPlus2};
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  width: 100%;
-  margin-top: 142px;
-
-  @media screen and (max-width: 980px) {
-    margin-top: 86px;
-  }
-`
-
-const FaqHeaderContainer = styled.div`
-  ${pageWidth};
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-
-  @media screen and (max-width: 980px) {
-    justify-content: center;
-  }
-`
-
-const FaqHeader = styled.div`
-  ${displayLarge};
-  width: 100%;
-  max-width: 464px;
-  margin: 0;
-  padding: 64px 0;
-
-  @media screen and (max-width: 980px) {
-    padding: 24px 16px;
-  }
-`
-
 const FaqToc = styled.div`
-  ${pageWidth};
+  ${bodyLarge};
   padding: 48px 0;
 
   display: flex;
   flex-direction: column;
   align-items: center;
 
-  font-size: 20px;
   line-height: 1.5;
   border-bottom: 1px solid var(--theme-outline);
 
@@ -425,16 +332,7 @@ export function Faq() {
   ]
 
   return (
-    <Splash>
-      <LogoContainer>
-        <Logo src={makePublicAssetUrl('/images/splash-logo.png')} />
-        <StyledLogoText />
-      </LogoContainer>
-      <Intro>
-        <FaqHeaderContainer>
-          <FaqHeader>{t('landing.faq.header', 'FAQ')}</FaqHeader>
-        </FaqHeaderContainer>
-      </Intro>
+    <Root>
       <FaqToc id={'faqToc'}>
         <FaqTitle>{t('landing.faq.title', 'Frequently Asked Questions')}</FaqTitle>
         <ul>
@@ -451,6 +349,6 @@ export function Faq() {
         <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
       ))}
       <BottomLinks />
-    </Splash>
+    </Root>
   )
 }

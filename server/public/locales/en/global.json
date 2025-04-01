@@ -261,6 +261,7 @@
       "next": "Next",
       "okay": "Okay",
       "previous": "Previous",
+      "read": "Read",
       "refresh": "Refresh",
       "remove": "Remove",
       "reveal": "Reveal",
@@ -371,6 +372,11 @@
       "title": "Games"
     }
   },
+  "home": {
+    "latestNewsTitle": "Latest news",
+    "liveMatchesTitle": "Live matches",
+    "supportTitle": "Support the project"
+  },
   "ladder": {
     "activity": {
       "title": "Ladder"
@@ -401,11 +407,11 @@
   "landing": {
     "bottomLinks": {
       "acceptableUsePolicy": "Acceptable Use Policy",
+      "faq": "FAQ",
       "privacyPolicy": "Privacy Policy",
       "termsOfService": "Terms of Service"
     },
     "faq": {
-      "header": "FAQ",
       "hotkeyCustomizationAnswer": "Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.",
       "hotkeyCustomizationQuestion": "Is hotkey customization allowed or provided?",
       "isShieldBatteryFreeAnswer": "<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>",
@@ -785,7 +791,6 @@
       "logOut": "Log out",
       "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
-      "viewChangelog": "View changelog",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
       "whispers": "Whispers"

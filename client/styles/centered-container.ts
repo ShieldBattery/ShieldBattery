@@ -24,8 +24,8 @@ export const CenteredContentContainer = styled.div<{
     Simulate margin: auto with only padding so that the scrollbar falls on the right edge of the
     parent container.
   */
-  padding: 0 round(down, calc(50% - var(--_half-content-width)), 1px) 0
-    round(up, calc(50% - var(--_half-content-width)), 1px);
+  padding-inline: round(up, calc(50% - var(--_half-content-width)), 1px)
+    round(down, calc(50% - var(--_half-content-width)), 1px);
 
   overflow-x: hidden;
   overflow-y: auto;

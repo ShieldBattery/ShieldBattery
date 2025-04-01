@@ -3,6 +3,16 @@ import { THEME_CSS } from './colors'
 import { bodyMedium, inter } from './typography'
 
 const GlobalStyle = createGlobalStyle`
+  /**
+    Helper property that can be used to resolve things like vw, cqw, etc. into usable values. Just
+    assign your value to the property, then use the property in whatever calculatons you need.
+  */
+  @property --resolved-length {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0;
+  }
+
   *, *::before, *::after {
     box-sizing: border-box;
     /**

@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -69,6 +70,34 @@ const RippleRoot = styled.div<{
 
   --sb-ripple-fg-opacity: var(--sb-ripple-press-opacity, 0.12);
 
+  --_before-opacity: ${props => {
+    if (props.$focused) {
+      return 'var(--sb-ripple-focus-opacity, 0.12)'
+    } else if (props.$hovered) {
+      return 'var(--sb-ripple-hover-opacity, 0.04)'
+    } else {
+      return '0'
+    }
+  }};
+  --_after-transform: ${props =>
+    props.$deactivating
+      ? 'translate(var(--sb-ripple-translate-end, 0)) scale(var(--sb-ripple-fg-scale, 1))'
+      : 'scale(0)'};
+  --_after-animation: ${props => {
+    if (props.$activating) {
+      return css`
+        ${fgRadiusIn} ${TRANSLATE_IN_DURATION_MS}ms forwards,
+                ${fgOpacityIn} ${OPACITY_IN_DURATION_MS}ms forwards
+      `
+    } else if (props.$deactivating) {
+      return css`
+        ${fgOpacityOut} ${OPACITY_OUT_DURATION_MS}ms
+      `
+    } else {
+      return 'none'
+    }
+  }};
+
   // Used for "static" states: hover + focus
   &::before,
   // Used for dynamic activations: mouse/keyboard presses (note that this applies additively to
@@ -95,15 +124,7 @@ const RippleRoot = styled.div<{
     z-index: 1;
 
     transition-duration: ${props => (props.$focused ? '75ms' : '15ms')};
-    opacity: ${props => {
-      if (props.$focused) {
-        return 'var(--sb-ripple-focus-opacity, 0.12)'
-      } else if (props.$hovered) {
-        return 'var(--sb-ripple-hover-opacity, 0.04)'
-      } else {
-        return '0'
-      }
-    }};
+    opacity: var(--_before-opacity, 0);
   }
 
   &::after {
@@ -112,32 +133,17 @@ const RippleRoot = styled.div<{
     width: var(--sb-ripple-fg-size, 100%);
     height: var(--sb-ripple-fg-size, 100%);
 
-    transform: ${props =>
-      props.$deactivating
-        ? 'translate(var(--sb-ripple-translate-end, 0)) scale(var(--sb-ripple-fg-scale, 1))'
-        : 'scale(0)'};
+    transform: var(--_after-transform, scale(0));
     transform-origin: center center;
 
-    animation: ${props => {
-      if (props.$activating) {
-        return css`
-          ${fgRadiusIn} ${TRANSLATE_IN_DURATION_MS}ms forwards,
-                ${fgOpacityIn} ${OPACITY_IN_DURATION_MS}ms forwards
-        `
-      } else if (props.$deactivating) {
-        return css`
-          ${fgOpacityOut} ${OPACITY_OUT_DURATION_MS}ms
-        `
-      } else {
-        return 'none'
-      }
-    }};
+    animation: var(--_after-animation, none);
   }
 `
 
 export interface RippleProps {
   disabled?: boolean
   className?: string
+  ref?: React.Ref<RippleController>
 }
 
 /**
@@ -209,83 +215,232 @@ const activatedTargets: Array<EventTarget | null> = []
  *   - `--sb-ripple-focus-opacity` (defaults to 0.12)
  *   - `--sb-ripple-press-opacity` (defaults to 0.12)
  */
-export const Ripple = React.memo(
-  React.forwardRef<RippleController, RippleProps>(({ disabled, className }, ref) => {
-    const rootRef = useRef<HTMLDivElement | null>(null)
-    const disabledRef = useValueAsRef(disabled)
+export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => {
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const disabledRef = useValueAsRef(disabled)
 
-    const activationStateRef = useRef<ActivationState>({})
-    const styleRef = useRef<RippleStyle>({})
-    const activationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-    const fgDeactivationRemovalTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-    const clearActivatedTargetsReqRef = useRef<number>(undefined)
-    const runDeactivationReqRef = useRef<number>(undefined)
+  const activationStateRef = useRef<ActivationState>({})
+  const activationTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const fgDeactivationRemovalTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const clearActivatedTargetsReqRef = useRef<number>(undefined)
+  const runDeactivationReqRef = useRef<number>(undefined)
 
-    const [focused, setFocused] = useState(false)
-    const [hovered, setHovered] = useState(false)
-    const startActivationRef = useRef(false)
-    const [activating, setActivating] = useState(false)
-    const [deactivating, setDeactivating] = useState(false)
-    const wasActivating = usePrevious(activating)
-    const wasDeactivating = usePrevious(deactivating)
-    const forceUpdate = useForceUpdate()
+  const [fgSize, setFgSize] = useState('0px')
+  const [fgScale, setFgScale] = useState(0)
+  const [translateStart, setTranslateStart] = useState('0')
+  const [translateEnd, setTranslateEnd] = useState('0')
 
-    const doLayout: () => [frame?: DOMRect, initialSize?: number, fgScale?: number] =
-      useCallback(() => {
-        if (!rootRef.current) {
-          return []
-        }
+  const [focused, setFocused] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const startActivationRef = useRef(false)
+  const [activating, setActivating] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+  const wasActivating = usePrevious(activating)
+  const wasDeactivating = usePrevious(deactivating)
+  const forceUpdate = useForceUpdate()
 
-        const frame = rootRef.current.getBoundingClientRect()
-        const maxDim = Math.max(frame.height, frame.width)
-        const hypotenuse = Math.sqrt(frame.width ** 2 + frame.height ** 2)
-        const maxRadius = hypotenuse + RIPPLE_PADDING
-
-        const initialSize = Math.floor(maxDim * INITIAL_ORIGIN_SCALE)
-        const fgScale = maxRadius / initialSize
-
-        styleRef.current['--sb-ripple-fg-size'] = `${initialSize}px`
-        styleRef.current['--sb-ripple-fg-scale'] = fgScale
-
-        return [frame, initialSize, fgScale]
-      }, [])
-    const animateActivation = useCallback(() => {
-      const [frame, initialSize = 0] = doLayout()
-
-      if (!frame) {
-        // This should really never happen, as it implies we were somehow activated before rootRef
-        // was set
-        return
+  const doLayout: () => [frame?: DOMRect, initialSize?: number, fgScale?: number] =
+    useCallback(() => {
+      if (!rootRef.current) {
+        return []
       }
 
-      const { activationEvent, wasActivatedByPointer } = activationStateRef.current
-      let startPoint: { x: number; y: number }
-      if (wasActivatedByPointer) {
-        startPoint = getNormalizedEventCoords(
-          activationEvent as React.MouseEvent,
-          { x: window.pageXOffset, y: window.pageYOffset },
-          frame,
-        )
-      } else {
-        startPoint = {
-          x: frame.width / 2,
-          y: frame.height / 2,
-        }
-      }
-      // Center around starting point
+      const frame = rootRef.current.getBoundingClientRect()
+      const maxDim = Math.max(frame.height, frame.width)
+      const hypotenuse = Math.sqrt(frame.width ** 2 + frame.height ** 2)
+      const maxRadius = hypotenuse + RIPPLE_PADDING
+
+      const initialSize = Math.floor(maxDim * INITIAL_ORIGIN_SCALE)
+      const newFgScale = maxRadius / initialSize
+
+      setFgSize(`${initialSize}px`)
+      setFgScale(newFgScale)
+
+      return [frame, initialSize, newFgScale]
+    }, [])
+  const animateActivation = useCallback(() => {
+    const [frame, initialSize = 0] = doLayout()
+
+    if (!frame) {
+      // This should really never happen, as it implies we were somehow activated before rootRef
+      // was set
+      return
+    }
+
+    const { activationEvent, wasActivatedByPointer } = activationStateRef.current
+    let startPoint: { x: number; y: number }
+    if (wasActivatedByPointer) {
+      startPoint = getNormalizedEventCoords(
+        activationEvent as React.MouseEvent,
+        { x: window.pageXOffset, y: window.pageYOffset },
+        frame,
+      )
+    } else {
       startPoint = {
-        x: startPoint.x - initialSize / 2,
-        y: startPoint.y - initialSize / 2,
+        x: frame.width / 2,
+        y: frame.height / 2,
       }
-      // Finish at the center of the element
-      const endPoint = {
-        x: frame.width / 2 - initialSize / 2,
-        y: frame.height / 2 - initialSize / 2,
-      }
+    }
+    // Center around starting point
+    startPoint = {
+      x: startPoint.x - initialSize / 2,
+      y: startPoint.y - initialSize / 2,
+    }
+    // Finish at the center of the element
+    const endPoint = {
+      x: frame.width / 2 - initialSize / 2,
+      y: frame.height / 2 - initialSize / 2,
+    }
 
-      styleRef.current['--sb-ripple-translate-start'] = `${startPoint.x}px, ${startPoint.y}px`
-      styleRef.current['--sb-ripple-translate-end'] = `${endPoint.x}px, ${endPoint.y}px`
+    setTranslateStart(`${startPoint.x}px, ${startPoint.y}px`)
+    setTranslateEnd(`${endPoint.x}px, ${endPoint.y}px`)
 
+    if (activationTimerRef.current) {
+      clearTimeout(activationTimerRef.current)
+      activationTimerRef.current = undefined
+    }
+    if (fgDeactivationRemovalTimerRef.current) {
+      clearTimeout(fgDeactivationRemovalTimerRef.current)
+      fgDeactivationRemovalTimerRef.current = undefined
+    }
+
+    setDeactivating(false)
+    startActivationRef.current = true
+    // In case we weren't deactivating previously, we need to force an update as well in order
+    // to start the animations
+    forceUpdate()
+  }, [doLayout, forceUpdate])
+
+  const maybeRunDeactivation = useCallback(() => {
+    // Called only after both: the activation animation has completed, and the pointing device
+    // that caused the activation has been released
+    const { hasDeactivationAnimRun, isActivated, hasActivationAnimFinished } =
+      activationStateRef.current
+
+    const activationHasEnded = hasDeactivationAnimRun || !isActivated
+
+    if (activationHasEnded && hasActivationAnimFinished) {
+      setActivating(false)
+      activationStateRef.current = {}
+    }
+  }, [])
+  const onActivationTimer = useCallback(() => {
+    activationStateRef.current.hasActivationAnimFinished = true
+    maybeRunDeactivation()
+  }, [maybeRunDeactivation])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      onActivate(event?: React.MouseEvent | React.KeyboardEvent) {
+        if (disabledRef.current) {
+          return
+        }
+
+        const activationState = activationStateRef.current
+        if (activationState.isActivated) {
+          return
+        }
+
+        activationState.isActivated = true
+        activationState.isProgrammatic = event === undefined
+        activationState.activationEvent = event
+        activationState.wasActivatedByPointer = event?.type === 'mousedown'
+
+        const hasActivatedDescendant = event && activatedTargets.length
+        if (hasActivatedDescendant) {
+          // Let the descendant ripple instead of us (e.g. a button on a clickable card)
+          activationStateRef.current = {}
+          return
+        }
+
+        if (event) {
+          activatedTargets.push(event.target)
+        }
+
+        animateActivation()
+
+        if (!clearActivatedTargetsReqRef.current) {
+          clearActivatedTargetsReqRef.current = requestAnimationFrame(() => {
+            clearActivatedTargetsReqRef.current = undefined
+            activatedTargets.length = 0
+          })
+        }
+      },
+
+      onDeactivate() {
+        const { isActivated, isProgrammatic } = activationStateRef.current
+
+        if (!isActivated) {
+          return
+        }
+
+        if (!isProgrammatic && !runDeactivationReqRef.current) {
+          runDeactivationReqRef.current = requestAnimationFrame(() => {
+            runDeactivationReqRef.current = undefined
+
+            activationStateRef.current.hasDeactivationAnimRun = true
+            maybeRunDeactivation()
+          })
+        } else {
+          activationStateRef.current = {}
+        }
+      },
+
+      onFocus() {
+        setFocused(true)
+      },
+
+      onBlur() {
+        setFocused(false)
+        // NOTE(tec27): Sometimes blurs occur even though we never saw focus (because we only
+        // usually get notifed of focused for :focus-visible elements). The code expects that we
+        // will still re-render the ripple in this case, but the above `setFocused` call won't
+        // trigger a re-render since it's the same value.
+        forceUpdate()
+      },
+
+      onMouseEnter() {
+        setHovered(true)
+      },
+
+      onMouseLeave() {
+        setHovered(false)
+      },
+    }),
+    [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
+  )
+
+  // eslint-disable-next-line react-compiler/react-compiler
+  const isStartingActivation = startActivationRef.current
+  useLayoutEffect(() => {
+    if (wasDeactivating && !deactivating) {
+      // Ensure that layout happens after the classes change so that the activation animation
+      // runs
+      rootRef?.current?.getBoundingClientRect()
+    }
+
+    if (isStartingActivation && activationStateRef.current.isActivated) {
+      startActivationRef.current = false
+      setActivating(true)
+      activationTimerRef.current = setTimeout(onActivationTimer, DEACTIVATION_TIMEOUT_MS)
+    }
+    // eslint-disable-next-line react-compiler/react-compiler
+  }, [wasDeactivating, deactivating, isStartingActivation, onActivationTimer])
+  useLayoutEffect(() => {
+    if (wasActivating && !activating) {
+      // Ensure that layout happens after the classes change so that the deactivation animation
+      // runs
+      rootRef?.current?.getBoundingClientRect()
+      setDeactivating(true)
+      fgDeactivationRemovalTimerRef.current = setTimeout(() => {
+        setDeactivating(false)
+      }, FG_DEACTIVATION_MS)
+    }
+  }, [wasActivating, activating])
+
+  useEffect(() => {
+    return () => {
       if (activationTimerRef.current) {
         clearTimeout(activationTimerRef.current)
         activationTimerRef.current = undefined
@@ -294,177 +449,43 @@ export const Ripple = React.memo(
         clearTimeout(fgDeactivationRemovalTimerRef.current)
         fgDeactivationRemovalTimerRef.current = undefined
       }
-
-      setDeactivating(false)
-      startActivationRef.current = true
-      // In case we weren't deactivating previously, we need to force an update as well in order
-      // to start the animations
-      forceUpdate()
-    }, [doLayout, forceUpdate])
-
-    const maybeRunDeactivation = useCallback(() => {
-      // Called only after both: the activation animation has completed, and the pointing device
-      // that caused the activation has been released
-      const { hasDeactivationAnimRun, isActivated, hasActivationAnimFinished } =
-        activationStateRef.current
-
-      const activationHasEnded = hasDeactivationAnimRun || !isActivated
-
-      if (activationHasEnded && hasActivationAnimFinished) {
-        setActivating(false)
-        activationStateRef.current = {}
+      if (clearActivatedTargetsReqRef.current) {
+        cancelAnimationFrame(clearActivatedTargetsReqRef.current)
+        clearActivatedTargetsReqRef.current = undefined
       }
-    }, [])
-    const onActivationTimer = useCallback(() => {
-      activationStateRef.current.hasActivationAnimFinished = true
-      maybeRunDeactivation()
-    }, [maybeRunDeactivation])
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        onActivate(event?: React.MouseEvent | React.KeyboardEvent) {
-          if (disabledRef.current) {
-            return
-          }
-
-          const activationState = activationStateRef.current
-          if (activationState.isActivated) {
-            return
-          }
-
-          activationState.isActivated = true
-          activationState.isProgrammatic = event === undefined
-          activationState.activationEvent = event
-          activationState.wasActivatedByPointer = event?.type === 'mousedown'
-
-          const hasActivatedDescendant = event && activatedTargets.length
-          if (hasActivatedDescendant) {
-            // Let the descendant ripple instead of us (e.g. a button on a clickable card)
-            activationStateRef.current = {}
-            return
-          }
-
-          if (event) {
-            activatedTargets.push(event.target)
-          }
-
-          animateActivation()
-
-          if (!clearActivatedTargetsReqRef.current) {
-            clearActivatedTargetsReqRef.current = requestAnimationFrame(() => {
-              clearActivatedTargetsReqRef.current = undefined
-              activatedTargets.length = 0
-            })
-          }
-        },
-
-        onDeactivate() {
-          const { isActivated, isProgrammatic } = activationStateRef.current
-
-          if (!isActivated) {
-            return
-          }
-
-          if (!isProgrammatic && !runDeactivationReqRef.current) {
-            runDeactivationReqRef.current = requestAnimationFrame(() => {
-              runDeactivationReqRef.current = undefined
-
-              activationStateRef.current.hasDeactivationAnimRun = true
-              maybeRunDeactivation()
-            })
-          } else {
-            activationStateRef.current = {}
-          }
-        },
-
-        onFocus() {
-          setFocused(true)
-        },
-
-        onBlur() {
-          setFocused(false)
-          // NOTE(tec27): Sometimes blurs occur even though we never saw focus (because we only
-          // usually get notifed of focused for :focus-visible elements). The code expects that we
-          // will still re-render the ripple in this case, but the above `setFocused` call won't
-          // trigger a re-render since it's the same value.
-          forceUpdate()
-        },
-
-        onMouseEnter() {
-          setHovered(true)
-        },
-
-        onMouseLeave() {
-          setHovered(false)
-        },
-      }),
-      [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
-    )
-
-    // eslint-disable-next-line react-compiler/react-compiler
-    const isStartingActivation = startActivationRef.current
-    useLayoutEffect(() => {
-      if (wasDeactivating && !deactivating) {
-        // Ensure that layout happens after the classes change so that the activation animation
-        // runs
-        rootRef?.current?.getBoundingClientRect()
+      if (runDeactivationReqRef.current) {
+        cancelAnimationFrame(runDeactivationReqRef.current)
+        runDeactivationReqRef.current = undefined
       }
+    }
+  }, [])
 
-      if (isStartingActivation && activationStateRef.current.isActivated) {
-        startActivationRef.current = false
-        setActivating(true)
-        activationTimerRef.current = setTimeout(onActivationTimer, DEACTIVATION_TIMEOUT_MS)
-      }
-      // eslint-disable-next-line react-compiler/react-compiler
-    }, [wasDeactivating, deactivating, isStartingActivation, onActivationTimer])
-    useLayoutEffect(() => {
-      if (wasActivating && !activating) {
-        // Ensure that layout happens after the classes change so that the deactivation animation
-        // runs
-        rootRef?.current?.getBoundingClientRect()
-        setDeactivating(true)
-        fgDeactivationRemovalTimerRef.current = setTimeout(() => {
-          setDeactivating(false)
-        }, FG_DEACTIVATION_MS)
-      }
-    }, [wasActivating, activating])
+  useLayoutEffect(() => {
+    doLayout()
+  }, [doLayout])
 
-    useEffect(() => {
-      return () => {
-        if (activationTimerRef.current) {
-          clearTimeout(activationTimerRef.current)
-          activationTimerRef.current = undefined
-        }
-        if (fgDeactivationRemovalTimerRef.current) {
-          clearTimeout(fgDeactivationRemovalTimerRef.current)
-          fgDeactivationRemovalTimerRef.current = undefined
-        }
-        if (clearActivatedTargetsReqRef.current) {
-          cancelAnimationFrame(clearActivatedTargetsReqRef.current)
-          clearActivatedTargetsReqRef.current = undefined
-        }
-        if (runDeactivationReqRef.current) {
-          cancelAnimationFrame(runDeactivationReqRef.current)
-          runDeactivationReqRef.current = undefined
-        }
-      }
-    }, [])
+  const style = useMemo<RippleStyle>(
+    () => ({
+      '--sb-ripple-fg-size': fgSize,
+      '--sb-ripple-fg-scale': fgScale,
+      '--sb-ripple-translate-start': translateStart,
+      '--sb-ripple-translate-end': translateEnd,
+    }),
+    [fgScale, fgSize, translateEnd, translateStart],
+  )
 
-    return (
-      <RippleRoot
-        ref={rootRef}
-        className={className}
-        // eslint-disable-next-line react-compiler/react-compiler
-        style={{ ...styleRef.current }}
-        $hovered={!disabled && hovered}
-        $focused={!disabled && focused}
-        $activating={activating}
-        $deactivating={deactivating}
-      />
-    )
-  }),
-)
+  return (
+    <RippleRoot
+      ref={rootRef}
+      className={className}
+      style={style}
+      $hovered={!disabled && hovered}
+      $focused={!disabled && focused}
+      $activating={activating}
+      $deactivating={deactivating}
+    />
+  )
+})
 
 function getNormalizedEventCoords(
   event: React.MouseEvent | undefined,

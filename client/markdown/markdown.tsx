@@ -60,6 +60,12 @@ const Root = styled.div`
     padding-left: 28px;
   }
 
+  li + li,
+  li > ul,
+  li > ol {
+    margin-top: 8px;
+  }
+
   blockquote {
     margin-left: 0;
     margin-right: 16px;

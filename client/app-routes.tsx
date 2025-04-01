@@ -9,11 +9,12 @@ import { ChannelRouteComponent } from './chat/chat-routes'
 import { DownloadPage } from './download/download-page'
 import { PlayRoot } from './gameplay-activity/play-root'
 import { GamesRouteComponent } from './games/route'
-import { Home } from './home'
+import { Faq } from './home/faq'
+import { Home } from './home/home'
 import { LadderRouteComponent } from './ladder/ladder'
-import { Faq } from './landing/faq'
 import { LeagueRoot } from './leagues/league-routes'
 import { MapsRoot } from './maps/maps-root'
+import { StaticNewsRoute } from './news/static-news-details'
 import {
   AcceptableUsePage,
   PrivacyPolicyPage,
@@ -65,6 +66,7 @@ export function AppRoutes() {
       {IS_ELECTRON ? <Route path='/matchmaking/*?' component={MatchmakingView} /> : <></>}
       <Route path='/play/*?' component={PlayRoot} />
       <Route path='/replays/*?' component={ReplaysRoot} />
+      <Route path='/static-news/*?' component={StaticNewsRoute} />
       <Route path='/users/*?' component={ProfileRouteComponent} />
       <Route path='/whispers/*?' component={WhisperRouteComponent} />
       <Route component={Home} />

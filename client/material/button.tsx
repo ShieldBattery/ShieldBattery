@@ -175,6 +175,11 @@ export function useButtonState({
       if (activationTarget.matches(':active')) {
         rippleRef.current?.onActivate(event)
         keyDownActivatedRef.current = true
+
+        if (activationTarget.matches(':focus-visible')) {
+          setFocused(true)
+          rippleRef.current?.onFocus()
+        }
       } else {
         keyDownActivatedRef.current = false
 
@@ -184,6 +189,11 @@ export function useButtonState({
           if (activationTarget.matches(':active')) {
             rippleRef.current?.onActivate(event)
             keyDownActivatedRef.current = true
+          }
+
+          if (activationTarget.matches(':focus-visible')) {
+            setFocused(true)
+            rippleRef.current?.onFocus()
           }
         })
       }

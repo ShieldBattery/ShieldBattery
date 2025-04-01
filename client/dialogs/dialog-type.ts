@@ -8,7 +8,6 @@ export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
   BugReport = 'bugReport',
-  Changelog = 'changelog',
   ChangeEmail = 'changeEmail',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
@@ -36,7 +35,6 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
-type ChangelogDialogPayload = BaseDialogPayload<typeof DialogType.Changelog>
 type ChangeEmailDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeEmail,
   { currentEmail: string }
@@ -117,7 +115,6 @@ export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
   | BugReportDialogPayload
-  | ChangelogDialogPayload
   | ChangeEmailDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload

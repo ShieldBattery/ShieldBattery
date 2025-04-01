@@ -13,12 +13,12 @@ type ExtractProps<C> = C extends StyledInstance<any, any, infer P, any> ? P : ne
 // TODO(tec27): Delete if https://github.com/styled-components/styled-components/issues/4314 gets
 // fixed
 export function withAttrs<
+  C extends StyledInstance<R, T, OP, OS>,
+  A extends Partial<ExtractProps<C>>,
   R extends Runtime,
   T extends StyledTarget<R>,
   OP extends object,
   OS extends object,
-  C extends StyledInstance<R, T, OP, OS>,
-  A extends Partial<ExtractProps<C>>,
 >(component: C, attrs: A) {
-  return component.attrs<Partial<A>>(attrs as A)
+  return component.attrs<Partial<A>>(attrs)
 }

@@ -6,7 +6,6 @@ import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
-import { ChangelogDialog } from '../changelog/changelog-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
 import { FocusTrap } from '../dom/focus-trap'
@@ -66,8 +65,6 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptableUseDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
-    case DialogType.Changelog:
-      return { component: ChangelogDialog }
     case DialogType.ChangeEmail:
       return { component: ChangeEmailDialog }
     case DialogType.ChangePassword:

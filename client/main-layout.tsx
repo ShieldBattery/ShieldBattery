@@ -9,7 +9,6 @@ import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
 import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
 import { ConnectedAvatar } from './avatars/avatar'
-import { openChangelog } from './changelog/action-creators'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
@@ -815,14 +814,6 @@ function AppBar({
               onClick={() => {
                 closeProfileOverlay()
                 navigateToUserProfile(selfUser.id, selfUser.name)
-              }}
-            />
-            <MenuItem
-              icon={<MaterialIcon icon='new_releases' />}
-              text={t('navigation.leftNav.viewChangelog', 'View changelog')}
-              onClick={() => {
-                closeProfileOverlay()
-                dispatch(openChangelog())
               }}
             />
             {IS_ELECTRON ? (

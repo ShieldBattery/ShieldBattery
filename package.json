@@ -269,6 +269,7 @@
     "babel-plugin-styled-components": "^2.1.4",
     "concat-stream": "^2.0.0",
     "d3-time-format": "^4.1.0",
+    "dedent": "^1.5.3",
     "deep-equal": "^2.2.3",
     "electron": "^35.1.4",
     "electron-builder": "^26.0.12",
