@@ -456,7 +456,7 @@ export const Ripple = React.memo(
         ref={rootRef}
         className={className}
         // eslint-disable-next-line react-compiler/react-compiler
-        style={styleRef.current}
+        style={{ ...styleRef.current }}
         $hovered={!disabled && hovered}
         $focused={!disabled && focused}
         $activating={activating}
