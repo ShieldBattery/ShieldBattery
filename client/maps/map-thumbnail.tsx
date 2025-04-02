@@ -11,6 +11,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
@@ -159,7 +160,7 @@ const NoImageContainer = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 96 })`
+const NoImageIcon = withAttrs(styled(MaterialIcon), { icon: 'image', size: 96 })`
   margin-bottom: 24px;
 `
 

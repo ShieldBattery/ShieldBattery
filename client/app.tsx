@@ -93,7 +93,7 @@ export default function App() {
   const graphqlClient = useUserSpecificGraphqlClient()
 
   return (
-    <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
+    <StyleSheetManager enableVendorPrefixes={!IS_ELECTRON}>
       <>
         <ResetStyle />
         <GlobalStyle />

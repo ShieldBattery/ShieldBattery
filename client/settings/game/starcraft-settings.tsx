@@ -12,6 +12,7 @@ import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { withAttrs } from '../../styles/styled-with-attrs'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
@@ -49,11 +50,11 @@ const CurrentPathValue = styled.div`
   border-radius: 4px;
 `
 
-const ValidIcon = styled(MaterialIcon).attrs({ icon: 'check' })`
+const ValidIcon = withAttrs(styled(MaterialIcon), { icon: 'check' })`
   color: var(--theme-success);
 `
 
-const InvalidIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
+const InvalidIcon = withAttrs(styled(MaterialIcon), { icon: 'error' })`
   color: var(--theme-error);
 `
 

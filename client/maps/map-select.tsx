@@ -7,6 +7,7 @@ import ImageList from '../material/image-list'
 import { elevationPlus1, elevationPlus2 } from '../material/shadows'
 import { useStableCallback } from '../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelLarge } from '../styles/typography'
 import { ConnectedMapThumbnail } from './map-thumbnail'
 
@@ -24,7 +25,7 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`
+const StyledSelectedIcon = withAttrs(styled(MaterialIcon), { icon: 'check_circle', size: 64 })`
   text-shadow: 0 0 8px #000;
 `
 
@@ -67,7 +68,7 @@ const BrowseButton = styled.div<{ $isFocused?: boolean }>`
   }
 `
 
-const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
+const BrowseIcon = withAttrs(styled(MaterialIcon), { icon: 'map', size: 96 })`
   color: var(--theme-on-surface-variant);
 `
 

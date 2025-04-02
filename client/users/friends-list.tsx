@@ -17,6 +17,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
   acceptFriendRequest,
@@ -30,15 +31,15 @@ import { ConnectedUserContextMenu } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
-const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
+const FadedFriendsIcon = withAttrs(styled(MaterialIcon), { icon: 'group' })`
   color: var(--theme-on-surface-variant);
 `
 
-const FadedFriendAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
+const FadedFriendAddIcon = withAttrs(styled(MaterialIcon), { icon: 'group_add' })`
   color: var(--theme-on-surface-variant);
 `
 
-const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accounts' })`
+const FadedFriendSettingsIcon = withAttrs(styled(MaterialIcon), { icon: 'manage_accounts' })`
   color: var(--theme-on-surface-variant);
 `
 

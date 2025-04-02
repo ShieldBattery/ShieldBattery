@@ -10,6 +10,7 @@ import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState } from '../react/state-hooks'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 
 export function AdminMapManager() {
@@ -257,11 +258,11 @@ const StatusContainer = styled.div`
   margin-left: 16px;
 `
 
-const StyledSuccessIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
+const StyledSuccessIcon = withAttrs(styled(MaterialIcon), { icon: 'check_circle' })`
   color: var(--theme-success);
 `
 
-const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
+const StyledErrorIcon = withAttrs(styled(MaterialIcon), { icon: 'error' })`
   color: var(--theme-error);
 `
 

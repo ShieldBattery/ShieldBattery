@@ -9,10 +9,11 @@ import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { sendVerificationEmail } from './action-creators'
 import { useIsLoggedIn, useSelfUser } from './auth-utils'
 
-const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
+const ColoredWarningIcon = withAttrs(styled(MaterialIcon), { icon: 'warning', size: 36 })`
   flex-shrink: 0;
   color: var(--theme-amber);
 `

@@ -8,6 +8,7 @@ import LogoText from '../logos/logotext-640x100.svg'
 import { elevationPlus2 } from '../material/shadows'
 import { makePublicAssetUrl } from '../network/server-url'
 import { ContainerLevel, containerStyles } from '../styles/colors'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { displayLarge, headlineMedium, titleLarge } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -35,7 +36,11 @@ const QuestionContainer = styled.div`
   flex-direction: row;
 `
 
-const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, filled: false })`
+const StyledQuestionIcon = withAttrs(styled(MaterialIcon), {
+  icon: 'help',
+  size: 48,
+  filled: false,
+})`
   flex-shrink: 0;
   margin-left: 16px;
   margin-right: 16px;

@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import React, { useCallback, useEffect, useId, useState } from 'react'
-import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
+import styled, { css, RuleSet } from 'styled-components'
 import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
@@ -19,7 +19,7 @@ const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
-const marginStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+const marginStyle: Record<TooltipPosition, RuleSet> = {
   left: css`
     margin-right: 8px;
   `,
@@ -34,7 +34,7 @@ const marginStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+const arrowStyle: Record<TooltipPosition, RuleSet> = {
   left: css`
     top: 50%;
     right: 0px;

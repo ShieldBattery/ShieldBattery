@@ -34,6 +34,7 @@ import { TextField } from '../../material/text-field'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
+import { withAttrs } from '../../styles/styled-with-attrs'
 import {
   BodyLarge,
   BodyMedium,
@@ -56,7 +57,7 @@ const SectionHeader = styled.div`
   margin-bottom: 16px;
 `
 
-const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
+const ColoredWarningIcon = withAttrs(styled(MaterialIcon), { icon: 'warning', size: 36 })`
   flex-shrink: 0;
   color: var(--theme-amber);
 `

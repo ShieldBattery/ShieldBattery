@@ -1,6 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { titleLarge } from '../styles/typography'
 
 const BreadcrumbPiece = styled.span<{ $active: boolean }>`
@@ -14,7 +15,7 @@ const BreadcrumbPiece = styled.span<{ $active: boolean }>`
   cursor: ${props => (props.$active ? 'auto' : 'pointer')};
 `
 
-const BreadcrumbSeparator = styled(MaterialIcon).attrs({ icon: 'chevron_right' })`
+const BreadcrumbSeparator = withAttrs(styled(MaterialIcon), { icon: 'chevron_right' })`
   display: inline-block;
   flex-grow: 0;
   flex-shrink: 0;

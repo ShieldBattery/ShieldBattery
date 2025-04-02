@@ -17,6 +17,7 @@ import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { withAttrs } from '../styles/styled-with-attrs'
 import {
   bodyLarge,
   bodyMedium,
@@ -232,7 +233,7 @@ const MapNoImageContainer = styled.div`
   background-color: var(--theme-container);
 `
 
-const MapNoImageIcon = styled(MaterialIcon).attrs({ icon: 'question_mark', size: 36 })`
+const MapNoImageIcon = withAttrs(styled(MaterialIcon), { icon: 'question_mark', size: 36 })`
   opacity: 0.5;
 `
 

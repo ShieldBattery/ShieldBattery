@@ -17,6 +17,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FlexSpacer } from '../styles/flex-spacer'
+import { withAttrs } from '../styles/styled-with-attrs'
 import { bodyMedium, labelMedium, titleLarge } from '../styles/typography'
 import {
   getBatchChannelInfo,
@@ -81,7 +82,7 @@ const PrivateChannelDescriptionContainer = styled.div`
   padding: 0 16px;
 `
 
-const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
+const PrivateChannelIcon = withAttrs(styled(MaterialIcon), { icon: 'lock' })`
   margin-bottom: 8px;
   color: var(--theme-on-surface-variant);
 `
