@@ -5,40 +5,40 @@ exports[`client/messaging/common-message-layout/TextMessage message as a normal 
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -46,12 +46,12 @@ exports[`client/messaging/common-message-layout/TextMessage message as a normal 
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       This is test message
     </span>
@@ -64,40 +64,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -105,12 +105,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       here is a link 
       <a
@@ -130,40 +130,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -171,12 +171,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       <a
         href="http://www.example.com"
@@ -188,12 +188,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
        go here
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -208,40 +208,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -249,22 +249,22 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       hey
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -280,12 +280,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
        go here
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -300,40 +300,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -341,22 +341,22 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       hey
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -371,40 +371,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -412,20 +412,20 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -448,40 +448,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 hIebOr"
+    class="message-layout__MessageContainer-sc-5nek6h-3 iejvgD"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -489,12 +489,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       <a
         href="http://www.example.com"
@@ -506,12 +506,12 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
        go here
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -534,40 +534,40 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
   data-testid="message-container"
 >
   <div
-    class="message-layout__MessageContainer-sc-5nek6h-3 kdbbZg"
+    class="message-layout__MessageContainer-sc-5nek6h-3 bvNHQE"
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 jbMUUW message-layout__StyledTooltip-sc-5nek6h-1 iBtnYe"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 juzvnk message-layout__StyledTooltip-sc-5nek6h-1 ccOMhE"
       tabindex="0"
     >
       <span
-        class="message-layout__Timestamp-sc-5nek6h-2 kFCVCa"
+        class="message-layout__Timestamp-sc-5nek6h-2 cJQON"
       >
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+          class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 iMhLkv"
+      class="common-message-layout__Username-sc-hg9wkq-0 wRZhC"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP"
       >
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
@@ -575,22 +575,22 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     </span>
     <i
       aria-hidden="true"
-      class="message-layout__Separator-sc-5nek6h-0 ddXYvO"
+      class="message-layout__Separator-sc-5nek6h-0 fGNlKA"
     >
       : 
     </i>
     <span
-      class="common-message-layout__Text-sc-hg9wkq-1 iKzPqO"
+      class="common-message-layout__Text-sc-hg9wkq-1 DXhHQ"
     >
       Hey
        
       <span
-        class="connected-username__Username-sc-1uo72rz-0 bpkcAR common-message-layout__MentionedUsername-sc-hg9wkq-2 fQLhjO"
+        class="connected-username__Username-sc-1uo72rz-0 dFouJP common-message-layout__MentionedUsername-sc-hg9wkq-2 jcBWEI"
       >
         @
         <span
           aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 cxBYFX"
+          class="connected-username__LoadingName-sc-1uo72rz-1 drbiA-d"
         >
                      
         </span>
