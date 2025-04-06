@@ -407,10 +407,10 @@ importers:
         specifier: ^15.7.14
         version: 15.7.14
       '@types/react':
-        specifier: ^19.1.0
+        specifier: ^19.0.12
         version: 19.1.0
       '@types/react-dom':
-        specifier: ^19.1.1
+        specifier: ^19.0.4
         version: 19.1.1(@types/react@19.1.0)
       '@types/react-redux':
         specifier: ^7.1.34
@@ -437,7 +437,7 @@ importers:
         specifier: ^2.1.5
         version: 2.1.5
       '@types/unist':
-        specifier: ^3.0.3
+        specifier: ^3.0.0
         version: 3.0.3
       '@types/vary':
         specifier: ^1.1.3
