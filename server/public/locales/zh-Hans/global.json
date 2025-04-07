@@ -1158,6 +1158,9 @@
     "games": {
         "activity": {
             "title": "游戏"
+        },
+        "liveGames": {
+            "title": "直播比赛"
         }
     },
     "social": {
