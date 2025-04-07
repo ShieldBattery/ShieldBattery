@@ -1170,6 +1170,9 @@
     "games": {
         "activity": {
             "title": "Игры"
+        },
+        "liveGames": {
+            "title": "Живые игры"
         }
     },
     "social": {
