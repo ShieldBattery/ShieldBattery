@@ -1182,7 +1182,6 @@
     },
     "home": {
         "supportTitle": "Apoya el proyecto",
-        "latestNewsTitle": "Últimas noticias",
-        "liveMatchesTitle": "Partidos en directo"
+        "latestNewsTitle": "Últimas noticias"
     }
 }
