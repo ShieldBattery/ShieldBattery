@@ -32,7 +32,8 @@
             "edit": "편집",
             "reveal": "노출",
             "submit": "제출하다",
-            "close": "닫다"
+            "close": "닫다",
+            "read": "읽다"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -348,7 +349,8 @@
         "bottomLinks": {
             "acceptableUsePolicy": "허용된 사용 정책",
             "privacyPolicy": "개인 정보 정책",
-            "termsOfService": "서비스 약관"
+            "termsOfService": "서비스 약관",
+            "faq": "자주 묻는 질문"
         }
     },
     "clientDownload": {
@@ -1165,5 +1167,10 @@
         "friends": {
             "label": "친구들 ({{friendCount}})"
         }
+    },
+    "home": {
+        "liveMatchesTitle": "라이브 경기",
+        "latestNewsTitle": "최신 뉴스",
+        "supportTitle": "프로젝트를 지원하세요"
     }
 }
