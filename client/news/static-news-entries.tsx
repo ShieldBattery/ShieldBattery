@@ -1,7 +1,6 @@
 import React from 'react'
 import { AutoSizeImage } from '../dom/auto-size-image'
 import { makePublicAssetUrl } from '../network/server-url'
-import { LARGE_IMAGE_WIDTH, SMALL_IMAGE_WIDTH } from './static-news-feed'
 
 export interface StaticNewsFeedEntry {
   date: number
@@ -9,6 +8,9 @@ export interface StaticNewsFeedEntry {
   summary: string
   contents: string
 }
+
+const LARGE_IMAGE_WIDTH = 1600
+const SMALL_IMAGE_WIDTH = 800
 
 const NEWS_IMAGE_PATH = '/images/static-news/'
 const NEWS_IMAGES: ReadonlyArray<string> = [

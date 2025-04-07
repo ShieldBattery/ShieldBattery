@@ -12,9 +12,6 @@ import {
   StaticNewsImage,
 } from './static-news-entries'
 
-export const LARGE_IMAGE_WIDTH = 1600
-export const SMALL_IMAGE_WIDTH = 800
-
 const Root = styled.div`
   display: flex;
   flex-direction: column;
