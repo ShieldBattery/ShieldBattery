@@ -167,7 +167,7 @@ export function Home() {
           </SupportIcons>
         </SupportSection>
         <Section>
-          <SectionTitle>{t('home.liveMatchesTitle', 'Live matches')}</SectionTitle>
+          <SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>
           <div>soon</div>
         </Section>
         <Section>

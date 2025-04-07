@@ -370,11 +370,13 @@
   "games": {
     "activity": {
       "title": "Games"
+    },
+    "liveGames": {
+      "title": "Live games"
     }
   },
   "home": {
     "latestNewsTitle": "Latest news",
-    "liveMatchesTitle": "Live matches",
     "supportTitle": "Support the project"
   },
   "ladder": {
