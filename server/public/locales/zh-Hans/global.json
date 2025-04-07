@@ -226,7 +226,6 @@
         "faq": {
             "linuxSupportAnswer": "<0>目前我们尚未对此提供官方支持，</0><1>但有社区用户提供了ShieldBattery与Wine的整合包。请访问我们的<2>Discord</2>，了解如何在Wine上运行ShieldBattery。</1>",
             "officialSupportAnswer": "不，ShieldBattery由社区爱好者进行开发，没有得到暴雪的官方支持或认可。",
-            "header": "常见问题",
             "openSourceAnswer": "<0>是的。您可以在我们的 <2>GitHub 页面</2>上访问我们的主存储库以及我们编写并分离到各自存储库中的各种其他项目。</0><1>我们欢迎更多贡献者加入，因此如果您认为您可以提供帮助，不妨看一看！</1>",
             "openSourceQuestion": "该项目是否开源？",
             "reportIssuesAnswer": "报告错误最简单的渠道是通过我们的<2>Discord</2>。但如果您愿意，您也可以在我们的 <5>GitHub</5>上提交问题报告。",
@@ -830,7 +829,6 @@
             "chatChannels": "聊天频道",
             "logOut": "登出",
             "rankedGame": "{{matchmakingType}}排位",
-            "viewChangelog": "查看更新日志",
             "viewProfile": "查看资料",
             "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
             "reportBug": "报告错误"

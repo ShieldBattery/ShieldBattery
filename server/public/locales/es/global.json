@@ -346,7 +346,6 @@
             "systemRequirementsAnswer": "<0>Los requisitos de nuestro sistema se basan principalmente en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o posterior</0><1 >2 GB de RAM</1><2>NVIDIA GeForce 6800 (256 MB) o ATI Radeon X1600 Pro (256 MB) o superior</2><3>Una instalación de StarCraft: Remastered, parcheada a la última versión</3></ 1>",
             "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
             "title": "Preguntas frecuentes",
-            "header": "Preguntas más frecuentes",
             "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?",
             "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
         },
@@ -862,7 +861,6 @@
             "customGame": "Juego personalizado",
             "logOut": "Cerrar sesión",
             "rankedGame": "Clasificado {{matchmakingType}}",
-            "viewChangelog": "Ver registro de cambios",
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "susurros",

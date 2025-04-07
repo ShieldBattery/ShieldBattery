@@ -334,7 +334,6 @@
             "termsOfService": "$🗡Terms of Service🗡!"
         },
         "faq": {
-            "header": "$🗡FAQ🗡!",
             "hotkeyCustomizationAnswer": "$🗡Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.🗡!",
             "hotkeyCustomizationQuestion": "$🗡Is hotkey customization allowed or provided?🗡!",
             "isShieldBatteryFreeQuestion": "$🗡Does ShieldBattery cost anything? How can I support the project?🗡!",
@@ -860,7 +859,6 @@
             "viewProfile": "$🗡View profile🗡!",
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
-            "viewChangelog": "$🗡View changelog🗡!",
             "reportBug": "$🗡Report a bug🗡!"
         },
         "bar": {
