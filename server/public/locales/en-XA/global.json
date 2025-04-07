@@ -1164,6 +1164,9 @@
     "games": {
         "activity": {
             "title": "$🗡Games🗡!"
+        },
+        "liveGames": {
+            "title": "$🗡Live games🗡!"
         }
     },
     "social": {
