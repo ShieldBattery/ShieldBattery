@@ -34,7 +34,8 @@
             "edit": "$🗡Edit🗡!",
             "reveal": "$🗡Reveal🗡!",
             "submit": "$🗡Submit🗡!",
-            "close": "$🗡Close🗡!"
+            "close": "$🗡Close🗡!",
+            "read": "$🗡Read🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -331,7 +332,8 @@
         "bottomLinks": {
             "acceptableUsePolicy": "$🗡Acceptable Use Policy🗡!",
             "privacyPolicy": "$🗡Privacy Policy🗡!",
-            "termsOfService": "$🗡Terms of Service🗡!"
+            "termsOfService": "$🗡Terms of Service🗡!",
+            "faq": "$🗡FAQ🗡!"
         },
         "faq": {
             "hotkeyCustomizationAnswer": "$🗡Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.🗡!",
@@ -1171,5 +1173,10 @@
         "chat": {
             "label": "$🗡Chat🗡!"
         }
+    },
+    "home": {
+        "latestNewsTitle": "$🗡Latest news🗡!",
+        "liveMatchesTitle": "$🗡Live matches🗡!",
+        "supportTitle": "$🗡Support the project🗡!"
     }
 }
