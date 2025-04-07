@@ -36,7 +36,8 @@
             "edit": "Editar",
             "reveal": "Revelar",
             "submit": "Entregar",
-            "close": "Cerca"
+            "close": "Cerca",
+            "read": "Leer"
         },
         "lists": {
             "empty": "Nada que ver aqui"
@@ -352,7 +353,8 @@
         "bottomLinks": {
             "privacyPolicy": "política de privacidad",
             "termsOfService": "Términos de servicio",
-            "acceptableUsePolicy": "Política de uso aceptable"
+            "acceptableUsePolicy": "Política de uso aceptable",
+            "faq": "Preguntas frecuentes"
         }
     },
     "ladder": {
@@ -1177,5 +1179,10 @@
         "activity": {
             "title": "Juegos"
         }
+    },
+    "home": {
+        "supportTitle": "Apoya el proyecto",
+        "latestNewsTitle": "Últimas noticias",
+        "liveMatchesTitle": "Partidos en directo"
     }
 }
