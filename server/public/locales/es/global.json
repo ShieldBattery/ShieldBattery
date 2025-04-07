@@ -1178,6 +1178,9 @@
     "games": {
         "activity": {
             "title": "Juegos"
+        },
+        "liveGames": {
+            "title": "Juegos en vivo"
         }
     },
     "home": {
