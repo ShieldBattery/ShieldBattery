@@ -32,7 +32,8 @@
             "edit": "编辑",
             "reveal": "显示",
             "submit": "提交",
-            "close": "关闭"
+            "close": "关闭",
+            "read": "读"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -245,7 +246,8 @@
         "bottomLinks": {
             "acceptableUsePolicy": "可接受的使用政策",
             "privacyPolicy": "隐私政策",
-            "termsOfService": "服务条款"
+            "termsOfService": "服务条款",
+            "faq": "常问问题"
         }
     },
     "auth": {
@@ -1165,5 +1167,10 @@
         "friends": {
             "label": "朋友 ({{friendCount}})"
         }
+    },
+    "home": {
+        "latestNewsTitle": "最新消息",
+        "liveMatchesTitle": "比赛直播",
+        "supportTitle": "支持该项目"
     }
 }
