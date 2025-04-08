@@ -1,5 +1,3 @@
-version: '3.7'
-
 volumes:
   # Leaving these volume configs empty means they'll use the default driver (usually `local`), which
   # is fine in most cases
@@ -176,7 +174,7 @@ services:
       - proxy_gen
 
   redis:
-    image: redis:6.2.6-alpine
+    image: redis:7.4.2
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
     networks:
@@ -185,7 +183,7 @@ services:
       - redis_data:/data
 
   db:
-    image: postgres:12-alpine
+    image: postgres:17
     restart: unless-stopped
     # This matches the recommended value for this container
     # (See 'Caveats' section here: https://hub.docker.com/_/postgres)
