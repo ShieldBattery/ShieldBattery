@@ -11,6 +11,8 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
+import { apiUrl } from '../../common/urls'
+import { UsernameAvailableResponse } from '../../common/users/user-network'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Validator, useForm, useFormCallbacks } from '../forms/form-hook'
@@ -126,16 +128,17 @@ interface SignupModel {
 function usernameAvailableValidator(): Validator<string, SignupModel> {
   return debounceValidator(async (username, _model, _dirty, t) => {
     try {
-      // TODO(2Pac): Share the response type here with the server API once that's moved to the new
-      // API setup.
-      const result = await fetchJson<{ username: string; available: boolean }>(
-        `/api/1/usernameAvailability/${encodeURIComponent(username)}`,
+      const result = await fetchJson<UsernameAvailableResponse>(
+        apiUrl`users/username-available/${username}`,
+        {
+          method: 'POST',
+        },
       )
       if (result.available) {
         return undefined
       }
     } catch (ignored) {
-      // TODO(tec27): handle non-404 errors differently
+      return t('auth.usernameValidator.error', 'There was a problem checking username availability')
     }
 
     return t('auth.usernameValidator.notAvailable', 'Username is not available')

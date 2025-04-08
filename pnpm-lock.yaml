@@ -286,6 +286,9 @@ importers:
       '@graphql-typed-document-node/core':
         specifier: ^3.2.0
         version: 3.2.0(graphql@16.10.0)
+      '@leeoniya/ufuzzy':
+        specifier: ^1.0.18
+        version: 1.0.18
       '@parcel/watcher':
         specifier: ^2.5.1
         version: 2.5.1
@@ -2840,6 +2843,9 @@ packages:
         optional: true
       whiskers:
         optional: true
+
+  '@leeoniya/ufuzzy@1.0.18':
+    resolution: {integrity: sha512-5D54A86/VaPvJVf7UWJgy+UyhDtstUxq0iQd8UOZ2TG3NjV2oSoa9m4qW3VsotDD6dH2SNHDQwSPq+IAuudnag==}
 
   '@lydell/node-pty-darwin-arm64@1.1.0':
     resolution: {integrity: sha512-7kFD+owAA61qmhJCtoMbqj3Uvff3YHDiU+4on5F2vQdcMI3MuwGi7dM6MkFG/yuzpw8LF2xULpL71tOPUfxs0w==}
@@ -13011,6 +13017,8 @@ snapshots:
       pug: 3.0.3
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
+
+  '@leeoniya/ufuzzy@1.0.18': {}
 
   '@lydell/node-pty-darwin-arm64@1.1.0':
     optional: true

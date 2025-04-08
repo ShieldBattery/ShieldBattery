@@ -16,6 +16,10 @@ use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
 use mobc_redis::redis::AsyncCommands;
+use names::{
+    create_case_insensitive_regex, NameChecker, NameRestriction, RestrictedNameKind,
+    RestrictedNameReason,
+};
 use rand::distr::{Alphanumeric, SampleString};
 use rand::rng;
 use secrecy::{ExposeSecret, SecretString};
@@ -38,6 +42,7 @@ use crate::users::auth::{get_stored_credentials, hash_password, validate_credent
 use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermissions};
 
 mod auth;
+pub mod names;
 pub mod permissions;
 
 pub struct UsersModule {
@@ -209,13 +214,17 @@ impl UsersQuery {
         ctx: &Context<'_>,
         name: String,
     ) -> Result<Option<SbUser>> {
-        ctx.data_unchecked::<DataLoader<UsersLoader>>()
-            .load_one(name)
-            .await
+        ctx.data::<DataLoader<UsersLoader>>()?.load_one(name).await
     }
 
     async fn current_user(&self, ctx: &Context<'_>) -> Result<Option<CurrentUser>> {
-        Ok(ctx.data_unchecked::<Option<CurrentUser>>().clone())
+        Ok(ctx.data::<Option<CurrentUser>>()?.clone())
+    }
+
+    #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
+    async fn restricted_names(&self, ctx: &Context<'_>) -> Result<Vec<NameRestriction>> {
+        let restrictions = ctx.data::<NameChecker>()?.get_all_restrictions().await?;
+        Ok(restrictions)
     }
 }
 
@@ -419,7 +428,8 @@ impl UsersMutation {
                     mass_delete_maps = $11,
                     moderate_chat_channels = $12,
                     manage_news = $13,
-                    manage_bug_reports = $14
+                    manage_bug_reports = $14,
+                    manage_restricted_names = $15
                 WHERE user_id = $1
             "#,
             user_id,
@@ -436,6 +446,7 @@ impl UsersMutation {
             permissions.moderate_chat_channels,
             permissions.manage_news,
             permissions.manage_bug_reports,
+            permissions.manage_restricted_names,
         )
         .execute(ctx.data_unchecked::<PgPool>())
         .await?;
@@ -453,6 +464,77 @@ impl UsersMutation {
             .await?;
 
         Ok(user.into())
+    }
+
+    #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
+    async fn add_restricted_name(
+        &self,
+        ctx: &Context<'_>,
+        pattern: String,
+        kind: RestrictedNameKind,
+        reason: RestrictedNameReason,
+    ) -> Result<NameRestriction> {
+        let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
+            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
+        };
+
+        if kind == RestrictedNameKind::Regex {
+            if let Err(e) = create_case_insensitive_regex(&pattern) {
+                return Err(graphql_error(
+                    "INVALID_REGEX",
+                    format!("Invalid regex: {e}"),
+                ));
+            }
+        }
+
+        let restriction = ctx
+            .data::<NameChecker>()?
+            .add_restriction(pattern, kind, reason, user.id)
+            .await
+            .map_err(|e| {
+                graphql_error(
+                    "INTERNAL_SERVER_ERROR",
+                    format!("Failed to add restriction: {e}"),
+                )
+            })?;
+
+        Ok(restriction)
+    }
+
+    #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
+    async fn delete_restricted_name(&self, ctx: &Context<'_>, id: i32) -> Result<u64> {
+        let result = ctx
+            .data::<NameChecker>()?
+            .delete_restriction(id)
+            .await
+            .map_err(|e| {
+                graphql_error(
+                    "INTERNAL_SERVER_ERROR",
+                    format!("Failed to remove restriction: {e}"),
+                )
+            })?;
+
+        Ok(result)
+    }
+
+    #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
+    async fn test_restricted_name(
+        &self,
+        ctx: &Context<'_>,
+        name: String,
+    ) -> Result<Option<NameRestriction>> {
+        let result = ctx
+            .data::<NameChecker>()?
+            .check_name(&name)
+            .await
+            .map_err(|e| {
+                graphql_error(
+                    "INTERNAL_SERVER_ERROR",
+                    format!("Failed to check name: {e}"),
+                )
+            })?;
+
+        Ok(result)
     }
 }
 
@@ -590,7 +672,8 @@ impl CurrentUserRepo {
                     SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
                         manage_maps, manage_map_pools, manage_matchmaking_seasons,
                         manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
-                        moderate_chat_channels, manage_news, manage_bug_reports
+                        moderate_chat_channels, manage_news, manage_bug_reports,
+                        manage_restricted_names
                     FROM permissions
                     WHERE user_id = $1
                 "#,

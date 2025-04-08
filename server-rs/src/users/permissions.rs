@@ -32,6 +32,7 @@ pub struct SbPermissions {
     pub moderate_chat_channels: bool,
     pub manage_news: bool,
     pub manage_bug_reports: bool,
+    pub manage_restricted_names: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -50,6 +51,7 @@ pub enum RequiredPermission {
     ModerateChatChannels,
     ManageNews,
     ManageBugReports,
+    ManageRestrictedNames,
 }
 
 impl RequiredPermission {
@@ -68,6 +70,7 @@ impl RequiredPermission {
             Self::ModerateChatChannels => permissions.moderate_chat_channels,
             Self::ManageNews => permissions.manage_news,
             Self::ManageBugReports => permissions.manage_bug_reports,
+            Self::ManageRestrictedNames => permissions.manage_restricted_names,
         }
     }
 }
@@ -104,7 +107,7 @@ impl Loader<i32> for PermissionsLoader {
                     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
                         manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
-                        manage_news, manage_bug_reports
+                        manage_news, manage_bug_reports, manage_restricted_names
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -129,6 +132,7 @@ impl Loader<i32> for PermissionsLoader {
                     moderate_chat_channels: r.moderate_chat_channels,
                     manage_news: r.manage_news,
                     manage_bug_reports: r.manage_bug_reports,
+                    manage_restricted_names: r.manage_restricted_names,
                 },
             )
         })

@@ -76,7 +76,7 @@ function UserError({ error }: { error: FetchError }) {
           )}
         </span>
       )
-    case UserErrorCode.UsernameTaken:
+    case UserErrorCode.UsernameTakenOrRestricted:
       return (
         <span>
           {t('auth.userErrorDisplay.usernameTaken', 'A user with that name already exists')}

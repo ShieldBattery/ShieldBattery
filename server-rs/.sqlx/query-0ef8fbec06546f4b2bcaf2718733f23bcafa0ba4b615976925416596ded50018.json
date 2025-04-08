@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO restricted_names (pattern, kind, reason, created_by)\n                VALUES ($1, $2, $3, $4)\n                RETURNING id, pattern, kind as \"kind: _\", reason as \"reason: _\", created_at,\n                    created_by\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "pattern",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "kind: _",
+        "type_info": {
+          "Custom": {
+            "name": "restricted_name_kind",
+            "kind": {
+              "Enum": [
+                "exact",
+                "regex"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "reason: _",
+        "type_info": {
+          "Custom": {
+            "name": "restricted_name_reason",
+            "kind": {
+              "Enum": [
+                "profanity",
+                "reserved"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "created_by",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "restricted_name_kind",
+            "kind": {
+              "Enum": [
+                "exact",
+                "regex"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "restricted_name_reason",
+            "kind": {
+              "Enum": [
+                "profanity",
+                "reserved"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0ef8fbec06546f4b2bcaf2718733f23bcafa0ba4b615976925416596ded50018"
+}

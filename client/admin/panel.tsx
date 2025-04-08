@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Link, Redirect, Route, Switch } from 'wouter'
 import { SbPermissions } from '../../common/users/permissions'
 import { useSelfPermissions } from '../auth/auth-utils'
+import { LoadingDotsArea } from '../progress/dots'
 
 const LoadableBugReports = React.lazy(async () => ({
   default: (await import('../bugs/admin-bug-reports')).AdminBugReports,
@@ -18,6 +19,9 @@ const LoadableMatchmakingSeasons = React.lazy(async () => ({
 const LoadableMatchmakingTimes = React.lazy(() => import('./matchmaking-times'))
 const LoadableRallyPoint = React.lazy(async () => ({
   default: (await import('./rally-point')).AdminRallyPoint,
+}))
+const LoadableRestrictedNames = React.lazy(async () => ({
+  default: (await import('./restricted-names')).RestrictedNames,
 }))
 
 interface AdminDashboardProps {
@@ -58,6 +62,11 @@ function AdminDashboard(props: AdminDashboardProps) {
       <Link href='/admin/rally-point'>Manage rally-point servers</Link>
     </li>
   ) : null
+  const restrictedNamesLink = perms?.manageRestrictedNames ? (
+    <li>
+      <Link href='/admin/restricted-names'>Manage restricted names</Link>
+    </li>
+  ) : null
 
   return (
     <ul>
@@ -67,6 +76,7 @@ function AdminDashboard(props: AdminDashboardProps) {
       {matchmakingSeasonsLink}
       {matchmakingTimesLink}
       {rallyPointLink}
+      {restrictedNamesLink}
     </ul>
   )
 }
@@ -75,33 +85,38 @@ export default function AdminPanel() {
   const perms = useSelfPermissions()
 
   return (
-    <Switch>
-      <Route path='/admin/bug-reports/*?'>
-        {perms?.manageBugReports ? <LoadableBugReports /> : <Redirect to='/' />}
-      </Route>
-      <Route path='/admin/map-manager/*?'>
-        {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
-          <LoadableMapManager />
-        ) : (
-          <Redirect to='/' />
-        )}
-      </Route>
-      <Route path='/admin/map-pools/*?'>
-        {perms?.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
-      </Route>
-      <Route path='/admin/matchmaking-seasons/*?'>
-        {perms?.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
-      </Route>
-      <Route path='/admin/matchmaking-times/*?'>
-        {perms?.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
-      </Route>
-      <Route path='/admin/rally-point/*?'>
-        {perms?.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
-      </Route>
+    <Suspense fallback={<LoadingDotsArea />}>
+      <Switch>
+        <Route path='/admin/bug-reports/*?'>
+          {perms?.manageBugReports ? <LoadableBugReports /> : <Redirect to='/' />}
+        </Route>
+        <Route path='/admin/map-manager/*?'>
+          {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
+            <LoadableMapManager />
+          ) : (
+            <Redirect to='/' />
+          )}
+        </Route>
+        <Route path='/admin/map-pools/*?'>
+          {perms?.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
+        </Route>
+        <Route path='/admin/matchmaking-seasons/*?'>
+          {perms?.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
+        </Route>
+        <Route path='/admin/matchmaking-times/*?'>
+          {perms?.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
+        </Route>
+        <Route path='/admin/rally-point/*?'>
+          {perms?.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
+        </Route>
+        <Route path='/admin/restricted-names/*?'>
+          {perms?.manageRestrictedNames ? <LoadableRestrictedNames /> : <Redirect to='/' />}
+        </Route>
 
-      <Route path='/admin/*?'>
-        <AdminDashboard permissions={perms} />
-      </Route>
-    </Switch>
+        <Route path='/admin/*?'>
+          <AdminDashboard permissions={perms} />
+        </Route>
+      </Switch>
+    </Suspense>
   )
 }

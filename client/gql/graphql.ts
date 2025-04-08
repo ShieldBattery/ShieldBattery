@@ -23,7 +23,7 @@ export type Scalars = {
    *
    * The input/output is a string in RFC3339 format.
    */
-  DateTime: { input: any; output: any }
+  DateTime: { input: string; output: string }
   /**
    * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
    * Strings within GraphQL. UUIDs are used to assign unique identifiers to
@@ -34,7 +34,7 @@ export type Scalars = {
    * * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
    * * [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
    */
-  UUID: { input: any; output: any }
+  UUID: { input: string; output: string }
 }
 
 export type CurrentUser = {
@@ -55,13 +55,30 @@ export type CurrentUser = {
 
 export type Mutation = {
   __typename?: 'Mutation'
+  addRestrictedName: NameRestriction
   createNewsPost: NewsPost
+  deleteRestrictedName: Scalars['Int']['output']
+  testRestrictedName?: Maybe<NameRestriction>
   updateCurrentUser: CurrentUser
   updateUserPermissions: SbUser
 }
 
+export type MutationAddRestrictedNameArgs = {
+  kind: RestrictedNameKind
+  pattern: Scalars['String']['input']
+  reason: RestrictedNameReason
+}
+
 export type MutationCreateNewsPostArgs = {
   post: NewsPostCreation
+}
+
+export type MutationDeleteRestrictedNameArgs = {
+  id: Scalars['Int']['input']
+}
+
+export type MutationTestRestrictedNameArgs = {
+  name: Scalars['String']['input']
 }
 
 export type MutationUpdateCurrentUserArgs = {
@@ -72,6 +89,16 @@ export type MutationUpdateCurrentUserArgs = {
 export type MutationUpdateUserPermissionsArgs = {
   permissions: SbPermissionsInput
   userId: Scalars['Int']['input']
+}
+
+export type NameRestriction = {
+  __typename?: 'NameRestriction'
+  createdAt: Scalars['DateTime']['output']
+  createdBy?: Maybe<SbUser>
+  id: Scalars['Int']['output']
+  kind: RestrictedNameKind
+  pattern: Scalars['String']['output']
+  reason: RestrictedNameReason
 }
 
 export type NewsPost = {
@@ -130,6 +157,7 @@ export type Query = {
   __typename?: 'Query'
   currentUser?: Maybe<CurrentUser>
   newsPosts: NewsPostConnection
+  restrictedNames: Array<NameRestriction>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
 }
@@ -150,6 +178,16 @@ export type QueryUserByDisplayNameArgs = {
   name: Scalars['String']['input']
 }
 
+export enum RestrictedNameKind {
+  Exact = 'EXACT',
+  Regex = 'REGEX',
+}
+
+export enum RestrictedNameReason {
+  Profanity = 'PROFANITY',
+  Reserved = 'RESERVED',
+}
+
 export type SbPermissions = {
   __typename?: 'SbPermissions'
   banUsers: Scalars['Boolean']['output']
@@ -168,6 +206,7 @@ export type SbPermissions = {
   manageMatchmakingTimes: Scalars['Boolean']['output']
   manageNews: Scalars['Boolean']['output']
   manageRallyPointServers: Scalars['Boolean']['output']
+  manageRestrictedNames: Scalars['Boolean']['output']
   massDeleteMaps: Scalars['Boolean']['output']
   moderateChatChannels: Scalars['Boolean']['output']
 }
@@ -189,6 +228,7 @@ export type SbPermissionsInput = {
   manageMatchmakingTimes: Scalars['Boolean']['input']
   manageNews: Scalars['Boolean']['input']
   manageRallyPointServers: Scalars['Boolean']['input']
+  manageRestrictedNames: Scalars['Boolean']['input']
   massDeleteMaps: Scalars['Boolean']['input']
   moderateChatChannels: Scalars['Boolean']['input']
 }
@@ -204,6 +244,61 @@ export type SbUser = {
 export type UpdateCurrentUserChanges = {
   email?: InputMaybe<Scalars['String']['input']>
   newPassword?: InputMaybe<Scalars['String']['input']>
+}
+
+export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
+
+export type RestrictedNamesQuery = {
+  __typename?: 'Query'
+  restrictedNames: Array<{
+    __typename?: 'NameRestriction'
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+    createdAt: string
+    createdBy?: { __typename?: 'SbUser'; id: number } | null
+  }>
+}
+
+export type DeleteRestrictedNameMutationVariables = Exact<{
+  id: Scalars['Int']['input']
+}>
+
+export type DeleteRestrictedNameMutation = { __typename?: 'Mutation'; deleteRestrictedName: number }
+
+export type AddRestrictedNameMutationVariables = Exact<{
+  pattern: Scalars['String']['input']
+  kind: RestrictedNameKind
+  reason: RestrictedNameReason
+}>
+
+export type AddRestrictedNameMutation = {
+  __typename?: 'Mutation'
+  addRestrictedName: {
+    __typename?: 'NameRestriction'
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+    createdAt: string
+    createdBy?: { __typename?: 'SbUser'; id: number } | null
+  }
+}
+
+export type TestRestrictedNameMutationVariables = Exact<{
+  name: Scalars['String']['input']
+}>
+
+export type TestRestrictedNameMutation = {
+  __typename?: 'Mutation'
+  testRestrictedName?: {
+    __typename?: 'NameRestriction'
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+  } | null
 }
 
 export type AccountSettings_CurrentUserFragment = {
@@ -287,6 +382,7 @@ export type AdminUserProfile_PermissionsFragment = {
     moderateChatChannels: boolean
     manageNews: boolean
     manageBugReports: boolean
+    manageRestrictedNames: boolean
   }
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
@@ -355,6 +451,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
               ],
             },
           },
@@ -363,6 +460,204 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<AdminUserProfile_PermissionsFragment, unknown>
+export const RestrictedNamesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'RestrictedNames' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'restrictedNames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<RestrictedNamesQuery, RestrictedNamesQueryVariables>
+export const DeleteRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'DeleteRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'deleteRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<DeleteRestrictedNameMutation, DeleteRestrictedNameMutationVariables>
+export const AddRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AddRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'pattern' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'RestrictedNameKind' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'RestrictedNameReason' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'addRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'pattern' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'pattern' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'reason' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AddRestrictedNameMutation, AddRestrictedNameMutationVariables>
+export const TestRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'TestRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'testRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'name' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<TestRestrictedNameMutation, TestRestrictedNameMutationVariables>
 export const AccountSettingsDocument = {
   kind: 'Document',
   definitions: [
@@ -672,6 +967,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
               ],
             },
           },
@@ -764,6 +1060,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
               ],
             },
           },

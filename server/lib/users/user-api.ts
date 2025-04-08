@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import bcrypt from 'bcrypt'
 import cuid from 'cuid'
+import got from 'got'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
@@ -27,6 +28,8 @@ import {
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
+import { CheckAllowedNameResponse } from '../../../common/typeshare'
+import { urlPath } from '../../../common/urls'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
   GetRelationshipsResponse,
@@ -54,6 +57,7 @@ import {
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   UserErrorCode,
+  UsernameAvailableResponse,
 } from '../../../common/users/user-network'
 import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -74,6 +78,7 @@ import {
 import { usePasswordResetCode } from '../models/password-resets'
 import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
+import { serverRsUrl } from '../network/server-rs-requests'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -103,6 +108,7 @@ import {
   findUserById,
   findUserByName,
   findUsersById,
+  isUsernameAvailable,
   retrieveUserCreatedDate,
   UserUpdatables,
 } from './user-model'
@@ -117,6 +123,12 @@ const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
   burst: 4,
+  window: 60000,
+})
+
+const usernameAvailableThrottle = createThrottle('usernameavailability', {
+  rate: 10,
+  burst: 300,
   window: 60000,
 })
 
@@ -236,6 +248,19 @@ export class UserApi {
 
     const { username, password, email, clientIds, locale } = body
 
+    const { allowed } = await got
+      .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
+        timeout: 5000,
+      })
+      .json<CheckAllowedNameResponse>()
+
+    if (!allowed) {
+      throw new UserApiError(
+        UserErrorCode.UsernameTakenOrRestricted,
+        'A user with that name already exists or the name is not allowed',
+      )
+    }
+
     if (!THROTTLING_DISABLED) {
       if (!isElectronClient(ctx)) {
         const [suspicious, signupAllowed] = await Promise.all([
@@ -279,7 +304,10 @@ export class UserApi {
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
-        throw new UserApiError(UserErrorCode.UsernameTaken, 'A user with that name already exists')
+        throw new UserApiError(
+          UserErrorCode.UsernameTakenOrRestricted,
+          'A user with that name already exists or the name is not allowed',
+        )
       }
       throw err
     }
@@ -307,6 +335,55 @@ export class UserApi {
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
     return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
+  }
+
+  @httpPost('/username-available/:username')
+  @httpBefore(throttleMiddleware(usernameAvailableThrottle, ctx => ctx.ip))
+  async checkUsernameAvailable(ctx: RouterContext): Promise<UsernameAvailableResponse> {
+    const {
+      params: { username },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ username: string }>({
+        username: Joi.string()
+          .min(USERNAME_MINLENGTH)
+          .max(USERNAME_MAXLENGTH)
+          .pattern(USERNAME_PATTERN)
+          .required(),
+      }),
+    })
+
+    const available = await isUsernameAvailable(username)
+    if (!available) {
+      return { available: false }
+    }
+
+    const { allowed } = await got
+      .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
+        timeout: 5000,
+      })
+      .json<CheckAllowedNameResponse>()
+
+    return { available: available && allowed }
+  }
+
+  @httpGet('/batch-info')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
+  )
+  async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<{ u: SbUserId[] }>({
+        u: Joi.array().items(joiUserId()).single().min(1).max(20),
+      }),
+    })
+
+    const userIds = query.u
+    const users = await findUsersById(userIds)
+
+    return {
+      userInfos: users,
+    }
   }
 
   @httpGet('/:id/profile')
@@ -527,26 +604,6 @@ export class UserApi {
     }
   }
 
-  @httpGet('/batch-info')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
-  )
-  async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
-    const { query } = validateRequest(ctx, {
-      query: Joi.object<{ u: SbUserId[] }>({
-        u: Joi.array().items(joiUserId()).single().min(1).max(20),
-      }),
-    })
-
-    const userIds = query.u
-    const users = await findUsersById(userIds)
-
-    return {
-      userInfos: users,
-    }
-  }
-
   @httpPost('/:id/policies')
   @httpBefore(
     ensureLoggedIn,
@@ -597,7 +654,10 @@ export class UserApi {
   }
 
   @httpPost('/:id/language')
-  @httpBefore(ensureLoggedIn)
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user!.id)),
+  )
   async changeLanguage(ctx: RouterContext): Promise<ChangeLanguagesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({

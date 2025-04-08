@@ -21,6 +21,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
     moderateChatChannels: props.moderate_chat_channels,
     manageNews: props.manage_news,
     manageBugReports: props.manage_bug_reports,
+    manageRestrictedNames: props.manage_restricted_names,
   }
 }
 
@@ -41,7 +42,8 @@ export async function getPermissions(userId: SbUserId): Promise<SbPermissions | 
   const query = sql`
     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
         manage_map_pools, mass_delete_maps, manage_matchmaking_times, manage_rally_point_servers,
-        moderate_chat_channels, manage_matchmaking_seasons, manage_news, manage_bug_reports
+        moderate_chat_channels, manage_matchmaking_seasons, manage_news, manage_bug_reports,
+        manage_restricted_names
     FROM permissions
     WHERE user_id = ${userId};
   `

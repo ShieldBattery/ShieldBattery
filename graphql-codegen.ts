@@ -12,6 +12,13 @@ export default {
       hooks: {
         afterOneFileWrite: ['prettier --write'],
       },
+      config: {
+        scalars: {
+          DateTime: 'string',
+          UUID: 'string',
+        },
+        strictScalars: true,
+      },
     },
     'client/gql/schema.json': {
       plugins: ['introspection'],

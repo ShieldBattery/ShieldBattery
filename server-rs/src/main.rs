@@ -1,6 +1,8 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use axum::extract::Request;
+use axum::ServiceExt;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use mobc_redis::redis;
@@ -11,8 +13,11 @@ use sqlx::postgres::PgPoolOptions;
 use server::configuration::{get_configuration, Env};
 use server::redis::RedisPool;
 use server::routes::create_app;
+#[cfg(debug_assertions)]
 use server::schema::write_schema;
 use server::telemetry::init_subscriber;
+use tower::Layer;
+use tower_http::normalize_path::NormalizePathLayer;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -20,11 +25,11 @@ async fn main() -> eyre::Result<()> {
 
     if let Err(e) = dotenvy::dotenv() {
         match e {
-            dotenvy::Error::Io(e) => {
+            dotenvy::Error::Io(_e) => {
                 // We ignore this outside of debug mode because we won't usually use a .env file
                 // directly in production
                 #[cfg(debug_assertions)]
-                tracing::error!("I/O error while loading .env file: {e:?}");
+                tracing::error!("I/O error while loading .env file: {_e:?}");
             }
             _ => {
                 tracing::warn!("Error while loading .env file: {e:?}");
@@ -71,10 +76,12 @@ async fn main() -> eyre::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     tracing::info!("listening on http://{}", listener.local_addr().unwrap());
+
+    let router = create_app(db_pool, redis_pool, settings);
+    let app = NormalizePathLayer::trim_trailing_slash().layer(router);
     axum::serve(
         listener,
-        create_app(db_pool, redis_pool, settings)
-            .into_make_service_with_connect_info::<SocketAddr>(),
+        ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
     )
     .await
     .wrap_err("axum failure")?;

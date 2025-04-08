@@ -2,6 +2,7 @@ use crate::configuration::Settings;
 use crate::email::MailgunClient;
 use crate::redis::RedisPool;
 use crate::schema::SbSchema;
+use crate::users::names::NameChecker;
 use crate::users::CurrentUserRepo;
 use axum::extract::FromRef;
 use jsonwebtoken::DecodingKey;
@@ -17,4 +18,5 @@ pub struct AppState {
     pub jwt_key: Arc<DecodingKey>,
     pub graphql_schema: SbSchema,
     pub current_user_repo: CurrentUserRepo,
+    pub name_checker: NameChecker,
 }

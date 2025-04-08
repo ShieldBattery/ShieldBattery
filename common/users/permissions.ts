@@ -18,4 +18,5 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   moderateChatChannels: false,
   manageNews: false,
   manageBugReports: false,
+  manageRestrictedNames: false,
 }

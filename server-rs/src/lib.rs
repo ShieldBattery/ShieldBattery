@@ -1,3 +1,4 @@
+pub mod async_rayon;
 pub mod configuration;
 pub mod email;
 pub mod graphql;

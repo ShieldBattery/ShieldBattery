@@ -607,7 +607,6 @@ export const TextButton = React.forwardRef(
 
 const IconButtonRoot = styled.button`
   ${buttonReset};
-  ${fastOutSlowInShort};
 
   width: 48px;
   min-height: 48px;
@@ -620,6 +619,10 @@ const IconButtonRoot = styled.button`
   color: var(--theme-on-surface-variant);
   contain: content;
   --sb-ripple-color: #ffffff;
+
+  transition:
+    color 150ms linear,
+    opacity 150ms linear;
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));

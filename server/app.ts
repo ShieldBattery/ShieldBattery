@@ -44,6 +44,9 @@ if (!process.env.SB_JWT_SECRET) {
 if (!process.env.SB_RALLY_POINT_SECRET) {
   throw new Error('SB_RALLY_POINT_SECRET must be specified')
 }
+if (!process.env.SB_SERVER_RS_URL) {
+  throw new Error('SB_SERVER_RS_URL must be specified')
+}
 
 if (!process.env.SB_FILE_STORE) {
   throw new Error('SB_FILE_STORE must be specified')

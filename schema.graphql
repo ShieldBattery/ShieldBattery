@@ -32,6 +32,18 @@ type Mutation {
 	createNewsPost(post: NewsPostCreation!): NewsPost!
 	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	updateUserPermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
+	addRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
+	deleteRestrictedName(id: Int!): Int!
+	testRestrictedName(name: String!): NameRestriction
+}
+
+type NameRestriction {
+	id: Int!
+	pattern: String!
+	kind: RestrictedNameKind!
+	reason: RestrictedNameReason!
+	createdAt: DateTime!
+	createdBy: SbUser
 }
 
 type NewsPost {
@@ -109,6 +121,17 @@ type Query {
 	user(id: Int!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
+	restrictedNames: [NameRestriction!]!
+}
+
+enum RestrictedNameKind {
+	EXACT
+	REGEX
+}
+
+enum RestrictedNameReason {
+	PROFANITY
+	RESERVED
 }
 
 type SbPermissions {
@@ -130,6 +153,7 @@ type SbPermissions {
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
+	manageRestrictedNames: Boolean!
 }
 
 input SbPermissionsInput {
@@ -151,6 +175,7 @@ input SbPermissionsInput {
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
+	manageRestrictedNames: Boolean!
 }
 
 type SbUser {

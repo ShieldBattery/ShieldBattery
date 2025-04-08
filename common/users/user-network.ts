@@ -41,7 +41,7 @@ export enum UserErrorCode {
   InvalidCredentials = 'invalidCredentials',
   AccountBanned = 'accountBanned',
   SessionExpired = 'sessionExpired',
-  UsernameTaken = 'usernameTaken',
+  UsernameTakenOrRestricted = 'usernameTaken',
   SuspiciousActivity = 'suspiciousActivity',
   MachineBanned = 'machineBanned',
 }
@@ -179,3 +179,7 @@ export interface PermissionsChangedEvent {
 }
 
 export type AuthEvent = EmailVerifiedEvent | PermissionsChangedEvent
+
+export interface UsernameAvailableResponse {
+  available: boolean
+}

@@ -38,6 +38,7 @@ use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
 use crate::sessions::{jwt_middleware, SbSession};
 use crate::state::AppState;
+use crate::users::names::{create_names_api, NameChecker};
 use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
 async fn health_check() -> impl IntoResponse {
@@ -106,16 +107,25 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         ClientIpSource::ConnectInfo
     };
 
+    let name_checker = NameChecker::new(db_pool.clone());
+
     let schema = build_schema()
         .extension(Tracing)
         .data(settings.clone())
         .data(db_pool.clone())
         .data(redis_pool.clone())
         .data(mailgun.clone())
+        .data(name_checker.clone())
         .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
-        // TODO(tec27): Figure out good limits
-        .limit_depth(8)
+        .limit_depth(if settings.env == Env::Production {
+            // TODO(tec27): Figure out good limits
+            10
+        } else {
+            // NOTE(tec27): GQLi introspection is a pretty deep query so we allow much greater in
+            // dev mode
+            999999
+        })
         .finish();
 
     let sensitive_headers: Arc<[_]> = Arc::new([
@@ -137,10 +147,12 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
     let metrics_router = Router::new()
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
+    let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
         current_user_repo: CurrentUserRepo::new(db_pool.clone(), redis_pool.clone()),
+        name_checker,
         db_pool,
         redis_pool,
         mailgun,
@@ -154,6 +166,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         .route("/healthcheck", get(health_check))
         .route("/gql", playground_route.post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
+        .nest("/users/names", names_router)
         .layer(
             ServiceBuilder::new()
                 .layer(prometheus_layer)

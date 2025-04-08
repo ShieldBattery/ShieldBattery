@@ -7,12 +7,12 @@ import { Ripple } from './ripple'
 
 const noop = () => {}
 
-const RadioGroupContainer = styled.div`
+const RadioGroupContainer = styled.div<{ $dense?: boolean }>`
   display: flex;
   flex-direction: column;
 
   // Align the left side of the radio group with the outer circle of the radio icon.
-  margin-left: -14px;
+  margin-left: ${props => (props.$dense ? -6 : -14)}px;
 `
 
 const RadioOverline = styled.div`
@@ -29,6 +29,7 @@ export interface RadioGroupProps<T> {
   label?: React.ReactNode
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   className?: string
+  dense?: boolean
 }
 
 export function RadioGroup<T>({
@@ -38,6 +39,7 @@ export function RadioGroup<T>({
   label,
   onChange,
   className,
+  dense,
 }: RadioGroupProps<T>) {
   const radioButtons = React.Children.map(children, (_child, i) => {
     if (!_child || typeof _child !== 'object' || !('props' in _child)) {
@@ -50,6 +52,7 @@ export function RadioGroup<T>({
     return React.cloneElement(child, {
       key: `button-${i}`,
       name,
+      dense,
       selected: isSelected,
     })
   })
@@ -57,7 +60,7 @@ export function RadioGroup<T>({
   return (
     <>
       {label ? <RadioOverline>{label}</RadioOverline> : null}
-      <RadioGroupContainer className={className} onChange={onChange}>
+      <RadioGroupContainer className={className} onChange={onChange} $dense={dense}>
         {radioButtons}
       </RadioGroupContainer>
     </>
@@ -80,6 +83,11 @@ interface RadioButtonProps<T> {
    * component and should not be passed directly.
    */
   selected?: boolean
+  /**
+   * Whether to use a dense layout. This will be set by the containing Radio component and should
+   * not be passed directly.
+   */
+  dense?: boolean
 }
 
 const RadioButtonContainer = styled.div`
@@ -105,11 +113,11 @@ const RadioButtonContainer = styled.div`
   }
 `
 
-const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
+const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean; $dense?: boolean }>`
   flex-shrink: 0;
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: ${props => (props.$dense ? 32 : 48)}px;
+  height: ${props => (props.$dense ? 32 : 48)}px;
 
   color: ${props => {
     if (props.$disabled) return 'rgb(from var(--theme-on-surface) r g b / 0.38)'
@@ -118,9 +126,9 @@ const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
   }};
 `
 
-const RadioIcon = styled.div<{ $selected?: boolean }>`
+const RadioIcon = styled.div<{ $selected?: boolean; $dense?: boolean }>`
   position: relative;
-  top: 14px;
+  top: ${props => (props.$dense ? 6 : 14)}px;
   width: 20px;
   height: 20px;
   margin: auto;
@@ -181,6 +189,7 @@ export const RadioButton = React.memo(
     inputProps,
     name,
     selected,
+    dense,
   }: RadioButtonProps<T>) => {
     const id = useId()
 
@@ -199,8 +208,8 @@ export const RadioButton = React.memo(
 
     return (
       <RadioButtonContainer {...buttonProps}>
-        <IconContainer $disabled={disabled} $selected={selected}>
-          <RadioIcon $selected={selected} />
+        <IconContainer $disabled={disabled} $selected={selected} $dense={dense}>
+          <RadioIcon $selected={selected} $dense={dense} />
           <StyledRipple ref={rippleRef} disabled={disabled} />
         </IconContainer>
         <Label htmlFor={id} $disabled={disabled}>

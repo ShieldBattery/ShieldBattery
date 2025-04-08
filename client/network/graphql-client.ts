@@ -1,4 +1,4 @@
-import { cacheExchange } from '@urql/exchange-graphcache'
+import { cacheExchange, UpdatesConfig } from '@urql/exchange-graphcache'
 import { requestPolicyExchange } from '@urql/exchange-request-policy'
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
@@ -17,7 +17,7 @@ export function createGraphqlClient(serverConfig: ServerConfig) {
         ttl: 5 * 60 * 1000,
         shouldUpgrade: operation => operation.context.requestPolicy !== 'cache-only',
       }),
-      cacheExchange({ schema }),
+      cacheExchange({ schema, updates: cacheUpdates }),
       fetchExchange,
     ],
     suspense: true,
@@ -32,4 +32,18 @@ export function createGraphqlClient(serverConfig: ServerConfig) {
         : {}
     },
   })
+}
+
+// TODO(tec27): Devise a way to split this between the different feature areas
+const cacheUpdates: UpdatesConfig = {
+  Mutation: {
+    deleteRestrictedName: (result, args, cache) => {
+      if (result.deleteRestrictedName) {
+        cache.invalidate({
+          __typename: 'NameRestriction',
+          id: args.id as any,
+        })
+      }
+    },
+  },
 }

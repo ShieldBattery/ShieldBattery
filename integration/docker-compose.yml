@@ -39,6 +39,7 @@ services:
       - SB_USE_FAKE_GOOGLE_CLOUD=true
       - 'SB_GOOGLE_CLOUD_DOMAIN=google-cloud'
       - SB_GOOGLE_CLOUD_PORT=5530
+      - 'SB_SERVER_RS_URL=http://server-rs:5529'
     volumes:
       - ./google-fake-credentials.json:/google-fake-credentials.json:ro
 

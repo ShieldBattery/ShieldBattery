@@ -53,6 +53,7 @@ services:
       - SB_DISABLE_CRAWLERS
       - SB_DISCORD_WEBHOOK_URL
       - GOOGLE_APPLICATION_CREDENTIALS=/google-credentials.json
+      - 'SB_SERVER_RS_URL=http://server-rs:5556'
     networks:
       - frontend
       - backend
