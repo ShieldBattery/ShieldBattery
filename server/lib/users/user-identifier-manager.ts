@@ -2,6 +2,8 @@ import crypto from 'crypto'
 import { injectable } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
+import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
+import logger from '../logging/logger'
 import { BanEnacter } from './ban-enacter'
 import {
   ClientIdentifierBuffer,
@@ -14,8 +16,10 @@ import {
   findUsersWithIdentifiers,
   upsertUserIdentifiers,
 } from './user-identifiers'
+import { findUserById } from './user-model'
 
-const PERMANENT_BAN_TIME = new Date('9001-01-01T23:00:00')
+const MIN_BAN_LENGTH_HOURS = 1
+const MAX_BAN_LENGTH_HOURS = 100 * 365 * 24 // 100 years
 
 function convertStringIds(
   identifiers: ReadonlyArray<ClientIdentifierString>,
@@ -32,7 +36,10 @@ function convertStringIds(
 
 @injectable()
 export class UserIdentifierManager {
-  constructor(private banEnacter: BanEnacter) {}
+  constructor(
+    private banEnacter: BanEnacter,
+    private discordNotifier: DiscordWebhookNotifier,
+  ) {}
 
   async upsert(
     userId: SbUserId,
@@ -48,12 +55,44 @@ export class UserIdentifierManager {
    * were banned.
    */
   async banUserIfNeeded(userId: SbUserId, withClient?: DbClient): Promise<boolean> {
-    const count = await countBannedUserIdentifiers(userId, true, withClient)
+    const [count, latestBanEnd] = await countBannedUserIdentifiers(userId, true, withClient)
 
-    const banLengthHours = (Number(PERMANENT_BAN_TIME) - Date.now()) / (1000 * 60 * 60)
+    const currentBanLengthHours = latestBanEnd
+      ? (latestBanEnd.getTime() - Date.now()) / (1000 * 60 * 60)
+      : 0
+    // Double their remaining ban length (clamping to our min/max times)
+    const newBanLengthHours = Math.max(
+      Math.min(currentBanLengthHours * 2, MAX_BAN_LENGTH_HOURS),
+      MIN_BAN_LENGTH_HOURS,
+    )
 
     if (count >= MIN_IDENTIFIER_MATCHES) {
-      await this.banEnacter.enactBan({ targetId: userId, banLengthHours, reason: 'ban evasion' })
+      await this.banEnacter.enactBan({
+        targetId: userId,
+        banLengthHours: newBanLengthHours,
+        reason: 'ban evasion',
+      })
+
+      // Notify the staff channel, but no need to wait for it to finish
+      Promise.resolve()
+        .then(async () => {
+          const user = await findUserById(userId)
+          if (!user) {
+            logger.warn(`User ${userId} not found for ban evasion notification`)
+            return
+          }
+
+          await this.discordNotifier.notify({
+            content:
+              `User '${user.name}' [${user.id}] banned for ban evasion ` +
+              `for ${Math.round(newBanLengthHours * 10) / 10} hours.\n\n` +
+              `${process.env.SB_CANONICAL_HOST}/users/${user.id}/${encodeURIComponent(user.name)}/`,
+          })
+        })
+        .catch(err => {
+          logger.error({ err }, 'Error notifying staff of ban evasion')
+        })
+
       return true
     }
 

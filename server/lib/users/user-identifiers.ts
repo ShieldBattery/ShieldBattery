@@ -136,12 +136,13 @@ export async function countBannedUserIdentifiers(
   userId: SbUserId,
   filterBrowserprint = true,
   withClient?: DbClient,
-): Promise<number> {
+): Promise<[count: number, latestBanEnd: Date | undefined]> {
   const { client, done } = await db(withClient)
 
   try {
     let query = sql`
-      SELECT COUNT(DISTINCT identifier_type) as "matches"
+      SELECT COUNT(DISTINCT identifier_type) as "matches",
+             MAX(banned_until) as "latest"
       FROM user_identifier_bans uib
       WHERE (uib.identifier_type, uib.identifier_hash) IN (
         SELECT identifier_type, identifier_hash
@@ -157,8 +158,14 @@ export async function countBannedUserIdentifiers(
       `)
     }
 
-    const result = await client.query<{ matches: string }>(query)
-    return result.rows.length > 0 ? Number(result.rows[0].matches) : 0
+    const result = await client.query<{ matches: string; latest: Date | null }>(query)
+    if (result.rows.length > 0) {
+      const matches = Number(result.rows[0].matches)
+      const latestBanEnd = result.rows[0].latest ?? undefined
+      return [matches, latestBanEnd]
+    } else {
+      return [0, undefined]
+    }
   } finally {
     done()
   }
