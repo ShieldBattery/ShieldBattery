@@ -82,21 +82,19 @@ guide.
 
 ## Project structure
 
-The ShieldBattery project is broken down into four big pieces, located in these folders:
+The ShieldBattery project is broken down into several big pieces, located in these folders:
 
-- **app**: the standalone application.
+- **app**: the standalone Electron application (main process)
 - **client**: all of the client-side code which is used by the standalone application and the website client
-- **game**: Rust code related to the game.
-- **server**: the server-side code including all the HTTP API handlers and WebSocket API handlers.
+- **game**: Rust code related to the game
+- **server**: the server-side code including all the HTTP API handlers and WebSocket API handlers
 - **server-rs**: a Rust-based GraphQL server used for some APIs
 
 There are also some other important folders:
 
 - **assets**: contains source assets for our graphics
-- **test**: contains tests for various things (runnable with `pnpm test`). Note that the server has its own
-  tests, which are located inside of the `server/test` directory.
-- **tools**: contains third-party tools we use for building and maintaining various parts of the
-  project, such as generating diffs to patch between game versions
+- **common**: code that is shared between `app`, `client`, and `server`
+- **integration**: contains end-to-end tests for the client + server together (run with `run-integration-tests.bat`)
 
 ## License
 
