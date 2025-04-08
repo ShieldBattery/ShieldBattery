@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use axum::body::Body;
 use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
@@ -175,7 +174,6 @@ pub async fn jwt_middleware(
     response
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for SbSession
 where
     S: Send + Sync,

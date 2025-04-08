@@ -12,7 +12,7 @@ use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use axum::{middleware, Router};
-use axum_client_ip::{SecureClientIp, SecureClientIpSource};
+use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
 use jsonwebtoken::DecodingKey;
 use secrecy::ExposeSecret;
@@ -55,13 +55,14 @@ async fn send_404() -> impl IntoResponse {
 }
 
 async fn graphql_handler(
-    ip: SecureClientIp,
+    ip: ClientIp,
     session: SbSession,
     current_user: Option<CurrentUser>,
-    State(schema): State<SbSchema>,
+    State(app_state): State<AppState>,
     req: GraphQLRequest,
 ) -> GraphQLResponse {
-    schema
+    app_state
+        .graphql_schema
         .execute(req.into_inner().data(ip).data(session).data(current_user))
         .await
         .into()
@@ -100,9 +101,9 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
     ));
 
     let ip_source = if settings.reverse_proxied {
-        SecureClientIpSource::XRealIp
+        ClientIpSource::XRealIp
     } else {
-        SecureClientIpSource::ConnectInfo
+        ClientIpSource::ConnectInfo
     };
 
     let schema = build_schema()

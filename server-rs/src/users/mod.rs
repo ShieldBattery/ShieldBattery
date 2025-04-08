@@ -7,18 +7,17 @@ use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{
     ComplexObject, Context, Guard, InputObject, Object, Result, SchemaBuilder, SimpleObject,
 };
-use async_trait::async_trait;
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
-use axum::Extension;
-use axum_client_ip::SecureClientIp;
+use axum::{Extension, RequestPartsExt};
+use axum_client_ip::ClientIp;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
 use mobc_redis::redis::AsyncCommands;
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
+use rand::distr::{Alphanumeric, SampleString};
+use rand::rng;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
@@ -138,7 +137,6 @@ pub struct CurrentUser {
     pub permissions: SbPermissions,
 }
 
-#[async_trait]
 impl FromRequestParts<AppState> for CurrentUser {
     type Rejection = (StatusCode, &'static str);
 
@@ -146,7 +144,8 @@ impl FromRequestParts<AppState> for CurrentUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> std::result::Result<Self, Self::Rejection> {
-        let Extension(session): Extension<SbSession> = Extension::from_request_parts(parts, state)
+        let Extension(session): Extension<SbSession> = parts
+            .extract()
             .await
             .map_err(|_| (StatusCode::UNAUTHORIZED, "Unauthorized"))?;
         let SbSession::Authenticated(session) = session else {
@@ -161,6 +160,25 @@ impl FromRequestParts<AppState> for CurrentUser {
                 error!("Failed to load cached user: {e:?}");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
             })
+    }
+}
+
+impl OptionalFromRequestParts<AppState> for CurrentUser {
+    type Rejection = (StatusCode, &'static str);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        let Ok(Extension(SbSession::Authenticated(session))) = parts.extract().await else {
+            return Ok(None);
+        };
+
+        Ok(state
+            .current_user_repo
+            .load_cached_user(session.user_id, Default::default())
+            .await
+            .ok())
     }
 }
 
@@ -266,7 +284,7 @@ impl UsersMutation {
                         }),
                     });
                     let token = generate_email_token();
-                    let ip: IpNetwork = ctx.data_unchecked::<SecureClientIp>().0.into();
+                    let ip: IpNetwork = ctx.data_unchecked::<ClientIp>().0.into();
                     email_verification = Some(sqlx::query!(
                         r#"
                             INSERT INTO email_verifications
@@ -492,7 +510,7 @@ impl Loader<String> for UsersLoader {
 }
 
 fn generate_email_token() -> String {
-    Alphanumeric.sample_string(&mut thread_rng(), 12)
+    Alphanumeric.sample_string(&mut rng(), 12)
 }
 
 /// Repository implementation for retrieving/updating info about the current user. Utilizes a cache
