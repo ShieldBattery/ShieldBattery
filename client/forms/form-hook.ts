@@ -250,7 +250,6 @@ export function useForm<ModelType extends Record<string, any>>(
   }
 
   const submit = (event?: React.FormEvent) => {
-    console.trace('form submit')
     // Don't actually submit the form over HTTP
     event?.preventDefault()
 
