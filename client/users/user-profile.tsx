@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -74,12 +74,6 @@ export function ConnectedUserProfilePage({
   const isAdmin = useHasAnyPermission('editPermissions', 'banUsers')
   const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
 
-  const onTabChange = useCallback(
-    (tab: UserProfileSubPage) => {
-      navigateToUserProfile(user!.id, user!.name, tab)
-    },
-    [user],
-  )
   const [loadingError, setLoadingError] = useState<Error>()
   const cancelLoadRef = useRef(new AbortController())
 
@@ -132,7 +126,9 @@ export function ConnectedUserProfilePage({
       profile={profile}
       matchHistory={matchHistory}
       subPage={subPage}
-      onTabChange={onTabChange}
+      onTabChange={(tab: UserProfileSubPage) => {
+        navigateToUserProfile(user?.id ?? userId, user?.name ?? '_', tab)
+      }}
       isAdmin={isAdmin}
       seasons={seasons}
     />

@@ -80,7 +80,6 @@ export function Login() {
   )
   useFormCallbacks(form, {
     onSubmit: model => {
-      console.trace('login on submit')
       setIsLoading(true)
       setLastError(undefined)
 
@@ -182,10 +181,7 @@ export function Login() {
             <Spacer />
             <ElevatedButton
               label={t('auth.login.logIn', 'Log in')}
-              onClick={() => {
-                console.trace('login button click')
-                submit()
-              }}
+              onClick={submit}
               tabIndex={1}
               testName='submit-button'
             />
