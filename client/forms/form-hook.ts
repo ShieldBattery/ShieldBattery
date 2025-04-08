@@ -250,6 +250,7 @@ export function useForm<ModelType extends Record<string, any>>(
   }
 
   const submit = (event?: React.FormEvent) => {
+    console.trace('form submit')
     // Don't actually submit the form over HTTP
     event?.preventDefault()
 
@@ -266,7 +267,15 @@ export function useForm<ModelType extends Record<string, any>>(
         // NOTE(tec27): We need access to the latest state, so we use an updater but don't actually
         // mutate it. Kind of hacky but most options aren't great here, and since we don't mutate
         // the state it shouldn't generate another render.
+        let triggered = false
         updateValidationErrors(draft => {
+          if (triggered) {
+            // This function will be called multiple times in strict mode, and we don't want to
+            // trigger multiple submits
+            return
+          }
+
+          triggered = true
           let isValid = true
           // NOTE(tec27): Not using `iterator#every` here because it seems to not be available on
           // the immer proxy

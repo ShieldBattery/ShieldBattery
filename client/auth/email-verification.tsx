@@ -204,7 +204,7 @@ export function EmailVerificationUi() {
 
   return (
     <AuthContent>
-      <AuthContentContainer isLoading={authChangeInProgress || resending}>
+      <AuthContentContainer $isLoading={authChangeInProgress || resending}>
         <AuthTitle as='h3'>{t('auth.emailVerification.title', 'Verify email')}</AuthTitle>
         <AuthBody>{contents}</AuthBody>
         {bottomActionButton ? <AuthBottomAction>{bottomActionButton}</AuthBottomAction> : null}

@@ -248,7 +248,7 @@ export function Signup() {
 
   return (
     <AuthContent>
-      <AuthContentContainer isLoading={isLoading || auth.authChangeInProgress}>
+      <AuthContentContainer $isLoading={isLoading || auth.authChangeInProgress}>
         <AuthTitle>{t('auth.signup.title', 'Create account')}</AuthTitle>
         <AuthBody>
           {lastError ? <UserErrorDisplay error={lastError} /> : null}

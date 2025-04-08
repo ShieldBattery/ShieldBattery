@@ -120,7 +120,7 @@ function ForgotFormHolder(props) {
 
   return (
     <AuthContent>
-      <AuthContentContainer isLoading={authChangeInProgress}>
+      <AuthContentContainer $isLoading={authChangeInProgress}>
         <AuthTitle as='h3'>{title}</AuthTitle>
         <AuthBody>
           {errContents}

@@ -80,6 +80,7 @@ export function Login() {
   )
   useFormCallbacks(form, {
     onSubmit: model => {
+      console.trace('login on submit')
       setIsLoading(true)
       setLastError(undefined)
 
@@ -126,7 +127,7 @@ export function Login() {
 
   return (
     <AuthContent>
-      <AuthContentContainer isLoading={isLoading || auth.authChangeInProgress}>
+      <AuthContentContainer $isLoading={isLoading || auth.authChangeInProgress}>
         <AuthTitle>{t('auth.login.title', 'Log in')}</AuthTitle>
         <AuthBody>{lastError ? <UserErrorDisplay error={lastError} /> : null}</AuthBody>
         <form noValidate={true} onSubmit={submit}>
@@ -181,7 +182,10 @@ export function Login() {
             <Spacer />
             <ElevatedButton
               label={t('auth.login.logIn', 'Log in')}
-              onClick={submit}
+              onClick={() => {
+                console.trace('login button click')
+                submit()
+              }}
               tabIndex={1}
               testName='submit-button'
             />
