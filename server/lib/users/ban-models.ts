@@ -51,15 +51,20 @@ export async function retrieveBanHistory(
   }
 }
 
-export async function banUser(
+export async function banUsers(
   {
-    userId,
+    users,
     bannedBy,
     banLengthHours,
     reason,
-  }: { userId: SbUserId; bannedBy?: SbUserId; banLengthHours: number; reason?: string },
+  }: {
+    users: ReadonlyArray<SbUserId>
+    bannedBy?: SbUserId
+    banLengthHours: number
+    reason?: string
+  },
   withClient?: DbClient,
-): Promise<UserBanRow> {
+): Promise<UserBanRow[]> {
   const { client, done } = await db(withClient)
   const startDate = new Date()
   const endDate = new Date()
@@ -68,11 +73,17 @@ export async function banUser(
   try {
     const result = await client.query(sql`
       INSERT INTO user_bans (user_id, start_time, end_time, banned_by, reason)
-      VALUES (${userId}, ${startDate}, ${endDate}, ${bannedBy}, ${reason})
+      SELECT * FROM UNNEST(
+        ${users}::int4[],
+        ${new Array(users.length).fill(startDate)}::timestamp[],
+        ${new Array(users.length).fill(endDate)}::timestamp[],
+        ${new Array(users.length).fill(bannedBy ?? null)}::int4[],
+        ${new Array(users.length).fill(reason ?? null)}::text[]
+      ) AS t(user_id, start_time, end_time, banned_by, reason)
       RETURNING *
     `)
 
-    return toUserBanRow(result.rows[0])
+    return result.rows.map(r => toUserBanRow(r))
   } finally {
     done()
   }

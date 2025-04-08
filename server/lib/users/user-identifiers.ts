@@ -198,12 +198,12 @@ export async function countBannedIdentifiers(
 
 export async function banAllIdentifiers(
   {
-    userId,
+    users,
     timeBanned = new Date(),
     bannedUntil,
     filterBrowserprint = true,
   }: {
-    userId: SbUserId
+    users: ReadonlyArray<SbUserId>
     timeBanned?: Date
     bannedUntil: Date
     filterBrowserprint?: boolean
@@ -217,14 +217,14 @@ export async function banAllIdentifiers(
       INSERT INTO user_identifier_bans AS uib (
         identifier_type, identifier_hash, time_banned, banned_until, first_user_id
       )
-      SELECT
+      SELECT DISTINCT ON (identifier_type, identifier_hash)
         identifier_type,
         identifier_hash,
         ${timeBanned} AS "time_banned",
         ${bannedUntil} AS "banned_until",
         user_id
       FROM user_identifiers
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(${users})
     `
 
     if (filterBrowserprint) {

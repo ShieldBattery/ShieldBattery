@@ -40,9 +40,12 @@ function toUserIpInfo(dbInfo: DbUserIpInfo): UserIpInfo {
   }
 }
 
-/** Retrieves all the IP addresses associated with a user, along with info about their use. */
-export async function retrieveIpsForUser(
-  userId: SbUserId,
+/**
+ * Retrieves all the IP addresses associated with the specified users, along with info about their
+ * use.
+ */
+export async function retrieveIpsForUsers(
+  users: ReadonlyArray<SbUserId>,
   withClient?: DbClient,
 ): Promise<UserIpInfo[]> {
   const { client, done } = await db(withClient)
@@ -50,7 +53,7 @@ export async function retrieveIpsForUser(
     const res = await client.query(sql`
       SELECT user_id, ip_address, first_used, last_used, times_seen
       FROM user_ips
-      WHERE user_id = ${userId}
+      WHERE user_id = ANY(${users})
       ORDER BY last_used DESC
     `)
     return res.rows.map(r => toUserIpInfo(r))

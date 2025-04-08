@@ -95,7 +95,7 @@ import {
 } from './user-api-errors'
 import { UserIdentifierCleanupJob } from './user-identifier-cleanup'
 import { UserIdentifierManager } from './user-identifier-manager'
-import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
+import { retrieveIpsForUsers, retrieveRelatedUsersForIps } from './user-ips'
 import { UserIpsCleanupJob } from './user-ips-cleanup'
 import {
   createUser,
@@ -1007,7 +1007,7 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const ips = await retrieveIpsForUser(user.id)
+    const ips = await retrieveIpsForUsers([user.id])
     if (!ips.length) {
       return {
         forUser: user.id,
