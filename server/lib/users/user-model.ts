@@ -1,5 +1,4 @@
 import bcrypt from 'bcrypt'
-import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
@@ -16,7 +15,6 @@ import { sql, sqlConcat, sqlRaw } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
-import { UserIdentifierManager } from './user-identifier-manager'
 import { createUserStats } from './user-stats-model'
 
 /**
@@ -110,18 +108,16 @@ export async function createUser({
   hashedPassword,
   ipAddress,
   createdDate = new Date(),
-  clientIds,
   locale,
-  joinInitialChannelFn,
+  completeCreationFn,
 }: {
   name: string
   email: string
   hashedPassword: string
   ipAddress: string
   createdDate?: Date
-  clientIds: ReadonlyArray<[type: number, hashStr: string]>
   locale?: string
-  joinInitialChannelFn: (
+  completeCreationFn: (
     userId: SbUserId,
     client: DbClient,
     transactionCompleted: Promise<void>,
@@ -151,13 +147,10 @@ export async function createUser({
         VALUES (${userInternal.id}, ${hashedPassword});
       `)
 
-      const userIdManager = container.resolve(UserIdentifierManager)
-
       const [permissions] = await Promise.all([
         createPermissions(client, userInternal.id),
-        joinInitialChannelFn(userInternal.id, client, transactionCompleted),
         createUserStats(client, userInternal.id),
-        userIdManager.upsert(userInternal.id, clientIds, client),
+        completeCreationFn(userInternal.id, client, transactionCompleted),
       ])
 
       return { user: convertToExternalSelf(userInternal), permissions }

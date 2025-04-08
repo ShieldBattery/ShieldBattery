@@ -269,10 +269,13 @@ export class UserApi {
         email,
         hashedPassword,
         ipAddress: ctx.ip,
-        clientIds,
         locale,
-        joinInitialChannelFn: (userId, client, transactionCompleted) =>
-          this.chatService.joinInitialChannel(userId, client, transactionCompleted),
+        completeCreationFn: (userId, client, transactionCompleted) => {
+          return Promise.all([
+            this.chatService.joinInitialChannel(userId, client, transactionCompleted),
+            this.userIdManager.upsert(userId, clientIds),
+          ]).then(() => {})
+        },
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
