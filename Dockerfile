@@ -1,6 +1,10 @@
-# ---------- 1st stage ----------
-# The first stage adds the necessary libraries to build native add-ons (eg. bcrypt) and then installs
-# the server dependencies
+# Get sqlx-cli so we can run migrations (Linux version needs to match what we run on below)
+FROM rust:alpine AS rust
+RUN apk add --no-cache musl-dev
+RUN cargo install sqlx-cli --no-default-features --features postgres --root ./
+
+
+# Build the server scripts (Linux version needs to match what we run on below)
 FROM node:22-alpine AS builder
 
 RUN corepack enable
@@ -43,8 +47,8 @@ RUN pnpm run build-web-client
 # Then prune the server deps to only the production ones
 RUN pnpm prune --prod
 
-# ---------- 2nd stage ----------
-# Second stage copies the built dependencies from first stage and runs the app in production mode
+
+# Setup the actual image
 FROM node:22-alpine
 
 # Run pnpm once so we ensure it gets installed by corepack during the container build
@@ -75,7 +79,10 @@ USER node
 # Set the working directory to the home directory of the `node` user
 WORKDIR /home/node/shieldbattery
 
-# Copy the installed dependencies from the first stage
+# Copy sqlx binary for migrations
+COPY --chown=node:node --from=rust /bin/sqlx tools/sqlx
+
+# Copy the installed dependencies from the builder
 COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
 COPY --chown=node:node --from=builder /shieldbattery/s3cmd/s3cmd tools/s3cmd/s3cmd
 COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
@@ -84,11 +91,12 @@ COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
 COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
+COPY --chown=node:node --from=builder /shieldbattery/migrations ./migrations
 COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
 COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
-# Allow the various scripts to be run (necessary when building on Linux)
+# Allow the various scripts to be run
 RUN chmod +x ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
@@ -100,4 +108,4 @@ RUN touch /var/lib/logrotate.status
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp
 
-CMD /entrypoint.sh
+CMD ["/entrypoint.sh"]

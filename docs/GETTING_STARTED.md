@@ -174,7 +174,7 @@ This should be done every time a `pnpm-lock.yaml` file changes in the repository
 From the root of this repository execute this to migrate the database to the latest structure:
 
 ```
-pnpm run migrate-up
+pnpm run migrate:run
 ```
 
 You will need to run this command after pulling in commits that change the database structure as
