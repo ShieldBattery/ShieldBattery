@@ -81,12 +81,12 @@ services:
       - redis
 
   redis:
-    image: redis:6.2.6-alpine
+    image: redis:7.4.2
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
 
   db:
-    image: postgres:12-alpine
+    image: postgres:17
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
