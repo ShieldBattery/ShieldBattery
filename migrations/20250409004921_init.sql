@@ -11,6 +11,71 @@ CREATE TEMPORARY TABLE _schema_check(exists_already boolean);
 INSERT INTO _schema_check (exists_already)
 SELECT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'game_result');
 
+-- Create any functions we use first, as these fail in the DO block (I imagine there's a way to
+-- make this work but the docs aren't organized well for me finding out), since they're easy to
+-- unconditionally replace regardless. The sb_uuid function here is slightly more efficient than the
+-- previous version as well.
+
+--
+-- Name: sb_uuid(); Type: FUNCTION; Schema: public; Owner: shieldbattery
+-- https://gist.github.com/kjmph/5bd772b2c2df145aa645b837da7eca74
+--
+
+CREATE OR REPLACE FUNCTION public.sb_uuid()
+RETURNS uuid
+as $$
+begin
+  -- use random v4 uuid as starting point (which has the same variant we need)
+  -- then overlay timestamp
+  -- then set version 7 by flipping the 2 and 1 bit in the version 4 string
+  return encode(
+    set_bit(
+      set_bit(
+        overlay(uuid_send(gen_random_uuid())
+                placing substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3)
+                from 1 for 6
+        ),
+        52, 1
+      ),
+      53, 1
+    ),
+    'hex')::uuid;
+end
+$$
+LANGUAGE plpgsql volatile;
+
+
+ALTER FUNCTION public.sb_uuid() OWNER TO shieldbattery;
+
+--
+-- Name: update_channels_user_count(); Type: FUNCTION; Schema: public; Owner: shieldbattery
+--
+
+CREATE OR REPLACE FUNCTION public.update_channels_user_count() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+      BEGIN
+        IF (TG_OP = 'DELETE') THEN
+          UPDATE channels
+          SET user_count = user_count - 1
+          WHERE id = OLD.channel_id;
+
+          RETURN OLD;
+        ELSIF (TG_OP = 'INSERT') THEN
+          UPDATE channels
+          SET user_count = user_count + 1
+          WHERE id = NEW.channel_id;
+
+          RETURN NEW;
+        END IF;
+
+        RETURN NULL;
+      END;
+    $$;
+
+
+ALTER FUNCTION public.update_channels_user_count() OWNER TO shieldbattery;
+
 -- Only proceed with schema creation if it doesn't already exist
 DO $$
 BEGIN
@@ -1891,65 +1956,15 @@ BEGIN
     ALTER TABLE ONLY public.users_private
         ADD CONSTRAINT users_private_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
+    -- Data insertions that the old migrations did (these are rare)
+    INSERT INTO channels (name, official) VALUES ('ShieldBattery', true);
+
+    INSERT INTO matchmaking_seasons (start_date, name, reset_mmr)
+      VALUES (
+        TO_TIMESTAMP('2012-01-01', 'YYYY-MM-DD') AT TIME ZONE 'UTC',
+        'Beta Season',
+        true
+      );
   END IF;
 END$$;
 
---
--- Name: sb_uuid(); Type: FUNCTION; Schema: public; Owner: shieldbattery
--- https://gist.github.com/kjmph/5bd772b2c2df145aa645b837da7eca74
---
-
-CREATE OR REPLACE FUNCTION public.sb_uuid()
-RETURNS uuid
-as $$
-begin
-  -- use random v4 uuid as starting point (which has the same variant we need)
-  -- then overlay timestamp
-  -- then set version 7 by flipping the 2 and 1 bit in the version 4 string
-  return encode(
-    set_bit(
-      set_bit(
-        overlay(uuid_send(gen_random_uuid())
-                placing substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3)
-                from 1 for 6
-        ),
-        52, 1
-      ),
-      53, 1
-    ),
-    'hex')::uuid;
-end
-$$
-LANGUAGE plpgsql volatile;
-
-
-ALTER FUNCTION public.sb_uuid() OWNER TO shieldbattery;
-
---
--- Name: update_channels_user_count(); Type: FUNCTION; Schema: public; Owner: shieldbattery
---
-
-CREATE OR REPLACE FUNCTION public.update_channels_user_count() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-      BEGIN
-        IF (TG_OP = 'DELETE') THEN
-          UPDATE channels
-          SET user_count = user_count - 1
-          WHERE id = OLD.channel_id;
-
-          RETURN OLD;
-        ELSIF (TG_OP = 'INSERT') THEN
-          UPDATE channels
-          SET user_count = user_count + 1
-          WHERE id = NEW.channel_id;
-
-          RETURN NEW;
-        END IF;
-
-        RETURN NULL;
-      END;
-    $$;
-
-
-ALTER FUNCTION public.update_channels_user_count() OWNER TO shieldbattery;
