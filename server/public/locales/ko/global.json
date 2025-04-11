@@ -319,7 +319,8 @@
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
-            "notAvailable": "사용자 이름을 사용할 수 없습니다"
+            "notAvailable": "사용자 이름을 사용할 수 없습니다",
+            "error": "사용자 이름 가용성을 확인하는 중 문제가 발생했습니다."
         },
         "language": {
             "changeErrorHeader": "언어 변경 오류",
