@@ -243,7 +243,8 @@
         "usernameValidator": {
             "pattern": "Nombre de usuario contiene caracteres inválidos",
             "required": "Introduzca un nombre de usuario",
-            "notAvailable": "nombre de usuario no esta disponible"
+            "notAvailable": "nombre de usuario no esta disponible",
+            "error": "Hubo un problema al verificar la disponibilidad del nombre de usuario."
         },
         "emailValidator": {
             "pattern": "Introduzca una dirección de correo electrónico válida",
