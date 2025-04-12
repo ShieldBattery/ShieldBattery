@@ -64,7 +64,6 @@
             },
             "title": "Juego",
             "video": {
-                "enableFpsLimit": "Habilitar límite de FPS",
                 "enableVerticalSync": "Habilitar sincronización vertical",
                 "environmentEffects": "Efectos ambientales",
                 "pillarbox": "Pillarbox (relación de aspecto 4:3)",

@@ -142,7 +142,6 @@
                     "windowed": "窗口化",
                     "windowedFullscreen": "全屏窗口"
                 },
-                "enableFpsLimit": "启用帧数限制",
                 "enableVerticalSync": "启用垂直同步",
                 "environmentEffects": "环境特效",
                 "fpsLimit": "帧数限制",

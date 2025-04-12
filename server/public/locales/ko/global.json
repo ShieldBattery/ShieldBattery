@@ -151,7 +151,6 @@
                 },
                 "smoothUnitTurning": "부드러운 유닛 회전",
                 "title": "동영상",
-                "enableFpsLimit": "FPS 제한 활성화",
                 "enableVerticalSync": "수직 동기화 활성화",
                 "environmentEffects": "환경 영향",
                 "fpsLimit": "FPS 제한",

@@ -143,7 +143,6 @@
                     "fullscreen": "Полноэкранный",
                     "title": "Режим отображения"
                 },
-                "enableFpsLimit": "Включить ограничение FPS",
                 "enableVerticalSync": "Включить вертикальную синхронизацию",
                 "sdGraphicsFilter": "SD-графический фильтр",
                 "shadowStacking": "Наложение теней",
