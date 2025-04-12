@@ -11,7 +11,7 @@ import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
-import { sql, sqlConcat, sqlRaw } from '../db/sql'
+import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
@@ -273,11 +273,11 @@ export async function attemptLogin(
 
 async function internalFindUserById(
   id: number,
-  client?: DbClient,
+  withClient?: DbClient,
 ): Promise<UserInternal | undefined> {
-  const { client: dbClient, done } = client ? { client, done: () => {} } : await db()
+  const { client, done } = await db(withClient)
   try {
-    const result = await dbClient.query<DbUser>(sql`
+    const result = await client.query<DbUser>(sql`
       SELECT * FROM users
       WHERE id = ${id}
     `)
@@ -391,6 +391,32 @@ export async function findUsersById(ids: SbUserId[]): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
+    return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the data for all users with IDs that match the result of the specified query. The query
+ * must return a column of IDs with the name it specifies (`user_id` by default). `idColumn` should
+ * be a static string, never user-controlled.
+ */
+export async function findUsersByIdQuery(
+  idQuery: SqlTemplate,
+  idColumn = 'user_id',
+  withClient?: DbClient,
+): Promise<SbUser[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUser>(sql`
+      WITH ids AS (
+        ${idQuery}
+      )
+      SELECT *
+      FROM users
+      INNER JOIN ids ON users.id = ids."${sqlRaw(idColumn)}"
+    `)
     return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()

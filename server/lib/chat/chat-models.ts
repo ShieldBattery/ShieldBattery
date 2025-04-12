@@ -20,6 +20,7 @@ import { sql, sqlConcat } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getUrl } from '../file-upload'
+import { findUsersByIdQuery } from '../users/user-model'
 
 export interface UserChannelEntry {
   userId: SbUserId
@@ -73,17 +74,11 @@ export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelE
  * they're re-sorted alphabetically on the client anyway.
  */
 export async function getUsersForChannel(channelId: SbChannelId): Promise<SbUser[]> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<Dbify<SbUser>>(sql`
-      SELECT u.id, u.name
-      FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
-      WHERE c.channel_id = ${channelId};
-    `)
-    return result.rows
-  } finally {
-    done()
-  }
+  return await findUsersByIdQuery(sql`
+    SELECT user_id
+    FROM channel_users
+    WHERE channel_id = ${channelId}
+  `)
 }
 
 /**
