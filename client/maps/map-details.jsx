@@ -50,7 +50,7 @@ const MapName = styled.div`
   max-width: calc(768px - 48px - 16px - 220px);
   margin: 0;
   margin-bottom: 16px;
-  padding-right: ${props => (props.canEdit ? '68px' : '16px')};
+  padding-right: ${props => (props.$canEdit ? '68px' : '16px')};
   line-height: 48px;
   letter-spacing: 0.25px;
   user-select: text;
@@ -66,7 +66,7 @@ const MapDescription = styled.div`
   ${bodyLarge};
   position: relative;
   margin: 0;
-  padding-right: ${props => (props.canEdit ? '68px' : '16px')};
+  padding-right: ${props => (props.$canEdit ? '68px' : '16px')};
   white-space: pre-wrap;
   overflow-wrap: break-word;
   user-select: text;
@@ -259,7 +259,7 @@ export default class MapDetails extends React.Component {
               onCancel={() => this.onCancel('name')}
             />
           ) : (
-            <MapName canEdit={canEdit}>
+            <MapName $canEdit={canEdit}>
               {
                 // NOTE(tec27): atm if the map name is missing this will end up with 0 height, so
                 // we replace it with a non-breaking space character in that case.
@@ -287,7 +287,7 @@ export default class MapDetails extends React.Component {
             />
           ) : (
             <MapDescriptionWrapper>
-              <MapDescription canEdit={canEdit}>
+              <MapDescription $canEdit={canEdit}>
                 {map.description}
                 {canEdit ? (
                   <EditButton
