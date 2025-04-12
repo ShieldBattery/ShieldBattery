@@ -1,4 +1,3 @@
-import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
 
@@ -52,7 +51,7 @@ export interface DeactivateWhisperSession {
 export interface WhisperSessionInit {
   type: '@whispers/initSession'
   payload: {
-    target: SbUser
+    target: SbUserId
   }
 }
 

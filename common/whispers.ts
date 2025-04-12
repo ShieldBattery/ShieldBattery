@@ -31,8 +31,8 @@ export interface WhispersReadyEvent {
 }
 
 export interface WhisperSessionInitEvent {
-  action: 'initSession2'
-  target: SbUser
+  action: 'initSession3'
+  target: SbUserId
 }
 
 export interface WhisperSessionCloseEvent {

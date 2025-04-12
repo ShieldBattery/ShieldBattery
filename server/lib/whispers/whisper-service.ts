@@ -241,11 +241,11 @@ export default class WhisperService {
     return foundUser
   }
 
-  private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: SbUser) {
+  private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: SbUserId) {
     userSockets.subscribe<WhisperSessionInitEvent>(
-      getSessionPath(userSockets.userId, target.id),
+      getSessionPath(userSockets.userId, target),
       () => ({
-        action: 'initSession2',
+        action: 'initSession3',
         target,
       }),
     )
@@ -271,28 +271,23 @@ export default class WhisperService {
 
     if (!this.userSessions.get(user.id)?.has(target.id)) {
       this.userSessions = this.userSessions.update(user.id, OrderedSet(), s => s.add(target.id))
-      this.subscribeUserToWhisperSession(userSockets, target)
+      this.subscribeUserToWhisperSession(userSockets, target.id)
     }
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const whisperSessions = await getWhisperSessionsForUser(userSockets.userId)
+    const whisperSessionIds = await getWhisperSessionsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their whisper sessions
       return
     }
 
-    const targetIdsSet = OrderedSet(whisperSessions.map(s => s.targetId))
+    const targetIdsSet = OrderedSet(whisperSessionIds)
     this.userSessions = this.userSessions.set(userSockets.userId, targetIdsSet)
-    for (const session of whisperSessions) {
+    for (const id of whisperSessionIds) {
       // Add the new user to all of the sessions they have opened
-      this.sessionUsers = this.sessionUsers.update(session.targetId, ISet(), s =>
-        s.add(userSockets.userId),
-      )
-      this.subscribeUserToWhisperSession(userSockets, {
-        id: session.targetId,
-        name: session.targetName,
-      })
+      this.sessionUsers = this.sessionUsers.update(id, ISet(), s => s.add(userSockets.userId))
+      this.subscribeUserToWhisperSession(userSockets, id)
     }
 
     userSockets.subscribe<WhispersReadyEvent>(`${userSockets.getPath()}/whispers`, () => ({

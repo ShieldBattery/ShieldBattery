@@ -73,8 +73,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@whispers/initSession'](state, action) {
     const { target } = action.payload
-    state.byId.set(target.id, defaultWhisperSession(target.id))
-    state.sessions.add(target.id)
+    state.byId.set(target, defaultWhisperSession(target))
+    state.sessions.add(target)
   },
 
   ['@whispers/closeSession'](state, action) {
