@@ -10,7 +10,8 @@ const options = {
   withCredentials: true,
   extraHeaders: {
     get Authorization(): string {
-      return `Bearer ${CREDENTIAL_STORAGE.get()}`
+      const token = CREDENTIAL_STORAGE.get()
+      return token ? `Bearer ${token}` : ''
     },
   },
 } satisfies Partial<NydusClientOptions>

@@ -3,9 +3,10 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import { AdminBanUserRequest } from '../../common/users/user-network'
 import { adminRequestContext } from '../admin-utils'
+import { emulateElectronClientForRoute } from '../emulate-electron-client'
 import { LoginPage } from '../pages/login-page'
 import { generateUsername } from '../username-generator'
-import { signupWith } from './signup/utils'
+import { goToSignup, signupWith } from './signup/utils'
 
 let loginPage: LoginPage
 
@@ -14,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('banned user can see message', async ({ page, baseURL }) => {
-  await page.goto('/signup')
+  await goToSignup(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
@@ -23,14 +24,14 @@ test('banned user can see message', async ({ page, baseURL }) => {
   await page.route(
     `/api/1/users`,
     async route => {
-      const response = await route.fetch()
+      const [response, headers] = await emulateElectronClientForRoute(route, page.url())
       const body = await response.json()
 
       if (response.status() === 200) {
         userId = (body as ClientSessionInfo).user.id
       }
 
-      return route.fulfill({ response })
+      return route.fulfill({ response, headers })
     },
     { times: 1 },
   )

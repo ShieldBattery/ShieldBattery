@@ -227,6 +227,10 @@ export class UserApi {
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
   async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
+    if (!isElectronClient(ctx)) {
+      throw new httpErrors.BadRequest('This method is only allowed within the app')
+    }
+
     const { body } = validateRequest(ctx, {
       body: Joi.object<SignupRequestBody>({
         username: Joi.string()

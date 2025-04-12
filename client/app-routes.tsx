@@ -4,9 +4,9 @@ import { useIsAdmin } from './admin/admin-permissions'
 import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
 import { Login } from './auth/login'
-import { Signup } from './auth/signup'
 import { ChannelRouteComponent } from './chat/chat-routes'
 import { DownloadPage } from './download/download-page'
+import { OnlyInApp } from './download/only-in-app'
 import { PlayRoot } from './gameplay-activity/play-root'
 import { GamesRouteComponent } from './games/route'
 import { Faq } from './home/faq'
@@ -30,6 +30,9 @@ const LobbyView = React.lazy(async () => ({
   default: (await import('./lobbies/view')).LobbyView,
 }))
 const MatchmakingView = React.lazy(() => import('./matchmaking/view'))
+const Signup = React.lazy(async () => ({
+  default: (await import('./auth/signup')).Signup,
+}))
 
 function LoadableAdminPanel() {
   // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
@@ -54,7 +57,11 @@ export function AppRoutes() {
       <Route path='/forgot-user' component={ForgotUser} />
       <Route path='/login' component={Login} />
       <Route path='/reset-password' component={ResetPassword} />
-      <Route path='/signup' component={Signup} />
+      <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
+      <Route
+        path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
+        component={Signup}
+      />
       <Route path='/verify-email' component={EmailVerificationUi} />
       {isAdmin ? <Route path='/admin/*?' component={LoadableAdminPanel} /> : <></>}
       <Route path='/chat/*?' component={ChannelRouteComponent} />

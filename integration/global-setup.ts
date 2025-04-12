@@ -2,10 +2,10 @@ import { test as setup } from '@playwright/test'
 import { setAdminJwt } from './admin-utils'
 import { LoginPage } from './pages/login-page'
 
-setup('create admin account', async ({ page, request, baseURL }) => {
+setup('create admin account', async ({ page, request }) => {
   const response = await request.post(`/api/1/users`, {
     headers: {
-      Origin: baseURL!,
+      Origin: 'shieldbattery://app',
     },
     data: {
       username: 'admin',

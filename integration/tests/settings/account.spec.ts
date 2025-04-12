@@ -3,7 +3,7 @@ import { clearLocalState } from '../../clear-local-state'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
-import { getVerificationLink, signupWith } from '../signup/utils'
+import { getVerificationLink, goToSignup, signupWith } from '../signup/utils'
 
 const sentEmailChecker = new SentEmailChecker()
 let loginPage: LoginPage
@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('change password', async ({ context, page }) => {
-  await page.goto('/signup')
+  await goToSignup(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
@@ -62,7 +62,7 @@ test('change password', async ({ context, page }) => {
 })
 
 test('change email', async ({ page }) => {
-  await page.goto('/signup')
+  await goToSignup(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
