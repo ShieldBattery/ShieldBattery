@@ -81,7 +81,8 @@
                 },
                 "fpsLimit": "límite de FPS",
                 "hdGraphics": "gráficos de alta definición",
-                "title": "Video"
+                "title": "Video",
+                "customFpsLimit": "Límite de FPS personalizado"
             },
             "gameplay": {
                 "apmAlert": "Alerta cuando APM cae por debajo",
