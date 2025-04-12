@@ -160,7 +160,8 @@
                 "realTimeLighting": "실시간 조명",
                 "sdGraphicsFilter": "SD 그래픽 필터",
                 "shadowStacking": "그림자 쌓기",
-                "showFps": "FPS 표시"
+                "showFps": "FPS 표시",
+                "customFpsLimit": "사용자 정의 FPS 제한"
             },
             "title": "게임"
         },
