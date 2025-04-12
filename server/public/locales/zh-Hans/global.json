@@ -147,7 +147,8 @@
                 "environmentEffects": "环境特效",
                 "fpsLimit": "帧数限制",
                 "smoothUnitTurning": "单位转身更平滑",
-                "title": "图像"
+                "title": "图像",
+                "customFpsLimit": "自定义 FPS 限制"
             },
             "starcraft": {
                 "title": "星际争霸",
