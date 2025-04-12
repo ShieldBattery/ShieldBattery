@@ -33,6 +33,11 @@ const Title = styled.div`
   grid-column: 1 / -1;
 `
 
+const ListLoadingArea = styled(LoadingDotsArea)`
+  grid-column: span 3;
+  grid-row: 2 / -1;
+`
+
 export function RestrictedNames() {
   const listRef = useRef<RestrictedNamesListController>(null)
 
@@ -40,7 +45,7 @@ export function RestrictedNames() {
     <CenteredContentContainer>
       <Root>
         <Title>Restricted Names</Title>
-        <Suspense fallback={<LoadingDotsArea />}>
+        <Suspense fallback={<ListLoadingArea />}>
           <RestrictedNamesList ref={listRef} />
         </Suspense>
         <TestForm onFilterMatch={pattern => listRef.current?.setFilter(pattern)} />
