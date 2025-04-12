@@ -114,7 +114,7 @@ export function GameVideoSettings() {
         <div>
           <CheckBox
             {...bindCheckable('fpsLimitOn')}
-            label={t('settings.game.video.enableFpsLimit', 'Enable FPS limit')}
+            label={t('settings.game.video.customFpsLimit', 'Custom FPS limit')}
             inputProps={{ tabIndex: 0 }}
           />
           <Slider
@@ -122,7 +122,7 @@ export function GameVideoSettings() {
             label={t('settings.game.video.fpsLimit', 'FPS limit')}
             tabIndex={0}
             min={100}
-            max={300}
+            max={1000}
             step={1}
             disabled={!getInputValue('fpsLimitOn')}
             showTicks={false}
