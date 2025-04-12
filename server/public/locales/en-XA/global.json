@@ -162,7 +162,8 @@
                 "shadowStacking": "$🗡Shadow stacking🗡!",
                 "showFps": "$🗡Show FPS🗡!",
                 "smoothUnitTurning": "$🗡Smooth unit turning🗡!",
-                "title": "$🗡Video🗡!"
+                "title": "$🗡Video🗡!",
+                "customFpsLimit": "$🗡Custom FPS limit🗡!"
             }
         },
         "close": "$🗡Close settings🗡!",
