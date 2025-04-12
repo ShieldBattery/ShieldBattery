@@ -985,7 +985,6 @@
           "windowed": "Windowed",
           "windowedFullscreen": "Windowed (Fullscreen)"
         },
-        "enableFpsLimit": "Enable FPS limit",
         "enableVerticalSync": "Enable vertical sync",
         "environmentEffects": "Environment effects",
         "fpsLimit": "FPS limit",
