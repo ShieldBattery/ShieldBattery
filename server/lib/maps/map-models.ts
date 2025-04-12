@@ -9,7 +9,7 @@ import {
 } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
-import { SqlTemplate, sql, sqlConcat, sqlRaw } from '../db/sql'
+import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../file-upload'
@@ -22,7 +22,7 @@ type DbMapInfo = Dbify<{
   mapHash: Buffer
   name: string
   description: string
-  uploadedBy: number
+  uploadedBy: SbUserId
   uploadedByName: string
   uploadDate: Date
   visibility: MapVisibility
@@ -57,10 +57,7 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
     hash: props.map_hash.toString('hex'),
     name: props.name,
     description: props.description,
-    uploadedBy: {
-      id: props.uploaded_by,
-      name: props.uploaded_by_name,
-    },
+    uploadedBy: props.uploaded_by,
     uploadDate: props.upload_date,
     visibility: props.visibility,
     mapData: {
@@ -198,11 +195,8 @@ export async function addMap(
         m.is_eud,
         m.parser_version,
         m.image_version,
-        m.lobby_init_data,
-        u.name AS uploaded_by_name
+        m.lobby_init_data
       FROM ins
-      INNER JOIN users AS u
-      ON ins.uploaded_by = u.id
       INNER JOIN maps AS m
       ON ins.map_hash = m.hash;
     `
@@ -330,11 +324,8 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
         m.is_eud,
         m.parser_version,
         m.image_version,
-        m.lobby_init_data,
-        u.name AS uploaded_by_name
+        m.lobby_init_data
       FROM uploaded_maps AS um
-      INNER JOIN users AS u
-      ON um.uploaded_by = u.id
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
       WHERE um.id = ANY(${mapIds})
@@ -451,11 +442,8 @@ export async function getMaps(
         m.is_eud,
         m.parser_version,
         m.image_version,
-        m.lobby_init_data,
-        u.name AS uploaded_by_name
+        m.lobby_init_data
       FROM uploaded_maps AS um
-      INNER JOIN users AS u
-      ON um.uploaded_by = u.id
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
       ${whereCondition}
@@ -532,13 +520,10 @@ export async function getFavoritedMaps(
       m.parser_version,
       m.image_version,
       m.lobby_init_data,
-      u.name AS uploaded_by_name,
       true AS favorited
     FROM favorited_maps AS fm
     INNER JOIN uploaded_maps AS um
     ON fm.map_id = um.id
-    INNER JOIN users AS u
-    ON um.uploaded_by = u.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
     ${whereCondition}
@@ -593,11 +578,8 @@ export async function updateMap(
       m.parser_version,
       m.image_version,
       m.lobby_init_data,
-      u.name AS uploaded_by_name,
       fav.map_id AS favorited
     FROM update AS um
-    INNER JOIN users AS u
-    ON um.uploaded_by = u.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
     LEFT JOIN favorited_maps AS fav

@@ -4,6 +4,8 @@ import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/game-type'
 import { Jsonify } from './json'
 import { RaceChar } from './races'
+import { SbUser } from './users/sb-user'
+import { SbUserId } from './users/sb-user-id'
 
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
@@ -125,12 +127,7 @@ export interface MapInfo {
   hash: string
   name: string
   description: string
-  // TODO(tec27): Just pass back the user ID in here, let our typical user pattern handle converting
-  // that to a name and such
-  uploadedBy: {
-    id: number
-    name: string
-  }
+  uploadedBy: SbUserId
   uploadDate: Date
   visibility: MapVisibility
   mapData: MapData
@@ -248,20 +245,26 @@ export function filterColorCodes(str: string): string {
 
 export interface UploadMapResponse {
   map: MapInfoJson
+  users: SbUser[]
 }
 
 export interface GetMapsResponse {
   maps: MapInfoJson[]
   favoritedMaps: MapInfoJson[]
+  limit: number
+  page: number
   total: number
+  users: SbUser[]
 }
 
 export interface GetMapDetailsResponse {
   map: MapInfoJson
+  users: SbUser[]
 }
 
 export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
+  users: SbUser[]
 }
 
 export interface UpdateMapServerRequest {
@@ -272,4 +275,5 @@ export interface UpdateMapServerRequest {
 
 export interface UpdateMapResponse {
   map: MapInfoJson
+  users: SbUser[]
 }

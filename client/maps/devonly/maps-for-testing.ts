@@ -1,15 +1,13 @@
 import { MapForcePlayer, MapInfoJson, MapVisibility, Tileset } from '../../../common/maps'
 import { range } from '../../../common/range'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 
 export const FightingSpirit: MapInfoJson = {
   id: 'fighting-spirit',
   hash: '0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c',
   name: 'Fighting Spirit',
   description: 'Something something fighting spirit',
-  uploadedBy: {
-    id: 27,
-    name: 'SomePerson',
-  },
+  uploadedBy: makeSbUserId(27),
   uploadDate: 1630903355713,
   visibility: MapVisibility.Official,
   mapData: {

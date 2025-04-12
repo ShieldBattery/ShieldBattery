@@ -150,7 +150,7 @@ function MapList({
         const canRemoveMap =
           onRemoveMap &&
           ((map.visibility !== MapVisibility.Private && canManageMaps) ||
-            (map.visibility === MapVisibility.Private && map.uploadedBy.id === userId))
+            (map.visibility === MapVisibility.Private && map.uploadedBy === userId))
         const canRegenMapImage = onRegenMapImage && canManageMaps
 
         const layout = thumbnailSizeToLayout(thumbnailSize)

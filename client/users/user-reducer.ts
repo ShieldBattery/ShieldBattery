@@ -50,12 +50,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@chat/loadMessageHistory'](state, action) {
-    if (action.error) {
-      return
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
     }
-
-    updateUsers(state, action.payload.users)
-    updateUsers(state, action.payload.mentions)
   },
 
   ['@chat/updateMessage'](state, action) {
@@ -64,11 +62,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@chat/retrieveUserList'](state, action) {
-    if (action.error) {
-      return
+    if (!action.error) {
+      updateUsers(state, action.payload)
     }
-
-    updateUsers(state, action.payload)
   },
 
   ['@chat/updateJoin'](state, action) {
@@ -84,23 +80,49 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@ladder/getRankings'](state, action) {
-    if (action.error) {
-      return
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
     }
-
-    updateUsers(state, action.payload.users)
   },
 
   ['@ladder/searchRankings'](state, action) {
-    if (action.error) {
-      return
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
     }
-
-    updateUsers(state, action.payload.users)
   },
 
   ['@leagues/getLeaderboard'](state, { payload: { users } }) {
     updateUsers(state, users)
+  },
+
+  ['@maps/getBatchMapInfo'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+    }
+  },
+
+  ['@maps/getMaps'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+    }
+  },
+
+  ['@maps/getMapDetails'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+    }
+  },
+
+  ['@maps/updateMap'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+    }
+  },
+
+  ['@maps/uploadLocalMap'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+    }
   },
 
   ['@users/adminBanUser'](state, action) {
@@ -116,11 +138,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@users/getBatchUserInfo'](state, action) {
-    if (action.error) {
-      return
+    if (!action.error) {
+      updateUsers(state, action.payload.userInfos)
     }
-
-    updateUsers(state, action.payload.userInfos)
   },
 
   ['@users/getRelationships'](state, action) {

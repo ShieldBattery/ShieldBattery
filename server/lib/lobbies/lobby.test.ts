@@ -30,10 +30,7 @@ const BigGameHunters: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
-  uploadedBy: {
-    id: 1,
-    name: 'someperson',
-  },
+  uploadedBy: makeSbUserId(1),
   uploadDate: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
@@ -852,7 +849,7 @@ const UMS_MAP_1: MapInfo = {
   hash: 'defe175e',
   name: 'Sunken Defense',
   description: '',
-  uploadedBy: { id: 1, name: 'someperson' },
+  uploadedBy: makeSbUserId(1),
   uploadDate: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
@@ -899,7 +896,7 @@ const UMS_MAP_2: MapInfo = {
   hash: '12345',
   name: 'tappavat',
   description: '',
-  uploadedBy: { id: 1, name: 'someperson' },
+  uploadedBy: makeSbUserId(1),
   uploadDate: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
@@ -946,7 +943,7 @@ const UMS_MAP_3: MapInfo = {
   hash: '987654321',
   name: 'Accipiter',
   description: '',
-  uploadedBy: { id: 1, name: 'someperson' },
+  uploadedBy: makeSbUserId(1),
   uploadDate: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
@@ -987,7 +984,7 @@ const UMS_MAP_4: MapInfo = {
   hash: '13579',
   name: 'Team Micro',
   description: '',
-  uploadedBy: { id: 1, name: 'someperson' },
+  uploadedBy: makeSbUserId(1),
   uploadDate: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
