@@ -77,7 +77,7 @@ import {
 } from '../matchmaking/models'
 import { usePasswordResetCode } from '../models/password-resets'
 import { updatePermissions } from '../models/permissions'
-import { isElectronClient } from '../network/only-web-clients'
+import { isElectronClient } from '../network/electron-clients'
 import { serverRsUrl } from '../network/server-rs-requests'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'

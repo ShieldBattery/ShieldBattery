@@ -1,5 +1,4 @@
 import { RouterContext } from '@koa/router'
-import 'abort-controller/polyfill' // TODO(tec27): Remove when min node version is >= 15.x
 import 'core-js/proposals/reflect-metadata'
 import { promises as fsPromises } from 'fs'
 import http from 'http'
@@ -28,7 +27,7 @@ import { Redis } from './lib/redis/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
-import { MIGRATION_COOKIE, StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
+import { StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
 import createRoutes from './routes'
 import { WebsocketServer } from './websockets'
 
@@ -125,7 +124,6 @@ const jwtMiddleware = koaJwt({
   secret: process.env.SB_JWT_SECRET,
   passthrough: true,
   key: 'jwtData',
-  cookie: MIGRATION_COOKIE,
 })
 const jwtSessionMiddleware = jwtSessions()
 
@@ -167,7 +165,6 @@ app
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
-  // TODO(tec27): 1 month after JWT sessions are deployed, the cookie setting here can be removed
   .use(jwtMiddleware)
   .use(jwtSessionMiddleware)
   .use(cors())

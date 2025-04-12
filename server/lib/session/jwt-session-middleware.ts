@@ -5,7 +5,6 @@ import uid from 'uid-safe'
 import { promisify } from 'util'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
-import { isElectronClient } from '../network/only-web-clients'
 import { Redis } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { CacheBehavior, UserService } from '../users/user-service'
@@ -13,9 +12,6 @@ import { DeletedSessionRegistry } from './deleted-sessions'
 
 const SESSION_TTL_SECONDS = Number(process.env.SB_SESSION_TTL)
 const JWT_SECRET = process.env.SB_JWT_SECRET!
-
-// TODO(tec27): Remove this cookie after this has been deployed for a month
-export const MIGRATION_COOKIE = 'jwt-s'
 
 function sessionKey(userId: SbUserId, sessionId: string) {
   return `sessions:${userId}:${sessionId}`
@@ -97,7 +93,6 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
     }
 
     ctx.deleteSession = async () => {
-      ctx.cookies.set(MIGRATION_COOKIE, null, { expires: new Date(0) })
       if (ctx.state.jwtData) {
         const key = sessionKey(ctx.state.jwtData.userId, ctx.state.jwtData.sessionId)
 
@@ -108,32 +103,6 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
 
       ctx.state.jwtData = undefined
       ;(ctx.session as any) = undefined
-    }
-
-    // TODO(tec27): After this has been deployed for a month, this migration code can be removed
-    if (!ctx.state.jwtData && ctx.cookies.get('s')) {
-      // Migrate an old-style session to the new JWT-style
-      const oldSessionId = ctx.cookies.get('s')
-
-      let session: any
-      try {
-        const sessionStr = await redis.get(`koa:sess:${oldSessionId}`)
-        session = sessionStr ? JSON.parse(sessionStr) : undefined
-      } catch (err) {
-        ctx.log.warn({ err }, 'error retrieving old session for migration')
-      }
-
-      if (session?.user?.id ?? session?.userId) {
-        try {
-          await ctx.beginSession(
-            session.user?.id ?? session.userId,
-            !!(session.cookie?.maxAge || session.cookie?.expires),
-          )
-        } catch (err) {
-          ctx.log.error({ err }, 'error setting session data for migration')
-          ctx.state.jwtData = undefined
-        }
-      }
     }
 
     if (ctx.state.jwtData) {
@@ -163,27 +132,6 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
     } finally {
       if (ctx.state.jwtData) {
         const { jwtData } = ctx.state
-
-        if (!ctx.dontSendSessionCookies) {
-          // Force the cookies module to allow secure cookies even on unsecure hosts
-          // (e.g. localhost). Browsers will accept/return these fine anyway. This is needed for
-          // using same-site = none
-          ctx.cookies.secure = true
-          if (ctx.cookies.get('s')) {
-            // Clear the old session cookie so we don't keep trying to migrate it
-            ctx.cookies.set('s', null, {
-              sameSite: isElectronClient(ctx) ? 'none' : 'lax',
-              expires: new Date(0),
-            })
-          }
-
-          const now = clock.now()
-          const token = await getJwt(ctx, now)
-          ctx.cookies.set(MIGRATION_COOKIE, token, {
-            sameSite: isElectronClient(ctx) ? 'none' : 'lax',
-            maxAge: jwtData.stayLoggedIn ? SESSION_TTL_SECONDS * 1000 : undefined,
-          })
-        }
 
         try {
           await redis.expire(sessionKey(jwtData.userId, jwtData.sessionId), SESSION_TTL_SECONDS)
