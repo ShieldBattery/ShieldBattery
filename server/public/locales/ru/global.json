@@ -154,7 +154,8 @@
                 "fpsLimit": "Ограничение FPS",
                 "hdGraphics": "HD-графика",
                 "pillarbox": "Pillarbox (соотношение сторон 4: 3)",
-                "realTimeLighting": "Освещение в реальном времени"
+                "realTimeLighting": "Освещение в реальном времени",
+                "customFpsLimit": "Пользовательский лимит FPS"
             },
             "input": {
                 "mouseScrollSpeed": "Скорость прокрутки мыши",
