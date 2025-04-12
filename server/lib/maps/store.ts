@@ -5,6 +5,7 @@ import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue'
 import { isTestRun } from '../../../common/is-test-run'
 import { MapExtension, MapVisibility } from '../../../common/maps'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { writeFile } from '../file-upload'
 import { addMap } from './map-models'
 import { MapParseData } from './parse-data'
@@ -46,7 +47,7 @@ export async function parseMap(
 export async function storeMap(
   path: string,
   extension: MapExtension,
-  uploadedBy: number,
+  uploadedBy: SbUserId,
   visibility: MapVisibility,
 ) {
   const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =

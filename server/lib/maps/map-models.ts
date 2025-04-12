@@ -114,7 +114,7 @@ async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
 export interface MapParams {
   mapData: MapParseData
   extension: MapExtension
-  uploadedBy: number
+  uploadedBy: SbUserId
   visibility: MapVisibility
   parserVersion: number
 }
