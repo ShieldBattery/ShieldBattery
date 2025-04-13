@@ -1,7 +1,5 @@
 import { SbUserId } from './sb-user-id'
 
-export const SEARCH_MATCH_HISTORY_LIMIT = 40
-
 /**
  * Information about any user in the system, mainly things that represent the "identity" of the
  * user.

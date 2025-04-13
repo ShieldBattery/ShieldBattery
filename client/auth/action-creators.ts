@@ -1,9 +1,12 @@
-import cuid from 'cuid'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
-import type { PromisifiedAction, ReduxAction } from '../action-types'
+import {
+  RecoverUsernameRequest,
+  RequestPasswordResetRequest,
+  ResetPasswordRequest,
+} from '../../common/users/user-network'
 import { dispatch, type ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import logger from '../logging/logger'
@@ -14,56 +17,9 @@ import {
   encodeBodyAsParams,
   fetchJson,
 } from '../network/fetch'
-import { AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
 const typedIpc = new TypedIpcRenderer()
-
-type IdRequestable = Extract<
-  Exclude<ReduxAction, { error: true }>,
-  { type: string; meta: { reqId: string; time: number } }
->
-
-type IdRequestableTypes = IdRequestable['type']
-
-function idRequest<
-  ActionTypeName extends IdRequestableTypes,
-  ActionType extends Extract<IdRequestable, { type: ActionTypeName }>,
->(
-  type: ActionTypeName,
-  fetcher: () => Promise<ActionType['payload']>,
-): {
-  id: string
-  action: ThunkAction<ActionType | AuthChangeBegin>
-  promise: Promise<ActionType['payload']>
-} {
-  const reqId = cuid()
-  let thunk: ThunkAction<ActionType | AuthChangeBegin> | undefined
-  const promise = new Promise<ActionType['payload']>((resolve, reject) => {
-    thunk = dispatch => {
-      dispatch({
-        type: '@auth/changeBegin',
-        payload: {
-          reqId,
-        },
-      })
-
-      const payload = fetcher()
-      const promisified: PromisifiedAction<ActionType> = {
-        type,
-        payload,
-        meta: { reqId, time: window.performance.now() },
-        // NOTE(tec27): I think this cast is necessary because TS thinks this type *could* have
-        // extra keys that need to be assigned, because we can't properly tell it what the valid
-        // keys are?
-      } as any as PromisifiedAction<ActionType>
-      payload.then(resolve, reject)
-      dispatch(promisified)
-    }
-  })
-
-  return { id: reqId, action: thunk!, promise }
-}
 
 async function getExtraSessionData() {
   let extraData: { clientIds: [number, string][] }
@@ -152,15 +108,14 @@ export function logIn(
   })
 }
 
-export function logOut() {
-  return idRequest('@auth/logOut', async () => {
-    const result = await fetchJson<void>(apiUrl`sessions`, {
+export function logOut(spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<void>(apiUrl`sessions`, {
       method: 'delete',
     })
+    dispatch({ type: '@auth/logOut' })
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()
-
-    return result
   })
 }
 
@@ -219,55 +174,66 @@ export function bootstrapSession(session?: ClientSessionInfo): ThunkAction {
 
 export function revokeSession(): ThunkAction {
   return dispatch => {
-    dispatch({ type: '@auth/sessionUnauthorized', payload: undefined })
+    dispatch({ type: '@auth/sessionUnauthorized' })
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()
   }
 }
 
-export function recoverUsername(email: string) {
-  return idRequest('@auth/recoverUsername', () =>
-    fetchJson<void>('/api/1/recovery/user', {
+export function recoverUsername(email: string, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`users/recovery/user`, {
       method: 'post',
-      body: JSON.stringify({
+      body: encodeBodyAsParams<RecoverUsernameRequest>({
         email,
       }),
-    }),
-  )
+    })
+  })
 }
 
-export function startPasswordReset(username: string, email: string) {
-  return idRequest('@auth/startPasswordReset', () =>
-    fetchJson<void>('/api/1/recovery/password', {
+export function requestPasswordReset(
+  { username, email }: { username: string; email: string },
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`users/recovery/password`, {
       method: 'post',
-      body: JSON.stringify({
+      body: encodeBodyAsParams<RequestPasswordResetRequest>({
         username,
         email,
       }),
-    }),
-  )
+    })
+  })
 }
 
-export function resetPassword(username: string, code: string, password: string) {
-  const url =
-    '/api/1/users/' + encodeURIComponent(username) + '/password?code=' + encodeURIComponent(code)
-  return idRequest('@auth/resetPassword', () =>
-    fetchJson<void>(url, {
+export function resetPassword(
+  { code, password }: { code: string; password: string },
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`users/recovery/reset-password`, {
       method: 'post',
-      body: JSON.stringify({
+      body: encodeBodyAsParams<ResetPasswordRequest>({
+        code,
         password,
       }),
-    }),
-  )
+    })
+  })
 }
 
-export function verifyEmail(userId: SbUserId, token: string) {
-  return idRequest('@auth/verifyEmail', () =>
-    fetchJson<void>(apiUrl`users/${userId}/email-verification`, {
+export function verifyEmail(
+  { userId, token }: { userId: SbUserId; token: string },
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<void>(apiUrl`users/${userId}/email-verification`, {
       method: 'post',
       body: encodeBodyAsParams({ code: token }),
-    }),
-  )
+    })
+    dispatch({
+      type: '@auth/emailVerified',
+    })
+  })
 }
 
 export function sendVerificationEmail(userId: SbUserId, spec: RequestHandlingSpec): ThunkAction {

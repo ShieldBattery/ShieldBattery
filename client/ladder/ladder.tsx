@@ -442,7 +442,7 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
 
 const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
 
-const HeaderRowContainer = styled.div<{ context?: unknown }>`
+const HeaderRowContainerElem = styled.div`
   ${labelMedium};
   width: 100%;
   height: 48px;
@@ -463,6 +463,12 @@ const HeaderRowContainer = styled.div<{ context?: unknown }>`
     border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
+
+// NOTE(tec27): This just strips the context prop off so styled-components doesn't give a warning
+// about it getting passed to the DOM
+function HeaderRowContainer(props: { context?: unknown }) {
+  return <HeaderRowContainerElem />
+}
 
 const BaseCell = styled.div`
   height: 100%;

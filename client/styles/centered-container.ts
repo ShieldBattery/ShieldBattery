@@ -16,10 +16,18 @@ export const CenteredContentContainer = styled.div<{
   --_target-horizontal-padding: ${props => props.$targetHorizontalPadding ?? 24}px;
 
   /** Dumb CSS properties just to avoid needing to write out this calculation multiple times. */
-  --_half-content-width: min(50% - var(--_target-horizontal-padding), var(--_target-width) / 2);
+  --_half-content-width: min(
+    50% - var(--_target-horizontal-padding),
+    var(--_target-width) / 2 + var(--scrollbar-width)
+  );
 
   width: 100%;
   height: 100%;
+  /*
+    Since we expect to have padding > the scrollbar width, this keeps things actually centered
+    relative to the top menu bar, even if a scrollbar is present.
+  */
+  scrollbar-gutter: stable both-edges;
   /**
     Simulate margin: auto with only padding so that the scrollbar falls on the right edge of the
     parent container.

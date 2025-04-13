@@ -23,28 +23,29 @@
     },
     "forgot": {
       "backToLogin": "Back to login",
-      "generalError": "Error: {{error}}",
       "password": {
+        "alreadyHaveCodeLink": "Already have a code?",
         "emailAddress": "Email address",
+        "explanationText": "Enter the email address and username associated with your account. We'll send you an email with a reset code to set a new password.",
         "sendResetEmail": "Send reset email",
-        "successMessage": "If that email address and username match a registered account, you should receive an email in the next few minutes with instructions on how to reset your password.",
-        "title": "Reset password",
+        "title": "Request password reset",
         "username": "Username"
       },
       "reset": {
         "confirmPassword": "Confirm new password",
+        "continueToLogin": "Continue to login",
+        "explanationText": "You will receive an email with a reset code. Enter that code here along with your new password.",
         "newPassword": "New password",
-        "passwordCode": "Password reset code",
+        "passwordCode": "Reset code",
         "setNewPassword": "Set new password",
         "successMessage": "Your password has been reset.",
-        "title": "Reset password",
-        "username": "Username"
+        "title": "Reset password"
       },
       "user": {
         "emailAddress": "Email address",
-        "enterEmail": "Please enter the email address you signed up with.",
+        "enterEmail": "Enter the email address associated with your account. We'll send you an email with all the usernames associated with that email address (if any).",
         "recoverUsername": "Recover username",
-        "successMessage": "If there are any users registered to that email address, you should receive an email in the next few minutes with the relevant usernames.",
+        "successMessage": "You should receive an email shortly with all the usernames associated with that email address (if any).",
         "title": "Recover your username"
       }
     },
@@ -53,15 +54,14 @@
       "changeErrorMessage": "Something went wrong when changing the language"
     },
     "login": {
-      "forgotPassword": "Forgot password?",
-      "forgotUsername": "Forgot username?",
+      "createAccountLinkText": "Don't have an account? <1>Create an account</1>",
+      "forgotPassword": "Reset password",
+      "forgotUsername": "Recover username",
       "logIn": "Log in",
       "password": "Password",
       "rememberMe": "Remember me",
-      "signUp": "Sign up for an account",
-      "title": "Log in",
-      "username": "Username",
-      "whatIsShieldBattery": "What is ShieldBattery?"
+      "title": "Log in to ShieldBattery",
+      "username": "Username"
     },
     "noPermissionsPage": {
       "body": "You don't have enough permissions to access this page."
@@ -70,17 +70,17 @@
       "confirm": "Confirm your password",
       "matching": "Enter a matching password",
       "required": "Enter a password",
-      "resetCode": "Enter your password reset code"
+      "resetCode": "Enter your password reset code",
+      "resetCodePattern": "Invalid code. It should look like {{example}}."
     },
     "signup": {
       "ageConfirmation": "I certify that I am 13 years of age or older",
-      "alreadyHaveAccount": "Already have an account?",
+      "alreadyHaveAccount": "Already have an account? <1>Log in</1>",
       "confirmPassword": "Confirm password",
       "createAccount": "Create account",
       "emailAddress": "Email address",
-      "logIn": "Log in",
       "password": "Password",
-      "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <4>Acceptable Use</4>, and <6>Privacy</6> policies",
+      "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <5>Acceptable Use</5>, and <8>Privacy</8> policies",
       "title": "Create account",
       "username": "Username"
     },
@@ -89,12 +89,13 @@
       "banWithoutReason": "No reason specified",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
+      "invalidCode": "The provided code is invalid. It may have expired.",
       "invalidCredentials": "Incorrect username or password",
       "machineBanned": "This machine is banned from creating new accounts.",
       "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
       "sessionExpired": "Session expired",
       "suspiciousActivity": "Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.",
-      "usernameTaken": "A user with that name already exists"
+      "usernameTaken": "A user with that name already exists or the name is restricted"
     },
     "usernameValidator": {
       "error": "There was a problem checking username availability",
@@ -792,6 +793,8 @@
       "chatChannels": "Chat channels",
       "customGame": "Custom game",
       "logOut": "Log out",
+      "logOutErrorMessage": "Something went wrong. Please try again later.",
+      "logOutErrorTitle": "Logging out failed",
       "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
       "viewProfile": "View profile",

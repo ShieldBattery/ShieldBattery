@@ -1,6 +1,6 @@
 {
   "common": {
-    "footer": "Follow <1>@ShieldBatteryBW</1> on Twitter.",
+    "footer": "Follow <2>@shieldbattery.net</2> on Bluesky.",
     "signatureFrom": "— The ShieldBattery team",
     "signatureText": "gl hf gogogo"
   },
@@ -23,8 +23,7 @@
     "title": "ShieldBattery Password Changed"
   },
   "passwordReset": {
-    "body": "Click the link below to set a new password for your account.",
-    "button": "Reset password",
+    "body": "To choose a new password, enter the code above in the app or on the website along with your new password.",
     "intro": "You are receiving this email because someone requested a password reset for <2>{{username}}</2> on ShieldBattery. If you didn't make this request, please ignore this email.",
     "preview": "You are receiving this email because someone requested a password reset for {{username}} on ShieldBattery.",
     "title": "ShieldBattery Password Reset"

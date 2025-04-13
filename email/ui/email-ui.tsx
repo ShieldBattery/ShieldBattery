@@ -77,8 +77,9 @@ export function SbEmail(props: SbEmailProps) {
           <Row>
             <Text style={{ margin: '0', textAlign: 'center', fontSize: '12px', color: '#616161' }}>
               <Trans t={t} i18nKey={'common.footer'}>
-                Follow <Link href='http://twitter.com/ShieldBatteryBW'>@ShieldBatteryBW</Link> on
-                Twitter.
+                Follow{' '}
+                <Link href='https://bsky.app/profile/shieldbattery.net'>@shieldbattery.net</Link> on
+                Bluesky.
               </Trans>
             </Text>
           </Row>

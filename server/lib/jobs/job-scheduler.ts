@@ -1,6 +1,7 @@
 import { exponentialBuckets, Histogram } from 'prom-client'
 import { singleton } from 'tsyringe'
 import logger from '../logging/logger'
+import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
 
 interface JobInfo {
@@ -28,6 +29,8 @@ export class JobScheduler {
     buckets: exponentialBuckets(0.01, 1.4, 20),
   })
 
+  constructor(private clock: Clock) {}
+
   /**
    * Schedules a job to run. If a job has already been scheduled with that ID, it will be replaced
    * by this one.
@@ -43,7 +46,7 @@ export class JobScheduler {
       this.unscheduleJob(jobId)
     }
 
-    let firstTimeout = Number(startTime) - Date.now()
+    let firstTimeout = Number(startTime) - this.clock.now()
     if (firstTimeout < 0) {
       logger.warn(`startTime for job ${jobId} was not in the future`)
       firstTimeout = 0
@@ -54,6 +57,21 @@ export class JobScheduler {
     logger.info(
       `Scheduled ${jobId} to run every ${runEveryMs}ms starting at ${startTime.toISOString()}`,
     )
+  }
+
+  /**
+   * Schedules a job to run immediately, adding a random amount of delay to the start time to avoid
+   * having all the jobs run at the same time. Any jobs scheduled this way will be run immediately
+   * after the jitter period has passed. The jitter period will depend on how often the job is
+   * scheduled to run.
+   */
+  scheduleImmediateJob(jobId: string, runEveryMs: number, jobFn: () => Promise<void>) {
+    const jitterMin = Math.min(5000, runEveryMs / 20)
+    const jitterMax = runEveryMs / 10
+
+    const jitter = Math.round(Math.random() * (jitterMax - jitterMin) + jitterMin)
+    const startTime = new Date(this.clock.now() + jitter)
+    this.scheduleJob(jobId, startTime, runEveryMs, jobFn)
   }
 
   /**

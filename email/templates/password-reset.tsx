@@ -1,18 +1,11 @@
-import { Section } from '@react-email/components'
+import { Container, Section } from '@react-email/components'
 import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { EmailProps } from '../email-props'
 import { TransInterpolation, t } from '../i18n/i18next'
-import {
-  EmailButton,
-  EmailContainer,
-  EmailHeading,
-  EmailSignature,
-  EmailText,
-  SbEmail,
-} from '../ui/email-ui'
+import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
-export default function UsernameRecovery(props: EmailProps) {
+export default function PasswordReset(props: EmailProps) {
   const title = t('passwordReset.title', 'ShieldBattery Password Reset')
 
   const username = '{{username}}'
@@ -39,17 +32,22 @@ export default function UsernameRecovery(props: EmailProps) {
             </Trans>
           </EmailText>
 
+          <Container
+            style={{
+              padding: '0 8px',
+              backgroundColor: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRadius: '4px',
+            }}>
+            <EmailText style={{ fontSize: '20px' }}>{'{{code}}'}</EmailText>
+          </Container>
+
           <EmailText>
             <Trans t={t} i18nKey='passwordReset.body'>
-              Click the link below to set a new password for your account.
+              To choose a new password, enter the code above in the app or on the website along with
+              your new password.
             </Trans>
           </EmailText>
-
-          <div style={{ textAlign: 'center' }}>
-            <EmailButton href={'{{{HOST}}}/reset-password?token={{token}}&username={{username}}'}>
-              {t('passwordReset.button', 'Reset password')}
-            </EmailButton>
-          </div>
         </Section>
         <EmailSignature />
       </EmailContainer>

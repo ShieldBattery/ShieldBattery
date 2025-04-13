@@ -74,11 +74,11 @@ const TabArea = styled.div`
   padding: 0px 24px 8px;
 `
 
-const ScrollDivider = styled.div<{ position: 'top' | 'bottom' }>`
+const ScrollDivider = styled.div<{ $position: 'top' | 'bottom' }>`
   width: 100%;
   height: 1px;
-  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
-  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
+  margin-top: ${props => (props.$position === 'top' ? '-1px' : '0')};
+  margin-bottom: ${props => (props.$position === 'bottom' ? '-1px' : '0')};
   background-color: var(--theme-outline-variant);
 `
 
@@ -373,7 +373,7 @@ export function BrowseServerMaps({
           />
         </Tabs>
       </TabArea>
-      <ScrollDivider position='top' />
+      <ScrollDivider $position='top' />
       <Contents>
         <ContentsBody>
           {mapsState.lastError ? (
@@ -412,7 +412,7 @@ export function BrowseServerMaps({
           )}
         </ContentsBody>
       </Contents>
-      <ScrollDivider position='bottom' />
+      <ScrollDivider $position='bottom' />
       <Footer
         onBrowseLocalMaps={selfUser ? onBrowseLocalMaps : undefined}
         thumbnailSize={thumbnailSize}

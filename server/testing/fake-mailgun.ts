@@ -61,6 +61,11 @@ router
 
     ctx.body = sentMessages.get(to) ?? []
   })
+  .delete('/sent/:to', async ctx => {
+    const { to } = ctx.params
+    sentMessages.delete(to)
+    ctx.status = 204
+  })
 
 app.use(router.routes()).use(router.allowedMethods())
 

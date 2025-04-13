@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { getErrorStack } from '../../common/errors'
 import { UserErrorCode } from '../../common/users/user-network'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import logger from '../logging/logger'
 import { push } from '../navigation/routing'
+import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { logOut, sendVerificationEmail, verifyEmail } from './action-creators'
 import {
   AuthBody,
@@ -27,13 +29,11 @@ export function EmailVerificationUi() {
   const isLoggedIn = useIsLoggedIn()
   const selfUser = useSelfUser()
   const curUserId = selfUser?.id
-  const authChangeInProgress = useAppSelector(s => s.auth.authChangeInProgress)
-  const lastFailure = useAppSelector(s => s.auth.lastFailure)
 
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<Error>()
   const [emailResent, setEmailResent] = useState(false)
-  const [reqId, setReqId] = useState<string | undefined>(undefined)
+  const [verifyError, setVerifyError] = useState<Error>()
 
   const urlParams = useMemo(() => {
     try {
@@ -59,16 +59,26 @@ export function EmailVerificationUi() {
   }, [forUsername])
 
   const onSwitchUserClick = useCallback(() => {
-    const { id, action, promise } = logOut()
-    setReqId(id)
-    promise
-      .then(() => {
-        onLogInClick()
-      })
-      .catch(swallowNonBuiltins)
-
-    dispatch(action)
-  }, [dispatch, onLogInClick])
+    dispatch(
+      logOut({
+        onSuccess: () => {
+          onLogInClick()
+        },
+        onError: err => {
+          logger.error(`Error logging out: ${getErrorStack(err)}`)
+          dispatch(
+            openSimpleDialog(
+              t('navigation.leftNav.logOutErrorTitle', 'Logging out failed'),
+              t(
+                'navigation.leftNav.logOutErrorMessage',
+                'Something went wrong. Please try again later.',
+              ),
+            ),
+          )
+        },
+      }),
+    )
+  }, [dispatch, onLogInClick, t])
 
   const onResendClick = useCallback(() => {
     setResendError(undefined)
@@ -94,9 +104,20 @@ export function EmailVerificationUi() {
 
   useEffect(() => {
     if (isLoggedIn && curUserId === forUserId && !emailVerified) {
-      const { id, action } = verifyEmail(curUserId!, String(token))
-      setReqId(id)
-      dispatch(action)
+      dispatch(
+        verifyEmail(
+          {
+            userId: curUserId!,
+            token: String(token),
+          },
+          {
+            onSuccess: () => {},
+            onError: err => {
+              setVerifyError(err)
+            },
+          },
+        ),
+      )
     }
   }, [emailVerified, token, forUserId, isLoggedIn, curUserId, dispatch])
 
@@ -150,8 +171,8 @@ export function EmailVerificationUi() {
         testName='switch-user-button'
       />
     )
-  } else if (reqId && lastFailure && lastFailure.reqId === reqId) {
-    if (lastFailure.code === UserErrorCode.InvalidCode) {
+  } else if (verifyError) {
+    if (isFetchError(verifyError) && verifyError.code === UserErrorCode.InvalidCode) {
       contents = (
         <ErrorsContainer data-test='invalid-code-error'>
           <Trans t={t} i18nKey='auth.emailVerification.invalidCodeError'>
@@ -172,7 +193,7 @@ export function EmailVerificationUi() {
       contents = (
         <ErrorsContainer>
           <Trans t={t} i18nKey='auth.emailVerification.generalError'>
-            Error: {{ error: lastFailure.err }}
+            Error: {{ error: verifyError.message }}
           </Trans>
         </ErrorsContainer>
       )
@@ -192,7 +213,7 @@ export function EmailVerificationUi() {
         testName='continue-button'
       />
     )
-  } else if (!authChangeInProgress) {
+  } else {
     contents = (
       <ErrorsContainer>
         <Trans t={t} i18nKey='auth.emailVerification.defaultError'>
@@ -204,12 +225,12 @@ export function EmailVerificationUi() {
 
   return (
     <AuthContent>
-      <AuthContentContainer $isLoading={authChangeInProgress || resending}>
+      <AuthContentContainer $isLoading={resending}>
         <AuthTitle as='h3'>{t('auth.emailVerification.title', 'Verify email')}</AuthTitle>
         <AuthBody>{contents}</AuthBody>
         {bottomActionButton ? <AuthBottomAction>{bottomActionButton}</AuthBottomAction> : null}
       </AuthContentContainer>
-      {authChangeInProgress || resending ? <LoadingDotsArea /> : null}
+      {resending ? <LoadingDotsArea /> : null}
     </AuthContent>
   )
 }

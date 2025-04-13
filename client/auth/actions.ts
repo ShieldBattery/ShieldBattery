@@ -2,116 +2,51 @@ import { SbPermissions } from '../../common/users/permissions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import { AcceptPoliciesResponse, ChangeLanguagesResponse } from '../../common/users/user-network'
-import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type AuthActions =
-  | AuthChangeBegin
-  | LogOutSuccess
-  | LogOutFailure
-  | ResetPasswordSuccess
-  | ResetPasswordFailure
-  | RecoverUsernameSuccess
-  | RecoverUsernameFailure
-  | StartPasswordResetSuccess
-  | StartPasswordResetFailure
-  | LoadCurrentSessionSuccess
-  | VerifyEmailSuccess
-  | VerifyEmailFailure
+  | LogOut
+  | LoadCurrentSession
   | EmailVerified
-  | AcceptPoliciesSuccess
-  | AcceptPoliciesFailure
+  | AcceptPolicies
   | ChangeLanguage
   | PermissionsChanged
   | SessionUnauthorized
 
-interface BaseAuthSuccess<T extends string, P = void> {
-  type: T
-  meta: {
-    reqId: string
-    /** Should be set to the current value of `window.performance.now()`. */
-    time: number
-  }
-  // NOTE(tec27): This makes it possible to narrow types based on this field
+export interface LogOut {
+  type: '@auth/logOut'
+  payload?: void
   error?: false
-  payload: P
 }
-
-interface BaseAuthFailure<T extends string> extends BaseFetchFailure<T> {
-  meta: {
-    reqId: string
-    /** Should be set to the current value of `window.performance.now()`. */
-    time: number
-  }
-}
-
-/**
- * A request is beginning to make a change to the current user's account. `reqId` can be used to
- * track results for this request.
- */
-export interface AuthChangeBegin {
-  type: '@auth/changeBegin'
-  payload: {
-    reqId: string
-  }
-}
-
-/** Logging out of the user account was successful. */
-export type LogOutSuccess = BaseAuthSuccess<'@auth/logOut'>
-/** Logging out of the user account failed. */
-export type LogOutFailure = BaseAuthFailure<'@auth/logOut'>
-
-/** Resetting the user's password succeeded. */
-export type ResetPasswordSuccess = BaseAuthSuccess<'@auth/resetPassword'>
-/** Resetting the user's password failed. */
-export type ResetPasswordFailure = BaseAuthFailure<'@auth/resetPassword'>
-
-/** Recovering a user's name based on their email succeeded. */
-export type RecoverUsernameSuccess = BaseAuthSuccess<'@auth/recoverUsername'>
-/** Recovering a user's name based on their email failed. */
-export type RecoverUsernameFailure = BaseAuthFailure<'@auth/recoverUsername'>
-
-/** Initiating a password reset for a user was successful. */
-export type StartPasswordResetSuccess = BaseAuthSuccess<'@auth/startPasswordReset'>
-/** Initiating a password reset for a user failed. */
-export type StartPasswordResetFailure = BaseAuthFailure<'@auth/startPasswordReset'>
 
 /**
  * Loading the current active user session from the server succeeded and the returned user is now
  * active.
  */
-export interface LoadCurrentSessionSuccess {
+export interface LoadCurrentSession {
   type: '@auth/loadCurrentSession'
   payload: ClientSessionInfo
+  error?: false
 }
-
-/** The current user's email has been successfully verified. */
-export type VerifyEmailSuccess = BaseAuthSuccess<'@auth/verifyEmail'>
-/** Submitting email verification info for the current user failed. */
-export type VerifyEmailFailure = BaseAuthFailure<'@auth/verifyEmail'>
 
 /** The server has notified this client that the active user's email is now verified. */
 export interface EmailVerified {
   type: '@auth/emailVerified'
-  payload: void
-}
-
-/** Various legal policies have been accepted successfully by the current user. */
-export interface AcceptPoliciesSuccess {
-  type: '@auth/acceptPolicies'
-  payload: AcceptPoliciesResponse
-  meta: Record<string, never>
+  payload?: void
   error?: false
 }
 
-/** Accepting legal policies failed. */
-export interface AcceptPoliciesFailure extends BaseFetchFailure<'@auth/acceptPolicies'> {
-  meta: Record<string, never>
+/** Various legal policies have been accepted successfully by the current user. */
+export interface AcceptPolicies {
+  type: '@auth/acceptPolicies'
+  payload: AcceptPoliciesResponse
+  error?: false
 }
 
 /** The language was changed by the current user. */
 export interface ChangeLanguage {
   type: '@auth/changeLanguage'
   payload: ChangeLanguagesResponse
+  error?: false
 }
 
 export interface PermissionsChanged {
@@ -120,10 +55,12 @@ export interface PermissionsChanged {
     userId: SbUserId
     permissions: SbPermissions
   }
+  error?: false
 }
 
 /** The server told us we were unauthorized (e.g. our session expired or was revoked). */
 export interface SessionUnauthorized {
   type: '@auth/sessionUnauthorized'
-  payload: void
+  payload?: void
+  error?: false
 }

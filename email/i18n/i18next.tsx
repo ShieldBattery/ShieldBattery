@@ -1,5 +1,5 @@
 import i18n from 'i18next'
-import FsBackend, { FsBackendOptions } from 'i18next-fs-backend'
+import FsBackend, { FsBackendOptions } from 'i18next-fs-backend/cjs'
 import path from 'path'
 import React from 'react'
 import { I18nextProvider, initReactI18next } from 'react-i18next'

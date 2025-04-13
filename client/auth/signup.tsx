@@ -1,72 +1,41 @@
 import queryString from 'query-string'
-import React, { useRef, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import {
-  EMAIL_MAXLENGTH,
-  EMAIL_MINLENGTH,
-  EMAIL_PATTERN,
-  PASSWORD_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_MINLENGTH,
-  USERNAME_PATTERN,
-} from '../../common/constants'
+import { Link } from 'wouter'
 import { apiUrl } from '../../common/urls'
 import { UsernameAvailableResponse } from '../../common/users/user-network'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Validator, useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import {
-  composeValidators,
-  debounceValidator,
-  matchesOther,
-  maxLength,
-  minLength,
-  regex,
-  requireChecked,
-  required,
-} from '../forms/validators'
+import { composeValidators, debounceValidator, requireChecked } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
 import { ElevatedButton } from '../material/button'
 import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
-import { push } from '../navigation/routing'
+import { PasswordTextField } from '../material/password-text-field'
+import { TextField } from '../material/text-field'
 import { fetchJson } from '../network/fetch'
-import LoadingIndicator from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { signUp } from './action-creators'
 import {
-  AuthBody,
-  AuthBottomAction,
-  AuthContent,
-  AuthContentContainer,
-  AuthPasswordTextField,
-  AuthTextField,
-  AuthTitle,
-  BottomActionButton,
-  FieldRow,
-  LoadingArea,
-} from './auth-content'
+  confirmPasswordValidator,
+  emailValidator,
+  passwordValidator,
+  usernameValidator,
+} from './auth-form-validators'
+import { AuthLayout } from './auth-layout'
 import { useRedirectAfterLogin } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
-const SignupBottomAction = styled(AuthBottomAction)`
-  flex-direction: row;
-  justify-content: center;
+const StyledForm = styled.form`
+  width: 100%;
+  margin-bottom: 16px;
 
-  & > p {
-    margin-right: 8px;
-  }
-`
-
-const SignupCheckBox = styled(CheckBox)`
-  flex-grow: 1;
-`
-
-const MultiCheckBoxFieldRow = styled(FieldRow)`
-  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 `
 
 const DialogLinkElem = styled.a`
@@ -84,33 +53,36 @@ function DialogLink({
 }) {
   const dispatch = useAppDispatch()
 
-  const onClick = (event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    dispatch(openDialog({ type: dialogType }))
-  }
-
   return (
-    <DialogLinkElem href='#' onClick={onClick} tabIndex={1}>
+    <DialogLinkElem
+      href='#'
+      onClick={(event: React.MouseEvent) => {
+        event.preventDefault()
+        event.stopPropagation()
+        dispatch(openDialog({ type: dialogType }))
+      }}
+      tabIndex={0}>
       {children}
     </DialogLinkElem>
   )
 }
+
+const CheckBoxes = styled.div`
+  margin-bottom: 16px;
+`
 
 const CheckBoxError = styled(InputError)`
   padding-left: 30px;
   padding-bottom: 4px;
 `
 
-function CheckBoxRowWithError({
+function CheckBoxWithError({
   errorText,
   ...checkboxProps
 }: { errorText?: string } & CheckBoxProps) {
   return (
     <>
-      <MultiCheckBoxFieldRow>
-        <SignupCheckBox {...checkboxProps} />
-      </MultiCheckBoxFieldRow>
+      <CheckBox {...checkboxProps} />
       {errorText ? <CheckBoxError error={errorText} /> : null}
     </>
   )
@@ -125,37 +97,46 @@ interface SignupModel {
   policyAgreement: boolean
 }
 
-function usernameAvailableValidator(): Validator<string, SignupModel> {
-  return debounceValidator(async (username, _model, _dirty, t) => {
-    try {
-      const result = await fetchJson<UsernameAvailableResponse>(
-        apiUrl`users/username-available/${username}`,
-        {
-          method: 'POST',
-        },
-      )
-      if (result.available) {
-        return undefined
-      }
-    } catch (ignored) {
-      return t('auth.usernameValidator.error', 'There was a problem checking username availability')
-    }
-
-    return t('auth.usernameValidator.notAvailable', 'Username is not available')
-  }, 250)
-}
-
 export function Signup() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const auth = useAppSelector(s => s.auth)
 
   const [isLoading, setIsLoading] = useState(false)
   const [lastError, setLastError] = useState<Error>()
 
   useRedirectAfterLogin()
 
-  const [usernameAvailable] = useState(() => usernameAvailableValidator())
+  const usernameAvailable = useMemo<Validator<string, SignupModel>>(() => {
+    let lastValidatedName: string | undefined
+
+    return debounceValidator(async (username, _model, _dirty, t) => {
+      if (username === lastValidatedName) {
+        return undefined
+      }
+
+      try {
+        const result = await fetchJson<UsernameAvailableResponse>(
+          apiUrl`users/username-available/${username}`,
+          {
+            method: 'POST',
+          },
+        )
+        if (result.available) {
+          lastValidatedName = username
+          return undefined
+        }
+      } catch (ignored) {
+        lastValidatedName = undefined
+        return t(
+          'auth.usernameValidator.error',
+          'There was a problem checking username availability',
+        )
+      }
+
+      lastValidatedName = undefined
+      return t('auth.usernameValidator.notAvailable', 'Username is not available')
+    }, 250)
+  }, [])
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
@@ -170,30 +151,10 @@ export function Signup() {
       policyAgreement: false,
     },
     {
-      username: composeValidators(
-        required(t('auth.usernameValidator.required', 'Enter a username')),
-        minLength(USERNAME_MINLENGTH),
-        maxLength(USERNAME_MAXLENGTH),
-        regex(
-          USERNAME_PATTERN,
-          t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
-        ),
-        usernameAvailable,
-      ),
-      email: composeValidators(
-        required(t('auth.emailValidator.required', 'Enter an email address')),
-        minLength(EMAIL_MINLENGTH),
-        maxLength(EMAIL_MAXLENGTH),
-        regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
-      ),
-      password: composeValidators(
-        required(t('auth.passwordValidator.required', 'Enter a password')),
-        minLength(PASSWORD_MINLENGTH),
-      ),
-      confirmPassword: composeValidators(
-        required(t('auth.passwordValidator.confirm', 'Confirm your password')),
-        matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
-      ),
+      username: composeValidators(usernameValidator, usernameAvailable),
+      email: emailValidator,
+      password: passwordValidator,
+      confirmPassword: confirmPasswordValidator,
       ageConfirmation: requireChecked(),
       policyAgreement: requireChecked(),
     },
@@ -228,118 +189,83 @@ export function Signup() {
     },
   })
 
-  const onLogInClick = useStableCallback(() => {
-    const { search } = window.location
-    push({ pathname: '/login', search })
-  })
-
-  let loadingContents
-  if (auth.authChangeInProgress || isLoading) {
-    loadingContents = (
-      <LoadingArea>
-        <LoadingIndicator />
-      </LoadingArea>
-    )
-  }
-
   const textInputProps = {
     autoCapitalize: 'off',
     autoCorrect: 'off',
     spellCheck: false,
-    tabIndex: 1,
+    tabIndex: 0,
   }
 
   return (
-    <AuthContent>
-      <AuthContentContainer $isLoading={isLoading || auth.authChangeInProgress}>
-        <AuthTitle>{t('auth.signup.title', 'Create account')}</AuthTitle>
-        <AuthBody>
-          {lastError ? <UserErrorDisplay error={lastError} /> : null}
-          <form noValidate={true} onSubmit={submit}>
-            <SubmitOnEnter />
-            <FieldRow>
-              <AuthTextField
-                {...bindInput('username')}
-                inputProps={textInputProps}
-                label={t('auth.signup.username', 'Username')}
-                floatingLabel={true}
-              />
-            </FieldRow>
-
-            <FieldRow>
-              <AuthTextField
-                {...bindInput('email')}
-                inputProps={textInputProps}
-                label={t('auth.signup.emailAddress', 'Email address')}
-                floatingLabel={true}
-              />
-            </FieldRow>
-
-            <FieldRow>
-              <AuthPasswordTextField
-                {...bindInput('password')}
-                inputProps={textInputProps}
-                label={t('auth.signup.password', 'Password')}
-                floatingLabel={true}
-              />
-            </FieldRow>
-
-            <FieldRow>
-              <AuthPasswordTextField
-                {...bindInput('confirmPassword')}
-                inputProps={textInputProps}
-                label={t('auth.signup.confirmPassword', 'Confirm password')}
-                floatingLabel={true}
-              />
-            </FieldRow>
-
-            <CheckBoxRowWithError
-              {...bindCheckable('ageConfirmation')}
-              label={t(
-                'auth.signup.ageConfirmation',
-                'I certify that I am 13 years of age or older',
-              )}
-              inputProps={{ tabIndex: 1 }}
-            />
-
-            <CheckBoxRowWithError
-              {...bindCheckable('policyAgreement')}
-              label={
-                <span>
-                  <Trans t={t} i18nKey='auth.signup.readAndAgree'>
-                    I have read and agree to the{' '}
-                    <DialogLink dialogType={DialogType.TermsOfService}>Terms of Service</DialogLink>
-                    , <DialogLink dialogType={DialogType.AcceptableUse}>Acceptable Use</DialogLink>,
-                    and <DialogLink dialogType={DialogType.PrivacyPolicy}>Privacy</DialogLink>{' '}
-                    policies
-                  </Trans>
-                </span>
-              }
-              inputProps={{ tabIndex: 1 }}
-            />
-
-            <FieldRow>
-              <ElevatedButton
-                label={t('auth.signup.createAccount', 'Create account')}
-                onClick={submit}
-                tabIndex={1}
-                testName='submit-button'
-              />
-            </FieldRow>
-          </form>
-        </AuthBody>
-      </AuthContentContainer>
-
-      {loadingContents}
-
-      <SignupBottomAction>
-        <p>{t('auth.signup.alreadyHaveAccount', 'Already have an account?')}</p>
-        <BottomActionButton
-          label={t('auth.signup.logIn', 'Log in')}
-          onClick={onLogInClick}
-          tabIndex={1}
+    <AuthLayout title={t('auth.signup.title', 'Create account')}>
+      {lastError ? <UserErrorDisplay error={lastError} /> : null}
+      <StyledForm noValidate={true} onSubmit={submit}>
+        <SubmitOnEnter />
+        <TextField
+          {...bindInput('username')}
+          inputProps={textInputProps}
+          label={t('auth.signup.username', 'Username')}
+          floatingLabel={true}
+          disabled={isLoading}
         />
-      </SignupBottomAction>
-    </AuthContent>
+        <TextField
+          {...bindInput('email')}
+          inputProps={textInputProps}
+          label={t('auth.signup.emailAddress', 'Email address')}
+          floatingLabel={true}
+          disabled={isLoading}
+        />
+        <PasswordTextField
+          {...bindInput('password')}
+          inputProps={textInputProps}
+          label={t('auth.signup.password', 'Password')}
+          floatingLabel={true}
+          disabled={isLoading}
+        />
+        <PasswordTextField
+          {...bindInput('confirmPassword')}
+          inputProps={textInputProps}
+          label={t('auth.signup.confirmPassword', 'Confirm password')}
+          floatingLabel={true}
+          disabled={isLoading}
+        />
+        <CheckBoxes>
+          <CheckBoxWithError
+            {...bindCheckable('ageConfirmation')}
+            label={t('auth.signup.ageConfirmation', 'I certify that I am 13 years of age or older')}
+            inputProps={{ tabIndex: 0 }}
+            disabled={isLoading}
+          />
+          <CheckBoxWithError
+            {...bindCheckable('policyAgreement')}
+            label={
+              <span>
+                <Trans t={t} i18nKey='auth.signup.readAndAgree'>
+                  I have read and agree to the{' '}
+                  <DialogLink dialogType={DialogType.TermsOfService}>Terms of Service</DialogLink>,{' '}
+                  <DialogLink dialogType={DialogType.AcceptableUse}>Acceptable Use</DialogLink>, and{' '}
+                  <DialogLink dialogType={DialogType.PrivacyPolicy}>Privacy</DialogLink> policies
+                </Trans>
+              </span>
+            }
+            inputProps={{ tabIndex: 0 }}
+            disabled={isLoading}
+          />
+        </CheckBoxes>
+
+        <ElevatedButton
+          label={t('auth.signup.createAccount', 'Create account')}
+          onClick={submit}
+          tabIndex={0}
+          testName='submit-button'
+          disabled={isLoading}
+        />
+      </StyledForm>
+      <div>
+        <Trans t={t} i18nKey='auth.signup.alreadyHaveAccount'>
+          Already have an account? <Link href={`/login${location.search}`}>Log in</Link>
+        </Trans>
+      </div>
+    </AuthLayout>
   )
 }

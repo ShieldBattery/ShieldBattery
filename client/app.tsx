@@ -1,5 +1,5 @@
 import { LazyMotion, MotionConfig, Transition } from 'motion/react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch } from 'wouter'
@@ -91,6 +91,27 @@ const DEFAULT_MOTION_CONFIG: Transition = {
 
 export default function App() {
   const graphqlClient = useUserSpecificGraphqlClient()
+
+  useLayoutEffect(() => {
+    // Calculate the scrollbar width and set it as a CSS variable so other styles can use it. We
+    // directly control this on webkit-ish browsers, but Firefox doesn't have a way of directly
+    // specifying the scrollbar width so...
+
+    const outer = document.createElement('div')
+    outer.style.visibility = 'hidden'
+    outer.style.position = 'fixed'
+    outer.style.width = '100px'
+    outer.style.overflow = 'scroll'
+    document.body.appendChild(outer)
+
+    const inner = document.createElement('div')
+    inner.style.width = '100%'
+    outer.appendChild(inner)
+    const scrollbarWidth = outer.offsetWidth - inner.offsetWidth
+    document.body.removeChild(outer)
+
+    document.body.style.setProperty('--scrollbar-width', `${scrollbarWidth}px`)
+  }, [])
 
   return (
     <StyleSheetManager enableVendorPrefixes={!IS_ELECTRON}>

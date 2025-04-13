@@ -25,6 +25,7 @@ const GlobalStyle = createGlobalStyle`
 
   :root {
     ${THEME_CSS};
+    --scrollbar-width: 16px;
   }
 
   html {

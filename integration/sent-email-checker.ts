@@ -31,4 +31,12 @@ export class SentEmailChecker {
     const response = await this.apiContext.get(`/sent/${encodeURIComponent(to)}`)
     return response.json()
   }
+
+  async resetEmailsFor(to: string): Promise<void> {
+    if (!this.apiContext) {
+      throw new Error('API context not set!')
+    }
+
+    await this.apiContext.delete(`/sent/${encodeURIComponent(to)}`)
+  }
 }

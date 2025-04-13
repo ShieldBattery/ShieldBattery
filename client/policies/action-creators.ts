@@ -29,7 +29,7 @@ const policyBatchRequester = new MicrotaskBatchRequester<
       body: JSON.stringify(body),
     })
 
-    dispatch({ type: '@auth/acceptPolicies', payload: promise, meta: {} })
+    dispatch({ type: '@auth/acceptPolicies', payload: promise })
 
     return promise
   },

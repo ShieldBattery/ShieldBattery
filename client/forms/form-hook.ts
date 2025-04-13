@@ -136,18 +136,20 @@ type OptionalConditionalKeys<T, MatchType> = ConditionalKeys<T, MatchType | unde
  * @param defaultModel The initial values for the form. This object will not be re-checked after initial
  *   render (similar semantics to `useState`).
  * @param validations A mapping of name -> a function to validate a value for that form input. Any
- *   missing names will be assumed to be valid at all times.
+ *   missing names will be assumed to be valid at all times. Validations are assumed to be static
+ *   and will not be updated even after the first render.
  * @param callbacks A set of callbacks which will be called during various phases of the form.
  */
 export function useForm<ModelType extends Record<string, any>>(
   defaultModel: Readonly<ModelType>,
-  validations: Readonly<ValidatorMap<ModelType>>,
+  _validations: Readonly<ValidatorMap<ModelType>>,
 ): FormHook<ModelType> {
   const { t } = useTranslation()
   const [model, updateModel] = useImmerState(() => {
     const model: ModelType = { ...defaultModel }
     return model
   })
+  const [validations] = useState(() => _validations)
   const [validationErrors, updateValidationErrors] = useImmerState(
     () => new Map<keyof ModelType, string>(),
   )
@@ -300,7 +302,7 @@ export function useForm<ModelType extends Record<string, any>>(
         validate(name as keyof ModelType)
       }
     }
-  }, [model, dirtyFields, validate, validations])
+  }, [dirtyFields, validate])
 
   useEffect(() => {
     formCallbackRegistryRef.current._triggerOnChange(model)

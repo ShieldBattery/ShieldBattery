@@ -8,11 +8,6 @@ import { container } from 'tsyringe'
 import uid from 'uid-safe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
-  EMAIL_MAXLENGTH,
-  EMAIL_MINLENGTH,
-  EMAIL_PATTERN,
-  isValidPassword,
-  isValidUsername,
   PASSWORD_MINLENGTH,
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
@@ -37,7 +32,7 @@ import {
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
-import { SbUser, SEARCH_MATCH_HISTORY_LIMIT, SelfUser } from '../../../common/users/sb-user'
+import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../../common/users/session'
 import {
@@ -53,6 +48,11 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
+  RANDOM_EMAIL_CODE_PATTERN,
+  RecoverUsernameRequest,
+  RequestPasswordResetRequest,
+  ResetPasswordRequest,
+  SEARCH_MATCH_HISTORY_LIMIT,
   SearchMatchHistoryResponse,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
@@ -75,7 +75,6 @@ import {
   getMatchmakingRatingsForUser,
   getMatchmakingSeasonsByIds,
 } from '../matchmaking/models'
-import { usePasswordResetCode } from '../models/password-resets'
 import { updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/electron-clients'
 import { serverRsUrl } from '../network/server-rs-requests'
@@ -92,6 +91,9 @@ import { BanEnacter } from './ban-enacter'
 import { retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
 import { addEmailVerificationCode, getEmailVerificationsCount } from './email-verification-models'
+import { PasswordResetCleanupJob } from './password-reset-cleanup'
+import { addPasswordResetCode, usePasswordResetCode } from './password-reset-model'
+import { genRandomCode } from './random-code'
 import { SuspiciousIpsService } from './suspicious-ips'
 import {
   convertUserApiErrors,
@@ -104,6 +106,7 @@ import { retrieveIpsForUsers, retrieveRelatedUsersForIps } from './user-ips'
 import { UserIpsCleanupJob } from './user-ips-cleanup'
 import {
   createUser,
+  findAllUsersWithEmail,
   findSelfById,
   findUserById,
   findUserByName,
@@ -115,7 +118,7 @@ import {
 import { UserRelationshipService } from './user-relationship-service'
 import { UserService } from './user-service'
 import { getUserStats } from './user-stats-model'
-import { joiUserId } from './user-validators'
+import { joiEmail, joiUserId, joiUsername } from './user-validators'
 
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
@@ -174,6 +177,31 @@ const relationshipsThrottle = createThrottle('accountrelationships', {
   window: 60000,
 })
 
+// Throttle for attempting a user/password recovery
+const forgotUserPassThrottle = createThrottle('forgotuserpass', {
+  rate: 30,
+  burst: 50,
+  window: 12 * 60 * 60 * 1000,
+})
+
+// Extra throttles on success to ensure we don't spam people with emails
+const forgotUserSuccessThrottle = createThrottle('forgotusersuccess', {
+  rate: 2,
+  burst: 2,
+  window: 12 * 60 * 60 * 1000,
+})
+const forgotPasswordSuccessThrottle = createThrottle('forgotpasssuccess', {
+  rate: 2,
+  burst: 2,
+  window: 12 * 60 * 60 * 1000,
+})
+
+const resetPasswordThrottle = createThrottle('resetpassword', {
+  rate: 1,
+  burst: 10,
+  window: 30 * 60 * 1000,
+})
+
 function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 11 /* saltRounds */)
 }
@@ -220,6 +248,7 @@ export class UserApi {
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private chatService: ChatService,
   ) {
+    container.resolve(PasswordResetCleanupJob)
     container.resolve(UserIdentifierCleanupJob)
     container.resolve(UserIpsCleanupJob)
   }
@@ -233,18 +262,9 @@ export class UserApi {
 
     const { body } = validateRequest(ctx, {
       body: Joi.object<SignupRequestBody>({
-        username: Joi.string()
-          .min(USERNAME_MINLENGTH)
-          .max(USERNAME_MAXLENGTH)
-          .pattern(USERNAME_PATTERN)
-          .required(),
+        username: joiUsername().required(),
         password: Joi.string().min(PASSWORD_MINLENGTH).required(),
-        email: Joi.string()
-          .min(EMAIL_MINLENGTH)
-          .max(EMAIL_MAXLENGTH)
-          .pattern(EMAIL_PATTERN)
-          .trim()
-          .required(),
+        email: joiEmail().trim().required(),
         clientIds: joiClientIdentifiers().required(),
         locale: joiLocale(),
       }),
@@ -368,6 +388,112 @@ export class UserApi {
       .json<CheckAllowedNameResponse>()
 
     return { available: available && allowed }
+  }
+
+  @httpPost('/recovery/user')
+  @httpBefore(throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip))
+  async recoverUsername(ctx: RouterContext): Promise<void> {
+    const {
+      body: { email },
+    } = validateRequest(ctx, {
+      body: Joi.object<RecoverUsernameRequest>({
+        email: joiEmail().required().trim(),
+      }),
+    })
+
+    const users = await findAllUsersWithEmail(email)
+    ctx.status = 204
+
+    if (!users.length) {
+      return
+    }
+
+    const isLimited = await forgotUserSuccessThrottle.rateLimit(email)
+    if (isLimited) {
+      ctx.log.warn('email is over username recovery limit')
+      return
+    }
+
+    await sendMailTemplate({
+      to: email,
+      subject: 'ShieldBattery Username Recovery',
+      templateName: 'username-recovery',
+      templateData: {
+        email,
+        usernames: users.map(user => ({ username: user.name })),
+      },
+    })
+  }
+
+  @httpPost('/recovery/password')
+  @httpBefore(throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip))
+  async requestPasswordReset(ctx: RouterContext): Promise<void> {
+    const {
+      body: { username, email },
+    } = validateRequest(ctx, {
+      body: Joi.object<RequestPasswordResetRequest>({
+        username: joiUsername().required(),
+        email: joiEmail().required().trim(),
+      }),
+    })
+
+    const user = await findUserByName(username)
+    ctx.status = 204
+    if (!user) {
+      return
+    }
+
+    const selfUser = await findSelfById(user.id)
+    if (!selfUser || selfUser.email !== email) {
+      return
+    }
+
+    const isLimited = await forgotPasswordSuccessThrottle.rateLimit(String(user.id))
+    if (isLimited) {
+      ctx.log.warn('user is over password recovery limit')
+      return
+    }
+
+    const code = await genRandomCode()
+    await addPasswordResetCode({
+      userId: user.id,
+      code,
+      ip: ctx.ip,
+    })
+
+    await sendMailTemplate({
+      to: selfUser.email,
+      subject: 'ShieldBattery Password Reset',
+      templateName: 'password-reset',
+      templateData: {
+        username: user.name,
+        code,
+      },
+    })
+  }
+
+  @httpPost('/recovery/reset-password')
+  @httpBefore(throttleMiddleware(resetPasswordThrottle, ctx => ctx.ip))
+  async resetPassword(ctx: RouterContext): Promise<void> {
+    const {
+      body: { code, password },
+    } = validateRequest(ctx, {
+      body: Joi.object<ResetPasswordRequest>({
+        code: Joi.string().regex(RANDOM_EMAIL_CODE_PATTERN).required(),
+        password: Joi.string().min(PASSWORD_MINLENGTH).required(),
+      }),
+    })
+
+    await transact(async client => {
+      const userId = await usePasswordResetCode(code, client)
+      if (!userId) {
+        throw new UserApiError(UserErrorCode.InvalidCode, 'Password reset code is invalid')
+      }
+
+      await this.userService.updateCurrentUser(userId, { password: await hashPass(password) })
+    })
+
+    ctx.status = 204
   }
 
   @httpGet('/batch-info')
@@ -683,35 +809,6 @@ export class UserApi {
     )
 
     return { user }
-  }
-
-  @httpPost('/:username/password')
-  async resetPassword(ctx: RouterContext): Promise<void> {
-    // TODO(tec27): This request should probably be for a user ID
-    const { username } = ctx.params
-    const { code } = ctx.query
-    const { password } = ctx.request.body
-
-    if (!code || !isValidUsername(username) || !isValidPassword(password)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    }
-
-    await transact(async client => {
-      try {
-        await usePasswordResetCode(client, username, code)
-      } catch (err) {
-        throw new httpErrors.BadRequest('Password reset code is invalid')
-      }
-
-      const user = await findUserByName(username)
-      if (!user) {
-        throw new httpErrors.Conflict('User not found')
-      }
-
-      await this.userService.updateCurrentUser(user.id, { password: await hashPass(password) })
-    })
-
-    ctx.status = 204
   }
 
   @httpPost('/:id/email-verification/send')

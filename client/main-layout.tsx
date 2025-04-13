@@ -3,17 +3,19 @@ import React, { MouseEvent, useId, useLayoutEffect, useRef, useState } from 'rea
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
+import { getErrorStack } from '../common/errors'
 import { matchmakingTypeToLabel } from '../common/matchmaking'
 import { urlPath } from '../common/urls'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
 import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
 import { ConnectedAvatar } from './avatars/avatar'
-import { openDialog } from './dialogs/action-creators'
+import { openDialog, openSimpleDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
 import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
+import logger from './logging/logger'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { ElapsedTime } from './matchmaking/elapsed-time'
 import { isMatchmakingLoading } from './matchmaking/matchmaking-reducer'
@@ -675,7 +677,7 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
 
   height: 72px;
   margin-bottom: -8px;
-  padding: 0 4px 0 12px;
+  padding: 0 4px;
 
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -697,10 +699,17 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
     /** Give these elements a new stacking context so they display over top of the ::before */
     position: relative;
   }
+
+  & > *:first-child {
+    /*
+      Push the left edge of content to be in the proper position without messing up the centering
+      of the play button
+    */
+    margin-left: 12px;
+  }
 `
 
 const AvatarSpace = styled.div`
-  width: 64px;
   height: 64px;
   margin-bottom: 8px;
 
@@ -832,7 +841,23 @@ function AppBar({
               text={t('navigation.leftNav.logOut', 'Log out')}
               onClick={() => {
                 closeProfileOverlay()
-                dispatch(logOut().action)
+                dispatch(
+                  logOut({
+                    onSuccess: () => {},
+                    onError: err => {
+                      logger.error(`Error logging out: ${getErrorStack(err)}`)
+                      dispatch(
+                        openSimpleDialog(
+                          t('navigation.leftNav.logOutErrorTitle', 'Logging out failed'),
+                          t(
+                            'navigation.leftNav.logOutErrorMessage',
+                            'Something went wrong. Please try again later.',
+                          ),
+                        ),
+                      )
+                    },
+                  }),
+                )
               }}
             />
           </SelfProfileOverlay>

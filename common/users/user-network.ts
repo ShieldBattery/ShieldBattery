@@ -11,6 +11,19 @@ import { SbUserId } from './sb-user-id'
 import { UserStats } from './user-stats'
 
 /**
+ * Characters used in random verification codes sent through email. These were chosen because they
+ * are not easily confused for other characters, removing vowels to avoid spelling anything.
+ */
+export const RANDOM_EMAIL_CODE_CHARACTERS = 'BCDFGHJKLMNPQRTWXY3469'
+/**
+ * The pattern of codes sent for verification through email (such as for) email verification or
+ * password reset.
+ */
+export const RANDOM_EMAIL_CODE_PATTERN = new RegExp(
+  `^[${RANDOM_EMAIL_CODE_CHARACTERS}]{5}-[${RANDOM_EMAIL_CODE_CHARACTERS}]{5}$`,
+)
+
+/**
  * Detailed information about a user, such as their ladder ranking, win record, etc.
  */
 export interface UserProfile {
@@ -57,6 +70,8 @@ export interface GetUserProfileResponse {
   }
   seasons: MatchmakingSeasonJson[]
 }
+
+export const SEARCH_MATCH_HISTORY_LIMIT = 40
 
 /**
  * The response returned when searching the user's match history.
@@ -182,4 +197,18 @@ export type AuthEvent = EmailVerifiedEvent | PermissionsChangedEvent
 
 export interface UsernameAvailableResponse {
   available: boolean
+}
+
+export interface RecoverUsernameRequest {
+  email: string
+}
+
+export interface RequestPasswordResetRequest {
+  username: string
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  code: string
+  password: string
 }
