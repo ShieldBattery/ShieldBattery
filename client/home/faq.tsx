@@ -5,7 +5,7 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { DISCORD_URL } from '../../common/url-constants'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { withAttrs } from '../styles/styled-with-attrs'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, headlineMedium, titleMedium } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 
@@ -29,7 +29,7 @@ const QuestionContainer = styled.div`
   align-items: center;
 `
 
-const StyledQuestionIcon = withAttrs(styled(MaterialIcon), {
+const StyledQuestionIcon = styledWithAttrs(MaterialIcon, {
   icon: 'help',
   size: 32,
   filled: false,

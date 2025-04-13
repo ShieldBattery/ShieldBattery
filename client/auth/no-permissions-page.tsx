@@ -2,7 +2,7 @@ import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { withAttrs } from '../styles/styled-with-attrs'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge } from '../styles/typography'
 
 const Container = styled.div`
@@ -16,7 +16,7 @@ const Container = styled.div`
   align-items: center;
 `
 
-const ErrorIcon = withAttrs(styled(MaterialIcon), { icon: 'error' })`
+const ErrorIcon = styledWithAttrs(MaterialIcon, { icon: 'error' })`
   margin-bottom: 8px;
   color: var(--theme-error);
 `

@@ -9,11 +9,11 @@ import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { withAttrs } from '../styles/styled-with-attrs'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { titleSmall } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
-const ColoredAddIcon = withAttrs(styled(MaterialIcon), { icon: 'group_add', size: 36 })`
+const ColoredAddIcon = styledWithAttrs(MaterialIcon, { icon: 'group_add', size: 36 })`
   flex-shrink: 0;
   color: var(--color-blue80);
 `
@@ -104,7 +104,7 @@ export const FriendRequestNotificationUi = React.memo(
   }),
 )
 
-const ColoredFriendStartIcon = withAttrs(styled(MaterialIcon), { icon: 'group', size: 36 })``
+const ColoredFriendStartIcon = styledWithAttrs(MaterialIcon, { icon: 'group', size: 36 })``
 
 export interface FriendStartNotificationUiProps {
   otherUser: SbUserId

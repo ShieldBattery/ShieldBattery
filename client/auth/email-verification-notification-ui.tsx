@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import styled from 'styled-components'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../../common/notifications'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
@@ -9,11 +8,11 @@ import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { withAttrs } from '../styles/styled-with-attrs'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { sendVerificationEmail } from './action-creators'
 import { useIsLoggedIn, useSelfUser } from './auth-utils'
 
-const ColoredWarningIcon = withAttrs(styled(MaterialIcon), { icon: 'warning', size: 36 })`
+const ColoredWarningIcon = styledWithAttrs(MaterialIcon, { icon: 'warning', size: 36 })`
   flex-shrink: 0;
   color: var(--theme-amber);
 `

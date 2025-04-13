@@ -19,7 +19,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
-import { withAttrs } from '../styles/styled-with-attrs'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   headlineMedium,
   labelMedium,
@@ -264,7 +264,7 @@ const NavEntryIcon = styled(MaterialIcon).attrs({ size: 20 })`
   margin-right: 4px;
 `
 
-const ErrorIcon = withAttrs(styled(NavEntryIcon), { icon: 'error', filled: false })`
+const ErrorIcon = styledWithAttrs(NavEntryIcon, { icon: 'error', filled: false })`
   color: var(--theme-error);
   margin-bottom: 2px;
 `
