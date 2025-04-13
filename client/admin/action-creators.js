@@ -9,16 +9,6 @@ import {
   ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
   ADMIN_MAP_POOL_SEARCH_MAPS,
   ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
-  ADMIN_MATCHMAKING_TIMES_ADD,
-  ADMIN_MATCHMAKING_TIMES_ADD_BEGIN,
-  ADMIN_MATCHMAKING_TIMES_DELETE,
-  ADMIN_MATCHMAKING_TIMES_DELETE_BEGIN,
-  ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
-  ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN,
-  ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
-  ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
-  ADMIN_MATCHMAKING_TIMES_GET_PAST,
-  ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
 } from '../actions'
 import { fetchJson } from '../network/fetch'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
@@ -96,90 +86,6 @@ export function deleteMapPool(type, id) {
       payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(id)}`, {
         method: 'delete',
       }).then(() => externalShowSnackbar('Map pool deleted')),
-      meta: { type, id },
-    })
-  }
-}
-
-// TODO(2Pac): This can be cached
-export function getMatchmakingTimesHistory(type) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
-      meta: { type },
-    })
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
-      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`),
-      meta: { type },
-    })
-  }
-}
-
-export function getMatchmakingTimesFuture(type, limit, page) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN,
-      meta: { type },
-    })
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
-      payload: fetchJson(
-        `/api/1/matchmakingTimes/${encodeURIComponent(type)}/future?limit=${limit}&page=${page}`,
-      ),
-      meta: { type },
-    })
-  }
-}
-
-export function getMatchmakingTimesPast(type, limit, page) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
-      meta: { type },
-    })
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_GET_PAST,
-      payload: fetchJson(
-        `/api/1/matchmakingTimes/${encodeURIComponent(type)}/past?limit=${limit}&page=${page}`,
-      ),
-      meta: { type },
-    })
-  }
-}
-
-export function addMatchmakingTime(type, startDate = Date.now(), enabled = false) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_ADD_BEGIN,
-      meta: { type },
-    })
-
-    const params = { method: 'post', body: JSON.stringify({ startDate, enabled }) }
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_ADD,
-      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`, params).then(
-        matchmakingTime => {
-          externalShowSnackbar('New matchmaking time created')
-          return matchmakingTime
-        },
-      ),
-      meta: { type },
-    })
-  }
-}
-
-export function deleteMatchmakingTime(type, id) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_DELETE_BEGIN,
-      meta: { type, id },
-    })
-    dispatch({
-      type: ADMIN_MATCHMAKING_TIMES_DELETE,
-      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(id)}`, {
-        method: 'delete',
-      }).then(() => externalShowSnackbar('Matchmaking time deleted')),
       meta: { type, id },
     })
   }

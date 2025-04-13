@@ -16,7 +16,9 @@ const LoadableMapPools = React.lazy(() => import('./map-pools'))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
   default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,
 }))
-const LoadableMatchmakingTimes = React.lazy(() => import('./matchmaking-times'))
+const LoadableMatchmakingTimes = React.lazy(async () => ({
+  default: (await import('../matchmaking/admin-matchmaking-times')).AdminMatchmakingTimes,
+}))
 const LoadableRallyPoint = React.lazy(async () => ({
   default: (await import('./rally-point')).AdminRallyPoint,
 }))
