@@ -21,6 +21,6 @@ You may need to update the passwords for any users, depending on which version y
 from/to (as the password storage has changed). To do so:
 
 ```
-docker compose exec -T database psql --username postgres -c "ALTER USER postgres WITH PASSWORD '<PASS>'"
-docker compose exec -T database psql --username postgres -c "ALTER USER shieldbattery WITH PASSWORD '<PASS>'"
+docker compose exec -T db psql --username postgres -c "ALTER USER postgres WITH PASSWORD '<PASS>'"
+docker compose exec -T db psql --username postgres -c "ALTER USER shieldbattery WITH PASSWORD '<PASS>'"
 ```
