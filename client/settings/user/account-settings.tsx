@@ -270,7 +270,7 @@ const TEXT_INPUT_PROPS = {
 
 const ChangePasswordMutation = graphql(/* GraphQL */ `
   mutation AccountSettingsChangePassword($currentPassword: String!, $newPassword: String!) {
-    updateCurrentUser(currentPassword: $currentPassword, changes: { newPassword: $newPassword }) {
+    userUpdateCurrent(currentPassword: $currentPassword, changes: { newPassword: $newPassword }) {
       ...AccountSettings_CurrentUser
     }
   }
@@ -421,7 +421,7 @@ const emailValidator = composeValidators(
 
 const ChangeEmailMutation = graphql(/* GraphQL */ `
   mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {
-    updateCurrentUser(currentPassword: $currentPassword, changes: { email: $email }) {
+    userUpdateCurrent(currentPassword: $currentPassword, changes: { email: $email }) {
       ...AccountSettings_CurrentUser
     }
   }

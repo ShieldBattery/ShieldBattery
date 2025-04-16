@@ -94,7 +94,7 @@ const RestrictedNamesListQuery = graphql(/* GraphQL */ `
 
 const DeleteRestrictedNameMutation = graphql(/* GraphQL */ `
   mutation DeleteRestrictedName($id: Int!) {
-    deleteRestrictedName(id: $id)
+    userDeleteRestrictedName(id: $id)
   }
 `)
 
@@ -294,7 +294,7 @@ const AddRestrictedNameMutation = graphql(/* GraphQL */ `
     $kind: RestrictedNameKind!
     $reason: RestrictedNameReason!
   ) {
-    addRestrictedName(pattern: $pattern, kind: $kind, reason: $reason) {
+    userAddRestrictedName(pattern: $pattern, kind: $kind, reason: $reason) {
       id
       pattern
       kind
@@ -408,7 +408,7 @@ const RestrictedIcon = styled(MaterialIcon)`
 
 const TestRestrictedNameMutation = graphql(/* GraphQL */ `
   mutation TestRestrictedName($name: String!) {
-    testRestrictedName(name: $name) {
+    userTestRestrictedName(name: $name) {
       id
       pattern
       kind
@@ -444,21 +444,21 @@ function TestForm({ onFilterMatch }: { onFilterMatch: (pattern: string) => void 
         <ElevatedButton label='Test' onClick={submit} />
       </TextFieldAndButton>
       <TestResults
-        $hasMatch={!!data?.testRestrictedName}
+        $hasMatch={!!data?.userTestRestrictedName}
         onClick={() => {
-          if (data?.testRestrictedName) {
-            onFilterMatch(data.testRestrictedName.pattern)
+          if (data?.userTestRestrictedName) {
+            onFilterMatch(data.userTestRestrictedName.pattern)
           }
         }}>
         {fetching ? (
           <DotsIndicator />
         ) : (
           <>
-            {data?.testRestrictedName ? (
+            {data?.userTestRestrictedName ? (
               <>
                 <RestrictedIcon icon='block' />
-                <TitleMedium>{data.testRestrictedName.pattern}</TitleMedium>
-                <KindDisplay kind={data.testRestrictedName.kind} />
+                <TitleMedium>{data.userTestRestrictedName.pattern}</TitleMedium>
+                <KindDisplay kind={data.userTestRestrictedName.kind} />
               </>
             ) : (
               <>

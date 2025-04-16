@@ -233,7 +233,7 @@ pub struct UsersMutation;
 
 #[Object]
 impl UsersMutation {
-    async fn update_current_user(
+    async fn user_update_current(
         &self,
         ctx: &Context<'_>,
         #[graphql(secret)] current_password: String,
@@ -406,7 +406,7 @@ impl UsersMutation {
     }
 
     #[graphql(guard = RequiredPermission::EditPermissions)]
-    async fn update_user_permissions(
+    async fn user_update_permissions(
         &self,
         ctx: &Context<'_>,
         user_id: i32,
@@ -467,7 +467,7 @@ impl UsersMutation {
     }
 
     #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
-    async fn add_restricted_name(
+    async fn user_add_restricted_name(
         &self,
         ctx: &Context<'_>,
         pattern: String,
@@ -502,7 +502,7 @@ impl UsersMutation {
     }
 
     #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
-    async fn delete_restricted_name(&self, ctx: &Context<'_>, id: i32) -> Result<u64> {
+    async fn user_delete_restricted_name(&self, ctx: &Context<'_>, id: i32) -> Result<u64> {
         let result = ctx
             .data::<NameChecker>()?
             .delete_restriction(id)
@@ -518,7 +518,7 @@ impl UsersMutation {
     }
 
     #[graphql(guard = RequiredPermission::ManageRestrictedNames)]
-    async fn test_restricted_name(
+    async fn user_test_restricted_name(
         &self,
         ctx: &Context<'_>,
         name: String,

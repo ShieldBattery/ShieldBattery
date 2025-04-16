@@ -29,12 +29,12 @@ scalar DateTime
 
 
 type Mutation {
-	createNewsPost(post: NewsPostCreation!): NewsPost!
-	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
-	updateUserPermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
-	addRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
-	deleteRestrictedName(id: Int!): Int!
-	testRestrictedName(name: String!): NameRestriction
+	newsCreatePost(post: NewsPostCreation!): NewsPost!
+	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
+	userUpdatePermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
+	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
+	userDeleteRestrictedName(id: Int!): Int!
+	userTestRestrictedName(name: String!): NameRestriction
 }
 
 type NameRestriction {

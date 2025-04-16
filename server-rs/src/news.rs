@@ -91,7 +91,7 @@ pub struct NewsMutation;
 impl NewsMutation {
     // TODO(tec27): Allow a cover image upload with this
     #[graphql(guard = RequiredPermission::ManageNews)]
-    async fn create_news_post(
+    async fn news_create_post(
         &self,
         ctx: &Context<'_>,
         post: NewsPostCreation,

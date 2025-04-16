@@ -55,38 +55,38 @@ export type CurrentUser = {
 
 export type Mutation = {
   __typename?: 'Mutation'
-  addRestrictedName: NameRestriction
-  createNewsPost: NewsPost
-  deleteRestrictedName: Scalars['Int']['output']
-  testRestrictedName?: Maybe<NameRestriction>
-  updateCurrentUser: CurrentUser
-  updateUserPermissions: SbUser
+  newsCreatePost: NewsPost
+  userAddRestrictedName: NameRestriction
+  userDeleteRestrictedName: Scalars['Int']['output']
+  userTestRestrictedName?: Maybe<NameRestriction>
+  userUpdateCurrent: CurrentUser
+  userUpdatePermissions: SbUser
 }
 
-export type MutationAddRestrictedNameArgs = {
+export type MutationNewsCreatePostArgs = {
+  post: NewsPostCreation
+}
+
+export type MutationUserAddRestrictedNameArgs = {
   kind: RestrictedNameKind
   pattern: Scalars['String']['input']
   reason: RestrictedNameReason
 }
 
-export type MutationCreateNewsPostArgs = {
-  post: NewsPostCreation
-}
-
-export type MutationDeleteRestrictedNameArgs = {
+export type MutationUserDeleteRestrictedNameArgs = {
   id: Scalars['Int']['input']
 }
 
-export type MutationTestRestrictedNameArgs = {
+export type MutationUserTestRestrictedNameArgs = {
   name: Scalars['String']['input']
 }
 
-export type MutationUpdateCurrentUserArgs = {
+export type MutationUserUpdateCurrentArgs = {
   changes: UpdateCurrentUserChanges
   currentPassword: Scalars['String']['input']
 }
 
-export type MutationUpdateUserPermissionsArgs = {
+export type MutationUserUpdatePermissionsArgs = {
   permissions: SbPermissionsInput
   userId: Scalars['Int']['input']
 }
@@ -265,7 +265,10 @@ export type DeleteRestrictedNameMutationVariables = Exact<{
   id: Scalars['Int']['input']
 }>
 
-export type DeleteRestrictedNameMutation = { __typename?: 'Mutation'; deleteRestrictedName: number }
+export type DeleteRestrictedNameMutation = {
+  __typename?: 'Mutation'
+  userDeleteRestrictedName: number
+}
 
 export type AddRestrictedNameMutationVariables = Exact<{
   pattern: Scalars['String']['input']
@@ -275,7 +278,7 @@ export type AddRestrictedNameMutationVariables = Exact<{
 
 export type AddRestrictedNameMutation = {
   __typename?: 'Mutation'
-  addRestrictedName: {
+  userAddRestrictedName: {
     __typename?: 'NameRestriction'
     id: number
     pattern: string
@@ -292,7 +295,7 @@ export type TestRestrictedNameMutationVariables = Exact<{
 
 export type TestRestrictedNameMutation = {
   __typename?: 'Mutation'
-  testRestrictedName?: {
+  userTestRestrictedName?: {
     __typename?: 'NameRestriction'
     id: number
     pattern: string
@@ -330,7 +333,7 @@ export type AccountSettingsChangePasswordMutationVariables = Exact<{
 
 export type AccountSettingsChangePasswordMutation = {
   __typename?: 'Mutation'
-  updateCurrentUser: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
@@ -342,7 +345,7 @@ export type AccountSettingsChangeEmailMutationVariables = Exact<{
 
 export type AccountSettingsChangeEmailMutation = {
   __typename?: 'Mutation'
-  updateCurrentUser: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
@@ -393,7 +396,7 @@ export type AdminUpdateUserPermissionsMutationVariables = Exact<{
 
 export type AdminUpdateUserPermissionsMutation = {
   __typename?: 'Mutation'
-  updateUserPermissions: { __typename?: 'SbUser' } & {
+  userUpdatePermissions: { __typename?: 'SbUser' } & {
     ' $fragmentRefs'?: {
       AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
     }
@@ -519,7 +522,7 @@ export const DeleteRestrictedNameDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'deleteRestrictedName' },
+            name: { kind: 'Name', value: 'userDeleteRestrictedName' },
             arguments: [
               {
                 kind: 'Argument',
@@ -571,7 +574,7 @@ export const AddRestrictedNameDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'addRestrictedName' },
+            name: { kind: 'Name', value: 'userAddRestrictedName' },
             arguments: [
               {
                 kind: 'Argument',
@@ -635,7 +638,7 @@ export const TestRestrictedNameDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'testRestrictedName' },
+            name: { kind: 'Name', value: 'userTestRestrictedName' },
             arguments: [
               {
                 kind: 'Argument',
@@ -731,7 +734,7 @@ export const AccountSettingsChangePasswordDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'updateCurrentUser' },
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
             arguments: [
               {
                 kind: 'Argument',
@@ -816,7 +819,7 @@ export const AccountSettingsChangeEmailDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'updateCurrentUser' },
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
             arguments: [
               {
                 kind: 'Argument',
@@ -1006,7 +1009,7 @@ export const AdminUpdateUserPermissionsDocument = {
         selections: [
           {
             kind: 'Field',
-            name: { kind: 'Name', value: 'updateUserPermissions' },
+            name: { kind: 'Name', value: 'userUpdatePermissions' },
             arguments: [
               {
                 kind: 'Argument',

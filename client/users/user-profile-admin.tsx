@@ -107,7 +107,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
 
 const UpdatePermissionsMutation = graphql(/* GraphQL */ `
   mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {
-    updateUserPermissions(userId: $userId, permissions: $permissions) {
+    userUpdatePermissions(userId: $userId, permissions: $permissions) {
       ...AdminUserProfile_Permissions
     }
   }
