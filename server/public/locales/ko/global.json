@@ -237,7 +237,9 @@
                 "sendResetEmail": "재설정 이메일 보내기",
                 "title": "암호 재설정",
                 "emailAddress": "이메일 주소",
-                "username": "사용자 이름"
+                "username": "사용자 이름",
+                "alreadyHaveCodeLink": "코드가 이미 있어?",
+                "explanationText": "계정과 연결된 이메일 주소와 사용자 이름을 입력해. 새로운 비밀번호를 설정할 수 있는 재설정 코드가 담긴 이메일을 보낼게."
             },
             "reset": {
                 "confirmPassword": "새 암호를 확인합니다",
@@ -245,7 +247,9 @@
                 "passwordCode": "비밀번호 재설정 코드",
                 "setNewPassword": "새 비밀번호 설정",
                 "successMessage": "당신의 비밀번호가 재설정되었습니다.",
-                "title": "암호를 재설정"
+                "title": "암호를 재설정",
+                "continueToLogin": "로그인 계속하기",
+                "explanationText": "재설정 코드가 담긴 이메일을 받을 거야. 그 코드와 함께 새로운 비밀번호를 입력해."
             }
         },
         "login": {
@@ -255,7 +259,8 @@
             "title": "로그인",
             "logIn": "로그인",
             "password": "비밀번호",
-            "username": "사용자 이름"
+            "username": "사용자 이름",
+            "createAccountLinkText": "계정이 없어? <1>계정 만들기</1>"
         },
         "noPermissionsPage": {
             "body": "이 페이지에 접근할 수 있는 권한이 없습니다."
@@ -264,7 +269,8 @@
             "confirm": "암호를 확인",
             "matching": "일치하는 비밀번호를 입력하세요",
             "required": "비밀번호를 입력하세요",
-            "resetCode": "비밀번호 재설정 코드를 입력하세요"
+            "resetCode": "비밀번호 재설정 코드를 입력하세요",
+            "resetCodePattern": "유효하지 않은 코드야. {{example}}처럼 보여야 해."
         },
         "emailVerification": {
             "sendError": "확인 이메일을 보내는 중에 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
@@ -307,8 +313,8 @@
             "machineBanned": "이 컴퓨터는 새 계정을 만들 수 없습니다.",
             "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도하십시오.",
             "sessionExpired": "세션이 만료됨",
-            "suspiciousActivity": "이 네트워크에서 의심스러운 활동이 감지되어 현재 웹에서 계정을 생성할 수 없습니다. 새 계정을 만들려면 독립 실행형 클라이언트를 다운로드하십시오.",
-            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다"
+            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다",
+            "invalidCode": "제공된 코드는 유효하지 않아. 만료됐을 수도 있어."
         },
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
@@ -893,7 +899,9 @@
             "viewProfile": "프로필보기",
             "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
             "whispers": "속삭임",
-            "reportBug": "버그 신고"
+            "reportBug": "버그 신고",
+            "logOutErrorMessage": "뭔가 잘못됐어. 나중에 다시 시도해봐.",
+            "logOutErrorTitle": "로그아웃 실패"
         },
         "bar": {
             "userMenu": "사용자 메뉴",

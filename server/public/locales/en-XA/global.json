@@ -277,7 +277,7 @@
         },
         "login": {
             "forgotPassword": "$🗡Reset password🗡!",
-            "forgotUsername": "$🗡Forgot username?🗡!",
+            "forgotUsername": "$🗡Recover username🗡!",
             "rememberMe": "$🗡Remember me🗡!",
             "title": "$🗡Log in to ShieldBattery🗡!",
             "logIn": "$🗡Log in🗡!",
@@ -316,7 +316,6 @@
             "sessionExpired": "$🗡Session expired🗡!",
             "usernameTaken": "$🗡A user with that name already exists or the name is restricted🗡!",
             "accountBanned": "$🗡This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>🗡!",
-            "suspiciousActivity": "$🗡Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.🗡!",
             "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!"
         },
         "usernameValidator": {
@@ -863,7 +862,9 @@
             "viewProfile": "$🗡View profile🗡!",
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
-            "reportBug": "$🗡Report a bug🗡!"
+            "reportBug": "$🗡Report a bug🗡!",
+            "logOutErrorTitle": "$🗡Logging out failed🗡!",
+            "logOutErrorMessage": "$🗡Something went wrong. Please try again later.🗡!"
         },
         "bar": {
             "social": "$🗡Toggle social (ALT + H)🗡!",

@@ -235,10 +235,10 @@
             "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
             "noConnectionErrorMessage": "Error al conectar con el servidor. Comprueba tu conexión a Internet e inténtalo de nuevo.",
             "sessionExpired": "Sesión expirada",
-            "suspiciousActivity": "Debido a actividad sospechosa detectada en esta red, la creación de cuentas en la web está deshabilitada actualmente. Descargue el cliente independiente para crear una nueva cuenta.",
             "usernameTaken": "Ya existe un usuario con ese nombre",
             "accountBanned": "Esta cuenta ha sido prohibida.<1><0>Motivo:</0><1>{{banReason}}</1></1><2>La prohibición expirará en {{expireTime}}.</2>",
-            "banWithoutReason": "Sin motivo especificado"
+            "banWithoutReason": "Sin motivo especificado",
+            "invalidCode": "El código proporcionado es inválido. Puede que haya expirado."
         },
         "usernameValidator": {
             "pattern": "Nombre de usuario contiene caracteres inválidos",
@@ -273,7 +273,9 @@
                 "sendResetEmail": "Enviar correo electrónico de restablecimiento",
                 "title": "Restablecer la contraseña",
                 "username": "Nombre de usuario",
-                "emailAddress": "Dirección de correo electrónico"
+                "emailAddress": "Dirección de correo electrónico",
+                "alreadyHaveCodeLink": "¿Ya tienes un código?",
+                "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para establecer una nueva contraseña."
             },
             "reset": {
                 "confirmPassword": "Confirmar nueva contraseña",
@@ -281,7 +283,9 @@
                 "passwordCode": "Código de restablecimiento de contraseña",
                 "setNewPassword": "Establecer nueva contraseña",
                 "successMessage": "Tu contraseña ha sido restablecida.",
-                "title": "Restablecer la contraseña"
+                "title": "Restablecer la contraseña",
+                "continueToLogin": "Continuar para iniciar sesión",
+                "explanationText": "Recibirás un correo con un código de reinicio. Ingresa ese código aquí junto con tu nueva contraseña."
             },
             "user": {
                 "enterEmail": "Por favor, introduzca la dirección de correo electrónico con la que se registró.",
@@ -298,7 +302,8 @@
             "title": "Acceso",
             "logIn": "Acceso",
             "password": "Contraseña",
-            "username": "Nombre de usuario"
+            "username": "Nombre de usuario",
+            "createAccountLinkText": "¿No tienes una cuenta? <1>Crea una cuenta</1>"
         },
         "noPermissionsPage": {
             "body": "No tienes suficientes permisos para acceder a esta página."
@@ -307,7 +312,8 @@
             "confirm": "Confirmar la contraseña",
             "matching": "Introduce una contraseña que coincida",
             "required": "Ingrese una contraseña",
-            "resetCode": "Ingrese su código de restablecimiento de contraseña"
+            "resetCode": "Ingrese su código de restablecimiento de contraseña",
+            "resetCodePattern": "Código inválido. Debería verse como {{example}}."
         },
         "signup": {
             "ageConfirmation": "Certifico que tengo 13 años de edad o más",
@@ -861,7 +867,9 @@
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "susurros",
-            "reportBug": "Reportar un error"
+            "reportBug": "Reportar un error",
+            "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
+            "logOutErrorTitle": "Error al cerrar sesión"
         },
         "bar": {
             "playIngame": "Juego en progreso",

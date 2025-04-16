@@ -279,7 +279,8 @@
             "title": "登录",
             "logIn": "登录",
             "password": "密码",
-            "username": "用户名"
+            "username": "用户名",
+            "createAccountLinkText": "还没有账户？<1>创建一个账户</1>"
         },
         "noPermissionsPage": {
             "body": "您没有权限访问此页面。"
@@ -288,7 +289,8 @@
             "confirm": "确认密码",
             "matching": "两次输入的密码必须相同",
             "required": "输入密码",
-            "resetCode": "输入您的密码重置验证码"
+            "resetCode": "输入您的密码重置验证码",
+            "resetCodePattern": "无效的代码。应该像{{example}}这样。"
         },
         "signup": {
             "title": "创建账号",
@@ -310,8 +312,8 @@
             "machineBanned": "您的机器被禁止注册新帐号。",
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
             "sessionExpired": "会话已过期",
-            "suspiciousActivity": "由于在此网络上检测到可疑活动，您不能在网页端创建帐号。请下载独立客户端以创建新帐号。",
-            "usernameTaken": "该用户名已被注册"
+            "usernameTaken": "该用户名已被注册",
+            "invalidCode": "提供的代码无效。可能已经过期。"
         },
         "forgot": {
             "backToLogin": "返回登录界面",
@@ -319,7 +321,9 @@
                 "sendResetEmail": "发送邮件以重置密码",
                 "title": "重置密码",
                 "emailAddress": "电子邮箱",
-                "username": "用户名"
+                "username": "用户名",
+                "alreadyHaveCodeLink": "已经有代码了吗？",
+                "explanationText": "输入与您的账户关联的电子邮件地址和用户名。我们会发送一封电子邮件，里面有重置代码以设置新密码。"
             },
             "reset": {
                 "confirmPassword": "确认新密码",
@@ -327,7 +331,9 @@
                 "passwordCode": "密码重置验证码",
                 "setNewPassword": "设置新密码",
                 "successMessage": "您的密码已经重置。",
-                "title": "重置密码"
+                "title": "重置密码",
+                "continueToLogin": "继续登录",
+                "explanationText": "您将收到一封包含重置代码的电子邮件。请在这里输入该代码和您的新密码。"
             },
             "user": {
                 "enterEmail": "请输入您注册时使用的电子邮箱。",
@@ -828,7 +834,9 @@
             "rankedGame": "{{matchmakingType}}排位",
             "viewProfile": "查看资料",
             "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
-            "reportBug": "报告错误"
+            "reportBug": "报告错误",
+            "logOutErrorTitle": "登出失败",
+            "logOutErrorMessage": "遇到错误。请稍后再试。"
         },
         "copyLink": {
             "copiedText": "已复制！",
