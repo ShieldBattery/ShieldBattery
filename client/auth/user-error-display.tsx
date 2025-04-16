@@ -58,17 +58,6 @@ function UserError({ error }: { error: FetchError }) {
     }
     case UserErrorCode.SessionExpired:
       return <span>{t('auth.userErrorDisplay.sessionExpired', 'Session expired')}</span>
-    case UserErrorCode.SuspiciousActivity:
-      return (
-        <span>
-          {t(
-            'auth.userErrorDisplay.suspiciousActivity',
-            'Due to suspicious activity detected on this network, creating accounts on the web ' +
-              'is currently disabled. Please download the standalone client to create a new ' +
-              'account.',
-          )}
-        </span>
-      )
     case UserErrorCode.MachineBanned:
       // TODO(tec27): Show expiration date?
       return (

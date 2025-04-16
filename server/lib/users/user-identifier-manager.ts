@@ -100,13 +100,12 @@ export class UserIdentifierManager {
   }
 
   async isSignupAllowed(
-    isWeb: boolean,
     identifiers: ReadonlyArray<[type: number, hashStr: string]>,
   ): Promise<boolean> {
     const convertedIds = convertStringIds(identifiers)
     const bannedIdentifiers = await countBannedIdentifiers(convertedIds)
 
-    return isWeb ? bannedIdentifiers === 0 : bannedIdentifiers < MIN_IDENTIFIER_MATCHES
+    return bannedIdentifiers < MIN_IDENTIFIER_MATCHES
   }
 
   async findUsersWithIdentifiers(

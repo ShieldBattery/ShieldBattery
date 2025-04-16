@@ -55,7 +55,6 @@ export enum UserErrorCode {
   AccountBanned = 'accountBanned',
   SessionExpired = 'sessionExpired',
   UsernameTakenOrRestricted = 'usernameTaken',
-  SuspiciousActivity = 'suspiciousActivity',
   MachineBanned = 'machineBanned',
 }
 

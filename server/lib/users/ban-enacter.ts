@@ -6,15 +6,12 @@ import { DeletedSessionRegistry } from '../session/deleted-sessions'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { banUsers, UserBanRow } from './ban-models'
 import { MIN_IDENTIFIER_MATCHES } from './client-ids'
-import { SuspiciousIpsService } from './suspicious-ips'
 import { banAllIdentifiers, findConnectedUsers } from './user-identifiers'
-import { retrieveIpsForUsers } from './user-ips'
 
 @injectable()
 export class BanEnacter {
   constructor(
     private redis: Redis,
-    private suspiciousIps: SuspiciousIpsService,
     private userSocketsManager: UserSocketsManager,
     private deletedSessions: DeletedSessionRegistry,
   ) {}
@@ -50,23 +47,16 @@ export class BanEnacter {
 
       const bannedUntil = new Date()
       bannedUntil.setHours(bannedUntil.getHours() + banLengthHours)
-      const [banEntries, allIps] = await Promise.all([
-        banUsers(
-          {
-            users,
-            bannedBy,
-            banLengthHours,
-            reason,
-          },
-          client,
-        ),
-        retrieveIpsForUsers(users, client),
-      ])
-
-      await Promise.all([
-        this.suspiciousIps.markSuspicious(allIps, bannedUntil),
-        banAllIdentifiers({ users, bannedUntil }, client),
-      ])
+      const banEntries = await banUsers(
+        {
+          users,
+          bannedBy,
+          banLengthHours,
+          reason,
+        },
+        client,
+      )
+      await banAllIdentifiers({ users, bannedUntil }, client)
 
       // Delete all the active sessions and close any sockets they have open, so that they're forced
       // to log in again and we don't need to ban check on every operation

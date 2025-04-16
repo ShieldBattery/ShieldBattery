@@ -94,7 +94,6 @@ import { addEmailVerificationCode, getEmailVerificationsCount } from './email-ve
 import { PasswordResetCleanupJob } from './password-reset-cleanup'
 import { addPasswordResetCode, usePasswordResetCode } from './password-reset-model'
 import { genRandomCode } from './random-code'
-import { SuspiciousIpsService } from './suspicious-ips'
 import {
   convertUserApiErrors,
   convertUserRelationshipServiceErrors,
@@ -236,10 +235,8 @@ interface SignupRequestBody {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
 export class UserApi {
-  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
-    private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
     private userRelationshipService: UserRelationshipService,
     private userService: UserService,
@@ -286,26 +283,12 @@ export class UserApi {
     }
 
     if (!THROTTLING_DISABLED) {
-      if (!isElectronClient(ctx)) {
-        const [suspicious, signupAllowed] = await Promise.all([
-          this.suspiciousIps.isIpSuspicious(ctx.ip),
-          this.userIdManager.isSignupAllowed(true, clientIds),
-        ])
-
-        if (suspicious || !signupAllowed) {
-          throw new UserApiError(
-            UserErrorCode.SuspiciousActivity,
-            'Suspicious activity detected, creating accounts on the web is disabled',
-          )
-        }
-      } else {
-        const signupAllowed = await this.userIdManager.isSignupAllowed(false, clientIds)
-        if (!signupAllowed) {
-          throw new UserApiError(
-            UserErrorCode.MachineBanned,
-            'This machine is banned from creating new accounts',
-          )
-        }
+      const signupAllowed = await this.userIdManager.isSignupAllowed(clientIds)
+      if (!signupAllowed) {
+        throw new UserApiError(
+          UserErrorCode.MachineBanned,
+          'This machine is banned from creating new accounts',
+        )
       }
     }
 

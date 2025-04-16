@@ -94,7 +94,6 @@
       "machineBanned": "This machine is banned from creating new accounts.",
       "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
       "sessionExpired": "Session expired",
-      "suspiciousActivity": "Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.",
       "usernameTaken": "A user with that name already exists or the name is restricted"
     },
     "usernameValidator": {
