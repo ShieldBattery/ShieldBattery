@@ -233,10 +233,8 @@
                 "emailAddress": "이메일 주소"
             },
             "backToLogin": "로그인창으로 돌아가기",
-            "generalError": "오류: {{error}}",
             "password": {
                 "sendResetEmail": "재설정 이메일 보내기",
-                "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정에 대한 지침이 포함된 이메일을 받게 됩니다.",
                 "title": "암호 재설정",
                 "emailAddress": "이메일 주소",
                 "username": "사용자 이름"
@@ -247,17 +245,14 @@
                 "passwordCode": "비밀번호 재설정 코드",
                 "setNewPassword": "새 비밀번호 설정",
                 "successMessage": "당신의 비밀번호가 재설정되었습니다.",
-                "title": "암호를 재설정",
-                "username": "사용자 이름"
+                "title": "암호를 재설정"
             }
         },
         "login": {
             "forgotPassword": "비밀번호를 잊으셨나요?",
             "forgotUsername": "사용자 이름을 잊으셨나요?",
             "rememberMe": "자동 로그인",
-            "signUp": "회원 가입",
             "title": "로그인",
-            "whatIsShieldBattery": "실드배터리란?",
             "logIn": "로그인",
             "password": "비밀번호",
             "username": "사용자 이름"
@@ -300,7 +295,6 @@
             "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한 방침</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다",
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
-            "logIn": "로그인",
             "password": "비밀번호",
             "username": "사용자 이름"
         },

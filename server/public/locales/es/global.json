@@ -269,10 +269,8 @@
         },
         "forgot": {
             "backToLogin": "Atrás para iniciar sesión",
-            "generalError": "Error: {{error}}",
             "password": {
                 "sendResetEmail": "Enviar correo electrónico de restablecimiento",
-                "successMessage": "Si esa dirección de correo electrónico y nombre de usuario coinciden con una cuenta registrada, debería recibir un correo electrónico en los próximos minutos con instrucciones sobre cómo restablecer su contraseña.",
                 "title": "Restablecer la contraseña",
                 "username": "Nombre de usuario",
                 "emailAddress": "Dirección de correo electrónico"
@@ -283,8 +281,7 @@
                 "passwordCode": "Código de restablecimiento de contraseña",
                 "setNewPassword": "Establecer nueva contraseña",
                 "successMessage": "Tu contraseña ha sido restablecida.",
-                "title": "Restablecer la contraseña",
-                "username": "Nombre de usuario"
+                "title": "Restablecer la contraseña"
             },
             "user": {
                 "enterEmail": "Por favor, introduzca la dirección de correo electrónico con la que se registró.",
@@ -298,9 +295,7 @@
             "forgotPassword": "¿Has olvidado tu contraseña?",
             "forgotUsername": "¿Olvidó su nombre de usuario?",
             "rememberMe": "Acuérdate de mí",
-            "signUp": "Regístrese para obtener una cuenta",
             "title": "Acceso",
-            "whatIsShieldBattery": "¿Qué es ShieldBattery?",
             "logIn": "Acceso",
             "password": "Contraseña",
             "username": "Nombre de usuario"
@@ -322,7 +317,6 @@
             "readAndAgree": "He leído y acepto las <2>Condiciones de servicio</2>, <4>Uso aceptable</4> y <6>Políticas de privacidad</6>",
             "title": "Crear una cuenta",
             "emailAddress": "Dirección de correo electrónico",
-            "logIn": "Acceso",
             "password": "Contraseña",
             "username": "Nombre de usuario"
         },

@@ -276,9 +276,7 @@
             "forgotPassword": "忘了密码？",
             "forgotUsername": "忘了用户名？",
             "rememberMe": "自动登录",
-            "signUp": "注册新账号",
             "title": "登录",
-            "whatIsShieldBattery": "关于ShieldBattery",
             "logIn": "登录",
             "password": "密码",
             "username": "用户名"
@@ -299,7 +297,6 @@
             "confirmPassword": "确认密码",
             "createAccount": "创建账号",
             "emailAddress": "电子邮箱地址",
-            "logIn": "登录",
             "password": "密码",
             "username": "用户名",
             "readAndAgree": "我已阅读并接受<2>服务条款</2>、<4>可接受的使用</4>和<6>隐私</6>政策"
@@ -318,10 +315,8 @@
         },
         "forgot": {
             "backToLogin": "返回登录界面",
-            "generalError": "错误：{{error}}",
             "password": {
                 "sendResetEmail": "发送邮件以重置密码",
-                "successMessage": "如果您输入的电子邮箱地址和用户名与注册帐户匹配，您应该会在几分钟内收到一封电子邮件，它会指引您重置您的密码。",
                 "title": "重置密码",
                 "emailAddress": "电子邮箱",
                 "username": "用户名"
@@ -332,8 +327,7 @@
                 "passwordCode": "密码重置验证码",
                 "setNewPassword": "设置新密码",
                 "successMessage": "您的密码已经重置。",
-                "title": "重置密码",
-                "username": "用户名"
+                "title": "重置密码"
             },
             "user": {
                 "enterEmail": "请输入您注册时使用的电子邮箱。",

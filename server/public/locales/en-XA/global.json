@@ -249,41 +249,41 @@
         },
         "forgot": {
             "backToLogin": "$🗡Back to login🗡!",
-            "generalError": "$🗡Error: {{error}}🗡!",
             "password": {
                 "sendResetEmail": "$🗡Send reset email🗡!",
-                "successMessage": "$🗡If that email address and username match a registered account, you should receive an email in the next few minutes with instructions on how to reset your password.🗡!",
-                "title": "$🗡Reset password🗡!",
+                "title": "$🗡Request password reset🗡!",
                 "emailAddress": "$🗡Email address🗡!",
-                "username": "$🗡Username🗡!"
+                "username": "$🗡Username🗡!",
+                "alreadyHaveCodeLink": "$🗡Already have a code?🗡!",
+                "explanationText": "$🗡Enter the email address and username associated with your account. We'll send you an email with a reset code to set a new password.🗡!"
             },
             "reset": {
                 "confirmPassword": "$🗡Confirm new password🗡!",
                 "newPassword": "$🗡New password🗡!",
-                "passwordCode": "$🗡Password reset code🗡!",
+                "passwordCode": "$🗡Reset code🗡!",
                 "setNewPassword": "$🗡Set new password🗡!",
                 "successMessage": "$🗡Your password has been reset.🗡!",
                 "title": "$🗡Reset password🗡!",
-                "username": "$🗡Username🗡!"
+                "continueToLogin": "$🗡Continue to login🗡!",
+                "explanationText": "$🗡You will receive an email with a reset code. Enter that code here along with your new password.🗡!"
             },
             "user": {
-                "enterEmail": "$🗡Please enter the email address you signed up with.🗡!",
+                "enterEmail": "$🗡Enter the email address associated with your account. We'll send you an email with all the usernames associated with that email address (if any).🗡!",
                 "recoverUsername": "$🗡Recover username🗡!",
                 "title": "$🗡Recover your username🗡!",
-                "successMessage": "$🗡If there are any users registered to that email address, you should receive an email in the next few minutes with the relevant usernames.🗡!",
+                "successMessage": "$🗡You should receive an email shortly with all the usernames associated with that email address (if any).🗡!",
                 "emailAddress": "$🗡Email address🗡!"
             }
         },
         "login": {
-            "forgotPassword": "$🗡Forgot password?🗡!",
+            "forgotPassword": "$🗡Reset password🗡!",
             "forgotUsername": "$🗡Forgot username?🗡!",
             "rememberMe": "$🗡Remember me🗡!",
-            "signUp": "$🗡Sign up for an account🗡!",
-            "title": "$🗡Log in🗡!",
-            "whatIsShieldBattery": "$🗡What is ShieldBattery?🗡!",
+            "title": "$🗡Log in to ShieldBattery🗡!",
             "logIn": "$🗡Log in🗡!",
             "password": "$🗡Password🗡!",
-            "username": "$🗡Username🗡!"
+            "username": "$🗡Username🗡!",
+            "createAccountLinkText": "$🗡Don't have an account? <1>Create an account</1>🗡!"
         },
         "noPermissionsPage": {
             "body": "$🗡You don't have enough permissions to access this page.🗡!"
@@ -292,17 +292,17 @@
             "confirm": "$🗡Confirm your password🗡!",
             "matching": "$🗡Enter a matching password🗡!",
             "resetCode": "$🗡Enter your password reset code🗡!",
-            "required": "$🗡Enter a password🗡!"
+            "required": "$🗡Enter a password🗡!",
+            "resetCodePattern": "$🗡Invalid code. It should look like {{example}}.🗡!"
         },
         "signup": {
             "ageConfirmation": "$🗡I certify that I am 13 years of age or older🗡!",
-            "alreadyHaveAccount": "$🗡Already have an account?🗡!",
+            "alreadyHaveAccount": "$🗡Already have an account? <1>Log in</1>🗡!",
             "confirmPassword": "$🗡Confirm password🗡!",
-            "readAndAgree": "$🗡I have read and agree to the <2>Terms of Service</2>, <4>Acceptable Use</4>, and <6>Privacy</6> policies🗡!",
+            "readAndAgree": "$🗡I have read and agree to the <2>Terms of Service</2>, <5>Acceptable Use</5>, and <8>Privacy</8> policies🗡!",
             "title": "$🗡Create account🗡!",
             "createAccount": "$🗡Create account🗡!",
             "username": "$🗡Username🗡!",
-            "logIn": "$🗡Log in🗡!",
             "emailAddress": "$🗡Email address🗡!",
             "password": "$🗡Password🗡!"
         },
@@ -314,9 +314,10 @@
             "machineBanned": "$🗡This machine is banned from creating new accounts.🗡!",
             "noConnectionErrorMessage": "$🗡Failed to connect to the server. Please check your internet connection and try again.🗡!",
             "sessionExpired": "$🗡Session expired🗡!",
-            "usernameTaken": "$🗡A user with that name already exists🗡!",
+            "usernameTaken": "$🗡A user with that name already exists or the name is restricted🗡!",
             "accountBanned": "$🗡This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>🗡!",
-            "suspiciousActivity": "$🗡Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.🗡!"
+            "suspiciousActivity": "$🗡Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.🗡!",
+            "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!"
         },
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
