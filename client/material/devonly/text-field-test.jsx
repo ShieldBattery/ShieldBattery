@@ -100,6 +100,18 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
+            name='very-long-error'
+            value={this.state.value5}
+            floatingLabel={true}
+            dense={this.state.dense}
+            label='Permanent long error'
+            errorText={
+              'hello this is a very long error message that extends across multiple ' +
+              'lines so that we can make sure you can still see the whole thing properly.'
+            }
+            onChange={this.onChange}
+          />
+          <TextField
             name='6'
             value={'hi'}
             floatingLabel={true}

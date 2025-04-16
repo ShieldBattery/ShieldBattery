@@ -5,11 +5,12 @@ import styled from 'styled-components'
 import { bodySmall } from '../styles/typography'
 
 const StyledContainer = styled.div`
+  min-height: 20px;
+  padding: 2px 12px;
+
   display: flex;
   align-items: center;
   order: 4;
-  height: 20px;
-  padding: 0 12px;
   pointer-events: none;
 `
 
