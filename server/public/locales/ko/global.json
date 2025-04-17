@@ -4,7 +4,7 @@
             "required": "필수",
             "maxLength_other": "최대 {{count}}자까지 입력하세요",
             "minLength_other": "최소 {{count}}자 이상 입력하세요",
-            "validatorError": "이 필드를 검증하는 동안 알 수 없는 오류가 발생했습니다."
+            "validatorError": "이 필드를 검증하는 중에 알 수 없는 오류가 발생했어요"
         },
         "actions": {
             "cancel": "취소",
@@ -139,7 +139,7 @@
                     "description": "ShieldBattery를 사용하려면 StarCraft: Remastered의 유효한 최신 설치가 필요합니다. 아래 버튼을 클릭하면 설치 폴더를 자동으로 검색합니다."
                 },
                 "devOnlySettings": "개발자 전용 설정",
-                "disableHd": "HD 그래픽을 로드하지 마세요(게임에서 HD로 전환하면 충돌이 발생함).",
+                "disableHd": "HD 그래픽 로드하지 마 (게임 내에서 HD로 전환하면 크래시 남)",
                 "launch64Bit": "64비트 실행 파일 실행"
             },
             "video": {
@@ -253,8 +253,8 @@
             }
         },
         "login": {
-            "forgotPassword": "비밀번호를 잊으셨나요?",
-            "forgotUsername": "사용자 이름을 잊으셨나요?",
+            "forgotPassword": "비밀번호 재설정",
+            "forgotUsername": "사용자 이름 복구하기",
             "rememberMe": "자동 로그인",
             "title": "로그인",
             "logIn": "로그인",
@@ -295,7 +295,7 @@
         },
         "signup": {
             "ageConfirmation": "본인은 만13세 이상임을 확인합니다",
-            "alreadyHaveAccount": "이미 계정이 있습니까?",
+            "alreadyHaveAccount": "이미 계정이 있어? <1>로그인</1>",
             "confirmPassword": "비밀번호 확인",
             "createAccount": "계정 만들기",
             "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한 방침</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다",
@@ -313,14 +313,14 @@
             "machineBanned": "이 컴퓨터는 새 계정을 만들 수 없습니다.",
             "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도하십시오.",
             "sessionExpired": "세션이 만료됨",
-            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다",
+            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재하거나 이름이 제한되어 있습니다",
             "invalidCode": "제공된 코드는 유효하지 않아. 만료됐을 수도 있어."
         },
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
             "notAvailable": "사용자 이름을 사용할 수 없습니다",
-            "error": "사용자 이름 가용성을 확인하는 중 문제가 발생했습니다."
+            "error": "유저네임 사용 가능 여부 확인하는 데 문제가 있었어"
         },
         "language": {
             "changeErrorHeader": "언어 변경 오류",
@@ -441,7 +441,7 @@
                 "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
-                "searchAgainError": "매치를 검색하는 중 문제가 발생했습니다."
+                "searchAgainError": "매치 검색 중 문제가 발생했어"
             },
             "mapPool": "맵 풀",
             "points": "포인트",
@@ -557,7 +557,7 @@
             "turnRateDynamic": "DTR(권장하지 않음)",
             "useLegacyLimits": "레거시 단위 한도 사용",
             "advancedSettings": "고급 설정",
-            "lobbyNameInvalidCharacters": "로비 이름에 잘못된 문자가 포함되어 있습니다."
+            "lobbyNameInvalidCharacters": "로비 이름에 잘못된 문자가 포함되어 있습니다"
         },
         "messageLayout": {
             "gameInitializationCanceled": "게임 초기화가 취소되었습니다",
@@ -614,7 +614,7 @@
             "kicked": "당신은 로비에서 쫓겨났습니다."
         },
         "activity": {
-            "title": "로비"
+            "title": "로비 ({{lobbyCount}})"
         },
         "errors": {
             "alreadyInLobby": "이미 다른 로비에 있습니다.",
@@ -714,14 +714,14 @@
             },
             "moreActions": "추가 행동",
             "errors": {
-                "toggleBannerVisibility": "배너 공개 상태를 전환하는 중에 문제가 발생했습니다."
+                "toggleBannerVisibility": "배너 공개 상태를 전환하는 중에 문제가 발생했습니다"
             }
         },
         "channelSettings": {
             "general": {
                 "descriptionLabel": "설명",
                 "topicLabel": "주제",
-                "saveErrorMessage": "설정을 저장하는 중에 문제가 발생했습니다.",
+                "saveErrorMessage": "설정 저장하는 중에 뭔가 잘못됐어",
                 "inappropriateImageErrorMessage": "선택한 이미지가 부적절합니다. 다른 이미지를 선택하세요."
             }
         },
@@ -1078,7 +1078,7 @@
         },
         "errors": {
             "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다",
-            "clear": "알림 삭제 중 오류가 발생했습니다."
+            "clear": "알림을 지우는 중 오류가 발생했어"
         },
         "list": {
             "title": "알림"
