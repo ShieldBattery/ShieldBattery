@@ -55,7 +55,9 @@ export function useNavigationMenuState(
   const stateId = `NAVIGATION_MENU:${menuName}`
   const open = useHistoryState() === stateId
   const onOpen = useStableCallback(() => {
-    pushCurrentWithState(stateId)
+    if (history.state !== stateId) {
+      pushCurrentWithState(stateId)
+    }
   })
   const onClose = useStableCallback(() => {
     // Just in case a navigation already happened somehow

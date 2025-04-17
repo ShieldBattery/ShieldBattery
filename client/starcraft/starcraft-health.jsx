@@ -6,7 +6,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dialog } from '../material/dialog'
 import { openSettings } from '../settings/action-creators'
-import { GameSettingsSubPage } from '../settings/settings-sub-page'
+import { GameSettingsPage } from '../settings/settings-page'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { BodyLarge } from '../styles/typography'
 import {
@@ -100,7 +100,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openSettings(GameSettingsSubPage.StarCraftPath))
+    this.props.dispatch(openSettings(GameSettingsPage.StarCraftPath))
     this.props.dispatch(closeDialog(DialogType.StarcraftHealth))
   }
 }

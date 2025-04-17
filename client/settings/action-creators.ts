@@ -3,32 +3,39 @@ import { LocalSettings, ScrSettings } from '../../common/settings/local-settings
 import { audioManager } from '../audio/audio-manager'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
+import { pushCurrentWithState } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions'
-import { SettingsSubPage } from './settings-sub-page'
+import { SettingsPage } from './settings-page'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export function openSettings(subPage?: SettingsSubPage): OpenSettings {
-  return {
-    type: '@settings/openSettings',
-    payload: {
-      subPage,
-    },
+export const SETTINGS_OPEN_STATE = 'SETTINGS:open'
+export const SETTINGS_PAGE_KEY = 'settingsPage'
+
+/**
+ * Opens the settings screen, optionally specifying a specific page to open. If the settings screen
+ * is already open, it will only navigate to the new page.
+ */
+export function openSettings(page?: SettingsPage): ThunkAction {
+  return (_, getState) => {
+    if (page) {
+      const userId = getState().auth.self?.user.id ?? 0
+      const pageKey = `${userId}|${SETTINGS_PAGE_KEY}`
+      localStorage.setItem(pageKey, page)
+    }
+
+    if (history.state !== SETTINGS_OPEN_STATE) {
+      pushCurrentWithState(SETTINGS_OPEN_STATE)
+    }
   }
 }
 
-export function changeSettingsSubPage(subPage: SettingsSubPage): ChangeSettingsSubPage {
-  return {
-    type: '@settings/changeSettingsSubPage',
-    payload: { subPage },
-  }
-}
-
-export function closeSettings(): CloseSettings {
-  return {
-    type: '@settings/closeSettings',
+export function closeSettings(): ThunkAction {
+  return () => {
+    if (history.state === SETTINGS_OPEN_STATE) {
+      history.back()
+    }
   }
 }
 

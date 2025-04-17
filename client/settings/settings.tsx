@@ -4,7 +4,7 @@ import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
+import { useHistoryState } from 'wouter/use-browser-location'
 import { useIsLoggedIn } from '../auth/auth-utils'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
@@ -16,7 +16,7 @@ import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -27,7 +27,7 @@ import {
   singleLine,
   titleSmall,
 } from '../styles/typography'
-import { changeSettingsSubPage, closeSettings } from './action-creators'
+import { closeSettings, SETTINGS_OPEN_STATE, SETTINGS_PAGE_KEY } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
 import { GameplaySettings } from './game/gameplay-settings'
@@ -36,11 +36,12 @@ import { GameSoundSettings } from './game/sound-settings'
 import { StarcraftSettings } from './game/starcraft-settings'
 import { GameVideoSettings } from './game/video-settings'
 import {
-  AppSettingsSubPage,
-  GameSettingsSubPage,
-  SettingsSubPage,
-  UserSettingsSubPage,
-} from './settings-sub-page'
+  ALL_SETTINGS_PAGES,
+  AppSettingsPage,
+  GameSettingsPage,
+  SettingsPage,
+  UserSettingsPage,
+} from './settings-page'
 import { AccountSettings } from './user/account-settings'
 import { UserLanguageSettings } from './user/language-settings'
 
@@ -49,21 +50,22 @@ const ESCAPE = 'Escape'
 export function ConnectedSettings() {
   const dispatch = useAppDispatch()
   const isLoggedIn = useIsLoggedIn()
-  const isOpen = useAppSelector(s => s.settings.open)
-  const subPage =
-    useAppSelector(s => s.settings.subPage) ??
-    (isLoggedIn ? UserSettingsSubPage.Account : UserSettingsSubPage.Language)
+  const isOpen = useHistoryState() === SETTINGS_OPEN_STATE
+  const [page, setPage] = useUserLocalStorageValue<SettingsPage>(
+    SETTINGS_PAGE_KEY,
+    isLoggedIn ? UserSettingsPage.Account : UserSettingsPage.Language,
+    value => {
+      if (ALL_SETTINGS_PAGES.includes(value as SettingsPage)) {
+        return value as SettingsPage
+      } else {
+        return undefined
+      }
+    },
+  )
   const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const portalRef = useExternalElementRef()
-
-  const onChangeSubPage = useStableCallback((value: SettingsSubPage) => {
-    dispatch(changeSettingsSubPage(value))
-  })
-  const onCloseSettings = useStableCallback(() => {
-    dispatch(closeSettings())
-  })
 
   return ReactDOM.createPortal(
     <AnimatePresence>
@@ -72,10 +74,12 @@ export function ConnectedSettings() {
           <FocusTrap focusableRef={focusableRef}>
             <span ref={focusableRef} tabIndex={-1}>
               <Settings
-                subPage={subPage}
+                page={page}
                 isStarcraftHealthy={checkIsStarcraftHealthy({ starcraft })}
-                onChangeSubPage={onChangeSubPage}
-                onCloseSettings={onCloseSettings}
+                onChangePage={setPage}
+                onCloseSettings={() => {
+                  dispatch(closeSettings())
+                }}
               />
             </span>
           </FocusTrap>
@@ -135,19 +139,19 @@ const variants: Variants = {
 
 const transition: Transition = {
   type: 'spring',
-  duration: 0.5,
+  duration: 0.3,
   bounce: 0,
 }
 
 function Settings({
-  subPage,
+  page,
   isStarcraftHealthy,
-  onChangeSubPage,
+  onChangePage,
   onCloseSettings,
 }: {
-  subPage: SettingsSubPage
+  page: SettingsPage
   isStarcraftHealthy: boolean
-  onChangeSubPage: (subPage: SettingsSubPage) => void
+  onChangePage: (page: SettingsPage) => void
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
@@ -168,14 +172,14 @@ function Settings({
     disabled,
     hasError,
   }: { disabled?: boolean; hasError?: boolean } = {}) => {
-    return (s: SettingsSubPage) => (
+    return (s: SettingsPage) => (
       <NavEntry
         key={s}
-        subPage={s}
-        isActive={subPage === s}
+        page={s}
+        isActive={page === s}
         disabled={disabled}
         hasError={hasError}
-        onChangeSubPage={onChangeSubPage}
+        onChangePage={onChangePage}
       />
     )
   }
@@ -190,34 +194,34 @@ function Settings({
       transition={transition}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
-        {(isLoggedIn ? [UserSettingsSubPage.Account] : []).map(getNavEntriesMapper())}
-        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+        {(isLoggedIn ? [UserSettingsPage.Account] : []).map(getNavEntriesMapper())}
+        {[UserSettingsPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
           <>
             <NavSectionSeparator />
 
             <NavSectionTitle>{t('settings.app.title', 'App')}</NavSectionTitle>
-            {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
+            {[AppSettingsPage.Sound, AppSettingsPage.System].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
             <NavSectionTitle>{t('settings.game.title', 'Game')}</NavSectionTitle>
-            {[GameSettingsSubPage.StarCraft].map(
+            {[GameSettingsPage.StarCraft].map(
               getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
             )}
 
             {[
-              GameSettingsSubPage.Input,
-              GameSettingsSubPage.Sound,
-              GameSettingsSubPage.Video,
-              GameSettingsSubPage.Gameplay,
+              GameSettingsPage.Input,
+              GameSettingsPage.Sound,
+              GameSettingsPage.Video,
+              GameSettingsPage.Gameplay,
             ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
           </>
         ) : null}
       </NavContainer>
 
-      <SettingsContent subPage={subPage} onCloseSettings={onCloseSettings} />
+      <SettingsContent page={page} onCloseSettings={onCloseSettings} />
     </Container>
   )
 }
@@ -252,7 +256,7 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
   }
 `
 
-const NavEntryText = styled(SettingsSubPageTitle)`
+const NavEntryText = styled(SettingsPageTitle)`
   ${titleSmall};
   ${singleLine};
 
@@ -274,32 +278,29 @@ const ErrorText = styled(NavEntryText)`
 `
 
 function NavEntry({
-  subPage,
+  page,
   isActive,
   disabled,
   hasError,
-  onChangeSubPage,
+  onChangePage,
 }: {
-  subPage: SettingsSubPage
+  page: SettingsPage
   isActive: boolean
   disabled?: boolean
   hasError?: boolean
-  onChangeSubPage: (subPage: SettingsSubPage) => void
+  onChangePage: (page: SettingsPage) => void
 }) {
-  const onClick = useStableCallback(() => {
-    onChangeSubPage(subPage)
-  })
-  const [buttonProps, rippleRef] = useButtonState({ disabled, onClick })
+  const [buttonProps, rippleRef] = useButtonState({ disabled, onClick: () => onChangePage(page) })
 
   return (
     <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0}>
       {hasError ? (
         <>
           <ErrorIcon />
-          <ErrorText subPage={subPage} />
+          <ErrorText page={page} />
         </>
       ) : (
-        <NavEntryText subPage={subPage} />
+        <NavEntryText page={page} />
       )}
 
       <Ripple ref={rippleRef} disabled={disabled} />
@@ -334,7 +335,7 @@ const TitleBar = styled.div`
   gap: 16px;
 `
 
-const Title = styled(SettingsSubPageTitle)`
+const Title = styled(SettingsPageTitle)`
   ${headlineMedium};
 `
 
@@ -360,10 +361,10 @@ const LabeledCloseButton = styled.div`
 `
 
 function SettingsContent({
-  subPage,
+  page,
   onCloseSettings,
 }: {
-  subPage: SettingsSubPage
+  page: SettingsPage
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
@@ -373,11 +374,11 @@ function SettingsContent({
     <ContentContainer>
       <Content>
         <TitleBar>
-          <Title subPage={subPage} />
+          <Title page={page} />
         </TitleBar>
 
         <React.Suspense fallback={<LoadingDotsArea />}>
-          <SettingsSubPageDisplay subPage={subPage} />
+          <SettingsPageDisplay page={page} />
         </React.Suspense>
       </Content>
 
@@ -395,78 +396,72 @@ function SettingsContent({
   )
 }
 
-function SettingsSubPageDisplay({ subPage }: { subPage: SettingsSubPage }) {
-  switch (subPage) {
-    case UserSettingsSubPage.Account:
+function SettingsPageDisplay({ page }: { page: SettingsPage }) {
+  switch (page) {
+    case UserSettingsPage.Account:
       return <AccountSettings />
-    case UserSettingsSubPage.Language:
+    case UserSettingsPage.Language:
       return <UserLanguageSettings />
   }
 
   if (IS_ELECTRON) {
-    switch (subPage) {
-      case AppSettingsSubPage.Sound:
+    switch (page) {
+      case AppSettingsPage.Sound:
         return <AppSoundSettings />
-      case AppSettingsSubPage.System:
+      case AppSettingsPage.System:
         return <AppSystemSettings />
-      case GameSettingsSubPage.StarCraft:
+      case GameSettingsPage.StarCraft:
         return <StarcraftSettings />
-      case GameSettingsSubPage.Input:
+      case GameSettingsPage.Input:
         return <GameInputSettings />
-      case GameSettingsSubPage.Sound:
+      case GameSettingsPage.Sound:
         return <GameSoundSettings />
-      case GameSettingsSubPage.Video:
+      case GameSettingsPage.Video:
         return <GameVideoSettings />
-      case GameSettingsSubPage.Gameplay:
+      case GameSettingsPage.Gameplay:
         return <GameplaySettings />
       default:
-        return assertUnreachable(subPage)
+        page satisfies never
     }
   }
 
-  throw new Error('Should have been unreachable for: ' + subPage)
+  throw new Error('Should have been unreachable for: ' + page)
 }
 
-function SettingsSubPageTitle({
-  subPage,
-  className,
-}: {
-  subPage: SettingsSubPage
-  className?: string
-}) {
+function SettingsPageTitle({ page, className }: { page: SettingsPage; className?: string }) {
   const { t } = useTranslation()
 
-  let title
-  switch (subPage) {
-    case UserSettingsSubPage.Account:
+  let title: string
+  switch (page) {
+    case UserSettingsPage.Account:
       title = t('settings.user.account.label', 'Account')
       break
-    case UserSettingsSubPage.Language:
+    case UserSettingsPage.Language:
       title = t('settings.user.language.title', 'Language')
       break
-    case AppSettingsSubPage.Sound:
+    case AppSettingsPage.Sound:
       title = t('settings.app.sound.title', 'Sound')
       break
-    case AppSettingsSubPage.System:
+    case AppSettingsPage.System:
       title = t('settings.app.system.title', 'System')
       break
-    case GameSettingsSubPage.StarCraft:
+    case GameSettingsPage.StarCraft:
       title = t('settings.game.starcraft.title', 'StarCraft')
       break
-    case GameSettingsSubPage.Input:
+    case GameSettingsPage.Input:
       title = t('settings.game.input.title', 'Input')
       break
-    case GameSettingsSubPage.Sound:
+    case GameSettingsPage.Sound:
       title = t('settings.game.sound.title', 'Sound')
       break
-    case GameSettingsSubPage.Video:
+    case GameSettingsPage.Video:
       title = t('settings.game.video.title', 'Video')
       break
-    case GameSettingsSubPage.Gameplay:
+    case GameSettingsPage.Gameplay:
       title = t('settings.game.gameplay.title', 'Gameplay')
       break
     default:
-      assertUnreachable(subPage)
+      title = page satisfies never
   }
 
   return <span className={className}>{title}</span>

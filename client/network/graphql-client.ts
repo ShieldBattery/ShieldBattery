@@ -37,8 +37,8 @@ export function createGraphqlClient(serverConfig: ServerConfig) {
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
-    deleteRestrictedName: (result, args, cache) => {
-      if (result.deleteRestrictedName) {
+    userDeleteRestrictedName: (result, args, cache) => {
+      if (result.userDeleteRestrictedName) {
         cache.invalidate({
           __typename: 'NameRestriction',
           id: args.id as any,
