@@ -675,9 +675,11 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
   grid-area: appbar;
   position: relative;
 
+  width: 100%;
   height: 72px;
   margin-bottom: -8px;
   padding: 0 4px;
+  overflow-x: hidden;
 
   display: grid;
   grid-template-columns: 1fr auto 1fr;
