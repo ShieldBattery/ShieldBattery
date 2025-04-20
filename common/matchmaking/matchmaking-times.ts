@@ -21,14 +21,6 @@ export function toMatchmakingTimeJson(matchmakingTime: MatchmakingTime): Matchma
   }
 }
 
-export interface GetMatchmakingTimesResponse {
-  current?: MatchmakingTimeJson
-  futureTimes: MatchmakingTimeJson[]
-  hasMoreFutureTimes: boolean
-  pastTimes: MatchmakingTimeJson[]
-  hasMorePastTimes: boolean
-}
-
 export interface GetFutureMatchmakingTimesResponse {
   futureTimes: MatchmakingTimeJson[]
   hasMoreFutureTimes: boolean

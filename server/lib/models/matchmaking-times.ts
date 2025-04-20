@@ -18,17 +18,15 @@ function convertFromDb(props: DbMatchmakingTime): MatchmakingTime {
 export async function getCurrentMatchmakingTime(
   matchmakingType: MatchmakingType,
 ): Promise<MatchmakingTime | undefined> {
-  const query = sql`
-    SELECT *
-    FROM matchmaking_times
-    WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
-    ORDER BY start_date DESC
-    LIMIT 1;
-  `
-
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      SELECT *
+      FROM matchmaking_times
+      WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
+      ORDER BY start_date DESC
+      LIMIT 1;
+    `)
     return result.rows.length > 0 ? convertFromDb(result.rows[0]) : undefined
   } finally {
     done()
@@ -52,18 +50,16 @@ export async function getFutureMatchmakingTimes(
   },
   withClient?: DbClient,
 ): Promise<MatchmakingTime[]> {
-  const query = sql`
-    SELECT *
-    FROM matchmaking_times
-    WHERE matchmaking_type = ${matchmakingType} AND start_date > ${date}
-    ORDER BY start_date ASC
-    LIMIT ${limit}
-    OFFSET ${offset};
-  `
-
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      SELECT *
+      FROM matchmaking_times
+      WHERE matchmaking_type = ${matchmakingType} AND start_date > ${date}
+      ORDER BY start_date ASC
+      LIMIT ${limit}
+      OFFSET ${offset};
+    `)
     return result.rows.map(r => convertFromDb(r))
   } finally {
     done()
@@ -87,18 +83,16 @@ export async function getPastMatchmakingTimes(
   },
   withClient?: DbClient,
 ): Promise<MatchmakingTime[]> {
-  const query = sql`
-    SELECT *
-    FROM matchmaking_times
-    WHERE matchmaking_type = ${matchmakingType} AND start_date < ${date}
-    ORDER BY start_date DESC
-    LIMIT ${limit}
-    OFFSET ${offset};
-  `
-
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      SELECT *
+      FROM matchmaking_times
+      WHERE matchmaking_type = ${matchmakingType} AND start_date < ${date}
+      ORDER BY start_date DESC
+      LIMIT ${limit}
+      OFFSET ${offset};
+    `)
     return result.rows.map(r => convertFromDb(r))
   } finally {
     done()
@@ -118,33 +112,31 @@ export async function getMatchmakingSchedule(
   firstStatus = true,
   depth = 2,
 ): Promise<Array<MatchmakingTime>> {
-  const query = sql`
-    WITH RECURSIVE schedule AS (
-      (SELECT *, 0 AS depth
-      FROM matchmaking_times AS mt
-      WHERE mt.matchmaking_type = ${matchmakingType} AND mt.enabled = ${firstStatus}
-        AND mt.start_date > ${date}
-      ORDER BY mt.start_date
-      LIMIT 1)
-
-      UNION ALL
-
-      (SELECT mt.*, s.depth + 1 AS depth
-      FROM matchmaking_times AS mt, schedule s
-      WHERE mt.matchmaking_type = s.matchmaking_type AND mt.enabled != s.enabled
-        AND mt.start_date > s.start_date
-      ORDER BY mt.start_date
-      LIMIT 1)
-    )
-    SELECT *
-    FROM schedule
-    WHERE depth <= ${depth}
-    ORDER BY start_date;
-  `
-
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      WITH RECURSIVE schedule AS (
+        (SELECT *, 0 AS depth
+        FROM matchmaking_times AS mt
+        WHERE mt.matchmaking_type = ${matchmakingType} AND mt.enabled = ${firstStatus}
+          AND mt.start_date > ${date}
+        ORDER BY mt.start_date
+        LIMIT 1)
+
+        UNION ALL
+
+        (SELECT mt.*, s.depth + 1 AS depth
+        FROM matchmaking_times AS mt, schedule s
+        WHERE mt.matchmaking_type = s.matchmaking_type AND mt.enabled != s.enabled
+          AND mt.start_date > s.start_date
+        ORDER BY mt.start_date
+        LIMIT 1)
+      )
+      SELECT *
+      FROM schedule
+      WHERE depth <= ${depth}
+      ORDER BY start_date;
+    `)
     return result.rows.map(r => convertFromDb(r))
   } finally {
     done()
@@ -156,15 +148,13 @@ export async function addMatchmakingTime(
   startDate: Date,
   enabled: boolean,
 ): Promise<MatchmakingTime> {
-  const query = sql`
-    INSERT INTO matchmaking_times (matchmaking_type, start_date, enabled)
-    VALUES (${matchmakingType}, ${startDate}, ${enabled})
-    RETURNING *;
-  `
-
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      INSERT INTO matchmaking_times (matchmaking_type, start_date, enabled)
+      VALUES (${matchmakingType}, ${startDate}, ${enabled})
+      RETURNING *;
+    `)
     return convertFromDb(result.rows[0])
   } finally {
     done()
@@ -172,15 +162,13 @@ export async function addMatchmakingTime(
 }
 
 export async function getMatchmakingTimeById(id: string): Promise<MatchmakingTime | null> {
-  const query = sql`
-    SELECT *
-    FROM matchmaking_times
-    WHERE id = ${id};
-  `
-
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      SELECT *
+      FROM matchmaking_times
+      WHERE id = ${id};
+    `)
     return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()
@@ -188,14 +176,12 @@ export async function getMatchmakingTimeById(id: string): Promise<MatchmakingTim
 }
 
 export async function removeMatchmakingTime(id: string): Promise<void> {
-  const query = sql`
-    DELETE FROM matchmaking_times
-    WHERE id = ${id};
-  `
-
   const { client, done } = await db()
   try {
-    await client.query(query)
+    await client.query(sql`
+      DELETE FROM matchmaking_times
+      WHERE id = ${id};
+    `)
   } finally {
     done()
   }

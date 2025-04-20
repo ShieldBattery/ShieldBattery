@@ -6,7 +6,6 @@ import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmak
 import {
   AddMatchmakingTimeRequest,
   GetFutureMatchmakingTimesResponse,
-  GetMatchmakingTimesResponse,
   GetPastMatchmakingTimesResponse,
   MATCHMAKING_TIMES_LIMIT,
   MatchmakingTimeJson,
@@ -42,34 +41,13 @@ function getValidatedMatchmakingType(ctx: RouterContext) {
 @httpApi('/matchmaking-times')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageMatchmakingTimes'))
 export class MatchmakingTimesApi {
-  @httpGet('/:matchmakingType')
-  async getHistory(ctx: RouterContext): Promise<GetMatchmakingTimesResponse> {
+  @httpGet('/:matchmakingType/current')
+  async getCurrentTime(ctx: RouterContext): Promise<MatchmakingTimeJson | undefined> {
     const matchmakingType = getValidatedMatchmakingType(ctx)
 
     const current = await getCurrentMatchmakingTime(matchmakingType)
-    const currentDate = current ? current.startDate : new Date()
-    const [futureTimes, pastTimes] = await Promise.all([
-      getFutureMatchmakingTimes({
-        matchmakingType,
-        date: currentDate,
-        limit: MATCHMAKING_TIMES_LIMIT,
-        offset: 0,
-      }),
-      getPastMatchmakingTimes({
-        matchmakingType,
-        date: currentDate,
-        limit: MATCHMAKING_TIMES_LIMIT,
-        offset: 0,
-      }),
-    ])
 
-    return {
-      current: current ? toMatchmakingTimeJson(current) : undefined,
-      futureTimes: futureTimes.map(t => toMatchmakingTimeJson(t)),
-      hasMoreFutureTimes: futureTimes.length >= MATCHMAKING_TIMES_LIMIT,
-      pastTimes: pastTimes.map(t => toMatchmakingTimeJson(t)),
-      hasMorePastTimes: pastTimes.length >= MATCHMAKING_TIMES_LIMIT,
-    }
+    return current ? toMatchmakingTimeJson(current) : undefined
   }
 
   @httpGet('/:matchmakingType/future')
@@ -131,17 +109,7 @@ export class MatchmakingTimesApi {
       body: { startDate, enabled },
     } = validateRequest(ctx, {
       body: Joi.object<AddMatchmakingTimeRequest>({
-        startDate: Joi.number()
-          .integer()
-          .custom(value => {
-            if (value < Date.now()) {
-              throw new httpErrors.BadRequest(
-                'startDate must be a valid timestamp value in the future',
-              )
-            }
-            return value
-          })
-          .required(),
+        startDate: Joi.date().timestamp().greater('now').required(),
         enabled: Joi.boolean().required(),
       }),
     })
