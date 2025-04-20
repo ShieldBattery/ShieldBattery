@@ -1,16 +1,15 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { appendToMultimap } from '../../common/data-structures/maps'
+import { appendToMultimap, cloneMultimap, mergeMultimaps } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
-import { SbUserId } from '../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { navigateToWhisper } from '../whispers/action-creators'
@@ -47,31 +46,101 @@ export enum MenuItemCategory {
 export const ALL_MENU_ITEM_CATEGORIES: ReadonlyArray<MenuItemCategory> =
   Object.values(MenuItemCategory)
 
+/**
+ * Props passed to the component that customizes/displays context menu items for a user.
+ */
+export interface UserMenuProps {
+  /** The user this context menu is for. */
+  userId: SbUserId
+  /**
+   * The base items in the context menu. All of these items should be displayed to the user, but
+   * more can be added as well.
+   */
+  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+  /**
+   * An event handler that will be called when the menu closes.
+   */
+  onMenuClose: (event?: MouseEvent) => void
+
+  /**
+   * Component type to use to render the menu items in the `UserMenuItemsComponent`.
+   */
+  MenuComponent: React.ComponentType<{
+    items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+    userId: SbUserId
+    onMenuClose: (event?: MouseEvent) => void
+  }>
+}
+
+export type UserMenuComponent = React.ComponentType<UserMenuProps>
+
+export interface UserMenuContextValue {
+  userId: SbUserId
+  onMenuClose: (event?: MouseEvent) => void
+}
+
+export const UserMenuContext = React.createContext<UserMenuContextValue>({
+  userId: makeSbUserId(0),
+  onMenuClose: () => {},
+})
+
+export function DefaultUserMenu({ items, MenuComponent, userId, onMenuClose }: UserMenuProps) {
+  return <MenuComponent items={items} userId={userId} onMenuClose={onMenuClose} />
+}
+
+/** Context that provides user context menu items for every menu within an area. */
+const BaseUserMenuItemsContext = React.createContext<{
+  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+}>({ items: new Map() })
+
+/**
+ * Provider for user context menu items for every menu within an area. Items in this provider will
+ * be merged with any items from its ancestors.
+ */
+export function BaseUserMenuItemsProvider({
+  items,
+  children,
+}: {
+  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+  children: React.ReactNode
+}) {
+  const baseItems = useBaseUserMenuItems()
+  const mergedItems = mergeMultimaps(baseItems, items)
+
+  return (
+    <BaseUserMenuItemsContext.Provider value={{ items: mergedItems }}>
+      {children}
+    </BaseUserMenuItemsContext.Provider>
+  )
+}
+
+/**
+ * Hook that returns the base user context menu items for the current area.
+ */
+export function useBaseUserMenuItems() {
+  return useContext(BaseUserMenuItemsContext).items
+}
+
 export interface ConnectedUserContextMenuProps {
   userId: SbUserId
   /**
-   * An optional function that will be called when rendering menu items. If provided, the value
-   * returned from this function will be used as the `children` of the menu. Mutating the input
-   * value and returning it is okay.
+   * An optional component that will be used for rendering menu items. This component can modify
+   * the menu items given before passing them for rendering.
    */
-  modifyMenuItems?: (
-    userId: SbUserId,
-    items: Map<MenuItemCategory, React.ReactNode[]>,
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => Map<MenuItemCategory, React.ReactNode[]>
+  UserMenu?: UserMenuComponent
   popoverProps: Omit<PopoverProps, 'children'>
 }
 
 export function ConnectedUserContextMenu({
   userId,
-  modifyMenuItems,
+  UserMenu,
   popoverProps,
 }: ConnectedUserContextMenuProps) {
   return (
     <Popover {...popoverProps}>
       <ConnectedUserContextMenuContents
         userId={userId}
-        modifyMenuItems={modifyMenuItems}
+        UserMenu={UserMenu}
         onDismiss={popoverProps.onDismiss}
       />
     </Popover>
@@ -83,7 +152,7 @@ export function ConnectedUserContextMenu({
  */
 function ConnectedUserContextMenuContents({
   userId,
-  modifyMenuItems,
+  UserMenu = DefaultUserMenu,
   onDismiss,
 }: Omit<ConnectedUserContextMenuProps, 'popoverProps'> & {
   onDismiss: () => void
@@ -121,17 +190,8 @@ function ConnectedUserContextMenuContents({
     }
   })
 
-  const onViewProfileClick = useStableCallback(() => {
-    navigateToUserProfile(user!.id, user!.name)
-    onDismiss()
-  })
-
-  const onWhisperClick = useStableCallback(() => {
-    navigateToWhisper(user!.id, user!.name)
-    onDismiss()
-  })
-
-  let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
+  const baseItems = useBaseUserMenuItems()
+  const items: Map<MenuItemCategory, React.ReactNode[]> = cloneMultimap(baseItems)
   if (!user) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state
     appendToMultimap(
@@ -146,7 +206,10 @@ function ConnectedUserContextMenuContents({
       <MenuItem
         key='profile'
         text={t('users.contextMenu.viewProfile', 'View profile')}
-        onClick={onViewProfileClick}
+        onClick={() => {
+          navigateToUserProfile(user!.id, user!.name)
+          onDismiss()
+        }}
       />,
     )
 
@@ -158,7 +221,10 @@ function ConnectedUserContextMenuContents({
           <MenuItem
             key='whisper'
             text={t('users.contextMenu.whisper', 'Whisper')}
-            onClick={onWhisperClick}
+            onClick={() => {
+              navigateToWhisper(user!.id, user!.name)
+              onDismiss()
+            }}
           />,
         )
       }
@@ -373,10 +439,25 @@ function ConnectedUserContextMenuContents({
     }
   }
 
-  if (modifyMenuItems) {
-    items = modifyMenuItems(userId, items, onDismiss)
-  }
+  return (
+    <UserMenu
+      MenuComponent={UserContextMenuList}
+      items={items}
+      userId={userId}
+      onMenuClose={onDismiss}
+    />
+  )
+}
 
+function UserContextMenuList({
+  items,
+  userId,
+  onMenuClose,
+}: {
+  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+  userId: SbUserId
+  onMenuClose: (event?: MouseEvent) => void
+}) {
   const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>(
     (elems, category, index) => {
       const categoryItems = items.get(category) ?? []
@@ -391,5 +472,9 @@ function ConnectedUserContextMenuContents({
     [],
   )
 
-  return <MenuList dense={true}>{orderedMenuItems}</MenuList>
+  return (
+    <UserMenuContext.Provider value={{ userId, onMenuClose }}>
+      <MenuList dense={true}>{orderedMenuItems}</MenuList>
+    </UserMenuContext.Provider>
+  )
 }

@@ -136,6 +136,8 @@ export function MenuList({ children, className, dense }: MenuListProps) {
   // non-menu-item (e.g. overline, divider, etc.)
   let i = 0
   const items = React.Children.map(children, child => {
+    // TODO(tec27): Use context to pass this information or something, so we can properly handle
+    // nested menus and things that render menu items inside other components
     // Leave the non-selectable elements (e.g. dividers, overlines, etc.) as they are
     if (!isMenuItem(child)) return child
 

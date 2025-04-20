@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getBatchUserInfo } from './action-creators'
-import { ConnectedUserContextMenu, MenuItemCategory } from './user-context-menu'
+import { ConnectedUserContextMenu, UserMenuComponent } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
@@ -32,16 +32,7 @@ export interface ConnectedUsernameProps {
    * not occur.
    */
   filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
-  /**
-   * An optional function that will be called when rendering menu items. If provided, the value
-   * returned from this function will be used as the `children` of the menu. Mutating the input
-   * value and returning it is okay.
-   */
-  modifyMenuItems?: (
-    userId: SbUserId,
-    items: Map<MenuItemCategory, React.ReactNode[]>,
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => Map<MenuItemCategory, React.ReactNode[]>
+  UserMenu?: UserMenuComponent
 }
 
 /**
@@ -53,7 +44,7 @@ export function ConnectedUsername({
   userId,
   prefix = '',
   filterClick,
-  modifyMenuItems,
+  UserMenu,
 }: ConnectedUsernameProps) {
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
@@ -71,7 +62,7 @@ export function ConnectedUsername({
       profileOriginY: 'top',
       profileOffsetX: 4,
       filterClick,
-      modifyMenuItems,
+      UserMenu,
     })
 
   const username = user?.name ?? (

@@ -167,23 +167,20 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
     )
   }
 
-  const listProps = {
-    messages: whisperSession.messages,
-    loading: isLoadingHistory,
-    hasMoreHistory: whisperSession.hasHistory,
-    refreshToken: userId,
-    onLoadMoreMessages,
-  }
-  const inputProps = {
-    onSendChatMessage,
-    storageKey: `whisper.${userId}`,
-  }
-
   return (
     <Container>
       <StyledChat
-        listProps={listProps}
-        inputProps={inputProps}
+        listProps={{
+          messages: whisperSession.messages,
+          loading: isLoadingHistory,
+          hasMoreHistory: whisperSession.hasHistory,
+          refreshToken: userId,
+          onLoadMoreMessages,
+        }}
+        inputProps={{
+          onSendChatMessage,
+          storageKey: `whisper.${userId}`,
+        }}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={userId} showHintText={false} />

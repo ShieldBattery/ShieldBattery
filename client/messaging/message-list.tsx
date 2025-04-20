@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { ReactNode } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -46,45 +46,54 @@ const Messages = styled.div`
   ${selectableTextContainer}
 `
 
-function renderCommonMessage(
-  msg: SbMessage,
-  selfUserId: SbUserId,
-  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
-) {
-  switch (msg.type) {
+function CommonMessageOrFallback({
+  message,
+  selfUserId,
+  blockedUsers,
+  FallbackComponent,
+}: {
+  message: SbMessage
+  selfUserId: SbUserId
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>
+  FallbackComponent?: MessageComponentType
+}) {
+  switch (message.type) {
     case CommonMessageType.NewDayMessage:
-      return <NewDayMessage key={msg.id} time={msg.time} />
+      return <NewDayMessage key={message.id} time={message.time} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:
       // TODO(tec27): Would probably be nice to collect adjacent blocked messages into a single
       // item?
-      return blockedUsers.has(msg.from) ? (
+      return blockedUsers.has(message.from) ? (
         <BlockedMessage
-          key={msg.id}
-          msgId={msg.id}
-          userId={msg.from}
+          key={message.id}
+          msgId={message.id}
+          userId={message.from}
           selfUserId={selfUserId}
-          time={msg.time}
-          text={msg.text}
+          time={message.time}
+          text={message.text}
         />
       ) : (
         <TextMessage
-          key={msg.id}
-          msgId={msg.id}
-          userId={msg.from}
+          key={message.id}
+          msgId={message.id}
+          userId={message.from}
           selfUserId={selfUserId}
-          time={msg.time}
-          text={msg.text}
+          time={message.time}
+          text={message.text}
         />
       )
     default:
-      return null
+      return FallbackComponent ? (
+        <FallbackComponent
+          key={message.id}
+          message={message}
+          blockedUsers={blockedUsers}
+          selfUserId={selfUserId}
+        />
+      ) : null
   }
-}
-
-const handleUnknown = (msg: SbMessage) => {
-  return null
 }
 
 // TODO(2Pac): Inline this when all messaging related components have been moved to immer
@@ -110,15 +119,10 @@ function getMessageAtIndex(
 
 interface PureMessageListProps {
   messages: List<SbMessage> | ReadonlyArray<SbMessage>
-  renderMessage?: (
-    msg: SbMessage,
-    blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
-  ) => ReactNode
+  MessageComponent?: MessageComponentType
 }
 
-// This contains just the messages, to avoid needing to re-render them all if e.g. loading state
-// changes on the actual message list
-const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
+function PureMessageList({ messages, MessageComponent }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
@@ -131,11 +135,15 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
   return (
     <Messages>
       {messages.map((m, index) => {
-        // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
-        // messages are handled by calling the `renderMessage` function which should be supplied by
-        // each service if they have any special messages to handle.
-        const messageLayout =
-          renderCommonMessage(m, selfUserId, blocks) ?? (renderMessage ?? handleUnknown)(m, blocks)
+        const messageLayout = (
+          <CommonMessageOrFallback
+            key={m.id}
+            message={m}
+            selfUserId={selfUserId}
+            blockedUsers={blocks}
+            FallbackComponent={MessageComponent}
+          />
+        )
 
         const prevMessage = index > 0 ? getMessageAtIndex(messages, index - 1) : null
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
@@ -146,20 +154,37 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
             time: m.time,
           })
 
-          return [renderCommonMessage(newDayMessageRecord, selfUserId, blocks), messageLayout]
+          return [
+            <CommonMessageOrFallback
+              key={'newday-' + m.id}
+              message={newDayMessageRecord}
+              selfUserId={selfUserId}
+              blockedUsers={blocks}
+            />,
+            messageLayout,
+          ]
         }
       })}
     </Messages>
   )
-})
+}
+
+export interface MessageComponentProps {
+  message: SbMessage
+  selfUserId: SbUserId
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>
+}
+
+/** Component type to render a particular message. */
+export type MessageComponentType = React.ComponentType<MessageComponentProps>
 
 export interface MessageListProps {
   messages: List<SbMessage> | ReadonlyArray<SbMessage>
   /**
-   * Function which will be called to render a particular message. If not provided, only common
-   * messages will be rendered.
+   * Component type which will be used to render each message that is not a common message type. If
+   * not provided, only common messages will be rendered.
    */
-  renderMessage?: (msg: SbMessage) => ReactNode
+  MessageComponent?: MessageComponentType
   className?: string
   /** Whether we are currently requesting more history for this message list. */
   loading?: boolean
@@ -253,8 +278,14 @@ export class MessageList extends React.Component<MessageListProps> {
   }
 
   override render() {
-    const { messages, loading, hasMoreHistory, refreshToken, renderMessage, onLoadMoreMessages } =
-      this.props
+    const {
+      messages,
+      loading,
+      hasMoreHistory,
+      refreshToken,
+      MessageComponent,
+      onLoadMoreMessages,
+    } = this.props
 
     return (
       <Scrollable
@@ -267,7 +298,7 @@ export class MessageList extends React.Component<MessageListProps> {
           hasPrevData={hasMoreHistory}
           refreshToken={refreshToken}
           onLoadPrevData={onLoadMoreMessages}>
-          <PureMessageList messages={messages} renderMessage={renderMessage} />
+          <PureMessageList messages={messages} MessageComponent={MessageComponent} />
         </InfiniteScrollList>
       </Scrollable>
     )

@@ -1,39 +1,27 @@
-import React, { useEffect } from 'react'
+import React, { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChannelModerationAction, SbChannelId } from '../../common/chat'
+import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
-import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { DestructiveMenuItem } from '../material/menu/item'
-import { useStableCallback } from '../react/state-hooks'
+import { MessageMenuProps } from '../messaging/chat-context'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { MenuItemCategory } from '../users/user-context-menu'
+import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
+import { ChannelContext } from './channel-context'
 
-// NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
-// still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
-// only when the user context menu is open).
-/**
- * A function which adds user context menu items specific to chat channels (e.g. kick/ban user from
- * a chat channel).
- */
-export function addChannelUserMenuItems(
-  userId: SbUserId,
-  items: Map<MenuItemCategory, React.ReactNode[]>,
-  onMenuClose: (event?: MouseEvent) => void,
-  channelId: SbChannelId,
-) {
-  /* eslint-disable react-hooks/rules-of-hooks */
+export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfPermissions = useSelfPermissions()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const { channelId } = useContext(ChannelContext)
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const channelUserProfiles = useAppSelector(s => s.chat.idToUserProfiles.get(channelId))
   const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
@@ -54,90 +42,21 @@ export function addChannelUserMenuItems(
     }
   }, [dispatch, channelId, userId])
 
-  const onKickUser = useStableCallback(() => {
-    if (!user) {
-      return
-    }
-
-    dispatch(
-      moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
-        onSuccess: () =>
-          snackbarController.showSnackbar(
-            t('chat.channelMenu.userKicked', {
-              defaultValue: '{{user}} was kicked',
-              user: user.name,
-            }),
-          ),
-        onError: () =>
-          snackbarController.showSnackbar(
-            t('chat.channelMenu.kickingError', {
-              defaultValue: 'Error kicking {{user.name}}',
-              user: user.name,
-            }),
-          ),
-      }),
-    )
-    onMenuClose()
-  })
-
-  const onBanUser = useStableCallback(() => {
-    if (!user) {
-      return
-    }
-
-    dispatch(
-      openDialog({
-        type: DialogType.ChannelBanUser,
-        initData: { channelId, userId },
-      }),
-    )
-    onMenuClose()
-  })
-  /* eslint-enable react-hooks/rules-of-hooks */
-
-  if (!user || !joinedChannelInfo || !channelUserProfiles || !channelSelfPermissions) {
-    return items
-  }
-
-  const channelUserProfile = channelUserProfiles.get(user.id)
-  if (
-    channelUserProfile &&
-    user.id !== selfUserId &&
-    (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)
-  ) {
+  const menuItems = new Map(items)
+  if (user && joinedChannelInfo && channelUserProfiles && channelSelfPermissions) {
+    const channelUserProfile = channelUserProfiles.get(user.id)
     if (
-      selfPermissions?.editPermissions ||
-      selfPermissions?.moderateChatChannels ||
-      joinedChannelInfo.ownerId === selfUserId
+      channelUserProfile &&
+      user.id !== selfUserId &&
+      (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)
     ) {
-      appendToMultimap(
-        items,
-        MenuItemCategory.Destructive,
-        <DestructiveMenuItem
-          key='kick'
-          text={t('chat.channelMenu.kickAction', {
-            defaultValue: 'Kick {{user}}',
-            user: user.name,
-          })}
-          onClick={onKickUser}
-        />,
-      )
-      appendToMultimap(
-        items,
-        MenuItemCategory.Destructive,
-        <DestructiveMenuItem
-          key='ban'
-          text={t('chat.channelMenu.banAction', {
-            defaultValue: 'Ban {{user}}',
-            user: user.name,
-          })}
-          onClick={onBanUser}
-        />,
-      )
-    } else if (!channelUserProfile.isModerator) {
-      if (channelSelfPermissions.kick) {
+      if (
+        selfPermissions?.editPermissions ||
+        selfPermissions?.moderateChatChannels ||
+        joinedChannelInfo.ownerId === selfUserId
+      ) {
         appendToMultimap(
-          items,
+          menuItems,
           MenuItemCategory.Destructive,
           <DestructiveMenuItem
             key='kick'
@@ -145,13 +64,35 @@ export function addChannelUserMenuItems(
               defaultValue: 'Kick {{user}}',
               user: user.name,
             })}
-            onClick={onKickUser}
+            onClick={() => {
+              if (!user) {
+                return
+              }
+
+              dispatch(
+                moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
+                  onSuccess: () =>
+                    snackbarController.showSnackbar(
+                      t('chat.channelMenu.userKicked', {
+                        defaultValue: '{{user}} was kicked',
+                        user: user.name,
+                      }),
+                    ),
+                  onError: () =>
+                    snackbarController.showSnackbar(
+                      t('chat.channelMenu.kickingError', {
+                        defaultValue: 'Error kicking {{user.name}}',
+                        user: user.name,
+                      }),
+                    ),
+                }),
+              )
+              onMenuClose()
+            }}
           />,
         )
-      }
-      if (channelSelfPermissions.ban) {
         appendToMultimap(
-          items,
+          menuItems,
           MenuItemCategory.Destructive,
           <DestructiveMenuItem
             key='ban'
@@ -159,38 +100,109 @@ export function addChannelUserMenuItems(
               defaultValue: 'Ban {{user}}',
               user: user.name,
             })}
-            onClick={onBanUser}
+            onClick={() => {
+              if (!user) {
+                return
+              }
+
+              dispatch(
+                openDialog({
+                  type: DialogType.ChannelBanUser,
+                  initData: { channelId, userId },
+                }),
+              )
+              onMenuClose()
+            }}
           />,
         )
+      } else if (!channelUserProfile.isModerator) {
+        if (channelSelfPermissions.kick) {
+          appendToMultimap(
+            menuItems,
+            MenuItemCategory.Destructive,
+            <DestructiveMenuItem
+              key='kick'
+              text={t('chat.channelMenu.kickAction', {
+                defaultValue: 'Kick {{user}}',
+                user: user.name,
+              })}
+              onClick={() => {
+                if (!user) {
+                  return
+                }
+
+                dispatch(
+                  moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
+                    onSuccess: () =>
+                      snackbarController.showSnackbar(
+                        t('chat.channelMenu.userKicked', {
+                          defaultValue: '{{user}} was kicked',
+                          user: user.name,
+                        }),
+                      ),
+                    onError: () =>
+                      snackbarController.showSnackbar(
+                        t('chat.channelMenu.kickingError', {
+                          defaultValue: 'Error kicking {{user.name}}',
+                          user: user.name,
+                        }),
+                      ),
+                  }),
+                )
+                onMenuClose()
+              }}
+            />,
+          )
+        }
+        if (channelSelfPermissions.ban) {
+          appendToMultimap(
+            menuItems,
+            MenuItemCategory.Destructive,
+            <DestructiveMenuItem
+              key='ban'
+              text={t('chat.channelMenu.banAction', {
+                defaultValue: 'Ban {{user}}',
+                user: user.name,
+              })}
+              onClick={() => {
+                if (!user) {
+                  return
+                }
+
+                dispatch(
+                  openDialog({
+                    type: DialogType.ChannelBanUser,
+                    initData: { channelId, userId },
+                  }),
+                )
+                onMenuClose()
+              }}
+            />,
+          )
+        }
       }
     }
   }
 
-  return items
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
 }
 
-// NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
-// still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
-// only when the message context menu is open).
-/**
- * A function which adds message context menu items specific to chat channels (e.g. delete message
- * from a chat channel).
- */
-export function addChannelMessageMenuItems(
-  messageId: string,
-  items: React.ReactNode[],
-  onMenuClose: (event?: MouseEvent) => void,
-  channelId: SbChannelId,
-) {
-  /* eslint-disable react-hooks/rules-of-hooks */
+export function ChannelMessageMenu({
+  messageId,
+  items,
+  onMenuClose,
+  MenuComponent,
+}: MessageMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfPermissions = useSelfPermissions()
-  /* eslint-enable react-hooks/rules-of-hooks */
+  const { channelId } = useContext(ChannelContext)
+
+  const menuItems = items.slice(0)
 
   if (selfPermissions?.moderateChatChannels) {
-    items.push(
+    menuItems.push(
       <DestructiveMenuItem
         key='delete-message'
         text='Delete message'
@@ -215,5 +227,5 @@ export function addChannelMessageMenuItems(
     )
   }
 
-  return items
+  return <MenuComponent items={menuItems} messageId={messageId} onMenuClose={onMenuClose} />
 }

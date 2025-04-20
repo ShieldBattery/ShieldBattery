@@ -1,15 +1,20 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useContext, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { appendToMultimap } from '../../common/data-structures/maps'
+import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { MenuItem } from '../material/menu/item'
+import { MenuItem, MenuItemProps } from '../material/menu/item'
+import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
-import { MenuItemCategory } from '../users/user-context-menu'
-import { ChatContext, ChatContextValue } from './chat-context'
+import {
+  BaseUserMenuItemsProvider,
+  MenuItemCategory,
+  UserMenuComponent,
+  UserMenuContext,
+} from '../users/user-context-menu'
+import { ChatContext, DefaultMessageMenu, MessageMenuComponent } from './chat-context'
 
 const MessagesAndInput = styled.div`
   position: relative;
@@ -44,26 +49,10 @@ export interface ChatProps {
    * e.g. mention users via shift-click from UIs outside the message list.
    */
   extraContent?: React.ReactNode
-  /**
-   * An optional function that will be called when rendering user menu items. If provided, the value
-   * returned from this function will be used as the `children` of the user context menu. Mutating
-   * the input value and returning it is okay.
-   */
-  modifyUserMenuItems?: (
-    userId: SbUserId,
-    items: Map<MenuItemCategory, React.ReactNode[]>,
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => Map<MenuItemCategory, React.ReactNode[]>
-  /**
-   * An optional function that will be called when rendering message menu items. If provided, the
-   * value returned from this function will be used as the `children` of the message context menu.
-   * Mutating the input value and returning it is okay.
-   */
-  modifyMessageMenuItems?: (
-    messageId: string,
-    items: React.ReactNode[],
-    onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
+  /** An optional component type that will be used to render user context menu items. */
+  UserMenu?: UserMenuComponent
+  /** An optional component type that will be used to render message context menu items. */
+  MessageMenu?: MessageMenuComponent
 }
 
 /**
@@ -79,10 +68,9 @@ export function Chat({
   header,
   backgroundContent,
   extraContent,
-  modifyUserMenuItems,
-  modifyMessageMenuItems,
+  UserMenu,
+  MessageMenu = DefaultMessageMenu,
 }: ChatProps) {
-  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
 
@@ -95,7 +83,7 @@ export function Chat({
 
   const messageInputRef = useRef<MessageInputHandle>(null)
 
-  const mentionUser = useStableCallback((userId: SbUserId) => {
+  const mentionUser = (userId: SbUserId) => {
     dispatch((_, getState) => {
       const { users } = getState()
       const user = users.byId.get(userId)
@@ -103,60 +91,67 @@ export function Chat({
         messageInputRef.current?.addMention(user.name)
       }
     })
-  })
+  }
 
-  const onMentionMenuItemClick = useStableCallback(
-    (userId: SbUserId, onMenuClose: (event?: MouseEvent) => void) => {
-      mentionUser(userId)
-      onMenuClose()
-    },
-  )
-
-  const chatContextValue = useMemo<ChatContextValue>(
-    () => ({
-      mentionUser,
-      modifyUserMenuItems: (
-        userId: SbUserId,
-        items: Map<MenuItemCategory, React.ReactNode[]>,
-        onMenuClose: (event?: MouseEvent) => void,
-      ) => {
-        appendToMultimap(
-          items,
-          MenuItemCategory.General,
-          <MenuItem
-            key='mention'
-            text={t('messaging.mention', 'Mention')}
-            onClick={() => onMentionMenuItemClick(userId, onMenuClose)}
-          />,
-        )
-
-        return modifyUserMenuItems?.(userId, items, onMenuClose) ?? items
-      },
-      modifyMessageMenuItems: (
-        messageId: string,
-        items: React.ReactNode[],
-        onMenuClose: (event?: MouseEvent) => void,
-      ) => {
-        return modifyMessageMenuItems?.(messageId, items, onMenuClose) ?? items
-      },
-    }),
-    [mentionUser, modifyMessageMenuItems, modifyUserMenuItems, onMentionMenuItemClick, t],
-  )
+  const onMentionMenuItemClick = (userId: SbUserId, onMenuClose: (event?: MouseEvent) => void) => {
+    mentionUser(userId)
+    onMenuClose()
+  }
 
   return (
-    <ChatContext.Provider value={chatContextValue}>
-      <MessagesAndInput className={className}>
-        {header}
-        {backgroundContent}
-        <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
-        <MessageInput
-          {...inputProps}
-          ref={messageInputRef}
-          showDivider={isScrolledUp}
-          key={inputProps.storageKey}
-        />
-      </MessagesAndInput>
-      {extraContent}
-    </ChatContext.Provider>
+    <BaseUserMenuItemsProvider
+      items={
+        new Map<MenuItemCategory, React.ReactNode[]>([
+          [
+            MenuItemCategory.General,
+            [<MentionMenuItem key='mention' onClick={onMentionMenuItemClick} />],
+          ],
+        ])
+      }>
+      <ChatContext.Provider
+        value={{
+          mentionUser,
+          UserMenu,
+          MessageMenu,
+        }}>
+        <MessagesAndInput className={className}>
+          {header}
+          {backgroundContent}
+          <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
+          <MessageInput
+            {...inputProps}
+            ref={messageInputRef}
+            showDivider={isScrolledUp}
+            key={inputProps.storageKey}
+          />
+        </MessagesAndInput>
+        {extraContent}
+      </ChatContext.Provider>
+    </BaseUserMenuItemsProvider>
   )
 }
+
+function MentionMenuItem({
+  onClick,
+  ...menuItemProps
+}: Simplify<
+  Merge<
+    Omit<MenuItemProps, 'text'>,
+    {
+      onClick: (userId: SbUserId, onMenuClose: (event?: MouseEvent) => void) => void
+    }
+  >
+>) {
+  const { t } = useTranslation()
+  const { userId, onMenuClose } = useContext(UserMenuContext)
+  return (
+    <MenuItem
+      {...menuItemProps}
+      key='mention'
+      text={t('messaging.mention', 'Mention')}
+      onClick={() => onClick(userId, onMenuClose)}
+    />
+  )
+}
+
+MentionMenuItem[MenuItemSymbol] = MenuItemType.Default

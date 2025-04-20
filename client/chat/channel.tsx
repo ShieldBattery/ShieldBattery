@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -7,9 +7,8 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
-import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
-import { SbMessage } from '../messaging/message-records'
+import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
@@ -17,7 +16,6 @@ import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
-import { MenuItemCategory } from '../users/user-context-menu'
 import {
   activateChannel,
   correctChannelNameForChat,
@@ -28,9 +26,10 @@ import {
   retrieveUserList,
   sendMessage,
 } from './action-creators'
+import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
-import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
+import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
 import { ChannelUserList } from './channel-user-list'
 import {
   BanUserMessage,
@@ -81,20 +80,26 @@ const BackgroundImage = styled.img`
   -webkit-mask-image: ${BACKGROUND_MASK_GRADIENT};
 `
 
-export function renderChannelMessage(msg: SbMessage) {
-  switch (msg.type) {
+export function ChannelMessage({ message }: MessageComponentProps) {
+  switch (message.type) {
     case ClientChatMessageType.BanUser:
-      return <BanUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
+      return <BanUserMessage key={message.id} time={message.time} userId={message.userId} />
     case ClientChatMessageType.KickUser:
-      return <KickUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
+      return <KickUserMessage key={message.id} time={message.time} userId={message.userId} />
     case ServerChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
+      return <JoinChannelMessage key={message.id} time={message.time} userId={message.userId} />
     case ClientChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
+      return <LeaveChannelMessage key={message.id} time={message.time} userId={message.userId} />
     case ClientChatMessageType.NewChannelOwner:
-      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
+      return (
+        <NewChannelOwnerMessage
+          key={message.id}
+          time={message.time}
+          newOwnerId={message.newOwnerId}
+        />
+      )
     case ClientChatMessageType.SelfJoinChannel:
-      return <SelfJoinChannelMessage key={msg.id} channelId={msg.channelId} />
+      return <SelfJoinChannelMessage key={message.id} channelId={message.channelId} />
     default:
       return null
   }
@@ -158,69 +163,56 @@ export function ConnectedChatChannel({
     dispatch(leaveChannel(channelId))
   })
 
-  const modifyUserMenuItems = useCallback(
-    (
-      userId: SbUserId,
-      items: Map<MenuItemCategory, React.ReactNode[]>,
-      onMenuClose: (event?: MouseEvent) => void,
-    ) => addChannelUserMenuItems(userId, items, onMenuClose, channelId),
-    [channelId],
-  )
-
-  const modifyMessageMenuItems = useCallback(
-    (messageId: string, items: React.ReactNode[], onMenuClose: (event?: MouseEvent) => void) =>
-      addChannelMessageMenuItems(messageId, items, onMenuClose, channelId),
-    [channelId],
-  )
-
   return (
     <Container>
-      {isInChannel || isLeavingChannel ? (
-        <StyledChat
-          listProps={{
-            messages: channelMessages?.messages ?? [],
-            loading: channelMessages?.loadingHistory,
-            hasMoreHistory: channelMessages?.hasHistory,
-            refreshToken: channelId,
-            renderMessage: renderChannelMessage,
-            onLoadMoreMessages,
-          }}
-          inputProps={{
-            onSendChatMessage,
-            storageKey: `chat.${channelId}`,
-          }}
-          header={
-            // These are basically guaranteed to be defined here, but still doing the check instead
-            // of asserting them with ! because better to be safe than sorry, or something.
-            basicChannelInfo && detailedChannelInfo && joinedChannelInfo && selfPreferences ? (
-              <ChannelHeader
-                key={basicChannelInfo.id}
-                basicChannelInfo={basicChannelInfo}
-                detailedChannelInfo={detailedChannelInfo}
-                joinedChannelInfo={joinedChannelInfo}
-                selfPreferences={selfPreferences}
-                onLeaveChannel={onLeaveChannel}
+      <ChannelContext.Provider value={{ channelId }}>
+        {isInChannel || isLeavingChannel ? (
+          <StyledChat
+            listProps={{
+              messages: channelMessages?.messages ?? [],
+              loading: channelMessages?.loadingHistory,
+              hasMoreHistory: channelMessages?.hasHistory,
+              refreshToken: channelId,
+              MessageComponent: ChannelMessage,
+              onLoadMoreMessages,
+            }}
+            inputProps={{
+              onSendChatMessage,
+              storageKey: `chat.${channelId}`,
+            }}
+            header={
+              // These are basically guaranteed to be defined here, but still doing the check instead
+              // of asserting them with ! because better to be safe than sorry, or something.
+              basicChannelInfo && detailedChannelInfo && joinedChannelInfo && selfPreferences ? (
+                <ChannelHeader
+                  key={basicChannelInfo.id}
+                  basicChannelInfo={basicChannelInfo}
+                  detailedChannelInfo={detailedChannelInfo}
+                  joinedChannelInfo={joinedChannelInfo}
+                  selfPreferences={selfPreferences}
+                  onLeaveChannel={onLeaveChannel}
+                />
+              ) : null
+            }
+            backgroundContent={
+              !selfPreferences?.hideBanner && detailedChannelInfo?.bannerPath ? (
+                <BackgroundImage src={detailedChannelInfo.bannerPath} draggable={false} />
+              ) : undefined
+            }
+            extraContent={
+              <StyledUserList
+                active={channelUsers?.active}
+                idle={channelUsers?.idle}
+                offline={channelUsers?.offline}
               />
-            ) : null
-          }
-          backgroundContent={
-            !selfPreferences?.hideBanner && detailedChannelInfo?.bannerPath ? (
-              <BackgroundImage src={detailedChannelInfo.bannerPath} draggable={false} />
-            ) : undefined
-          }
-          extraContent={
-            <StyledUserList
-              active={channelUsers?.active}
-              idle={channelUsers?.idle}
-              offline={channelUsers?.offline}
-            />
-          }
-          modifyUserMenuItems={modifyUserMenuItems}
-          modifyMessageMenuItems={modifyMessageMenuItems}
-        />
-      ) : (
-        <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />
-      )}
+            }
+            UserMenu={ChannelUserMenu}
+            MessageMenu={ChannelMessageMenu}
+          />
+        ) : (
+          <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />
+        )}
+      </ChannelContext.Provider>
     </Container>
   )
 }

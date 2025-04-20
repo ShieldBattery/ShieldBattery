@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react'
+import React, { useContext, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { makeSbChannelId } from '../../common/chat'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
@@ -15,11 +14,8 @@ import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import {
-  useChatMessageMenuItems,
-  useChatUserMenuItems,
-  useMentionFilterClick,
-} from './mention-hooks'
+import { ChatContext, MessageMenuContext } from './chat-context'
+import { useMentionFilterClick } from './mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -63,95 +59,83 @@ function* getAllMatches(text: string) {
   yield* matchLinks(text)
 }
 
-export const TextMessage = React.memo<{
+export interface TextMessageProps {
   msgId: string
   userId: SbUserId
   selfUserId: SbUserId
   time: number
   text: string
   testId?: string
-}>(props => {
-  const { msgId, userId, selfUserId, time, text, testId } = props
+}
+
+export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
-  const addUserMenuItems = useChatUserMenuItems()
-  const addMessageMenuItems = useChatMessageMenuItems()
+  const { UserMenu, MessageMenu } = useContext(ChatContext)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
-  const [parsedText, isHighlighted] = useMemo(() => {
-    const matches = getAllMatches(text)
-    const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
-    const elements = []
-    let lastIndex = 0
-    let isHighlighted = false
+  const parsedText: React.ReactNode[] = []
+  let isHighlighted = false
+  const matches = getAllMatches(text)
+  const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
+  let lastIndex = 0
 
-    for (const match of sortedMatches) {
-      // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
-      // future, if this happens we skip the match entirely as it means it overlaps with a previous
-      // match.
-      if (match.index < lastIndex) {
-        continue
-      }
-
-      // Insert preceding text, if any
-      if (match.index > lastIndex) {
-        elements.push(text.substring(lastIndex, match.index))
-      }
-
-      if (match.type === 'userMentionMarkup') {
-        const userId = makeSbUserId(Number(match.groups.userId))
-        if (userId === selfUserId) {
-          isHighlighted = true
-        }
-
-        elements.push(
-          match.groups.prefix,
-          <MentionedUsername
-            key={match.index}
-            userId={userId}
-            prefix={'@'}
-            filterClick={filterClick}
-            modifyMenuItems={addUserMenuItems}
-          />,
-        )
-      } else if (match.type === 'channelMentionMarkup') {
-        const channelId = makeSbChannelId(Number(match.groups.channelId))
-
-        elements.push(
-          match.groups.prefix,
-          <MentionedChannelName key={match.index} channelId={channelId} />,
-        )
-      } else if (match.type === 'link') {
-        // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
-        // in-client instead
-        elements.push(
-          <ExternalLink key={match.index} href={match.text}>
-            {match.text}
-          </ExternalLink>,
-        )
-      } else {
-        assertUnreachable(match)
-      }
-
-      lastIndex = match.index + match.text.length
+  for (const match of sortedMatches) {
+    // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
+    // future, if this happens we skip the match entirely as it means it overlaps with a previous
+    // match.
+    if (match.index < lastIndex) {
+      continue
     }
 
-    // Insert remaining text, if any
-    if (text.length > lastIndex) {
-      elements.push(text.substring(lastIndex))
+    // Insert preceding text, if any
+    if (match.index > lastIndex) {
+      parsedText.push(text.substring(lastIndex, match.index))
     }
 
-    return [elements, isHighlighted]
-  }, [text, selfUserId, filterClick, addUserMenuItems])
+    if (match.type === 'userMentionMarkup') {
+      const userId = makeSbUserId(Number(match.groups.userId))
+      if (userId === selfUserId) {
+        isHighlighted = true
+      }
 
-  // TODO(2Pac): We're currently sending an empty array as default items that will be present in
-  // context menu of all text messages here. However, I'm fairly sure that we'll never have common
-  // items that are service-independent. Even stuff like adding emoji reactions depends on whether
-  // they're being used in a lobby, versus a chat channel (the former is client-only, and the latter
-  // probably needs to be saved on the server somewhere).
-  // So this API could probably be simplified a bit if it assumes that, instead of making it as
-  // customizable as the one we have for the user context menu.
-  const messageContextMenuItems = addMessageMenuItems(msgId, [], contextMenuPopoverProps.onDismiss)
+      parsedText.push(
+        match.groups.prefix,
+        <MentionedUsername
+          key={match.index}
+          userId={userId}
+          prefix={'@'}
+          filterClick={filterClick}
+          UserMenu={UserMenu}
+        />,
+      )
+    } else if (match.type === 'channelMentionMarkup') {
+      const channelId = makeSbChannelId(Number(match.groups.channelId))
+
+      parsedText.push(
+        match.groups.prefix,
+        <MentionedChannelName key={match.index} channelId={channelId} />,
+      )
+    } else if (match.type === 'link') {
+      parsedText.push(
+        <ExternalLink key={match.index} href={match.text}>
+          {match.text}
+        </ExternalLink>,
+      )
+    } else {
+      match satisfies never
+    }
+
+    lastIndex = match.index + match.text.length
+  }
+
+  // Insert remaining text, if any
+  if (text.length > lastIndex) {
+    parsedText.push(text.substring(lastIndex))
+  }
+
+  // TODO(tec27): Get the base menu items from a context value if/when we need it
+  const baseMenuItems: React.ReactNode[] = []
   return (
     <>
       <TimestampMessageLayout
@@ -161,24 +145,39 @@ export const TextMessage = React.memo<{
         onContextMenu={onContextMenu}
         testId={testId}>
         <Username>
-          <ConnectedUsername
-            userId={userId}
-            filterClick={filterClick}
-            modifyMenuItems={addUserMenuItems}
-          />
+          <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
         </Username>
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
 
-      {messageContextMenuItems.length > 0 ? (
-        <Popover {...contextMenuPopoverProps}>
-          <MenuList dense={true}>{messageContextMenuItems}</MenuList>
-        </Popover>
-      ) : null}
+      <Popover {...contextMenuPopoverProps}>
+        <MessageMenu
+          messageId={msgId}
+          items={baseMenuItems}
+          onMenuClose={contextMenuPopoverProps.onDismiss}
+          MenuComponent={MessageMenuList}
+        />
+      </Popover>
     </>
   )
-})
+}
+
+function MessageMenuList({
+  items,
+  messageId,
+  onMenuClose,
+}: {
+  items: ReadonlyArray<React.ReactNode>
+  messageId: string
+  onMenuClose: (event?: MouseEvent) => void
+}) {
+  return (
+    <MessageMenuContext.Provider value={{ messageId, onMenuClose }}>
+      {items.length ? <MenuList dense={true}>{items}</MenuList> : null}
+    </MessageMenuContext.Provider>
+  )
+}
 
 const BlockedText = styled.span`
   color: var(--color-grey-blue80);

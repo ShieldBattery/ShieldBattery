@@ -106,6 +106,14 @@ const Card = styled.div`
   &:focus {
     outline: none;
   }
+
+  /**
+    Handle cases where the contents of a Popover is rendered conditionally but we have some styling
+    outside of the popover that deals with it being "open" (e.g. messages that have an empty menu).
+  */
+  &:empty {
+    visibility: hidden;
+  }
 `
 
 /** An origin point on the X axis. */
@@ -424,9 +432,7 @@ export function useAnchorPosition(
     ref(element)
   }
 
-  // eslint-disable-next-line react-compiler/react-compiler
   let x = xRef.current
-  // eslint-disable-next-line react-compiler/react-compiler
   let y = yRef.current
   if (rect) {
     switch (originX) {
@@ -457,12 +463,9 @@ export function useAnchorPosition(
         y = assertUnreachable(originY)
     }
 
-    // eslint-disable-next-line react-compiler/react-compiler
     xRef.current = x
-    // eslint-disable-next-line react-compiler/react-compiler
     yRef.current = y
   }
 
-  // eslint-disable-next-line react-compiler/react-compiler
   return [ref, x, y]
 }

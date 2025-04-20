@@ -411,7 +411,6 @@ export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => 
     [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
   )
 
-  // eslint-disable-next-line react-compiler/react-compiler
   const isStartingActivation = startActivationRef.current
   useLayoutEffect(() => {
     if (wasDeactivating && !deactivating) {
@@ -425,7 +424,6 @@ export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => 
       setActivating(true)
       activationTimerRef.current = setTimeout(onActivationTimer, DEACTIVATION_TIMEOUT_MS)
     }
-    // eslint-disable-next-line react-compiler/react-compiler
   }, [wasDeactivating, deactivating, isStartingActivation, onActivationTimer])
   useLayoutEffect(() => {
     if (wasActivating && !activating) {

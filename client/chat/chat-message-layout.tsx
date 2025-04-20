@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { ChatContext } from '../messaging/chat-context'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -16,17 +17,13 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         <Trans t={t} i18nKey='chat.messageLayout.joinChannel'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has joined the channel
         </Trans>
@@ -39,17 +36,13 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         <Trans t={t} i18nKey='chat.messageLayout.leaveChannel'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has left the channel
         </Trans>
@@ -61,6 +54,8 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
 export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
+  // NOTE(tec27): We don't use UserMenu from the ChatContext here because the user is no longer in
+  // the channel, so their menu shouldn't have channel-related things
   return (
     <SystemMessage time={time}>
       <span>
@@ -78,6 +73,8 @@ export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(pr
 export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
+  // NOTE(tec27): We don't use UserMenu from the ChatContext here because the user is no longer in
+  // the channel, so their menu shouldn't have channel-related things
   return (
     <SystemMessage time={time}>
       <span>
@@ -96,17 +93,13 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
   const { time, newOwnerId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         <Trans t={t} i18nKey='chat.messageLayout.newChannelOwner'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={newOwnerId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={newOwnerId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           is the new owner of the channel
         </Trans>

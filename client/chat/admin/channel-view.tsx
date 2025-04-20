@@ -14,8 +14,7 @@ import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { ThunkAction } from '../../dispatch-registry'
 import { ElevatedButton } from '../../material/button'
-import { DestructiveMenuItem } from '../../material/menu/item'
-import { ChatContext, ChatContextValue } from '../../messaging/chat-context'
+import { ChatContext } from '../../messaging/chat-context'
 import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
@@ -28,8 +27,10 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, titleLarge } from '../../styles/typography'
-import { deleteMessageAsAdmin, updateChannel } from '../action-creators'
-import { renderChannelMessage } from '../channel'
+import { updateChannel } from '../action-creators'
+import { ChannelMessage } from '../channel'
+import { ChannelContext } from '../channel-context'
+import { ChannelMessageMenu } from '../channel-menu-items'
 import { ChannelUserList } from '../channel-user-list'
 
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -280,41 +281,6 @@ export function AdminChannelView({
   // We assume everyone is active in admin view, since tracking user activity is a hassle.
   const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
 
-  const chatContextValue = useMemo<ChatContextValue>(
-    () => ({
-      modifyMessageMenuItems: (
-        messageId: string,
-        items: React.ReactNode[],
-        onMenuClose: (event?: MouseEvent) => void,
-      ) => {
-        if (channelInfo) {
-          items.push(
-            <DestructiveMenuItem
-              key='delete-message'
-              text='Delete message'
-              onClick={() => {
-                dispatch(
-                  deleteMessageAsAdmin(channelInfo.id, messageId, {
-                    onSuccess: () => {
-                      setChannelMessages(prev => prev.filter(m => m.id !== messageId))
-                      snackbarController.showSnackbar('Message deleted')
-                    },
-                    onError: () => {
-                      snackbarController.showSnackbar('Error deleting message')
-                    },
-                  }),
-                )
-                onMenuClose()
-              }}
-            />,
-          )
-        }
-        return items
-      },
-    }),
-    [channelInfo, dispatch, snackbarController],
-  )
-
   if (error) {
     let errorText
     if (isFetchError(error)) {
@@ -367,19 +333,24 @@ export function AdminChannelView({
             ) : null}
           </ChannelHeaderContainer>
 
-          <ChatContext.Provider value={chatContextValue}>
-            <ChannelContainer>
-              <StyledMessageList
-                messages={channelMessages}
-                onLoadMoreMessages={onLoadMoreMessages}
-                loading={isLoadingMoreChannelMessages}
-                hasMoreHistory={hasMoreChannelMessages}
-                refreshToken={channelInfo.id}
-                renderMessage={renderChannelMessage}
-              />
-              <StyledUserList active={activeUsers} />
-            </ChannelContainer>
-          </ChatContext.Provider>
+          <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
+            <ChatContext.Provider
+              value={{
+                MessageMenu: ChannelMessageMenu,
+              }}>
+              <ChannelContainer>
+                <StyledMessageList
+                  messages={channelMessages}
+                  onLoadMoreMessages={onLoadMoreMessages}
+                  loading={isLoadingMoreChannelMessages}
+                  hasMoreHistory={hasMoreChannelMessages}
+                  refreshToken={channelInfo.id}
+                  MessageComponent={ChannelMessage}
+                />
+                <StyledUserList active={activeUsers} />
+              </ChannelContainer>
+            </ChatContext.Provider>
+          </ChannelContext.Provider>
         </>
       ) : (
         <LoadingDotsArea />

@@ -4,7 +4,7 @@ import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import {
@@ -15,6 +15,7 @@ import {
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+import { ChannelUserMenu } from './channel-menu-items'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -132,7 +133,6 @@ interface UserListEntryProps {
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
 
   const {
     clickableElemRef,
@@ -149,7 +149,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     profileOriginY: 'top',
     profileOffsetX: -4,
     filterClick,
-    modifyMenuItems: addChatMenuItems,
+    UserMenu: ChannelUserMenu,
   })
 
   return (

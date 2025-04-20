@@ -24,6 +24,7 @@ import { ElevatedButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
+import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
 import ClosedSlot from './closed-slot'
@@ -128,7 +129,11 @@ const Countdown = styled.div`
   margin: 16px 0;
 `
 
-function renderChatMessage(msg: SbMessage) {
+function LobbyChatMessage({ message }: MessageComponentProps) {
+  // Cast to just lobby messages so we can check for exhaustiveness, even though this won't
+  // necessarily be a lobby message. This will be safe because we just return null in the default
+  // case.
+  const msg = message as SbMessage & { type: LobbyMessageType }
   switch (msg.type) {
     case LobbyMessageType.JoinLobby:
       return <JoinLobbyMessage key={msg.id} time={msg.time} userId={msg.userId} />
@@ -153,6 +158,7 @@ function renderChatMessage(msg: SbMessage) {
     case LobbyMessageType.LobbyLoadingCanceled:
       return <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} />
     default:
+      msg satisfies never
       return null
   }
 }
@@ -358,9 +364,6 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
       }
     }
 
-    const listProps = { messages: this.props.chat, renderMessage: renderChatMessage }
-    const inputProps = { onSendChatMessage }
-
     return (
       <ContentArea>
         <Left>
@@ -368,7 +371,10 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
-          <StyledChat listProps={listProps} inputProps={inputProps} />
+          <StyledChat
+            listProps={{ messages: this.props.chat, MessageComponent: LobbyChatMessage }}
+            inputProps={{ onSendChatMessage }}
+          />
         </Left>
         <Info>
           <ElevatedButton

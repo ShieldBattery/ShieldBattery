@@ -21,7 +21,6 @@ export function usePrevious<T>(value: T): T | undefined {
   useEffect(() => {
     ref.current = value
   })
-  // eslint-disable-next-line react-compiler/react-compiler
   return ref.current
 }
 
@@ -37,7 +36,6 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
     }
   })
 
-  // eslint-disable-next-line react-compiler/react-compiler
   return ref.current
 }
 
@@ -55,7 +53,6 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  */
 export function useValueAsRef<T>(value: T): React.RefObject<T> {
   const ref = useRef(value)
-  // eslint-disable-next-line react-compiler/react-compiler
   ref.current = value
 
   return ref

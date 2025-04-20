@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
-import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { ChatContext } from '../messaging/chat-context'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
 
@@ -10,18 +11,14 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(p
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         &gt;&gt;{' '}
         <Trans t={t} i18nKey='lobbies.messageLayout.joinLobby'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has joined the lobby
         </Trans>
@@ -34,18 +31,14 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         &lt;&lt;{' '}
         <Trans t={t} i18nKey='lobbies.messageLayout.leaveLobby'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has left the lobby
         </Trans>
@@ -58,18 +51,14 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         &lt;&lt;{' '}
         <Trans t={t} i18nKey='lobbies.messageLayout.kickPlayer'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has been kicked from the lobby
         </Trans>
@@ -82,18 +71,14 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         &lt;&lt;{' '}
         <Trans t={t} i18nKey='lobbies.messageLayout.banPlayer'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           has been banned from the lobby
         </Trans>
@@ -107,7 +92,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
     const { time, lobby, hostId } = props
     const { t } = useTranslation()
     const filterClick = useMentionFilterClick()
-    const addChatMenuItems = useChatUserMenuItems()
+    const { UserMenu } = useContext(ChatContext)
     return (
       <SystemMessage time={time}>
         <span>
@@ -115,11 +100,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
             You have joined <SystemImportant>{{ lobby } as TransInterpolation}</SystemImportant>.
             The host is{' '}
             <SystemImportant>
-              <ConnectedUsername
-                userId={hostId}
-                filterClick={filterClick}
-                modifyMenuItems={addChatMenuItems}
-              />
+              <ConnectedUsername userId={hostId} filterClick={filterClick} UserMenu={UserMenu} />
             </SystemImportant>
             .
           </Trans>
@@ -133,17 +114,13 @@ export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserI
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatUserMenuItems()
+  const { UserMenu } = useContext(ChatContext)
   return (
     <SystemMessage time={time}>
       <span>
         <Trans t={t} i18nKey='lobbies.messageLayout.hostChange'>
           <SystemImportant>
-            <ConnectedUsername
-              userId={userId}
-              filterClick={filterClick}
-              modifyMenuItems={addChatMenuItems}
-            />
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
           </SystemImportant>{' '}
           is now the host
         </Trans>
