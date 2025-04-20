@@ -71,7 +71,7 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
   --sb-sidebar-width: ${SIDEBAR_WIDTH}px;
 
   display: grid;
-  grid-template-columns: 0 minmax(min-content, 1fr) ${props =>
+  grid-template-columns: 0 minmax(auto, 1fr) ${props =>
       props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0'};
   grid-template-areas:
     'appbar appbar appbar'
@@ -84,14 +84,14 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
   @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
     grid-template-columns:
       ${props => (props.$sidebarOpen ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))' : '0')}
-      minmax(min-content, 1fr)
+      minmax(auto, 1fr)
       ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
   }
 
   @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
     grid-template-columns:
       ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')}
-      minmax(min-content, 1fr)
+      minmax(auto, 1fr)
       ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
   }
 `
