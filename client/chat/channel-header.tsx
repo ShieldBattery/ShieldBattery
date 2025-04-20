@@ -28,7 +28,7 @@ import { ExternalLink } from '../navigation/external-link'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { BodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
+import { BodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 
@@ -73,7 +73,7 @@ const NameAndTopicContainer = styled.div`
   min-width: 0px;
 
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
 `
 
@@ -93,14 +93,11 @@ const StyledTooltipContent = styled(TooltipContent)`
 `
 
 const ChannelTopic = styled.div`
-  ${labelMedium};
+  ${labelLarge};
   ${singleLine};
-  color: var(--theme-on-surface-variant);
+  padding-block: 8px;
 
-  // NOTE(2Pac): This increases the topic hit area a bit so it's easier to trigger the tooltip, but
-  // keeps the text at the same vertical position.
-  line-height: 28px;
-  margin-top: 6px;
+  color: var(--theme-on-surface-variant);
 `
 
 const ActionsArea = styled.div`
@@ -248,7 +245,9 @@ export function ChannelHeader({
     )
   }
   if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-    actions.push(<Divider key='divider' />)
+    if (actions.length > 0) {
+      actions.push(<Divider key='divider' />)
+    }
     actions.push(
       <DestructiveMenuItem
         key='leave-channel'
@@ -305,7 +304,9 @@ export function ChannelHeader({
             testName='channel-header-actions-button'
             onClick={openOverflowMenu}
           />
-        ) : null}
+        ) : (
+          <div />
+        )}
       </ActionsArea>
     </ChannelHeaderRoot>
   )
