@@ -490,9 +490,6 @@
             "title": "$🗡Match results🗡!",
             "watchReplay": "$🗡Watch replay🗡!"
         },
-        "searchingOverlay": {
-            "cancelSearch": "$🗡Cancel search🗡!"
-        },
         "activity": {
             "title": "$🗡Matchmaking🗡!"
         }

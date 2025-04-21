@@ -463,9 +463,6 @@
             "title": "Результаты матча",
             "watchReplay": "Посмотреть повтор"
         },
-        "searchingOverlay": {
-            "cancelSearch": "Отменить поиск"
-        },
         "type": {
             "1v1": "1 на 1",
             "2v2": "2 на 2",

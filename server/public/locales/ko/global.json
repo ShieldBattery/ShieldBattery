@@ -480,9 +480,6 @@
             "title": "경기 결과",
             "watchReplay": "다시 보기"
         },
-        "searchingOverlay": {
-            "cancelSearch": "검색 취소"
-        },
         "type": {
             "1v1": "1v1",
             "2v2": "2v2",

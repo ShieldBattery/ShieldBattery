@@ -486,9 +486,6 @@
         "navEntry": {
             "matchFound": "匹配成功！"
         },
-        "searchingOverlay": {
-            "cancelSearch": "取消匹配"
-        },
         "activity": {
             "title": "匹配"
         }
