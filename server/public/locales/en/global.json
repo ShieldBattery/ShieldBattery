@@ -744,9 +744,6 @@
       "title": "Match results",
       "watchReplay": "Watch replay"
     },
-    "searchingOverlay": {
-      "cancelSearch": "Cancel search"
-    },
     "type": {
       "1v1": "1v1",
       "1v1fastest": "1v1 Fastest",
