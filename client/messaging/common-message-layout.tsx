@@ -29,10 +29,11 @@ const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
   day: '2-digit',
 })
 
-const Username = styled.span`
+const Username = styled(ConnectedUsername)`
   ${titleSmall};
 
   margin-right: 8px;
+  padding: 4px 0;
 
   color: var(--color-amber90);
   line-height: inherit;
@@ -144,9 +145,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
         testId={testId}>
-        <Username>
-          <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
-        </Username>
+        <Username userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
