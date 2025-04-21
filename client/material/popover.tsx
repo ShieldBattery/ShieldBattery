@@ -6,7 +6,7 @@ import {
   Variants,
 } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { SetOptional, Tagged } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -14,7 +14,9 @@ import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
-import { useForceUpdate, usePreviousDefined, useStableCallback } from '../react/state-hooks'
+import { useRefreshToken } from '../network/refresh-token'
+import { assignRef } from '../react/refs'
+import { useStableCallback } from '../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { elevationPlus3 } from './shadows'
@@ -272,19 +274,24 @@ export function PopoverContent({
   onAnimationComplete,
   onDismiss,
 }: PopoverContentProps) {
-  const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
-  const [maxSizeObserverRef] = useObservedDimensions()
+  const [maxSizeObserverRef, observedMaxSize] = useObservedDimensions()
+  const [maxSizeRectRef, maxSizeRect] = useElementRect(false, observedMaxSize)
   const [containerRef, containerRect] = useObservedDimensions()
 
   // Maps a single ref prop to 2 different hooks' refs
-  const maxSizeRef = useCallback(
-    (elem: HTMLElement | null) => {
-      maxSizeRectRef(elem)
-      maxSizeObserverRef(elem)
-    },
-    [maxSizeRectRef, maxSizeObserverRef],
-  )
+  const maxSizeRef: React.RefCallback<HTMLElement> = (elem: HTMLElement | null) => {
+    const cb1 = assignRef(maxSizeRectRef, elem)
+    const cb2 = assignRef(maxSizeObserverRef, elem)
+    if (cb1 || cb2) {
+      return () => {
+        cb1?.()
+        cb2?.()
+      }
+    } else {
+      return undefined
+    }
+  }
 
   useKeyListener({
     onKeyDown: event => {
@@ -328,12 +335,8 @@ export function PopoverContent({
         propX = '--sb-popover-right'
         break
       default:
-        posX = assertUnreachable(originX)
+        originX satisfies never
     }
-  }
-  const prevPosX = usePreviousDefined(posX)
-  if (posX === undefined) {
-    posX = prevPosX ?? 0
   }
 
   let posY: number | undefined
@@ -362,20 +365,16 @@ export function PopoverContent({
         propY = '--sb-popover-bottom'
         break
       default:
-        posY = assertUnreachable(originY)
+        originY satisfies never
     }
-  }
-  const prevPosY = usePreviousDefined(posY)
-  if (posY === undefined) {
-    posY = prevPosY ?? 0
   }
 
   const containerStyle = {
     '--sb-popover-max-width': (maxSizeRect?.width ?? Number.MAX_SAFE_INTEGER) + 'px',
     '--sb-popover-max-height': (maxSizeRect?.height ?? Number.MAX_SAFE_INTEGER) + 'px',
     '--sb-transform-origin': `${originX} ${originY}`,
-    [propX]: posX + 'px',
-    [propY]: posY + 'px',
+    [propX]: (posX ?? 0) + 'px',
+    [propY]: (posY ?? 0) + 'px',
   }
   return (
     <PositioningArea ref={maxSizeRef}>
@@ -420,20 +419,22 @@ export function useAnchorPosition(
   originY: OriginY,
   element?: HTMLElement | null,
 ): [ref: (instance: HTMLElement | null) => void, x: number | undefined, y: number | undefined] {
-  const [ref, rect] = useElementRect()
-  const forceUpdate = useForceUpdate()
-  useWindowListener('resize', forceUpdate)
+  const did = useId()
 
-  // These let us use previous positions if the anchor gets removed
-  const xRef = useRef<number>(undefined)
-  const yRef = useRef<number>(undefined)
+  const [refreshToken, refresh] = useRefreshToken()
+  const [ref, rect] = useElementRect(false, refreshToken)
 
-  if (element || element === null) {
-    ref(element)
-  }
+  useWindowListener('resize', () => {
+    refresh()
+  })
+  useLayoutEffect(() => {
+    if (element) {
+      assignRef(ref, element)
+    }
+  }, [did, element, ref])
 
-  let x = xRef.current
-  let y = yRef.current
+  let x: number | undefined
+  let y: number | undefined
   if (rect) {
     switch (originX) {
       case 'left':
@@ -462,9 +463,6 @@ export function useAnchorPosition(
       default:
         y = assertUnreachable(originY)
     }
-
-    xRef.current = x
-    yRef.current = y
   }
 
   return [ref, x, y]

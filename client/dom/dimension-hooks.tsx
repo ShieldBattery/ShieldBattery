@@ -1,5 +1,4 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useValueAsRef } from '../react/state-hooks'
+import React, { useLayoutEffect, useMemo, useState } from 'react'
 
 export type DimensionsHookResult<T extends Element> = [
   ref: React.RefCallback<T>,
@@ -41,77 +40,66 @@ export function useResizeObserver<T extends Element>(
   options: ResizeObserverOptions = {},
 ): [ref: React.RefCallback<T>, observerEntry: ResizeObserverEntry | undefined] {
   const [observerEntry, setObserverEntry] = useState<ResizeObserverEntry>()
-  const observerEntryRef = useValueAsRef(observerEntry)
+  const [elem, setElem] = useState<T | null>(null)
 
-  const { box } = options
-  const onResize = useCallback(
-    (entry: ResizeObserverEntry) => {
-      if (!observerEntryRef.current) {
-        setObserverEntry(entry)
-        return
+  useLayoutEffect(() => {
+    const onResize = (entry: ResizeObserverEntry) => {
+      setObserverEntry(curEntry => {
+        if (!curEntry) {
+          return entry
+        }
+
+        let changed = false
+
+        switch (options.box) {
+          case 'border-box':
+            changed = entry.borderBoxSize.some(
+              (boxSize, i) =>
+                boxSize.inlineSize !== curEntry.borderBoxSize[i].inlineSize ||
+                boxSize.blockSize !== curEntry.borderBoxSize[i].blockSize,
+            )
+            break
+
+          case 'content-box':
+            changed = entry.contentBoxSize.some(
+              (boxSize, i) =>
+                boxSize.inlineSize !== curEntry.contentBoxSize[i].inlineSize ||
+                boxSize.blockSize !== curEntry.contentBoxSize[i].blockSize,
+            )
+            break
+
+          case 'device-pixel-content-box':
+            changed = entry.devicePixelContentBoxSize.some(
+              (boxSize, i) =>
+                boxSize.inlineSize !== curEntry.devicePixelContentBoxSize[i].inlineSize ||
+                boxSize.blockSize !== curEntry.devicePixelContentBoxSize[i].blockSize,
+            )
+            break
+
+          default:
+            changed =
+              entry.contentRect.width !== curEntry.contentRect.width ||
+              entry.contentRect.height !== curEntry.contentRect.height
+            break
+        }
+
+        return changed ? entry : curEntry
+      })
+    }
+
+    if (elem) {
+      observedResizeElements.set(elem, onResize)
+      resizeObserver?.observe(elem, options)
+      return () => {
+        resizeObserver?.unobserve(elem)
+        observedResizeElements.delete(elem)
       }
+    } else {
+      return undefined
+    }
+  }, [elem, options])
 
-      const observerEntry = observerEntryRef.current
-      let changed = false
-
-      switch (box) {
-        case 'border-box':
-          changed = entry.borderBoxSize.some(
-            (boxSize, i) =>
-              boxSize.inlineSize !== observerEntry.borderBoxSize[i].inlineSize ||
-              boxSize.blockSize !== observerEntry.borderBoxSize[i].blockSize,
-          )
-          break
-
-        case 'content-box':
-          changed = entry.contentBoxSize.some(
-            (boxSize, i) =>
-              boxSize.inlineSize !== observerEntry.contentBoxSize[i].inlineSize ||
-              boxSize.blockSize !== observerEntry.contentBoxSize[i].blockSize,
-          )
-          break
-
-        case 'device-pixel-content-box':
-          changed = entry.devicePixelContentBoxSize.some(
-            (boxSize, i) =>
-              boxSize.inlineSize !== observerEntry.devicePixelContentBoxSize[i].inlineSize ||
-              boxSize.blockSize !== observerEntry.devicePixelContentBoxSize[i].blockSize,
-          )
-          break
-
-        default:
-          changed =
-            entry.contentRect.width !== observerEntry.contentRect.width ||
-            entry.contentRect.height !== observerEntry.contentRect.height
-          break
-      }
-
-      if (changed) {
-        setObserverEntry(entry)
-      }
-    },
-    [box, observerEntryRef],
-  )
-
-  const ref = useRef<T>(undefined)
-  const setRef = useCallback(
-    (node: T | null) => {
-      if (ref.current) {
-        resizeObserver?.unobserve(ref.current)
-        observedResizeElements.delete(ref.current)
-      }
-
-      if (node) {
-        observedResizeElements.set(node, onResize)
-        resizeObserver?.observe(node, options)
-      }
-
-      ref.current = node ?? undefined
-    },
-    [onResize, options],
-  )
-
-  return [setRef, observerEntry]
+  return [setElem, observerEntry]
 }
 
 /**
@@ -119,58 +107,46 @@ export function useResizeObserver<T extends Element>(
  * changes to this rect, so it will only be updated on re-render. (If you want to recalculate this
  * whenever the element is resized, you could combine this with `useObservedDimensions`)
  *
+ * @param clearRectOnUnmount controls whether the rect will be set to undefined if the ref becomes
+ *  `null` after being set (defaults to true).
+ * @param refreshToken the bounding client rect will be recalculated whenever this value changes.
+ *
  * @returns a tuple of [a ref to apply to the element to get the bounding client rect for, the
  *   last bounding client rect (or undefined if one has not been calculated yet)]
  */
-export function useElementRect(): [
-  ref: (instance: HTMLElement | null) => void,
-  rect: DOMRectReadOnly | undefined,
-] {
-  const elementRef = useRef<HTMLElement | null>(null)
+export function useElementRect(
+  clearRectOnUnmount: boolean = true,
+  refreshToken?: unknown,
+): [ref: (elem: HTMLElement | null) => void, rect: DOMRectReadOnly | undefined] {
+  const [element, setElement] = useState<HTMLElement | null>(null)
   const [rect, setRect] = useState<DOMRectReadOnly>()
-
-  const updateRect = useCallback((elem: HTMLElement) => {
-    setRect(rect => {
-      const newRect = elem.getBoundingClientRect()
-      if (
-        rect &&
-        newRect.left === rect.left &&
-        newRect.top === rect.top &&
-        newRect.right === rect.right &&
-        newRect.bottom === rect.bottom
-      ) {
-        return rect
-      } else {
-        return newRect
-      }
-    })
-  }, [])
-  const setElementRef = useCallback(
-    (elem: HTMLElement | null) => {
-      if (elementRef.current === elem) {
-        return
-      }
-
-      if (elem) {
-        updateRect(elem)
-      }
-
-      elementRef.current = elem
-    },
-    [updateRect],
-  )
 
   // NOTE(tec27): This won't cause an infinite chain of updates because the state will only be
   // changed if the bounds change (or the element ref changes)
   useLayoutEffect(() => {
-    if (elementRef.current) {
-      updateRect(elementRef.current)
+    if (element) {
+      setRect(rect => {
+        const newRect = element.getBoundingClientRect()
+        if (
+          rect &&
+          newRect.left === rect.left &&
+          newRect.top === rect.top &&
+          newRect.right === rect.right &&
+          newRect.bottom === rect.bottom
+        ) {
+          return rect
+        } else {
+          return newRect
+        }
+      })
     } else {
-      setRect(undefined)
+      if (clearRectOnUnmount) {
+        setRect(undefined)
+      }
     }
-  }, [updateRect])
+  }, [refreshToken, element, clearRectOnUnmount])
 
-  return [setElementRef, rect]
+  return [setElement, rect]
 }
 
 export type BreakpointResult<T extends Element, B> = [ref: React.RefCallback<T>, breakpoint: B]
