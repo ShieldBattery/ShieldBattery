@@ -89,6 +89,16 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   font-variation-settings: 'wght' 600;
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
 
+  a:link,
+  a:visited {
+    color: var(--color-blue40);
+  }
+
+  a:hover,
+  a:active {
+    color: var(--color-blue60);
+  }
+
   &::before {
     content: '';
     position: absolute;
