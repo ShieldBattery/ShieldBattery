@@ -1,4 +1,6 @@
-import React, { useId } from 'react'
+import { animate, frame, useMotionValue, useSpring, useTransform } from 'motion/react'
+import * as m from 'motion/react-m'
+import React, { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
@@ -10,10 +12,13 @@ import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { titleSmall } from '../styles/typography'
 
-const PlayButtonRoot = styled.a`
+const WIDTH = 240
+const HEIGHT = 72
+
+const Root = styled(m.a)`
   position: relative;
-  width: 240px;
-  height: 72px;
+  width: ${WIDTH}px;
+  height: ${HEIGHT}px;
   margin: 0 -16px;
   padding-inline: 24px;
   z-index: 5;
@@ -21,14 +26,17 @@ const PlayButtonRoot = styled.a`
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible; /* Allow the shadow to exceed bounds */
+
+  filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15)) drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.3))
+    drop-shadow(0px 0px 1px rgb(from var(--color-blue80) r g b / 0.32));
+  overflow: visible;
 
   color: var(--theme-on-surface);
   font-size: 36px;
-  font-weight: 700;
+  font-variation-settings: 'wght' 870;
+  letter-spacing: 1.6px;
   line-height: 1;
   text-align: center;
-  text-shadow: 1px 1px rgb(from var(--color-blue10) r g b / 50%);
   text-transform: uppercase;
 
   &:link,
@@ -84,20 +92,288 @@ const PlayButtonRoot = styled.a`
   }
 `
 
-const PlayButtonBackground = styled.svg`
+const PlayButtonBackground = styled(m.div)`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  clip-path: polygon(0% 0%, 100% 0%, 90.83% 100%, 9.17% 100%);
 
-  && {
-    overflow: visible; /* Allow the shadow to exceed bounds */
-  }
+  /** This is the border color */
+  background: var(--color-blue80);
 `
 
+const PlayButtonBackgroundFill = styled.div`
+  position: absolute;
+  /** Whatever space we leave here will be the border */
+  left: 1px;
+  right: 1px;
+  top: 0;
+  bottom: 1px;
+  /** Inherit the trapezoid shape */
+  clip-path: inherit;
+
+  background: linear-gradient(
+    145deg,
+    var(--color-blue50),
+    20%,
+    var(--color-blue30),
+    80%,
+    var(--color-blue50)
+  );
+
+  z-index: 1;
+`
+
+const GradientCircle = styled(m.div)`
+  position: absolute;
+  aspect-ratio: 1;
+  width: 200%;
+
+  background-color: var(--_color, rgb(from var(--color-blue70) r g b / 0.8));
+  border-radius: 9999px;
+  filter: blur(24px);
+  transform-origin: center;
+  will-change: transform;
+
+  z-index: 2;
+`
+
+const buttonSpring = { damping: 300, stiffness: 500 }
+
+function PlayButtonDisplay({
+  targetPath,
+  children,
+  fastBreathing = false,
+}: {
+  targetPath: string
+  children: React.ReactNode
+  fastBreathing?: boolean
+}) {
+  const [isBreathing, setIsBreathing] = useState(true)
+  const breatheScale = useMotionValue(0)
+  const breatheScale2 = useMotionValue(0)
+  const gradientX = useSpring(0, buttonSpring)
+  const gradientY = useSpring(0, buttonSpring)
+  const gradientX2 = useSpring(0, buttonSpring)
+  const gradientY2 = useSpring(0, buttonSpring)
+
+  useEffect(() => {
+    const controllers: Array<ReturnType<typeof animate>> = []
+    if (!isBreathing) {
+      controllers.push(
+        animate(breatheScale, 1, {
+          duration: 1.1,
+          ease: 'easeInOut',
+        }),
+      )
+      controllers.push(
+        animate(breatheScale2, 1, {
+          duration: 1.1,
+          ease: 'easeInOut',
+        }),
+      )
+    } else {
+      const duration = fastBreathing ? 5 : 21
+      controllers.push(
+        animate(breatheScale, [null, 1, 0.7], {
+          duration,
+          repeat: Infinity,
+          repeatType: 'reverse',
+          ease: 'easeInOut',
+        }),
+      )
+      controllers.push(
+        animate(breatheScale2, [null, 0.7, 1], {
+          duration: duration + 1,
+          repeat: Infinity,
+          repeatType: 'reverse',
+          ease: 'easeInOut',
+        }),
+      )
+
+      controllers.push(
+        animate(gradientX, [null, WIDTH / 10, -WIDTH / 2, WIDTH / 12], {
+          duration,
+          repeat: Infinity,
+          repeatType: 'reverse',
+        }),
+      )
+      controllers.push(
+        animate(gradientY, [null, -HEIGHT / 2, HEIGHT - HEIGHT / 8], {
+          duration,
+          repeat: Infinity,
+          repeatType: 'reverse',
+        }),
+      )
+      controllers.push(
+        animate(gradientX2, [null, WIDTH / 10, -WIDTH / 2, WIDTH / 12], {
+          duration,
+          repeat: Infinity,
+          repeatType: 'reverse',
+        }),
+      )
+      controllers.push(
+        animate(gradientY2, [null, -HEIGHT / 2, HEIGHT - HEIGHT / 8], {
+          duration,
+          repeat: Infinity,
+          repeatType: 'reverse',
+        }),
+      )
+    }
+
+    return () => {
+      for (const controller of controllers) {
+        controller.stop()
+      }
+    }
+  }, [
+    isBreathing,
+    breatheScale,
+    gradientX,
+    gradientY,
+    fastBreathing,
+    breatheScale2,
+    gradientX2,
+    gradientY2,
+  ])
+
+  const topLeftGradientX = useTransform(() => -2 * HEIGHT + HEIGHT / 6 + gradientX.get())
+  const topLeftGradientY = useTransform(() => -HEIGHT - HEIGHT / 2 + gradientY.get())
+  const bottomRightGradientX = useTransform(() => WIDTH - HEIGHT - HEIGHT / 5 + gradientX2.get())
+  const bottomRightGradientY = useTransform(() => -HEIGHT / 6 + gradientY2.get())
+
+  return (
+    <Link href={targetPath} asChild={true}>
+      <Root
+        draggable={false}
+        onMouseEnter={() => {
+          setIsBreathing(false)
+        }}
+        onMouseLeave={() => {
+          setIsBreathing(true)
+        }}
+        onMouseMove={(event: React.MouseEvent) => {
+          const { clientX, clientY, currentTarget } = event
+          frame.read(() => {
+            const rect = currentTarget.getBoundingClientRect()
+            const halfWidth = rect.width / 2
+            const halfHeight = rect.height / 2
+            const fromCenterX = Math.max(
+              Math.min(clientX - rect.left - halfWidth, halfWidth * 0.6),
+              -halfWidth * 0.6,
+            )
+            const fromCenterY = Math.max(
+              Math.min(clientY - rect.top - rect.height / 2, halfHeight * 0.6),
+              -halfHeight * 0.6,
+            )
+            gradientX.set(fromCenterX - 0.4 * halfWidth)
+            gradientY.set(fromCenterY - 0.4 * halfHeight)
+            gradientX2.set(fromCenterX + 0.4 * halfWidth)
+            gradientY2.set(fromCenterY + 0.4 * halfHeight)
+          })
+        }}>
+        <PlayButtonBackground>
+          <PlayButtonBackgroundFill />
+          <GradientCircle
+            style={
+              {
+                '--_color': 'rgb(from var(--color-blue80) r g b / 0.6)',
+                width: HEIGHT * 3,
+                x: topLeftGradientX,
+                y: topLeftGradientY,
+                scale: breatheScale,
+              } as any
+            }
+          />
+          <GradientCircle
+            style={
+              {
+                '--_color': 'rgb(from var(--color-blue70) r g b / 0.6)',
+                width: HEIGHT * 3,
+                x: bottomRightGradientX,
+                y: bottomRightGradientY,
+                scale: breatheScale2,
+              } as any
+            }
+          />
+        </PlayButtonBackground>
+        {children}
+      </Root>
+    </Link>
+  )
+}
+
+/**
+ * SVG-rendered text that has an outline that can be translucent without having problems with
+ * overlapping strokes. Text will be vertically and horizontally centered within the element.
+ */
+function OutlinedText({
+  className,
+  strokeWidth = 'var(--_stroke-width)',
+  strokeColor = 'var(--_stroke-color)',
+  strokeOpacity = 'var(--_stroke-opacity)',
+  text,
+}: {
+  className?: string
+  strokeWidth?: string | number
+  strokeColor?: string
+  strokeOpacity?: string | number
+  text: string
+}) {
+  const filterId = useId()
+  const maskId = useId()
+
+  return (
+    <svg className={className}>
+      <defs>
+        <mask id={maskId}>
+          <text
+            x={'50%'}
+            y={'50%'}
+            textAnchor={'middle'}
+            dominantBaseline={'middle'}
+            fill='none'
+            strokeWidth={strokeWidth}
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            stroke='#ffffff'
+            filter={`url(#${filterId})`}>
+            {text}
+          </text>
+        </mask>
+      </defs>
+
+      <rect
+        x={0}
+        y={0}
+        width={'100%'}
+        height={'100%'}
+        fill={strokeColor}
+        opacity={strokeOpacity}
+        mask={`url(#${maskId})`}
+      />
+      <text x={'50%'} y={'50%'} textAnchor={'middle'} dominantBaseline={'middle'}>
+        {text}
+      </text>
+    </svg>
+  )
+}
+
 const PlayButtonContent = styled.div`
-  contain: paint;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+`
+
+const PlayText = styled(OutlinedText)`
+  width: 100%;
+  height: 100%;
+
+  --_stroke-width: 10px;
+  --_stroke-color: var(--color-blue10);
+  --_stroke-opacity: 0.5;
 `
 
 const LobbyPlayContent = styled(PlayButtonContent)`
@@ -174,8 +450,6 @@ function SearchInProgressContent() {
 
 export function PlayButton() {
   const { t } = useTranslation()
-  const gradientId = useId()
-  const shadowId = useId()
 
   const isLobbyLoading = useAppSelector(s => s.lobby.info.isLoading)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
@@ -193,7 +467,12 @@ export function PlayButton() {
   const matchmakingMatch = useAppSelector(s => s.matchmaking.match)
 
   let targetPath = '/play/'
-  let content = <PlayButtonContent>{t('navigation.bar.play', 'Play')}</PlayButtonContent>
+  let fastBreathing = false
+  let content = (
+    <PlayButtonContent>
+      <PlayText text={t('navigation.bar.play', 'Play')} />
+    </PlayButtonContent>
+  )
   if (isLobbyLoading) {
     targetPath = urlPath`/lobbies/${lobbyName}/loading-game`
     content = (
@@ -234,6 +513,7 @@ export function PlayButton() {
       <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
     )
   } else if (matchmakingSearchInfo) {
+    fastBreathing = true
     targetPath = '/play/matchmaking'
     if (matchmakingMatch) {
       content = (
@@ -247,101 +527,8 @@ export function PlayButton() {
   }
 
   return (
-    <Link href={targetPath} asChild={true}>
-      <PlayButtonRoot draggable={false}>
-        <PlayButtonBackground viewBox='0 0 240 72'>
-          <defs>
-            <linearGradient
-              id={gradientId}
-              x1='52'
-              y1='-20'
-              x2='188'
-              y2='88'
-              gradientUnits='userSpaceOnUse'>
-              <stop stopColor='var(--color-blue70)' />
-              <stop offset='0.418214' stopColor='var(--color-blue50)' />
-              <stop offset='0.68' stopColor='var(--color-blue50)' />
-              <stop offset='1' stopColor='var(--color-blue60)' />
-            </linearGradient>
-            {/*
-            NOTE(tec27): This is a level 2 elevation shadow copied out of figma, we could probably
-            simplify this a bunch
-          */}
-            <filter
-              id={shadowId}
-              x='-10'
-              y='0'
-              width='260'
-              height='80'
-              filterUnits='userSpaceOnUse'
-              colorInterpolationFilters='sRGB'>
-              <feFlood floodOpacity='0' result='BackgroundImageFix' />
-              <feColorMatrix
-                in='SourceAlpha'
-                type='matrix'
-                values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0'
-                result='hardAlpha'
-              />
-              <feMorphology
-                radius='2'
-                operator='dilate'
-                in='SourceAlpha'
-                result='effect1_dropShadow_634_1625'
-              />
-              <feOffset dy='2' />
-              <feGaussianBlur stdDeviation='3' />
-              <feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0' />
-              <feBlend
-                mode='normal'
-                in2='BackgroundImageFix'
-                result='effect1_dropShadow_634_1625'
-              />
-              <feColorMatrix
-                in='SourceAlpha'
-                type='matrix'
-                values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0'
-                result='hardAlpha'
-              />
-              <feOffset dy='1' />
-              <feGaussianBlur stdDeviation='1' />
-              <feColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.3 0' />
-              <feBlend
-                mode='normal'
-                in2='effect1_dropShadow_634_1625'
-                result='effect2_dropShadow_634_1625'
-              />
-              <feBlend
-                mode='normal'
-                in='SourceGraphic'
-                in2='effect2_dropShadow_634_1625'
-                result='shape'
-              />
-            </filter>
-          </defs>
-          <polygon
-            points={`0,0 240,0 218,72 22,72`}
-            fill={`url(#${gradientId})`}
-            filter={`url(#${shadowId})`}
-          />
-          <path
-            d={`
-            M 239,0
-            L 217,71
-            L 23,71
-            L 1,0
-            L 23,71
-            L 217,71
-            Z
-          `}
-            fill='none'
-            stroke='var(--color-blue90)'
-            strokeWidth='2'
-            strokeOpacity='0.4'
-            strokeLinecap='square'
-          />
-        </PlayButtonBackground>
-        {content}
-      </PlayButtonRoot>
-    </Link>
+    <PlayButtonDisplay targetPath={targetPath} fastBreathing={fastBreathing}>
+      {content}
+    </PlayButtonDisplay>
   )
 }
