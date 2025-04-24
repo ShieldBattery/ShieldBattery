@@ -140,7 +140,7 @@ const GradientCircle = styled(m.div)`
   z-index: 2;
 `
 
-const buttonSpring = { damping: 300, stiffness: 500 }
+const buttonSpring = { damping: 650, stiffness: 800 }
 
 function PlayButtonDisplay({
   targetPath,
@@ -180,7 +180,7 @@ function PlayButtonDisplay({
         animate(breatheScale, [null, 1, 0.7], {
           duration,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
           ease: 'easeInOut',
         }),
       )
@@ -188,37 +188,37 @@ function PlayButtonDisplay({
         animate(breatheScale2, [null, 0.7, 1], {
           duration: duration + 1,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
           ease: 'easeInOut',
         }),
       )
 
       controllers.push(
-        animate(gradientX, [null, WIDTH / 10, -WIDTH / 2, WIDTH / 12], {
+        animate(gradientX, [null, WIDTH / 24, -WIDTH / 10, -WIDTH / 4], {
           duration,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientY, [null, -HEIGHT / 2, HEIGHT - HEIGHT / 8], {
+        animate(gradientY, [null, -HEIGHT / 2, 0, -HEIGHT / 4, HEIGHT / 4], {
           duration,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientX2, [null, WIDTH / 10, -WIDTH / 2, WIDTH / 12], {
-          duration,
+        animate(gradientX2, [null, -WIDTH / 12, WIDTH / 4, -WIDTH / 16, WIDTH / 8], {
+          duration: duration + 1,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientY2, [null, -HEIGHT / 2, HEIGHT - HEIGHT / 8], {
-          duration,
+        animate(gradientY2, [null, -HEIGHT + HEIGHT / 2, 0, -HEIGHT + HEIGHT / 4, HEIGHT / 6], {
+          duration: duration + 1,
           repeat: Infinity,
-          repeatType: 'reverse',
+          repeatType: 'mirror',
         }),
       )
     }
