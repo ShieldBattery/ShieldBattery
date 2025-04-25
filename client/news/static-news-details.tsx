@@ -2,6 +2,7 @@ import dedent from 'dedent'
 import React from 'react'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
+import { BottomLinks } from '../home/bottom-links'
 import { Markdown } from '../markdown/markdown'
 import { push } from '../navigation/routing'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -29,6 +30,12 @@ export function StaticNewsRoute() {
 }
 
 const Root = styled(CenteredContentContainer)`
+  position: relative;
+
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(auto, 1fr) auto;
+
   --_header-height: 480px;
 
   @media (max-width: 1320px) {
@@ -99,6 +106,8 @@ function StaticNewsDetails({ entry, index }: { entry: StaticNewsFeedEntry; index
         <PostDate>{newsDateFormatter.format(entry.date)}</PostDate>
         <StyledMarkdown source={dedent(entry.contents)} />
       </Content>
+
+      <BottomLinks />
     </Root>
   )
 }
