@@ -7,7 +7,6 @@ import tsParser from '@typescript-eslint/parser'
 import jest from 'eslint-plugin-jest'
 import prettier from 'eslint-plugin-prettier'
 import react from 'eslint-plugin-react'
-import reactCompiler from 'eslint-plugin-react-compiler'
 import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import path from 'node:path'
@@ -41,15 +40,18 @@ export default [
       'test-results/',
     ],
   },
+
+  reactHooks.configs['recommended-latest'],
+
   ...fixupConfigRules(
     compat.extends(
       'eslint:recommended',
       'prettier',
       'plugin:@typescript-eslint/recommended',
       'plugin:react/recommended',
-      'plugin:react-hooks/recommended',
     ),
   ),
+
   {
     settings: {
       react: {
@@ -65,8 +67,6 @@ export default [
       '@typescript-eslint': fixupPluginRules(typescriptEslint),
       prettier,
       react: fixupPluginRules(react),
-      'react-compiler': reactCompiler,
-      'react-hooks': fixupPluginRules(reactHooks),
     },
 
     languageOptions: {
@@ -138,8 +138,6 @@ export default [
       'react/no-deprecated': 'off',
       'react/no-unescaped-entities': 'off',
       'react/prop-types': 'off',
-
-      'react-compiler/react-compiler': 'error',
 
       '@typescript-eslint/no-empty-object-type': [
         'error',
