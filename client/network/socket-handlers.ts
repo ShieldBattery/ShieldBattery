@@ -1,5 +1,4 @@
 import { NydusClient } from 'nydus-client'
-import { batch } from 'react-redux'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { UpdateRallyPointClientPingBatchRequest } from '../../common/rally-point'
 import { apiUrl } from '../../common/urls'
@@ -10,6 +9,7 @@ import games from '../games/socket-handlers'
 import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import logger from '../logging/logger'
+import news from '../news/socket-handlers'
 import notifications from '../notifications/socket-handlers'
 import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
@@ -123,6 +123,7 @@ const handlers = [
   loading,
   lobbies,
   networkStatusHandler,
+  news,
   notifications,
   users,
   whispers,
@@ -130,9 +131,7 @@ const handlers = [
 
 export default function register() {
   const ipcRenderer = new TypedIpcRenderer()
-  batch(() => {
-    for (const handler of handlers) {
-      handler({ siteSocket, ipcRenderer })
-    }
-  })
+  for (const handler of handlers) {
+    handler({ siteSocket, ipcRenderer })
+  }
 }

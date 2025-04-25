@@ -30,6 +30,10 @@ scalar DateTime
 
 type Mutation {
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
+	"""
+	Sets (or clears, if message is not provided) the urgent message at the top of the home page.
+	"""
+	newsSetUrgentMessage(message: UrgentMessageInput): Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	userUpdatePermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
@@ -118,6 +122,7 @@ type PageInfo {
 
 type Query {
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
+	urgentMessage: UrgentMessage
 	user(id: Int!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
@@ -203,6 +208,21 @@ scalar UUID
 input UpdateCurrentUserChanges {
 	email: String
 	newPassword: String
+}
+
+type UrgentMessage {
+	id: UUID!
+	title: String!
+	message: String!
+	"""
+	The time the message was published (in UTC). This will serialize as an RFC 3339 string.
+	"""
+	publishedAt: DateTime!
+}
+
+input UrgentMessageInput {
+	title: String!
+	message: String!
 }
 
 directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT

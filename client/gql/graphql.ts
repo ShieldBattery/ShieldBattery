@@ -56,6 +56,8 @@ export type CurrentUser = {
 export type Mutation = {
   __typename?: 'Mutation'
   newsCreatePost: NewsPost
+  /** Sets (or clears, if message is not provided) the urgent message at the top of the home page. */
+  newsSetUrgentMessage: Scalars['Boolean']['output']
   userAddRestrictedName: NameRestriction
   userDeleteRestrictedName: Scalars['Int']['output']
   userTestRestrictedName?: Maybe<NameRestriction>
@@ -65,6 +67,10 @@ export type Mutation = {
 
 export type MutationNewsCreatePostArgs = {
   post: NewsPostCreation
+}
+
+export type MutationNewsSetUrgentMessageArgs = {
+  message?: InputMaybe<UrgentMessageInput>
 }
 
 export type MutationUserAddRestrictedNameArgs = {
@@ -158,6 +164,7 @@ export type Query = {
   currentUser?: Maybe<CurrentUser>
   newsPosts: NewsPostConnection
   restrictedNames: Array<NameRestriction>
+  urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
 }
@@ -246,6 +253,20 @@ export type UpdateCurrentUserChanges = {
   newPassword?: InputMaybe<Scalars['String']['input']>
 }
 
+export type UrgentMessage = {
+  __typename?: 'UrgentMessage'
+  id: Scalars['UUID']['output']
+  message: Scalars['String']['output']
+  /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
+  publishedAt: Scalars['DateTime']['output']
+  title: Scalars['String']['output']
+}
+
+export type UrgentMessageInput = {
+  message: Scalars['String']['input']
+  title: Scalars['String']['input']
+}
+
 export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
 
 export type RestrictedNamesQuery = {
@@ -303,6 +324,32 @@ export type TestRestrictedNameMutation = {
     reason: RestrictedNameReason
   } | null
 }
+
+export type SetUrgentMessageMutationVariables = Exact<{
+  message?: InputMaybe<UrgentMessageInput>
+}>
+
+export type SetUrgentMessageMutation = { __typename?: 'Mutation'; newsSetUrgentMessage: boolean }
+
+export type HomePageContentQueryVariables = Exact<{ [key: string]: never }>
+
+export type HomePageContentQuery = {
+  __typename?: 'Query'
+  urgentMessage?:
+    | ({ __typename?: 'UrgentMessage' } & {
+        ' $fragmentRefs'?: {
+          UrgentMessage_HomeDisplayFragmentFragment: UrgentMessage_HomeDisplayFragmentFragment
+        }
+      })
+    | null
+}
+
+export type UrgentMessage_HomeDisplayFragmentFragment = {
+  __typename?: 'UrgentMessage'
+  id: string
+  title: string
+  message: string
+} & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
 export type AccountSettings_CurrentUserFragment = {
   __typename?: 'CurrentUser'
@@ -403,6 +450,24 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
+export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UrgentMessage_HomeDisplayFragmentFragment, unknown>
 export const AccountSettings_CurrentUserFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -661,6 +726,80 @@ export const TestRestrictedNameDocument = {
     },
   ],
 } as unknown as DocumentNode<TestRestrictedNameMutation, TestRestrictedNameMutationVariables>
+export const SetUrgentMessageDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'SetUrgentMessage' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'message' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessageInput' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsSetUrgentMessage' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'message' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'message' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<SetUrgentMessageMutation, SetUrgentMessageMutationVariables>
+export const HomePageContentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'HomePageContent' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'urgentMessage' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>
 export const AccountSettingsDocument = {
   kind: 'Document',
   definitions: [

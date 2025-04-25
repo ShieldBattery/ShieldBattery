@@ -29,7 +29,18 @@ export interface SbPermissions {
   manageRestrictedNames: boolean
 }
 
-export type PublishedMessage = { type: 'user'; data: PublishedUserMessage }
+export interface UrgentMessage {
+  title: string
+  message: string
+  /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
+  publishedAt: string
+}
+
+export type PublishedMessage =
+  | { type: 'news'; data: PublishedNewsMessage }
+  | { type: 'user'; data: PublishedUserMessage }
+
+export type PublishedNewsMessage = { type: 'urgentMessageChanged'; data: undefined }
 
 export type PublishedUserMessage = {
   type: 'permissionsChanged'

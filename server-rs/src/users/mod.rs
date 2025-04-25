@@ -89,7 +89,7 @@ pub struct SbUser {
 impl SbUser {
     #[graphql(guard = RequiredPermission::EditPermissions.or(IsCurrentUser::guard(self.id)))]
     async fn permissions(&self, ctx: &Context<'_>) -> Result<SbPermissions> {
-        ctx.data_unchecked::<DataLoader<PermissionsLoader>>()
+        ctx.data::<DataLoader<PermissionsLoader>>()?
             .load_one(self.id)
             .await?
             .ok_or(graphql_error("NOT_FOUND", "User not found"))
@@ -115,7 +115,7 @@ impl IsCurrentUser {
 
 impl Guard for IsCurrentUser {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        if let Some(ref user) = ctx.data_unchecked::<Option<CurrentUser>>() {
+        if let Some(ref user) = ctx.data::<Option<CurrentUser>>()? {
             if user.id == self.0 {
                 return Ok(());
             }
@@ -204,9 +204,7 @@ pub struct UsersQuery;
 #[Object]
 impl UsersQuery {
     async fn user(&self, ctx: &Context<'_>, id: i32) -> Result<Option<SbUser>> {
-        ctx.data_unchecked::<DataLoader<UsersLoader>>()
-            .load_one(id)
-            .await
+        ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await
     }
 
     async fn user_by_display_name(
@@ -239,12 +237,12 @@ impl UsersMutation {
         #[graphql(secret)] current_password: String,
         changes: UpdateCurrentUserChanges,
     ) -> Result<CurrentUser> {
-        let Some(user) = ctx.data_unchecked::<Option<CurrentUser>>() else {
+        let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
 
         let current_password: SecretString = current_password.into();
-        let stored_credentials = get_stored_credentials(user.id, ctx.data_unchecked::<PgPool>())
+        let stored_credentials = get_stored_credentials(user.id, ctx.data::<PgPool>()?)
             .await
             .wrap_err("Failed to get stored credentials")?;
         let credentials_valid = validate_credentials(current_password, stored_credentials)
@@ -293,7 +291,7 @@ impl UsersMutation {
                         }),
                     });
                     let token = generate_email_token();
-                    let ip: IpNetwork = ctx.data_unchecked::<ClientIp>().0.into();
+                    let ip: IpNetwork = ctx.data::<ClientIp>()?.0.into();
                     email_verification = Some(sqlx::query!(
                         r#"
                             INSERT INTO email_verifications
@@ -331,7 +329,7 @@ impl UsersMutation {
         }
 
         let mut tx = ctx
-            .data_unchecked::<PgPool>()
+            .data::<PgPool>()?
             .begin()
             .await
             .wrap_err("Failed to start transaction")?;
@@ -383,7 +381,7 @@ impl UsersMutation {
 
         tx.commit().await.wrap_err("Failed to commit transaction")?;
 
-        let mailgun = ctx.data_unchecked::<Arc<MailgunClient>>();
+        let mailgun = ctx.data::<Arc<MailgunClient>>()?;
         for email in emails.into_iter() {
             let mailgun = mailgun.clone();
             spawn_with_tracing(async move {
@@ -395,7 +393,7 @@ impl UsersMutation {
 
         if update_sessions {
             let user = ctx
-                .data_unchecked::<CurrentUserRepo>()
+                .data::<CurrentUserRepo>()?
                 .load_cached_user(user.id, CacheBehavior::ForceRefresh)
                 .await
                 .wrap_err("Failed to update sessions")?;
@@ -448,15 +446,15 @@ impl UsersMutation {
             permissions.manage_bug_reports,
             permissions.manage_restricted_names,
         )
-        .execute(ctx.data_unchecked::<PgPool>())
+        .execute(ctx.data::<PgPool>()?)
         .await?;
 
         let user = ctx
-            .data_unchecked::<CurrentUserRepo>()
+            .data::<CurrentUserRepo>()?
             .load_cached_user(user_id, CacheBehavior::ForceRefresh)
             .await?;
 
-        ctx.data_unchecked::<RedisPool>()
+        ctx.data::<RedisPool>()?
             .publish(PublishedUserMessage::PermissionsChanged {
                 user_id,
                 permissions,

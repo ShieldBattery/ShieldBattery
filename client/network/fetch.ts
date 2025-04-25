@@ -1,11 +1,11 @@
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
+import { TypedEventEmitter } from '../../common/typed-emitter'
 import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
 
-export interface UnauthorizedEmitterEvents extends EventMap {
+export type UnauthorizedEmitterEvents = {
   /** A request to `url` returned a 401 response. */
   unauthorized: (url: string) => void
 }

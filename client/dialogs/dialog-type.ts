@@ -17,6 +17,7 @@ export enum DialogType {
   LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
+  Markdown = 'markdown',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   ReplayInfo = 'replayInfo',
@@ -74,6 +75,14 @@ type MapPreviewDialogPayload = BaseDialogPayload<
     mapId: string
   }
 >
+type MarkdownDialogPayload = BaseDialogPayload<
+  typeof DialogType.Markdown,
+  {
+    title: string
+    markdownContent: string
+    hasButton?: boolean
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -124,6 +133,7 @@ export type DialogPayload =
   | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
   | MapPreviewDialogPayload
+  | MarkdownDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | ReplayInfoDialogPayload

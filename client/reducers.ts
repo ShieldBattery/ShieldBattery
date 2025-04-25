@@ -25,6 +25,7 @@ export { default as matchmakingSeasons } from './matchmaking/matchmaking-seasons
 export { default as matchmakingStatus } from './matchmaking/matchmaking-status-reducer'
 export { default as selfRank } from './matchmaking/self-rank-reducer'
 export { default as network } from './network/network-reducer'
+export { default as news } from './news/news-reducer'
 export { default as notifications } from './notifications/notification-reducer'
 export { default as settings } from './settings/settings-reducer'
 export { default as starcraft } from './starcraft/starcraft-reducer'

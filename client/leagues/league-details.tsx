@@ -189,12 +189,6 @@ const LeagueImageContainer = styled.div`
   flex-shrink: 0;
 `
 
-const StyledMarkdown = styled(Markdown)`
-  & > *:first-child {
-    margin-top: 0;
-  }
-`
-
 const ErrorLayout = styled.div`
   display: flex;
   flex-direction: column;
@@ -438,7 +432,7 @@ export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
             {t('leagues.leagueDetails.rulesAndInfo', 'Rules and info')}
           </InfoSectionHeader>
           <div>
-            <StyledMarkdown source={league.rulesAndInfo} />
+            <Markdown source={league.rulesAndInfo} />
           </div>
         </InfoSection>
       ) : undefined}

@@ -88,7 +88,7 @@ impl NameRestriction {
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<Option<SbUser>> {
-        ctx.data_unchecked::<DataLoader<UsersLoader>>()
+        ctx.data::<DataLoader<UsersLoader>>()?
             .load_one(self.created_by)
             .await
     }

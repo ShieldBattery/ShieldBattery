@@ -1,7 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
 import { SelfUser } from '../../common/users/sb-user'
-import { ClientSessionInfo } from '../../common/users/session'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface AuthState {
@@ -19,9 +18,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@auth/logOut']() {
     return DEFAULT_STATE
   },
-  /** TODO(tec27): Figure out why this action type is not properly inferred */
-  ['@auth/loadCurrentSession'](state, action: { payload: ClientSessionInfo }) {
-    const { user, permissions } = action.payload
+  ['@auth/loadCurrentSession'](state, { payload: { user, permissions } }) {
     state.self = {
       user: { ...user },
       permissions: { ...permissions },

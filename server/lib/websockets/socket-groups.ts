@@ -1,7 +1,7 @@
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
-import { EventMap, TypedEventEmitter } from '../../../common/typed-emitter'
+import { TypedEventEmitter } from '../../../common/typed-emitter'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets'
 import log from '../logging/logger'
@@ -21,7 +21,7 @@ interface SubscriptionInfo<T> {
 
 const defaultDataGetter: DataGetter<any, any> = () => {}
 
-interface SocketGroupEvents<T> extends EventMap {
+type SocketGroupEvents<T> = {
   connection: (group: T, socket: NydusClient) => void
   close: (group: T) => void
 }
@@ -189,7 +189,7 @@ export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
   }
 }
 
-interface UserSocketsManagerEvents extends EventMap {
+type UserSocketsManagerEvents = {
   newUser: (user: UserSocketsGroup) => void
   userQuit: (userId: SbUserId) => void
 }
@@ -255,7 +255,7 @@ export class UserSocketsManager extends TypedEventEmitter<UserSocketsManagerEven
   }
 }
 
-interface ClientSocketsManagerEvents extends EventMap {
+type ClientSocketsManagerEvents = {
   newClient: (client: ClientSocketsGroup) => void
   clientQuit: (client: ClientSocketsGroup) => void
 }

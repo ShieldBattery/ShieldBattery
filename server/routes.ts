@@ -15,6 +15,7 @@ import { getUrl, readFile } from './lib/file-upload'
 import { FileStoreType, PublicAssetsConfig } from './lib/file-upload/public-assets-config'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
+import { NewsService } from './lib/news/news-service'
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
@@ -40,6 +41,10 @@ export default function applyRoutes(
   websocketServer: WebsocketServer,
   graphqlOrigin: string,
 ) {
+  // TODO(tec27): Move this somewhere better if we have any other news-related stuff and/or
+  // services that don't have an attached HTTP API to hang off of
+  container.resolve(NewsService)
+
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())
 

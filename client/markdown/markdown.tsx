@@ -3,7 +3,14 @@ import type { Components } from 'react-markdown'
 import styled from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
 import { LoadingDotsArea } from '../progress/dots'
-import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
+import {
+  headlineLarge,
+  headlineMedium,
+  headlineSmall,
+  titleLarge,
+  titleMedium,
+  titleSmall,
+} from '../styles/typography'
 
 const LoadableMarkdown = React.lazy(() => import('react-markdown'))
 
@@ -14,33 +21,37 @@ const Root = styled.div`
   }
 
   h1 {
-    ${titleLarge};
-    font-weight: 500;
+    ${headlineLarge};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h2 {
-    ${titleLarge};
+    ${headlineMedium};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h3 {
-    ${titleLarge};
+    ${headlineSmall};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h4 {
-    ${bodyLarge};
-    font-weight: 500;
+    ${titleLarge};
     margin-top: 16px;
     margin-bottom: 8px;
   }
 
   h5 {
     ${titleMedium};
+    margin-top: 16px;
+    margin-bottom: 8px;
+  }
+
+  h6 {
+    ${titleSmall};
     margin-top: 16px;
     margin-bottom: 8px;
   }
@@ -82,6 +93,10 @@ const Root = styled.div`
     margin: 7px 0 8px 0;
 
     background-color: var(--theme-outline-variant);
+  }
+
+  & > *:first-child {
+    margin-top: 0;
   }
 `
 

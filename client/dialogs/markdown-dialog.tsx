@@ -1,28 +1,29 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { Markdown } from '../markdown/markdown'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { BodyLarge } from '../styles/typography'
+import { LoadingDotsArea } from '../progress/dots'
 import { CommonDialogProps } from './common-dialog-props'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
 `
 
-export interface SimpleDialogProps extends CommonDialogProps {
-  simpleTitle: string
-  simpleContent: React.ReactNode
-  hasButton: boolean
+export interface MarkdownDialogProps extends CommonDialogProps {
+  title: string
+  markdownContent: string
+  hasButton?: boolean
 }
 
-export function SimpleDialog({
-  simpleTitle,
-  simpleContent,
+export function MarkdownDialog({
+  title,
+  markdownContent,
+  hasButton = false,
   onCancel,
-  hasButton,
   dialogRef,
-}: SimpleDialogProps) {
+}: MarkdownDialogProps) {
   const { t } = useTranslation()
   const buttons = hasButton
     ? [
@@ -34,17 +35,17 @@ export function SimpleDialog({
         />,
       ]
     : []
-  const content =
-    typeof simpleContent === 'string' ? <BodyLarge>{simpleContent}</BodyLarge> : simpleContent
 
   return (
     <StyledDialog
-      title={simpleTitle}
+      title={title}
       onCancel={onCancel}
       showCloseButton={true}
       buttons={buttons}
       dialogRef={dialogRef}>
-      {content}
+      <Suspense fallback={<LoadingDotsArea />}>
+        <Markdown source={markdownContent} />
+      </Suspense>
     </StyledDialog>
   )
 }

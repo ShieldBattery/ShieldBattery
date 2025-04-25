@@ -1,6 +1,10 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { useQuery } from 'urql'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
+import { FragmentType, graphql, useFragment } from '../gql'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
@@ -8,6 +12,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { StaticNewsFeed } from '../news/static-news-feed'
+import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleLarge, titleSmall } from '../styles/typography'
@@ -35,29 +40,6 @@ const RightSection = styled.div`
   flex-direction: column;
   gap: 32px;
 `
-
-const ImportantMessage = styled.div<{ $hasContent: boolean }>`
-  ${elevationPlus1};
-  ${containerStyles(ContainerLevel.Low)};
-  height: 56px;
-  padding-inline: 16px 8px;
-
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  border-radius: 4px;
-  color: var(--theme-amber);
-  visibility: ${({ $hasContent }) => ($hasContent ? 'visible' : 'hidden')};
-`
-
-const ImportantMessageText = styled.div`
-  ${singleLine};
-  ${titleSmall};
-  flex-grow: 1;
-  flex-shrink: 1;
-`
-
 const SupportSection = styled.div`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
@@ -131,17 +113,22 @@ const BottomLinksArea = styled.div`
   grid-column: 1 / -1;
 `
 
+const HomeQuery = graphql(/* GraphQL */ `
+  query HomePageContent {
+    urgentMessage {
+      ...UrgentMessage_HomeDisplayFragment
+    }
+  }
+`)
+
 export function Home() {
   const { t } = useTranslation()
+  const [{ data }] = useQuery({ query: HomeQuery, requestPolicy: 'cache-and-network' })
 
   return (
     <Root>
       <LeftSection>
-        <ImportantMessage $hasContent={true}>
-          <MaterialIcon icon='priority_high' />
-          <ImportantMessageText>Important message!</ImportantMessageText>
-          <TextButton label={t('common.actions.read', 'Read')} />
-        </ImportantMessage>
+        <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
         <Section>
           <SectionTitle>{t('home.latestNewsTitle', 'Latest news')}</SectionTitle>
           <StaticNewsFeed />
@@ -179,5 +166,66 @@ export function Home() {
         <BottomLinks />
       </BottomLinksArea>
     </Root>
+  )
+}
+
+const UrgentMessageRoot = styled.div`
+  ${elevationPlus1};
+  ${containerStyles(ContainerLevel.Low)};
+  height: 56px;
+  padding-inline: 16px 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border-radius: 4px;
+  color: var(--theme-amber);
+`
+
+const UrgentMessageSpaceHolder = styled.div`
+  height: 56px;
+`
+
+const UrgentMessageText = styled.div`
+  ${singleLine};
+  ${titleSmall};
+  flex-grow: 1;
+  flex-shrink: 1;
+`
+
+const UrgentMessage_HomeDisplayFragment = graphql(/* GraphQL */ `
+  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {
+    id
+    title
+    message
+  }
+`)
+
+function UrgentMessageView(props: {
+  urgentMessage?: FragmentType<typeof UrgentMessage_HomeDisplayFragment>
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const urgentMessage = useFragment(UrgentMessage_HomeDisplayFragment, props.urgentMessage)
+
+  return urgentMessage ? (
+    <UrgentMessageRoot>
+      <MaterialIcon icon='priority_high' />
+      <UrgentMessageText>{urgentMessage.title}</UrgentMessageText>
+      <TextButton
+        label={t('common.actions.read', 'Read')}
+        onClick={() => {
+          dispatch(
+            openDialog({
+              type: DialogType.Markdown,
+              initData: { title: urgentMessage.title, markdownContent: urgentMessage.message },
+            }),
+          )
+        }}
+      />
+    </UrgentMessageRoot>
+  ) : (
+    <UrgentMessageSpaceHolder />
   )
 }

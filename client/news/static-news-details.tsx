@@ -89,10 +89,6 @@ const PostDate = styled.div`
 const StyledMarkdown = styled(Markdown)`
   width: 100%;
   max-width: 720px;
-
-  & > *:first-child {
-    margin-top: 0;
-  }
 `
 
 function StaticNewsDetails({ entry, index }: { entry: StaticNewsFeedEntry; index: number }) {

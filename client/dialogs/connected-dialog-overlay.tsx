@@ -4,7 +4,6 @@ import * as m from 'motion/react-m'
 import React, { useCallback, useMemo, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
@@ -37,6 +36,7 @@ import { CreateWhisper as CreateWhisperSessionDialog } from '../whispers/create-
 import { closeDialog } from './action-creators'
 import { DialogState } from './dialog-reducer'
 import { DialogType } from './dialog-type'
+import { MarkdownDialog } from './markdown-dialog'
 import { SimpleDialog } from './simple-dialog'
 
 const Scrim = styled(m.div)`
@@ -83,6 +83,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MapDetailsDialog }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
+    case DialogType.Markdown:
+      return { component: MarkdownDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
@@ -102,7 +104,7 @@ function getDialog(dialogType: DialogType): {
     case DialogType.Whispers:
       return { component: CreateWhisperSessionDialog }
     default:
-      return assertUnreachable(dialogType)
+      return dialogType satisfies never
   }
 }
 

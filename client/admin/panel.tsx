@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react'
 import { Link, Redirect, Route, Switch } from 'wouter'
-import { SbPermissions } from '../../common/users/permissions'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { LoadingDotsArea } from '../progress/dots'
 
@@ -23,98 +22,75 @@ const LoadableRallyPoint = React.lazy(async () => ({
 const LoadableRestrictedNames = React.lazy(async () => ({
   default: (await import('./restricted-names')).RestrictedNames,
 }))
-
-interface AdminDashboardProps {
-  permissions?: SbPermissions
-}
-
-function AdminDashboard(props: AdminDashboardProps) {
-  const perms = props.permissions
-
-  const bugReportsLink = perms?.manageBugReports ? (
-    <li>
-      <Link href='/admin/bug-reports'>Manage bug reports</Link>
-    </li>
-  ) : null
-  const mapsLink =
-    (perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
-      <li>
-        <Link href='/admin/map-manager'>Manage maps</Link>
-      </li>
-    ) : null
-  const mapPoolsLink = perms?.manageMapPools ? (
-    <li>
-      <Link href='/admin/map-pools'>Manage matchmaking map pools</Link>
-    </li>
-  ) : null
-  const matchmakingSeasonsLink = perms?.manageMatchmakingSeasons ? (
-    <li>
-      <Link href='/admin/matchmaking-seasons'>Manage matchmaking seasons</Link>
-    </li>
-  ) : null
-  const matchmakingTimesLink = perms?.manageMatchmakingTimes ? (
-    <li>
-      <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
-    </li>
-  ) : null
-  const rallyPointLink = perms?.manageRallyPointServers ? (
-    <li>
-      <Link href='/admin/rally-point'>Manage rally-point servers</Link>
-    </li>
-  ) : null
-  const restrictedNamesLink = perms?.manageRestrictedNames ? (
-    <li>
-      <Link href='/admin/restricted-names'>Manage restricted names</Link>
-    </li>
-  ) : null
-
-  return (
-    <ul>
-      {bugReportsLink}
-      {mapsLink}
-      {mapPoolsLink}
-      {matchmakingSeasonsLink}
-      {matchmakingTimesLink}
-      {rallyPointLink}
-      {restrictedNamesLink}
-    </ul>
-  )
-}
+const LoadableUrgentMessage = React.lazy(async () => ({
+  default: (await import('./urgent-message')).AdminUrgentMessage,
+}))
 
 export default function AdminPanel() {
   const perms = useSelfPermissions()
 
+  const routes: Array<
+    [
+      path: string,
+      hasPermissions: boolean | undefined,
+      Component: React.ComponentType,
+      name: string,
+    ]
+  > = [
+    ['/admin/bug-reports', perms?.manageBugReports, LoadableBugReports, 'Manage bug reports'],
+    [
+      '/admin/map-manager',
+      perms?.manageMaps || perms?.massDeleteMaps,
+      LoadableMapManager,
+      'Manage maps',
+    ],
+    ['/admin/map-pools', perms?.manageMapPools, LoadableMapPools, 'Manage matchmaking map pools'],
+    [
+      '/admin/matchmaking-seasons',
+      perms?.manageMatchmakingSeasons,
+      LoadableMatchmakingSeasons,
+      'Manage matchmaking seasons',
+    ],
+    [
+      '/admin/matchmaking-times',
+      perms?.manageMatchmakingTimes,
+      LoadableMatchmakingTimes,
+      'Manage matchmaking times',
+    ],
+    [
+      '/admin/rally-point',
+      perms?.manageRallyPointServers,
+      LoadableRallyPoint,
+      'Manage rally-point servers',
+    ],
+    [
+      '/admin/restricted-names',
+      perms?.manageRestrictedNames,
+      LoadableRestrictedNames,
+      'Manage restricted names',
+    ],
+    ['/admin/urgent-message', perms?.manageNews, LoadableUrgentMessage, 'Set urgent message'],
+  ]
+
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
-        <Route path='/admin/bug-reports/*?'>
-          {perms?.manageBugReports ? <LoadableBugReports /> : <Redirect to='/' />}
-        </Route>
-        <Route path='/admin/map-manager/*?'>
-          {(perms?.manageMaps || perms?.massDeleteMaps) && IS_ELECTRON ? (
-            <LoadableMapManager />
-          ) : (
-            <Redirect to='/' />
-          )}
-        </Route>
-        <Route path='/admin/map-pools/*?'>
-          {perms?.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
-        </Route>
-        <Route path='/admin/matchmaking-seasons/*?'>
-          {perms?.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
-        </Route>
-        <Route path='/admin/matchmaking-times/*?'>
-          {perms?.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
-        </Route>
-        <Route path='/admin/rally-point/*?'>
-          {perms?.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
-        </Route>
-        <Route path='/admin/restricted-names/*?'>
-          {perms?.manageRestrictedNames ? <LoadableRestrictedNames /> : <Redirect to='/' />}
-        </Route>
+        {routes.map(([path, hasPermissions, Component]) => (
+          <Route path={path + '/*?'} key={path}>
+            {hasPermissions ? <Component /> : <Redirect to='/' />}
+          </Route>
+        ))}
 
         <Route path='/admin/*?'>
-          <AdminDashboard permissions={perms} />
+          <ul>
+            {routes.map(([path, hasPermissions, _, name]) => {
+              return hasPermissions ? (
+                <li key={path}>
+                  <Link href={path}>{name}</Link>
+                </li>
+              ) : null
+            })}
+          </ul>
         </Route>
       </Switch>
     </Suspense>

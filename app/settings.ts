@@ -6,7 +6,7 @@ import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
 import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
-import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
+import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
@@ -29,7 +29,7 @@ function jsonify(settings: unknown) {
   return JSON.stringify(settings, null, 2)
 }
 
-interface SettingsEvents<T> extends EventMap {
+type SettingsEvents<T> = {
   change: (settings: Readonly<Partial<T>>) => void
 }
 

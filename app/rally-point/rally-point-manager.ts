@@ -2,7 +2,7 @@ import RallyPointPlayer from 'rally-point-player'
 import { singleton } from 'tsyringe'
 import { isAbortError, raceAbort } from '../../common/async/abort-signals'
 import { ResolvedRallyPointServer } from '../../common/rally-point'
-import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
+import { TypedEventEmitter } from '../../common/typed-emitter'
 import logger from '../logger'
 import { monotonicNow } from '../time/monotonic-now'
 
@@ -18,7 +18,7 @@ interface PingResult {
   lastPinged: number
 }
 
-interface RallyPointManagerEvents extends EventMap {
+type RallyPointManagerEvents = {
   ping: (server: ResolvedRallyPointServer, ping: number) => void
 }
 

@@ -1,5 +1,6 @@
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::redis::RedisPool;
 use async_graphql::connection::{query, Connection, Edge};
 use async_graphql::dataloader::DataLoader;
 use async_graphql::{ComplexObject, Context, Guard, InputObject, Object, SchemaBuilder};
@@ -7,7 +8,10 @@ use async_graphql::{Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
+use mobc_redis::redis::AsyncCommands;
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
+use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::users::permissions::RequiredPermission;
@@ -48,6 +52,8 @@ impl NewsQuery {
             RequiredPermission::ManageNews.check(ctx).await?;
         }
 
+        let repo = ctx.data::<NewsPostRepo>()?;
+
         query(
             after,
             before,
@@ -62,7 +68,6 @@ impl NewsQuery {
                 let first = first.map(|f| f.clamp(1, 100));
                 let last = last.map(|l| l.clamp(1, 100));
 
-                let repo = ctx.data_unchecked::<NewsPostRepo>();
                 repo.load_many(
                     include_unpublished.unwrap_or(false),
                     after,
@@ -82,6 +87,22 @@ impl NewsQuery {
         )
         .await
     }
+
+    async fn urgent_message(&self, ctx: &Context<'_>) -> Result<Option<UrgentMessage>> {
+        let redis = ctx.data::<RedisPool>()?;
+        let mut redis = redis.get().await.wrap_err("Could not connect to Redis")?;
+
+        let message: Option<String> = redis
+            .get("news:urgentMessage")
+            .await
+            .wrap_err("Failed to get urgent message")?;
+
+        if let Some(message) = message {
+            Ok(serde_json::from_str(&message).wrap_err("Failed to deserialize urgent message")?)
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[derive(Default)]
@@ -96,7 +117,7 @@ impl NewsMutation {
         ctx: &Context<'_>,
         post: NewsPostCreation,
     ) -> Result<NewsPost> {
-        let Some(user) = ctx.data_unchecked::<Option<CurrentUser>>() else {
+        let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
         if let Some(author_id) = post.author_id {
@@ -108,8 +129,50 @@ impl NewsMutation {
             }
         }
 
-        let repo = ctx.data_unchecked::<NewsPostRepo>();
+        let repo = ctx.data::<NewsPostRepo>()?;
         repo.create_post(post, user.id).await.map_err(|e| e.into())
+    }
+
+    /// Sets (or clears, if message is not provided) the urgent message at the top of the home page.
+    #[graphql(guard = RequiredPermission::ManageNews)]
+    async fn news_set_urgent_message(
+        &self,
+        ctx: &Context<'_>,
+        message: Option<UrgentMessageInput>,
+    ) -> Result<bool> {
+        // Save the urgent message to redis
+        let redis = ctx.data::<RedisPool>()?;
+
+        let message = message.map(|msg| UrgentMessage {
+            id: Uuid::new_v4(),
+            title: msg.title,
+            message: msg.message,
+            published_at: Utc::now(),
+        });
+
+        {
+            let mut redis = redis.get().await.wrap_err("Could not connect to Redis")?;
+
+            if let Some(message) = message.clone() {
+                let message = serde_json::to_string(&message)
+                    .wrap_err("Failed to serialize urgent message")?;
+                redis
+                    .set::<_, _, ()>("news:urgentMessage", message)
+                    .await
+                    .wrap_err("Failed to set urgent message")?;
+            } else {
+                redis
+                    .del::<_, ()>("news:urgentMessage")
+                    .await
+                    .wrap_err("Failed to delete urgent message")?;
+            }
+        }
+
+        redis
+            .publish(PublishedNewsMessage::UrgentMessageChanged(()))
+            .await?;
+
+        Ok(true)
     }
 }
 
@@ -133,7 +196,7 @@ impl NewsPost {
         let Some(author_id) = self.author_id else {
             return Ok(None);
         };
-        ctx.data_unchecked::<DataLoader<UsersLoader>>()
+        ctx.data::<DataLoader<UsersLoader>>()?
             .load_one(author_id)
             .await
     }
@@ -316,4 +379,28 @@ impl NewsPostRepo {
 
         Ok(post)
     }
+}
+
+#[typeshare]
+#[derive(SimpleObject, Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UrgentMessage {
+    pub id: Uuid,
+    pub title: String,
+    pub message: String,
+    /// The time the message was published (in UTC). This will serialize as an RFC 3339 string.
+    pub published_at: DateTime<Utc>,
+}
+
+#[derive(InputObject, Clone, Debug)]
+pub struct UrgentMessageInput {
+    pub title: String,
+    pub message: String,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedNewsMessage {
+    UrgentMessageChanged(()),
 }

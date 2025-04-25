@@ -136,7 +136,7 @@ export default class ChatService {
   private async updateUserAfterJoining(
     userInfo: SbUser,
     channelId: SbChannelId,
-    userChannelEntry: UserChannelEntry,
+    _userChannelEntry: UserChannelEntry,
     message: ChatMessage,
   ) {
     this.state = this.state
