@@ -101,7 +101,9 @@ function categoryToMaxLikelihood(category: SafeSearchCategory): OrderedLikelihoo
 
 @singleton()
 export class ImageService {
-  private visionClient = new ImageAnnotatorClient(imageAnnotatorClientOptions)
+  // NOTE(tec27): Seems to be some issue with the typings on options between libraries (maybe
+  // multiple versions being pulled in?) so the `any` case is needed).
+  private visionClient = new ImageAnnotatorClient(imageAnnotatorClientOptions as any)
 
   /**
    * Checks the given image (either as a filename, URL, or a buffer) for our safety standards. If
