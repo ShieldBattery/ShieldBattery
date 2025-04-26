@@ -30,6 +30,7 @@ export interface SbPermissions {
 }
 
 export interface UrgentMessage {
+  id: Uuid
   title: string
   message: string
   /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
