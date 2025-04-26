@@ -31,17 +31,13 @@ exports[`client/messaging/common-message-layout/TextMessage message as a normal 
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -90,17 +86,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -156,17 +148,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -234,17 +222,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -326,17 +310,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -397,17 +377,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -474,17 +450,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
@@ -560,17 +532,13 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="common-message-layout__Username-sc-hg9wkq-0 fnAgpT"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
-        class="connected-username__Username-sc-1uo72rz-0 izvTty"
+        aria-label="Username loading…"
+        class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
       >
-        <span
-          aria-label="Username loading…"
-          class="connected-username__LoadingName-sc-1uo72rz-1 gRwppo"
-        >
-                     
-        </span>
+                   
       </span>
     </span>
     <i
