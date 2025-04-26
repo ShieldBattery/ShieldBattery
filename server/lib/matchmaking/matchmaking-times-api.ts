@@ -57,7 +57,7 @@ export class MatchmakingTimesApi {
       query: { offset },
     } = validateRequest(ctx, {
       query: Joi.object<{ offset: number }>({
-        offset: Joi.number().min(0),
+        offset: Joi.number().min(0).required(),
       }),
     })
 
@@ -83,7 +83,7 @@ export class MatchmakingTimesApi {
       query: { offset },
     } = validateRequest(ctx, {
       query: Joi.object<{ offset: number }>({
-        offset: Joi.number().min(0),
+        offset: Joi.number().min(0).required(),
       }),
     })
 

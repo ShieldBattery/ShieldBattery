@@ -1,4 +1,4 @@
-import { binarySearch, findLastIndex } from './arrays'
+import { binarySearch, concatWithoutDuplicates, findLastIndex } from './arrays'
 
 const makeCallbackFn = (searchValue: number) => (value: number) => value === searchValue
 
@@ -23,5 +23,17 @@ describe('common/arrays', () => {
     expect(binarySearch([1, 3, 5, 7, 9], 9, (e, v) => e - v)).toBe(4)
     expect(binarySearch([1, 3, 5, 7, 9], 10, (e, v) => e - v)).toBe(-1)
     expect(binarySearch([1, 3, 5, 7, 9], 0, (e, v) => e - v)).toBe(-1)
+  })
+
+  test('concatWithoutDuplicates', () => {
+    expect(concatWithoutDuplicates([], [], 'id')).toEqual([])
+    expect(concatWithoutDuplicates([{ id: 1 }], [], 'id')).toEqual([{ id: 1 }])
+    expect(concatWithoutDuplicates([{ id: 1 }], [{ id: 1 }], 'id')).toEqual([{ id: 1 }])
+    expect(concatWithoutDuplicates([{ id: 1 }], [{ id: 2 }], 'id')).toEqual([{ id: 1 }, { id: 2 }])
+    expect(concatWithoutDuplicates([{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 3 }], 'id')).toEqual([
+      { id: 1 },
+      { id: 2 },
+      { id: 3 },
+    ])
   })
 })

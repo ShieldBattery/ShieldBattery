@@ -96,6 +96,19 @@ const TextFieldContainer = styled.div<{
     -webkit-appearance: none;
     appearance: none;
   }
+
+  & input[type='datetime'],
+  & input[type='datetime-local'] {
+    &::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: 0.7;
+      cursor: pointer;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
 `
 
 const StateLayer = styled.div`

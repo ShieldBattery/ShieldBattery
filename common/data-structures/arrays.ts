@@ -50,3 +50,19 @@ export function binarySearch<T, V>(
 
   return -1
 }
+
+/**
+ * Concatenates two arrays of objects and removes duplicates based on the specified key.
+ */
+export function concatWithoutDuplicates<T extends Record<string, unknown>>(
+  array1: ReadonlyArray<T>,
+  array2: ReadonlyArray<T>,
+  key: keyof T,
+): Array<T> {
+  const seen = new Set()
+  return array1.concat(array2).filter(t => {
+    const result = !seen.has(t[key])
+    seen.add(t[key])
+    return result
+  })
+}
