@@ -33,7 +33,7 @@ const Username = styled(ConnectedUsername)`
   ${titleSmall};
 
   margin-right: 8px;
-  padding: 4px 0;
+  padding-block: 4px;
 
   color: var(--color-amber90);
   line-height: inherit;
