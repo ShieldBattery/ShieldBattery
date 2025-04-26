@@ -5,7 +5,6 @@ import { MATCHMAKING_ACCEPT_MATCH_TIME_MS } from '../../common/matchmaking'
 import { range } from '../../common/range'
 import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ElevatedButton } from '../material/button'
@@ -60,7 +59,7 @@ const FilledTimerBar = styled.div`
   will-change: transform;
 `
 
-export default function AcceptMatch({ dialogRef }: CommonDialogProps) {
+export default function AcceptMatch() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -98,7 +97,7 @@ export default function AcceptMatch({ dialogRef }: CommonDialogProps) {
     ? t('matchmaking.acceptMatch.failedToAccept', 'Failed to accept')
     : t('matchmaking.acceptMatch.matchFound', 'Match found')
   return (
-    <StyledDialog title={title} showCloseButton={false} dialogRef={dialogRef}>
+    <StyledDialog title={title} showCloseButton={false}>
       {contents}
     </StyledDialog>
   )

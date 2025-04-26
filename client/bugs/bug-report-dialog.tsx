@@ -100,8 +100,7 @@ export function BugReportDialog(props: CommonDialogProps) {
     <StyledDialog
       title={t('bugReport.title', 'Report a bug')}
       buttons={buttons}
-      onCancel={props.onCancel}
-      dialogRef={props.dialogRef}>
+      onCancel={props.onCancel}>
       <form noValidate={true} onSubmit={submit}>
         <Layout>
           {error ? (

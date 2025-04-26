@@ -30,7 +30,7 @@ export interface MapPreviewDialogProps extends CommonDialogProps {
   mapId: string
 }
 
-export function MapPreviewDialog({ mapId, onCancel, dialogRef }: MapPreviewDialogProps) {
+export function MapPreviewDialog({ mapId, onCancel }: MapPreviewDialogProps) {
   const dispatch = useAppDispatch()
   const map = useAppSelector(s => s.maps2.byId.get(mapId))
   useEffect(() => {
@@ -49,7 +49,6 @@ export function MapPreviewDialog({ mapId, onCancel, dialogRef }: MapPreviewDialo
     <StyledDialog
       style={style as any}
       onCancel={onCancel}
-      dialogRef={dialogRef}
       fullBleed={true}
       showCloseButton={true}
       title={map?.name ?? ''}>

@@ -88,8 +88,7 @@ export function CreateWhisper(props: CommonDialogProps) {
     <Dialog
       title={t('whispers.createWhisper.title', 'Send a message')}
       buttons={buttons}
-      onCancel={props.onCancel}
-      dialogRef={props.dialogRef}>
+      onCancel={props.onCancel}>
       {loading ? (
         <LoadingDotsArea />
       ) : (

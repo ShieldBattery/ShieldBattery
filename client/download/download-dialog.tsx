@@ -10,11 +10,7 @@ const StyledDialog = styled(Dialog)`
 
 export default function DownloadDialog(props: CommonDialogProps) {
   return (
-    <StyledDialog
-      title=''
-      onCancel={props.onCancel}
-      showCloseButton={true}
-      dialogRef={props.dialogRef}>
+    <StyledDialog title='' onCancel={props.onCancel} showCloseButton={true}>
       <Download />
     </StyledDialog>
   )

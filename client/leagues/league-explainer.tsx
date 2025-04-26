@@ -30,15 +30,14 @@ const Emphasized = styled.b`
   color: var(--theme-on-surface);
 `
 
-export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps) {
+export function LeagueExplainerDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
 
   return (
     <StyledDialog
       title={t('leagues.explainer.howLeaguesWork', 'How leagues work')}
       onCancel={onCancel}
-      showCloseButton={true}
-      dialogRef={dialogRef}>
+      showCloseButton={true}>
       <BodyLarge>
         {t(
           'leagues.explainer.description',

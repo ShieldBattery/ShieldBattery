@@ -142,7 +142,6 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
 type PostMatchDialogProps = CommonDialogProps & ReadonlyDeep<PostMatchDialogPayload['initData']>
 
 export function PostMatchDialog({
-  dialogRef,
   onCancel,
   game,
   mmrChange,
@@ -189,7 +188,6 @@ export function PostMatchDialog({
 
   return (
     <StyledDialog
-      dialogRef={dialogRef}
       showCloseButton={true}
       title={t('matchmaking.postMatchDialog.title', 'Match results')}
       onCancel={onCancel}

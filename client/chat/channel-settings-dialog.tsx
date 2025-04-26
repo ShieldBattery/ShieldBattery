@@ -96,11 +96,7 @@ interface ChannelSettingsModel {
 type ChannelSettingsDialogProps = CommonDialogProps &
   ReadonlyDeep<ChannelSettingsDialogPayload['initData']>
 
-export function ChannelSettingsDialog({
-  dialogRef,
-  onCancel,
-  channelId,
-}: ChannelSettingsDialogProps) {
+export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)!)
@@ -190,7 +186,7 @@ export function ChannelSettingsDialog({
   }
 
   return (
-    <StyledDialog dialogRef={dialogRef} title={`#${basicChannelInfo?.name}`} buttons={buttons}>
+    <StyledDialog title={`#${basicChannelInfo?.name}`} buttons={buttons}>
       <Root>
         {errorMessage ? (
           <ErrorText data-test='channel-settings-error-message'>{errorMessage}</ErrorText>

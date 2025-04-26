@@ -104,12 +104,7 @@ export interface ChannelBanUserDialogProps extends CommonDialogProps {
   userId: SbUserId
 }
 
-export function ChannelBanUserDialog({
-  dialogRef,
-  onCancel,
-  channelId,
-  userId,
-}: ChannelBanUserDialogProps) {
+export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBanUserDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -173,8 +168,7 @@ export function ChannelBanUserDialog({
     <Dialog
       title={t('chat.banUser.dialogTitle', { defaultValue: 'Ban {{user}}?', user: user.name })}
       buttons={buttons}
-      onCancel={onCancel}
-      dialogRef={dialogRef}>
+      onCancel={onCancel}>
       <form noValidate={true} onSubmit={handleSubmit}>
         {banUserError ? <BanUserErrorDisplay user={user.name} error={banUserError} /> : null}
         <TextField

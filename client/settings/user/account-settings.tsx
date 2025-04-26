@@ -289,7 +289,7 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
   const [errorMessage, setErrorMessage] = useState<string>()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
-  const { onCancel, dialogRef } = props
+  const { onCancel } = props
 
   const { submit, bindInput, setInputError, form } = useForm<ChangePasswordFormModel>(
     { currentPassword: '', newPassword: '', confirmNewPassword: '' },
@@ -317,8 +317,6 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
               )
             } else if (result.error.graphQLErrors?.length) {
               for (const error of result.error.graphQLErrors) {
-                // TODO(tec27): Either type these error codes or generate types for them from Rust
-                // (with typeshare?)
                 if (error.extensions?.code === 'INVALID_PASSWORD') {
                   setInputError(
                     'currentPassword',
@@ -375,7 +373,6 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       onCancel={onCancel}
       showCloseButton={true}
       buttons={buttons}
-      dialogRef={dialogRef}
       testName='change-password-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={submit}>
@@ -443,7 +440,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
   const [errorMessage, setErrorMessage] = useState<string>()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
-  const { onCancel, dialogRef } = props
+  const { onCancel } = props
 
   const { submit, bindInput, setInputError, form } = useForm<ChangeEmailFormModel>(
     { currentPassword: '', email: props.currentEmail },
@@ -470,8 +467,6 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
               )
             } else if (result.error.graphQLErrors?.length) {
               for (const error of result.error.graphQLErrors) {
-                // TODO(tec27): Either type these error codes or generate types for them from Rust
-                // (with typeshare?)
                 if (error.extensions?.code === 'INVALID_PASSWORD') {
                   setInputError(
                     'currentPassword',
@@ -528,7 +523,6 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       onCancel={onCancel}
       showCloseButton={true}
       buttons={buttons}
-      dialogRef={dialogRef}
       testName='change-email-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={submit}>

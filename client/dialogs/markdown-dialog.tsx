@@ -22,7 +22,6 @@ export function MarkdownDialog({
   markdownContent,
   hasButton = false,
   onCancel,
-  dialogRef,
 }: MarkdownDialogProps) {
   const { t } = useTranslation()
   const buttons = hasButton
@@ -37,12 +36,7 @@ export function MarkdownDialog({
     : []
 
   return (
-    <StyledDialog
-      title={title}
-      onCancel={onCancel}
-      showCloseButton={true}
-      buttons={buttons}
-      dialogRef={dialogRef}>
+    <StyledDialog title={title} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
       <Suspense fallback={<LoadingDotsArea />}>
         <Markdown source={markdownContent} />
       </Suspense>

@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
@@ -16,7 +16,7 @@ import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
 import { PostMatchDialog } from '../matchmaking/post-match-dialog'
-import { DialogContext, DialogContextValue } from '../material/dialog'
+import { DialogContext } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { zIndexDialogScrim } from '../material/zindex'
 import { ExternalLinkDialog } from '../navigation/external-link-dialog'
@@ -113,17 +113,15 @@ export const ConnectedDialogOverlay = () => {
   const dialogHistory = useAppSelector(s => s.dialog.history)
   const portalRef = useExternalElementRef()
 
-  const onCancel = useCallback(
-    (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
-      if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
-        dispatch(closeDialog(dialogType))
-      }
-    },
-    [dispatch],
-  )
-
   return ReactDOM.createPortal(
-    <DialogOverlayContent dialogHistory={dialogHistory} onCancel={onCancel} />,
+    <DialogOverlayContent
+      dialogHistory={dialogHistory}
+      onCancel={(dialogType, event) => {
+        if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
+          dispatch(closeDialog(dialogType))
+        }
+      }}
+    />,
     portalRef.current,
   )
 }
@@ -161,7 +159,7 @@ const scrimTransition: Transition = {
 function DialogDisplay({
   dialogState,
   isTopDialog,
-  onCancel: propsOnCancel,
+  onCancel,
 }: {
   dialogState: Immutable<DialogState>
   isTopDialog: boolean
@@ -171,14 +169,6 @@ function DialogDisplay({
   const { component: DialogComponent, modal } = getDialog(dialogState.type)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
-  const dialogRef = useRef<HTMLElement>(null)
-
-  const onCancel = useMemo(
-    () => (modal ? noop : (event: React.MouseEvent) => propsOnCancel(dialogType, event)),
-    [propsOnCancel, modal, dialogType],
-  )
-
-  const contextValue = useMemo<DialogContextValue>(() => ({ isTopDialog }), [isTopDialog])
 
   return (
     <>
@@ -191,7 +181,7 @@ function DialogDisplay({
             animate='animate'
             exit='exit'
             transition={scrimTransition}
-            onClick={onCancel}
+            onClick={modal ? noop : event => onCancel(dialogType, event)}
           />
         )}
       </AnimatePresence>
@@ -199,11 +189,10 @@ function DialogDisplay({
       <KeyListenerBoundary active={isTopDialog} key='dialog-content'>
         <FocusTrap focusableRef={focusableRef}>
           <span ref={focusableRef} tabIndex={-1}>
-            <DialogContext.Provider value={contextValue}>
+            <DialogContext.Provider value={{ isTopDialog }}>
               <DialogComponent
-                dialogRef={dialogRef}
                 key={dialogState.id}
-                onCancel={onCancel}
+                onCancel={modal ? noop : (event?: React.MouseEvent) => onCancel(dialogType, event)}
                 {...dialogState.initData}
               />
             </DialogContext.Provider>

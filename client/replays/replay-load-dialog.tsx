@@ -24,7 +24,7 @@ export interface ReplayLoadDialogProps extends CommonDialogProps {
   gameId: string
 }
 
-export function ReplayLoadDialog({ onCancel, dialogRef, gameId }: ReplayLoadDialogProps) {
+export function ReplayLoadDialog({ onCancel, gameId }: ReplayLoadDialogProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
   const [error, setError] = useState<Error>()
@@ -56,7 +56,6 @@ export function ReplayLoadDialog({ onCancel, dialogRef, gameId }: ReplayLoadDial
   return (
     <StyledDialog
       onCancel={onCancel}
-      dialogRef={dialogRef}
       title={t('replays.loading.dialogTitle', 'Loading replay…')}
       showCloseButton={false}
       buttons={

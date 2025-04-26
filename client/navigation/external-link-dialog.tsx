@@ -48,7 +48,7 @@ interface ExternalLinkDialogProps extends CommonDialogProps {
   href: string
 }
 
-export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: ExternalLinkDialogProps) {
+export function ExternalLinkDialog({ href, domain, onCancel }: ExternalLinkDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -89,8 +89,7 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
       title={t('navigation.externalLink.title', 'External link')}
       showCloseButton={true}
       onCancel={onCancel}
-      buttons={buttons}
-      dialogRef={dialogRef}>
+      buttons={buttons}>
       <SelectionBoundary>
         <Trans t={t} i18nKey='navigation.externalLink.dialogText'>
           <BodyLarge>This link will take you to a site outside ShieldBattery:</BodyLarge>

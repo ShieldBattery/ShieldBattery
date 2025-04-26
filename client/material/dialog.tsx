@@ -183,7 +183,6 @@ export interface DialogProps {
   buttons?: React.ReactNode[]
   children: React.ReactNode
   className?: string
-  dialogRef?: React.Ref<HTMLDivElement>
   /**
    * Whether the content of this dialog extends to all edges (e.g. has no padding). If `true`, the
    * content must handle scrolling itself.
@@ -203,7 +202,6 @@ export function Dialog({
   buttons,
   children,
   className,
-  dialogRef,
   fullBleed = false,
   showCloseButton = false,
   style,
@@ -245,7 +243,6 @@ export function Dialog({
       <Surface
         className={className}
         style={style}
-        ref={dialogRef}
         variants={dialogVariants}
         initial='initial'
         animate='animate'

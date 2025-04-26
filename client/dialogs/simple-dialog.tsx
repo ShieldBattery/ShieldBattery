@@ -21,7 +21,6 @@ export function SimpleDialog({
   simpleContent,
   onCancel,
   hasButton,
-  dialogRef,
 }: SimpleDialogProps) {
   const { t } = useTranslation()
   const buttons = hasButton
@@ -38,12 +37,7 @@ export function SimpleDialog({
     typeof simpleContent === 'string' ? <BodyLarge>{simpleContent}</BodyLarge> : simpleContent
 
   return (
-    <StyledDialog
-      title={simpleTitle}
-      onCancel={onCancel}
-      showCloseButton={true}
-      buttons={buttons}
-      dialogRef={dialogRef}>
+    <StyledDialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
       {content}
     </StyledDialog>
   )

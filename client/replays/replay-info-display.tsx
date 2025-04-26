@@ -303,14 +303,13 @@ interface ReplayInfoDialogProps extends CommonDialogProps {
   filePath: string
 }
 
-export function ReplayInfoDialog({ filePath, onCancel, dialogRef }: ReplayInfoDialogProps) {
+export function ReplayInfoDialog({ filePath, onCancel }: ReplayInfoDialogProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
 
   return (
     <StyledDialog
       onCancel={onCancel}
-      dialogRef={dialogRef}
       title={t('replays.replayInfoDialog.title', 'Replay info')}
       showCloseButton={true}
       buttons={[
