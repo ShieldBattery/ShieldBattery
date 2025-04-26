@@ -31,7 +31,7 @@ exports[`client/messaging/common-message-layout/TextMessage message as a normal 
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -86,7 +86,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -148,7 +148,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -222,7 +222,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -310,7 +310,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -377,7 +377,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -450,7 +450,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
@@ -532,7 +532,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
       </span>
     </div>
     <span
-      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 grLPH"
+      class="connected-username__Username-sc-1uo72rz-0 izvTty common-message-layout__Username-sc-hg9wkq-0 heSEqX"
     >
       <span
         aria-label="Username loading…"
