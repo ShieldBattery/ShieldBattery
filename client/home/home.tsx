@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
@@ -17,6 +17,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
+import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
 
 const Root = styled(CenteredContentContainer)`
   padding-top: 24px;
@@ -208,6 +209,13 @@ function UrgentMessageView(props: {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const urgentMessage = useFragment(UrgentMessage_HomeDisplayFragment, props.urgentMessage)
+  const [lastSeenId, markSeen] = useLastSeenUrgentMessage()
+
+  useEffect(() => {
+    if (urgentMessage && urgentMessage.id !== lastSeenId) {
+      markSeen(urgentMessage.id)
+    }
+  }, [lastSeenId, markSeen, urgentMessage])
 
   return urgentMessage ? (
     <UrgentMessageRoot>

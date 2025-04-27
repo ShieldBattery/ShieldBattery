@@ -1,6 +1,13 @@
 export type NewsEvent = UrgentMessageChangeEvent
 
-export interface UrgentMessageChangeEvent {
-  type: 'urgentMessageChange'
-  publishedAt?: number
-}
+export type UrgentMessageChangeEvent =
+  | {
+      type: 'urgentMessageChange'
+      publishedAt?: undefined
+      id?: undefined
+    }
+  | {
+      type: 'urgentMessageChange'
+      publishedAt: number
+      id: string
+    }

@@ -1,6 +1,6 @@
 import { singleton } from 'tsyringe'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { NewsEvent } from '../../../common/news'
+import { NewsEvent, UrgentMessageChangeEvent } from '../../../common/news'
 import { UrgentMessage } from '../../../common/typeshare'
 import logger from '../logging/logger'
 import { Redis, RedisSubscriber } from '../redis/redis'
@@ -8,6 +8,18 @@ import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
 const REDIS_KEY = 'news:urgentMessage'
+
+function toEvent(message?: UrgentMessage): UrgentMessageChangeEvent {
+  return message
+    ? {
+        type: 'urgentMessageChange',
+        id: message.id,
+        publishedAt: new Date(message.publishedAt).getTime(),
+      }
+    : {
+        type: 'urgentMessageChange',
+      }
+}
 
 @singleton()
 export class NewsService {
@@ -29,10 +41,7 @@ export class NewsService {
             // NOTE(tec27): this promise is infallible
             this.urgentMessageCache
               .then(message => {
-                this.publisher.publish('/news', {
-                  type: 'urgentMessageChange',
-                  publishedAt: message ? new Date(message.publishedAt).getTime() : undefined,
-                })
+                this.publisher.publish('/news', toEvent(message))
               })
               .catch(swallowNonBuiltins)
             break
@@ -46,10 +55,7 @@ export class NewsService {
       u.subscribe<NewsEvent>('/news', async () => {
         // NOTE(tec27): this promise is infallible
         const message = await this.urgentMessageCache
-        return {
-          type: 'urgentMessageChange',
-          publishedAt: message ? new Date(message.publishedAt).getTime() : undefined,
-        }
+        return toEvent(message)
       })
     })
   }

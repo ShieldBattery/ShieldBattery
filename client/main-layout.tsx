@@ -12,6 +12,7 @@ import { openDialog, openSimpleDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
 import { PlayButton } from './gameplay-activity/play-button'
+import { useHasNewUrgentMessage } from './home/last-seen-urgent-message'
 import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
 import logger from './logging/logger'
@@ -36,6 +37,7 @@ import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
+import { useMultiplexRef } from './react/refs'
 import { useStableCallback, useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
@@ -202,6 +204,17 @@ const MenuItemBottomActiveStroke = styled.div`
   background: var(--theme-amber);
 `
 
+const MenuItemPip = styled.div`
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--theme-amber);
+  border-radius: 50%;
+`
+
 function MenuItemStrokeGradient({ id }: { id: string }) {
   return (
     <defs>
@@ -218,75 +231,87 @@ interface MenuItemProps {
   routePattern: string
   flipped?: boolean
   hotkey: HotkeyProp
+  showPip?: boolean
   children: React.ReactNode
+  ref?: React.Ref<HTMLAnchorElement>
 }
 
-const AppBarMenuItem = React.forwardRef<HTMLAnchorElement, MenuItemProps>(
-  ({ href, routePattern, flipped, hotkey, children }, ref) => {
-    const [isActive] = useRoute(routePattern)
-    const strokeLeftId = useId()
-    const strokeRightId = useId()
+function AppBarMenuItem({
+  href,
+  routePattern,
+  flipped,
+  hotkey,
+  showPip,
+  children,
+  ref,
+}: MenuItemProps) {
+  const [isActive] = useRoute(routePattern)
+  const strokeLeftId = useId()
+  const strokeRightId = useId()
 
-    const [linkElem, setLinkElem] = useState<HTMLAnchorElement | null>(null)
-    useButtonHotkey({ elem: linkElem, hotkey })
+  const [linkElem, setLinkElem] = useState<HTMLAnchorElement | null>(null)
+  const combinedRef = useMultiplexRef(setLinkElem, ref)
+  useButtonHotkey({ elem: linkElem, hotkey })
 
-    return (
-      <Link href={href} asChild={true}>
-        <MenuItemRoot ref={setLinkElem} $isActive={isActive} draggable={false}>
-          <MenuItemLeftEdge viewBox='0 0 20 64'>
-            <polygon
-              points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}
-              fill='var(--menu-item-fill)'
-            />
-          </MenuItemLeftEdge>
-          <MenuItemContent>{children}</MenuItemContent>
-          <MenuItemRightEdge viewBox='0 0 20 64'>
-            <polygon
-              points={!flipped ? '0,0 20,64 0,64' : '0,64, 20,0, 0,0'}
-              fill='var(--menu-item-fill)'
-            />
-          </MenuItemRightEdge>
+  return (
+    <Link href={href} asChild={true}>
+      <MenuItemRoot ref={combinedRef} $isActive={isActive} draggable={false}>
+        <MenuItemLeftEdge viewBox='0 0 20 64'>
+          <polygon
+            points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}
+            fill='var(--menu-item-fill)'
+          />
+        </MenuItemLeftEdge>
+        <MenuItemContent>
+          {children}
+          {showPip && <MenuItemPip />}
+        </MenuItemContent>
+        <MenuItemRightEdge viewBox='0 0 20 64'>
+          <polygon
+            points={!flipped ? '0,0 20,64 0,64' : '0,64, 20,0, 0,0'}
+            fill='var(--menu-item-fill)'
+          />
+        </MenuItemRightEdge>
 
-          {isActive ? (
-            <>
-              {/*
+        {isActive ? (
+          <>
+            {/*
                 Draw outline in 3 pieces (with some overlap to prevent gaps) to allow it to
                 stretch if needed
               */}
-              <MenuItemLeftActiveStroke viewBox='0 0 24 64'>
-                <MenuItemStrokeGradient id={strokeLeftId} />
-                <path
-                  d={
-                    !flipped
-                      ? 'M1.36,1 L20.735,63 L24,63 L20.735,63 Z'
-                      : 'M20.735,1 L1.36,63 L24,63 L1.36,63 Z'
-                  }
-                  fill='none'
-                  stroke={`url(#${strokeLeftId})`}
-                  strokeWidth='2'
-                />
-              </MenuItemLeftActiveStroke>
-              <MenuItemBottomActiveStroke />
-              <MenuItemRightActiveStroke viewBox='0 0 24 64'>
-                <MenuItemStrokeGradient id={strokeRightId} />
-                <path
-                  d={
-                    !flipped
-                      ? 'M3.265,1 L22.64,63 L0,63 L22.64,63 Z'
-                      : 'M22.64,1 L3.265,63 L0,63 L3.265,63 Z'
-                  }
-                  fill='none'
-                  stroke={`url(#${strokeRightId})`}
-                  strokeWidth='2'
-                />
-              </MenuItemRightActiveStroke>
-            </>
-          ) : null}
-        </MenuItemRoot>
-      </Link>
-    )
-  },
-)
+            <MenuItemLeftActiveStroke viewBox='0 0 24 64'>
+              <MenuItemStrokeGradient id={strokeLeftId} />
+              <path
+                d={
+                  !flipped
+                    ? 'M1.36,1 L20.735,63 L24,63 L20.735,63 Z'
+                    : 'M20.735,1 L1.36,63 L24,63 L1.36,63 Z'
+                }
+                fill='none'
+                stroke={`url(#${strokeLeftId})`}
+                strokeWidth='2'
+              />
+            </MenuItemLeftActiveStroke>
+            <MenuItemBottomActiveStroke />
+            <MenuItemRightActiveStroke viewBox='0 0 24 64'>
+              <MenuItemStrokeGradient id={strokeRightId} />
+              <path
+                d={
+                  !flipped
+                    ? 'M3.265,1 L22.64,63 L0,63 L22.64,63 Z'
+                    : 'M22.64,1 L3.265,63 L0,63 L3.265,63 Z'
+                }
+                fill='none'
+                stroke={`url(#${strokeRightId})`}
+                strokeWidth='2'
+              />
+            </MenuItemRightActiveStroke>
+          </>
+        ) : null}
+      </MenuItemRoot>
+    </Link>
+  )
+}
 
 const MenuItemsStart = styled.div`
   display: flex;
@@ -434,6 +459,8 @@ function AppBar({
   const [chatButton, setChatButton] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: chatButton, hotkey: ALT_H })
 
+  const homeHasPip = useHasNewUrgentMessage()
+
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (keyEventMatches(event, ALT_F)) {
@@ -544,7 +571,7 @@ function AppBar({
             {avatarSpace}
             <MenuItems $breakpoint={breakpoint}>
               <MenuItemsStart>
-                <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O}>
+                <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O} showPip={homeHasPip}>
                   {t('navigation.bar.home', 'Home')}
                 </AppBarMenuItem>
                 <AppBarMenuItem href='/games/' routePattern='/games/*?' hotkey={ALT_G}>

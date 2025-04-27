@@ -1,6 +1,7 @@
 import { freeze, produce, Producer } from 'immer'
 import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
 import { ReadonlyDeep } from 'type-fest'
+import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import { useSelfUser } from '../auth/auth-utils'
 import logger from '../logging/logger'
@@ -143,6 +144,13 @@ export function useImmerState<T>(
   ]
 }
 
+/**
+ * A mapping of localStorage key -> change listener. This is used to notify any hooks that are
+ * watching a localStorage key within the same tab (this browsing context) so if some other
+ * component changes the value, we can re-render every other component using the value.
+ */
+const localStorageListeners = new Map<string, Array<() => void>>()
+
 function loadAndParseLocalStorage(key: string): unknown {
   const valueJson = localStorage.getItem(key)
   if (valueJson === null) {
@@ -198,20 +206,43 @@ export function useUserLocalStorageValue<T>(
       localStorage.setItem(userKey, JSON.stringify(newValue))
     }
     setValue(newValue)
+
+    const listeners = localStorageListeners.get(userKey) ?? []
+    for (const listener of listeners) {
+      listener()
+    }
   }
 
   useEffect(() => {
-    function handleChange(event: StorageEvent) {
+    function handleChange() {
+      setValue(load())
+    }
+
+    function handleStorageEvent(event: StorageEvent) {
       if (event.storageArea === localStorage && event.key === userKey) {
         setValue(load())
       }
     }
 
-    window.addEventListener('storage', handleChange)
+    window.addEventListener('storage', handleStorageEvent)
+    appendToMultimap(localStorageListeners, userKey, handleChange)
+
     setValue(load())
 
     return () => {
-      window.removeEventListener('storage', handleChange)
+      window.removeEventListener('storage', handleStorageEvent)
+
+      const listeners = localStorageListeners.get(userKey)
+      if (listeners) {
+        const index = listeners.indexOf(handleChange)
+        if (index >= 0) {
+          if (listeners.length === 1) {
+            localStorageListeners.delete(userKey)
+          } else {
+            listeners.splice(index, 1)
+          }
+        }
+      }
     }
   }, [load, userKey])
 
