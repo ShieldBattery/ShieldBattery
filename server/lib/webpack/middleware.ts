@@ -58,6 +58,8 @@ export function webpackMiddleware({
             resolve(undefined)
           }
         }
+      }).catch((err: Error) => {
+        reject(err)
       })
     })
   }
