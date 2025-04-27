@@ -660,6 +660,7 @@ function AppBar({
           routePattern='/'
           icon={<MaterialIcon icon='home' />}
           text={t('navigation.bar.home', 'Home')}
+          showPip={homeHasPip}
           ref={appMenuFocusable}
         />
         <NavigationMenuItem

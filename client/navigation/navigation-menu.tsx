@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef } from 'react'
+import React, { useRef } from 'react'
 import styled from 'styled-components'
 import { Tagged } from 'type-fest'
 import { Link, LinkProps, useRoute } from 'wouter'
@@ -23,7 +23,7 @@ const Scrim = styled.div`
 const Root = styled.div`
   ${elevationPlus1};
   position: fixed;
-  inset: 0;
+  inset: var(--sb-system-bar-height, 0) 0 0;
   max-width: min(360px, 100dvw - 64px);
   z-index: ${zIndexMenu};
 
@@ -170,33 +170,53 @@ const StateLayer = styled.div<{ $isActive: boolean }>`
   }
 `
 
+const ItemPip = styled.div`
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background-color: var(--theme-amber);
+  border-radius: 50%;
+`
+
 export interface NavigationMenuItemProps
   extends Omit<LinkProps, 'replace' | 'children' | 'href' | 'to' | 'asChild'> {
   href: string
   routePattern: string
   icon?: React.ReactNode
   text: string
+  showPip?: boolean
+  ref?: React.Ref<HTMLAnchorElement>
 }
 
-export const NavigationMenuItem = forwardRef<HTMLAnchorElement, NavigationMenuItemProps>(
-  ({ icon, text, href, routePattern, ...linkProps }, ref) => {
-    const [isActive] = useRoute(routePattern)
-    const [buttonProps, rippleRef] = useButtonState({})
-    // NOTE(tec27): We set 'replace' because the navigation menu uses route state, so we want the back
-    // button to go back to the page *without* the navigation menu open
-    return (
-      <Link {...linkProps} href={href} asChild={true} replace={true}>
-        <ItemRoot ref={ref} $isActive={isActive} tabIndex={0} draggable={false} {...buttonProps}>
-          <StateLayer $isActive={isActive}>
-            <Ripple ref={rippleRef} />
-          </StateLayer>
-          {icon ? <ItemIcon>{icon}</ItemIcon> : null}
-          <ItemText>{text}</ItemText>
-        </ItemRoot>
-      </Link>
-    )
-  },
-)
+export function NavigationMenuItem({
+  icon,
+  text,
+  href,
+  routePattern,
+  showPip,
+  ref,
+  ...linkProps
+}: NavigationMenuItemProps) {
+  const [isActive] = useRoute(routePattern)
+  const [buttonProps, rippleRef] = useButtonState({})
+  // NOTE(tec27): We set 'replace' because the navigation menu uses route state, so we want the back
+  // button to go back to the page *without* the navigation menu open
+  return (
+    <Link {...linkProps} href={href} asChild={true} replace={true}>
+      <ItemRoot ref={ref} $isActive={isActive} tabIndex={0} draggable={false} {...buttonProps}>
+        <StateLayer $isActive={isActive}>
+          <Ripple ref={rippleRef} />
+        </StateLayer>
+        {icon ? <ItemIcon>{icon}</ItemIcon> : null}
+        <ItemText>{text}</ItemText>
+        {showPip ? <ItemPip /> : null}
+      </ItemRoot>
+    </Link>
+  )
+}
 
 export const NavigationMenuDivider = styled.hr`
   height: 1px;
