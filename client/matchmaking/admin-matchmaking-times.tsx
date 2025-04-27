@@ -125,7 +125,6 @@ const AddNewCard = styled.div`
   ${containerStyles(ContainerLevel.Low)};
   ${elevationPlus1};
 
-  margin-bottom: 16px;
   padding: 16px;
 
   display: flex;
@@ -168,7 +167,6 @@ const FutureTimesContainer = styled.div`
 
 const SectionTitle = styled.h3`
   ${labelLarge};
-  text-transform: uppercase;
   color: var(--theme-on-surface-variant);
 
   margin-block: 16px 8px;
@@ -211,11 +209,6 @@ const HistoryStatus = styled.div`
 const HistoryActions = styled.div`
   display: flex;
   gap: 8px;
-`
-
-const LoadMoreButton = styled(TextButton)`
-  width: 100%;
-  margin-block: 8px;
 `
 
 const EnabledText = styled.span`
@@ -275,44 +268,108 @@ export function AdminMatchmakingTimes() {
 
       <PageHeadline>Matchmaking times</PageHeadline>
 
-      {/** Recreate this component when the active tab changes so it clears its local state. */}
-      <AddAndDisplayMatchmakingTimes key={activeTab} activeTab={activeTab} />
+      {/**
+       * Recreate this component when the active tab changes so it clears its local state (and the
+       * local state of its children components).
+       */}
+      <HistoryContainer key={activeTab}>
+        <FutureMatchmakingTimes activeTab={activeTab} />
+        <CurrentMatchmakingTime activeTab={activeTab} />
+        <PastMatchmakingTimes activeTab={activeTab} />
+      </HistoryContainer>
     </Container>
   )
 }
 
-function AddAndDisplayMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
+function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
 
   const [startDate, setStartDate] = useState('')
   const [invalidDate, setInvalidDate] = useState(false)
   const [enabled, setEnabled] = useState(false)
-
-  const [error, setError] = useState<Error>()
+  const [addingTimeError, setAddingTimeError] = useState<Error>()
 
   const [futureTimes, setFutureTimes] = useState<MatchmakingTimeJson[]>([])
+  const [hasMoreFutureTimes, setHasMoreFutureTimes] = useState(true)
+  const [isLoadingFutureTimes, setIsLoadingFutureTimes] = useState(false)
+  const [loadingFutureTimesError, setLoadingFutureTimesError] = useState<Error | undefined>(
+    undefined,
+  )
 
-  const handleAddNew = () => {
+  const futureTimesRef = useValueAsRef(futureTimes)
+
+  const onLoadMoreFutureTimes = useCallback(
+    (offset: number) => {
+      setIsLoadingFutureTimes(true)
+
+      dispatch(
+        getMatchmakingTimesFuture(activeTab, offset, {
+          onSuccess: data => {
+            setFutureTimes(
+              concatWithoutDuplicates(
+                futureTimesRef.current,
+                data.futureTimes,
+                value => value.id,
+              ).sort((a, b) => a.startDate - b.startDate),
+            )
+            setHasMoreFutureTimes(data.hasMoreFutureTimes)
+            setIsLoadingFutureTimes(false)
+            setLoadingFutureTimesError(undefined)
+          },
+          onError: err => {
+            setIsLoadingFutureTimes(false)
+            setLoadingFutureTimesError(err)
+          },
+        }),
+      )
+    },
+    [activeTab, dispatch, futureTimesRef, setFutureTimes],
+  )
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    onLoadMoreFutureTimes(0)
+
+    return () => abortController.abort()
+  }, [onLoadMoreFutureTimes])
+
+  const onAddMatchmakingTime = () => {
     dispatch(
       addMatchmakingTime(activeTab, Date.parse(startDate), enabled, {
         onSuccess: data => {
           setFutureTimes(
-            concatWithoutDuplicates(futureTimes, [data], 'id').sort(
+            concatWithoutDuplicates(futureTimes, [data], value => value.id).sort(
               (a, b) => a.startDate - b.startDate,
             ),
           )
-          setError(undefined)
+          setAddingTimeError(undefined)
 
           snackbarController.showSnackbar('New matchmaking time created')
         },
         onError: err => {
-          setError(err)
+          setAddingTimeError(err)
         },
       }),
     )
     setStartDate('')
     setEnabled(false)
+  }
+
+  const onDeleteMatchmakingTime = (id: number) => {
+    dispatch(
+      deleteMatchmakingTime(activeTab, id, {
+        onSuccess: () => {
+          setFutureTimes(futureTimesRef.current.filter(time => time.id !== id))
+
+          snackbarController.showSnackbar('Matchmaking time deleted')
+        },
+        onError: err => {
+          snackbarController.showSnackbar('Error deleting matchmaking time')
+        },
+      }),
+    )
   }
 
   let dateValidationContents = null
@@ -322,6 +379,49 @@ function AddAndDisplayMatchmakingTimes({ activeTab }: { activeTab: MatchmakingTy
     )
   } else if (startDate && !invalidDate) {
     dateValidationContents = <ValidDateIcon />
+  }
+
+  let futureTimesContents: React.ReactNode
+  if (loadingFutureTimesError) {
+    futureTimesContents = (
+      <ErrorText>
+        Error retrieving upcoming matchmaking times: {loadingFutureTimesError.message}
+      </ErrorText>
+    )
+  } else if (futureTimes.length === 0) {
+    futureTimesContents = null
+  } else {
+    futureTimesContents = (
+      <>
+        {hasMoreFutureTimes && (
+          <TextButton
+            label={isLoadingFutureTimes ? 'Loading...' : 'Load more upcoming times'}
+            color='accent'
+            disabled={isLoadingFutureTimes}
+            onClick={() => onLoadMoreFutureTimes(futureTimes.length)}
+          />
+        )}
+        <FutureTimesContainer>
+          {futureTimes.map(time => (
+            <HistoryCard key={time.id}>
+              <HistoryInfo>
+                <HistoryDate>{longTimestamp.format(time.startDate)}</HistoryDate>
+                <HistoryStatus>
+                  <MatchmakingStatus isEnabled={time.enabled} />
+                </HistoryStatus>
+              </HistoryInfo>
+              <HistoryActions>
+                <TextButton
+                  label='Delete'
+                  color='accent'
+                  onClick={() => onDeleteMatchmakingTime(time.id)}
+                />
+              </HistoryActions>
+            </HistoryCard>
+          ))}
+        </FutureTimesContainer>
+      </>
+    )
   }
 
   return (
@@ -350,130 +450,14 @@ function AddAndDisplayMatchmakingTimes({ activeTab }: { activeTab: MatchmakingTy
         <ElevatedButton
           label='Add'
           disabled={startDate === '' || invalidDate}
-          onClick={handleAddNew}
+          onClick={onAddMatchmakingTime}
         />
 
-        {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+        {addingTimeError ? <ErrorText>Error: {addingTimeError.message}</ErrorText> : null}
       </AddNewCard>
 
-      <HistoryContainer>
-        <FutureMatchmakingTimes
-          activeTab={activeTab}
-          futureTimes={futureTimes}
-          setFutureTimes={setFutureTimes}
-        />
-        <CurrentMatchmakingTime activeTab={activeTab} />
-        <PastMatchmakingTimes activeTab={activeTab} />
-      </HistoryContainer>
-    </>
-  )
-}
-
-function FutureMatchmakingTimes({
-  activeTab,
-  futureTimes,
-  setFutureTimes,
-}: {
-  activeTab: MatchmakingType
-  futureTimes: MatchmakingTimeJson[]
-  setFutureTimes: (futureTimes: MatchmakingTimeJson[]) => void
-}) {
-  const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
-
-  const futureTimesRef = useValueAsRef(futureTimes)
-
-  const [hasMoreFutureTimes, setHasMoreFutureTimes] = useState(true)
-  const [isLoadingFutureTimes, setIsLoadingFutureTimes] = useState(false)
-  const [lastError, setLastError] = useState<Error | undefined>(undefined)
-
-  const onLoadMoreFutureTimes = useCallback(
-    (offset: number) => {
-      setIsLoadingFutureTimes(true)
-
-      dispatch(
-        getMatchmakingTimesFuture(activeTab, offset, {
-          onSuccess: data => {
-            setFutureTimes(
-              concatWithoutDuplicates(futureTimesRef.current, data.futureTimes, 'id').sort(
-                (a, b) => a.startDate - b.startDate,
-              ),
-            )
-            setHasMoreFutureTimes(data.hasMoreFutureTimes)
-            setIsLoadingFutureTimes(false)
-            setLastError(undefined)
-          },
-          onError: err => {
-            setIsLoadingFutureTimes(false)
-            setLastError(err)
-          },
-        }),
-      )
-    },
-    [activeTab, dispatch, futureTimesRef, setFutureTimes],
-  )
-
-  useEffect(() => {
-    const abortController = new AbortController()
-
-    onLoadMoreFutureTimes(0)
-
-    return () => abortController.abort()
-  }, [onLoadMoreFutureTimes])
-
-  const onDeleteMatchmakingTime = (id: number) => {
-    dispatch(
-      deleteMatchmakingTime(activeTab, id, {
-        onSuccess: () => {
-          setFutureTimes(futureTimesRef.current.filter(time => time.id !== id))
-
-          snackbarController.showSnackbar('Matchmaking time deleted')
-        },
-        onError: err => {
-          snackbarController.showSnackbar('Error deleting matchmaking time')
-        },
-      }),
-    )
-  }
-
-  if (lastError) {
-    return <ErrorText>Error retrieving upcoming matchmaking times: {lastError.message}</ErrorText>
-  }
-
-  if (futureTimes.length === 0) {
-    return null
-  }
-
-  return (
-    <>
       <SectionTitle>Upcoming Matchmaking Times</SectionTitle>
-      {hasMoreFutureTimes && (
-        <LoadMoreButton
-          label={isLoadingFutureTimes ? 'Loading...' : 'Load more upcoming times'}
-          color='accent'
-          disabled={isLoadingFutureTimes}
-          onClick={() => onLoadMoreFutureTimes(futureTimes.length)}
-        />
-      )}
-      <FutureTimesContainer>
-        {futureTimes.map(time => (
-          <HistoryCard key={time.id}>
-            <HistoryInfo>
-              <HistoryDate>{longTimestamp.format(time.startDate)}</HistoryDate>
-              <HistoryStatus>
-                <MatchmakingStatus isEnabled={time.enabled} />
-              </HistoryStatus>
-            </HistoryInfo>
-            <HistoryActions>
-              <TextButton
-                label='Delete'
-                color='accent'
-                onClick={() => onDeleteMatchmakingTime(time.id)}
-              />
-            </HistoryActions>
-          </HistoryCard>
-        ))}
-      </FutureTimesContainer>
+      {futureTimesContents}
     </>
   )
 }
@@ -563,7 +547,7 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         getMatchmakingTimesPast(activeTab, offset, {
           onSuccess: data => {
             setPastTimes(
-              concatWithoutDuplicates(pastTimesRef.current, data.pastTimes, 'id').sort(
+              concatWithoutDuplicates(pastTimesRef.current, data.pastTimes, value => value.id).sort(
                 (a, b) => b.startDate - a.startDate,
               ),
             )
@@ -611,7 +595,7 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         </HistoryCard>
       ))}
       {hasMorePastTimes && (
-        <LoadMoreButton
+        <TextButton
           label={isLoadingPastTimes ? 'Loading...' : 'Load more past times'}
           color='accent'
           disabled={isLoadingPastTimes}
