@@ -97,35 +97,35 @@ export function BottomLinks() {
       <StyledLogo />
       <BottomLinksList>
         <li>
-          <IconLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
-            <Tooltip text='Discord' position='top'>
+          <Tooltip text='Discord' position='top'>
+            <IconLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
               <StyledDiscordLogo />
-            </Tooltip>
-          </IconLink>
+            </IconLink>
+          </Tooltip>
         </li>
         <li>
-          <IconLink
-            href='https://bsky.app/profile/shieldbattery.net'
-            target='_blank'
-            rel='noopener'>
-            <Tooltip text='Bluesky' position='top'>
+          <Tooltip text='Bluesky' position='top'>
+            <IconLink
+              href='https://bsky.app/profile/shieldbattery.net'
+              target='_blank'
+              rel='noopener'>
               <StyledBlueskyLogo />
-            </Tooltip>
-          </IconLink>
+            </IconLink>
+          </Tooltip>
         </li>
         <li>
-          <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
-            <Tooltip text='GitHub' position='top'>
+          <Tooltip text='GitHub' position='top'>
+            <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
               <StyledGithubLogo />
-            </Tooltip>
-          </IconLink>
+            </IconLink>
+          </Tooltip>
         </li>
         <li>
-          <IconLink href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-            <Tooltip text='Patreon' position='top'>
+          <Tooltip text='Patreon' position='top'>
+            <IconLink href='https://patreon.com/tec27' target='_blank' rel='noopener'>
               <StyledPatreonLogo />
-            </Tooltip>
-          </IconLink>
+            </IconLink>
+          </Tooltip>
         </li>
         <li>
           <Link href='/faq'>{t('landing.bottomLinks.faq', 'FAQ')}</Link>
