@@ -67,17 +67,20 @@ export function ComingSoon() {
           {t('comingSoon.subtitle', "Help fund ShieldBattery's development")}:
         </TitleMedium>
         <SupportLinks>
-          <Tooltip text={t('comingSoon.githubSponsors', 'GitHub Sponsors')} position='right'>
+          <Tooltip
+            text={t('comingSoon.githubSponsors', 'GitHub Sponsors')}
+            position='right'
+            tabIndex={-1}>
             <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
               <StyledGithubIcon />
             </a>
           </Tooltip>
-          <Tooltip text={t('comingSoon.patreon', 'Patreon')} position='right'>
+          <Tooltip text={t('comingSoon.patreon', 'Patreon')} position='right' tabIndex={-1}>
             <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
               <StyledPatreonIcon />
             </a>
           </Tooltip>
-          <Tooltip text={t('comingSoon.kofi', 'Ko-fi')} position='right'>
+          <Tooltip text={t('comingSoon.kofi', 'Ko-fi')} position='right' tabIndex={-1}>
             <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
               <StyledKofiIcon />
             </a>

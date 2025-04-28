@@ -142,17 +142,20 @@ export function Home() {
         <SupportSection>
           <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
           <SupportIcons>
-            <Tooltip text={t('home.githubSponsors', 'GitHub Sponsors')} position='bottom'>
+            <Tooltip
+              text={t('home.githubSponsors', 'GitHub Sponsors')}
+              position='bottom'
+              tabIndex={-1}>
               <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
                 <StyledGithubIcon />
               </a>
             </Tooltip>
-            <Tooltip text={t('home.patreon', 'Patreon')} position='bottom'>
+            <Tooltip text={t('home.patreon', 'Patreon')} position='bottom' tabIndex={-1}>
               <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
                 <StyledPatreonIcon />
               </a>
             </Tooltip>
-            <Tooltip text={t('home.kofi', 'Ko-fi')} position='bottom'>
+            <Tooltip text={t('home.kofi', 'Ko-fi')} position='bottom' tabIndex={-1}>
               <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
                 <StyledKofiIcon />
               </a>

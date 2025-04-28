@@ -1,7 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { Link } from 'wouter'
 import BlueskyLogo from '../icons/brands/bluesky.svg'
 import DiscordLogo from '../icons/brands/discord.svg'
 import GithubLogo from '../icons/brands/github.svg'
@@ -52,14 +51,16 @@ const BottomLinksList = styled.ul`
     min-width: 40px;
     height: 100%;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
   }
 `
 
-const IconLink = styled.a`
+const BottomLink = styled.a`
   min-width: 40px;
   height: 100%;
+  padding-inline: 4px;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,53 +98,55 @@ export function BottomLinks() {
       <StyledLogo />
       <BottomLinksList>
         <li>
-          <Tooltip text='Discord' position='top'>
-            <IconLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
+          <Tooltip text='Discord' position='top' tabIndex={-1}>
+            <BottomLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
               <StyledDiscordLogo />
-            </IconLink>
+            </BottomLink>
           </Tooltip>
         </li>
         <li>
-          <Tooltip text='Bluesky' position='top'>
-            <IconLink
+          <Tooltip text='Bluesky' position='top' tabIndex={-1}>
+            <BottomLink
               href='https://bsky.app/profile/shieldbattery.net'
               target='_blank'
               rel='noopener'>
               <StyledBlueskyLogo />
-            </IconLink>
+            </BottomLink>
           </Tooltip>
         </li>
         <li>
-          <Tooltip text='GitHub' position='top'>
-            <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
+          <Tooltip text='GitHub' position='top' tabIndex={-1}>
+            <BottomLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
               <StyledGithubLogo />
-            </IconLink>
+            </BottomLink>
           </Tooltip>
         </li>
         <li>
-          <Tooltip text='Patreon' position='top'>
-            <IconLink href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+          <Tooltip text='Patreon' position='top' tabIndex={-1}>
+            <BottomLink href='https://patreon.com/tec27' target='_blank' rel='noopener'>
               <StyledPatreonLogo />
-            </IconLink>
+            </BottomLink>
           </Tooltip>
         </li>
         <li>
-          <Link href='/faq'>{t('landing.bottomLinks.faq', 'FAQ')}</Link>
+          <BottomLink href='/faq'>{t('landing.bottomLinks.faq', 'FAQ')}</BottomLink>
         </li>
       </BottomLinksList>
       <BottomLinksList>
         <li>
-          <Link href='/privacy'>{t('landing.bottomLinks.privacyPolicy', 'Privacy Policy')}</Link>
+          <BottomLink href='/privacy'>
+            {t('landing.bottomLinks.privacyPolicy', 'Privacy Policy')}
+          </BottomLink>
         </li>
         <li>
-          <Link href='/terms-of-service'>
+          <BottomLink href='/terms-of-service'>
             {t('landing.bottomLinks.termsOfService', 'Terms of Service')}
-          </Link>
+          </BottomLink>
         </li>
         <li>
-          <Link href='/acceptable-use'>
+          <BottomLink href='/acceptable-use'>
             {t('landing.bottomLinks.acceptableUsePolicy', 'Acceptable Use Policy')}
-          </Link>
+          </BottomLink>
         </li>
       </BottomLinksList>
     </Root>
