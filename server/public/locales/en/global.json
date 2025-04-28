@@ -243,7 +243,10 @@
     }
   },
   "comingSoon": {
+    "githubSponsors": "GitHub Sponsors",
     "headline": "This feature is coming soon!",
+    "kofi": "Ko-fi",
+    "patreon": "Patreon",
     "subtitle": "Help fund ShieldBattery's development"
   },
   "common": {
@@ -377,7 +380,10 @@
     }
   },
   "home": {
+    "githubSponsors": "GitHub Sponsors",
+    "kofi": "Ko-fi",
     "latestNewsTitle": "Latest news",
+    "patreon": "Patreon",
     "supportTitle": "Support the project"
   },
   "ladder": {

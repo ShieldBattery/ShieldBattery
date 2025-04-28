@@ -11,6 +11,7 @@ import PatreonIcon from '../icons/brands/patreon.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
+import { Tooltip } from '../material/tooltip'
 import { StaticNewsFeed } from '../news/static-news-feed'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -63,26 +64,27 @@ const SupportText = styled.div`
 const SupportIcons = styled.div`
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 
-  & > a {
+  & a {
     &,
     &:link,
     &:visited {
-      width: 48px;
+      width: 56px;
       height: 48px;
 
       display: flex;
       align-items: center;
       justify-content: center;
 
-      color: var(--theme-on-surface-variant);
+      border-radius: 8px;
+      color: var(--theme-on-surface);
       text-align: center;
     }
 
     &:hover,
     &:active {
-      color: var(--theme-on-surface);
+      background-color: var(--theme-container-low);
     }
   }
 `
@@ -97,6 +99,7 @@ const StyledKofiIcon = styled(KofiIcon)`
 
 const StyledPatreonIcon = styled(PatreonIcon)`
   height: 32px;
+  color: #fff;
 `
 
 const Section = styled.section`
@@ -139,19 +142,21 @@ export function Home() {
         <SupportSection>
           <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
           <SupportIcons>
-            <a
-              href='https://github.com/sponsors/ShieldBattery'
-              target='_blank'
-              rel='noopener'
-              title='GitHub Sponsors'>
-              <StyledGithubIcon />
-            </a>
-            <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
-              <StyledPatreonIcon />
-            </a>
-            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
-              <StyledKofiIcon />
-            </a>
+            <Tooltip text={t('home.githubSponsors', 'GitHub Sponsors')} position='bottom'>
+              <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
+                <StyledGithubIcon />
+              </a>
+            </Tooltip>
+            <Tooltip text={t('home.patreon', 'Patreon')} position='bottom'>
+              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+                <StyledPatreonIcon />
+              </a>
+            </Tooltip>
+            <Tooltip text={t('home.kofi', 'Ko-fi')} position='bottom'>
+              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+                <StyledKofiIcon />
+              </a>
+            </Tooltip>
           </SupportIcons>
         </SupportSection>
         <Section>
