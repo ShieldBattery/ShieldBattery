@@ -9,7 +9,7 @@ exports[`client/messaging/common-message-layout/TextMessage message as a normal 
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -64,7 +64,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -126,7 +126,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -200,7 +200,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a link 
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -288,7 +288,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -355,7 +355,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -428,7 +428,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
@@ -510,7 +510,7 @@ exports[`client/messaging/common-message-layout/TextMessage message with a menti
     role="document"
   >
     <div
-      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 bTBVBZ message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
+      class="tooltip__TooltipChildrenContainer-sc-qaqusi-0 uMExU message-layout__StyledTooltip-sc-5nek6h-1 jCgYot"
       tabindex="0"
     >
       <span
