@@ -82,11 +82,6 @@ const ChannelName = styled.div`
   flex-shrink: 0;
 `
 
-const StyledTooltip = styled(Tooltip)`
-  // NOTE(2Pac): Need this to make truncated text on channel topic work.
-  min-width: 0px;
-`
-
 const StyledTooltipContent = styled(TooltipContent)`
   max-width: 480px;
   display: block;
@@ -279,14 +274,14 @@ export function ChannelHeader({
         <NameAndTopicContainer>
           <ChannelName>#{basicChannelInfo.name}</ChannelName>
           {parsedChannelTopic ? (
-            <StyledTooltip
+            <Tooltip
               text={parsedChannelTopic}
               position='bottom'
               disabled={!isChannelTopicOverflowing}
               interactive={true}
               ContentComponent={StyledTooltipContent}>
               <ChannelTopic ref={channelTopicRef}>{parsedChannelTopic}</ChannelTopic>
-            </StyledTooltip>
+            </Tooltip>
           ) : null}
         </NameAndTopicContainer>
       </BadgeAndTextContainer>

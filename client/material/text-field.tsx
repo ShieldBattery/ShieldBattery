@@ -160,10 +160,6 @@ const TrailingIcon = styled.span<{ $dense?: boolean; $index: number; $multiline?
   }};
 `
 
-const ClearTooltip = styled(Tooltip)`
-  height: 32px;
-`
-
 const ClearButton = styled(IconButton)`
   width: 32px;
   min-height: 32px;
@@ -339,9 +335,9 @@ export function TextField({
         $index={trailingIconsElements.length}
         $dense={dense}
         $multiline={multiline}>
-        <ClearTooltip text='Clear'>
+        <Tooltip text='Clear'>
           <ClearButton icon={<MaterialIcon icon='close' />} onClick={clearAndFocusInput} />
-        </ClearTooltip>
+        </Tooltip>
       </TrailingIcon>,
     )
   }

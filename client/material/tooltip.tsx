@@ -22,6 +22,8 @@ const TooltipChildrenContainer = styled.div`
   align-items: inherit;
   justify-content: inherit;
   text-align: inherit;
+  min-width: 0;
+  min-height: 0;
 `
 
 const NoPointerPortal = styled(Portal)`

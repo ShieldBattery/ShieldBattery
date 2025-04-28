@@ -46,6 +46,7 @@ export default class TextFieldTest extends React.Component {
     value16: '',
     value17: '',
     value18: '',
+    value19: '',
     changeError: null,
     dense: false,
   }
@@ -292,6 +293,15 @@ export default class TextFieldTest extends React.Component {
             multiline={true}
             rows={4}
             maxRows={4}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='19'
+            value={this.state.value19}
+            floatingLabel={true}
+            hasClearButton={true}
+            dense={this.state.dense}
+            label='With clear button'
             onChange={this.onChange}
           />
         </StyledCard>
