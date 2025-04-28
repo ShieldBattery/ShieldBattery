@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { getErrorStack } from '../common/errors'
+import { SbUser } from '../common/users/sb-user'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
 import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
@@ -11,6 +12,7 @@ import { ConnectedAvatar } from './avatars/avatar'
 import { openDialog, openSimpleDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
+import { useOverflowingElement } from './dom/overflowing-element'
 import { PlayButton } from './gameplay-activity/play-button'
 import { useHasNewUrgentMessage } from './home/last-seen-urgent-message'
 import { MaterialIcon } from './icons/material/material-icon'
@@ -22,11 +24,15 @@ import {
   IconButton,
   keyEventMatches,
   useButtonHotkey,
+  useButtonState,
 } from './material/button'
+import { buttonReset } from './material/button-reset'
 import { emphasizedAccelerateEasing, emphasizedDecelerateEasing } from './material/curve-constants'
 import { Divider } from './material/menu/divider'
 import { MenuItem } from './material/menu/item'
 import { usePopoverController } from './material/popover'
+import { Ripple } from './material/ripple'
+import { elevationPlus1 } from './material/shadows'
 import { Tooltip } from './material/tooltip'
 import {
   NavigationMenuItem,
@@ -42,7 +48,7 @@ import { useStableCallback, useUserLocalStorageValue } from './react/state-hooks
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { SocialSidebar } from './social/social-sidebar'
-import { singleLine, sofiaSans } from './styles/typography'
+import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
 
@@ -384,22 +390,6 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
     /** Give these elements a new stacking context so they display over top of the ::before */
     position: relative;
   }
-
-  & > *:first-child {
-    /*
-      Push the left edge of content to be in the proper position without messing up the centering
-      of the play button
-    */
-    margin-left: 12px;
-  }
-`
-
-const AvatarSpace = styled.div`
-  height: 64px;
-  margin-bottom: 8px;
-
-  display: flex;
-  align-items: center;
 `
 
 const MenuItems = styled.div<{ $breakpoint: AppBarBreakpoint }>`
@@ -424,17 +414,125 @@ const IconButtons = styled.div`
   justify-content: flex-end;
 `
 
-const LeftSideSmall = styled.div`
-  display: flex;
+const LeftSide = styled.div`
+  margin-left: 12px;
+
+  display: grid;
+  grid-template-columns: [menu-button] auto [user-button] 1fr;
+
   align-items: center;
   gap: 8px;
+
+  overflow: hidden;
 `
 
-const AvatarButton = styled(IconButton)`
-  width: 56px;
-  height: 56px;
-  margin: 4px;
+const UserSpace = styled.div`
+  grid-column: user-button;
+
+  height: 64px;
+  min-width: min(200px, 100% - 12px);
+  max-width: calc(100% - 12px);
+  margin-bottom: 8px;
+  flex-shrink: 1;
+  overflow: visible;
+
+  display: flex;
+  align-items: center;
 `
+
+const UserButton = styled.button`
+  ${buttonReset};
+  ${elevationPlus1};
+
+  height: 52px;
+  min-width: min(160px, 100% - 16px);
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  margin-inline: 0 16px;
+  margin-block: 6px;
+  padding-inline: 8px 12px;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+
+  background-color: var(--theme-primary-container);
+  border-radius: 8px;
+  color: var(--theme-on-primary-container);
+
+  @media (max-width: 704px) {
+    width: 56px;
+    min-width: unset;
+    max-width: unset;
+  }
+`
+
+const UserButtonAvatar = styled(ConnectedAvatar)`
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+`
+
+const UserButtonNameAndTitle = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  flex-grow: 1;
+  flex-shrink: 1;
+
+  & > * {
+    ${singleLine};
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  @media (max-width: 704px) {
+    display: none;
+  }
+`
+
+const UserButtonName = styled.div`
+  ${titleMedium};
+  ${singleLine};
+  max-width: 100%;
+`
+
+function AppBarUser({
+  user,
+  onClick,
+  ref,
+}: {
+  user: SbUser
+  onClick: (event: React.MouseEvent) => void
+  ref?: React.Ref<HTMLButtonElement>
+}) {
+  const { t } = useTranslation()
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
+
+  const [nameRef, isNameOverflowing] = useOverflowingElement<HTMLDivElement>()
+
+  const title = t('users.titles.novice', 'Novice')
+
+  return (
+    <UserButton
+      {...buttonProps}
+      ref={ref}
+      data-test='app-bar-user-button'
+      aria-label={t('navigation.bar.userMenu', 'User menu')}>
+      <UserButtonAvatar userId={user.id} />
+      <UserButtonNameAndTitle>
+        <Tooltip text={user.name} position='bottom' disabled={!isNameOverflowing}>
+          <UserButtonName ref={nameRef}>{user.name}</UserButtonName>
+        </Tooltip>
+        <TitleTiny>{title}</TitleTiny>
+      </UserButtonNameAndTitle>
+      <Ripple ref={rippleRef} />
+    </UserButton>
+  )
+}
 
 function AppBar({
   onToggleSocial,
@@ -486,17 +584,11 @@ function AppBar({
     },
   })
 
-  const avatarSpace = (
-    <AvatarSpace>
+  const userSpace = (
+    <UserSpace>
       {selfUser ? (
         <>
-          <AvatarButton
-            ref={setProfileEntryElem}
-            icon={<ConnectedAvatar userId={selfUser.id} />}
-            testName='app-bar-user-button'
-            ariaLabel={t('navigation.bar.userMenu', 'User menu')}
-            onClick={openProfileOverlay}
-          />
+          <AppBarUser ref={setProfileEntryElem} onClick={openProfileOverlay} user={selfUser} />
           <SelfProfileOverlay
             popoverProps={{
               open: profileOverlayOpen,
@@ -560,7 +652,7 @@ function AppBar({
           disabled={onLoginPage}
         />
       )}
-    </AvatarSpace>
+    </UserSpace>
   )
 
   return (
@@ -568,7 +660,7 @@ function AppBar({
       <AppBarRoot ref={breakpointRef} $breakpoint={breakpoint}>
         {breakpoint === AppBarBreakpoint.Normal ? (
           <>
-            {avatarSpace}
+            <LeftSide>{userSpace}</LeftSide>
             <MenuItems $breakpoint={breakpoint}>
               <MenuItemsStart>
                 <AppBarMenuItem href='/' routePattern='/' hotkey={ALT_O} showPip={homeHasPip}>
@@ -605,7 +697,7 @@ function AppBar({
           </>
         ) : (
           <>
-            <LeftSideSmall>
+            <LeftSide>
               <IconButtons>
                 <IconButton
                   icon={<ShadowedIcon icon='menu' />}
@@ -614,8 +706,8 @@ function AppBar({
                   onClick={onOpenAppMenu}
                 />
               </IconButtons>
-              {avatarSpace}
-            </LeftSideSmall>
+              {userSpace}
+            </LeftSide>
             <MenuItems $breakpoint={breakpoint}>
               <PlayButton />
             </MenuItems>

@@ -84,6 +84,18 @@ export const LabelLarge = styled.div`
   ${labelLarge};
 `
 
+export const titleTiny = css`
+  ${sofiaSans};
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  line-height: 16px;
+`
+
+export const TitleTiny = styled.div`
+  ${titleTiny};
+`
+
 export const titleSmall = css`
   ${sofiaSans};
   font-size: 16px;
