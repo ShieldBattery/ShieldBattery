@@ -17,7 +17,7 @@ import { ElevatedButton, IconButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { NumberTextField } from '../material/number-text-field'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -362,7 +362,7 @@ export class MapPoolEditor extends React.Component {
 
 const MapPoolHistoryRow = React.memo(props => {
   const [actionsOverlayOpen, openActionsOverlay, closeActionsOverlay] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useAnchorPosition('left', 'top')
+  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('left', 'top')
 
   const onMapActionClick = useCallback(
     handler => {

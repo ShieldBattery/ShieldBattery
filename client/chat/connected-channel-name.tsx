@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
@@ -42,7 +42,7 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
   }, [dispatch, channelId, isChannelDeleted])
 
   const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'top')
+  const [anchor, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
 
   if (isChannelDeleted) {
     return <span>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>

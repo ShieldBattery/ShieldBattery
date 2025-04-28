@@ -5,8 +5,8 @@ import {
   OriginX,
   OriginY,
   Popover,
-  useAnchorPosition,
   usePopoverController,
+  useRefAnchorPosition,
 } from '../../material/popover'
 import { BodyLarge, HeadlineMedium, TitleLarge } from '../../styles/typography'
 import { IconButton } from '../button'
@@ -79,19 +79,19 @@ export default function PopoverTest() {
   const [bottomLeftOpen, openBottomLeft, closeBottomLeft] = usePopoverController()
   const [bottomRightOpen, openBottomRight, closeBottomRight] = usePopoverController()
 
-  const [topLeftAnchor, topLeftAnchorX, topLeftAnchorY] = useAnchorPosition(
+  const [topLeftAnchor, topLeftAnchorX, topLeftAnchorY] = useRefAnchorPosition(
     anchorOriginX,
     anchorOriginY,
   )
-  const [topRightAnchor, topRightAnchorX, topRightAnchorY] = useAnchorPosition(
+  const [topRightAnchor, topRightAnchorX, topRightAnchorY] = useRefAnchorPosition(
     anchorOriginX,
     anchorOriginY,
   )
-  const [bottomLeftAnchor, bottomLeftAnchorX, bottomLeftAnchorY] = useAnchorPosition(
+  const [bottomLeftAnchor, bottomLeftAnchorX, bottomLeftAnchorY] = useRefAnchorPosition(
     anchorOriginX,
     anchorOriginY,
   )
-  const [bottomRightAnchor, bottomRightAnchorX, bottomRightAnchorY] = useAnchorPosition(
+  const [bottomRightAnchor, bottomRightAnchorX, bottomRightAnchorY] = useRefAnchorPosition(
     anchorOriginX,
     anchorOriginY,
   )

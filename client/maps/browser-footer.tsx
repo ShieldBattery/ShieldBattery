@@ -19,7 +19,7 @@ import { fastOutSlowInShort } from '../material/curves'
 import { FloatingActionButton } from '../material/floating-action-button'
 import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useImmerState } from '../react/state-hooks'
 import { SearchInput } from '../search/search-input'
 import { labelMedium } from '../styles/typography'
@@ -138,9 +138,9 @@ export function BrowserFooter({
   )
   const [localTilesetFilter, updateLocalTilesetFilter] = useImmerState(() => new Set(tilesetFilter))
 
-  const [filterButtonRef, filterAnchorX, filterAnchorY] = useAnchorPosition('right', 'bottom')
-  const [sizeRef, sizeAnchorX, sizeAnchorY] = useAnchorPosition('right', 'bottom')
-  const [sortMenuRef, sortAnchorX, sortAnchorY] = useAnchorPosition('right', 'bottom')
+  const [filterButtonRef, filterAnchorX, filterAnchorY] = useRefAnchorPosition('right', 'bottom')
+  const [sizeRef, sizeAnchorX, sizeAnchorY] = useRefAnchorPosition('right', 'bottom')
+  const [sortMenuRef, sortAnchorX, sortAnchorY] = useRefAnchorPosition('right', 'bottom')
 
   // TODO(tec27): The overlays menus should probably return focus to the button that opens them, so
   // that keyboard navigation of this interface is reasonably possible

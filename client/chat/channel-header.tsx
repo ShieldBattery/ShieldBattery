@@ -22,7 +22,7 @@ import { CheckableMenuItem } from '../material/menu/checkable-item'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useStableCallback } from '../react/state-hooks'
@@ -140,7 +140,7 @@ export function ChannelHeader({
   const selfPermissions = useSelfPermissions()
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'bottom')
+  const [anchor, anchorX, anchorY] = useRefAnchorPosition('right', 'bottom')
 
   const [channelTopicRef, isChannelTopicOverflowing] = useOverflowingElement()
 

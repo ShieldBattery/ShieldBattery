@@ -8,7 +8,7 @@ import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -209,7 +209,7 @@ export function MapThumbnail({
 }: MapThumbnailProps) {
   const { t } = useTranslation()
   const [menuOpen, openMenu, closeMenu] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
+  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
 
   const onActionClick = useCallback(
     (handler: () => void) => {

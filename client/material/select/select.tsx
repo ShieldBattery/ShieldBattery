@@ -13,7 +13,7 @@ import { FloatingLabel } from '../input-floating-label'
 import { InputUnderline } from '../input-underline'
 import { MenuList } from '../menu/menu'
 import { isSelectableMenuItem } from '../menu/menu-item-symbol'
-import { Popover, useAnchorPosition, usePopoverController } from '../popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../popover'
 import { SelectOptionProps } from './option'
 
 const SPACE = 'Space'
@@ -201,7 +201,7 @@ export function Select({
   const [inputElem, setInputElem] = useState<HTMLButtonElement | null>(null)
 
   const [opened, openSelect, closeSelect] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
+  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('center', 'bottom')
 
   const focusedRef = useValueAsRef(focused)
   const openedRef = useValueAsRef(opened)

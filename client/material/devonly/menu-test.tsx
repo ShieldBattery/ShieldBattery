@@ -7,7 +7,7 @@ import { Divider } from '../menu/divider'
 import { MenuItem } from '../menu/item'
 import { MenuList } from '../menu/menu'
 import { SelectableMenuItem } from '../menu/selectable-item'
-import { Popover, useAnchorPosition, usePopoverController } from '../popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../popover'
 
 const Container = styled.div`
   display: flex;
@@ -46,18 +46,19 @@ export function MenuTest() {
   const [selectionMenuOpen, openSelectionMenu, closeSelectionMenu] = usePopoverController()
   const [mixedMenuOpen, openMixedMenu, closeMixedMenu] = usePopoverController()
 
-  const [normalAnchor, normalAnchorX, normalAnchorY] = useAnchorPosition('center', 'top')
-  const [scrollableAnchor, scrollableAnchorX, scrollableAnchorY] = useAnchorPosition(
+  const [normalAnchor, normalAnchorX, normalAnchorY] = useRefAnchorPosition('center', 'top')
+  const [scrollableAnchor, scrollableAnchorX, scrollableAnchorY] = useRefAnchorPosition(
     'center',
     'top',
   )
-  const [denseAnchor, denseAnchorX, denseAnchorY] = useAnchorPosition('center', 'top')
-  const [scrollableDenseAnchor, scrollableDenseAnchorX, scrollableDenseAnchorY] = useAnchorPosition(
+  const [denseAnchor, denseAnchorX, denseAnchorY] = useRefAnchorPosition('center', 'top')
+  const [scrollableDenseAnchor, scrollableDenseAnchorX, scrollableDenseAnchorY] =
+    useRefAnchorPosition('center', 'top')
+  const [selectionAnchor, selectionAnchorX, selectionAnchorY] = useRefAnchorPosition(
     'center',
     'top',
   )
-  const [selectionAnchor, selectionAnchorX, selectionAnchorY] = useAnchorPosition('center', 'top')
-  const [mixedAnchor, mixedAnchorX, mixedAnchorY] = useAnchorPosition('center', 'top')
+  const [mixedAnchor, mixedAnchorX, mixedAnchorY] = useRefAnchorPosition('center', 'top')
 
   const [selectedIndex, setSelectedIndex] = useState(2)
 

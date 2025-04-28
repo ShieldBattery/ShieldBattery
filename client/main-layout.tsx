@@ -40,7 +40,7 @@ import {
   useNavigationMenuState,
 } from './navigation/navigation-menu'
 import { push } from './navigation/routing'
-import { NotificationsButton } from './notifications/activity-bar-entry'
+import { NotificationsButton } from './notifications/app-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
 import { useMultiplexRef } from './react/refs'

@@ -2,7 +2,7 @@ import { Transition, Variants } from 'motion/react'
 import React from 'react'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
-import { Popover, PopoverProps, useAnchorPosition } from '../material/popover'
+import { Popover, PopoverProps, useElemAnchorPosition } from '../material/popover'
 import { bodyMedium, singleLine, titleLarge } from '../styles/typography'
 
 const PopoverContents = styled.div`
@@ -56,7 +56,7 @@ const transition: Transition = {
 
 export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
   const { username, anchor, popoverProps, children } = props
-  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', anchor ?? null)
+  const [anchorX, anchorY] = useElemAnchorPosition(anchor ?? null, 'left', 'top')
 
   return (
     <Popover

@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
@@ -80,7 +80,7 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
   const [buttonElem, setButtonElem] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: buttonElem, hotkey: ALT_N })
 
-  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', buttonElem)
+  const [anchorX, anchorY] = useElemAnchorPosition(buttonElem, 'center', 'bottom')
 
   return (
     <>

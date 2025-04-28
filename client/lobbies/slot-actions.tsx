@@ -4,7 +4,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 
 interface SlotActionsProps {
   slotActions: Array<[text: string, handler: () => void]>
@@ -13,7 +13,7 @@ interface SlotActionsProps {
 export function SlotActions({ slotActions }: SlotActionsProps) {
   const { t } = useTranslation()
   const [overlayOpen, openOverlay, closeOverlay] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
+  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
 
   const onActionClick = useCallback(
     (handler: () => void) => {

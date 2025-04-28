@@ -6,7 +6,7 @@ import {
   Variants,
 } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { SetOptional, Tagged } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -408,30 +408,17 @@ export function PopoverContent({
  *   bounding rect
  * @param originY which location to use for calculating the Y position within the anchor's
  *   bounding rect
- * @param anchorElement optional, allows you to specify an anchor element directly rather than using
- *  the returned ref
- *
- * @returns a tuple of [a ref to attach to the desired anchor object, the current x position, and
- * the current y position].
  */
-export function useAnchorPosition(
+export function useRefAnchorPosition(
   originX: OriginX,
   originY: OriginY,
-  element?: HTMLElement | null,
 ): [ref: (instance: HTMLElement | null) => void, x: number | undefined, y: number | undefined] {
-  const did = useId()
-
   const [refreshToken, refresh] = useRefreshToken()
   const [ref, rect] = useElementRect(false, refreshToken)
 
   useWindowListener('resize', () => {
     refresh()
   })
-  useLayoutEffect(() => {
-    if (element) {
-      assignRef(ref, element)
-    }
-  }, [did, element, ref])
 
   let x: number | undefined
   let y: number | undefined
@@ -466,4 +453,36 @@ export function useAnchorPosition(
   }
 
   return [ref, x, y]
+}
+
+/**
+ * A hook that keeps track of an element's position on re-render, using a specified location within
+ * its bounding rect. Note that the position will only be updated when the component re-renders, so
+ * if it can change for reasons outside of the component tree (e.g. window resizing, scrolling), you
+ * may need to attach event handlers to cause re-renders.
+ *
+ * @param anchorElement which element to track the position of
+ * @param originX which location to use for calculating the X position within the anchor's
+ *   bounding rect
+ * @param originY which location to use for calculating the Y position within the anchor's
+ *   bounding rect
+ */
+export function useElemAnchorPosition(
+  element: HTMLElement | null,
+  originX: OriginX,
+  originY: OriginY,
+): [x: number | undefined, y: number | undefined] {
+  const [ref, x, y] = useRefAnchorPosition(originX, originY)
+  const cleanupRef = useRef<ReturnType<React.RefCallback<HTMLElement>>>(undefined)
+
+  useLayoutEffect(() => {
+    if (cleanupRef.current && element === null) {
+      cleanupRef.current()
+      cleanupRef.current = undefined
+    } else {
+      cleanupRef.current = assignRef(ref, element)
+    }
+  }, [element, ref])
+
+  return [x, y]
 }

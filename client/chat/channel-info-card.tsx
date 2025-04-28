@@ -9,7 +9,7 @@ import { ElevatedButton, IconButton } from '../material/button'
 import { Card } from '../material/card'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { elevationPlus1 } from '../material/shadows'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -157,7 +157,7 @@ export function ConnectedChannelInfoCard({
   const isAdmin = useHasAnyPermission('moderateChatChannels')
 
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'top')
+  const [anchor, anchorX, anchorY] = useRefAnchorPosition('left', 'top')
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
   const [isUserBanned, setIsUserBanned] = useState(false)

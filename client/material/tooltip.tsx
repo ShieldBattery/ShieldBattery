@@ -2,7 +2,7 @@ import { AnimatePresence } from 'motion/react'
 import React, { useCallback, useEffect, useId, useState } from 'react'
 import styled, { css, RuleSet } from 'styled-components'
 import { labelMedium } from '../styles/typography'
-import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
+import { OriginX, OriginY, PopoverContent, useElemAnchorPosition } from './popover'
 import { Portal } from './portal'
 import { elevationPlus2 } from './shadows'
 
@@ -188,10 +188,10 @@ export function Tooltip({
 
   const anchorOriginX = position === 'top' || position === 'bottom' ? 'center' : position
   const anchorOriginY = position === 'left' || position === 'right' ? 'center' : position
-  const [, anchorX = 0, anchorY = 0] = useAnchorPosition(
+  const [anchorX = 0, anchorY = 0] = useElemAnchorPosition(
+    anchorElem ?? null,
     anchorOriginX,
     anchorOriginY,
-    anchorElem ?? null,
   )
 
   const onMouseEnter = useCallback((event: React.MouseEvent | React.FocusEvent) => {

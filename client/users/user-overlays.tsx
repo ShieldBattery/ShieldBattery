@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
-import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
+import { OriginX, OriginY, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { ConnectedUserContextMenuProps, UserMenuComponent } from './user-context-menu'
 import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
 
@@ -42,7 +42,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   UserMenu,
 }: UserOverlaysProps): UserOverlays<E> {
   const [clickableElem, setClickableElem] = useState<E | null>(null)
-  const [, anchorX, anchorY] = useAnchorPosition(profileAnchorX, profileAnchorY, clickableElem)
+  const [anchorX, anchorY] = useElemAnchorPosition(clickableElem, profileAnchorX, profileAnchorY)
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
