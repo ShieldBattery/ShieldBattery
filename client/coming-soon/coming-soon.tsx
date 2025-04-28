@@ -73,12 +73,12 @@ export function ComingSoon() {
             </a>
           </Tooltip>
           <Tooltip text={t('comingSoon.patreon', 'Patreon')} position='right'>
-            <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
+            <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
               <StyledPatreonIcon />
             </a>
           </Tooltip>
           <Tooltip text={t('comingSoon.kofi', 'Ko-fi')} position='right'>
-            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
               <StyledKofiIcon />
             </a>
           </Tooltip>
