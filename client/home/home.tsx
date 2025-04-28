@@ -153,7 +153,7 @@ export function Home() {
               </a>
             </Tooltip>
             <Tooltip text={t('home.kofi', 'Ko-fi')} position='bottom'>
-              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
                 <StyledKofiIcon />
               </a>
             </Tooltip>
