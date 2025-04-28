@@ -30,7 +30,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
-import { bodyLarge, bodyMedium, labelLarge, titleLarge } from '../styles/typography'
+import { bodyLarge, bodyMedium, titleLarge, titleMedium } from '../styles/typography'
 
 function getCurrentMatchmakingTime(
   type: MatchmakingType,
@@ -164,8 +164,8 @@ const FutureTimesContainer = styled.div`
   gap: 8px;
 `
 
-const SectionTitle = styled.h3`
-  ${labelLarge};
+const SectionTitle = styled.div`
+  ${titleMedium};
   color: var(--theme-on-surface-variant);
 
   margin-block: 16px 8px;
@@ -336,7 +336,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     dispatch(
       addMatchmakingTime(activeTab, Date.parse(startDate), enabled, {
         onSuccess: data => {
-          setFutureTimes(
+          setFutureTimes(futureTimes =>
             concatWithoutDuplicates(futureTimes, [data], value => value.id).sort(
               (a, b) => a.startDate - b.startDate,
             ),
@@ -358,7 +358,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     dispatch(
       deleteMatchmakingTime(activeTab, id, {
         onSuccess: () => {
-          setFutureTimes(futureTimes.filter(time => time.id !== id))
+          setFutureTimes(futureTimes => futureTimes.filter(time => time.id !== id))
 
           snackbarController.showSnackbar('Matchmaking time deleted')
         },
