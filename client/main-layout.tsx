@@ -104,7 +104,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   ${singleLine};
 
   position: relative;
-  min-width: 140px;
+  min-width: 128px;
   height: 64px;
   padding: 0 20px;
 
