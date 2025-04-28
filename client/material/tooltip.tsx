@@ -9,10 +9,19 @@ import { elevationPlus2 } from './shadows'
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
 
 const TooltipChildrenContainer = styled.div`
-  // NOTE(2Pac): For some reason, when tooltips are used inside a flex container with "row"
-  // direction, their height exceeds the height of their children, and making them flex containers
-  // themselves "fixes" that.
-  display: flex;
+  // NOTE(tec27): Because we wrap the children, some layout types (flexbox especially) can end up
+  // stretching the wrapper element when they would not have stretched the children placed directly.
+  // e.g. if you place a button with a fixed height inside a tooltip inside a flex row with
+  // align-items: center, the button will end up not being centered because the wrapper gets
+  // stretched to the height of the container. To fix this, we inherit the layout properties of the
+  // parent element. There are likely still cases for which this doesn't work as expected and
+  // dropping in a tooltip does break layout, but these can be fixed by styling the component as
+  // well.
+  display: inherit;
+  flex-direction: inherit;
+  align-items: inherit;
+  justify-content: inherit;
+  text-align: inherit;
 `
 
 const NoPointerPortal = styled(Portal)`
