@@ -64,12 +64,14 @@ export function binarySearch<T, V>(
 export function concatWithoutDuplicates<T, U>(
   array1: ReadonlyArray<T>,
   array2: ReadonlyArray<T>,
-  keyFn: (value: T) => U | T = (value: T) => value,
+  keyFn?: (value: T) => U,
 ): Array<T> {
+  const getKey = keyFn ?? ((value: T) => value)
   const seen = new Set()
   return array1.concat(array2).filter(t => {
-    const result = !seen.has(keyFn(t))
-    seen.add(keyFn(t))
+    const key = getKey(t)
+    const result = !seen.has(key)
+    seen.add(key)
     return result
   })
 }

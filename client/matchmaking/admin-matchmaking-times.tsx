@@ -25,7 +25,6 @@ import { TextField } from '../material/text-field'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { LoadingDotsArea } from '../progress/dots'
-import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -297,8 +296,6 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     undefined,
   )
 
-  const futureTimesRef = useValueAsRef(futureTimes)
-
   const onLoadMoreFutureTimes = useCallback(
     (offset: number) => {
       setIsLoadingFutureTimes(true)
@@ -306,9 +303,9 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
       dispatch(
         getMatchmakingTimesFuture(activeTab, offset, {
           onSuccess: data => {
-            setFutureTimes(
+            setFutureTimes(existingFutureTimes =>
               concatWithoutDuplicates(
-                futureTimesRef.current,
+                existingFutureTimes,
                 data.futureTimes,
                 value => value.id,
               ).sort((a, b) => a.startDate - b.startDate),
@@ -324,7 +321,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         }),
       )
     },
-    [activeTab, dispatch, futureTimesRef, setFutureTimes],
+    [activeTab, dispatch, setFutureTimes],
   )
 
   useEffect(() => {
@@ -361,7 +358,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     dispatch(
       deleteMatchmakingTime(activeTab, id, {
         onSuccess: () => {
-          setFutureTimes(futureTimesRef.current.filter(time => time.id !== id))
+          setFutureTimes(futureTimes.filter(time => time.id !== id))
 
           snackbarController.showSnackbar('Matchmaking time deleted')
         },
@@ -533,7 +530,6 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
 
   const [pastTimes, setPastTimes] = useState<MatchmakingTimeJson[]>([])
-  const pastTimesRef = useValueAsRef(pastTimes)
 
   const [hasMorePastTimes, setHasMorePastTimes] = useState(true)
   const [isLoadingPastTimes, setIsLoadingPastTimes] = useState(false)
@@ -546,8 +542,8 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
       dispatch(
         getMatchmakingTimesPast(activeTab, offset, {
           onSuccess: data => {
-            setPastTimes(
-              concatWithoutDuplicates(pastTimesRef.current, data.pastTimes, value => value.id).sort(
+            setPastTimes(existingPastTimes =>
+              concatWithoutDuplicates(existingPastTimes, data.pastTimes, value => value.id).sort(
                 (a, b) => b.startDate - a.startDate,
               ),
             )
@@ -562,7 +558,7 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         }),
       )
     },
-    [activeTab, dispatch, pastTimesRef, setPastTimes],
+    [activeTab, dispatch, setPastTimes],
   )
 
   useEffect(() => {
