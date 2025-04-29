@@ -45,7 +45,7 @@ const RightSection = styled.div`
 const SupportSection = styled.div`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
-  height: 56px;
+  min-height: 56px;
   padding-inline: 16px 4px;
 
   display: flex;
@@ -57,8 +57,8 @@ const SupportSection = styled.div`
 `
 
 const SupportText = styled.div`
-  ${singleLine};
   ${titleSmall};
+  padding-block: 16px;
 `
 
 const SupportIcons = styled.div`
