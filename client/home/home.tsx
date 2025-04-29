@@ -46,7 +46,7 @@ const SupportSection = styled.div`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
   height: 56px;
-  padding-inline: 16px 12px;
+  padding-inline: 16px 4px;
 
   display: flex;
   align-items: center;
@@ -64,7 +64,6 @@ const SupportText = styled.div`
 const SupportIcons = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
 
   & a {
     &,
@@ -142,20 +141,17 @@ export function Home() {
         <SupportSection>
           <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
           <SupportIcons>
-            <Tooltip
-              text={t('home.githubSponsors', 'GitHub Sponsors')}
-              position='bottom'
-              tabIndex={-1}>
+            <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
               <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
                 <StyledGithubIcon />
               </a>
             </Tooltip>
-            <Tooltip text={t('home.patreon', 'Patreon')} position='bottom' tabIndex={-1}>
+            <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
               <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
                 <StyledPatreonIcon />
               </a>
             </Tooltip>
-            <Tooltip text={t('home.kofi', 'Ko-fi')} position='bottom' tabIndex={-1}>
+            <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
               <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
                 <StyledKofiIcon />
               </a>
