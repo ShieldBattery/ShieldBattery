@@ -1,1 +1,5 @@
+recursiveInstall: false
 shellEmulator: true
+
+packages:
+  - 'app'

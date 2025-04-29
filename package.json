@@ -352,7 +352,8 @@
       "@types/react": "^19.1.0",
       "@types/react-dom": "^19.1.1",
       "@types/unist": "^3.0.3",
-      "long": "github:tec27/long.js#9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41"
+      "long": "github:tec27/long.js#9038317e4ae0c6ddc19f4a2269b5eb5451c2bc41",
+      "parse5": "7.2.1"
     },
     "onlyBuiltDependencies": [
       "@parcel/watcher",
