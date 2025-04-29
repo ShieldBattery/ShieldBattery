@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -201,10 +201,6 @@ export function UserProfileOverlayContents({
   )
 
   const username = user?.name
-  const onIdentityClick = useCallback(() => {
-    onDismiss?.()
-    navigateToUserProfile(userId, username ?? '')
-  }, [userId, username, onDismiss])
 
   useEffect(() => {
     cancelLoadRef.current.abort()
@@ -234,7 +230,11 @@ export function UserProfileOverlayContents({
           {t('users.errors.profile.loadUser', 'There was a problem loading this user.')}
         </LoadingError>
       ) : null}
-      <IdentityArea onClick={onIdentityClick}>
+      <IdentityArea
+        onClick={() => {
+          onDismiss?.()
+          navigateToUserProfile(userId, username ?? '')
+        }}>
         <AvatarContainer>
           <AvatarCircle>
             <StyledAvatar userId={userId} />

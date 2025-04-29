@@ -183,3 +183,24 @@ export function useBreakpoint<T extends Element, B>(
 
   return [ref, breakpoint ?? defaultBreakpoint]
 }
+
+export function useWindowSize(): [width: number | undefined, height: number | undefined] {
+  const [size, setSize] = useState<[width: number | undefined, height: number | undefined]>([
+    undefined,
+    undefined,
+  ])
+
+  useLayoutEffect(() => {
+    const updateSize = () => {
+      setSize([window.innerWidth, window.innerHeight])
+    }
+
+    updateSize()
+    window.addEventListener('resize', updateSize)
+    return () => {
+      window.removeEventListener('resize', updateSize)
+    }
+  }, [])
+
+  return size
+}

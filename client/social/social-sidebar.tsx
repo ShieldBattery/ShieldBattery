@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { MouseEvent, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link, useLocation } from 'wouter'
@@ -13,14 +13,18 @@ import { getBatchChannelInfo, leaveChannel } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { useWindowSize } from '../dom/dimension-hooks'
+import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ElevatedButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
+import { zIndexMenu, zIndexMenuBackdrop } from '../material/zindex'
+import { NavigationTrackerProvider, useNavigationTracker } from '../navigation/navigation-tracker'
 import { push } from '../navigation/routing'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -31,6 +35,9 @@ import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession } from '../whispers/action-creators'
 
+/** The width the window must be greater than for pinning to be enabled. */
+export const CAN_PIN_WIDTH = 1280
+
 const ALT_E = { keyCode: keycode('e'), altKey: true }
 const ALT_H = { keyCode: keycode('h'), altKey: true }
 
@@ -39,10 +46,29 @@ enum SocialTab {
   Friends = 'friends',
 }
 
-const Root = styled.div`
+const Overlay = styled.div`
+  position: absolute;
+  top: var(--sb-system-bar-height, 0);
+  right: 0;
+  bottom: 0;
+  width: var(--sb-sidebar-width);
+`
+
+const Scrim = styled.div`
+  position: fixed;
+  inset: 0;
+  background-color: var(--theme-dialog-scrim);
+  opacity: var(--theme-dialog-scrim-opacity);
+  z-index: ${zIndexMenuBackdrop};
+`
+
+const Root = styled.div<{ $overlay?: boolean }>`
   position: relative;
+  grid-area: sidebar;
   width: 100%;
+  min-width: var(--sb-sidebar-width);
   height: 100%;
+  z-index: ${zIndexMenu};
 
   display: flex;
   flex-direction: column;
@@ -70,12 +96,25 @@ const SectionSpacer = styled.hr`
   margin-top: 16px;
 `
 
+const TabsAndPin = styled.div`
+  margin: 8px 0 0;
+  padding-inline: 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const PinButton = styled(IconButton)`
+  border: 1px solid var(--theme-outline-variant);
+`
+
 const TabsContainer = styled.div`
   flex-grow: 0;
   flex-shrink: 0;
 
   width: min-content;
-  margin: 8px auto 0;
+  margin: 0 auto;
   padding: 8px 0;
 `
 
@@ -92,15 +131,22 @@ const ChatSpacer = styled.div`
 
 export function SocialSidebar({
   className,
-  onVisibilityChange,
   visible,
+  pinned,
+  onVisibilityChange,
+  onPinnedChange,
 }: {
   className?: string
-  onVisibilityChange: (visible: boolean) => void
   visible: boolean
+  pinned: boolean
+  onVisibilityChange: (visible: boolean) => void
+  onPinnedChange: (pinned: boolean) => void
 }) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState(SocialTab.Chat)
+  const [windowWidth] = useWindowSize()
+
+  const focusableRef = useRef<HTMLSpanElement>(null)
 
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendCount = useMemo(() => {
@@ -108,6 +154,9 @@ export function SocialSidebar({
       status => status !== FriendActivityStatus.Offline,
     ).length
   }, [friendActivityStatus])
+
+  const canPin = !windowWidth || windowWidth > CAN_PIN_WIDTH
+  const actuallyPinned = pinned && canPin
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -137,32 +186,68 @@ export function SocialSidebar({
     },
   })
 
-  return (
-    <Root className={className} data-test='social-sidebar'>
-      <TabsContainer>
-        <Tabs activeTab={activeTab} onChange={setActiveTab}>
-          <TabItem value={SocialTab.Chat} text={t('social.chat.label', 'Chat')} />
-          <TabItem
-            value={SocialTab.Friends}
-            text={t('social.friends.label', {
-              defaultValue: 'Friends ({{friendCount}})',
-              friendCount,
-            })}
-          />
-        </Tabs>
-      </TabsContainer>
-      {activeTab === SocialTab.Chat ? (
-        <>
-          <ChatSpacer />
-          <ChatContent />
-        </>
-      ) : (
-        <FriendsListContainer>
-          <FriendsList />
-        </FriendsListContainer>
-      )}
-    </Root>
+  const root = (
+    <NavigationTrackerProvider
+      onNavigation={() => {
+        if (!actuallyPinned) {
+          onVisibilityChange(false)
+        }
+      }}>
+      <Root className={className} data-test='social-sidebar'>
+        <TabsAndPin>
+          {canPin ? (
+            <Tooltip
+              text={
+                pinned
+                  ? t('social.sidebar.unpinTooltip', 'Unpin sidebar')
+                  : t('social.sidebar.pinTooltip', 'Pin sidebar')
+              }
+              position='left'
+              tabIndex={-1}>
+              <PinButton
+                icon={<MaterialIcon icon='keep' filled={pinned} />}
+                onClick={() => onPinnedChange(!pinned)}
+              />
+            </Tooltip>
+          ) : null}
+          <TabsContainer>
+            <Tabs activeTab={activeTab} onChange={setActiveTab}>
+              <TabItem value={SocialTab.Chat} text={t('social.chat.label', 'Chat')} />
+              <TabItem
+                value={SocialTab.Friends}
+                text={t('social.friends.label', {
+                  defaultValue: 'Friends ({{friendCount}})',
+                  friendCount,
+                })}
+              />
+            </Tabs>
+          </TabsContainer>
+        </TabsAndPin>
+        <span ref={focusableRef} tabIndex={-1} />
+        {activeTab === SocialTab.Chat ? (
+          <>
+            <ChatSpacer />
+            <ChatContent />
+          </>
+        ) : (
+          <FriendsListContainer>
+            <FriendsList />
+          </FriendsListContainer>
+        )}
+      </Root>
+    </NavigationTrackerProvider>
   )
+
+  if (actuallyPinned) {
+    return root
+  } else {
+    return visible ? (
+      <Overlay>
+        <Scrim onClick={() => onVisibilityChange(false)} />
+        <FocusTrap focusableRef={focusableRef}>{root}</FocusTrap>
+      </Overlay>
+    ) : null
+  }
 }
 
 const Subheader = styled.div`
@@ -184,27 +269,27 @@ function ChatContent() {
   const dispatch = useAppDispatch()
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
-
-  const onChannelLeave = useStableCallback((channelId: SbChannelId) => {
-    dispatch(leaveChannel(channelId))
-  })
-  const onBrowseChannelsClick = useStableCallback(() => {
-    if (location.pathname !== '/chat/list') {
-      push('/chat/list')
-    }
-  })
-  const onAddWhisperClick = useStableCallback(() => {
-    dispatch(openDialog({ type: DialogType.Whispers }))
-  })
+  const { onNavigation } = useNavigationTracker()
 
   return (
     <>
       <Subheader>{t('navigation.leftNav.chatChannels', 'Chat channels')}</Subheader>
       {Array.from(chatChannels.values(), c => (
-        <ChannelEntry key={c} channelId={c} onLeave={onChannelLeave} />
+        <ChannelEntry
+          key={c}
+          channelId={c}
+          onLeave={(channelId: SbChannelId) => {
+            dispatch(leaveChannel(channelId))
+          }}
+        />
       ))}
       <ChatListButton
-        onClick={onBrowseChannelsClick}
+        onClick={() => {
+          if (location.pathname !== '/chat/list') {
+            push('/chat/list')
+          }
+          onNavigation()
+        }}
         label={t('chat.channelList.browseChannels', 'Browse channels')}
         iconStart={<MaterialIcon icon='add' />}
       />
@@ -214,7 +299,10 @@ function ChatContent() {
         <WhisperEntry key={w} userId={w} />
       ))}
       <ChatListButton
-        onClick={onAddWhisperClick}
+        onClick={() => {
+          dispatch(openDialog({ type: DialogType.Whispers }))
+          onNavigation()
+        }}
         label={t('chat.whispers.startWhisperButton', 'Start a whisper')}
         iconStart={<MaterialIcon icon='add' />}
       />
@@ -233,11 +321,7 @@ function ChannelEntry({
   const dispatch = useAppDispatch()
   const basicInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
-
-  const onLeaveClick = useStableCallback((event: MouseEvent) => {
-    event.preventDefault()
-    onLeave(channelId)
-  })
+  const { onNavigation } = useNavigationTracker()
 
   useEffect(() => {
     dispatch(getBatchChannelInfo(channelId))
@@ -247,7 +331,10 @@ function ChannelEntry({
     <IconButton
       icon={<MaterialIcon icon='close' />}
       title={t('chat.navEntry.leaveChannel', 'Leave channel')}
-      onClick={onLeaveClick}
+      onClick={event => {
+        event.preventDefault()
+        onLeave(channelId)
+      }}
     />
   )
 
@@ -265,7 +352,12 @@ function ChannelEntry({
       needsAttention={hasUnread}
       title={basicInfo ? `#${basicInfo.name}` : undefined}
       button={channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL ? button : null}
-      icon={<ConnectedChannelBadge channelId={channelId} />}>
+      icon={<ConnectedChannelBadge channelId={channelId} />}
+      onClick={event => {
+        if (!event.defaultPrevented) {
+          onNavigation()
+        }
+      }}>
       {displayName}
     </Entry>
   )
@@ -278,26 +370,10 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
   const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
   const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
+  const { onNavigation } = useNavigationTracker()
 
   const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays<HTMLSpanElement>({
     userId,
-  })
-
-  const onClose = useStableCallback((userId: SbUserId) => {
-    dispatch(
-      closeWhisperSession(userId, {
-        onSuccess: () => {},
-        onError: err => {
-          snackbarController.showSnackbar(
-            t('navigation.leftNav.whisperCloseError', {
-              defaultValue: 'Error closing whisper session: {{errorMessage}}',
-              errorMessage: err.message,
-            }),
-            DURATION_LONG,
-          )
-        },
-      }),
-    )
   })
 
   useEffect(() => {
@@ -308,7 +384,23 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
     <IconButton
       icon={<MaterialIcon icon='close' />}
       title={t('whispers.navEntry.closeWhisper', 'Close whisper')}
-      onClick={() => onClose(userId)}
+      onClick={event => {
+        event.preventDefault()
+        dispatch(
+          closeWhisperSession(userId, {
+            onSuccess: () => {},
+            onError: err => {
+              snackbarController.showSnackbar(
+                t('navigation.leftNav.whisperCloseError', {
+                  defaultValue: 'Error closing whisper session: {{errorMessage}}',
+                  errorMessage: err.message,
+                }),
+                DURATION_LONG,
+              )
+            },
+          }),
+        )
+      }}
     />
   )
 
@@ -328,7 +420,12 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
         icon={<ConnectedAvatar userId={userId} />}
         needsAttention={hasUnread}
         isActive={isOverlayOpen}
-        onContextMenu={onContextMenu}>
+        onContextMenu={onContextMenu}
+        onClick={event => {
+          if (!event.defaultPrevented) {
+            onNavigation()
+          }
+        }}>
         {usernameElem}
       </Entry>
     </>
@@ -439,12 +536,9 @@ interface EntryProps {
   isActive?: boolean
   className?: string
   onContextMenu?: (event: React.MouseEvent) => void
+  onClick?: (event: React.MouseEvent) => void
 }
 
-// TODO(2Pac): Try to rework this component to make it more customizable, so it could be used in all
-// nav-entries. Or, remove this component and instead only export smaller components that encompass
-// common functionality/design across all the nav-entries, and leave it to specific nav-entries to
-// use those smaller components to create a nav-entry to their liking.
 function Entry({
   link,
   title,
@@ -455,13 +549,14 @@ function Entry({
   className,
   children,
   onContextMenu,
+  onClick,
 }: EntryProps) {
   // Just ensure this component re-renders when the pathname changes, but we grab the pathname
   // directly to avoid wouter's annoying unescaping behavior
   useLocation()
   const currentPath = location.pathname
 
-  const [buttonProps, rippleRef] = useButtonState({})
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
   // TODO(tec27): Would probably be better to pass a route string and do `useRoute` so we can handle
   // having the incorrect name of the entity we're linking to
   const isCurrentPath = link.toLowerCase() === currentPath.toLowerCase()

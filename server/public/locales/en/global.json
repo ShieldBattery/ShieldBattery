@@ -1047,6 +1047,10 @@
     },
     "friends": {
       "label": "Friends ({{friendCount}})"
+    },
+    "sidebar": {
+      "pinTooltip": "Pin sidebar",
+      "unpinTooltip": "Unpin sidebar"
     }
   },
   "starcraft": {

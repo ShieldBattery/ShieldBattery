@@ -12,6 +12,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
+import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
@@ -104,6 +105,7 @@ function validateFriendsListTab(value: unknown): FriendsListTab | undefined {
 
 export function FriendsList() {
   const { t } = useTranslation()
+  const { onNavigation } = useNavigationTracker()
 
   useRelationshipsLoader()
   const dispatch = useAppDispatch()
@@ -133,6 +135,7 @@ export function FriendsList() {
               if (tab === FriendsListTab.Settings) {
                 // TODO(tec27): Open to the correct part of settings once it's there
                 dispatch(openSettings())
+                onNavigation()
                 return
               }
               setActiveTab(tab)

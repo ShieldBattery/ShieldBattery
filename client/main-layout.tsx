@@ -44,10 +44,10 @@ import { NotificationsButton } from './notifications/app-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
 import { useMultiplexRef } from './react/refs'
-import { useStableCallback, useUserLocalStorageValue } from './react/state-hooks'
+import { useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
-import { SocialSidebar } from './social/social-sidebar'
+import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
@@ -66,7 +66,11 @@ const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const SIDEBAR_WIDTH = 320
 
-const Root = styled.div<{ $sidebarOpen?: boolean }>`
+if (__WEBPACK_ENV.NODE_ENV !== 'production' && CAN_PIN_WIDTH >= SIDEBAR_WIDTH + 1248) {
+  throw new Error('CAN_PIN_WIDTH must be less than SIDEBAR_WIDTH + 1248 or styles need adjusting')
+}
+
+const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
   width: 100%;
   height: calc(100% - var(--sb-system-bar-height, 0px));
   overflow: hidden;
@@ -74,8 +78,7 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
   --sb-sidebar-width: ${SIDEBAR_WIDTH}px;
 
   display: grid;
-  grid-template-columns: 0 minmax(auto, 1fr) ${props =>
-      props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0'};
+  grid-template-columns: 0 minmax(auto, 1fr) 0;
   grid-template-areas:
     'appbar appbar appbar'
     'padding content sidebar';
@@ -84,18 +87,26 @@ const Root = styled.div<{ $sidebarOpen?: boolean }>`
   transition: grid-template-columns ${props => (props.$sidebarOpen ? '400ms' : '200ms')}
     ${props => (props.$sidebarOpen ? emphasizedDecelerateEasing : emphasizedAccelerateEasing)};
 
+  @media (min-width: ${CAN_PIN_WIDTH}px) {
+    grid-template-columns: 0 minmax(auto, 1fr) ${props =>
+        props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0'};
+  }
+
   @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
     grid-template-columns:
-      ${props => (props.$sidebarOpen ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))' : '0')}
+      ${props =>
+        props.$sidebarOpen && props.$sidebarPinned
+          ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))'
+          : '0'}
       minmax(auto, 1fr)
-      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')};
   }
 
   @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
     grid-template-columns:
-      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')}
+      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')}
       minmax(auto, 1fr)
-      ${props => (props.$sidebarOpen ? 'var(--sb-sidebar-width)' : '0')};
+      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')};
   }
 `
 
@@ -791,11 +802,6 @@ const Content = styled.div`
   overflow: auto;
 `
 
-const Sidebar = styled(SocialSidebar)`
-  grid-area: sidebar;
-  min-width: var(--sb-sidebar-width);
-`
-
 export function MainLayout({ children }: { children?: React.ReactNode }) {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-app-bar-height', '64px')
@@ -809,16 +815,21 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
 
   const isLoggedIn = useIsLoggedIn()
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
+  const [sidebarPinned, setSidebarPinned] = useUserLocalStorageValue('socialSidebarPinned', true)
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
-  const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
 
   return (
-    <Root $sidebarOpen={sidebarOpen}>
-      <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
+    <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned}>
+      <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
       {isLoggedIn ? (
-        <Sidebar onVisibilityChange={setSidebarOpen} visible={sidebarOpen} />
+        <SocialSidebar
+          onVisibilityChange={setSidebarOpen}
+          visible={sidebarOpen}
+          onPinnedChange={setSidebarPinned}
+          pinned={sidebarPinned}
+        />
       ) : (
         <div></div>
       )}

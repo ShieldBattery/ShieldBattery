@@ -85,16 +85,17 @@ export function NavigationMenuOverlay({
   focusableRef,
 }: NavigationMenuOverlayProps) {
   const internalFocusableRef = useRef<HTMLSpanElement>(null)
-  const onScrimClick = useStableCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  })
 
   // TODO(tec27): Add transition animations
   return open ? (
     <>
-      <Scrim onClick={onScrimClick} />
+      <Scrim
+        onClick={e => {
+          if (e.target === e.currentTarget) {
+            onClose()
+          }
+        }}
+      />
       <FocusTrap focusableRef={focusableRef ?? internalFocusableRef}>
         <Root className={className}>
           <ScrollableContent>

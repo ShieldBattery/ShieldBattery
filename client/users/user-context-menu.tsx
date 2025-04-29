@@ -10,6 +10,7 @@ import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
+import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { navigateToWhisper } from '../whispers/action-creators'
@@ -162,6 +163,7 @@ function ConnectedUserContextMenuContents({
   const selfUser = useSelfUser()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const snackbarController = useSnackbarController()
+  const { onNavigation } = useNavigationTracker()
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -208,6 +210,7 @@ function ConnectedUserContextMenuContents({
         text={t('users.contextMenu.viewProfile', 'View profile')}
         onClick={() => {
           navigateToUserProfile(user!.id, user!.name)
+          onNavigation()
           onDismiss()
         }}
       />,
@@ -223,6 +226,7 @@ function ConnectedUserContextMenuContents({
             text={t('users.contextMenu.whisper', 'Whisper')}
             onClick={() => {
               navigateToWhisper(user!.id, user!.name)
+              onNavigation()
               onDismiss()
             }}
           />,
