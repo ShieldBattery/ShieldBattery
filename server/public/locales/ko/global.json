@@ -377,7 +377,10 @@
     },
     "comingSoon": {
         "headline": "이 기능은 곧 제공될 예정입니다!",
-        "subtitle": "ShieldBattery의 개발 자금 지원하기"
+        "subtitle": "ShieldBattery의 개발 자금 지원하기",
+        "githubSponsors": "깃허브 스폰서",
+        "kofi": "코피",
+        "patreon": "패트리온"
     },
     "ladder": {
         "division": "디비전",
@@ -1173,6 +1176,9 @@
     },
     "home": {
         "latestNewsTitle": "최신 뉴스",
-        "supportTitle": "프로젝트를 지원하세요"
+        "supportTitle": "프로젝트를 지원하세요",
+        "githubSponsors": "깃허브 스폰서",
+        "kofi": "코피",
+        "patreon": "패트리온"
     }
 }
