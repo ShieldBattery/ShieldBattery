@@ -62,13 +62,12 @@ const Scrim = styled.div`
   z-index: ${zIndexMenuBackdrop};
 `
 
-const Root = styled.div<{ $overlay?: boolean }>`
+const Root = styled.div`
   position: relative;
   grid-area: sidebar;
   width: 100%;
   min-width: var(--sb-sidebar-width);
   height: 100%;
-  z-index: ${zIndexMenu};
 
   display: flex;
   flex-direction: column;
@@ -88,6 +87,10 @@ const Root = styled.div<{ $overlay?: boolean }>`
     border-radius: inherit;
 
     pointer-events: none;
+  }
+
+  ${Overlay} & {
+    z-index: ${zIndexMenu};
   }
 `
 

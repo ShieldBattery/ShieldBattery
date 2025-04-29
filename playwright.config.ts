@@ -1,8 +1,13 @@
 import { devices, PlaywrightTestConfig } from '@playwright/test'
 
+const DEFAULT_VIEWPORT = {
+  width: 1366,
+  height: 768,
+}
+
 const DEFAULT_USE = {
   ...devices['Desktop Chrome'],
-  viewport: { width: 1366, height: 768 },
+  viewport: DEFAULT_VIEWPORT,
 }
 
 const config: PlaywrightTestConfig = {
@@ -31,6 +36,7 @@ const config: PlaywrightTestConfig = {
   use: {
     baseURL: 'http://localhost:5527',
     headless: true,
+    viewport: DEFAULT_VIEWPORT,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
