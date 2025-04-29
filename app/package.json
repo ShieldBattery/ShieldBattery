@@ -20,7 +20,7 @@
     "@shieldbattery/windows-registry": "^1.0.0",
     "archiver": "^7.0.1",
     "bl": "^6.1.0",
-    "core-js": "^3.41.0",
+    "core-js": "^3.42.0",
     "deep-equal": "^2.2.3",
     "electron-is-dev": "^2.0.0",
     "electron-localshortcut": "^3.2.1",
