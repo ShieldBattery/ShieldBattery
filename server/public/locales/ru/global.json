@@ -496,10 +496,7 @@
     },
     "comingSoon": {
         "headline": "Эта функция скоро появится!",
-        "subtitle": "Помогите финансировать развитие ShieldBattery",
-        "githubSponsors": "Спонсоры GitHub",
-        "kofi": "Ko-fi",
-        "patreon": "Patreon"
+        "subtitle": "Помогите финансировать развитие ShieldBattery"
     },
     "whispers": {
         "createWhisper": {
@@ -1188,9 +1185,6 @@
     },
     "home": {
         "latestNewsTitle": "Последние новости",
-        "supportTitle": "Поддержать проект",
-        "githubSponsors": "Спонсоры GitHub",
-        "kofi": "Ko-fi",
-        "patreon": "Patreon"
+        "supportTitle": "Поддержать проект"
     }
 }

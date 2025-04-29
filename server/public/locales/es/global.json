@@ -397,10 +397,7 @@
     },
     "comingSoon": {
         "subtitle": "Ayude a financiar el desarrollo de ShieldBattery",
-        "headline": "¡Esta característica estará disponible en breve!",
-        "githubSponsors": "Patrocinadores de GitHub",
-        "kofi": "Ko-fi",
-        "patreon": "Patreon"
+        "headline": "¡Esta característica estará disponible en breve!"
     },
     "matchmaking": {
         "division": {
@@ -1188,9 +1185,6 @@
     },
     "home": {
         "supportTitle": "Apoya el proyecto",
-        "latestNewsTitle": "Últimas noticias",
-        "githubSponsors": "Patrocinadores de GitHub",
-        "kofi": "Ko-fi",
-        "patreon": "Patreon"
+        "latestNewsTitle": "Últimas noticias"
     }
 }

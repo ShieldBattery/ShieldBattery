@@ -379,10 +379,7 @@
     },
     "comingSoon": {
         "headline": "$🗡This feature is coming soon!🗡!",
-        "subtitle": "$🗡Help fund ShieldBattery's development🗡!",
-        "githubSponsors": "$🗡GitHub Sponsors🗡!",
-        "kofi": "$🗡Ko-fi🗡!",
-        "patreon": "$🗡Patreon🗡!"
+        "subtitle": "$🗡Help fund ShieldBattery's development🗡!"
     },
     "ladder": {
         "playerHeader": "$🗡Player🗡!",
@@ -1182,9 +1179,6 @@
     },
     "home": {
         "latestNewsTitle": "$🗡Latest news🗡!",
-        "supportTitle": "$🗡Support the project🗡!",
-        "githubSponsors": "$🗡GitHub Sponsors🗡!",
-        "kofi": "$🗡Ko-fi🗡!",
-        "patreon": "$🗡Patreon🗡!"
+        "supportTitle": "$🗡Support the project🗡!"
     }
 }
