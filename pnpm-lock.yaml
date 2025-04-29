@@ -81,12 +81,6 @@ importers:
       core-js:
         specifier: ^3.41.0
         version: 3.41.0
-      cross-env:
-        specifier: ^7.0.3
-        version: 7.0.3
-      cross-env-test:
-        specifier: ^0.1.1
-        version: 0.1.1
       cuid:
         specifier: ^3.0.0
         version: 3.0.0
@@ -485,8 +479,8 @@ importers:
         specifier: ^2.2.3
         version: 2.2.3
       electron:
-        specifier: ^35.2.1
-        version: 35.2.1
+        specifier: 36.0.0
+        version: 36.0.0
       electron-builder:
         specifier: ^26.0.12
         version: 26.0.12(electron-builder-squirrel-windows@25.1.8)
@@ -5041,16 +5035,6 @@ packages:
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
     hasBin: true
 
-  cross-env-test@0.1.1:
-    resolution: {integrity: sha512-AL/rF3cL2WpibxTILrUe3Qyucn1OyyouoFcPTcbfvOuFltWj3EDY8/Gyq3gfYkMbEEYzZGvAdWl+tMpe21I5Ig==}
-    engines: {node: '>=4'}
-    hasBin: true
-
-  cross-env@7.0.3:
-    resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
-    engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
-    hasBin: true
-
   cross-fetch@3.2.0:
     resolution: {integrity: sha512-Q+xVJLoGOeIMXZmbUK4HYk+69cQH6LudR0Vu/pRm2YlU/hDV9CiS0gKUMaWY5f2NeUH9C1nV3bsTlCo0FsTV1Q==}
 
@@ -5548,8 +5532,8 @@ packages:
   electron-to-chromium@1.5.143:
     resolution: {integrity: sha512-QqklJMOFBMqe46k8iIOwA9l2hz57V2OKMmP5eSWcUvwx+mASAsbU+wkF1pHjn9ZVSBPrsYWr4/W/95y5SwYg2g==}
 
-  electron@35.2.1:
-    resolution: {integrity: sha512-LO4xXLpzkPPUVLvAbdHMlW7N9Z+Qqz+7QsmSWXluTIQMeJk+v7o36nUTZghyA2I1s//tlMvuaCtle6Qo2W0Ktg==}
+  electron@36.0.0:
+    resolution: {integrity: sha512-MhBL5tgzqLsiw++YXxzXRvF5s90gelcEZP4Upz/aaRmmoscmCw/EtimxMSH6EPnKt+8KwBY9RVAdlcffFPYkyw==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
 
@@ -16011,12 +15995,6 @@ snapshots:
       - supports-color
       - ts-node
 
-  cross-env-test@0.1.1: {}
-
-  cross-env@7.0.3:
-    dependencies:
-      cross-spawn: 7.0.6
-
   cross-fetch@3.2.0(encoding@0.1.13):
     dependencies:
       node-fetch: 2.7.0(encoding@0.1.13)
@@ -16582,7 +16560,7 @@ snapshots:
 
   electron-to-chromium@1.5.143: {}
 
-  electron@35.2.1:
+  electron@36.0.0:
     dependencies:
       '@electron/get': 2.0.3
       '@types/node': 20.16.11
