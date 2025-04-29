@@ -1,4 +1,5 @@
 recursiveInstall: false
+sharedWorkspaceLockfile: false
 shellEmulator: true
 
 packages:
