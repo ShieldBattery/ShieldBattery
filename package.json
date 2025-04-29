@@ -269,7 +269,7 @@
     "d3-time-format": "^4.1.0",
     "dedent": "^1.5.3",
     "deep-equal": "^2.2.3",
-    "electron": "^35.2.1",
+    "electron": "^36.0.0",
     "electron-builder": "^26.0.12",
     "electron-is-dev": "^3.0.1",
     "engine.io": "^6.6.4",
