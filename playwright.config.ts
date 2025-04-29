@@ -1,5 +1,10 @@
 import { devices, PlaywrightTestConfig } from '@playwright/test'
 
+const DEFAULT_USE = {
+  ...devices['Desktop Chrome'],
+  viewport: { width: 1366, height: 768 },
+}
+
 const config: PlaywrightTestConfig = {
   testDir: './integration/',
   reporter: process.env.CI ? 'github' : 'list',
@@ -13,14 +18,12 @@ const config: PlaywrightTestConfig = {
     {
       name: 'setup',
       testMatch: /global-setup\.ts/,
+      use: DEFAULT_USE,
     },
     {
       name: 'chromium',
       testMatch: '**/*.spec.ts',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1366, height: 768 },
-      },
+      use: DEFAULT_USE,
       dependencies: ['setup'],
     },
   ],
