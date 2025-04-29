@@ -32,6 +32,7 @@ import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession } from '../whispers/action-creators'
 
 const ALT_E = { keyCode: keycode('e'), altKey: true }
+const ALT_H = { keyCode: keycode('h'), altKey: true }
 
 enum SocialTab {
   Chat = 'chat',
@@ -91,10 +92,12 @@ const ChatSpacer = styled.div`
 
 export function SocialSidebar({
   className,
-  onShowSidebar,
+  onVisibilityChange,
+  visible,
 }: {
   className?: string
-  onShowSidebar: () => void
+  onVisibilityChange: (visible: boolean) => void
+  visible: boolean
 }) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState(SocialTab.Chat)
@@ -108,9 +111,25 @@ export function SocialSidebar({
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if (keyEventMatches(event, ALT_E)) {
-        setActiveTab(SocialTab.Friends)
-        onShowSidebar()
+      if (keyEventMatches(event, ALT_H)) {
+        if (!visible) {
+          setActiveTab(SocialTab.Chat)
+          onVisibilityChange(true)
+        } else if (activeTab !== SocialTab.Chat) {
+          setActiveTab(SocialTab.Chat)
+        } else {
+          onVisibilityChange(false)
+        }
+        return true
+      } else if (keyEventMatches(event, ALT_E)) {
+        if (!visible) {
+          setActiveTab(SocialTab.Friends)
+          onVisibilityChange(true)
+        } else if (activeTab !== SocialTab.Friends) {
+          setActiveTab(SocialTab.Friends)
+        } else {
+          onVisibilityChange(false)
+        }
         return true
       }
 

@@ -58,7 +58,6 @@ const ALT_C = { keyCode: keycode('c'), altKey: true }
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
 const ALT_G = { keyCode: keycode('g'), altKey: true }
-const ALT_H = { keyCode: keycode('h'), altKey: true }
 const ALT_J = { keyCode: keycode('j'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
@@ -554,8 +553,6 @@ function AppBar({
 
   const [settingsButton, setSettingsButton] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: settingsButton, hotkey: ALT_S })
-  const [chatButton, setChatButton] = useState<HTMLButtonElement | null>(null)
-  useButtonHotkey({ elem: chatButton, hotkey: ALT_H })
 
   const homeHasPip = useHasNewUrgentMessage()
 
@@ -733,7 +730,6 @@ function AppBar({
                 position='bottom'
                 tabIndex={-1}>
                 <IconButton
-                  ref={setChatButton}
                   icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
                   onClick={onToggleSocial}
                   testName='social-sidebar-button'
@@ -816,13 +812,16 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
   // [e.g. channels or whispers] based on how it got opened?)
   const onToggleSocial = useStableCallback(() => setSidebarOpen(!sidebarOpen))
-  const onShowSocial = useStableCallback(() => setSidebarOpen(true))
 
   return (
     <Root $sidebarOpen={sidebarOpen}>
       <AppBar onToggleSocial={onToggleSocial} sidebarOpen={sidebarOpen} />
       <Content>{children}</Content>
-      {isLoggedIn ? <Sidebar onShowSidebar={onShowSocial} /> : <div></div>}
+      {isLoggedIn ? (
+        <Sidebar onVisibilityChange={setSidebarOpen} visible={sidebarOpen} />
+      ) : (
+        <div></div>
+      )}
       <NotificationPopups />
     </Root>
   )
