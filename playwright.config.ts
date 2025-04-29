@@ -25,7 +25,7 @@ const config: PlaywrightTestConfig = {
   use: {
     baseURL: 'http://localhost:5527',
     headless: true,
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: 1366, height: 768 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
