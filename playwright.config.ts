@@ -17,7 +17,10 @@ const config: PlaywrightTestConfig = {
     {
       name: 'chromium',
       testMatch: '**/*.spec.ts',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1366, height: 768 },
+      },
       dependencies: ['setup'],
     },
   ],
@@ -25,7 +28,6 @@ const config: PlaywrightTestConfig = {
   use: {
     baseURL: 'http://localhost:5527',
     headless: true,
-    viewport: { width: 1366, height: 768 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
