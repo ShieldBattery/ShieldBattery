@@ -425,15 +425,16 @@ const IconButtons = styled.div`
 `
 
 const LeftSide = styled.div`
-  margin-left: 12px;
-
   display: grid;
   grid-template-columns: [menu-button] auto [user-button] 1fr;
 
   align-items: center;
-  gap: 8px;
 
   overflow: hidden;
+`
+
+const NavigationMenuButton = styled(IconButton)`
+  margin-inline: 12px 8px;
 `
 
 const UserSpace = styled.div`
@@ -441,7 +442,7 @@ const UserSpace = styled.div`
 
   height: 64px;
   min-width: min(200px, 100% - 12px);
-  max-width: calc(100% - 12px);
+  max-width: 100%;
   margin-bottom: 8px;
   flex-shrink: 1;
   overflow: visible;
@@ -707,7 +708,7 @@ function AppBar({
           <>
             <LeftSide>
               <IconButtons>
-                <IconButton
+                <NavigationMenuButton
                   icon={<ShadowedIcon icon='menu' />}
                   ariaLabel={t('navigation.bar.appMenu', 'Menu')}
                   testName='app-menu-button'
