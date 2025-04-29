@@ -29,5 +29,14 @@
     "lodash": "^4.17.21",
     "mkdirp": "^3.0.1",
     "sanitize-filename": "^1.6.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/node": "20.16.11",
+      "@types/unist": "^3.0.3"
+    },
+    "onlyBuiltDependencies": [
+      "core-js"
+    ]
   }
 }
