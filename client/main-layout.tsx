@@ -94,13 +94,10 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
   @media (min-width: ${CAN_PIN_WIDTH}px) {
     grid-template-columns: 0 minmax(auto, 1fr) var(--_cur-sidebar-column-size);
     transition: ${props => {
-      const pinned = props.$sidebarPinned
       const open = props.$sidebarOpen
-      return pinned
-        ? `grid-template-columns ${open ? '400ms' : '200ms'} ${
-            open ? emphasizedDecelerateEasing : emphasizedAccelerateEasing
-          }`
-        : `none`
+      return `grid-template-columns ${open ? '400ms' : '200ms'} ${
+        open ? emphasizedDecelerateEasing : emphasizedAccelerateEasing
+      }`
     }};
   }
 
