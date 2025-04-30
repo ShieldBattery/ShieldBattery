@@ -1,7 +1,9 @@
 import keycode from 'keycode'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { Link, useLocation } from 'wouter'
 import { SbChannelId } from '../../common/chat'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
@@ -20,6 +22,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ElevatedButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
+import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { zIndexMenu, zIndexMenuBackdrop } from '../material/zindex'
@@ -28,6 +31,7 @@ import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { dialogScrimOpacity } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { FriendsList } from '../users/friends-list'
@@ -46,25 +50,20 @@ enum SocialTab {
   Friends = 'friends',
 }
 
-const Overlay = styled.div`
-  position: absolute;
+const Scrim = styled(m.div)`
+  position: fixed;
+  left: 0;
   top: var(--sb-system-bar-height, 0);
   right: 0;
   bottom: 0;
-  width: var(--sb-sidebar-width);
-`
-
-const Scrim = styled.div`
-  position: fixed;
-  inset: 0;
   background-color: var(--theme-dialog-scrim);
   opacity: var(--theme-dialog-scrim-opacity);
   z-index: ${zIndexMenuBackdrop};
 `
 
-const Root = styled.div`
-  position: relative;
-  grid-area: sidebar;
+const rootCss = css`
+  ${elevationPlus1};
+
   width: 100%;
   min-width: var(--sb-sidebar-width);
   height: 100%;
@@ -75,23 +74,23 @@ const Root = styled.div`
   background-color: var(--theme-container-lowest);
   border-radius: 12px 0 0 12px;
   overflow-x: hidden;
+`
 
-  contain: content;
+const RootPinned = styled.div`
+  ${rootCss};
 
-  &:after {
-    position: absolute;
-    inset: 0;
+  position: relative;
+  grid-area: sidebar;
+`
 
-    content: '';
-    border-left: 1px solid var(--theme-outline);
-    border-radius: inherit;
-
-    pointer-events: none;
-  }
-
-  ${Overlay} & {
-    z-index: ${zIndexMenu};
-  }
+const RootOverlay = styled(m.div)`
+  ${rootCss};
+  position: fixed;
+  right: 0;
+  width: var(--sb-sidebar-width);
+  top: var(--sb-system-bar-height, 0);
+  height: calc(100vh - var(--sb-system-bar-height, 0));
+  z-index: ${zIndexMenu};
 `
 
 const SectionSpacer = styled.hr`
@@ -161,6 +160,12 @@ export function SocialSidebar({
   const canPin = !windowWidth || windowWidth > CAN_PIN_WIDTH
   const actuallyPinned = pinned && canPin
 
+  const [doInitialAnim, setDoInitialAnim] = useState(actuallyPinned)
+
+  useEffect(() => {
+    setDoInitialAnim(!actuallyPinned && !visible)
+  }, [actuallyPinned, visible])
+
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (keyEventMatches(event, ALT_H)) {
@@ -189,67 +194,107 @@ export function SocialSidebar({
     },
   })
 
-  const root = (
+  const content = (
     <NavigationTrackerProvider
       onNavigation={() => {
         if (!actuallyPinned) {
           onVisibilityChange(false)
         }
       }}>
-      <Root className={className} data-test='social-sidebar'>
-        <TabsAndPin>
-          {canPin ? (
-            <Tooltip
-              text={
-                pinned
-                  ? t('social.sidebar.unpinTooltip', 'Unpin sidebar')
-                  : t('social.sidebar.pinTooltip', 'Pin sidebar')
-              }
-              position='left'
-              tabIndex={-1}>
-              <PinButton
-                icon={<MaterialIcon icon='keep' filled={pinned} />}
-                onClick={() => onPinnedChange(!pinned)}
-              />
-            </Tooltip>
-          ) : null}
-          <TabsContainer>
-            <Tabs activeTab={activeTab} onChange={setActiveTab}>
-              <TabItem value={SocialTab.Chat} text={t('social.chat.label', 'Chat')} />
-              <TabItem
-                value={SocialTab.Friends}
-                text={t('social.friends.label', {
-                  defaultValue: 'Friends ({{friendCount}})',
-                  friendCount,
-                })}
-              />
-            </Tabs>
-          </TabsContainer>
-        </TabsAndPin>
-        <span ref={focusableRef} tabIndex={-1} />
-        {activeTab === SocialTab.Chat ? (
-          <>
-            <ChatSpacer />
-            <ChatContent />
-          </>
-        ) : (
-          <FriendsListContainer>
-            <FriendsList />
-          </FriendsListContainer>
-        )}
-      </Root>
+      <TabsAndPin>
+        {canPin ? (
+          <Tooltip
+            text={
+              pinned
+                ? t('social.sidebar.unpinTooltip', 'Unpin sidebar')
+                : t('social.sidebar.pinTooltip', 'Pin sidebar')
+            }
+            position='left'
+            tabIndex={-1}>
+            <PinButton
+              icon={<MaterialIcon icon='keep' filled={pinned} />}
+              onClick={() => onPinnedChange(!pinned)}
+            />
+          </Tooltip>
+        ) : null}
+        <TabsContainer>
+          <Tabs activeTab={activeTab} onChange={setActiveTab}>
+            <TabItem value={SocialTab.Chat} text={t('social.chat.label', 'Chat')} />
+            <TabItem
+              value={SocialTab.Friends}
+              text={t('social.friends.label', {
+                defaultValue: 'Friends ({{friendCount}})',
+                friendCount,
+              })}
+            />
+          </Tabs>
+        </TabsContainer>
+      </TabsAndPin>
+      <span ref={focusableRef} tabIndex={-1} />
+      {activeTab === SocialTab.Chat ? (
+        <>
+          <ChatSpacer />
+          <ChatContent />
+        </>
+      ) : (
+        <FriendsListContainer>
+          <FriendsList />
+        </FriendsListContainer>
+      )}
     </NavigationTrackerProvider>
   )
 
   if (actuallyPinned) {
-    return root
+    return (
+      <RootPinned className={className} data-test='social-sidebar'>
+        {content}
+      </RootPinned>
+    )
   } else {
-    return visible ? (
-      <Overlay>
-        <Scrim onClick={() => onVisibilityChange(false)} />
-        <FocusTrap focusableRef={focusableRef}>{root}</FocusTrap>
-      </Overlay>
-    ) : null
+    return (
+      <AnimatePresence>
+        {visible ? (
+          <>
+            <Scrim
+              key='scrim'
+              onClick={() => onVisibilityChange(false)}
+              variants={{
+                initial: { opacity: 0 },
+                animate: { opacity: dialogScrimOpacity },
+                exit: { opacity: 0 },
+              }}
+              initial='initial'
+              animate='animate'
+              exit='exit'
+              transition={{
+                type: 'spring',
+                duration: 0.3,
+                bounce: 0,
+              }}
+            />
+            <RootOverlay
+              key='sidebar'
+              className={className}
+              data-test='social-sidebar'
+              variants={{
+                initial: { x: '100%' },
+                animate: { x: '0%' },
+                exit: { x: '200%' },
+              }}
+              initial={doInitialAnim ? 'initial' : false}
+              animate='animate'
+              exit='exit'
+              transition={{
+                type: 'spring',
+                duration: 0.4,
+                bounce: 0,
+              }}>
+              <FocusTrap focusableRef={focusableRef}>{content}</FocusTrap>
+            </RootOverlay>
+          </>
+        ) : null}
+      </AnimatePresence>
+    )
   }
 }
 

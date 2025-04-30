@@ -84,29 +84,38 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
     'padding content sidebar';
   grid-template-rows: auto 1fr;
 
-  transition: grid-template-columns ${props => (props.$sidebarOpen ? '400ms' : '200ms')}
-    ${props => (props.$sidebarOpen ? emphasizedDecelerateEasing : emphasizedAccelerateEasing)};
+  --_cur-sidebar-column-size: ${props =>
+    props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0'};
+  --_cur-sidebar-adjustment-size: ${props =>
+    props.$sidebarOpen && props.$sidebarPinned
+      ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))'
+      : '0'};
 
   @media (min-width: ${CAN_PIN_WIDTH}px) {
-    grid-template-columns: 0 minmax(auto, 1fr) ${props =>
-        props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0'};
+    grid-template-columns: 0 minmax(auto, 1fr) var(--_cur-sidebar-column-size);
+    transition: ${props => {
+      const pinned = props.$sidebarPinned
+      const open = props.$sidebarOpen
+      return pinned
+        ? `grid-template-columns ${open ? '400ms' : '200ms'} ${
+            open ? emphasizedDecelerateEasing : emphasizedAccelerateEasing
+          }`
+        : `none`
+    }};
   }
 
   @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
     grid-template-columns:
-      ${props =>
-        props.$sidebarOpen && props.$sidebarPinned
-          ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))'
-          : '0'}
+      var(--_cur-sidebar-adjustment-size)
       minmax(auto, 1fr)
-      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')};
+      var(--_cur-sidebar-column-size);
   }
 
   @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
     grid-template-columns:
-      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')}
+      var(--_cur-sidebar-column-size)
       minmax(auto, 1fr)
-      ${props => (props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0')};
+      var(--_ cur-sidebar-column-size);
   }
 `
 
@@ -379,6 +388,7 @@ const AppBarRoot = styled.div<{ $breakpoint: AppBarBreakpoint }>`
   height: 72px;
   margin-bottom: -8px;
   padding: 0 4px;
+  z-index: 5;
 
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -817,8 +827,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   const isLoggedIn = useIsLoggedIn()
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   const [sidebarPinned, setSidebarPinned] = useUserLocalStorageValue('socialSidebarPinned', true)
-  // TODO(tec27): Place focus inside the social sidebar when it opens (maybe pick the spot to focus
-  // [e.g. channels or whispers] based on how it got opened?)
 
   return (
     <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned}>

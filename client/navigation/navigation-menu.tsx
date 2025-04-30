@@ -1,3 +1,5 @@
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useRef } from 'react'
 import styled from 'styled-components'
 import { Tagged } from 'type-fest'
@@ -9,18 +11,22 @@ import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { zIndexMenu, zIndexMenuBackdrop } from '../material/zindex'
 import { useStableCallback } from '../react/state-hooks'
+import { dialogScrimOpacity } from '../styles/colors'
 import { labelLarge, singleLine } from '../styles/typography'
 import { pushCurrentWithState } from './routing'
 
-const Scrim = styled.div`
+const Scrim = styled(m.div)`
   position: fixed;
-  inset: 0;
+  left: 0;
+  top: var(--sb-system-bar-height, 0);
+  right: 0;
+  bottom: 0;
   background-color: var(--theme-dialog-scrim);
   opacity: var(--theme-dialog-scrim-opacity);
   z-index: ${zIndexMenuBackdrop};
 `
 
-const Root = styled.div`
+const Root = styled(m.div)`
   ${elevationPlus1};
   position: fixed;
   inset: var(--sb-system-bar-height, 0) 0 0;
@@ -86,27 +92,57 @@ export function NavigationMenuOverlay({
 }: NavigationMenuOverlayProps) {
   const internalFocusableRef = useRef<HTMLSpanElement>(null)
 
-  // TODO(tec27): Add transition animations
-  return open ? (
-    <>
-      <Scrim
-        onClick={e => {
-          if (e.target === e.currentTarget) {
-            onClose()
-          }
-        }}
-      />
-      <FocusTrap focusableRef={focusableRef ?? internalFocusableRef}>
-        <Root className={className}>
-          <ScrollableContent>
-            {focusableRef ? null : <span ref={internalFocusableRef} tabIndex={-1} />}
-            {children}
-          </ScrollableContent>
-        </Root>
-      </FocusTrap>
-    </>
-  ) : (
-    <></>
+  return (
+    <AnimatePresence>
+      {open ? (
+        <>
+          <Scrim
+            key='scrim'
+            variants={{
+              initial: { opacity: 0 },
+              animate: { opacity: dialogScrimOpacity },
+              exit: { opacity: 0 },
+            }}
+            initial='initial'
+            animate='animate'
+            exit='exit'
+            transition={{
+              type: 'spring',
+              duration: 0.3,
+              bounce: 0,
+            }}
+            onClick={e => {
+              if (e.target === e.currentTarget) {
+                onClose()
+              }
+            }}
+          />
+          <Root
+            key='menu'
+            className={className}
+            variants={{
+              initial: { x: '-100%' },
+              animate: { x: '0%' },
+              exit: { x: '-200%' },
+            }}
+            initial='initial'
+            animate='animate'
+            exit='exit'
+            transition={{
+              type: 'spring',
+              duration: 0.4,
+              bounce: 0,
+            }}>
+            <FocusTrap focusableRef={focusableRef ?? internalFocusableRef}>
+              <ScrollableContent>
+                {focusableRef ? null : <span ref={internalFocusableRef} tabIndex={-1} />}
+                {children}
+              </ScrollableContent>
+            </FocusTrap>
+          </Root>
+        </>
+      ) : null}
+    </AnimatePresence>
   )
 }
 
