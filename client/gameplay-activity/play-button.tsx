@@ -4,13 +4,20 @@ import React, { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
+import { getErrorStack } from '../../common/errors'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
+import { FileDropZone } from '../file-browser/file-drop-zone'
+import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
 import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
+import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { titleSmall } from '../styles/typography'
+import { showReplayInfo } from '../replays/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { BodyMedium, titleSmall } from '../styles/typography'
 
 const WIDTH = 240
 const HEIGHT = 72
@@ -448,6 +455,68 @@ function SearchInProgressContent() {
   )
 }
 
+const StyledFileDropZone = styled(FileDropZone)`
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+`
+
+const FileDropContents = styled.div`
+  ${elevationPlus1};
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+
+  pointer-events: none;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  background-color: var(--theme-primary-container);
+  border-radius: 0 0 12px 12px;
+  color: var(--theme-on-primary-container);
+  font-variation-settings: normal;
+  text-transform: none;
+`
+
+function FileDrop() {
+  const dispatch = useAppDispatch()
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+
+  return (
+    <StyledFileDropZone
+      extensions={['rep']}
+      onFilesDropped={files => {
+        // TODO(tec27): Support multiple replay files being dropped at once: create a playlist/watch
+        // them in succession
+        const file = files[0]
+        try {
+          const path = window.SHIELDBATTERY_ELECTRON_API?.webUtils.getPathForFile(file)
+          if (!path) {
+            throw new Error('No path found for replay file')
+          }
+          dispatch(showReplayInfo(path))
+        } catch (e) {
+          snackbarController.showSnackbar(
+            t('replays.fileDropError', `There was a problem opening the replay file`),
+          )
+          logger.error(`Error getting path for replay file: ${getErrorStack(e)}`)
+        }
+      }}>
+      <FileDropContents>
+        <MaterialIcon icon='file_open' size={24} />
+        <BodyMedium>
+          {t('replays.fileDropText', 'Drop replays here to watch them with ShieldBattery.')}
+        </BodyMedium>
+      </FileDropContents>
+    </StyledFileDropZone>
+  )
+}
+
 export function PlayButton() {
   const { t } = useTranslation()
 
@@ -529,6 +598,7 @@ export function PlayButton() {
   return (
     <PlayButtonDisplay targetPath={targetPath} fastBreathing={fastBreathing}>
       {content}
+      {IS_ELECTRON ? <FileDrop /> : null}
     </PlayButtonDisplay>
   )
 }

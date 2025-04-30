@@ -1,5 +1,6 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
+// NOTE(tec27): If you update this, update the `preload.d.ts` file as well
 contextBridge.exposeInMainWorld('SHIELDBATTERY_ELECTRON_API', {
   ipcRenderer: {
     // NOTE(tec27): We pass these specifically both to limit API surface, and also because certain
@@ -12,4 +13,5 @@ contextBridge.exposeInMainWorld('SHIELDBATTERY_ELECTRON_API', {
     removeListener: ipcRenderer.removeListener.bind(ipcRenderer),
   },
   env: { ...process.env },
+  webUtils,
 })

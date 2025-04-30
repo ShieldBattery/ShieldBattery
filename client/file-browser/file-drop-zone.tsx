@@ -1,6 +1,5 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { useStableCallback } from '../react/state-hooks'
 
 interface FileDropZoneState {
   isDocumentDragging: boolean
@@ -20,42 +19,42 @@ export function FileDropZoneProvider({ children }: FileDropZoneProviderProps) {
   const [isDocumentDragging, setIsDocumentDragging] = useState(false)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  const onDragging = useStableCallback((event?: DragEvent) => {
-    // Only consider it dragging if it contains files, so we don't trigger the drag UI for someone
-    // dragging a highlighted string around or something
-    if (event?.dataTransfer?.types?.includes('Files')) {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      setIsDocumentDragging(true)
-      timeoutRef.current = setTimeout(onDragEnd, 300)
-    }
-  })
-  const onDragEnd = useStableCallback(() => {
+  const onDragEnd = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = undefined
     }
     setIsDocumentDragging(false)
-  })
+  }, [])
 
   useEffect(() => {
+    const onDragging = (event?: DragEvent) => {
+      // Only consider it dragging if it contains files, so we don't trigger the drag UI for someone
+      // dragging a highlighted string around or something
+      if (event?.dataTransfer?.types?.includes('Files')) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+        setIsDocumentDragging(true)
+        timeoutRef.current = setTimeout(onDragEnd, 300)
+      }
+    }
+
     document.addEventListener('dragover', onDragging)
 
     return () => {
       document.removeEventListener('dragover', onDragging)
     }
-  }, [onDragging])
-
-  const contextValue = useMemo<FileDropZoneState>(() => {
-    return {
-      isDocumentDragging,
-      onDrop: onDragEnd,
-    }
-  }, [isDocumentDragging, onDragEnd])
+  }, [onDragEnd])
 
   return (
-    <FileDropZoneContext.Provider value={contextValue}>{children}</FileDropZoneContext.Provider>
+    <FileDropZoneContext.Provider
+      value={{
+        isDocumentDragging,
+        onDrop: onDragEnd,
+      }}>
+      {children}
+    </FileDropZoneContext.Provider>
   )
 }
 
@@ -85,37 +84,38 @@ interface FileDropZoneProps {
  * NOTE: You'll probably want to disable pointer events on the children of this component so they
  * don't interface with the drag events on the parent.
  */
-export function FileDropZone(props: FileDropZoneProps) {
+export function FileDropZone({
+  extensions,
+  onFilesDropped,
+  className,
+  children,
+}: FileDropZoneProps) {
   const { isDocumentDragging, onDrop: onDragEnd } = useContext(FileDropZoneContext)
-
-  const onDrop = useStableCallback((e: React.DragEvent) => {
-    onDragEnd()
-
-    const files = Array.from(e.dataTransfer.files).filter(f => {
-      const parts = f.name.toLowerCase().split('.')
-      const extension = parts.length > 1 ? parts[parts.length - 1] : ''
-      return props.extensions.includes(extension)
-    })
-
-    if (files.length) {
-      e.preventDefault()
-      e.stopPropagation()
-      props.onFilesDropped(files)
-    }
-  })
-
-  const onDragOver = useStableCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'link'
-  })
 
   return (
     <Root
       $isDocumentDragging={isDocumentDragging}
-      className={props.className}
-      onDrop={onDrop}
-      onDragOver={onDragOver}>
-      {isDocumentDragging ? props.children : null}
+      className={className}
+      onDrop={e => {
+        onDragEnd()
+
+        const files = Array.from(e.dataTransfer.files).filter(f => {
+          const parts = f.name.toLowerCase().split('.')
+          const extension = parts.length > 1 ? parts[parts.length - 1] : ''
+          return extensions.includes(extension)
+        })
+
+        if (files.length) {
+          e.preventDefault()
+          e.stopPropagation()
+          onFilesDropped(files)
+        }
+      }}
+      onDragOver={e => {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'link'
+      }}>
+      {isDocumentDragging ? children : null}
     </Root>
   )
 }

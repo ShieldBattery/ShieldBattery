@@ -827,6 +827,8 @@
     "activity": {
       "title": "Replays"
     },
+    "fileDropError": "There was a problem opening the replay file",
+    "fileDropText": "Drop replays here to watch them with ShieldBattery.",
     "loading": {
       "dialogTitle": "Loading replay…",
       "errorGeneric": "Something went wrong while loading the replay.",
