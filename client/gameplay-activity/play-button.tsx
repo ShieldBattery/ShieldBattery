@@ -1,4 +1,11 @@
-import { animate, frame, useMotionValue, useSpring, useTransform } from 'motion/react'
+import {
+  animate,
+  frame,
+  SpringOptions,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from 'motion/react'
 import * as m from 'motion/react-m'
 import React, { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -147,7 +154,13 @@ const GradientCircle = styled(m.div)`
   z-index: 2;
 `
 
-const buttonSpring = { damping: 650, stiffness: 800 }
+const buttonSpring: SpringOptions = {
+  mass: 24,
+  damping: 350,
+  stiffness: 650,
+  restDelta: 0.00001,
+  restSpeed: 0.00001,
+}
 
 function PlayButtonDisplay({
   targetPath,
@@ -171,18 +184,18 @@ function PlayButtonDisplay({
     if (!isBreathing) {
       controllers.push(
         animate(breatheScale, 1, {
-          duration: 1.1,
+          duration: 1.5,
           ease: 'easeInOut',
         }),
       )
       controllers.push(
         animate(breatheScale2, 1, {
-          duration: 1.1,
+          duration: 1.5,
           ease: 'easeInOut',
         }),
       )
     } else {
-      const duration = fastBreathing ? 5 : 21
+      const duration = fastBreathing ? 8 : 21
       controllers.push(
         animate(breatheScale, [null, 1, 0.7], {
           duration,
@@ -201,28 +214,28 @@ function PlayButtonDisplay({
       )
 
       controllers.push(
-        animate(gradientX, [null, WIDTH / 24, -WIDTH / 10, -WIDTH / 4], {
+        animate(gradientX, [null, WIDTH / 24, -WIDTH / 10, -WIDTH / 6], {
           duration,
           repeat: Infinity,
           repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientY, [null, -HEIGHT / 2, 0, -HEIGHT / 4, HEIGHT / 4], {
+        animate(gradientY, [null, -HEIGHT / 3, 0, -HEIGHT / 6, HEIGHT / 6], {
           duration,
           repeat: Infinity,
           repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientX2, [null, -WIDTH / 12, WIDTH / 4, -WIDTH / 16, WIDTH / 8], {
+        animate(gradientX2, [null, -WIDTH / 12, WIDTH / 5, -WIDTH / 16, WIDTH / 8], {
           duration: duration + 1,
           repeat: Infinity,
           repeatType: 'mirror',
         }),
       )
       controllers.push(
-        animate(gradientY2, [null, -HEIGHT + HEIGHT / 2, 0, -HEIGHT + HEIGHT / 4, HEIGHT / 6], {
+        animate(gradientY2, [null, -HEIGHT + HEIGHT / 3, 0, -HEIGHT + HEIGHT / 5, HEIGHT / 8], {
           duration: duration + 1,
           repeat: Infinity,
           repeatType: 'mirror',
