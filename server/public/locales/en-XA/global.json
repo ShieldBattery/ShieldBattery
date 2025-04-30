@@ -1175,6 +1175,10 @@
         },
         "chat": {
             "label": "$🗡Chat🗡!"
+        },
+        "sidebar": {
+            "pinTooltip": "$🗡Pin sidebar🗡!",
+            "unpinTooltip": "$🗡Unpin sidebar🗡!"
         }
     },
     "home": {

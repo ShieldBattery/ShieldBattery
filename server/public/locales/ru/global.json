@@ -1181,6 +1181,10 @@
         },
         "friends": {
             "label": "Друзья ({{friendCount}})"
+        },
+        "sidebar": {
+            "pinTooltip": "Закрепить боковую панель",
+            "unpinTooltip": "Открепить боковую панель"
         }
     },
     "home": {

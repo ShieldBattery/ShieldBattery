@@ -1169,6 +1169,10 @@
         },
         "friends": {
             "label": "친구들 ({{friendCount}})"
+        },
+        "sidebar": {
+            "unpinTooltip": "사이드바 고정 해제하기",
+            "pinTooltip": "사이드바 고정하기"
         }
     },
     "home": {
