@@ -102,7 +102,9 @@ export default function ({
         },
       }),
       ...webpackOpts.plugins,
-    ].concat(isProd ? [] : [new ReactRefreshWebpackPlugin()]),
+    ].concat(
+      isProd ? [] : [new ReactRefreshWebpackPlugin({ overlay: { sockIntegration: 'whm' } })],
+    ),
 
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],

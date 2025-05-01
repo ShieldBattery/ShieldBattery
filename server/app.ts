@@ -5,7 +5,6 @@ import http from 'http'
 import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
-import koaConvert from 'koa-convert'
 import koaJwt from 'koa-jwt'
 import views from 'koa-views'
 import path from 'path'
@@ -219,8 +218,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
   }
 
   if (isDev) {
-    const { webpackMiddleware } = require('./lib/webpack/middleware')
-    const koaWebpackHot = require('koa-webpack-hot-middleware')
+    const { webpackMiddleware, webpackHotMiddleware } = require('./lib/webpack/middleware')
 
     app.use(
       webpackMiddleware({
@@ -230,7 +228,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
         },
       }),
     )
-    app.use(koaConvert(koaWebpackHot(getWebpackCompiler())))
+    app.use(webpackHotMiddleware(getWebpackCompiler()))
   }
 
   log.info('Testing connection to redis.')
