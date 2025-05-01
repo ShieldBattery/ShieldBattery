@@ -313,12 +313,7 @@ export function ReplayInfoDialog({ filePath, onCancel }: ReplayInfoDialogProps) 
       title={t('replays.replayInfoDialog.title', 'Replay info')}
       showCloseButton={true}
       buttons={[
-        <TextButton
-          key='cancel'
-          onClick={onCancel}
-          label={t('common.actions.cancel', 'Cancel')}
-          color='accent'
-        />,
+        <TextButton key='cancel' onClick={onCancel} label={t('common.actions.cancel', 'Cancel')} />,
         <TextButton
           key='watch'
           onClick={() => {
@@ -326,7 +321,6 @@ export function ReplayInfoDialog({ filePath, onCancel }: ReplayInfoDialogProps) 
             dispatch(startReplay({ path: filePath }))
           }}
           label={t('replays.replayInfoDialog.watch', 'Watch')}
-          color='accent'
         />,
       ]}>
       <ReplayInfoDisplay filePath={filePath} />

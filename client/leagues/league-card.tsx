@@ -171,7 +171,7 @@ export function LeagueCard({
           NOTE(tec27): This intentionally doesn't have an onClick handler as it is handled by the
           card and having both would cause 2 navigations to occur.
         */}
-          <TextButton label={actionText} color='accent' />
+          <TextButton label={actionText} />
         </LeagueActions>
         <Ripple ref={rippleRef} />
       </LeagueCardRoot>

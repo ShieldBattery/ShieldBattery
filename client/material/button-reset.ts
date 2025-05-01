@@ -12,4 +12,9 @@ export const buttonReset = css`
   cursor: pointer;
   overflow: hidden;
   background-color: transparent;
+
+  &:focus-visible {
+    outline: 3px solid var(--theme-grey-blue);
+    outline-offset: 2px;
+  }
 `

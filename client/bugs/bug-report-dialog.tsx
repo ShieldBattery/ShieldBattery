@@ -83,14 +83,12 @@ export function BugReportDialog(props: CommonDialogProps) {
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
-      color='accent'
       onClick={props.onCancel}
       disabled={loading}
     />,
     <TextButton
       label={t('common.actions.submit', 'Submit')}
       key='submit'
-      color='accent'
       onClick={submit}
       disabled={loading}
     />,

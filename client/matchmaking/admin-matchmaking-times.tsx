@@ -393,7 +393,6 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         {hasMoreFutureTimes && (
           <TextButton
             label={isLoadingFutureTimes ? 'Loading...' : 'Load more upcoming times'}
-            color='accent'
             disabled={isLoadingFutureTimes}
             onClick={() => onLoadMoreFutureTimes(futureTimes.length)}
           />
@@ -408,11 +407,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
                 </HistoryStatus>
               </HistoryInfo>
               <HistoryActions>
-                <TextButton
-                  label='Delete'
-                  color='accent'
-                  onClick={() => onDeleteMatchmakingTime(time.id)}
-                />
+                <TextButton label='Delete' onClick={() => onDeleteMatchmakingTime(time.id)} />
               </HistoryActions>
             </HistoryCard>
           ))}
@@ -593,7 +588,6 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
       {hasMorePastTimes && (
         <TextButton
           label={isLoadingPastTimes ? 'Loading...' : 'Load more past times'}
-          color='accent'
           disabled={isLoadingPastTimes}
           onClick={() => onLoadMorePastTimes(pastTimes.length)}
         />

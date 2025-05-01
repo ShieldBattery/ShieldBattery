@@ -416,7 +416,6 @@ export function CreateLobby(props: CreateLobbyProps) {
     <Container>
       <TitleBar>
         <TextButton
-          color='normal'
           label={t('lobbies.createLobby.backToList', 'Back to list')}
           iconStart={<MaterialIcon icon='arrow_back' />}
           onClick={props.onNavigateToList}

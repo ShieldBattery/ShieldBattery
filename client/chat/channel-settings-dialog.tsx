@@ -157,13 +157,11 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
-      color='accent'
       onClick={() => dispatch(closeDialog(DialogType.ChannelSettings))}
     />,
     <TextButton
       label={t('common.actions.save', 'Save')}
       key='save'
-      color='accent'
       disabled={isSaving}
       onClick={() => submit()}
       testName='channel-settings-save-button'

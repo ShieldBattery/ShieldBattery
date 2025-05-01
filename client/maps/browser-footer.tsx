@@ -262,14 +262,9 @@ export function BrowserFooter({
             ))}
           </ColumnGroup>
           <FilterActions>
-            <TextButton
-              label={t('common.actions.cancel', 'Cancel')}
-              color='accent'
-              onClick={closeFilterOverlay}
-            />
+            <TextButton label={t('common.actions.cancel', 'Cancel')} onClick={closeFilterOverlay} />
             <TextButton
               label={t('common.actions.apply', 'Apply')}
-              color='accent'
               onClick={() => {
                 onFilterApply(localNumPlayersFilter, localTilesetFilter)
                 closeFilterOverlay()

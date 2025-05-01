@@ -338,7 +338,7 @@ function ChatContent() {
           onNavigation()
         }}
         label={t('chat.channelList.browseChannels', 'Browse channels')}
-        iconStart={<MaterialIcon icon='add' size={18} />}
+        iconStart={<MaterialIcon icon='add' size={20} />}
       />
       <SectionSpacer />
       <Subheader>{t('navigation.leftNav.whispers', 'Whispers')}</Subheader>
@@ -351,7 +351,7 @@ function ChatContent() {
           onNavigation()
         }}
         label={t('chat.whispers.startWhisperButton', 'Start a whisper')}
-        iconStart={<MaterialIcon icon='add' size={18} />}
+        iconStart={<MaterialIcon icon='add' size={20} />}
       />
     </>
   )

@@ -70,11 +70,11 @@ const Root = styled(m.a)`
       &:after {
         content: '';
         position: absolute;
-        top: 16px;
-        left: 20px;
-        right: 20px;
-        bottom: 16px;
-        outline: 2px solid var(--theme-amber);
+        top: 8px;
+        left: 22px;
+        right: 22px;
+        bottom: 12px;
+        outline: 3px solid var(--theme-amber);
         border-radius: 4px;
       }
     }

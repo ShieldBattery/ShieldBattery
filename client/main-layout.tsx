@@ -164,11 +164,12 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
       &:after {
         content: '';
         position: absolute;
-        top: 16px;
-        left: 20px;
-        right: 20px;
-        bottom: 16px;
-        outline: 2px solid var(--theme-amber);
+        top: 12px;
+        left: 16px;
+        right: 16px;
+        bottom: 14px;
+        outline: 3px solid var(--theme-amber);
+        outline-offset: 2px;
         border-radius: 4px;
       }
     }
@@ -436,8 +437,6 @@ const LeftSide = styled.div`
   grid-template-columns: [menu-button] auto [user-button] 1fr;
 
   align-items: center;
-
-  overflow: hidden;
 `
 
 const NavigationMenuButton = styled(IconButton)`

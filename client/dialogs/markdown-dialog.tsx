@@ -25,14 +25,7 @@ export function MarkdownDialog({
 }: MarkdownDialogProps) {
   const { t } = useTranslation()
   const buttons = hasButton
-    ? [
-        <TextButton
-          label={t('common.actions.okay', 'Okay')}
-          key={'okay'}
-          color={'accent'}
-          onClick={onCancel}
-        />,
-      ]
+    ? [<TextButton label={t('common.actions.okay', 'Okay')} key={'okay'} onClick={onCancel} />]
     : []
 
   return (

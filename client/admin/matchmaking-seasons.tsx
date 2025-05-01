@@ -210,13 +210,8 @@ export function AdminMatchmakingSeasons() {
             <div>
               Really delete <TitleMedium as='span'>{s.name}</TitleMedium>?
             </div>
+            <TextButton label='Cancel' onClick={() => setConfirmingDeleteId(undefined)} />
             <TextButton
-              color='accent'
-              label='Cancel'
-              onClick={() => setConfirmingDeleteId(undefined)}
-            />
-            <TextButton
-              color='accent'
               label='Delete it'
               onClick={() =>
                 ((id: SeasonId) => {

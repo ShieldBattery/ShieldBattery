@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
@@ -343,13 +342,13 @@ const IconContainer = styled.div`
   margin-right: 8px;
 `
 
-const FilledButtonRoot = styled.button`
+const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
   ${buttonReset};
   ${fastOutSlowInShort};
 
   min-width: 88px;
   min-height: 40px;
-  padding: 0 16px;
+  padding-inline: ${props => (props.$hasIcon ? '16px 24px' : '24px')};
   display: inline-table;
 
   border-radius: 6px;
@@ -380,7 +379,10 @@ const FilledButtonRoot = styled.button`
 
 export interface FilledButtonProps {
   label: string | React.ReactNode
-  /** An optional icon to place at the starting edge of the button. */
+  /**
+   * An optional icon to place at the starting edge of the button. For normally sized buttons, this
+   * should be sized to 20px.
+   */
   iconStart?: React.ReactNode
   className?: string
   disabled?: boolean
@@ -433,6 +435,7 @@ export function FilledButton({
 
   return (
     <FilledButtonRoot
+      $hasIcon={!!iconStart}
       ref={ref}
       as={as}
       className={className}
@@ -477,17 +480,13 @@ export const ElevatedButton = styled(FilledButton)`
   }
 `
 
-interface TextButtonStyleProps {
-  $color: 'normal' | 'primary' | 'accent'
-}
-
-const TextButtonRoot = styled.button<TextButtonStyleProps>`
+const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
   ${buttonReset};
   ${fastOutSlowInShort};
 
   min-width: 64px;
   min-height: 40px;
-  padding: 0 16px;
+  padding-inline: ${props => (props.$hasIcon ? '12px 16px' : '12px')};
   display: inline-table;
 
   border-radius: 6px;
@@ -495,39 +494,25 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   text-align: center;
 
   background-color: transparent;
-  color: ${props => {
-    switch (props.$color) {
-      case 'normal':
-        return 'var(--theme-on-surface-variant)'
-      case 'primary':
-        return 'var(--color-blue90)'
-      case 'accent':
-        return 'var(--theme-amber)'
-      default:
-        return assertUnreachable(props.$color)
-    }
-  }};
-  --sb-ripple-color: ${props => {
-    switch (props.$color) {
-      case 'normal':
-        return '#ffffff'
-      case 'primary':
-      case 'accent':
-        return 'currentColor'
-      default:
-        return assertUnreachable(props.$color)
-    }
-  }};
+  color: var(--theme-amber);
+  outline-color: var(--theme-grey-blue);
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
+
+  &:focus-visible {
+    outline: 3px solid var(--theme-grey-blue);
+    outline-offset: 2px;
+  }
 `
 
 export interface TextButtonProps {
-  color?: 'normal' | 'primary' | 'accent'
   label: string | React.ReactNode
-  /** An optional icon to place at the starting edge of the button. */
+  /**
+   * An optional icon to place at the starting edge of the button. For normally sized buttons, this
+   * should be sized to 20px.
+   */
   iconStart?: React.ReactNode
   className?: string
   disabled?: boolean
@@ -541,62 +526,58 @@ export interface TextButtonProps {
   type?: 'button' | 'reset' | 'submit'
   name?: string
   testName?: string
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 /**
  * A button with no background (only text), used for less-pronounced actions (such as in dialogs
  * and cards).
  */
-export const TextButton = React.forwardRef(
-  (
-    {
-      color = 'normal',
-      label,
-      className,
-      disabled,
-      iconStart,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-      tabIndex,
-      title,
-      type,
-      name,
-      testName,
-    }: TextButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [buttonProps, rippleRef] = useButtonState({
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-    })
+export function TextButton({
+  label,
+  className,
+  disabled,
+  iconStart,
+  onBlur,
+  onFocus,
+  onClick,
+  onDoubleClick,
+  onMouseDown,
+  tabIndex,
+  title,
+  type = 'button',
+  name,
+  testName,
+  ref,
+}: TextButtonProps) {
+  const [buttonProps, rippleRef] = useButtonState({
+    disabled,
+    onBlur,
+    onFocus,
+    onClick,
+    onDoubleClick,
+    onMouseDown,
+  })
 
-    return (
-      <TextButtonRoot
-        ref={ref}
-        className={className}
-        $color={color}
-        tabIndex={tabIndex}
-        title={title}
-        type={type ?? 'button'}
-        name={name}
-        data-test={testName}
-        {...buttonProps}>
-        <Label>
-          {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
-          {label}
-        </Label>
-        <Ripple ref={rippleRef} disabled={disabled} />
-      </TextButtonRoot>
-    )
-  },
-)
+  return (
+    <TextButtonRoot
+      $hasIcon={!!iconStart}
+      ref={ref}
+      className={className}
+      tabIndex={tabIndex}
+      title={title}
+      type={type}
+      name={name}
+      data-test={testName}
+      {...buttonProps}>
+      <Label>
+        {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+        {label}
+      </Label>
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </TextButtonRoot>
+  )
+}
 
 const IconButtonRoot = styled.button`
   ${buttonReset};
@@ -611,7 +592,7 @@ const IconButtonRoot = styled.button`
   border-radius: 6px;
   color: var(--theme-on-surface-variant);
   contain: content;
-  --sb-ripple-color: #ffffff;
+  outline-color: var(--theme-grey-blue);
 
   transition:
     color 150ms linear,
@@ -619,6 +600,11 @@ const IconButtonRoot = styled.button`
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--theme-grey-blue);
+    outline-offset: 2px;
   }
 `
 
@@ -637,52 +623,49 @@ export interface IconButtonProps {
   name?: string
   testName?: string
   ariaLabel?: string
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
-export const IconButton = React.forwardRef(
-  (
-    {
-      icon,
-      title,
-      className,
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-      tabIndex,
-      type,
-      name,
-      testName,
-      ariaLabel,
-    }: IconButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [buttonProps, rippleRef] = useButtonState({
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-    })
+export function IconButton({
+  icon,
+  title,
+  className,
+  disabled,
+  onBlur,
+  onFocus,
+  onClick,
+  onDoubleClick,
+  onMouseDown,
+  tabIndex,
+  type = 'button',
+  name,
+  testName,
+  ariaLabel,
+  ref,
+}: IconButtonProps) {
+  const [buttonProps, rippleRef] = useButtonState({
+    disabled,
+    onBlur,
+    onFocus,
+    onClick,
+    onDoubleClick,
+    onMouseDown,
+  })
 
-    return (
-      <IconButtonRoot
-        ref={ref}
-        className={className}
-        tabIndex={tabIndex}
-        title={title}
-        type={type ?? 'button'}
-        name={name}
-        data-test={testName}
-        aria-label={ariaLabel}
-        {...buttonProps}>
-        {icon}
-        <Ripple ref={rippleRef} disabled={disabled} />
-      </IconButtonRoot>
-    )
-  },
-)
+  return (
+    <IconButtonRoot
+      ref={ref}
+      className={className}
+      tabIndex={tabIndex}
+      title={title}
+      type={type}
+      name={name}
+      data-test={testName}
+      aria-label={ariaLabel}
+      {...buttonProps}>
+      {icon}
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </IconButtonRoot>
+  )
+}

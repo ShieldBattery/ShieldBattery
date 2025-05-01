@@ -70,16 +70,10 @@ export function ExternalLinkDialog({ href, domain, onCancel }: ExternalLinkDialo
     <TrustDomainLink key='trust-domain' href='#' onClick={onTrustDomainClick}>
       {t('navigation.externalLink.alwaysTrust', 'Always trust this domain')}
     </TrustDomainLink>,
-    <TextButton
-      label={t('common.actions.cancel', 'Cancel')}
-      key='cancel'
-      color='accent'
-      onClick={onCancel}
-    />,
+    <TextButton label={t('common.actions.cancel', 'Cancel')} key='cancel' onClick={onCancel} />,
     <TextButton
       label={t('navigation.externalLink.openLink', 'Open Link')}
       key='open-link'
-      color='accent'
       onClick={onOpenLinkClick}
     />,
   ]

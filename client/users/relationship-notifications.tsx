@@ -58,7 +58,6 @@ export const FriendRequestNotificationUi = React.memo(
         actions={[
           <TextButton
             key='decline'
-            color='accent'
             label={t('common.actions.decline', 'Decline')}
             onClick={() => {
               dispatch(
@@ -79,7 +78,6 @@ export const FriendRequestNotificationUi = React.memo(
           />,
           <TextButton
             key='accept'
-            color='accent'
             label={t('common.actions.accept', 'Accept')}
             onClick={() => {
               dispatch(

@@ -85,6 +85,12 @@ const GlobalStyle = createGlobalStyle`
     fill: currentColor;
   }
 
+  *:focus-visible {
+    outline-color: var(--theme-grey-blue);
+    outline-offset: 2px;
+    outline-width: 3px;
+  }
+
   input:-webkit-autofill {
     box-shadow: 0 0 0px 1000px var(--theme-container-highest) inset !important;
     -webkit-text-fill-color: var(--theme-on-surface) !important;

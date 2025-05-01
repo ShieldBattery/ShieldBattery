@@ -158,7 +158,6 @@ export function AddServerRow(props: {
         </PortContent>
         <ButtonRow>
           <ButtonWithIcon
-            color='accent'
             label={
               <>
                 <MaterialIcon icon='close' />
@@ -168,7 +167,6 @@ export function AddServerRow(props: {
             onClick={props.onCancel}
           />
           <ButtonWithIcon
-            color='accent'
             label={
               <>
                 <MaterialIcon icon='check' />
@@ -304,13 +302,11 @@ export function EditServerRow({
         </PortContent>
         <ButtonRow>
           <ButtonWithIcon
-            color='accent'
             iconStart={<MaterialIcon icon='close' />}
             label='Cancel'
             onClick={onCancel}
           />
           <ButtonWithIcon
-            color='accent'
             iconStart={<MaterialIcon icon='check' />}
             label='Save'
             onClick={onSubmit}

@@ -63,7 +63,6 @@ export function ReplayLoadDialog({ onCancel, gameId }: ReplayLoadDialogProps) {
           ? [
               <TextButton
                 key='close'
-                color='accent'
                 label='Close'
                 onClick={() => dispatch(closeDialog(DialogType.ReplayLoad))}
               />,

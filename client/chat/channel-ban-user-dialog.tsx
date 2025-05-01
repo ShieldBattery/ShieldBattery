@@ -150,16 +150,10 @@ export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBan
   const onBanClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton
-      label={t('common.actions.cancel', 'Cancel')}
-      key='cancel'
-      color='accent'
-      onClick={onCancel}
-    />,
+    <TextButton label={t('common.actions.cancel', 'Cancel')} key='cancel' onClick={onCancel} />,
     <TextButton
       label={t('chat.banUser.banAction', { defaultValue: 'Ban {{user}}', user: user.name })}
       key='ban'
-      color='accent'
       onClick={onBanClick}
     />,
   ]

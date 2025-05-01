@@ -186,8 +186,8 @@ function MassDeleteMaps() {
           </WarningText>
 
           <p>Are you sure?</p>
-          <TextButton label='No' color='accent' onClick={() => setAreYouSure(false)} />
-          <TextButton label='Yes' color='accent' onClick={onDeleteMapsClick} />
+          <TextButton label='No' onClick={() => setAreYouSure(false)} />
+          <TextButton label='Yes' onClick={onDeleteMapsClick} />
         </div>
       ) : null}
 

@@ -353,14 +353,12 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
-      color='accent'
       onClick={onCancel}
       disabled={fetching}
     />,
     <TextButton
       label={t('common.actions.save', 'Save')}
       key='save'
-      color='accent'
       onClick={submit}
       disabled={fetching}
       testName='save-button'
@@ -503,14 +501,12 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
-      color='accent'
       onClick={onCancel}
       disabled={fetching}
     />,
     <TextButton
       label={t('common.actions.save', 'Save')}
       key='save'
-      color='accent'
       onClick={submit}
       disabled={fetching}
       testName='save-button'

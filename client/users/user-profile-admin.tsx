@@ -236,7 +236,6 @@ function PermissionsEditor({
 
         <TextButton
           label='Save'
-          color='accent'
           tabIndex={0}
           onClick={submit}
           disabled={fetching}

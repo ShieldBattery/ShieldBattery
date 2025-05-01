@@ -28,7 +28,7 @@ const ButtonContainer = styled.div`
   height: 48px;
   position: relative;
 
-  contain: content;
+  contain: layout;
 `
 
 const PopoverScrollable = styled.div`

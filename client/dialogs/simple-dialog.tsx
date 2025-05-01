@@ -24,14 +24,7 @@ export function SimpleDialog({
 }: SimpleDialogProps) {
   const { t } = useTranslation()
   const buttons = hasButton
-    ? [
-        <TextButton
-          label={t('common.actions.okay', 'Okay')}
-          key={'okay'}
-          color={'accent'}
-          onClick={onCancel}
-        />,
-      ]
+    ? [<TextButton label={t('common.actions.okay', 'Okay')} key={'okay'} onClick={onCancel} />]
     : []
   const content =
     typeof simpleContent === 'string' ? <BodyLarge>{simpleContent}</BodyLarge> : simpleContent

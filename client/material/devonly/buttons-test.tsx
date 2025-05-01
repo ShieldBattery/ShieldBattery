@@ -35,14 +35,14 @@ export function ButtonsTest() {
         <TitleLarge>Press some buttons</TitleLarge>
         <Row>
           <FilledButton label='Filled' />
-          <FilledButton label='Filled icon' iconStart={<MaterialIcon icon='mood' size={18} />} />
+          <FilledButton label='Filled icon' iconStart={<MaterialIcon icon='mood' size={20} />} />
           <FilledButton label='Filled disabled' disabled={true} />
         </Row>
         <Row>
           <FilledTonalButton label='Filled Tonal' />
           <FilledTonalButton
             label='Filled Tonal icon'
-            iconStart={<MaterialIcon icon='mood' size={18} />}
+            iconStart={<MaterialIcon icon='mood' size={20} />}
           />
           <FilledTonalButton label='Filled Tonal disabled' disabled={true} />
         </Row>
@@ -50,31 +50,34 @@ export function ButtonsTest() {
           <ElevatedButton label='Elevated' />
           <ElevatedButton
             label='Elevated icon'
-            iconStart={<MaterialIcon icon='mood' size={18} />}
+            iconStart={<MaterialIcon icon='mood' size={20} />}
           />
           <ElevatedButton label='Elevated disabled' disabled={true} />
         </Row>
-        <TextButton label='Flat normal' />
-        <TextButton label='Flat normal disabled' disabled={true} />
-        <TextButton label='Flat primary' color='primary' />
-        <TextButton label='Flat primary disabled' color='primary' disabled={true} />
-        <TextButton label='Flat accent' color='accent' />
-        <TextButton label='Flat accent disabled' color='accent' disabled={true} />
-        <IconButton icon={<MaterialIcon icon='magic_button' />} title='Icon button' />
-        <IconButton
-          icon={<MaterialIcon icon='local_pizza' />}
-          title='Icon button disabled'
-          disabled={true}
-        />
-        <FloatingActionButton
-          icon={<MaterialIcon icon='elderly' invertColor={true} />}
-          title='FAB'
-        />
-        <FloatingActionButton
-          icon={<MaterialIcon icon='skull' invertColor={true} />}
-          title='Disabled FAB'
-          disabled={true}
-        />
+        <Row>
+          <TextButton label='Text' />
+          <TextButton label='Text normal' disabled={true} />
+          <TextButton label='Text icon' iconStart={<MaterialIcon icon='mood' size={20} />} />
+        </Row>
+        <Row>
+          <IconButton icon={<MaterialIcon icon='magic_button' />} title='Icon button' />
+          <IconButton
+            icon={<MaterialIcon icon='local_pizza' />}
+            title='Icon button disabled'
+            disabled={true}
+          />
+        </Row>
+        <Row>
+          <FloatingActionButton
+            icon={<MaterialIcon icon='elderly' invertColor={true} />}
+            title='FAB'
+          />
+          <FloatingActionButton
+            icon={<MaterialIcon icon='skull' invertColor={true} />}
+            title='Disabled FAB'
+            disabled={true}
+          />
+        </Row>
       </StyledCard>
     </CenteredContentContainer>
   )
