@@ -748,7 +748,9 @@
         "replayInfoDialog": {
             "title": "Информация о повторе",
             "watch": "Смотреть"
-        }
+        },
+        "fileDropError": "Не удалось открыть файл повтора.",
+        "fileDropText": "Перетаскивайте повторы сюда, чтобы смотреть их с ShieldBattery."
     },
     "chat": {
         "banUser": {
