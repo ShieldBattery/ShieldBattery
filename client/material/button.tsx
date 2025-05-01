@@ -452,7 +452,12 @@ export function FilledButton({
   )
 }
 
-const ElevatedButtonRoot = styled(FilledButton)`
+export const FilledTonalButton = styled(FilledButton)`
+  background-color: var(--color-grey-blue50);
+  color: var(--color-grey-blue99);
+`
+
+export const ElevatedButton = styled(FilledButton)`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
 
@@ -471,12 +476,6 @@ const ElevatedButtonRoot = styled(FilledButton)`
     ${elevationZero};
   }
 `
-
-interface ElevatedButtonProps extends FilledButtonProps {}
-
-export function ElevatedButton(props: ElevatedButtonProps) {
-  return <ElevatedButtonRoot {...props} />
-}
 
 interface TextButtonStyleProps {
   $color: 'normal' | 'primary' | 'accent'
