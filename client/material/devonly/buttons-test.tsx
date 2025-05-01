@@ -3,7 +3,14 @@ import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { TitleLarge } from '../../styles/typography'
-import { ElevatedButton, FilledButton, FilledTonalButton, IconButton, TextButton } from '../button'
+import {
+  ElevatedButton,
+  FilledButton,
+  FilledTonalButton,
+  IconButton,
+  OutlinedButton,
+  TextButton,
+} from '../button'
 import { Card } from '../card'
 import { FloatingActionButton } from '../floating-action-button'
 
@@ -55,9 +62,17 @@ export function ButtonsTest() {
           <ElevatedButton label='Elevated disabled' disabled={true} />
         </Row>
         <Row>
+          <OutlinedButton label='Outlined' />
+          <OutlinedButton
+            label='Outlined icon'
+            iconStart={<MaterialIcon icon='mood' size={20} />}
+          />
+          <OutlinedButton label='Outlined disabled' disabled={true} />
+        </Row>
+        <Row>
           <TextButton label='Text' />
-          <TextButton label='Text normal' disabled={true} />
           <TextButton label='Text icon' iconStart={<MaterialIcon icon='mood' size={20} />} />
+          <TextButton label='Text disabled' disabled={true} />
         </Row>
         <Row>
           <IconButton icon={<MaterialIcon icon='magic_button' />} title='Icon button' />

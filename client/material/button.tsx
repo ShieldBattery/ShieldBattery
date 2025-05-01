@@ -480,6 +480,23 @@ export const ElevatedButton = styled(FilledButton)`
   }
 `
 
+export const OutlinedButton = styled(FilledButton)`
+  background-color: transparent;
+  color: var(--color-blue80);
+  border: 1px solid var(--theme-outline);
+
+  &:hover,
+  &:focus,
+  &:active {
+    ${elevationZero};
+  }
+
+  &:disabled {
+    background-color: transparent;
+    border-color: rgb(from var(--theme-on-surface) r g b / 0.12);
+  }
+`
+
 const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
   ${buttonReset};
   ${fastOutSlowInShort};

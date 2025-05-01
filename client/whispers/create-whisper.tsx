@@ -73,15 +73,9 @@ export function CreateWhisper(props: CommonDialogProps) {
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
-      color='accent'
       onClick={props.onCancel}
     />,
-    <TextButton
-      label={t('common.actions.start', 'Start')}
-      key='send'
-      color='accent'
-      onClick={submit}
-    />,
+    <TextButton label={t('common.actions.start', 'Start')} key='send' onClick={submit} />,
   ]
 
   return (
