@@ -518,6 +518,13 @@ const UserButtonName = styled.div`
   max-width: 100%;
 `
 
+const LogInButton = styled(FilledButton)`
+  margin-left: 4px;
+  :first-child > & {
+    margin-left: 20px;
+  }
+`
+
 function AppBarUser({
   user,
   onClick,
@@ -662,8 +669,7 @@ function AppBar({
           </SelfProfileOverlay>
         </>
       ) : (
-        /* TODO(tec27): Use a filled button instead once implemented */
-        <FilledButton
+        <LogInButton
           label={t('auth.login.logIn', 'Log in')}
           testName='app-bar-login'
           onClick={() => {
