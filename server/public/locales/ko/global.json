@@ -860,7 +860,9 @@
         "replayInfoDialog": {
             "title": "다시보기 정보",
             "watch": "보다"
-        }
+        },
+        "fileDropError": "리플레이 파일을 여는 데 문제가 발생했습니다.",
+        "fileDropText": "여기에 리플레이를 드롭하면 ShieldBattery로 시청할 수 있습니다."
     },
     "material": {
         "dialog": {

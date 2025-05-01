@@ -719,7 +719,9 @@
         "replayInfoDialog": {
             "title": "Información de reproducción",
             "watch": "Mirar"
-        }
+        },
+        "fileDropError": "Hubo un problema al abrir el archivo de repetición",
+        "fileDropText": "Suelta las repeticiones aquí para verlas con ShieldBattery."
     },
     "user": {
         "miniMatchHistory": {
@@ -1173,6 +1175,10 @@
         },
         "friends": {
             "label": "Amigos ({{friendCount}})"
+        },
+        "sidebar": {
+            "pinTooltip": "Fijar barra lateral",
+            "unpinTooltip": "Desfijar barra lateral"
         }
     },
     "games": {

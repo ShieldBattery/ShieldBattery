@@ -900,7 +900,9 @@
         "replayInfoDialog": {
             "title": "录像信息",
             "watch": "观看"
-        }
+        },
+        "fileDropError": "打开回放文件时出错",
+        "fileDropText": "将回放拖到这里用ShieldBattery观看。"
     },
     "rootErrorBoundary": {
         "contents": "请在我们的 <2>Discord</2> 服务器上向我们报告此问题。",
@@ -1169,6 +1171,10 @@
         },
         "friends": {
             "label": "朋友 ({{friendCount}})"
+        },
+        "sidebar": {
+            "pinTooltip": "固定侧边栏",
+            "unpinTooltip": "取消固定侧边栏"
         }
     },
     "home": {

@@ -714,7 +714,9 @@
         "replayInfoDialog": {
             "watch": "$🗡Watch🗡!",
             "title": "$🗡Replay info🗡!"
-        }
+        },
+        "fileDropError": "$🗡There was a problem opening the replay file🗡!",
+        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!"
     },
     "user": {
         "miniMatchHistory": {
