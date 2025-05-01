@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { TableVirtuoso } from 'react-virtuoso'
+import { ContextProp, TableBodyProps, TableComponents, TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -414,7 +414,7 @@ const DivisionSelect = styled(Select)`
   width: 148px;
 `
 
-const Table = styled.div`
+const TableRoot = styled.div`
   width: 100%;
   max-width: 800px;
   height: auto;
@@ -425,6 +425,8 @@ const Table = styled.div`
   border-radius: 4px;
   contain: content;
 `
+
+const Table: TableComponents['Table'] = ({ context, ...rest }) => <TableRoot {...rest} />
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
   ${buttonReset};
@@ -835,11 +837,19 @@ const Header = () => {
 
 // TODO(2Pac): react-virtuoso types expect the `ref` here to point to a `tbody` element. I opened an
 // issue on their github page: https://github.com/petyosi/react-virtuoso/issues/644
-const TableBody = React.forwardRef((props, ref: React.ForwardedRef<any>) => (
-  <div ref={ref} {...props} />
-))
+const TableBody = ({
+  context,
+  ...rest
+}: TableBodyProps &
+  ContextProp<unknown> & {
+    ref?: React.Ref<HTMLTableSectionElement>
+    style?: React.CSSProperties
+    className?: string
+  }) => <div {...rest} />
 
-const TableRow = styled.div``
+const TableRow: TableComponents<any, any>['TableRow'] = ({ context, item, ...rest }) => {
+  return <div {...rest} />
+}
 
 const FillerRow = styled.div.attrs<{ height: number }>(props => ({
   style: { height: `${props.height}px` },
