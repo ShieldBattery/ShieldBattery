@@ -20,7 +20,7 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
+import { FilledTonalButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -95,7 +95,7 @@ const RootOverlay = styled(m.div)`
 
 const SectionSpacer = styled.hr`
   border: none;
-  margin-top: 16px;
+  margin-block: 16px 8px;
 `
 
 const TabsAndPin = styled.div`
@@ -307,8 +307,7 @@ const Subheader = styled.div`
   line-height: 24px;
 `
 
-// TODO(tec27): Use an outlined or tonal button instead when it has been implemented
-const ChatListButton = styled(FilledButton)`
+const ChatListButton = styled(FilledTonalButton)`
   margin: 8px auto 0;
 `
 
@@ -339,7 +338,7 @@ function ChatContent() {
           onNavigation()
         }}
         label={t('chat.channelList.browseChannels', 'Browse channels')}
-        iconStart={<MaterialIcon icon='add' />}
+        iconStart={<MaterialIcon icon='add' size={18} />}
       />
       <SectionSpacer />
       <Subheader>{t('navigation.leftNav.whispers', 'Whispers')}</Subheader>
@@ -352,7 +351,7 @@ function ChatContent() {
           onNavigation()
         }}
         label={t('chat.whispers.startWhisperButton', 'Start a whisper')}
-        iconStart={<MaterialIcon icon='add' />}
+        iconStart={<MaterialIcon icon='add' size={18} />}
       />
     </>
   )
