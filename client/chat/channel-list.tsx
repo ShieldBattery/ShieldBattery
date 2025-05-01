@@ -9,7 +9,7 @@ import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { useAutoFocusRef } from '../material/auto-focus'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
@@ -176,7 +176,7 @@ export function ChannelList() {
       <TitleBar>
         <PageHeadline>{t('chat.channelList.pageHeadline', 'Chat channels')}</PageHeadline>
         <FlexSpacer />
-        <ElevatedButton
+        <FilledButton
           label={t('chat.channelList.createChannel', 'Create channel')}
           iconStart={<MaterialIcon icon='add' />}
           onClick={onCreateChannelClick}

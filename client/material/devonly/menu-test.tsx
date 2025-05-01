@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { labelMedium } from '../../styles/typography'
-import { ElevatedButton } from '../button'
+import { FilledButton } from '../button'
 import { Card } from '../card'
 import { Divider } from '../menu/divider'
 import { MenuItem } from '../menu/item'
@@ -74,16 +74,16 @@ export function MenuTest() {
   return (
     <Container>
       <StyledCard>
-        <ElevatedButton ref={normalAnchor} label='Open menu' onClick={openNormalMenu} />
-        <ElevatedButton ref={scrollableAnchor} label='Scrollable' onClick={openScrollableMenu} />
-        <ElevatedButton ref={denseAnchor} label='Dense' onClick={openDenseMenu} />
-        <ElevatedButton
+        <FilledButton ref={normalAnchor} label='Open menu' onClick={openNormalMenu} />
+        <FilledButton ref={scrollableAnchor} label='Scrollable' onClick={openScrollableMenu} />
+        <FilledButton ref={denseAnchor} label='Dense' onClick={openDenseMenu} />
+        <FilledButton
           ref={scrollableDenseAnchor}
           label='Scrollable dense'
           onClick={openScrollableDenseMenu}
         />
-        <ElevatedButton ref={selectionAnchor} label='Selection menu' onClick={openSelectionMenu} />
-        <ElevatedButton ref={mixedAnchor} label='Mixed' onClick={openMixedMenu} />
+        <FilledButton ref={selectionAnchor} label='Selection menu' onClick={openSelectionMenu} />
+        <FilledButton ref={mixedAnchor} label='Mixed' onClick={openMixedMenu} />
 
         <Popover
           open={normalMenuOpen}

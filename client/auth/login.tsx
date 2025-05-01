@@ -6,7 +6,7 @@ import { Link } from 'wouter'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { detectedLocale } from '../i18n/i18next'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
@@ -49,7 +49,7 @@ const RememberCheckBox = styled(CheckBox)`
   margin-left: 10px; /* Aligns box at 12px from the left edge, same as text in text field */
 `
 
-const SubmitButton = styled(ElevatedButton)`
+const SubmitButton = styled(FilledButton)`
   grid-column: -1;
 `
 

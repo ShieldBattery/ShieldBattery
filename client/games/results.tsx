@@ -23,7 +23,7 @@ import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.s
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { ElevatedButton, useButtonState } from '../material/button'
+import { FilledButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
@@ -327,7 +327,7 @@ export function ConnectedGameResultsPage({
       </HeaderArea>
       <ButtonBar>
         {showSearchAgain ? (
-          <ElevatedButton
+          <FilledButton
             label={t('gameDetails.buttonSearchAgain', 'Search again')}
             iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}

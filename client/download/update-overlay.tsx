@@ -6,7 +6,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FocusTrap } from '../dom/focus-trap'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -156,7 +156,7 @@ export function UpdateDialog({
               'Please restart the application to continue.',
           )}
         </BodyLarge>
-        <ElevatedButton
+        <FilledButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
           label={t('clientUpdate.overlay.restartNow', 'Restart now')}
         />

@@ -19,7 +19,7 @@ import { MaterialIcon } from './icons/material/material-icon'
 import { useKeyListener } from './keyboard/key-listener'
 import logger from './logging/logger'
 import {
-  ElevatedButton,
+  FilledButton,
   HotkeyProp,
   IconButton,
   keyEventMatches,
@@ -542,7 +542,11 @@ function AppBarUser({
       aria-label={t('navigation.bar.userMenu', 'User menu')}>
       <UserButtonAvatar userId={user.id} />
       <UserButtonNameAndTitle>
-        <Tooltip text={user.name} position='bottom' disabled={!isNameOverflowing}>
+        <Tooltip
+          text={user.name}
+          position='bottom'
+          disabled={!isNameOverflowing}
+          tabIndex={isNameOverflowing ? 0 : -1}>
           <UserButtonName ref={nameRef}>{user.name}</UserButtonName>
         </Tooltip>
         <TitleTiny>{title}</TitleTiny>
@@ -659,7 +663,7 @@ function AppBar({
         </>
       ) : (
         /* TODO(tec27): Use a filled button instead once implemented */
-        <ElevatedButton
+        <FilledButton
           label={t('auth.login.logIn', 'Log in')}
           testName='app-bar-login'
           onClick={() => {

@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { DEV_ERROR } from '../../common/flags'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { bodyLarge, bodyMedium } from '../styles/typography'
@@ -25,7 +25,7 @@ const FileList = styled.ul`
   margin-bottom: 40px;
 `
 
-const RescanButton = styled(ElevatedButton)`
+const RescanButton = styled(FilledButton)`
   margin-top: 40px;
 `
 

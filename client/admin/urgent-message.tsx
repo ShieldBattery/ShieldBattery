@@ -5,7 +5,7 @@ import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Markdown } from '../markdown/markdown'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -105,7 +105,7 @@ export function AdminUrgentMessage() {
         <TitleAndButton>
           <TitleLarge>Urgent message</TitleLarge>
 
-          <ElevatedButton
+          <FilledButton
             label='Clear Urgent Message'
             onClick={handleClear}
             disabled={fetching}
@@ -123,7 +123,7 @@ export function AdminUrgentMessage() {
               rows={6}
               maxRows={16}
             />
-            <ElevatedButton
+            <FilledButton
               iconStart={<MaterialIcon icon='send' />}
               label='Set Urgent Message'
               onClick={submit}

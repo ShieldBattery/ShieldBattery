@@ -7,7 +7,7 @@ import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -29,7 +29,7 @@ const CenteredContainer = styled.div`
   margin: 32px 0;
 `
 
-const AcceptMatchButton = styled(ElevatedButton)`
+const AcceptMatchButton = styled(FilledButton)`
   width: 162px;
 `
 
@@ -190,7 +190,7 @@ function FailedStateView() {
           "You didn't ready up in time and have been removed from the queue.",
         )}
       </p>
-      <ElevatedButton label='Ok' onClick={onFailedClick} />
+      <FilledButton label='Ok' onClick={onFailedClick} />
     </div>
   )
 }

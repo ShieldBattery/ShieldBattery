@@ -20,7 +20,7 @@ import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUser } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
@@ -120,7 +120,7 @@ const InfoValue = styled.div`
   flex-grow: 1;
 `
 
-const StartButton = styled(ElevatedButton)`
+const StartButton = styled(FilledButton)`
   margin-top: 24px;
 `
 
@@ -377,7 +377,7 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
           />
         </Left>
         <Info>
-          <ElevatedButton
+          <FilledButton
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
           />
@@ -429,7 +429,6 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
     return (
       <StartButton
-        color='primary'
         label={t('lobbies.lobby.startGame', 'Start game')}
         disabled={isDisabled}
         onClick={onStartGame}

@@ -17,7 +17,7 @@ import { BrowseLocalMaps } from '../maps/browse-local-maps'
 import { BrowseServerMaps } from '../maps/browse-server-maps'
 import { MapSelect, MapSelectionValue } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
-import { ElevatedButton, TextButton } from '../material/button'
+import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
@@ -518,7 +518,7 @@ export function CreateLobby(props: CreateLobbyProps) {
       </Contents>
       <Actions $hidden={browsingMaps !== MapBrowseState.None}>
         <ScrollDivider $show={!isAtBottom} $showAt='top' />
-        <ElevatedButton
+        <FilledButton
           label={t('lobbies.createLobby.title', 'Create lobby')}
           disabled={isDisabled}
           onClick={() => {

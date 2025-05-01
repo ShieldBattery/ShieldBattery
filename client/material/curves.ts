@@ -2,9 +2,13 @@ import { css } from 'styled-components'
 import { standardEasing } from './curve-constants'
 
 export const fastOutSlowInShort = css`
-  transition: all 250ms ${standardEasing};
+  transition: background-color, border, box-shadow, color, fill, opacity, outline-color, transform;
+  transition-duration: 250ms;
+  transition-timing-function: ${standardEasing};
 `
 
 export const fastOutSlowInNormal = css`
-  transition: all 400ms ${standardEasing};
+  transition: background-color, border, box-shadow, color, fill, opacity, outline-color, transform;
+  transition-duration: 400ms;
+  transition-timing-function: ${standardEasing};
 `

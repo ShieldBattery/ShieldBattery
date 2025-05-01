@@ -9,7 +9,7 @@ import { graphql } from '../gql'
 import { RestrictedNameKind, RestrictedNameReason, RestrictedNamesQuery } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { ElevatedButton, IconButton, TextButton } from '../material/button'
+import { FilledButton, IconButton, TextButton } from '../material/button'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import DotsIndicator, { LoadingDotsArea } from '../progress/dots'
@@ -363,7 +363,7 @@ function AddForm() {
           </RadioGroup>
         </div>
       </KindAndReasonInputs>
-      <ElevatedButton label='Add' onClick={submit} disabled={fetching} />
+      <FilledButton label='Add' onClick={submit} disabled={fetching} />
     </AddFormRoot>
   )
 }
@@ -441,7 +441,7 @@ function TestForm({ onFilterMatch }: { onFilterMatch: (pattern: string) => void 
       <LabelLarge>Name tester</LabelLarge>
       <TextFieldAndButton>
         <TextField {...bindInput('name')} label='Test name' dense={true} allowErrors={false} />
-        <ElevatedButton label='Test' onClick={submit} />
+        <FilledButton label='Test' onClick={submit} />
       </TextFieldAndButton>
       <TestResults
         $hasMatch={!!data?.userTestRestrictedName}

@@ -26,7 +26,7 @@ import { graphql, useFragment } from '../../gql'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { useAutoFocusRef } from '../../material/auto-focus'
-import { ElevatedButton, TextButton } from '../../material/button'
+import { FilledButton, TextButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
@@ -175,7 +175,7 @@ export function AccountSettings() {
               </EditableOverline>
               <TitleMedium>{currentUser.name}</TitleMedium>
             </EditableContent>
-            <ElevatedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <FilledButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
 
           <EditableItem>
@@ -185,7 +185,7 @@ export function AccountSettings() {
               </EditableOverline>
               <TitleMedium>{currentUser.loginName}</TitleMedium>
             </EditableContent>
-            <ElevatedButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <FilledButton label={t('common.actions.edit', 'Edit')} disabled={true} />
           </EditableItem>
 
           <EditableItem>
@@ -208,7 +208,7 @@ export function AccountSettings() {
                 </BodyMedium>
               </EmailItem>
             </EditableContent>
-            <ElevatedButton
+            <FilledButton
               label={t('common.actions.edit', 'Edit')}
               onClick={onEditEmail}
               testName='edit-email-button'
@@ -221,7 +221,7 @@ export function AccountSettings() {
         <SectionHeader>
           {t('settings.user.account.authenticationHeader', 'Authentication')}
         </SectionHeader>
-        <ElevatedButton
+        <FilledButton
           label={t('settings.user.account.changePasswordButton', 'Change password')}
           onClick={onChangePassword}
           testName='change-password-button'

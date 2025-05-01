@@ -17,7 +17,7 @@ import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { ElevatedButton, TextButton } from '../material/button'
+import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -444,7 +444,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
           onChange={event => setEnabled(event.target.checked)}
         />
 
-        <ElevatedButton
+        <FilledButton
           label='Add'
           disabled={startDate === '' || invalidDate}
           onClick={onAddMatchmakingTime}

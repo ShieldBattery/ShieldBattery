@@ -20,7 +20,7 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { ElevatedButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
+import { FilledButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -308,7 +308,7 @@ const Subheader = styled.div`
 `
 
 // TODO(tec27): Use an outlined or tonal button instead when it has been implemented
-const ChatListButton = styled(ElevatedButton)`
+const ChatListButton = styled(FilledButton)`
   margin: 8px auto 0;
 `
 

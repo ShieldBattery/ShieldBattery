@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { DURATION_LONG } from '../../snackbars/snackbar-durations'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
-import { ElevatedButton } from '../button'
+import { FilledButton } from '../button'
 import { Snackbar } from '../snackbar'
 
 const Root = styled.div`
@@ -62,17 +62,17 @@ export function SnackbarTest() {
           />
         </StaticSnackbars>
         <Buttons>
-          <ElevatedButton
+          <FilledButton
             onClick={() => snackbarController.showSnackbar('This is a short duration snackbar.')}
             label='Short duration'
           />
-          <ElevatedButton
+          <FilledButton
             onClick={() =>
               snackbarController.showSnackbar('This is a long duration snackbar.', DURATION_LONG)
             }
             label='Long duration'
           />
-          <ElevatedButton
+          <FilledButton
             onClick={() =>
               snackbarController.showSnackbar('This is a snackbar with an action.', DURATION_LONG, {
                 action: {
@@ -83,7 +83,7 @@ export function SnackbarTest() {
             }
             label='With action'
           />
-          <ElevatedButton
+          <FilledButton
             onClick={() =>
               snackbarController.showSnackbar(
                 'This is a snackbar with a really, super, incredibly long message that will ' +

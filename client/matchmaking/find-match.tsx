@@ -20,7 +20,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
@@ -266,7 +266,7 @@ export function FindMatch() {
           </Contents>
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
-            <ElevatedButton
+            <FilledButton
               label={t('matchmaking.findMatch.action', 'Find match')}
               disabled={isMatchmakingDisabled}
               onClick={onFindClick}

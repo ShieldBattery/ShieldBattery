@@ -9,7 +9,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FlexSpacer } from '../styles/flex-spacer'
@@ -138,7 +138,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
         <TitleLarge>{t('lobbies.joinLobby.title', 'Join Lobby')}</TitleLarge>
         <FlexSpacer />
         {IS_ELECTRON ? (
-          <ElevatedButton
+          <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
             onClick={onNavigateToCreate}

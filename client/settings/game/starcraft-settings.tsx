@@ -7,7 +7,7 @@ import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
-import { ElevatedButton } from '../../material/button'
+import { FilledButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useStableCallback } from '../../react/state-hooks'
@@ -204,7 +204,7 @@ export function StarcraftSettings() {
             </DetectionFailure>
           ) : undefined}
 
-          <ElevatedButton
+          <FilledButton
             onClick={onDetectPathClick}
             label={t('settings.game.starcraft.detectPath', 'Detect installation')}
           />
@@ -219,7 +219,7 @@ export function StarcraftSettings() {
             )}
           </Instructions>
 
-          <ElevatedButton
+          <FilledButton
             ref={browseButtonRef}
             label={t('settings.game.starcraft.browseManually', 'Browse manually')}
             onClick={onBrowseClick}

@@ -11,7 +11,7 @@ import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
@@ -312,7 +312,7 @@ const StateMessageIcon = styled(MaterialIcon).attrs({
   color: var(--theme-on-surface-variant);
 `
 
-const StateMessageActionButton = styled(ElevatedButton)`
+const StateMessageActionButton = styled(FilledButton)`
   margin-top: 32px;
 `
 

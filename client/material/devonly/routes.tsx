@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-import DevButtons from './buttons-test'
+import { ButtonsTest } from './buttons-test'
 import { MenuTest as DevMenu } from './menu-test'
 import DevPopover from './popover-test'
 import { RadioTest } from './radio-test'
@@ -53,7 +53,7 @@ function DevMaterialDashboard() {
 export default function DevMaterialRoutes() {
   return (
     <Switch>
-      <Route path={`${BASE_URL}/button`} component={DevButtons as any} />
+      <Route path={`${BASE_URL}/button`} component={ButtonsTest} />
       <Route path={`${BASE_URL}/menu`} component={DevMenu as any} />
       <Route path={`${BASE_URL}/popover`} component={DevPopover} />
       <Route path={`${BASE_URL}/radio`} component={RadioTest} />

@@ -68,13 +68,13 @@ const RippleRoot = styled.div<{
   overflow: hidden;
   pointer-events: none;
 
-  --sb-ripple-fg-opacity: var(--sb-ripple-press-opacity, 0.12);
+  --sb-ripple-fg-opacity: var(--sb-ripple-press-opacity, 0.1);
 
   --_before-opacity: ${props => {
     if (props.$focused) {
-      return 'var(--sb-ripple-focus-opacity, 0.12)'
+      return 'var(--sb-ripple-focus-opacity, 0.1)'
     } else if (props.$hovered) {
-      return 'var(--sb-ripple-hover-opacity, 0.04)'
+      return 'var(--sb-ripple-hover-opacity, 0.08)'
     } else {
       return '0'
     }
@@ -211,9 +211,9 @@ const activatedTargets: Array<EventTarget | null> = []
  * custom properties:
  *
  *   - `--sb-ripple-color` (defaults to `currentColor`)
- *   - `--sb-ripple-hover-opacity` (defaults to 0.04)
- *   - `--sb-ripple-focus-opacity` (defaults to 0.12)
- *   - `--sb-ripple-press-opacity` (defaults to 0.12)
+ *   - `--sb-ripple-hover-opacity` (defaults to 0.08)
+ *   - `--sb-ripple-focus-opacity` (defaults to 0.1)
+ *   - `--sb-ripple-press-opacity` (defaults to 0.1)
  */
 export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => {
   const rootRef = useRef<HTMLDivElement | null>(null)

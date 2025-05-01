@@ -22,7 +22,7 @@ import { FormHook, useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { FileInput } from '../material/file-input'
 import { SelectOption } from '../material/select/option'
@@ -118,7 +118,7 @@ export function LeagueAdmin() {
             <ListRoot>
               <Title>Manage leagues</Title>
               <div>
-                <ElevatedButton
+                <FilledButton
                   label='Add league'
                   iconStart={<MaterialIcon icon='add' />}
                   onClick={() => push('/leagues/admin/new')}
@@ -416,7 +416,7 @@ function CreateLeague() {
             inputProps={{ tabIndex: 0 }}
           />
 
-          <ElevatedButton label='Create league' color='primary' onClick={onSubmit} />
+          <FilledButton label='Create league' onClick={onSubmit} />
         </LeagueForm>
         <LeaguePreview>
           {previewLeague ? (
@@ -724,7 +724,7 @@ function EditLeagueForm({
         inputProps={{ tabIndex: 0 }}
       />
 
-      <ElevatedButton label='Save league' color='primary' onClick={submit} />
+      <FilledButton label='Save league' onClick={submit} />
     </LeagueForm>
   )
 }

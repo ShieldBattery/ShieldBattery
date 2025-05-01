@@ -6,7 +6,7 @@ import { RANDOM_EMAIL_CODE_PATTERN } from '../../common/users/user-network'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, regex, required } from '../forms/validators'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
@@ -109,7 +109,7 @@ export function ResetPassword() {
             {t('auth.forgot.reset.successMessage', 'Your password has been reset.')}
           </SuccessMessage>
           <LinkButton href='/login' data-test='continue-to-login'>
-            <ElevatedButton
+            <FilledButton
               as='div'
               label={t('auth.forgot.reset.continueToLogin', 'Continue to login')}
               tabIndex={0}
@@ -148,7 +148,7 @@ export function ResetPassword() {
               floatingLabel={true}
               disabled={isLoading}
             />
-            <ElevatedButton
+            <FilledButton
               type='submit'
               testName='submit-button'
               label={t('auth.forgot.reset.setNewPassword', 'Set new password')}

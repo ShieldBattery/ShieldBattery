@@ -8,7 +8,7 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import logger from '../logging/logger'
 import { useAutoFocusRef } from '../material/auto-focus'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
@@ -113,9 +113,8 @@ export function CreateChannel() {
           }}
         />
 
-        <ElevatedButton
+        <FilledButton
           label={t('chat.createChannel.createAction', 'Create channel')}
-          color='primary'
           onClick={submit}
         />
       </form>

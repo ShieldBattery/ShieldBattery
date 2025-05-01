@@ -21,7 +21,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -351,7 +351,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
           )}
         </Tabs>
         {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
-          <ElevatedButton
+          <FilledButton
             label={
               selfLeagueUser
                 ? t('leagues.leagueDetails.joined', 'Joined')

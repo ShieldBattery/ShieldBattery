@@ -11,7 +11,7 @@ import { Validator, useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, debounceValidator, requireChecked } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
 import { PasswordTextField } from '../material/password-text-field'
@@ -253,7 +253,7 @@ export function Signup() {
           />
         </CheckBoxes>
 
-        <ElevatedButton
+        <FilledButton
           label={t('auth.signup.createAccount', 'Create account')}
           onClick={submit}
           tabIndex={0}

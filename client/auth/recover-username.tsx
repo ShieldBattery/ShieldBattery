@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { Link } from 'wouter'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import { ElevatedButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
@@ -106,7 +106,7 @@ export function RecoverUsername() {
             }}
             disabled={isLoading}
           />
-          <ElevatedButton
+          <FilledButton
             type='submit'
             testName='submit-button'
             label={t('auth.forgot.user.recoverUsername', 'Recover username')}

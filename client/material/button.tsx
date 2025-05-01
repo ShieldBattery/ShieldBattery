@@ -1,12 +1,13 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
 import { Ripple, RippleController } from './ripple'
-import { elevationPlus1, elevationPlus2 } from './shadows'
+import { elevationPlus1, elevationPlus2, elevationZero } from './shadows'
 
 export const Label = styled.span`
   ${labelLarge};
@@ -339,17 +340,12 @@ const IconContainer = styled.div`
   display: flex;
   align-items: center;
 
-  margin-right: 6px; // 8px - 2px of built-in padding in icons
+  margin-right: 8px;
 `
 
-interface ElevatedButtonStyleProps {
-  $color: 'primary' | 'accent'
-}
-
-const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
+const FilledButtonRoot = styled.button`
   ${buttonReset};
   ${fastOutSlowInShort};
-  ${elevationPlus1};
 
   min-width: 88px;
   min-height: 40px;
@@ -360,31 +356,12 @@ const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
   contain: content;
   text-align: center;
 
-  background-color: ${props =>
-    props.$color === 'accent' ? 'var(--theme-amber)' : 'var(--theme-primary)'};
-  color: ${props =>
-    props.$color === 'accent' ? 'var(--theme-on-amber)' : 'var(--theme-on-primary)'};
-  --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
-
-  ${props => {
-    if (props.$color === 'accent') {
-      // Bump up the font weight for dark-on-light text colors so it looks even with light-on-dark
-      return css`
-        & ${Label} {
-          font-variation-settings: 'wght' 600;
-        }
-      `
-    } else {
-      return css``
-    }
-  }};
+  background-color: var(--theme-primary);
+  color: var(--theme-on-primary);
+  outline-color: var(--theme-grey-blue);
 
   &:hover,
   &:focus {
-    ${elevationPlus2}
-  }
-
-  &:active {
     ${elevationPlus1}
   }
 
@@ -393,19 +370,15 @@ const ElevatedButtonRoot = styled.button<ElevatedButtonStyleProps>`
     background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
-
-    & ${Label} {
-      font-variation-settings: inherit;
-    }
   }
 
-  & ${IconContainer} {
-    margin-left: -6px; // 4px + 2px of built-in padding in icons
+  &:focus-visible {
+    outline: 3px solid var(--theme-grey-blue);
+    outline-offset: 2px;
   }
 `
 
-export interface ElevatedButtonProps {
-  color?: 'primary' | 'accent'
+export interface FilledButtonProps {
   label: string | React.ReactNode
   /** An optional icon to place at the starting edge of the button. */
   iconStart?: React.ReactNode
@@ -423,66 +396,87 @@ export interface ElevatedButtonProps {
   as?: string | React.ComponentType<any>
   children?: React.ReactNode
   testName?: string
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 /**
  * A button with a colored background that has elevation, used for high-emphasis actions.
  * ElevatedButton should generally be used for actions that are considered primary to the app.
  */
-export const ElevatedButton = React.forwardRef(
-  (
-    {
-      color = 'primary',
-      label,
-      iconStart,
-      className,
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-      tabIndex,
-      title,
-      type,
-      name,
-      as = 'button',
-      children,
-      testName,
-    }: ElevatedButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [buttonProps, rippleRef] = useButtonState({
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onDoubleClick,
-      onMouseDown,
-    })
+export function FilledButton({
+  label,
+  iconStart,
+  className,
+  disabled,
+  onBlur,
+  onFocus,
+  onClick,
+  onDoubleClick,
+  onMouseDown,
+  tabIndex,
+  title,
+  type = 'button',
+  name,
+  as = 'button',
+  children,
+  testName,
+  ref,
+}: FilledButtonProps) {
+  const [buttonProps, rippleRef] = useButtonState({
+    disabled,
+    onBlur,
+    onFocus,
+    onClick,
+    onDoubleClick,
+    onMouseDown,
+  })
 
-    return (
-      <ElevatedButtonRoot
-        ref={ref}
-        as={as}
-        className={className}
-        $color={color}
-        tabIndex={tabIndex}
-        title={title}
-        type={type ?? 'button'}
-        name={name}
-        data-test={testName}
-        {...buttonProps}>
-        {children}
-        <Label>
-          {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
-          {label}
-        </Label>
-        <Ripple ref={rippleRef} disabled={disabled} />
-      </ElevatedButtonRoot>
-    )
-  },
-)
+  return (
+    <FilledButtonRoot
+      ref={ref}
+      as={as}
+      className={className}
+      tabIndex={tabIndex}
+      title={title}
+      type={type}
+      name={name}
+      data-test={testName}
+      {...buttonProps}>
+      {children}
+      <Label>
+        {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+        {label}
+      </Label>
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </FilledButtonRoot>
+  )
+}
+
+const ElevatedButtonRoot = styled(FilledButton)`
+  ${elevationPlus1};
+  ${containerStyles(ContainerLevel.Low)};
+
+  color: var(--color-blue80);
+
+  &:hover,
+  &:focus {
+    ${elevationPlus2};
+  }
+
+  &:active {
+    ${elevationPlus1};
+  }
+
+  &:disabled {
+    ${elevationZero};
+  }
+`
+
+interface ElevatedButtonProps extends FilledButtonProps {}
+
+export function ElevatedButton(props: ElevatedButtonProps) {
+  return <ElevatedButtonRoot {...props} />
+}
 
 interface TextButtonStyleProps {
   $color: 'normal' | 'primary' | 'accent'
