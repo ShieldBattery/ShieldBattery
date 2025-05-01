@@ -56,13 +56,22 @@ if (module.hot) {
   // into the head without adding the nonce, with no real way to catch this easily. Anyway, we
   // hook `appendChild` on the head, check if it's trying to insert a script, and if so we add the
   // appropriate attribute before doing it.
-  const appendChild = document.head.appendChild.bind(document.head)
+  const headAppendChild = document.head.appendChild.bind(document.head)
   document.head.appendChild = elem => {
     if (elem.tagName === 'SCRIPT' && new Error().stack.includes('__webpack_require__')) {
       elem.setAttribute('nonce', __webpack_nonce__)
     }
 
-    return appendChild(elem)
+    return headAppendChild(elem)
+  }
+
+  const bodyAppendChild = document.body.appendChild.bind(document.body)
+  document.body.appendChild = elem => {
+    if (elem.id === 'webpack-hot-middleware-clientOverlay') {
+      elem.setAttribute('nonce', __webpack_nonce__)
+    }
+
+    return bodyAppendChild(elem)
   }
 }
 
