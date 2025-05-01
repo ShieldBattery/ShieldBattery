@@ -140,7 +140,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
         {IS_ELECTRON ? (
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
-            iconStart={<MaterialIcon icon='add' />}
+            iconStart={<MaterialIcon icon='add' size={18} />}
             onClick={onNavigateToCreate}
           />
         ) : undefined}
