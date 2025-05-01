@@ -20,7 +20,7 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledTonalButton, IconButton, keyEventMatches, useButtonState } from '../material/button'
+import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -307,7 +307,7 @@ const Subheader = styled.div`
   line-height: 24px;
 `
 
-const ChatListButton = styled(FilledTonalButton)`
+const ChatListButton = styled(OutlinedButton)`
   margin: 8px auto 0;
 `
 

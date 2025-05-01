@@ -14,7 +14,6 @@ export const Label = styled.span`
   justify-content: center;
   align-items: center;
   color: currentColor;
-  line-height: 36px;
   white-space: nowrap;
 `
 
@@ -349,7 +348,8 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
   min-width: 88px;
   min-height: 40px;
   padding-inline: ${props => (props.$hasIcon ? '16px 24px' : '24px')};
-  display: inline-table;
+  display: inline-flex;
+  align-items: center;
 
   border-radius: 6px;
   contain: content;
@@ -504,7 +504,8 @@ const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
   min-width: 64px;
   min-height: 40px;
   padding-inline: ${props => (props.$hasIcon ? '12px 16px' : '12px')};
-  display: inline-table;
+  display: inline-flex;
+  align-items: center;
 
   border-radius: 6px;
   contain: content;
