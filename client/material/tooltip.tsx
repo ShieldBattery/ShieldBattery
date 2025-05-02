@@ -32,51 +32,16 @@ const NoPointerPortal = styled(Portal)`
 
 const marginStyle: Record<TooltipPosition, RuleSet> = {
   left: css`
-    margin-right: 8px;
+    margin-right: 4px;
   `,
   right: css`
-    margin-left: 8px;
+    margin-left: 4px;
   `,
   top: css`
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   `,
   bottom: css`
-    margin-top: 8px;
-  `,
-}
-
-const arrowStyle: Record<TooltipPosition, RuleSet> = {
-  left: css`
-    top: 50%;
-    right: 0px;
-
-    transform: translate(50%, -50%) rotate(45deg);
-    border-bottom: none;
-    border-left: none;
-  `,
-  right: css`
-    top: 50%;
-    left: 0px;
-
-    transform: translate(-50%, -50%) rotate(45deg);
-    border-top: none;
-    border-right: none;
-  `,
-  top: css`
-    bottom: 0px;
-    left: 50%;
-
-    transform: translate(-50%, 50%) rotate(45deg);
-    border-top: none;
-    border-left: none;
-  `,
-  bottom: css`
-    top: 0px;
-    left: 50%;
-
-    transform: translate(-50%, -50%) rotate(45deg);
-    border-bottom: none;
-    border-right: none;
+    margin-top: 4px;
   `,
 }
 
@@ -99,18 +64,6 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   color: var(--theme-inverse-on-surface);
   font-variation-settings: 'wght' 600;
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
-
-  &::before {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-
-    background-color: inherit;
-    border: 1px solid rgba(255, 255, 255, 0.36);
-
-    ${props => arrowStyle[props.$position]};
-  }
 `
 
 const NoPointerPopoverContent = styled(PopoverContent)`
