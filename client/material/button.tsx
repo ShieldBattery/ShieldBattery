@@ -11,8 +11,8 @@ import { elevationPlus1, elevationPlus2, elevationZero } from './shadows'
 export const Label = styled.span`
   ${labelLarge};
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   color: currentColor;
   white-space: nowrap;
 `
@@ -350,6 +350,7 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
   padding-inline: ${props => (props.$hasIcon ? '16px 24px' : '24px')};
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 
   border-radius: 6px;
   contain: content;
@@ -506,6 +507,7 @@ const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
   padding-inline: ${props => (props.$hasIcon ? '12px 16px' : '12px')};
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 
   border-radius: 6px;
   contain: content;
