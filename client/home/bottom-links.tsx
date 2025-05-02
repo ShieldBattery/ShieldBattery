@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { Link } from 'wouter'
 import BlueskyLogo from '../icons/brands/bluesky.svg'
 import DiscordLogo from '../icons/brands/discord.svg'
 import GithubLogo from '../icons/brands/github.svg'
@@ -56,7 +57,7 @@ const BottomLinksList = styled.ul`
   }
 `
 
-const BottomLink = styled.a`
+const BottomLink = styled(Link)`
   min-width: 40px;
   height: 100%;
   padding-inline: 4px;

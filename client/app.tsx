@@ -11,7 +11,7 @@ import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
-import { MainLayout } from './main-layout'
+import { MainLayout, MainLayoutContent } from './main-layout'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteSocketManager } from './network/site-socket-manager'
@@ -173,7 +173,16 @@ function MainLayoutRoute() {
   return (
     <MainLayout key={selfUser?.id ?? -1}>
       <React.Suspense fallback={<LoadingDotsArea />}>
-        <AppRoutes />
+        <AppRoutes
+          container={
+            <MainLayoutContent
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: { duration: 0.12, ease: 'linear' } }}
+              transition={{ duration: 0.3, ease: 'linear' }}
+            />
+          }
+        />
       </React.Suspense>
     </MainLayout>
   )

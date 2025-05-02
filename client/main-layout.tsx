@@ -1,4 +1,5 @@
 import keycode from 'keycode'
+import * as m from 'motion/react-m'
 import React, { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
@@ -814,12 +815,12 @@ function AppBar({
   )
 }
 
-const Content = styled.div`
+export const MainLayoutContent = styled(m.div)`
   grid-area: content;
   overflow: auto;
 `
 
-export function MainLayout({ children }: { children?: React.ReactNode }) {
+export function MainLayout({ children }: { children: React.ReactNode }) {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-app-bar-height', '64px')
     return () => {
@@ -837,7 +838,7 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
   return (
     <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned}>
       <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
-      <Content>{children}</Content>
+      {children}
       {isLoggedIn ? (
         <SocialSidebar
           onVisibilityChange={setSidebarOpen}

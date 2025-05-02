@@ -1,5 +1,6 @@
+import { AnimatePresence } from 'motion/react'
 import React from 'react'
-import { Route, Switch } from 'wouter'
+import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
 import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword } from './auth/forgot-password'
@@ -16,6 +17,7 @@ import { Home } from './home/home'
 import { LadderRouteComponent } from './ladder/ladder'
 import { LeagueRoot } from './leagues/league-routes'
 import { MapsRoot } from './maps/maps-root'
+import { AnimatedSwitch } from './navigation/animated-switch'
 import { StaticNewsRoute } from './news/static-news-details'
 import {
   AcceptableUsePage,
@@ -36,44 +38,50 @@ const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
 }))
 
-export function AppRoutes() {
+export function AppRoutes({
+  container,
+}: {
+  container: React.ReactElement<{ children: React.ReactNode }>
+}) {
   const isAdmin = useIsAdmin()
   return (
     <React.Suspense fallback={<LoadingDotsArea />}>
-      <Switch>
-        <Route path='/faq' component={Faq} />
-        <Route path='/download' component={DownloadPage} />
-        <Route path='/acceptable-use' component={AcceptableUsePage} />
-        <Route path='/privacy' component={PrivacyPolicyPage} />
-        <Route path='/terms-of-service' component={TermsOfServicePage} />
+      <AnimatePresence mode='wait'>
+        <AnimatedSwitch container={container}>
+          <Route path='/faq' component={Faq} />
+          <Route path='/download' component={DownloadPage} />
+          <Route path='/acceptable-use' component={AcceptableUsePage} />
+          <Route path='/privacy' component={PrivacyPolicyPage} />
+          <Route path='/terms-of-service' component={TermsOfServicePage} />
 
-        <Route path='/forgot-password' component={ForgotPassword} />
-        <Route path='/recover-username' component={RecoverUsername} />
-        <Route path='/login' component={Login} />
-        <Route path='/reset-password' component={ResetPassword} />
-        <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
-        <Route
-          path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
-          component={Signup}
-        />
-        <Route path='/verify-email' component={EmailVerificationUi} />
+          <Route path='/forgot-password' component={ForgotPassword} />
+          <Route path='/recover-username' component={RecoverUsername} />
+          <Route path='/login' component={Login} />
+          <Route path='/reset-password' component={ResetPassword} />
+          <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
+          <Route
+            path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
+            component={Signup}
+          />
+          <Route path='/verify-email' component={EmailVerificationUi} />
 
-        {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
+          {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
 
-        <Route path='/chat/*?' component={ChannelRouteComponent} />
-        <Route path='/games/*?' component={GamesRouteComponent} />
-        <Route path='/ladder/*?' component={LadderRouteComponent} />
-        <Route path='/leagues/*?' component={LeagueRoot} />
-        {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
-        <Route path='/maps/*?' component={MapsRoot} />
-        {IS_ELECTRON ? <Route path='/matchmaking/*?' component={MatchmakingView} /> : <></>}
-        <Route path='/play/*?' component={PlayRoot} />
-        <Route path='/replays/*?' component={ReplaysRoot} />
-        <Route path='/static-news/*?' component={StaticNewsRoute} />
-        <Route path='/users/*?' component={ProfileRouteComponent} />
-        <Route path='/whispers/*?' component={WhisperRouteComponent} />
-        <Route component={Home} />
-      </Switch>
+          <Route path='/chat/*?' component={ChannelRouteComponent} />
+          <Route path='/games/*?' component={GamesRouteComponent} />
+          <Route path='/ladder/*?' component={LadderRouteComponent} />
+          <Route path='/leagues/*?' component={LeagueRoot} />
+          {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
+          <Route path='/maps/*?' component={MapsRoot} />
+          {IS_ELECTRON ? <Route path='/matchmaking/*?' component={MatchmakingView} /> : <></>}
+          <Route path='/play/*?' component={PlayRoot} />
+          <Route path='/replays/*?' component={ReplaysRoot} />
+          <Route path='/static-news/*?' component={StaticNewsRoute} />
+          <Route path='/users/*?' component={ProfileRouteComponent} />
+          <Route path='/whispers/*?' component={WhisperRouteComponent} />
+          <Route component={Home} />
+        </AnimatedSwitch>
+      </AnimatePresence>
     </React.Suspense>
   )
 }
