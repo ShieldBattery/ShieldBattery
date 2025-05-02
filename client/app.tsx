@@ -170,6 +170,8 @@ const AppContent = React.memo(() => {
 function MainLayoutRoute() {
   const selfUser = useSelfUser()
 
+  // NOTE(tec27): The delay on the transition gives the route a second to settle before we show it,
+  // this reduces some of the visual layout changes
   return (
     <MainLayout key={selfUser?.id ?? -1}>
       <React.Suspense fallback={<LoadingDotsArea />}>
@@ -178,8 +180,7 @@ function MainLayoutRoute() {
             <MainLayoutContent
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: { duration: 0.12, ease: 'linear' } }}
-              transition={{ duration: 0.3, ease: 'linear' }}
+              transition={{ duration: 0.3, ease: 'linear', delay: 0.1 }}
             />
           }
         />

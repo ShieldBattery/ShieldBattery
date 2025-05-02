@@ -46,7 +46,7 @@ export function AppRoutes({
   const isAdmin = useIsAdmin()
   return (
     <React.Suspense fallback={<LoadingDotsArea />}>
-      <AnimatePresence mode='wait'>
+      <AnimatePresence>
         <AnimatedSwitch container={container}>
           <Route path='/faq' component={Faq} />
           <Route path='/download' component={DownloadPage} />

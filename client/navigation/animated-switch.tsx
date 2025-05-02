@@ -33,7 +33,7 @@ export function AnimatedSwitch({
     if (match[0]) {
       const contents = cloneElement(element, { match })
       return (
-        <AnimatePresence key='--presence--' propagate={true} mode='wait' initial={false}>
+        <AnimatePresence key='--presence--' initial={false}>
           {cloneElement(container, { key: String(element.props.path ?? ''), children: contents })}
         </AnimatePresence>
       )
