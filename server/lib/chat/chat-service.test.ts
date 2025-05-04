@@ -423,7 +423,6 @@ describe('chat/chat-service', () => {
         user3ShieldBatteryChannelEntry,
         user3TestChannelEntry,
       ])
-      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
 
       const client3 = connector.connectClient(user3, 'USER3_CLIENT_ID')
 
@@ -439,13 +438,15 @@ describe('chat/chat-service', () => {
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client3,
         getChannelPath(shieldBatteryChannel.id),
-        undefined,
+        {
+          action: 'initActiveUsers',
+          activeUserIds: [user3.id],
+        },
       )
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(
-        client3,
-        getChannelPath(testChannel.id),
-        undefined,
-      )
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(client3, getChannelPath(testChannel.id), {
+        action: 'initActiveUsers',
+        activeUserIds: [user3.id],
+      })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client3,
         getChannelUserPath(shieldBatteryChannel.id, user3.id),
@@ -492,7 +493,6 @@ describe('chat/chat-service', () => {
           channelInfo: shieldBatteryBasicInfo,
           detailedChannelInfo: shieldBatteryDetailedInfo,
           joinedChannelInfo: shieldBatteryJoinedInfo,
-          activeUserIds: [user1.id],
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
@@ -500,7 +500,6 @@ describe('chat/chat-service', () => {
           channelInfo: testBasicInfo,
           detailedChannelInfo: testDetailedInfo,
           joinedChannelInfo: testJoinedInfo,
-          activeUserIds: [user1.id],
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
@@ -573,7 +572,10 @@ describe('chat/chat-service', () => {
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelPath(shieldBatteryChannel.id),
-        undefined,
+        {
+          action: 'initActiveUsers',
+          activeUserIds: [user2.id, user1.id],
+        },
       )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
@@ -587,7 +589,6 @@ describe('chat/chat-service', () => {
           channelInfo: shieldBatteryBasicInfo,
           detailedChannelInfo: shieldBatteryDetailedInfo,
           joinedChannelInfo: shieldBatteryJoinedInfo,
-          activeUserIds: [user2.id, user1.id],
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
@@ -695,7 +696,10 @@ describe('chat/chat-service', () => {
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelPath(shieldBatteryChannel.id),
-        undefined,
+        {
+          action: 'initActiveUsers',
+          activeUserIds: [user2.id, user1.id],
+        },
       )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
@@ -709,7 +713,6 @@ describe('chat/chat-service', () => {
           channelInfo: shieldBatteryBasicInfo,
           detailedChannelInfo: shieldBatteryDetailedInfo,
           joinedChannelInfo: shieldBatteryJoinedInfo,
-          activeUserIds: [user2.id, user1.id],
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
         },
@@ -741,11 +744,11 @@ describe('chat/chat-service', () => {
       // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
       // promises are complete?
       await new Promise(resolve => setTimeout(resolve, 20))
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(
-        client1,
-        getChannelPath(testChannel.id),
-        undefined,
-      )
+
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(client1, getChannelPath(testChannel.id), {
+        action: 'initActiveUsers',
+        activeUserIds: [user1.id],
+      })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelUserPath(testChannel.id, user1.id),
@@ -756,7 +759,6 @@ describe('chat/chat-service', () => {
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
-        activeUserIds: [user1.id],
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
       })
