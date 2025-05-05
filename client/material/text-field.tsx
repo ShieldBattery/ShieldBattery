@@ -192,6 +192,7 @@ export interface TextFieldProps {
   type?: string
   value: string
   ref?: React.Ref<HTMLInputElement | HTMLTextAreaElement | null>
+  containerRef?: React.Ref<HTMLDivElement | null>
 }
 
 /**
@@ -223,6 +224,7 @@ export function TextField({
   type = 'text',
   value,
   ref,
+  containerRef,
 }: TextFieldProps) {
   const id = useId()
   const [isFocused, setIsFocused] = useState(false)
@@ -374,6 +376,7 @@ export function TextField({
   return (
     <div className={className}>
       <TextFieldContainer
+        ref={containerRef}
         $disabled={disabled}
         $focused={isFocused}
         $floatingLabel={floatingLabel}

@@ -7,9 +7,6 @@ import { bodyLarge, bodyMedium } from '../../styles/typography'
 import { zIndexMenu } from '../zindex'
 import { isMenuItem } from './menu-item-symbol'
 
-const ENTER = 'Enter'
-const ENTER_NUMPAD = 'NumpadEnter'
-const SPACE = 'Space'
 const UP = 'ArrowUp'
 const DOWN = 'ArrowDown'
 
@@ -121,11 +118,6 @@ export function MenuList({ children, className, dense }: MenuListProps) {
       } else if (event.code === DOWN) {
         moveActiveIndexBy(1)
         return true
-      } else if (event.code === ENTER || event.code === ENTER_NUMPAD || event.code === SPACE) {
-        const activeItem = menuItems[activeIndex]
-        if (isMenuItem(activeItem)) {
-          activeItem.props.onClick?.(event)
-        }
       }
 
       return false
