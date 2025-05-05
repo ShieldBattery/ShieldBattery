@@ -7,7 +7,7 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
@@ -235,41 +235,6 @@ export function ConnectedChatChannel({
               mentionableUsers: activeUserEntries
                 .concat(idleUserEntries)
                 .concat(offlineUserEntries)
-                .concat([
-                  [makeSbUserId(123), 'Test User'],
-                  [makeSbUserId(124), 'Test User 2'],
-                  [makeSbUserId(125), 'Test User 3'],
-                  [makeSbUserId(126), 'Test User 4'],
-                  [makeSbUserId(127), 'Test User 5'],
-                  [makeSbUserId(128), 'Test User 6'],
-                  [makeSbUserId(129), 'Test User 7'],
-                  [makeSbUserId(130), 'Test User 8'],
-                  [makeSbUserId(131), 'Test User 9'],
-                  [makeSbUserId(132), 'Test User 10'],
-                  [makeSbUserId(133), 'Test User 11'],
-                  [makeSbUserId(134), 'Test User 12'],
-                  [makeSbUserId(135), 'Test User 13'],
-                  [makeSbUserId(136), 'Test User 14'],
-                  [makeSbUserId(137), 'Test User 15'],
-                  [makeSbUserId(138), 'Test User 16'],
-                  [makeSbUserId(139), 'Test User 17'],
-                  [makeSbUserId(140), 'Test User 18'],
-                  [makeSbUserId(141), 'Test User 19'],
-                  [makeSbUserId(142), 'Test User 20'],
-                  [makeSbUserId(143), 'Test User 21'],
-                  [makeSbUserId(144), 'Test User 22'],
-                  [makeSbUserId(145), 'Test User 23'],
-                  [makeSbUserId(146), 'Test User 24'],
-                  [makeSbUserId(147), 'Test User 25'],
-                  [makeSbUserId(148), 'Test User 26'],
-                  [makeSbUserId(149), 'Test User 27'],
-                  [makeSbUserId(150), 'Test User 28'],
-                  [makeSbUserId(151), 'Test User 29'],
-                  [makeSbUserId(152), 'Test User 30'],
-                  [makeSbUserId(153), 'Test User 31'],
-                  [makeSbUserId(154), 'Test User 32'],
-                  [makeSbUserId(155), 'Test User 33'],
-                ])
                 .filter(([id, username]) => username !== undefined)
                 .map(([id, username]) => ({ id, name: username! })),
               defaultMentionableUsers: lastTenChattersEntries
