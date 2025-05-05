@@ -197,6 +197,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             setMatchedUsers(matchedUsers.slice(0, 10) ?? [])
 
             if (matchedUsers.length) {
+              // NOTE(2Pac): Need to wait a bit before opening the Popover, because the
+              // `selectionchange` event fires before the `click` event, and React might run a
+              // render between those two events. This means that if you click into the message
+              // input at exact place where the user mentions popover should open, the Portal would
+              // immediately close it after because it counts the click as outside of the menu.
               setTimeout(() => {
                 openUserMentions(event)
               }, 100)
