@@ -188,6 +188,11 @@ export interface PopoverProps {
    * Animation state to use when exiting
    */
   motionExit?: VariantLabels | TargetAndTransition
+
+  /**
+   * Whether the popover should focus on the first focusable element when it is opened.
+   */
+  hasFocusTrap?: boolean
 }
 
 export const DEFAULT_VARIANTS: Variants = {
@@ -218,36 +223,45 @@ export function Popover(props: PopoverProps) {
     motionInitial = 'entering',
     motionAnimate = 'visible',
     motionExit = 'exiting',
+    hasFocusTrap = true,
     ...restProps
   } = props
 
   const onAnimationComplete = useStableCallback((state: VariantLabels) => {
     if (state === motionAnimate && focusableRef.current) {
       window.dispatchEvent(new Event('resize'))
-      focusableRef.current.focus()
+      if (hasFocusTrap) {
+        focusableRef.current.focus()
+      }
     }
   })
+
+  const popoverContent = (
+    <PopoverContent
+      {...restProps}
+      onDismiss={onDismiss}
+      motionVariants={motionVariants}
+      motionInitial={motionInitial}
+      motionAnimate={motionAnimate}
+      motionExit={motionExit}
+      motionTransition={motionTransition}
+      onAnimationComplete={onAnimationComplete}>
+      <Card ref={focusableRef} tabIndex={-1}>
+        {props.children}
+      </Card>
+    </PopoverContent>
+  )
 
   return (
     <AnimatePresence>
       {open && (
         <Portal onDismiss={onDismiss} open={open}>
           <KeyListenerBoundary>
-            <FocusTrap focusableRef={focusableRef}>
-              <PopoverContent
-                {...restProps}
-                onDismiss={onDismiss}
-                motionVariants={motionVariants}
-                motionInitial={motionInitial}
-                motionAnimate={motionAnimate}
-                motionExit={motionExit}
-                motionTransition={motionTransition}
-                onAnimationComplete={onAnimationComplete}>
-                <Card ref={focusableRef} tabIndex={-1}>
-                  {props.children}
-                </Card>
-              </PopoverContent>
-            </FocusTrap>
+            {hasFocusTrap ? (
+              <FocusTrap focusableRef={focusableRef}>{popoverContent}</FocusTrap>
+            ) : (
+              popoverContent
+            )}
           </KeyListenerBoundary>
         </Portal>
       )}
