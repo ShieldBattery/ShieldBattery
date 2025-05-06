@@ -483,7 +483,9 @@
       "manageLeagues": "Manage leagues",
       "noLeagues": "No matching leagues",
       "pageHeadline": "Leagues",
+      "runningNow": "Running now!",
       "starts": "Starts {{startDate}}",
+      "viewAll": "View all leagues",
       "viewInfo": "View info"
     }
   },

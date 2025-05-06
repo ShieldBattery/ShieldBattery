@@ -2,6 +2,8 @@ pub mod async_rayon;
 pub mod configuration;
 pub mod email;
 pub mod graphql;
+pub mod leagues;
+pub mod matchmaking;
 pub mod news;
 pub mod pubsub;
 pub mod redis;

@@ -9,6 +9,7 @@ import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { LeagueHomeFeed } from '../leagues/league-home-feed'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
@@ -121,6 +122,8 @@ const HomeQuery = graphql(/* GraphQL */ `
     urgentMessage {
       ...UrgentMessage_HomeDisplayFragment
     }
+
+    ...Leagues_HomeFeedFragment
   }
 `)
 
@@ -164,7 +167,7 @@ export function Home() {
         </Section>
         <Section>
           <SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>
-          <div>yep</div>
+          <LeagueHomeFeed query={data} />
         </Section>
       </RightSection>
       <BottomLinksArea>

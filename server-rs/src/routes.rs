@@ -32,6 +32,7 @@ use tracing::Span;
 
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
+use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
@@ -111,6 +112,7 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
 
     let schema = build_schema()
         .extension(Tracing)
+        .extension(ErrorLoggerExtension)
         .data(settings.clone())
         .data(db_pool.clone())
         .data(redis_pool.clone())

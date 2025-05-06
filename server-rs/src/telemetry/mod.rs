@@ -4,6 +4,7 @@ use secrecy::ExposeSecret;
 use tokio::task::JoinHandle;
 use tracing::Instrument;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_error::ErrorLayer;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -30,7 +31,8 @@ pub fn init_subscriber<Sink>(
     let registry = tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter)))
         .with(JsonStorageLayer)
-        .with(formatting_layer);
+        .with(formatting_layer)
+        .with(ErrorLayer::default());
 
     if let Some(ref key) = settings.datadog_api_key {
         let options = DatadogOptions::new("server-rs", key.expose_secret());

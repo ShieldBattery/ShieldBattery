@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react'
-import React from 'react'
+import React, { cloneElement } from 'react'
+import styled from 'styled-components'
 import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
 import { EmailVerificationUi } from './auth/email-verification'
@@ -38,14 +39,21 @@ const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
 }))
 
+const StyledLoadingDots = styled(LoadingDotsArea)`
+  height: 100%;
+`
+
 export function AppRoutes({
   container,
 }: {
   container: React.ReactElement<{ children: React.ReactNode }>
 }) {
   const isAdmin = useIsAdmin()
+
+  const fallback = cloneElement(container, { children: <StyledLoadingDots /> })
+
   return (
-    <React.Suspense fallback={<LoadingDotsArea />}>
+    <React.Suspense fallback={fallback}>
       <AnimatePresence>
         <AnimatedSwitch container={container}>
           <Route path='/faq' component={Faq} />

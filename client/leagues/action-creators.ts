@@ -1,5 +1,5 @@
 import slug from 'slug'
-import { ReadonlyDeep } from 'type-fest'
+import { ReadonlyDeep, Simplify } from 'type-fest'
 import {
   AdminAddLeagueRequest,
   AdminAddLeagueResponse,
@@ -29,7 +29,7 @@ export function navigateToLeaguesList(transitionFn = push) {
 
 export function urlForLeague(
   leagueId: LeagueId,
-  leagueData?: ReadonlyDeep<LeagueJson>,
+  leagueData?: Simplify<ReadonlyDeep<Pick<LeagueJson, 'name'>>>,
   subPage?: DetailsSubPage,
 ) {
   return urlPath`/leagues/${toRouteLeagueId(leagueId)}/${

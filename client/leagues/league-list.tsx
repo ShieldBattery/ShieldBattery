@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -59,18 +59,6 @@ export function LeagueList() {
     return { pastLeagues, currentLeagues, futureLeagues }
   }, [past, current, future, byId])
 
-  const onHowItWorksClick = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault()
-      dispatch(
-        openDialog({
-          type: DialogType.LeagueExplainer,
-        }),
-      )
-    },
-    [dispatch],
-  )
-
   useEffect(() => {
     const controller = new AbortController()
     const signal = controller.signal
@@ -104,7 +92,16 @@ export function LeagueList() {
             <Link href='/leagues/admin'>{t('leagues.list.manageLeagues', 'Manage leagues')}</Link>
           ) : null}
           <FlexSpacer />
-          <Link href='#' onClick={onHowItWorksClick}>
+          <Link
+            href='#'
+            onClick={event => {
+              event.preventDefault()
+              dispatch(
+                openDialog({
+                  type: DialogType.LeagueExplainer,
+                }),
+              )
+            }}>
             {t('leagues.list.howDoLeaguesWork', 'How do leagues work?')}
           </Link>
         </TitleRow>

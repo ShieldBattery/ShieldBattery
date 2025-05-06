@@ -2813,6 +2813,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "async-graphql-axum",
+ "async-trait",
  "axum",
  "axum-client-ip",
  "axum-extra",
@@ -2845,6 +2846,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-bunyan-formatter",
+ "tracing-error",
  "tracing-subscriber",
  "typeshare",
  "uuid",

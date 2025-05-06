@@ -1,6 +1,6 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
+import { ReadonlyDeep, Simplify } from 'type-fest'
 import { LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
@@ -41,7 +41,7 @@ const LeagueBadgeImage = styled.img`
 `
 
 export interface LeagueBadgeProps {
-  league: ReadonlyDeep<LeagueJson>
+  league: Simplify<ReadonlyDeep<Pick<LeagueJson, 'badgePath' | 'name'>>>
   className?: string
 }
 

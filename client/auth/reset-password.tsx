@@ -110,7 +110,7 @@ export function ResetPassword() {
           </SuccessMessage>
           <LinkButton href='/login' data-test='continue-to-login'>
             <FilledButton
-              as='div'
+              $as='div'
               label={t('auth.forgot.reset.continueToLogin', 'Continue to login')}
               tabIndex={0}
             />

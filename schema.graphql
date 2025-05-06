@@ -28,6 +28,30 @@ scalar DateTime
 
 
 
+type League {
+	id: UUID!
+	name: String!
+	matchmakingType: MatchmakingType!
+	description: String!
+	signupsAfter: DateTime!
+	startAt: DateTime!
+	endAt: DateTime!
+	badgePath: String
+	imagePath: String
+	rulesAndInfo: String
+	link: String
+}
+
+"""
+All of the matchmaking types that we support. These values match the enum values used in the
+database.
+"""
+enum MatchmakingType {
+	MATCH_1V1
+	MATCH_1V1_FASTEST
+	MATCH_2V2
+}
+
 type Mutation {
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	"""
@@ -121,6 +145,9 @@ type PageInfo {
 }
 
 type Query {
+	activeLeagues: [League!]!
+	futureLeagues: [League!]!
+	pastLeagues: [League!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	urgentMessage: UrgentMessage
 	user(id: Int!): SbUser

@@ -24,6 +24,7 @@ async-graphql = { version = "7.0", features = [
   "uuid",
 ] }
 async-graphql-axum = "7.0"
+async-trait = "0.1"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
 axum-client-ip = "1.0"
 axum-extra = { version = "0.10", features = ["typed-header"] }
@@ -59,6 +60,7 @@ tokio = { version = "1.41", features = ["macros", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["util"] }
 tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
+tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 typeshare = "1.0"
 uuid = { version = "1.16", features = ["v4"] }

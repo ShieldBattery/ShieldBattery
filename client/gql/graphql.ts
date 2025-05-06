@@ -53,6 +53,31 @@ export type CurrentUser = {
   permissions: SbPermissions
 }
 
+export type League = {
+  __typename?: 'League'
+  badgePath?: Maybe<Scalars['String']['output']>
+  description: Scalars['String']['output']
+  endAt: Scalars['DateTime']['output']
+  id: Scalars['UUID']['output']
+  imagePath?: Maybe<Scalars['String']['output']>
+  link?: Maybe<Scalars['String']['output']>
+  matchmakingType: MatchmakingType
+  name: Scalars['String']['output']
+  rulesAndInfo?: Maybe<Scalars['String']['output']>
+  signupsAfter: Scalars['DateTime']['output']
+  startAt: Scalars['DateTime']['output']
+}
+
+/**
+ * All of the matchmaking types that we support. These values match the enum values used in the
+ * database.
+ */
+export enum MatchmakingType {
+  Match_1V1 = 'MATCH_1V1',
+  Match_1V1Fastest = 'MATCH_1V1_FASTEST',
+  Match_2V2 = 'MATCH_2V2',
+}
+
 export type Mutation = {
   __typename?: 'Mutation'
   newsCreatePost: NewsPost
@@ -161,8 +186,11 @@ export type PageInfo = {
 
 export type Query = {
   __typename?: 'Query'
+  activeLeagues: Array<League>
   currentUser?: Maybe<CurrentUser>
+  futureLeagues: Array<League>
   newsPosts: NewsPostConnection
+  pastLeagues: Array<League>
   restrictedNames: Array<NameRestriction>
   urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
@@ -342,7 +370,7 @@ export type HomePageContentQuery = {
         }
       })
     | null
-}
+} & { ' $fragmentRefs'?: { Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment } }
 
 export type UrgentMessage_HomeDisplayFragmentFragment = {
   __typename?: 'UrgentMessage'
@@ -350,6 +378,33 @@ export type UrgentMessage_HomeDisplayFragmentFragment = {
   title: string
   message: string
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
+
+export type Leagues_HomeFeedFragmentFragment = {
+  __typename?: 'Query'
+  activeLeagues: Array<
+    { __typename?: 'League'; id: string } & {
+      ' $fragmentRefs'?: {
+        Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
+      }
+    }
+  >
+  futureLeagues: Array<
+    { __typename?: 'League'; id: string } & {
+      ' $fragmentRefs'?: {
+        Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
+      }
+    }
+  >
+} & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' }
+
+export type Leagues_HomeFeedEntryFragmentFragment = {
+  __typename?: 'League'
+  id: string
+  name: string
+  matchmakingType: MatchmakingType
+  startAt: string
+  endAt: string
+} & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
 export type AccountSettings_CurrentUserFragment = {
   __typename?: 'CurrentUser'
@@ -468,6 +523,84 @@ export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<UrgentMessage_HomeDisplayFragmentFragment, unknown>
+export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_HomeFeedEntryFragmentFragment, unknown>
+export const Leagues_HomeFeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'activeLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'futureLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_HomeFeedFragmentFragment, unknown>
 export const AccountSettings_CurrentUserFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -782,6 +915,22 @@ export const HomePageContentDocument = {
               ],
             },
           },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
         ],
       },
     },
@@ -795,6 +944,44 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
           { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'activeLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'futureLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
         ],
       },
     },

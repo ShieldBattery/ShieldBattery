@@ -8,6 +8,7 @@ import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { BwTurnRate, BwUserLatency } from './network'
 import { AssignedRaceChar, RaceChar } from './races'
+import { MatchmakingType } from './typeshare'
 import { SbUserId } from './users/sb-user-id'
 
 /**
@@ -16,14 +17,7 @@ import { SbUserId } from './users/sb-user-id'
  */
 export const MATCHMAKING_SEASON_FINALIZED_TIME_MS = 6 * 60 * 60 * 1000 // 6 hours
 
-/**
- * A string representation of each of the matchmaking types that we support.
- */
-export enum MatchmakingType {
-  Match1v1 = '1v1',
-  Match1v1Fastest = '1v1fastest',
-  Match2v2 = '2v2',
-}
+export { MatchmakingType }
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 

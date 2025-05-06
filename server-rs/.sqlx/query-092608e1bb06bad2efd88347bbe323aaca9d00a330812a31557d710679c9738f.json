@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link\n                FROM leagues\n                WHERE end_at <= NOW()\n                ORDER BY end_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "matchmaking_type: _",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "signups_after",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "start_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "end_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "badge_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "image_path",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "rules_and_info",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "link",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "092608e1bb06bad2efd88347bbe323aaca9d00a330812a31557d710679c9738f"
+}

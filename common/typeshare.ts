@@ -37,6 +37,16 @@ export interface UrgentMessage {
   publishedAt: string
 }
 
+/**
+ * All of the matchmaking types that we support. These values match the enum values used in the
+ * database.
+ */
+export enum MatchmakingType {
+  Match1v1 = '1v1',
+  Match1v1Fastest = '1v1fastest',
+  Match2v2 = '2v2',
+}
+
 export type PublishedMessage =
   | { type: 'news'; data: PublishedNewsMessage }
   | { type: 'user'; data: PublishedUserMessage }

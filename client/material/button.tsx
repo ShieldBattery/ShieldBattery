@@ -396,7 +396,7 @@ export interface FilledButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
-  as?: string | React.ComponentType<any>
+  $as?: string | React.ComponentType<any>
   children?: React.ReactNode
   testName?: string
   ref?: React.Ref<HTMLButtonElement>
@@ -420,7 +420,7 @@ export function FilledButton({
   title,
   type = 'button',
   name,
-  as = 'button',
+  $as = 'button',
   children,
   testName,
   ref,
@@ -438,7 +438,7 @@ export function FilledButton({
     <FilledButtonRoot
       $hasIcon={!!iconStart}
       ref={ref}
-      as={as}
+      as={$as}
       className={className}
       tabIndex={tabIndex}
       title={title}
