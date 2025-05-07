@@ -1,19 +1,17 @@
+import type { ImageAnnotatorClient } from '@google-cloud/vision'
 import { GoogleLikelihood, ImageService } from './image-service'
-
-const mockSafeSearchDetection = jest.fn().mockResolvedValue([])
-jest.mock('@google-cloud/vision', () => {
-  return {
-    ImageAnnotatorClient: jest.fn().mockImplementation(() => ({
-      safeSearchDetection: mockSafeSearchDetection,
-    })),
-  }
-})
 
 describe('images/image-service', () => {
   let imageService: ImageService
+  let imageAnnotatorClient: ImageAnnotatorClient
+  let mockSafeSearchDetection: jest.Mock<ReturnType<ImageAnnotatorClient['safeSearchDetection']>>
 
   beforeEach(() => {
-    imageService = new ImageService()
+    mockSafeSearchDetection = jest.fn().mockResolvedValue([{}])
+    imageAnnotatorClient = {
+      safeSearchDetection: mockSafeSearchDetection,
+    } as unknown as ImageAnnotatorClient
+    imageService = new ImageService(imageAnnotatorClient)
 
     mockSafeSearchDetection.mockClear()
   })
@@ -71,7 +69,9 @@ describe('images/image-service', () => {
 
     describe('adult', () => {
       test("returns `true` if likelihood doesn't exist", async () => {
-        mockSafeSearchDetection.mockResolvedValue([{ safeSearchAnnotation: { adult: 'INVALID' } }])
+        mockSafeSearchDetection.mockResolvedValue([
+          { safeSearchAnnotation: { adult: 'INVALID' as any } },
+        ])
 
         const result = await imageService.isImageSafe('IMAGE')
 
@@ -141,7 +141,9 @@ describe('images/image-service', () => {
 
     describe('spoof', () => {
       test("returns `true` if likelihood doesn't exist", async () => {
-        mockSafeSearchDetection.mockResolvedValue([{ safeSearchAnnotation: { spoof: 'INVALID' } }])
+        mockSafeSearchDetection.mockResolvedValue([
+          { safeSearchAnnotation: { spoof: 'INVALID' as any } },
+        ])
 
         const result = await imageService.isImageSafe('IMAGE')
 
@@ -212,7 +214,7 @@ describe('images/image-service', () => {
     describe('medical', () => {
       test("returns `true` if likelihood doesn't exist", async () => {
         mockSafeSearchDetection.mockResolvedValue([
-          { safeSearchAnnotation: { medical: 'INVALID' } },
+          { safeSearchAnnotation: { medical: 'INVALID' as any } },
         ])
 
         const result = await imageService.isImageSafe('IMAGE')
@@ -284,7 +286,7 @@ describe('images/image-service', () => {
     describe('violence', () => {
       test("returns `true` if likelihood doesn't exist", async () => {
         mockSafeSearchDetection.mockResolvedValue([
-          { safeSearchAnnotation: { violence: 'INVALID' } },
+          { safeSearchAnnotation: { violence: 'INVALID' as any } },
         ])
 
         const result = await imageService.isImageSafe('IMAGE')
@@ -355,7 +357,9 @@ describe('images/image-service', () => {
 
     describe('racy', () => {
       test("returns `true` if likelihood doesn't exist", async () => {
-        mockSafeSearchDetection.mockResolvedValue([{ safeSearchAnnotation: { racy: 'INVALID' } }])
+        mockSafeSearchDetection.mockResolvedValue([
+          { safeSearchAnnotation: { racy: 'INVALID' as any } },
+        ])
 
         const result = await imageService.isImageSafe('IMAGE')
 

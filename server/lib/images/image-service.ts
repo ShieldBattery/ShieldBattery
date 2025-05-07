@@ -1,9 +1,9 @@
 import { ImageAnnotatorClient } from '@google-cloud/vision'
 import { ChannelCredentials, ClientOptions } from 'google-gax'
-import { singleton } from 'tsyringe'
+import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 
-let imageAnnotatorClientOptions: ClientOptions
+let imageAnnotatorClientOptions: ClientOptions | undefined
 
 // NOTE(2Pac): These options are only really meant to be used for testing.
 if (
@@ -99,11 +99,30 @@ function categoryToMaxLikelihood(category: SafeSearchCategory): OrderedLikelihoo
   }
 }
 
+const IMAGE_ANNOTATOR_CLIENT = 'ImageAnnotatorClient'
+
+// Only create the client if we have credentials, otherwise it will print a very cryptic
+// warning:
+// MetadataLookupWarning: received unexpected error = All promises were rejected code = UNKNOWN
+if (imageAnnotatorClientOptions || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  container.register(IMAGE_ANNOTATOR_CLIENT, {
+    useFactory: () =>
+      // NOTE(tec27): Seems to be some issue with the typings on options between libraries (maybe
+      // multiple versions being pulled in?) so the `any` case is needed).
+      new ImageAnnotatorClient(imageAnnotatorClientOptions as any),
+  })
+}
+
 @singleton()
 export class ImageService {
-  // NOTE(tec27): Seems to be some issue with the typings on options between libraries (maybe
-  // multiple versions being pulled in?) so the `any` case is needed).
-  private visionClient = new ImageAnnotatorClient(imageAnnotatorClientOptions as any)
+  constructor(
+    @inject(IMAGE_ANNOTATOR_CLIENT, { isOptional: true })
+    private visionClient?: ImageAnnotatorClient,
+  ) {
+    if (process.env.NODE_ENV === 'production' && !this.visionClient) {
+      throw new Error('Google Cloud Vision client not initialized')
+    }
+  }
 
   /**
    * Checks the given image (either as a filename, URL, or a buffer) for our safety standards. If
@@ -112,6 +131,12 @@ export class ImageService {
    * @returns true if the image is safe to be used on our platform, false otherwise.
    */
   async isImageSafe(image: string | Buffer): Promise<boolean> {
+    if (!this.visionClient) {
+      // Just always let images through in dev if we don't have an API to ask, the prod case will
+      // be handled in the constructor
+      return true
+    }
+
     const result = await this.visionClient.safeSearchDetection(image)
     const detections = result[0]?.safeSearchAnnotation
     if (!detections) {
