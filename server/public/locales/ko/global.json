@@ -1136,7 +1136,9 @@
             "noLeagues": "일치하는 리그 없음",
             "pageHeadline": "리그",
             "starts": "{{startDate}} 시작",
-            "viewInfo": "정보 보기"
+            "viewInfo": "정보 보기",
+            "runningNow": "지금 달리고 있어!",
+            "viewAll": "모든 리그 보기"
         }
     },
     "fileBrowser": {

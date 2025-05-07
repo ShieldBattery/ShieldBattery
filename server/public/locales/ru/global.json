@@ -1106,7 +1106,9 @@
             "noLeagues": "Нет подходящих лиг",
             "pageHeadline": "Лиги",
             "starts": "Запускает {{startDate}}",
-            "viewInfo": "Посмотреть информацию"
+            "viewInfo": "Посмотреть информацию",
+            "runningNow": "Бегу сейчас!",
+            "viewAll": "Посмотреть все лиги"
         }
     },
     "policy": {

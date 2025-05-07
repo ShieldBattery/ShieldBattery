@@ -1136,7 +1136,9 @@
             "noLeagues": "没有匹配的联赛",
             "pageHeadline": "联赛",
             "starts": "于{{startDate}}开始",
-            "viewInfo": "查看信息"
+            "viewInfo": "查看信息",
+            "runningNow": "现在开始跑了！",
+            "viewAll": "查看所有联赛"
         }
     },
     "fileBrowser": {

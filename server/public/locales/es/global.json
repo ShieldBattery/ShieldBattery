@@ -1144,7 +1144,9 @@
             "noLeagues": "Sin ligas coincidentes",
             "pageHeadline": "ligas",
             "starts": "Comienza {{startDate}}",
-            "viewInfo": "ver información"
+            "viewInfo": "ver información",
+            "runningNow": "¡Corriendo ahora!",
+            "viewAll": "Ver todas las ligas"
         },
         "activity": {
             "title": "ligas"
