@@ -63,6 +63,7 @@ export async function exhaustOldPasswordResetCodes(): Promise<number> {
       UPDATE password_resets
       SET exhausted = true
       WHERE
+        exhausted = false AND
         request_time < now() - interval '${sqlRaw(PASSWORD_RESET_CODE_INTERVAL)}'
     `)
     return result.rowCount ?? 0
