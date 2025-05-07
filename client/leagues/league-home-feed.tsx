@@ -44,7 +44,7 @@ export function LeagueHomeFeed({
   title,
 }: {
   query?: FragmentType<typeof Leagues_HomeFeedFragment>
-  title?: React.ReactNode
+  title: React.ReactNode
 }) {
   const { t } = useTranslation()
   const { activeLeagues, futureLeagues } = useFragment(Leagues_HomeFeedFragment, query) ?? {

@@ -166,8 +166,10 @@ export function Home() {
           <div>soon</div>
         </Section>
         <Section>
-          <SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>
-          <LeagueHomeFeed query={data} />
+          <LeagueHomeFeed
+            query={data}
+            title={<SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>}
+          />
         </Section>
       </RightSection>
       <BottomLinksArea>
