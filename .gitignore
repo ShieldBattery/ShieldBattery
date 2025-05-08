@@ -15,3 +15,4 @@ npm-debug.log
 yarn-error.log
 stats.json
 electron-builder.env
+*.afdesign~lock~
