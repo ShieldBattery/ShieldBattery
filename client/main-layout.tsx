@@ -456,6 +456,10 @@ const UserSpace = styled.div`
 
   display: flex;
   align-items: center;
+
+  &:first-child {
+    margin-left: 2px;
+  }
 `
 
 const UserButton = styled.button`
