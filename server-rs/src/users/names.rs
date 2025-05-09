@@ -18,7 +18,7 @@ use typeshare::typeshare;
 
 use crate::{async_rayon::spawn_rayon, state::AppState};
 
-use super::{SbUser, UsersLoader};
+use super::{user_id::SbUserId, SbUser, UsersLoader};
 
 pub fn create_names_api() -> Router<AppState> {
     Router::new().route("/check-allowed/{name}", post(check_allowed))
@@ -79,7 +79,7 @@ pub struct NameRestriction {
     pub reason: RestrictedNameReason,
     pub created_at: DateTime<Utc>,
     #[graphql(skip)]
-    pub created_by: i32,
+    pub created_by: SbUserId,
 }
 
 #[async_graphql::ComplexObject]
@@ -140,7 +140,7 @@ impl NameChecker {
         pattern: String,
         kind: RestrictedNameKind,
         reason: RestrictedNameReason,
-        creator: i32,
+        creator: SbUserId,
     ) -> eyre::Result<NameRestriction> {
         let pattern = match kind {
             RestrictedNameKind::Exact => pattern.to_lowercase(),
@@ -159,7 +159,7 @@ impl NameChecker {
             pattern,
             kind as _,
             reason as _,
-            creator
+            creator as _,
         )
         .fetch_one(&db)
         .await

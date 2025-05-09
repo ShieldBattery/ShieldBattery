@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { IterableElement } from 'type-fest'
 import { useMutation, useQuery } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { makeSbUserId } from '../../common/users/sb-user-id'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql } from '../gql'
 import { RestrictedNameKind, RestrictedNameReason, RestrictedNamesQuery } from '../gql/graphql'
@@ -256,7 +255,7 @@ function RestrictedNameEntry({
           </div>
           <Spacer />
           <CreationInfo>
-            {createdBy ? <ConnectedUsername userId={makeSbUserId(createdBy.id)} /> : <div />}
+            {createdBy ? <ConnectedUsername userId={createdBy.id} /> : <div />}
             <div>{longTimestamp.format(new Date(createdAt))}</div>
           </CreationInfo>
           <DeleteButton

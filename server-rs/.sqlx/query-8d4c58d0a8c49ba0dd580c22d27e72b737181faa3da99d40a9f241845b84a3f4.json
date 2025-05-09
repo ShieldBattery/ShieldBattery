@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO news_posts (author_id, title, summary, content,\n                    published_at, updated_at)\n                VALUES ($1, $2, $3, $4, $5, $6)\n                RETURNING id, author_id, cover_image_path, title, summary, content, published_at,\n                    updated_at\n            ",
+  "query": "\n                SELECT id, author_id as \"author_id: _\", cover_image_path, title, summary, content, published_at,\n                    updated_at\n                FROM news_posts\n                WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "author_id",
+        "name": "author_id: _",
         "type_info": "Int4"
       },
       {
@@ -46,12 +46,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int4",
-        "Text",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Timestamptz"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -65,5 +60,5 @@
       false
     ]
   },
-  "hash": "40f1462622deb9cac40bb9af52e7a5c44962f3815cd8ebddafb07f422e15bbea"
+  "hash": "8d4c58d0a8c49ba0dd580c22d27e72b737181faa3da99d40a9f241845b84a3f4"
 }

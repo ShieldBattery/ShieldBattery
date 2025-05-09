@@ -5,28 +5,33 @@ use sqlx::PgPool;
 
 use crate::telemetry::spawn_blocking_with_tracing;
 
+use super::SbUserId;
+
 #[derive(thiserror::Error, Debug)]
 pub enum AuthError {
     #[error(transparent)]
     UnexpectedError(#[from] eyre::Error),
 }
 
-pub type Credentials = (i32, SecretString);
+pub type Credentials = (SbUserId, SecretString);
 
 #[tracing::instrument(skip_all)]
-pub async fn get_stored_credentials(user_id: i32, pool: &PgPool) -> Result<Credentials, AuthError> {
+pub async fn get_stored_credentials(
+    user_id: SbUserId,
+    pool: &PgPool,
+) -> Result<Credentials, AuthError> {
     let result = sqlx::query!(
         r#"
         SELECT user_id, password
         FROM users_private
         WHERE user_id = $1
         "#,
-        user_id,
+        user_id as _,
     )
     .fetch_one(pool)
     .await
     .wrap_err("Failed to perform a query to retrieve stored credentials")
-    .map(|row| (row.user_id, row.password.into()))
+    .map(|row| (row.user_id.into(), row.password.into()))
     .map_err(AuthError::UnexpectedError)?;
 
     Ok(result)

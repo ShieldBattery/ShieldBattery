@@ -231,6 +231,10 @@ export default [
               importNames: ['motion'],
               message: "Use m instead: import * as m from 'motion/react-m'",
             },
+            {
+              group: ['*/gql/types'],
+              message: 'Use the actual type import instead of the re-export for graphql scalars',
+            },
           ],
         },
       ],

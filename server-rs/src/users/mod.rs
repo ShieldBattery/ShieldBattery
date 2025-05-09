@@ -44,6 +44,9 @@ use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermiss
 mod auth;
 pub mod names;
 pub mod permissions;
+mod user_id;
+
+pub use user_id::SbUserId;
 
 pub struct UsersModule {
     db_pool: PgPool,
@@ -80,7 +83,7 @@ impl SchemaBuilderModule for UsersModule {
 #[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
 #[graphql(complex)]
 pub struct SbUser {
-    pub id: i32,
+    pub id: SbUserId,
     /// The user's display name (may differ from their login name).
     pub name: String,
 }
@@ -105,10 +108,10 @@ impl From<CurrentUser> for SbUser {
     }
 }
 
-pub struct IsCurrentUser(i32);
+pub struct IsCurrentUser(SbUserId);
 
 impl IsCurrentUser {
-    fn guard(checked_user_id: i32) -> Self {
+    fn guard(checked_user_id: SbUserId) -> Self {
         Self(checked_user_id)
     }
 }
@@ -127,7 +130,7 @@ impl Guard for IsCurrentUser {
 
 #[derive(SimpleObject, Clone, Debug)]
 pub struct CurrentUser {
-    pub id: i32,
+    pub id: SbUserId,
     /// The user's display name (may differ from their login name).
     pub name: String,
     /// The name the user logs in with (may differ from their display name).
@@ -193,7 +196,7 @@ impl OptionalFromRequestParts<AppState> for CurrentUser {
 pub enum PublishedUserMessage {
     #[serde(rename_all = "camelCase")]
     PermissionsChanged {
-        user_id: i32,
+        user_id: SbUserId,
         permissions: SbPermissions,
     },
 }
@@ -203,7 +206,7 @@ pub struct UsersQuery;
 
 #[Object]
 impl UsersQuery {
-    async fn user(&self, ctx: &Context<'_>, id: i32) -> Result<Option<SbUser>> {
+    async fn user(&self, ctx: &Context<'_>, id: SbUserId) -> Result<Option<SbUser>> {
         ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await
     }
 
@@ -271,7 +274,7 @@ impl UsersMutation {
                 Result::<_, eyre::Error>::Ok(sqlx::query!(
                     r#"UPDATE users_private SET password = $1 WHERE user_id = $2"#,
                     hash.expose_secret(),
-                    user.id
+                    user.id.0
                 ))
             }
         });
@@ -299,7 +302,7 @@ impl UsersMutation {
                             VALUES
                             ($1, $2, $3, NOW(), $4)
                         "#,
-                        user.id,
+                        user.id as _,
                         email.clone(),
                         token,
                         ip,
@@ -407,7 +410,7 @@ impl UsersMutation {
     async fn user_update_permissions(
         &self,
         ctx: &Context<'_>,
-        user_id: i32,
+        user_id: SbUserId,
         permissions: SbPermissions,
     ) -> Result<SbUser> {
         sqlx::query!(
@@ -430,7 +433,7 @@ impl UsersMutation {
                     manage_restricted_names = $15
                 WHERE user_id = $1
             "#,
-            user_id,
+            user_id as _,
             permissions.edit_permissions,
             permissions.debug,
             permissions.ban_users,
@@ -554,15 +557,17 @@ impl UsersLoader {
     }
 }
 
-impl Loader<i32> for UsersLoader {
+impl Loader<SbUserId> for UsersLoader {
     type Value = SbUser;
     type Error = async_graphql::Error;
 
-    async fn load(&self, keys: &[i32]) -> Result<HashMap<i32, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
         Ok(sqlx::query_as!(
             SbUser,
-            r#"SELECT id, name::TEXT as "name!" FROM users WHERE id = ANY($1)"#,
-            keys
+            r#"SELECT id as "id: SbUserId", name::TEXT as "name!" FROM users WHERE id = ANY($1)"#,
+            // TODO(tec27): Should just be able to reference the slice after
+            // https://github.com/launchbadge/sqlx/issues/3854 is fixed
+            &keys.into_iter().map(|k| k.0).collect::<Vec<_>>()
         )
         .fetch(&self.db)
         .map_ok(|u| (u.id, u))
@@ -617,13 +622,13 @@ impl CurrentUserRepo {
         Self { db, redis }
     }
 
-    fn user_cache_key(user_id: i32) -> String {
-        format!("users:{}", user_id)
+    fn user_cache_key(user_id: SbUserId) -> String {
+        format!("users:{}", user_id.0)
     }
 
     pub async fn load_cached_user(
         &self,
-        user_id: i32,
+        user_id: SbUserId,
         cache_behavior: CacheBehavior,
     ) -> eyre::Result<CurrentUser> {
         if cache_behavior == CacheBehavior::AllowCached {
@@ -661,7 +666,7 @@ impl CurrentUserRepo {
                     FROM users
                     WHERE id = $1
                 "#,
-                user_id
+                user_id as _
             )
             .fetch_one(&db),
             sqlx::query_as!(
@@ -675,7 +680,7 @@ impl CurrentUserRepo {
                     FROM permissions
                     WHERE user_id = $1
                 "#,
-                user_id
+                user_id as _
             )
             .fetch_one(&db)
         );
@@ -706,7 +711,7 @@ impl CurrentUserRepo {
 #[derive(Clone, Debug, Deserialize, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 struct SelfUser {
-    pub id: i32,
+    pub id: SbUserId,
     pub name: String,
     pub login_name: String,
     pub email: String,

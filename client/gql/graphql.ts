@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core'
+import * as Types from './types'
 export type Maybe<T> = T | null
 export type InputMaybe<T> = Maybe<T>
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] }
@@ -24,6 +25,8 @@ export type Scalars = {
    * The input/output is a string in RFC3339 format.
    */
   DateTime: { input: string; output: string }
+  /** A user ID in the ShieldBattery system. */
+  SbUserId: { input: Types.SbUserId; output: Types.SbUserId }
   /**
    * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
    * Strings within GraphQL. UUIDs are used to assign unique identifiers to
@@ -44,7 +47,7 @@ export type CurrentUser = {
   acceptedUsePolicyVersion: Scalars['Int']['output']
   email: Scalars['String']['output']
   emailVerified: Scalars['Boolean']['output']
-  id: Scalars['Int']['output']
+  id: Scalars['SbUserId']['output']
   locale?: Maybe<Scalars['String']['output']>
   /** The name the user logs in with (may differ from their display name). */
   loginName: Scalars['String']['output']
@@ -119,7 +122,7 @@ export type MutationUserUpdateCurrentArgs = {
 
 export type MutationUserUpdatePermissionsArgs = {
   permissions: SbPermissionsInput
-  userId: Scalars['Int']['input']
+  userId: Scalars['SbUserId']['input']
 }
 
 export type NameRestriction = {
@@ -155,7 +158,7 @@ export type NewsPostConnection = {
 }
 
 export type NewsPostCreation = {
-  authorId?: InputMaybe<Scalars['Int']['input']>
+  authorId?: InputMaybe<Scalars['SbUserId']['input']>
   content: Scalars['String']['input']
   publishedAt?: InputMaybe<Scalars['DateTime']['input']>
   summary: Scalars['String']['input']
@@ -206,7 +209,7 @@ export type QueryNewsPostsArgs = {
 }
 
 export type QueryUserArgs = {
-  id: Scalars['Int']['input']
+  id: Scalars['SbUserId']['input']
 }
 
 export type QueryUserByDisplayNameArgs = {
@@ -232,7 +235,7 @@ export type SbPermissions = {
    * The user ID these permissions are for. This is mainly so the client has a key for caching
    * purposes, and is not generally used elsewhere.
    */
-  id: Scalars['Int']['output']
+  id: Scalars['SbUserId']['output']
   manageBugReports: Scalars['Boolean']['output']
   manageLeagues: Scalars['Boolean']['output']
   manageMapPools: Scalars['Boolean']['output']
@@ -254,7 +257,7 @@ export type SbPermissionsInput = {
    * The user ID these permissions are for. This is mainly so the client has a key for caching
    * purposes, and is not generally used elsewhere.
    */
-  id: Scalars['Int']['input']
+  id: Scalars['SbUserId']['input']
   manageBugReports: Scalars['Boolean']['input']
   manageLeagues: Scalars['Boolean']['input']
   manageMapPools: Scalars['Boolean']['input']
@@ -270,7 +273,7 @@ export type SbPermissionsInput = {
 
 export type SbUser = {
   __typename?: 'SbUser'
-  id: Scalars['Int']['output']
+  id: Scalars['SbUserId']['output']
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
   permissions: SbPermissions
@@ -306,7 +309,7 @@ export type RestrictedNamesQuery = {
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename?: 'SbUser'; id: number } | null
+    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
   }>
 }
 
@@ -334,7 +337,7 @@ export type AddRestrictedNameMutation = {
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename?: 'SbUser'; id: number } | null
+    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
   }
 }
 
@@ -408,7 +411,7 @@ export type Leagues_HomeFeedEntryFragmentFragment = {
 
 export type AccountSettings_CurrentUserFragment = {
   __typename?: 'CurrentUser'
-  id: number
+  id: Types.SbUserId
   name: string
   loginName: string
   email: string
@@ -453,14 +456,14 @@ export type AccountSettingsChangeEmailMutation = {
 }
 
 export type AdminUserProfileQueryVariables = Exact<{
-  userId: Scalars['Int']['input']
+  userId: Scalars['SbUserId']['input']
   includePermissions: Scalars['Boolean']['input']
 }>
 
 export type AdminUserProfileQuery = {
   __typename?: 'Query'
   user?:
-    | ({ __typename?: 'SbUser'; id: number } & {
+    | ({ __typename?: 'SbUser'; id: Types.SbUserId } & {
         ' $fragmentRefs'?: {
           AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
         }
@@ -470,10 +473,10 @@ export type AdminUserProfileQuery = {
 
 export type AdminUserProfile_PermissionsFragment = {
   __typename?: 'SbUser'
-  id: number
+  id: Types.SbUserId
   permissions: {
     __typename?: 'SbPermissions'
-    id: number
+    id: Types.SbUserId
     editPermissions: boolean
     debug: boolean
     banUsers: boolean
@@ -492,7 +495,7 @@ export type AdminUserProfile_PermissionsFragment = {
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
 export type AdminUpdateUserPermissionsMutationVariables = Exact<{
-  userId: Scalars['Int']['input']
+  userId: Scalars['SbUserId']['input']
   permissions: SbPermissionsInput
 }>
 
@@ -1213,7 +1216,7 @@ export const AdminUserProfileDocument = {
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
           type: {
             kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
           },
         },
         {
@@ -1318,7 +1321,7 @@ export const AdminUpdateUserPermissionsDocument = {
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
           type: {
             kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
           },
         },
         {

@@ -10,6 +10,8 @@ use typeshare::typeshare;
 
 use crate::users::CurrentUser;
 
+use super::SbUserId;
+
 #[typeshare]
 #[derive(Clone, Debug, Deserialize, Serialize, SimpleObject, InputObject, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +20,7 @@ pub struct SbPermissions {
     /// The user ID these permissions are for. This is mainly so the client has a key for caching
     /// purposes, and is not generally used elsewhere.
     #[typeshare(skip)]
-    pub id: i32,
+    pub id: SbUserId,
     pub edit_permissions: bool,
     pub debug: bool,
     pub ban_users: bool,
@@ -97,21 +99,23 @@ impl PermissionsLoader {
     }
 }
 
-impl Loader<i32> for PermissionsLoader {
+impl Loader<SbUserId> for PermissionsLoader {
     type Value = SbPermissions;
     type Error = async_graphql::Error;
 
-    async fn load(&self, keys: &[i32]) -> Result<HashMap<i32, Self::Value>, Self::Error> {
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
         Ok(sqlx::query!(
             r#"
-                    SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
+                    SELECT user_id as "user_id: SbUserId", edit_permissions, debug, ban_users, manage_leagues, manage_maps,
                         manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
                         manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_restricted_names
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
-            keys
+            // TODO(tec27): Should just be able to reference the slice after
+            // https://github.com/launchbadge/sqlx/issues/3854 is fixed
+            &keys.into_iter().map(|k| k.0).collect::<Vec<_>>()
         )
         .fetch(&self.db)
         .map_ok(|r| {

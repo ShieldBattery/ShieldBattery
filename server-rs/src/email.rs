@@ -6,6 +6,8 @@ use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::users::SbUserId;
+
 #[derive(Debug, Clone)]
 pub struct MailgunSettings {
     /// API key associated with the Mailgun account.
@@ -48,7 +50,7 @@ pub struct EmailChangeData {
 #[serde(rename_all = "camelCase")]
 pub struct EmailVerificationData {
     pub token: String,
-    pub user_id: i32,
+    pub user_id: SbUserId,
     pub username: String,
 }
 
@@ -133,7 +135,7 @@ fn get_template_version(canonical_host: &str) -> String {
 
 impl MailgunClient {
     pub fn new(settings: Option<MailgunSettings>, canonical_host: impl Into<String>) -> Self {
-        let canonical_host = canonical_host.into();
+        let canonical_host: String = canonical_host.into();
         let template_version = get_template_version(&canonical_host);
 
         tracing::debug!("Using template version: {template_version}");
@@ -241,7 +243,7 @@ mod tests {
         let client = MailgunClient::new(None, "https://example.com");
         let data = client.serialize_template_data(&MailgunTemplate::EmailVerification(
             EmailVerificationData {
-                user_id: 1,
+                user_id: 1.into(),
                 token: "asdf1234".into(),
                 username: "user".into(),
             },
@@ -268,7 +270,7 @@ mod tests {
             .send(MailgunMessage {
                 to: "user@example.org".into(),
                 template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                    user_id: 1,
+                    user_id: 1.into(),
                     token: "asdf1234".into(),
                     username: "user".into(),
                 }),
@@ -305,7 +307,7 @@ mod tests {
             .send(MailgunMessage {
                 to: "user@example.org".into(),
                 template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                    user_id: 1,
+                    user_id: 1.into(),
                     token: "asdf1234".into(),
                     username: "user".into(),
                 }),

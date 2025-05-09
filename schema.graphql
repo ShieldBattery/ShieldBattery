@@ -1,6 +1,6 @@
 
 type CurrentUser {
-	id: Int!
+	id: SbUserId!
 	"""
 	The user's display name (may differ from their login name).
 	"""
@@ -59,7 +59,7 @@ type Mutation {
 	"""
 	newsSetUrgentMessage(message: UrgentMessageInput): Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
-	userUpdatePermissions(userId: Int!, permissions: SbPermissionsInput!): SbUser!
+	userUpdatePermissions(userId: SbUserId!, permissions: SbPermissionsInput!): SbUser!
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
 	userDeleteRestrictedName(id: Int!): Int!
 	userTestRestrictedName(name: String!): NameRestriction
@@ -101,7 +101,7 @@ type NewsPostConnection {
 }
 
 input NewsPostCreation {
-	authorId: Int
+	authorId: SbUserId
 	title: String!
 	summary: String!
 	content: String!
@@ -150,7 +150,7 @@ type Query {
 	pastLeagues: [League!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	urgentMessage: UrgentMessage
-	user(id: Int!): SbUser
+	user(id: SbUserId!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
 	restrictedNames: [NameRestriction!]!
@@ -171,7 +171,7 @@ type SbPermissions {
 	The user ID these permissions are for. This is mainly so the client has a key for caching
 	purposes, and is not generally used elsewhere.
 	"""
-	id: Int!
+	id: SbUserId!
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -193,7 +193,7 @@ input SbPermissionsInput {
 	The user ID these permissions are for. This is mainly so the client has a key for caching
 	purposes, and is not generally used elsewhere.
 	"""
-	id: Int!
+	id: SbUserId!
 	editPermissions: Boolean!
 	debug: Boolean!
 	banUsers: Boolean!
@@ -211,13 +211,18 @@ input SbPermissionsInput {
 }
 
 type SbUser {
-	id: Int!
+	id: SbUserId!
 	"""
 	The user's display name (may differ from their login name).
 	"""
 	name: String!
 	permissions: SbPermissions!
 }
+
+"""
+A user ID in the ShieldBattery system.
+"""
+scalar SbUserId
 
 
 """

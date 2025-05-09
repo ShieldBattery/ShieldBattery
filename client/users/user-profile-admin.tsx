@@ -50,7 +50,7 @@ const LoadingError = styled.div`
 `
 
 const AdminUserProfileQuery = graphql(/* GraphQL */ `
-  query AdminUserProfile($userId: Int!, $includePermissions: Boolean!) {
+  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {
     user(id: $userId) {
       id
       ...AdminUserProfile_Permissions @include(if: $includePermissions)
@@ -106,7 +106,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
 `)
 
 const UpdatePermissionsMutation = graphql(/* GraphQL */ `
-  mutation AdminUpdateUserPermissions($userId: Int!, $permissions: SbPermissionsInput!) {
+  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {
     userUpdatePermissions(userId: $userId, permissions: $permissions) {
       ...AdminUserProfile_Permissions
     }

@@ -18,12 +18,13 @@ use tracing::error;
 
 use crate::configuration::Settings;
 use crate::redis::RedisPool;
+use crate::users::SbUserId;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JwtClaims {
     session_id: String,
-    user_id: i32,
+    user_id: SbUserId,
     /// The last time the user explicitly authenticated (as a JS unix timestamp in UTC).
     auth_time: u64,
     /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
@@ -33,7 +34,7 @@ struct JwtClaims {
 #[derive(Clone, Debug)]
 pub struct AuthenticatedSession {
     pub session_id: String,
-    pub user_id: i32,
+    pub user_id: SbUserId,
     /// The last time the user explicitly authenticated (as a JS unix timestamp in UTC).
     pub auth_time: u64,
     /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
@@ -73,7 +74,8 @@ pub enum SbSession {
     Anonymous,
 }
 
-fn session_key(user_id: i32, session_id: &str) -> String {
+fn session_key(user_id: SbUserId, session_id: &str) -> String {
+    let user_id: i32 = user_id.into();
     format!("sessions:{user_id}:{session_id}")
 }
 

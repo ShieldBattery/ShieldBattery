@@ -13,12 +13,23 @@ export default {
         afterOneFileWrite: ['prettier --write'],
       },
       config: {
+        namingConvention: {
+          enumValues: 'change-case-all#pascalCase',
+        },
         scalars: {
           DateTime: 'string',
+          SbUserId: 'Types.SbUserId',
           UUID: 'string',
         },
         strictScalars: true,
       },
+      plugins: [
+        {
+          add: {
+            content: "import * as Types from './types'",
+          },
+        },
+      ],
     },
     'client/gql/schema.json': {
       plugins: ['introspection'],

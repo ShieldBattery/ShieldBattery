@@ -15,7 +15,7 @@ use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::users::permissions::RequiredPermission;
-use crate::users::{CurrentUser, SbUser, UsersLoader};
+use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
 
 pub struct NewsModule {
     db_pool: PgPool,
@@ -181,7 +181,7 @@ impl NewsMutation {
 pub struct NewsPost {
     pub id: Uuid,
     #[graphql(skip)]
-    pub author_id: Option<i32>,
+    pub author_id: Option<SbUserId>,
     pub cover_image_path: Option<String>,
     pub title: String,
     pub summary: String,
@@ -204,7 +204,7 @@ impl NewsPost {
 
 #[derive(Clone, InputObject)]
 pub struct NewsPostCreation {
-    pub author_id: Option<i32>,
+    pub author_id: Option<SbUserId>,
     pub title: String,
     pub summary: String,
     pub content: String,
@@ -226,12 +226,12 @@ impl NewsPostRepo {
         sqlx::query_as!(
             NewsPost,
             r#"
-                SELECT id, author_id, cover_image_path, title, summary, content, published_at,
+                SELECT id, author_id as "author_id: _", cover_image_path, title, summary, content, published_at,
                     updated_at
                 FROM news_posts
                 WHERE id = $1
             "#,
-            id
+            id as _
         )
         .fetch_one(&self.db)
         .await
@@ -327,7 +327,11 @@ impl NewsPostRepo {
         Ok((has_prev_page, has_next_page, results))
     }
 
-    async fn create_post(&self, post: NewsPostCreation, creator_id: i32) -> eyre::Result<NewsPost> {
+    async fn create_post(
+        &self,
+        post: NewsPostCreation,
+        creator_id: SbUserId,
+    ) -> eyre::Result<NewsPost> {
         let mut tx = self
             .db
             .begin()
@@ -340,10 +344,10 @@ impl NewsPostRepo {
                 INSERT INTO news_posts (author_id, title, summary, content,
                     published_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id, author_id, cover_image_path, title, summary, content, published_at,
-                    updated_at
+                RETURNING id, author_id as "author_id: _", cover_image_path, title, summary,
+                    content, published_at, updated_at
             "#,
-            post.author_id,
+            post.author_id as _,
             post.title,
             post.summary,
             post.content,
@@ -362,8 +366,8 @@ impl NewsPostRepo {
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
             post.id,
-            creator_id,
-            post.author_id,
+            creator_id as _,
+            post.author_id as _,
             post.cover_image_path,
             post.title,
             post.summary,
