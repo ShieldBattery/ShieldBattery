@@ -77,7 +77,7 @@ async fn main() -> eyre::Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     tracing::info!("listening on http://{}", listener.local_addr().unwrap());
 
-    let router = create_app(db_pool, redis_pool, settings);
+    let router = create_app(db_pool, redis_pool, settings).await?;
     let app = NormalizePathLayer::trim_trailing_slash().layer(router);
     axum::serve(
         listener,

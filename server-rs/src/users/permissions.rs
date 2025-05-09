@@ -113,9 +113,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
-            // TODO(tec27): Should just be able to reference the slice after
-            // https://github.com/launchbadge/sqlx/issues/3854 is fixed
-            &keys.into_iter().map(|k| k.0).collect::<Vec<_>>()
+            keys as _,
         )
         .fetch(&self.db)
         .map_ok(|r| {

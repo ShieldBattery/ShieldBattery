@@ -1,8 +1,7 @@
-import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { OverrideProperties } from 'type-fest'
+import { OverrideProperties, ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -14,7 +13,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { singleLine, titleMedium } from '../styles/typography'
 import { batchGetMapInfo } from './action-creators'
-import MapImage from './map-image'
+import { MapInfoImage } from './map-image'
 
 const Container = styled.div`
   position: relative;
@@ -171,7 +170,7 @@ const NoImage = () => (
 )
 
 export interface MapThumbnailProps {
-  map: Immutable<MapInfoJson>
+  map: ReadonlyDeep<MapInfoJson>
   className?: string
   style?: React.CSSProperties
   forceAspectRatio?: number
@@ -238,7 +237,7 @@ export function MapThumbnail({
 
   return (
     <Container className={className} style={style}>
-      <MapImage
+      <MapInfoImage
         map={map}
         size={size}
         noImageElem={<NoImage />}

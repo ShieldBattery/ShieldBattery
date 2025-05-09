@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, start_time, map_id, config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length, results as \"results: _\", routes as \"routes: _\"\n            FROM games\n            WHERE\n                game_length IS NULL\n                AND start_time < now() - interval '2 minutes'\n                AND start_time > now() - interval '1 hour'\n                AND config->>'gameSource' = 'MATCHMAKING'\n            ORDER BY start_time DESC\n            LIMIT 10\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "start_time",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "map_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "config: _",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "disputable",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "dispute_requested",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "dispute_reviewed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "game_length",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "results: _",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "routes: _",
+        "type_info": "JsonbArray"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "8b551e18238cc84adcf0898e8527182bd364f5150c643072b1a6e650b9fc367d"
+}

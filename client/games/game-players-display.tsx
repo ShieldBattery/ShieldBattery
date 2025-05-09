@@ -2,6 +2,7 @@ import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson } from '../../common/games/games'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
@@ -117,7 +118,7 @@ export function GamePlayersDisplay({
   showTeamLabels = true,
   className,
 }: {
-  game: Immutable<GameRecordJson>
+  game: ReadonlyDeep<GameRecordJson>
   showTeamLabels?: boolean
   className?: string
 }) {

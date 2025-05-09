@@ -10,6 +10,7 @@ import KofiIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueHomeFeed } from '../leagues/league-home-feed'
+import { LiveGamesHomeFeed } from '../matchmaking/live-games-home-feed'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
@@ -28,6 +29,14 @@ const Root = styled(CenteredContentContainer)`
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: 1fr auto;
   gap: 40px;
+
+  @media (max-width: 940px) {
+    column-gap: 24px;
+  }
+
+  @media (max-width: 860px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 `
 
 const LeftSection = styled.div`
@@ -42,6 +51,10 @@ const RightSection = styled.div`
   display: flex;
   flex-direction: column;
   gap: 32px;
+
+  @media (max-width: 860px) {
+    display: none;
+  }
 `
 const SupportSection = styled.div`
   ${elevationPlus1};
@@ -123,6 +136,7 @@ const HomeQuery = graphql(/* GraphQL */ `
       ...UrgentMessage_HomeDisplayFragment
     }
 
+    ...LiveGames_HomeFeedFragment
     ...Leagues_HomeFeedFragment
   }
 `)
@@ -162,8 +176,10 @@ export function Home() {
           </SupportIcons>
         </SupportSection>
         <Section>
-          <SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>
-          <div>soon</div>
+          <LiveGamesHomeFeed
+            query={data}
+            title={<SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>}
+          />
         </Section>
         <Section>
           <LeagueHomeFeed

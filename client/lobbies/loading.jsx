@@ -3,7 +3,7 @@ import { Trans, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { getPlayerSlots } from '../../common/lobbies'
-import MapImage from '../maps/map-image'
+import { MapInfoImage } from '../maps/map-image'
 import { elevationPlus1 } from '../material/shadows'
 import { HeadlineMedium, headlineMedium, titleMedium } from '../styles/typography'
 import PlayerCard from './player-card'
@@ -304,7 +304,7 @@ export default class LoadingScreen extends React.Component {
           </Trans>
         </div>
         <MapImageContainer>
-          <MapImage map={lobby.map} />
+          <MapInfoImage map={lobby.map} />
         </MapImageContainer>
         <Players>{playerElems}</Players>
         <LoadingMessage />

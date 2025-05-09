@@ -1,8 +1,11 @@
 pub mod async_rayon;
 pub mod configuration;
 pub mod email;
+pub mod file_store;
+pub mod games;
 pub mod graphql;
 pub mod leagues;
+pub mod maps;
 pub mod matchmaking;
 pub mod news;
 pub mod pubsub;

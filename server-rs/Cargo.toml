@@ -25,6 +25,8 @@ async-graphql = { version = "7.0", features = [
 ] }
 async-graphql-axum = "7.0"
 async-trait = "0.1"
+aws-config = { version = "1.6", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.85"
 axum = { version = "0.8.3", features = ["macros", "ws"] }
 axum-client-ip = "1.0"
 axum-extra = { version = "0.10", features = ["typed-header"] }
@@ -51,7 +53,7 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }
-secrecy = "0.10"
+secrecy = { version = "0.10", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
@@ -63,6 +65,7 @@ tracing-bunyan-formatter = "0.3"
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 typeshare = "1.0"
+url = { version = "2.5" }
 uuid = { version = "1.16", features = ["v4"] }
 
 [dependencies.sqlx]

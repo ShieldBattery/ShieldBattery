@@ -37,6 +37,13 @@ export interface UrgentMessage {
   publishedAt: string
 }
 
+/** The privacy level for a map. This determines who can use the map for creating games. */
+export enum MapVisibility {
+  Private = 'PRIVATE',
+  Public = 'PUBLIC',
+  Official = 'OFFICIAL',
+}
+
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.

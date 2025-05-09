@@ -399,7 +399,7 @@ export function arePointsConverged(rating: number, points: number): boolean {
   return points >= minRating * 4
 }
 
-/** How many matches a user must play before we calculate a division for them. */
+/** How many matches a user must play before we show them a rating. */
 export const NUM_PLACEMENT_MATCHES = 5
 
 export type SeasonId = Tagged<number, 'SeasonId'>

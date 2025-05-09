@@ -14,6 +14,7 @@ use axum::routing::get;
 use axum::{middleware, Router};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
+use color_eyre::eyre::{self, Context};
 use jsonwebtoken::DecodingKey;
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
@@ -32,8 +33,11 @@ use tracing::Span;
 
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
+use crate::file_store::file_store_from_config;
+use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
+use crate::maps::MapsModule;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{build_schema, SbSchema};
@@ -96,11 +100,18 @@ async fn only_unforwarded_clients(request: Request<Body>, next: Next) -> Respons
     }
 }
 
-pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) -> Router {
+pub async fn create_app(
+    db_pool: PgPool,
+    redis_pool: RedisPool,
+    settings: Settings,
+) -> eyre::Result<Router> {
     let mailgun = Arc::new(MailgunClient::new(
         settings.mailgun.clone(),
         settings.canonical_host.clone(),
     ));
+    let file_store = file_store_from_config(&settings)
+        .await
+        .wrap_err("Creating file store failed")?;
 
     let ip_source = if settings.reverse_proxied {
         ClientIpSource::XRealIp
@@ -117,9 +128,12 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         .data(db_pool.clone())
         .data(redis_pool.clone())
         .data(mailgun.clone())
+        .data(file_store.clone())
         .data(name_checker.clone())
-        .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
+        .module(MapsModule::new(db_pool.clone()))
+        .module(GamesModule::new(db_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
+        .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
         .limit_depth(if settings.env == Env::Production {
             // TODO(tec27): Figure out good limits
             10
@@ -158,13 +172,14 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
         db_pool,
         redis_pool,
         mailgun,
+        file_store,
         jwt_key: Arc::new(DecodingKey::from_secret(
             settings.jwt_secret.expose_secret().as_ref(),
         )),
         graphql_schema: schema.clone(),
     };
 
-    Router::new()
+    Ok(Router::new()
         .route("/healthcheck", get(health_check))
         .route("/gql", playground_route.post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
@@ -252,5 +267,5 @@ pub fn create_app(db_pool: PgPool, redis_pool: RedisPool, settings: Settings) ->
                 .into_inner(),
         )
         .with_state(app_state)
-        .nest("/metrics", metrics_router)
+        .nest("/metrics", metrics_router))
 }

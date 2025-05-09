@@ -16,6 +16,11 @@ import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
 
+export function getGameResultsUrl(gameId: string, asPostGame?: boolean, tab?: ResultsSubPage) {
+  const routeId = toRouteGameId(gameId)
+  return urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : '')
+}
+
 /**
  * Navigates to a game's result page (and optionally, a specific tab within that).
  *
@@ -31,8 +36,7 @@ export function navigateToGameResults(
   tab?: ResultsSubPage,
   transitionFn = push,
 ) {
-  const routeId = toRouteGameId(gameId)
-  transitionFn(urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
+  transitionFn(getGameResultsUrl(gameId, asPostGame, tab))
 }
 
 const viewGameRequestCoalescer = new RequestCoalescer<string>()

@@ -1,7 +1,7 @@
 import BufferList from 'bl'
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { FileStore, GetSignedUrlOptions } from './store'
 
 let store: FileStore | null = null
 
@@ -27,13 +27,8 @@ export async function deleteFiles(prefix: string, options?: any) {
   return store!.deleteFiles(prefix, options)
 }
 
-export function getUrl(filename: string, options?: any) {
-  return store!.url(filename, options)
-}
-
-export interface GetSignedUrlOptions {
-  /** How long the url should be valid for, in seconds. Defaults to `900` (15 minutes). */
-  expires?: number
+export function getUrl(filename: string) {
+  return store!.url(filename)
 }
 
 export async function getSignedUrl(filename: string, options?: GetSignedUrlOptions) {

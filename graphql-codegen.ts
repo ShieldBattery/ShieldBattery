@@ -17,7 +17,13 @@ export default {
           enumValues: 'change-case-all#pascalCase',
         },
         scalars: {
+          AssignedRace: 'Types.AssignedRaceChar',
           DateTime: 'string',
+          GameType: 'Types.GameType',
+          MapForcePlayerRace: 'Types.MapForcePlayerRace',
+          MapVisibility: 'Types.MapVisibility',
+          MatchmakingType: 'Types.MatchmakingType',
+          Race: 'Types.RaceChar',
           SbUserId: 'Types.SbUserId',
           UUID: 'string',
         },

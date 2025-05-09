@@ -3,6 +3,7 @@ use color_eyre::eyre;
 use color_eyre::eyre::{eyre, WrapErr};
 use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};
+use serde::Deserialize;
 use std::time::Duration;
 
 /// The environment the application is running in.
@@ -26,6 +27,7 @@ pub struct Settings {
     pub datadog_api_key: Option<SecretString>,
     pub jwt_secret: SecretString,
     pub session_ttl: Duration,
+    pub file_store: FileStoreSettings,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +83,31 @@ impl DatabaseSettings {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub enum FileStoreSettings {
+    #[serde(rename = "filesystem")]
+    Local(LocalFileStoreSettings),
+    #[serde(rename = "doSpaces")]
+    Spaces(SpacesFileStoreSettings),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalFileStoreSettings {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpacesFileStoreSettings {
+    pub bucket: String,
+    pub endpoint: String,
+    pub access_key_id: String,
+    pub secret_access_key: SecretString,
+    pub cdn_host: Option<String>,
+    pub region: Option<String>,
+}
+
 pub fn get_configuration() -> eyre::Result<Settings> {
     #[cfg(test)]
     let env = Env::Test;
@@ -118,6 +145,14 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         )
     });
 
+    let file_store = std::env::var("SB_FILE_STORE")
+        .wrap_err("Failed to read SB_FILE_STORE")
+        .and_then(|s| {
+            println!("SB_FILE_STORE: {s}");
+            serde_json::from_str::<FileStoreSettings>(&s)
+                .wrap_err("Failed to parse SB_FILE_STORE JSON")
+        })?;
+
     Ok(Settings {
         env,
         app_host: host,
@@ -154,5 +189,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .parse()
                 .wrap_err("SB_SESSION_TTL is not a valid integer")?,
         ),
+        file_store,
     })
 }

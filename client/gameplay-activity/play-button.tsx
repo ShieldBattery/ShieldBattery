@@ -385,6 +385,12 @@ const PlayButtonContent = styled.div`
   width: 100%;
   height: 100%;
   z-index: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 `
 
 const PlayText = styled(OutlinedText)`
@@ -416,12 +422,6 @@ const IngamePlayContent = styled(PlayButtonContent)`
 `
 
 const MatchmakingSearchPlayContent = styled(PlayButtonContent)`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-
   font-size: 24px;
   text-transform: none;
   white-space: normal;

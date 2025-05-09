@@ -565,9 +565,7 @@ impl Loader<SbUserId> for UsersLoader {
         Ok(sqlx::query_as!(
             SbUser,
             r#"SELECT id as "id: SbUserId", name::TEXT as "name!" FROM users WHERE id = ANY($1)"#,
-            // TODO(tec27): Should just be able to reference the slice after
-            // https://github.com/launchbadge/sqlx/issues/3854 is fixed
-            &keys.into_iter().map(|k| k.0).collect::<Vec<_>>()
+            keys as _,
         )
         .fetch(&self.db)
         .map_ok(|u| (u.id, u))
@@ -581,16 +579,15 @@ impl Loader<String> for UsersLoader {
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
-        // TODO(tec27): Move to the query_as! (macro) version once sqlx properly supports citext
-        // columns: https://github.com/launchbadge/sqlx/pull/2478
-        Ok(
-            sqlx::query_as(r#"SELECT id, name::TEXT as "name" FROM users WHERE name = ANY($1)"#)
-                .bind(keys)
-                .fetch(&self.db)
-                .map_ok(|u: SbUser| (u.name.clone(), u))
-                .try_collect()
-                .await?,
+        Ok(sqlx::query_as!(
+            SbUser,
+            r#"SELECT id, name FROM users WHERE name = ANY($1)"#,
+            keys,
         )
+        .fetch(&self.db)
+        .map_ok(|u| (u.name.clone(), u))
+        .try_collect()
+        .await?)
     }
 }
 

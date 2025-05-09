@@ -107,6 +107,7 @@ services:
       - SB_DATADOG_KEY
       - SB_JWT_SECRET
       - SB_SESSION_TTL
+      - SB_FILE_STORE
     networks:
       - frontend
       - backend

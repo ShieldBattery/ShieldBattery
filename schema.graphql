@@ -1,3 +1,8 @@
+"""
+Any of the possible race choices after random has been resolved.
+"""
+scalar AssignedRace
+
 
 type CurrentUser {
 	id: SbUserId!
@@ -26,6 +31,53 @@ The input/output is a string in RFC3339 format.
 scalar DateTime
 
 
+type Game {
+	id: UUID!
+	startTime: DateTime!
+	config: GameConfig!
+	disputable: Boolean!
+	disputeRequested: Boolean!
+	disputeReviewed: Boolean!
+	gameLength: Int
+	results: [ReconciledPlayerResultEntry!]
+	routes: [GameRoute!]
+	map: UploadedMap!
+}
+
+union GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
+
+type GameConfigDataLobby {
+	gameType: GameType!
+	gameSubType: Int!
+	teams: [[GamePlayer!]!]!
+	gameSourceExtra: LobbyExtra!
+}
+
+type GameConfigDataMatchmaking {
+	gameType: GameType!
+	gameSubType: Int!
+	teams: [[GamePlayer!]!]!
+	gameSourceExtra: MatchmakingExtra!
+}
+
+type GamePlayer {
+	race: Race!
+	isComputer: Boolean!
+	user: SbUser
+}
+
+type GameRoute {
+	p1: Int!
+	p2: Int!
+	server: Int!
+	latency: Float!
+}
+
+"""
+The preset game ruleset that was selected (or UMS).
+"""
+scalar GameType
+
 
 
 type League {
@@ -42,15 +94,79 @@ type League {
 	link: String
 }
 
-"""
-All of the matchmaking types that we support. These values match the enum values used in the
-database.
-"""
-enum MatchmakingType {
-	MATCH_1V1
-	MATCH_1V1_FASTEST
-	MATCH_2V2
+type LobbyExtra {
+	turnRate: Int
+	useLegacyLimits: Boolean
 }
+
+type MapFile {
+	format: String!
+	tileset: Int!
+	originalName: String!
+	originalDescription: String!
+	slots: Int!
+	umsSlots: Int!
+	umsForces: [MapForce!]!
+	width: Int!
+	height: Int!
+	isEud: Boolean!
+	parserVersion: Int!
+	imageVersion: Int!
+	id: String!
+	image256Url: String!
+	image512Url: String!
+	image1024Url: String!
+	image2048Url: String!
+}
+
+type MapForce {
+	name: String!
+	teamId: Int!
+	players: [MapForcePlayer!]!
+}
+
+type MapForcePlayer {
+	playerId: Int!
+	race: MapForcePlayerRace!
+	typeId: Int!
+	isComputer: Boolean!
+}
+
+"""
+The race configuration for a player in a map force (either a preset race or 'any' for selectable).
+"""
+scalar MapForcePlayerRace
+
+"""
+The privacy level for a map. This determines who can use the map for creating games.
+"""
+scalar MapVisibility
+
+interface MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra1V1Data implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra1V1FastestData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra2V2Data implements MatchmakingExtra {
+	"""
+	The user Ids of players in the match, grouped into lists by party. Players not in a party
+	will be in a list by themselves.
+	"""
+	parties: [[SbUserId!]!]!
+	matchmakingType: MatchmakingType!
+}
+
+"""
+All of the matchmaking types that we support. These values match the enum values used in the database.
+"""
+scalar MatchmakingType
 
 type Mutation {
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
@@ -145,6 +261,8 @@ type PageInfo {
 }
 
 type Query {
+	game(id: UUID!): Game
+	liveGames: [Game!]!
 	activeLeagues: [League!]!
 	futureLeagues: [League!]!
 	pastLeagues: [League!]!
@@ -154,6 +272,29 @@ type Query {
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
 	restrictedNames: [NameRestriction!]!
+}
+
+"""
+Any of the possible race choices that can be selected.
+"""
+scalar Race
+
+type ReconciledPlayerResult {
+	apm: Int!
+	race: AssignedRace!
+	result: ReconciledResult!
+}
+
+type ReconciledPlayerResultEntry {
+	id: SbUserId!
+	result: ReconciledPlayerResult!
+}
+
+enum ReconciledResult {
+	WIN
+	LOSS
+	DRAW
+	UNKNOWN
 }
 
 enum RestrictedNameKind {
@@ -240,6 +381,16 @@ scalar UUID
 input UpdateCurrentUserChanges {
 	email: String
 	newPassword: String
+}
+
+type UploadedMap {
+	id: UUID!
+	name: String!
+	description: String!
+	uploadDate: DateTime!
+	visibility: MapVisibility!
+	uploader: SbUser!
+	mapFile: MapFile!
 }
 
 type UrgentMessage {

@@ -4,6 +4,7 @@ import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/game-type'
 import { Jsonify } from './json'
 import { RaceChar } from './races'
+import { MapVisibility } from './typeshare'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
@@ -77,11 +78,7 @@ export function mapSortTypeToLabel(sortType: MapSortType, t: TFunction) {
   }
 }
 
-export enum MapVisibility {
-  Private = 'PRIVATE',
-  Public = 'PUBLIC',
-  Official = 'OFFICIAL',
-}
+export { MapVisibility }
 export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
 
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
@@ -94,9 +91,11 @@ export interface MapFilters {
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
+export type MapForcePlayerRace = 'any' | RaceChar
+
 export interface MapForcePlayer {
   id: number
-  race: 'any' | RaceChar
+  race: MapForcePlayerRace
   // TODO(tec27): Make an enum for these types
   typeId: number
   computer: boolean

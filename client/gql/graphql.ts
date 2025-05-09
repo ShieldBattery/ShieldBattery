@@ -19,12 +19,24 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean }
   Int: { input: number; output: number }
   Float: { input: number; output: number }
+  /** Any of the possible race choices after random has been resolved. */
+  AssignedRace: { input: Types.AssignedRaceChar; output: Types.AssignedRaceChar }
   /**
    * Implement the DateTime<Utc> scalar
    *
    * The input/output is a string in RFC3339 format.
    */
   DateTime: { input: string; output: string }
+  /** The preset game ruleset that was selected (or UMS). */
+  GameType: { input: Types.GameType; output: Types.GameType }
+  /** The race configuration for a player in a map force (either a preset race or 'any' for selectable). */
+  MapForcePlayerRace: { input: Types.MapForcePlayerRace; output: Types.MapForcePlayerRace }
+  /** The privacy level for a map. This determines who can use the map for creating games. */
+  MapVisibility: { input: Types.MapVisibility; output: Types.MapVisibility }
+  /** All of the matchmaking types that we support. These values match the enum values used in the database. */
+  MatchmakingType: { input: Types.MatchmakingType; output: Types.MatchmakingType }
+  /** Any of the possible race choices that can be selected. */
+  Race: { input: Types.RaceChar; output: Types.RaceChar }
   /** A user ID in the ShieldBattery system. */
   SbUserId: { input: Types.SbUserId; output: Types.SbUserId }
   /**
@@ -56,6 +68,53 @@ export type CurrentUser = {
   permissions: SbPermissions
 }
 
+export type Game = {
+  __typename?: 'Game'
+  config: GameConfig
+  disputable: Scalars['Boolean']['output']
+  disputeRequested: Scalars['Boolean']['output']
+  disputeReviewed: Scalars['Boolean']['output']
+  gameLength?: Maybe<Scalars['Int']['output']>
+  id: Scalars['UUID']['output']
+  map: UploadedMap
+  results?: Maybe<Array<ReconciledPlayerResultEntry>>
+  routes?: Maybe<Array<GameRoute>>
+  startTime: Scalars['DateTime']['output']
+}
+
+export type GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
+
+export type GameConfigDataLobby = {
+  __typename?: 'GameConfigDataLobby'
+  gameSourceExtra: LobbyExtra
+  gameSubType: Scalars['Int']['output']
+  gameType: Scalars['GameType']['output']
+  teams: Array<Array<GamePlayer>>
+}
+
+export type GameConfigDataMatchmaking = {
+  __typename?: 'GameConfigDataMatchmaking'
+  gameSourceExtra: MatchmakingExtra
+  gameSubType: Scalars['Int']['output']
+  gameType: Scalars['GameType']['output']
+  teams: Array<Array<GamePlayer>>
+}
+
+export type GamePlayer = {
+  __typename?: 'GamePlayer'
+  isComputer: Scalars['Boolean']['output']
+  race: Scalars['Race']['output']
+  user?: Maybe<SbUser>
+}
+
+export type GameRoute = {
+  __typename?: 'GameRoute'
+  latency: Scalars['Float']['output']
+  p1: Scalars['Int']['output']
+  p2: Scalars['Int']['output']
+  server: Scalars['Int']['output']
+}
+
 export type League = {
   __typename?: 'League'
   badgePath?: Maybe<Scalars['String']['output']>
@@ -64,21 +123,77 @@ export type League = {
   id: Scalars['UUID']['output']
   imagePath?: Maybe<Scalars['String']['output']>
   link?: Maybe<Scalars['String']['output']>
-  matchmakingType: MatchmakingType
+  matchmakingType: Scalars['MatchmakingType']['output']
   name: Scalars['String']['output']
   rulesAndInfo?: Maybe<Scalars['String']['output']>
   signupsAfter: Scalars['DateTime']['output']
   startAt: Scalars['DateTime']['output']
 }
 
-/**
- * All of the matchmaking types that we support. These values match the enum values used in the
- * database.
- */
-export enum MatchmakingType {
-  Match_1V1 = 'MATCH_1V1',
-  Match_1V1Fastest = 'MATCH_1V1_FASTEST',
-  Match_2V2 = 'MATCH_2V2',
+export type LobbyExtra = {
+  __typename?: 'LobbyExtra'
+  turnRate?: Maybe<Scalars['Int']['output']>
+  useLegacyLimits?: Maybe<Scalars['Boolean']['output']>
+}
+
+export type MapFile = {
+  __typename?: 'MapFile'
+  format: Scalars['String']['output']
+  height: Scalars['Int']['output']
+  id: Scalars['String']['output']
+  image256Url: Scalars['String']['output']
+  image512Url: Scalars['String']['output']
+  image1024Url: Scalars['String']['output']
+  image2048Url: Scalars['String']['output']
+  imageVersion: Scalars['Int']['output']
+  isEud: Scalars['Boolean']['output']
+  originalDescription: Scalars['String']['output']
+  originalName: Scalars['String']['output']
+  parserVersion: Scalars['Int']['output']
+  slots: Scalars['Int']['output']
+  tileset: Scalars['Int']['output']
+  umsForces: Array<MapForce>
+  umsSlots: Scalars['Int']['output']
+  width: Scalars['Int']['output']
+}
+
+export type MapForce = {
+  __typename?: 'MapForce'
+  name: Scalars['String']['output']
+  players: Array<MapForcePlayer>
+  teamId: Scalars['Int']['output']
+}
+
+export type MapForcePlayer = {
+  __typename?: 'MapForcePlayer'
+  isComputer: Scalars['Boolean']['output']
+  playerId: Scalars['Int']['output']
+  race: Scalars['MapForcePlayerRace']['output']
+  typeId: Scalars['Int']['output']
+}
+
+export type MatchmakingExtra = {
+  matchmakingType: Scalars['MatchmakingType']['output']
+}
+
+export type MatchmakingExtra1V1Data = MatchmakingExtra & {
+  __typename?: 'MatchmakingExtra1V1Data'
+  matchmakingType: Scalars['MatchmakingType']['output']
+}
+
+export type MatchmakingExtra1V1FastestData = MatchmakingExtra & {
+  __typename?: 'MatchmakingExtra1V1FastestData'
+  matchmakingType: Scalars['MatchmakingType']['output']
+}
+
+export type MatchmakingExtra2V2Data = MatchmakingExtra & {
+  __typename?: 'MatchmakingExtra2V2Data'
+  matchmakingType: Scalars['MatchmakingType']['output']
+  /**
+   * The user Ids of players in the match, grouped into lists by party. Players not in a party
+   * will be in a list by themselves.
+   */
+  parties: Array<Array<Scalars['SbUserId']['output']>>
 }
 
 export type Mutation = {
@@ -192,12 +307,18 @@ export type Query = {
   activeLeagues: Array<League>
   currentUser?: Maybe<CurrentUser>
   futureLeagues: Array<League>
+  game?: Maybe<Game>
+  liveGames: Array<Game>
   newsPosts: NewsPostConnection
   pastLeagues: Array<League>
   restrictedNames: Array<NameRestriction>
   urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
+}
+
+export type QueryGameArgs = {
+  id: Scalars['UUID']['input']
 }
 
 export type QueryNewsPostsArgs = {
@@ -214,6 +335,26 @@ export type QueryUserArgs = {
 
 export type QueryUserByDisplayNameArgs = {
   name: Scalars['String']['input']
+}
+
+export type ReconciledPlayerResult = {
+  __typename?: 'ReconciledPlayerResult'
+  apm: Scalars['Int']['output']
+  race: Scalars['AssignedRace']['output']
+  result: ReconciledResult
+}
+
+export type ReconciledPlayerResultEntry = {
+  __typename?: 'ReconciledPlayerResultEntry'
+  id: Scalars['SbUserId']['output']
+  result: ReconciledPlayerResult
+}
+
+export enum ReconciledResult {
+  Draw = 'DRAW',
+  Loss = 'LOSS',
+  Unknown = 'UNKNOWN',
+  Win = 'WIN',
 }
 
 export enum RestrictedNameKind {
@@ -282,6 +423,17 @@ export type SbUser = {
 export type UpdateCurrentUserChanges = {
   email?: InputMaybe<Scalars['String']['input']>
   newPassword?: InputMaybe<Scalars['String']['input']>
+}
+
+export type UploadedMap = {
+  __typename?: 'UploadedMap'
+  description: Scalars['String']['output']
+  id: Scalars['UUID']['output']
+  mapFile: MapFile
+  name: Scalars['String']['output']
+  uploadDate: Scalars['DateTime']['output']
+  uploader: SbUser
+  visibility: Scalars['MapVisibility']['output']
 }
 
 export type UrgentMessage = {
@@ -373,7 +525,12 @@ export type HomePageContentQuery = {
         }
       })
     | null
-} & { ' $fragmentRefs'?: { Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment } }
+} & {
+  ' $fragmentRefs'?: {
+    LiveGames_HomeFeedFragmentFragment: LiveGames_HomeFeedFragmentFragment
+    Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment
+  }
+}
 
 export type UrgentMessage_HomeDisplayFragmentFragment = {
   __typename?: 'UrgentMessage'
@@ -404,10 +561,108 @@ export type Leagues_HomeFeedEntryFragmentFragment = {
   __typename?: 'League'
   id: string
   name: string
-  matchmakingType: MatchmakingType
+  matchmakingType: Types.MatchmakingType
   startAt: string
   endAt: string
 } & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
+
+export type LiveGames_HomeFeedFragmentFragment = {
+  __typename?: 'Query'
+  liveGames: Array<
+    { __typename?: 'Game'; id: string } & {
+      ' $fragmentRefs'?: {
+        LiveGames_HomeFeedEntryFragmentFragment: LiveGames_HomeFeedEntryFragmentFragment
+      }
+    }
+  >
+} & { ' $fragmentName'?: 'LiveGames_HomeFeedFragmentFragment' }
+
+export type LiveGames_HomeFeedEntryFragmentFragment = ({
+  __typename?: 'Game'
+  id: string
+  startTime: string
+  map: {
+    __typename?: 'UploadedMap'
+    id: string
+    name: string
+    mapFile: {
+      __typename?: 'MapFile'
+      id: string
+      image256Url: string
+      image512Url: string
+      image1024Url: string
+      image2048Url: string
+      width: number
+      height: number
+    }
+  }
+  config:
+    | { __typename: 'GameConfigDataLobby' }
+    | {
+        __typename: 'GameConfigDataMatchmaking'
+        gameSourceExtra:
+          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
+          | {
+              __typename?: 'MatchmakingExtra1V1FastestData'
+              matchmakingType: Types.MatchmakingType
+            }
+          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+        teams: Array<
+          Array<
+            {
+              __typename?: 'GamePlayer'
+              user?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+            } & {
+              ' $fragmentRefs'?: {
+                LiveGames_HomeFeedEntryPlayersFragmentFragment: LiveGames_HomeFeedEntryPlayersFragmentFragment
+              }
+            }
+          >
+        >
+      }
+} & {
+  ' $fragmentRefs'?: {
+    LiveGames_HomeFeedEntryMapAndTypeFragmentFragment: LiveGames_HomeFeedEntryMapAndTypeFragmentFragment
+  }
+}) & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryFragmentFragment' }
+
+export type LiveGames_HomeFeedEntryPlayersFragmentFragment = {
+  __typename?: 'GamePlayer'
+  race: Types.RaceChar
+  user?: { __typename?: 'SbUser'; id: Types.SbUserId; name: string } | null
+} & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryPlayersFragmentFragment' }
+
+export type LiveGames_HomeFeedEntryMapAndTypeFragmentFragment = {
+  __typename?: 'Game'
+  id: string
+  map: {
+    __typename?: 'UploadedMap'
+    id: string
+    name: string
+    mapFile: {
+      __typename?: 'MapFile'
+      id: string
+      image256Url: string
+      image512Url: string
+      image1024Url: string
+      image2048Url: string
+      width: number
+      height: number
+    }
+  }
+  config:
+    | { __typename: 'GameConfigDataLobby' }
+    | {
+        __typename: 'GameConfigDataMatchmaking'
+        gameSourceExtra:
+          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
+          | {
+              __typename?: 'MatchmakingExtra1V1FastestData'
+              matchmakingType: Types.MatchmakingType
+            }
+          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+      }
+} & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryMapAndTypeFragmentFragment' }
 
 export type AccountSettings_CurrentUserFragment = {
   __typename?: 'CurrentUser'
@@ -604,6 +859,528 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<Leagues_HomeFeedFragmentFragment, unknown>
+export const LiveGames_HomeFeedEntryPlayersFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_HomeFeedEntryPlayersFragmentFragment, unknown>
+export const LiveGames_HomeFeedEntryMapAndTypeFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_HomeFeedEntryMapAndTypeFragmentFragment, unknown>
+export const LiveGames_HomeFeedEntryFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: {
+                                kind: 'Name',
+                                value: 'LiveGames_HomeFeedEntryPlayersFragment',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_HomeFeedEntryFragmentFragment, unknown>
+export const LiveGames_HomeFeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: {
+                                kind: 'Name',
+                                value: 'LiveGames_HomeFeedEntryPlayersFragment',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_HomeFeedFragmentFragment, unknown>
 export const AccountSettings_CurrentUserFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -918,7 +1695,201 @@ export const HomePageContentDocument = {
               ],
             },
           },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_HomeFeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: {
+                                kind: 'Name',
+                                value: 'LiveGames_HomeFeedEntryPlayersFragment',
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryMapAndTypeFragment' },
+          },
         ],
       },
     },
@@ -947,6 +1918,30 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
           { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveGames_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
         ],
       },
     },

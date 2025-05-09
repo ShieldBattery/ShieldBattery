@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id, map_hash as \"map_hash: _\", name, description,\n                    uploaded_by as \"uploaded_by: _\", upload_date, visibility as \"visibility: _\"\n                FROM uploaded_maps\n                WHERE id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "map_hash: _",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "uploaded_by: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "upload_date",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "visibility: _",
+        "type_info": {
+          "Custom": {
+            "name": "map_visibility",
+            "kind": {
+              "Enum": [
+                "OFFICIAL",
+                "PRIVATE",
+                "PUBLIC"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "357295e85989922147bee0610e9b3090991d3d7ce8d28896dad67425ca0da492"
+}

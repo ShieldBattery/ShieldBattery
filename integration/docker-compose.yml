@@ -73,6 +73,7 @@ services:
       - 'SB_MAILGUN_URL=http://mailgun:5528'
       - SB_JWT_SECRET=SuperSecretJwtKey
       - SB_SESSION_TTL=2592000
+      - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
     depends_on:
       - db
       - mailgun

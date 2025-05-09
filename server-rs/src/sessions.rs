@@ -150,7 +150,7 @@ pub async fn jwt_middleware(
     request.extensions_mut().insert(session.clone());
     let response = next.run(request).await;
 
-    // FIXME: deal with new session creation (response extensions?)
+    // TODO(tec27): deal with new session creation (response extensions?)
     if let SbSession::Authenticated(session) = session {
         let key = session_key(session.user_id, &session.session_id);
         let mut redis = match redis_pool.get().await {

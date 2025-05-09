@@ -4,7 +4,7 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { batchGetMapInfo } from './action-creators'
-import MapImage from './map-image'
+import { MapInfoImage } from './map-image'
 
 const StyledDialog = styled(Dialog)`
   --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
@@ -21,7 +21,7 @@ const StyledDialog = styled(Dialog)`
   max-width: min(var(--sb-map-preview-height-restricted), var(--sb-map-preview-width-restricted));
 `
 
-const StyledMapImage = styled(MapImage)`
+const StyledMapImage = styled(MapInfoImage)`
   background-color: var(--theme-container-low);
   border-radius: 4px;
 `

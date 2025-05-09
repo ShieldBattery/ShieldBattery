@@ -2,9 +2,8 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeLeagueId } from '../../common/leagues/leagues'
-import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MatchmakingType as GqlMatchmakingType } from '../gql/graphql'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
@@ -119,6 +118,7 @@ const LeagueName = styled.div`
 const LeagueTypeAndDates = styled.div`
   ${bodyMedium};
   display: flex;
+  align-items: center;
   gap: 8px;
 
   color: var(--theme-on-surface-variant);
@@ -127,19 +127,6 @@ const LeagueType = styled.div`
   ${titleSmall};
   color: var(--theme-on-surface);
 `
-
-function toNormalMatchmakingType(gqlType: GqlMatchmakingType): MatchmakingType {
-  switch (gqlType) {
-    case GqlMatchmakingType.Match_1V1:
-      return MatchmakingType.Match1v1
-    case GqlMatchmakingType.Match_1V1Fastest:
-      return MatchmakingType.Match1v1Fastest
-    case GqlMatchmakingType.Match_2V2:
-      return MatchmakingType.Match2v2
-    default:
-      return gqlType satisfies never
-  }
-}
 
 function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEntryFragment> }) {
   const { t } = useTranslation()
@@ -157,9 +144,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
       <Info>
         <LeagueName>{league.name}</LeagueName>
         <LeagueTypeAndDates>
-          <LeagueType>
-            {matchmakingTypeToLabel(toNormalMatchmakingType(league.matchmakingType), t)}
-          </LeagueType>
+          <LeagueType>{matchmakingTypeToLabel(league.matchmakingType, t)}</LeagueType>
           <span>·</span>
           {startAt <= curDate ? (
             <RunningLeagueDate curDate={curDate} endAt={endAt} />
