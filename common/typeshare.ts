@@ -56,7 +56,7 @@ export type PublishedNewsMessage = { type: 'urgentMessageChanged'; data: undefin
 export type PublishedUserMessage = {
   type: 'permissionsChanged'
   data: {
-    userId: number
+    userId: TypeshareTypes.SbUserId
     permissions: SbPermissions
   }
 }
