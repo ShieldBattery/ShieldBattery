@@ -190,9 +190,9 @@ export interface PopoverProps {
   motionExit?: VariantLabels | TargetAndTransition
 
   /**
-   * Whether the popover should focus on the first focusable element when it is opened.
+   * Whether the popover should steal the focus when it is opened.
    */
-  hasFocusTrap?: boolean
+  focusOnMount?: boolean
 }
 
 export const DEFAULT_VARIANTS: Variants = {
@@ -223,45 +223,39 @@ export function Popover(props: PopoverProps) {
     motionInitial = 'entering',
     motionAnimate = 'visible',
     motionExit = 'exiting',
-    hasFocusTrap = true,
+    focusOnMount = true,
     ...restProps
   } = props
 
   const onAnimationComplete = useStableCallback((state: VariantLabels) => {
     if (state === motionAnimate && focusableRef.current) {
       window.dispatchEvent(new Event('resize'))
-      if (hasFocusTrap) {
+      if (focusOnMount) {
         focusableRef.current.focus()
       }
     }
   })
-
-  const popoverContent = (
-    <PopoverContent
-      {...restProps}
-      onDismiss={onDismiss}
-      motionVariants={motionVariants}
-      motionInitial={motionInitial}
-      motionAnimate={motionAnimate}
-      motionExit={motionExit}
-      motionTransition={motionTransition}
-      onAnimationComplete={onAnimationComplete}>
-      <Card ref={focusableRef} tabIndex={-1}>
-        {props.children}
-      </Card>
-    </PopoverContent>
-  )
 
   return (
     <AnimatePresence>
       {open && (
         <Portal onDismiss={onDismiss} open={open}>
           <KeyListenerBoundary>
-            {hasFocusTrap ? (
-              <FocusTrap focusableRef={focusableRef}>{popoverContent}</FocusTrap>
-            ) : (
-              popoverContent
-            )}
+            <FocusTrap focusableRef={focusableRef} focusOnMount={focusOnMount}>
+              <PopoverContent
+                {...restProps}
+                onDismiss={onDismiss}
+                motionVariants={motionVariants}
+                motionInitial={motionInitial}
+                motionAnimate={motionAnimate}
+                motionExit={motionExit}
+                motionTransition={motionTransition}
+                onAnimationComplete={onAnimationComplete}>
+                <Card ref={focusableRef} tabIndex={-1}>
+                  {props.children}
+                </Card>
+              </PopoverContent>
+            </FocusTrap>
           </KeyListenerBoundary>
         </Portal>
       )}

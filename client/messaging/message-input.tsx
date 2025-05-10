@@ -331,7 +331,9 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           anchorY={(anchorY ?? 0) - 8}
           originX='left'
           originY='bottom'
-          hasFocusTrap={false}>
+          // Keep the focus in the message input when user mentions popover opens so the user can
+          // keep typing.
+          focusOnMount={false}>
           <StyledMenuList dense={true}>
             {matchedUsers.map((user, i) => (
               <MenuItem
