@@ -13,6 +13,7 @@ volumes:
 
 networks:
   frontend:
+    enable_ipv6: true
   backend:
 
 services:
