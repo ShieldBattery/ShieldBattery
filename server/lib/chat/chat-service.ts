@@ -181,11 +181,7 @@ export default class ChatService {
     // is allowed in some cases (e.g. during account creation)
     const userSockets = this.userSocketsManager.getById(userInfo.id)
     if (userSockets) {
-      userSockets.subscribe<ChatInitActiveUsersEvent>(getChannelPath(channelId), () => ({
-        action: 'initActiveUsers',
-        activeUserIds: this.state.channels.get(channelId)!.toArray(),
-      }))
-      userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
+      this.subscribeUserToChannel(userSockets, channelId)
 
       const [channelInfo, userChannelEntry] = await Promise.all([
         getChannelInfo(channelId),
@@ -1105,7 +1101,15 @@ export default class ChatService {
     return userSockets
   }
 
-  unsubscribeUserFromChannel(user: UserSocketsGroup, channelId: SbChannelId) {
+  private subscribeUserToChannel(userSockets: UserSocketsGroup, channelId: SbChannelId) {
+    userSockets.subscribe<ChatInitActiveUsersEvent>(getChannelPath(channelId), () => ({
+      action: 'initActiveUsers',
+      activeUserIds: this.state.channels.get(channelId)?.toArray() ?? [],
+    }))
+    userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
+  }
+
+  private unsubscribeUserFromChannel(user: UserSocketsGroup, channelId: SbChannelId) {
     user.unsubscribe(getChannelPath(channelId))
     user.unsubscribe(getChannelUserPath(channelId, user.userId))
   }
@@ -1150,14 +1154,7 @@ export default class ChatService {
         action: 'userActive2',
         userId: userSockets.userId,
       })
-      userSockets.subscribe<ChatInitActiveUsersEvent>(
-        getChannelPath(userChannel.channelId),
-        () => ({
-          action: 'initActiveUsers',
-          activeUserIds: this.state.channels.get(userChannel.channelId)!.toArray(),
-        }),
-      )
-      userSockets.subscribe(getChannelUserPath(userChannel.channelId, userSockets.userId))
+      this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }
   }
 

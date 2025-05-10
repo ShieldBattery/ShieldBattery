@@ -290,7 +290,7 @@ export interface ChatMessageDeletedEvent {
 
 export interface ChatInitActiveUsersEvent {
   action: 'initActiveUsers'
-  /** A list of IDs of active users that are in a chat channel. */
+  /** A list of IDs of active users that are in the chat channel. */
   activeUserIds: SbUserId[]
 }
 

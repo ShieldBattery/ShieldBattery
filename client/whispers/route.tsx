@@ -14,9 +14,7 @@ export function WhisperRouteComponent(props: { params: any }) {
   }
   const targetIdNum = Number(params!.targetId)
   if (isNaN(targetIdNum)) {
-    queueMicrotask(() => {
-      replace('/')
-    })
+    replace('/')
     return null
   }
 

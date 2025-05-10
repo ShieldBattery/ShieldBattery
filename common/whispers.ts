@@ -106,3 +106,8 @@ export function whisperServiceErrorToString(
     return t('whispers.errors.unknownError', 'Unknown error')
   }
 }
+
+export interface GetWhisperSessionsResponse {
+  sessions: SbUserId[]
+  users: SbUser[]
+}

@@ -1,5 +1,9 @@
 import { SbUserId } from '../../common/users/sb-user-id'
-import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
+import {
+  GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
+  WhisperMessageEvent,
+} from '../../common/whispers'
 
 export type WhisperActions =
   | LoadMessageHistory
@@ -15,7 +19,7 @@ export type WhisperActions =
  */
 export interface GetWhisperSessions {
   type: '@whispers/getWhisperSessions'
-  payload: SbUserId[]
+  payload: GetWhisperSessionsResponse
 }
 
 /**

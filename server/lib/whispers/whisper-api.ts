@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
   SendWhisperMessageRequest,
   WhisperServiceErrorCode,
 } from '../../../common/whispers'
@@ -76,7 +77,7 @@ export class WhisperApi {
 
   @httpGet('/sessions')
   @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, ctx => String(ctx.session!.user!.id)))
-  async getWhisperSessions(ctx: RouterContext): Promise<SbUserId[]> {
+  async getWhisperSessions(ctx: RouterContext): Promise<GetWhisperSessionsResponse> {
     return await this.whisperService.getWhisperSessions(ctx.session!.user!.id)
   }
 

@@ -1039,7 +1039,9 @@
   },
   "social": {
     "chat": {
-      "label": "Chat"
+      "label": "Chat",
+      "loadingChannelsError": "Error loading chat channels",
+      "loadingWhispersError": "Error loading whispers"
     },
     "friends": {
       "label": "Friends ({{friendCount}})"

@@ -350,9 +350,6 @@ export interface UpdateMessageDeleted {
   meta: { channelId: SbChannelId }
 }
 
-/**
- * A list of active users in a chat channel has changed.
- */
 export interface InitActiveUsers {
   type: '@chat/initActiveUsers'
   payload: ChatInitActiveUsersEvent

@@ -8,6 +8,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
   WhisperEvent,
   WhisperMessage,
   WhisperMessageType,
@@ -67,8 +68,13 @@ export default class WhisperService {
       })
   }
 
-  async getWhisperSessions(userId: SbUserId): Promise<SbUserId[]> {
-    return await getWhisperSessionsForUser(userId)
+  async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
+    const sessions = await getWhisperSessionsForUser(userId)
+    const users = await findUsersById(sessions)
+    return {
+      sessions,
+      users,
+    }
   }
 
   async startWhisperSession(userId: SbUserId, targetUser: SbUserId) {

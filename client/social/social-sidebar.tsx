@@ -33,7 +33,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
-import { labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { bodyLarge, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { FriendsList } from '../users/friends-list'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
@@ -312,6 +312,14 @@ const ChatListButton = styled(OutlinedButton)`
   margin: 8px auto 0;
 `
 
+const ErrorDisplay = styled.div`
+  ${bodyLarge};
+  padding: 16px;
+
+  color: var(--theme-error);
+  text-align: center;
+`
+
 function ChatContent() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -321,6 +329,8 @@ function ChatContent() {
 
   const [isLoadingJoinedChannels, setIsLoadingJoinedChannels] = useState(false)
   const [isLoadingWhisperSessions, setIsLoadingWhisperSessions] = useState(false)
+  const [loadingJoinedChannelsError, setLoadingJoinedChannelsError] = useState<Error>()
+  const [loadingWhisperSessionsError, setLoadingWhisperSessionsError] = useState<Error>()
 
   useEffect(() => {
     setIsLoadingJoinedChannels(true)
@@ -332,10 +342,11 @@ function ChatContent() {
         signal: abortController.signal,
         onSuccess: () => {
           setIsLoadingJoinedChannels(false)
+          setLoadingJoinedChannelsError(undefined)
         },
-        onError: () => {
+        onError: err => {
           setIsLoadingJoinedChannels(false)
-          // TODO(2Pac): Do something with the error?
+          setLoadingJoinedChannelsError(err)
         },
       }),
     )
@@ -355,10 +366,11 @@ function ChatContent() {
         signal: abortController.signal,
         onSuccess: () => {
           setIsLoadingWhisperSessions(false)
+          setLoadingWhisperSessionsError(undefined)
         },
-        onError: () => {
+        onError: err => {
           setIsLoadingWhisperSessions(false)
-          // TODO(2Pac): Do something with the error?
+          setLoadingWhisperSessionsError(err)
         },
       }),
     )
@@ -368,22 +380,44 @@ function ChatContent() {
     }
   }, [dispatch])
 
+  let chatChannelsList: React.ReactNode
+  if (isLoadingJoinedChannels) {
+    chatChannelsList = <LoadingDotsArea />
+  } else if (loadingJoinedChannelsError) {
+    chatChannelsList = (
+      <ErrorDisplay>
+        {t('social.chat.loadingChannelsError', 'Error loading chat channels')}
+      </ErrorDisplay>
+    )
+  } else {
+    chatChannelsList = Array.from(chatChannels.values(), c => (
+      <ChannelEntry
+        key={c}
+        channelId={c}
+        onLeave={(channelId: SbChannelId) => {
+          dispatch(leaveChannel(channelId))
+        }}
+      />
+    ))
+  }
+
+  let whisperSessionsList: React.ReactNode
+  if (isLoadingWhisperSessions) {
+    whisperSessionsList = <LoadingDotsArea />
+  } else if (loadingWhisperSessionsError) {
+    whisperSessionsList = (
+      <ErrorDisplay>{t('social.chat.loadingWhispersError', 'Error loading whispers')}</ErrorDisplay>
+    )
+  } else {
+    whisperSessionsList = Array.from(whisperSessions.values(), w => (
+      <WhisperEntry key={w} userId={w} />
+    ))
+  }
+
   return (
     <>
       <Subheader>{t('navigation.leftNav.chatChannels', 'Chat channels')}</Subheader>
-      {isLoadingJoinedChannels ? (
-        <LoadingDotsArea />
-      ) : (
-        Array.from(chatChannels.values(), c => (
-          <ChannelEntry
-            key={c}
-            channelId={c}
-            onLeave={(channelId: SbChannelId) => {
-              dispatch(leaveChannel(channelId))
-            }}
-          />
-        ))
-      )}
+      {chatChannelsList}
       <ChatListButton
         onClick={() => {
           if (location.pathname !== '/chat/list') {
@@ -396,11 +430,7 @@ function ChatContent() {
       />
       <SectionSpacer />
       <Subheader>{t('navigation.leftNav.whispers', 'Whispers')}</Subheader>
-      {isLoadingWhisperSessions ? (
-        <LoadingDotsArea />
-      ) : (
-        Array.from(whisperSessions.values(), w => <WhisperEntry key={w} userId={w} />)
-      )}
+      {whisperSessionsList}
       <ChatListButton
         onClick={() => {
           dispatch(openDialog({ type: DialogType.Whispers }))
