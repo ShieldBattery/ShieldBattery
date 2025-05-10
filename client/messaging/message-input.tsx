@@ -197,14 +197,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             setMatchedUsers(matchedUsers.slice(0, 10) ?? [])
 
             if (matchedUsers.length) {
-              // NOTE(2Pac): Need to wait a bit before opening the Popover, because the
-              // `selectionchange` event fires before the `click` event, and React might run a
-              // render between those two events. This means that if you click into the message
-              // input at exact place where the user mentions popover should open, the Portal would
-              // immediately close it after because it counts the click as outside of the menu.
-              setTimeout(() => {
-                openUserMentions(event)
-              }, 100)
+              openUserMentions(event)
             } else {
               closeUserMentions()
             }
@@ -297,17 +290,23 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           floatingLabel={false}
           allowErrors={false}
           showDivider={props.showDivider}
-          inputProps={{ autoComplete: 'off' }}
+          inputProps={{
+            autoComplete: 'off',
+            onClick: event => {
+              if (userMentionsOpen) {
+                // Prevent the user mentions popover from closing when the user clicks on the input
+                // and we have matched users at the current position of their caret.
+                event.stopPropagation()
+              }
+            },
+          }}
           onEnterKeyDown={onEnterKeyDown}
           onChange={onChange}
         />
 
         <Popover
           open={userMentionsOpen}
-          onDismiss={() => {
-            closeUserMentions()
-            inputRef.current?.focus()
-          }}
+          onDismiss={closeUserMentions}
           anchorX={anchorX ?? 0}
           anchorY={(anchorY ?? 0) - 8}
           originX='left'
