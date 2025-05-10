@@ -208,23 +208,27 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
   }
 }
 
-function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
-  const {
-    channelInfo,
-    detailedChannelInfo,
-    joinedChannelInfo,
-    activeUserIds,
-    selfPreferences,
-    selfPermissions,
-  } = data
-
-  const channelUsers: UsersState = {
-    active: new Set(activeUserIds),
-    idle: new Set(),
-    offline: new Set(),
-    hasLoadedUserList: false,
-    loadingUserList: false,
+function initChannelUsers(state: ChatState, channelId: SbChannelId, activeUserIds?: SbUserId[]) {
+  const channelUsers = state.idToUsers.get(channelId)
+  if (channelUsers) {
+    if (activeUserIds) {
+      channelUsers.active = new Set(activeUserIds)
+    }
+  } else {
+    state.idToUsers.set(channelId, {
+      active: new Set(activeUserIds),
+      idle: new Set(),
+      offline: new Set(),
+      hasLoadedUserList: false,
+      loadingUserList: false,
+    })
   }
+}
+
+function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
+  const { channelInfo, detailedChannelInfo, joinedChannelInfo, selfPreferences, selfPermissions } =
+    data
+
   const messagesState: MessagesState = {
     messages: [],
     loadingHistory: false,
@@ -234,7 +238,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToBasicInfo.set(channelId, channelInfo)
   state.idToDetailedInfo.set(channelId, detailedChannelInfo)
   state.idToJoinedInfo.set(channelId, joinedChannelInfo)
-  state.idToUsers.set(channelId, channelUsers)
+  initChannelUsers(state, channelId)
   state.idToMessages.set(channelId, messagesState)
   state.idToUserProfiles.set(channelId, new Map())
   state.idToSelfPreferences.set(channelId, selfPreferences)
@@ -251,14 +255,21 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
 }
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
-  ['@loading/chatReady'](state, action) {
-    for (const channel of action.payload.channels) {
+  ['@chat/getJoinedChannels'](state, action) {
+    for (const channel of action.payload) {
       initChannel(state, channel.channelInfo.id, channel)
     }
   },
 
   ['@chat/initChannel'](state, action) {
     initChannel(state, action.meta.channelId, action.payload)
+  },
+
+  ['@chat/initActiveUsers'](state, action) {
+    const { activeUserIds } = action.payload
+    const { channelId } = action.meta
+
+    initChannelUsers(state, channelId, activeUserIds)
   },
 
   ['@chat/updateJoin'](state, action) {

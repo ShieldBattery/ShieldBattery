@@ -14,11 +14,9 @@ export function WhisperRouteComponent(props: { params: any }) {
   }
   const targetIdNum = Number(params!.targetId)
   if (isNaN(targetIdNum)) {
-    queueMicrotask(() => {
-      replace('/')
-    })
+    replace('/')
     return null
   }
 
-  return <ConnectedWhisper userId={makeSbUserId(targetIdNum)} username={params!.username} />
+  return <ConnectedWhisper targetId={makeSbUserId(targetIdNum)} targetUsername={params!.username} />
 }

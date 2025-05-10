@@ -1,12 +1,29 @@
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
+import {
+  GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
+  SendWhisperMessageRequest,
+} from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 
+export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetWhisperSessionsResponse>(apiUrl`whispers/sessions`, {
+      method: 'GET',
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@whispers/getWhisperSessions',
+      payload: result,
+    })
+  })
+}
 export function startWhisperSessionByName(
   target: string,
   spec: RequestHandlingSpec<{ userId: SbUserId }>,

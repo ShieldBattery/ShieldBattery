@@ -55,35 +55,38 @@ const UserInfoContainer = styled.div`
 `
 
 export interface ConnectedWhisperProps {
-  userId: SbUserId
-  username?: string
+  targetId: SbUserId
+  targetUsername?: string
 }
 
-export function ConnectedWhisper({ userId, username: usernameFromRoute }: ConnectedWhisperProps) {
+export function ConnectedWhisper({
+  targetId,
+  targetUsername: targetUsernameFromRoute,
+}: ConnectedWhisperProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
-  const targetUser = useAppSelector(s => s.users.byId.get(userId))
-  const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(userId))
-  const whisperSession = useAppSelector(s => s.whispers.byId.get(userId))
+  const targetUser = useAppSelector(s => s.users.byId.get(targetId))
+  const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(targetId))
+  const whisperSession = useAppSelector(s => s.whispers.byId.get(targetId))
 
   useEffect(() => {
-    if (selfUser.id === userId) {
+    if (selfUser.id === targetId) {
       snackbarController.showSnackbar(
         t('whispers.errors.cantWhisperYourself', "You can't whisper with yourself."),
       )
       replace('/')
     }
 
-    if (targetUser && usernameFromRoute !== targetUser.name) {
+    if (targetUser && targetUsernameFromRoute !== targetUser.name) {
       correctUsernameForWhisper(targetUser.id, targetUser.name)
     }
-  }, [selfUser, userId, targetUser, usernameFromRoute, t, snackbarController])
+  }, [selfUser, targetId, targetUser, targetUsernameFromRoute, t, snackbarController])
 
   const prevIsSessionOpen = usePrevious(isSessionOpen)
-  const prevUserId = usePrevious(userId)
-  const isClosingWhisper = userId === prevUserId && prevIsSessionOpen && !isSessionOpen
+  const prevTargetId = usePrevious(targetId)
+  const isClosingWhisper = targetId === prevTargetId && prevIsSessionOpen && !isSessionOpen
   useEffect(() => {
     if (isClosingWhisper) {
       push('/')
@@ -92,10 +95,10 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
 
   useEffect(() => {
     if (isSessionOpen) {
-      dispatch(activateWhisperSession(userId))
+      dispatch(activateWhisperSession(targetId))
     } else if (!isClosingWhisper) {
       dispatch(
-        startWhisperSessionById(userId, {
+        startWhisperSessionById(targetId, {
           onSuccess: () => {},
           onError: err => {
             snackbarController.showSnackbar(
@@ -112,15 +115,15 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
     }
 
     return () => {
-      dispatch(deactivateWhisperSession(userId))
+      dispatch(deactivateWhisperSession(targetId))
     }
-  }, [isSessionOpen, isClosingWhisper, userId, dispatch, t, snackbarController])
+  }, [isSessionOpen, isClosingWhisper, targetId, dispatch, t, snackbarController])
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const onLoadMoreMessages = useStableCallback(() => {
     setIsLoadingHistory(true)
     dispatch(
-      getMessageHistory(userId, MESSAGES_LIMIT, {
+      getMessageHistory(targetId, MESSAGES_LIMIT, {
         onSuccess: () => {
           setIsLoadingHistory(false)
         },
@@ -142,7 +145,7 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
 
   const onSendChatMessage = useStableCallback((msg: string) => {
     dispatch(
-      sendMessage(userId, msg, {
+      sendMessage(targetId, msg, {
         onSuccess: () => {},
         onError: err => {
           // TODO(tec27): Offer a retry for the same message content? Display it in the message list
@@ -174,16 +177,16 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
           messages: whisperSession.messages,
           loading: isLoadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
-          refreshToken: userId,
+          refreshToken: targetId,
           onLoadMoreMessages,
         }}
         inputProps={{
           onSendChatMessage,
-          storageKey: `whisper.${userId}`,
+          storageKey: `whisper.${targetId}`,
         }}
         extraContent={
           <UserInfoContainer>
-            <UserProfileOverlayContents userId={userId} showHintText={false} />
+            <UserProfileOverlayContents userId={targetId} showHintText={false} />
           </UserInfoContainer>
         }
       />

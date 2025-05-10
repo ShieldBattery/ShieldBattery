@@ -143,6 +143,14 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
+  initActiveUsers(channelId, event) {
+    return {
+      type: '@chat/initActiveUsers',
+      payload: event,
+      meta: { channelId },
+    }
+  },
+
   userActive2(channelId, event) {
     return {
       type: '@chat/updateUserActive',

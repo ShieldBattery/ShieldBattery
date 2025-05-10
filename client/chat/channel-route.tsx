@@ -14,9 +14,7 @@ export function ChannelRoute({
       {params => {
         const channelIdNum = Number(params.channelId)
         if (isNaN(channelIdNum)) {
-          queueMicrotask(() => {
-            replace('/')
-          })
+          replace('/')
           return null
         }
 

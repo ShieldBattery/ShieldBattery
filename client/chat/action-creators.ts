@@ -7,6 +7,7 @@ import {
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
   GetChatUserProfileResponse,
+  InitialChannelData,
   JoinChannelResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
@@ -30,6 +31,20 @@ import { RequestCoalescer } from '../network/request-coalescer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { ActivateChannel, DeactivateChannel } from './actions'
+
+export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const joinedChannels = await fetchJson<InitialChannelData[]>(apiUrl`chat/joined-channels`, {
+      method: 'GET',
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@chat/getJoinedChannels',
+      payload: joinedChannels,
+    })
+  })
+}
 
 /**
  * Makes a request to join a user to the channel. The caller is expected to handle errors.
