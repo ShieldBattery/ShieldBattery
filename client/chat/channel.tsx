@@ -8,7 +8,6 @@ import {
   ServerChatMessageType,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
@@ -122,7 +121,6 @@ export function ConnectedChatChannel({
   channelName: channelNameFromRoute,
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
@@ -142,13 +140,8 @@ export function ConnectedChatChannel({
       }
     }
 
-    // If there are no text messages in the channel, we add the self-user as an option to mention.
-    if (chattersSet.size === 0 && selfUser) {
-      chattersSet.add(selfUser.id)
-    }
-
     return Array.from(chattersSet)
-  }, [channelMessages, selfUser])
+  }, [channelMessages])
 
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.

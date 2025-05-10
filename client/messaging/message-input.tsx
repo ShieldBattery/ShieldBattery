@@ -174,7 +174,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             // Special case the single @ character (Discord displays last 10 people who posted in
             // chat here).
             const singleAtCharacterIndex = message.slice(0, selectionStart).search(/(?<=^|\s)@$/)
-            if (singleAtCharacterIndex !== -1 && defaultMentionableUsers) {
+            if (
+              singleAtCharacterIndex !== -1 &&
+              defaultMentionableUsers &&
+              defaultMentionableUsers.length
+            ) {
               setUserMentionStartIndex(singleAtCharacterIndex)
               setUserMentionMatchedText('@')
               setMatchedUsers(defaultMentionableUsers)
