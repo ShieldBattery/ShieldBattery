@@ -35,7 +35,6 @@ export function useUserEntriesSelector(
         id,
         state.users.byId.get(id)?.name,
       ])
-      result.sort((a, b) => a[0] - b[0])
       return result
     },
     [userIds],
