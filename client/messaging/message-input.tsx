@@ -1,8 +1,10 @@
+import UFuzzy from '@leeoniya/ufuzzy'
 import React, {
   SetStateAction,
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -108,17 +110,29 @@ export interface MessageInputHandle {
 }
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
-  (props, ref) => {
+  (
+    {
+      className,
+      showDivider,
+      storageKey,
+      mentionableUsers,
+      defaultMentionableUsers,
+      onSendChatMessage,
+    },
+    ref,
+  ) => {
     const { t } = useTranslation()
     const user = useSelfUser()
-    const storageKey = user && props.storageKey ? `${user.id}-${props.storageKey}` : undefined
-    const [message, setMessage] = useStorageSyncedState('', storageKey)
+    const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
+    const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
     const inputRef = useRef<HTMLInputElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
 
     const [userMentionStartIndex, setUserMentionStartIndex] = useState<number>(-1)
     const [userMentionMatchedText, setUserMentionMatchedText] = useState<string>('')
     const [matchedUsers, setMatchedUsers] = useState<SbUser[]>([])
+
+    const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
     const [userMentionsOpen, openUserMentions, closeUserMentions] = usePopoverController()
     const [anchorX, anchorY] = useElemAnchorPosition(containerRef.current, 'left', 'top')
@@ -156,14 +170,14 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
           // TODO(2Pac): Handle channel mentions as well.
 
-          if (props.mentionableUsers) {
-            // NOTE(2Pac): Special case the single @ character (Discord displays last 10 people who
-            // posted in chat here).
+          if (mentionableUsers) {
+            // Special case the single @ character (Discord displays last 10 people who posted in
+            // chat here).
             const singleAtCharacterIndex = message.slice(0, selectionStart).search(/(?<=^|\s)@$/)
-            if (singleAtCharacterIndex !== -1 && props.defaultMentionableUsers) {
+            if (singleAtCharacterIndex !== -1 && defaultMentionableUsers) {
               setUserMentionStartIndex(singleAtCharacterIndex)
               setUserMentionMatchedText('@')
-              setMatchedUsers(props.defaultMentionableUsers)
+              setMatchedUsers(defaultMentionableUsers)
               openUserMentions(event)
               return
             }
@@ -187,14 +201,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               return
             }
 
-            const matchedUsers = props.mentionableUsers.filter(u =>
-              u.name.toLowerCase().includes(userMention.groups.username.toLowerCase()),
+            const matchedUserIndexes = fuzzy.filter(
+              mentionableUsers.map(u => u.name),
+              userMention.groups.username,
             )
+            const matchedUsers = matchedUserIndexes?.map(i => mentionableUsers[i]) ?? []
 
             setUserMentionStartIndex(userMentionStartIndex)
             setUserMentionMatchedText(userMention.text)
             // We limit the number of matched users to 10 because Discord does as well ¯\_(ツ)_/¯
-            setMatchedUsers(matchedUsers.slice(0, 10) ?? [])
+            setMatchedUsers(matchedUsers.slice(0, 10))
 
             if (matchedUsers.length) {
               openUserMentions(event)
@@ -210,10 +226,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       return () => inputRefCopy?.removeEventListener('selectionchange', onSelectionChange)
     }, [
       message,
-      props.mentionableUsers,
-      props.defaultMentionableUsers,
+      mentionableUsers,
+      defaultMentionableUsers,
       openUserMentions,
       closeUserMentions,
+      fuzzy,
     ])
 
     const onChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,7 +238,6 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       setMessage(message)
     })
 
-    const { onSendChatMessage } = props
     const onEnterKeyDown = useStableCallback(() => {
       if (message) {
         onSendChatMessage(message)
@@ -269,8 +285,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       }
 
       inputRef.current?.focus()
-      // NOTE(2Pac): Setting the caret position immediately after the focus doesn't work for some
-      // reason, so we need to wait a tick first.
+      // Setting the caret position immediately after the focus doesn't work for some reason, so we
+      // need to wait a tick first.
       Promise.resolve()
         .then(() => {
           const newCaretPosition = userMentionStartIndex + user.name.length + 2
@@ -284,12 +300,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         <StyledTextField
           ref={inputRef}
           containerRef={containerRef}
-          className={props.className}
+          className={className}
           label={t('messaging.sendMessage', 'Send a message')}
           value={message}
           floatingLabel={false}
           allowErrors={false}
-          showDivider={props.showDivider}
+          showDivider={showDivider}
           inputProps={{
             autoComplete: 'off',
             onClick: event => {
