@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useLocation } from 'wouter'
 import { SbChannelId } from '../../common/chat'
+import { getErrorStack } from '../../common/errors'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { urlPath } from '../../common/urls'
 import { FriendActivityStatus } from '../../common/users/relationships'
@@ -20,6 +21,7 @@ import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import logger from '../logging/logger'
 import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
@@ -347,6 +349,7 @@ function ChatContent() {
         onError: err => {
           setIsLoadingJoinedChannels(false)
           setLoadingJoinedChannelsError(err)
+          logger.error(`Error loading chat channels: ${getErrorStack(err)}`)
         },
       }),
     )
@@ -371,6 +374,7 @@ function ChatContent() {
         onError: err => {
           setIsLoadingWhisperSessions(false)
           setLoadingWhisperSessionsError(err)
+          logger.error(`Error loading whisper sessions: ${getErrorStack(err)}`)
         },
       }),
     )

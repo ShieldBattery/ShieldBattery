@@ -71,6 +71,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.sessions = new Set(action.payload.sessions)
 
     for (const session of action.payload.sessions) {
+      if (state.byId.has(session)) {
+        continue
+      }
+
       state.byId.set(session, defaultWhisperSession(session))
     }
   },
