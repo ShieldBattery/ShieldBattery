@@ -1,5 +1,9 @@
 import { SbUserId } from '../../common/users/sb-user-id'
-import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
+import {
+  GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
+  WhisperMessageEvent,
+} from '../../common/whispers'
 
 export type WhisperActions =
   | LoadMessageHistory
@@ -8,6 +12,15 @@ export type WhisperActions =
   | WhisperSessionInit
   | WhisperSessionClose
   | WhisperMessageUpdate
+  | GetWhisperSessions
+
+/**
+ * Get the list of whisper sessions for the current user.
+ */
+export interface GetWhisperSessions {
+  type: '@whispers/getWhisperSessions'
+  payload: GetWhisperSessionsResponse
+}
 
 /**
  * Load the `limit` amount of messages in a whisper session before a particular time.

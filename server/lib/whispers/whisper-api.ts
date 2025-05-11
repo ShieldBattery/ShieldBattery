@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperSessionsResponse,
   SendWhisperMessageRequest,
   WhisperServiceErrorCode,
 } from '../../../common/whispers'
@@ -19,6 +20,12 @@ import { findUserByName } from '../users/user-model'
 import { joiUserId, joiUsername } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import WhisperService, { WhisperServiceError } from './whisper-service'
+
+const getWhisperSessionsThrottle = createThrottle('whispersessions', {
+  rate: 10,
+  burst: 20,
+  window: 60000,
+})
 
 const startThrottle = createThrottle('whisperstart', {
   rate: 3,
@@ -66,6 +73,12 @@ const convertWhisperServiceErrors = makeErrorConverterMiddleware(err => {
 export class WhisperApi {
   constructor(private whisperService: WhisperService) {
     container.resolve(WhisperService)
+  }
+
+  @httpGet('/sessions')
+  @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, ctx => String(ctx.session!.user!.id)))
+  async getWhisperSessions(ctx: RouterContext): Promise<GetWhisperSessionsResponse> {
+    return await this.whisperService.getWhisperSessions(ctx.session!.user!.id)
   }
 
   @httpPost('/by-name/:targetName')

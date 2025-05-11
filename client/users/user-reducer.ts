@@ -162,6 +162,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload)
   },
 
+  ['@whispers/getWhisperSessions'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
   ['@whispers/loadMessageHistory'](state, action) {
     updateUsers(state, action.payload.users)
     updateUsers(state, action.payload.mentions)

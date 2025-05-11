@@ -67,8 +67,16 @@ function updateMessages(
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  ['@loading/whispersReady'](state, action) {
-    state.sessions = new Set(action.payload.targetIds)
+  ['@whispers/getWhisperSessions'](state, action) {
+    state.sessions = new Set(action.payload.sessions)
+
+    for (const session of action.payload.sessions) {
+      if (state.byId.has(session)) {
+        continue
+      }
+
+      state.byId.set(session, defaultWhisperSession(session))
+    }
   },
 
   ['@whispers/initSession'](state, action) {
