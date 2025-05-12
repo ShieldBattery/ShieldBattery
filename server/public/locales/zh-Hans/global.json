@@ -1169,7 +1169,9 @@
     },
     "social": {
         "chat": {
-            "label": "聊天"
+            "label": "聊天",
+            "loadingChannelsError": "加载聊天频道时出错",
+            "loadingWhispersError": "加载私聊时出错"
         },
         "friends": {
             "label": "朋友 ({{friendCount}})"

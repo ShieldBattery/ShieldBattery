@@ -1178,7 +1178,9 @@
             "label": "$🗡Friends ({{friendCount}})🗡!"
         },
         "chat": {
-            "label": "$🗡Chat🗡!"
+            "label": "$🗡Chat🗡!",
+            "loadingChannelsError": "$🗡Error loading chat channels🗡!",
+            "loadingWhispersError": "$🗡Error loading whispers🗡!"
         },
         "sidebar": {
             "pinTooltip": "$🗡Pin sidebar🗡!",

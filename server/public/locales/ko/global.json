@@ -1169,7 +1169,9 @@
     },
     "social": {
         "chat": {
-            "label": "채팅"
+            "label": "채팅",
+            "loadingChannelsError": "채팅 채널 로드 오류",
+            "loadingWhispersError": "귓속말 로드 오류"
         },
         "friends": {
             "label": "친구들 ({{friendCount}})"

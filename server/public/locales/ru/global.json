@@ -1181,7 +1181,9 @@
     },
     "social": {
         "chat": {
-            "label": "Чат"
+            "label": "Чат",
+            "loadingChannelsError": "Ошибка загрузки чатов",
+            "loadingWhispersError": "Ошибка загрузки шепотов"
         },
         "friends": {
             "label": "Друзья ({{friendCount}})"
