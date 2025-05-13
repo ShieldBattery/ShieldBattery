@@ -143,6 +143,8 @@ const HomeQuery = graphql(/* GraphQL */ `
 
 export function Home() {
   const { t } = useTranslation()
+  // TODO(tec27): Once this isn't a static news feed we should probably check for errors on loading
+  // this and show a message if it fails (currently it just hides the non-static parts)
   const [{ data }] = useQuery({ query: HomeQuery, requestPolicy: 'cache-and-network' })
 
   return (

@@ -2,15 +2,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_graphql::extensions::Tracing;
-use async_graphql::http::{playground_source, GraphQLPlaygroundConfig, ALL_WEBSOCKET_PROTOCOLS};
+use async_graphql::http::ALL_WEBSOCKET_PROTOCOLS;
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
 use axum::body::Body;
 use axum::extract::{State, WebSocketUpgrade};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{header, HeaderName, Request, StatusCode};
 use axum::middleware::Next;
-use axum::response::{Html, IntoResponse, Response};
-use axum::routing::get;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
 use axum::{middleware, Router};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
@@ -48,16 +48,6 @@ use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
 async fn health_check() -> impl IntoResponse {
     "OK"
-}
-
-async fn graphql_playground() -> impl IntoResponse {
-    Html(playground_source(
-        GraphQLPlaygroundConfig::new("/gql").subscription_endpoint("/gql/ws"),
-    ))
-}
-
-async fn send_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "Not Found")
 }
 
 async fn graphql_handler(
@@ -152,12 +142,6 @@ pub async fn create_app(
         HeaderName::from_static("sb-session-id"),
     ]);
 
-    let playground_route = if settings.env == Env::Production {
-        get(send_404)
-    } else {
-        get(graphql_playground)
-    };
-
     let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
 
     let metrics_router = Router::new()
@@ -181,7 +165,7 @@ pub async fn create_app(
 
     Ok(Router::new()
         .route("/healthcheck", get(health_check))
-        .route("/gql", playground_route.post(graphql_handler))
+        .route("/gql", post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .nest("/users/names", names_router)
         .layer(
