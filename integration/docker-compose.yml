@@ -1,6 +1,9 @@
 # This docker-compose file is used by our integration tests to stand up a running server
 # environment that (mostly) matches the one that is used in production.
 
+volumes:
+  uploaded_files:
+
 services:
   # This is just here to ensure we only build the app_server image once, instead of both for
   # app_server and migration
@@ -25,7 +28,7 @@ services:
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
       - SB_ROUTE_CREATOR_PORT=14099
-      - SB_FILE_STORE={"filesystem":{"path":"/uploaded_files"}}
+      - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
       - SB_MAP_PARSER_MAX_CONCURRENT=1
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
@@ -42,7 +45,7 @@ services:
       - 'SB_SERVER_RS_URL=http://server-rs:5529'
     volumes:
       - ./google-fake-credentials.json:/google-fake-credentials.json:ro
-      - ../server/uploaded_files:/uploaded_files:rw
+      - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
 
     depends_on:
       - _app-server-build
@@ -81,7 +84,7 @@ services:
       - migration
       - redis
     volumes:
-      - ../server/uploaded_files:/server/uploaded_files:rw
+      - uploaded_files:/server/uploaded_files:rw
 
   redis:
     image: redis:7.4.2
