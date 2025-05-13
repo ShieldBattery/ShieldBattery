@@ -148,6 +148,7 @@ export function SocialSidebar({
   onPinnedChange: (pinned: boolean) => void
 }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState(SocialTab.Chat)
   const [windowWidth] = useWindowSize()
 
@@ -197,6 +198,61 @@ export function SocialSidebar({
     },
   })
 
+  const [isLoadingJoinedChannels, setIsLoadingJoinedChannels] = useState(false)
+  const [isLoadingWhisperSessions, setIsLoadingWhisperSessions] = useState(false)
+  const [loadingJoinedChannelsError, setLoadingJoinedChannelsError] = useState<Error>()
+  const [loadingWhisperSessionsError, setLoadingWhisperSessionsError] = useState<Error>()
+
+  useEffect(() => {
+    setIsLoadingJoinedChannels(true)
+
+    const abortController = new AbortController()
+
+    dispatch(
+      getJoinedChannels({
+        signal: abortController.signal,
+        onSuccess: () => {
+          setIsLoadingJoinedChannels(false)
+          setLoadingJoinedChannelsError(undefined)
+        },
+        onError: err => {
+          setIsLoadingJoinedChannels(false)
+          setLoadingJoinedChannelsError(err)
+          logger.error(`Error loading chat channels: ${getErrorStack(err)}`)
+        },
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [dispatch])
+
+  useEffect(() => {
+    setIsLoadingWhisperSessions(true)
+
+    const abortController = new AbortController()
+
+    dispatch(
+      getWhisperSessions({
+        signal: abortController.signal,
+        onSuccess: () => {
+          setIsLoadingWhisperSessions(false)
+          setLoadingWhisperSessionsError(undefined)
+        },
+        onError: err => {
+          setIsLoadingWhisperSessions(false)
+          setLoadingWhisperSessionsError(err)
+          logger.error(`Error loading whisper sessions: ${getErrorStack(err)}`)
+        },
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [dispatch])
+
   const content = (
     <NavigationTrackerProvider
       onNavigation={() => {
@@ -237,7 +293,12 @@ export function SocialSidebar({
       {activeTab === SocialTab.Chat ? (
         <>
           <ChatSpacer />
-          <ChatContent />
+          <ChatContent
+            isLoadingJoinedChannels={isLoadingJoinedChannels}
+            loadingJoinedChannelsError={loadingJoinedChannelsError}
+            isLoadingWhisperSessions={isLoadingWhisperSessions}
+            loadingWhisperSessionsError={loadingWhisperSessionsError}
+          />
         </>
       ) : (
         <FriendsListContainer>
@@ -322,67 +383,22 @@ const ErrorDisplay = styled.div`
   text-align: center;
 `
 
-function ChatContent() {
+function ChatContent({
+  isLoadingJoinedChannels,
+  loadingJoinedChannelsError,
+  isLoadingWhisperSessions,
+  loadingWhisperSessionsError,
+}: {
+  isLoadingJoinedChannels: boolean
+  loadingJoinedChannelsError?: Error
+  isLoadingWhisperSessions: boolean
+  loadingWhisperSessionsError?: Error
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
   const { onNavigation } = useNavigationTracker()
-
-  const [isLoadingJoinedChannels, setIsLoadingJoinedChannels] = useState(false)
-  const [isLoadingWhisperSessions, setIsLoadingWhisperSessions] = useState(false)
-  const [loadingJoinedChannelsError, setLoadingJoinedChannelsError] = useState<Error>()
-  const [loadingWhisperSessionsError, setLoadingWhisperSessionsError] = useState<Error>()
-
-  useEffect(() => {
-    setIsLoadingJoinedChannels(true)
-
-    const abortController = new AbortController()
-
-    dispatch(
-      getJoinedChannels({
-        signal: abortController.signal,
-        onSuccess: () => {
-          setIsLoadingJoinedChannels(false)
-          setLoadingJoinedChannelsError(undefined)
-        },
-        onError: err => {
-          setIsLoadingJoinedChannels(false)
-          setLoadingJoinedChannelsError(err)
-          logger.error(`Error loading chat channels: ${getErrorStack(err)}`)
-        },
-      }),
-    )
-
-    return () => {
-      abortController.abort()
-    }
-  }, [dispatch])
-
-  useEffect(() => {
-    setIsLoadingWhisperSessions(true)
-
-    const abortController = new AbortController()
-
-    dispatch(
-      getWhisperSessions({
-        signal: abortController.signal,
-        onSuccess: () => {
-          setIsLoadingWhisperSessions(false)
-          setLoadingWhisperSessionsError(undefined)
-        },
-        onError: err => {
-          setIsLoadingWhisperSessions(false)
-          setLoadingWhisperSessionsError(err)
-          logger.error(`Error loading whisper sessions: ${getErrorStack(err)}`)
-        },
-      }),
-    )
-
-    return () => {
-      abortController.abort()
-    }
-  }, [dispatch])
 
   let chatChannelsList: React.ReactNode
   if (isLoadingJoinedChannels) {
