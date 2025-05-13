@@ -9,21 +9,42 @@ import {
 } from '../users/relationship-notifications'
 
 /**
+ * Returns whether we have a renderable UI for a particular notification. If we don't,
+ * NotificationUi should not be rendered. This is mainly useful for notification types that exist
+ * but are no longer used.
+ */
+export function notificationHasUi(notification: SbNotification) {
+  switch (notification.type) {
+    case NotificationType.EmailVerification:
+    case NotificationType.PolicyUpdated:
+    case NotificationType.FriendRequest:
+    case NotificationType.FriendStart:
+      return true
+    case NotificationType.PartyInvite:
+      return false
+    default:
+      notification satisfies never
+      logger.warning(`Unhandled notification type checked for UI: ${(notification as any).type}`)
+      return false
+  }
+}
+
+export interface NotificationUiProps {
+  notification: SbNotification
+  showDivider: boolean
+  ref?: React.Ref<HTMLDivElement>
+}
+
+/**
  * Converts a notification entry into the relevant UI elements for displaying in a list or as a
  * popup.
  */
-export function notificationToUi(
-  notification: SbNotification,
-  key: string,
-  showDivider: boolean,
-  ref?: React.Ref<HTMLDivElement>,
-) {
+export function NotificationUi({ notification, showDivider, ref }: NotificationUiProps) {
   switch (notification.type) {
     case NotificationType.EmailVerification:
       return (
         <EmailVerificationNotificationUi
           ref={ref}
-          key={key}
           showDivider={showDivider}
           read={notification.read}
         />
@@ -34,7 +55,6 @@ export function notificationToUi(
       return (
         <PolicyUpdateNotificationUi
           ref={ref}
-          key={key}
           showDivider={showDivider}
           read={notification.read}
           policyType={notification.policyType}
@@ -44,7 +64,6 @@ export function notificationToUi(
       return (
         <FriendRequestNotificationUi
           ref={ref}
-          key={key}
           notificationId={notification.id}
           showDivider={showDivider}
           read={notification.read}
@@ -55,7 +74,6 @@ export function notificationToUi(
       return (
         <FriendStartNotificationUi
           ref={ref}
-          key={key}
           showDivider={showDivider}
           read={notification.read}
           otherUser={notification.with}

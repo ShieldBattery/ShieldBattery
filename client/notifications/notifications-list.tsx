@@ -7,7 +7,7 @@ import { TextButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, titleMedium } from '../styles/typography'
 import { clearNotifications } from './action-creators'
-import { notificationToUi } from './notification-to-ui'
+import { notificationHasUi, NotificationUi } from './notification-to-ui'
 
 const ListContainer = styled.div`
   width: 100%;
@@ -55,6 +55,9 @@ export interface NotificationsListProps {
 
 export function NotificationsList(props: NotificationsListProps) {
   const { t } = useTranslation()
+
+  const notifications = props.notifications.filter(n => notificationHasUi(n))
+
   return (
     <ListContainer>
       <TitleArea>
@@ -66,10 +69,14 @@ export function NotificationsList(props: NotificationsListProps) {
         />
       </TitleArea>
       <ListArea>
-        {props.notifications.length > 0 ? (
-          props.notifications.map((n, i) =>
-            notificationToUi(n, `notif-${i}`, i < props.notifications.length - 1),
-          )
+        {notifications.length > 0 ? (
+          notifications.map((n, i) => (
+            <NotificationUi
+              key={`notif-${i}`}
+              notification={n}
+              showDivider={i < props.notifications.length - 1}
+            />
+          ))
         ) : (
           <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
         )}

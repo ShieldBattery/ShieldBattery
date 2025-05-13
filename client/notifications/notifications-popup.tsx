@@ -16,7 +16,7 @@ import {
   markNotificationShown,
   markNotificationsRead,
 } from './action-creators'
-import { notificationToUi } from './notification-to-ui'
+import { notificationHasUi, NotificationUi } from './notification-to-ui'
 
 const POPOVER_DURATION = 10000
 
@@ -94,6 +94,8 @@ const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProp
     const notification = useAppSelector(s => s.notifications.byId.get(notificationId))
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+    const hasUi = notification ? notificationHasUi(notification) : true
+
     // Schedule auto-dismissal when the animation completes
     const scheduleRemoval = useCallback(() => {
       timeoutRef.current = setTimeout(() => {
@@ -109,6 +111,12 @@ const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProp
         }
       }
     }, [])
+
+    useEffect(() => {
+      if (!hasUi) {
+        onDismiss(notificationId)
+      }
+    }, [hasUi, notificationId, onDismiss])
 
     const onMarkAsRead = useCallback(() => {
       if (!notification) {
@@ -138,9 +146,9 @@ const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProp
         exit='exit'
         transition={popupTransition}
         onAnimationComplete={scheduleRemoval}>
-        {notification
-          ? notificationToUi(notification, notification.id, false /* showDivider */, null)
-          : null}
+        {hasUi && notification ? (
+          <NotificationUi notification={notification} showDivider={false} />
+        ) : null}
         <MarkAsReadButton
           icon={<MaterialIcon icon='check' />}
           title={t('notifications.popup.markAsRead', 'Mark as read')}
