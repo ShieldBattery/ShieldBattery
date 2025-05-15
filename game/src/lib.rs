@@ -286,7 +286,7 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
                 .parent()
                 .map(|path| path.join(dll_filename))
         })
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
+        .ok_or_else(|| io::Error::other("Unable to get DLL path"))?;
     let dll = windows::load_library(dll_path)?;
     let address = dll.proc_address("sb_init")?;
     // Leak the DLL as it should be kept alive for entire process

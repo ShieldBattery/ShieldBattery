@@ -62,5 +62,5 @@ impl BwScr {
 fn is_console_dialog(dialog: Dialog) -> bool {
     let ctrl = dialog.as_control();
     let name = ctrl.string();
-    CONSOLE_DIALOGS.iter().any(|&x| x == name)
+    CONSOLE_DIALOGS.contains(&name)
 }

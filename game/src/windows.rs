@@ -244,10 +244,7 @@ pub unsafe fn file_read(file: *mut c_void, out: &mut [u8]) -> Result<(), io::Err
     );
     match ok {
         0 => Err(io::Error::last_os_error()),
-        _ if read != out.len() as u32 => Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to read everything",
-        )),
+        _ if read != out.len() as u32 => Err(io::Error::other("Failed to read everything")),
         _ => Ok(()),
     }
 }
@@ -265,10 +262,7 @@ pub unsafe fn file_write(file: *mut c_void, data: &[u8]) -> Result<(), io::Error
     );
     match ok {
         0 => Err(io::Error::last_os_error()),
-        _ if written != data.len() as u32 => Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Failed to write everything",
-        )),
+        _ if written != data.len() as u32 => Err(io::Error::other("Failed to write everything")),
         _ => Ok(()),
     }
 }

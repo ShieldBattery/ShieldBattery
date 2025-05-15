@@ -375,7 +375,7 @@ impl SdfCache {
             let end = (value.data_offset as usize)
                 .wrapping_add(value.width as usize * value.height as usize);
             if value.data_offset as usize >= data.len() || end > data.len() {
-                return Err(io::Error::new(io::ErrorKind::Other, "Corrupted file"));
+                return Err(io::Error::other("Corrupted file"));
             }
             glyphs.insert(key, value);
         }

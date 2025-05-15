@@ -96,7 +96,7 @@ pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
     SetLocalUser(LocalUser),
-    SetupGame(GameSetupInfo),
+    SetupGame(Box<GameSetupInfo>),
     StartWhenReady,
     InLobby,
     PlayersChanged,
@@ -548,7 +548,7 @@ impl GameState {
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
-                let game_ready = self.init_game(info);
+                let game_ready = self.init_game(*info);
                 let task = async move {
                     if let Err(e) = game_ready.await {
                         let msg = format!("Failed to init game: {}", e);
@@ -1457,10 +1457,7 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
                 .and_then(replay::parse_shieldbattery_data);
             return match data {
                 Some(o) => Ok(Some(o)),
-                None => Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Failed to parse shieldbattery section",
-                )),
+                None => Err(io::Error::other("Failed to parse shieldbattery section")),
             };
         } else {
             pos = pos.saturating_add(section_length).saturating_add(8);

@@ -66,7 +66,7 @@ async fn app_websocket_connection(
             },
             x = ws_stream.next() => match x {
                 Some(Ok(message)) => match message {
-                    WsMessage::Text(text) => match handle_app_message(text) {
+                    WsMessage::Text(text) => match handle_app_message(text.to_string()) {
                         Ok(o) => o,
                         Err(e) => {
                             error!("Error handling message: {}", e);
@@ -205,7 +205,7 @@ pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<WsMessage>
             payload: Some(payload),
         };
         let string = serde_json::to_string(&message)?;
-        Ok(WsMessage::Text(string))
+        Ok(WsMessage::Text(string.into()))
     }
     match inner(command, data) {
         Ok(o) => Some(o),

@@ -103,10 +103,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
                     if val.len() == len {
                         Ok(())
                     } else {
-                        Err(io::Error::new(
-                            io::ErrorKind::Other,
-                            "Failed to send all of the data",
-                        ))
+                        Err(io::Error::other("Failed to send all of the data"))
                     }
                 }
                 Err(e) => Err(e),
@@ -178,7 +175,7 @@ impl Sink<(Bytes, SocketAddr)> for UdpSend {
                 self.pending_results += 1;
                 Ok(())
             }
-            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
+            Err(e) => Err(io::Error::other(e)),
         }
     }
 
@@ -194,7 +191,7 @@ impl Sink<(Bytes, SocketAddr)> for UdpSend {
                     return Poll::Ready(Err(e));
                 }
                 Poll::Ready(None) => {
-                    let err = io::Error::new(io::ErrorKind::Other, "Child thread has closed");
+                    let err = io::Error::other("Child thread has closed");
                     return Poll::Ready(Err(err));
                 }
             }

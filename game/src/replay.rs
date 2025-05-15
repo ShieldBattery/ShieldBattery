@@ -119,7 +119,7 @@ pub unsafe fn add_shieldbattery_data(
 /// could use uuid crate otherwise to be more efficient)
 fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
     fn bad_format() -> io::Error {
-        io::Error::new(io::ErrorKind::Other, "Invalid UUID string")
+        io::Error::other("Invalid UUID string")
     }
 
     let mut buffer = [0u8; 16];

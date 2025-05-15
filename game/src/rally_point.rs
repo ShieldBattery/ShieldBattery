@@ -122,7 +122,7 @@ static PING_ID: AtomicUsize = AtomicUsize::new(0);
 fn ping_id() -> u32 {
     let id = PING_ID.fetch_add(1, Ordering::Relaxed);
     if id == 0 {
-        let id: usize = rand::random();
+        let id: usize = rand::random::<u64>() as usize;
         PING_ID.store(id.wrapping_add(1), Ordering::Relaxed);
         id as u32
     } else {
