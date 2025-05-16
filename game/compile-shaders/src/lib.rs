@@ -144,10 +144,12 @@ pub fn compile(
 }
 
 unsafe fn blob_to_bytes(blob: *mut ID3D10Blob) -> Vec<u8> {
-    let slice = std::slice::from_raw_parts(
-        (*blob).GetBufferPointer() as *const u8,
-        (*blob).GetBufferSize(),
-    );
+    let slice = unsafe {
+        std::slice::from_raw_parts(
+            (*blob).GetBufferPointer() as *const u8,
+            (*blob).GetBufferSize(),
+        )
+    };
     slice.into()
 }
 
@@ -200,29 +202,37 @@ impl IncludeHandler {
         out_data: *mut *const winapi::ctypes::c_void,
         out_size: *mut u32,
     ) -> HRESULT {
-        *out_data = null_mut();
-        *out_size = 0;
+        unsafe {
+            *out_data = null_mut();
+            *out_size = 0;
+        }
         let s = s as *mut IncludeHandler;
-        let filename_len = (0..).position(|i| *filename.add(i) == 0).unwrap();
-        let filename = std::slice::from_raw_parts(filename as *const u8, filename_len);
+        let filename = unsafe {
+            let filename_len = (0..).position(|i| *filename.add(i) == 0).unwrap();
+            std::slice::from_raw_parts(filename as *const u8, filename_len)
+        };
         let filename = match std::str::from_utf8(filename) {
             Ok(o) => o,
             Err(_) => return E_FAIL,
         };
-        let path = (*s).path.join(filename);
-        (*s).opened_files.push(path.to_str().unwrap().into());
-        let result = match fs::read(&path) {
-            Ok(o) => o,
-            Err(e) => {
-                (*s).error = Some(e);
-                return E_FAIL;
+        let result = unsafe {
+            let path = (*s).path.join(filename);
+            (*s).opened_files.push(path.to_str().unwrap().into());
+            match fs::read(&path) {
+                Ok(o) => o,
+                Err(e) => {
+                    (*s).error = Some(e);
+                    return E_FAIL;
+                }
             }
         };
         let ptr = result.as_ptr();
         let len = result.len();
-        (*s).buffers.push(result);
-        *out_data = ptr as *const _;
-        *out_size = len as u32;
+        unsafe {
+            (*s).buffers.push(result);
+            *out_data = ptr as *const _;
+            *out_size = len as u32;
+        }
         S_OK
     }
 
@@ -231,15 +241,17 @@ impl IncludeHandler {
         data: *const winapi::ctypes::c_void,
     ) -> HRESULT {
         let s = s as *mut IncludeHandler;
-        let pos = match (*s)
-            .buffers
-            .iter()
-            .position(|x| x.as_ptr() == data as *const u8)
-        {
-            Some(s) => s,
-            None => return E_FAIL,
-        };
-        (*s).buffers.swap_remove(pos);
+        unsafe {
+            let pos = match (*s)
+                .buffers
+                .iter()
+                .position(|x| x.as_ptr() == data as *const u8)
+            {
+                Some(s) => s,
+                None => return E_FAIL,
+            };
+            (*s).buffers.swap_remove(pos);
+        }
         S_OK
     }
 }
