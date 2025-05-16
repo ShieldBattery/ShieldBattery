@@ -43,7 +43,7 @@ pub fn disassemble(bytes: &[u8]) -> io::Result<Vec<u8>> {
             bytes.as_ptr() as *const _,
             bytes.len(),
             0,
-            b"\0".as_ptr() as *const _,
+            c"".as_ptr() as *const _,
             &mut blob,
         );
         if error != 0 {
@@ -93,10 +93,10 @@ pub fn compile(
         let mut errors = null_mut();
         let include = IncludeHandler::new(shader_dir.into());
         let model_string = match (model, shader_type) {
-            (ShaderModel::Sm4, ShaderType::Vertex) => "vs_4_0\0".as_ptr() as *const i8,
-            (ShaderModel::Sm5, ShaderType::Vertex) => "vs_5_0\0".as_ptr() as *const i8,
-            (ShaderModel::Sm4, ShaderType::Pixel) => "ps_4_0\0".as_ptr() as *const i8,
-            (ShaderModel::Sm5, ShaderType::Pixel) => "ps_5_0\0".as_ptr() as *const i8,
+            (ShaderModel::Sm4, ShaderType::Vertex) => c"vs_4_0".as_ptr(),
+            (ShaderModel::Sm5, ShaderType::Vertex) => c"vs_5_0".as_ptr(),
+            (ShaderModel::Sm4, ShaderType::Pixel) => c"ps_4_0".as_ptr(),
+            (ShaderModel::Sm5, ShaderType::Pixel) => c"ps_5_0".as_ptr(),
         };
         let error = D3DCompile2(
             bytes.as_ptr() as *const _,
@@ -104,7 +104,7 @@ pub fn compile(
             null(),
             defines.as_ptr(),
             include.0 as *mut ID3DInclude,
-            b"main\0".as_ptr() as *const i8,
+            c"main".as_ptr(),
             model_string,
             D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS,
             0,
