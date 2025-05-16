@@ -11,6 +11,7 @@
     clippy::single_element_loop,
     clippy::too_many_arguments
 )]
+#![allow(unsafe_op_in_unsafe_fn)]
 
 #[macro_use]
 extern crate log;

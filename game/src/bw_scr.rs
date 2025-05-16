@@ -3353,8 +3353,8 @@ static READ_FS_GS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
 
 // mov rax, gs:[rcx]; ret
 #[cfg(target_arch = "x86_64")]
-#[link_section = ".text"]
-#[no_mangle] // Workaround for linker errors on opt-level 1 ??
+#[unsafe(link_section = ".text")]
+#[unsafe(no_mangle)] // Workaround for linker errors on opt-level 1 ??
 static READ_FS_GS: [u8; 5] = [0x65, 0x48, 0x8b, 0x01, 0xc3];
 
 unsafe fn read_fs_gs(offset: usize) -> usize {
