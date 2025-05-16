@@ -70,7 +70,7 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
           <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
         ) : null}
       </GameList>
-      <ConnectedGamePreview game={activeGame}></ConnectedGamePreview>
+      <ConnectedGamePreview game={activeGame} forUserId={forUserId} />
     </MatchHistoryRoot>
   )
 }
@@ -237,9 +237,10 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 
 export interface ConnectedGamePreviewProps {
   game?: Immutable<GameRecordJson>
+  forUserId: SbUserId
 }
 
-export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
+export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
 
@@ -283,7 +284,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
         {map ? (
           <StyledMapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} />
         ) : null}
-        <StyledGamePlayersDisplay game={game} />
+        <StyledGamePlayersDisplay game={game} forUserId={forUserId} />
       </GamePreviewDetails>
       <TextButton
         label={t('user.miniMatchHistory.viewDetails', 'View details')}

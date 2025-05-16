@@ -147,7 +147,7 @@ const ResultAndDateCell = styled(BaseCell)`
 `
 
 const PlayersCell = styled(BaseCell)`
-  width: 256px;
+  width: 328px;
 `
 
 const GameLengthCell = styled(BaseCell)`
@@ -276,7 +276,7 @@ function MatchHistoryEntry({ forUserId, game }: { forUserId: SbUserId; game: Gam
       </ResultAndDateCell>
 
       <PlayersCell>
-        <GamePlayersDisplay game={game} showTeamLabels={false} />
+        <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />
       </PlayersCell>
 
       <GameLengthCell>
