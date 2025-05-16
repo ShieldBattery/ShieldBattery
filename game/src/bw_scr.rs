@@ -11,6 +11,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
+use winapi::shared::minwindef::FILETIME;
 use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::GetModuleHandleW;
@@ -19,8 +20,8 @@ use scr_analysis::{DatType, VirtualAddress, scarf};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
+use winapi::um::processthreadsapi::GetCurrentThreadId;
 
-use crate::GameThreadMessage;
 use crate::app_messages::{AtomicStartingFog, MapInfo, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
@@ -31,6 +32,7 @@ use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::windows;
+use crate::{GameThreadMessage, PROCESS_INIT_HOOK_REACHED};
 
 pub mod scr;
 
@@ -1538,6 +1540,7 @@ impl BwScr {
                 "CopyFileW", CopyFileW, copy_file_hook;
                 "CloseHandle", CloseHandle, close_handle_hook;
                 "GetTickCount", GetTickCount, get_tick_count_hook;
+                "GetSystemTimePreciseAsFileTime", GetSystemTimePreciseAsFileTime, get_system_time_precise_as_file_time_hook;
             );
 
             // SCR wants to update gamepad state every frame, but in the end it
@@ -2973,6 +2976,12 @@ fn create_file_hook(
                         return -1isize as *mut c_void;
                     }
                 }
+
+                if check_filename(filename, b"cookie.bin") {
+                    start_precise_system_time_hook();
+                } else if check_filename(filename, b"Agent.dat") {
+                    stop_precise_system_time_hook();
+                }
             }
         }
         let handle = orig(
@@ -3111,6 +3120,35 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
     true
 }
 
+// We only want to hook one specific thread that uses these times.
+static PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON: AtomicU32 = AtomicU32::new(0);
+
+pub fn start_precise_system_time_hook() {
+    let thread_id = unsafe { GetCurrentThreadId() };
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Relaxed);
+}
+
+fn stop_precise_system_time_hook() {
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Relaxed);
+}
+
+fn get_system_time_precise_as_file_time_hook(
+    time: *mut FILETIME,
+    orig: unsafe extern "C" fn(*mut FILETIME),
+) {
+    unsafe {
+        orig(time);
+
+        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Relaxed)
+            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Relaxed) == GetCurrentThreadId()
+        {
+            // Making StarCraft feel young again makes it initialize a bit faster
+            (*time).dwHighDateTime = 0x01BF53B7;
+            (*time).dwLowDateTime = 0x8F200000;
+        }
+    }
+}
+
 fn load_snp_list_hook(
     callbacks: *mut scr::SnpLoadFuncs,
     count: u32,
@@ -3212,6 +3250,7 @@ unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFu
 #[allow(bad_style)]
 mod hooks {
     use libc::c_void;
+    use winapi::shared::minwindef::FILETIME;
 
     use crate::bw;
 
@@ -3275,6 +3314,7 @@ mod hooks {
         ) -> *mut c_void;
         !0 => CopyFileW(*const u16, *const u16, u32) -> u32;
         !0 => XInputGetState(u32, *mut c_void) -> u32;
+        !0 => GetSystemTimePreciseAsFileTime(*mut FILETIME);
     );
 
     thiscall_hooks!(
