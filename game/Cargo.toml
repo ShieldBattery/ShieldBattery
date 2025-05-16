@@ -94,12 +94,12 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "6f4f24cbc949e3521f0c36e2633426b4f0b7c68d"
+rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
-rev = "1572ffcd76a715030d4e54173f5c151467bf566c"
+rev = "257f4dc1dbff1719f80c96db81fe026e1144b680"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -122,33 +122,20 @@ path = "./compile-shaders"
 [profile.dev.package.scr-analysis]
 # Optimize scr-analysis subcrate as its code takes quite a lot of time to run
 # if not optimized (That is also the main reason for it being a separate crate)
-opt-level = 2
+opt-level = 3
 
-# Same for lower level analysis crates (Not sure if samase_scarf makes difference since
-# it should be 90% generic functions that end up being optimized in scr-analysis)
-[profile.dev.package.samase_scarf]
-opt-level = 2
+# Enable more optimizations for dependencies in dev, but not for our code
+[profile.dev.package."*"]
+opt-level = 3
 
-[profile.dev.package.scarf]
-opt-level = 2
-
-[profile.dev.package.memchr]
-opt-level = 2
-
-# The http crate relies pretty heavily on optimizations to be usable;
-# http::header::name::parse_hdr is 135 kB unoptimized, 19 kB optimized
-# (Imo it either way chooses a poor tradeoff between size and performance but oh well)
-[profile.dev.package.http]
-opt-level = 2
-
-# Have build dependencies (most importantly serde) be built with opt-level 2.
+# Have build dependencies (most importantly serde) be built with opt-level 3.
 # In debug this should reduce time it takes to expand derive macros -- it's
 # done every time the compiler is ran. I don't have pc that can get super reliable
 # measurements, but it seems to shorten macro expansion phase by few seconds for me.
 # I'm betting on this being worth the bit longer initial compile time when working
 # on the game code a lot =)
 [profile.dev.build-override]
-opt-level = 2
+opt-level = 3
 debug = 0
 overflow-checks = false
 

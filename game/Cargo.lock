@@ -211,7 +211,7 @@ checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 [[package]]
 name = "bw_dat"
 version = "0.1.0"
-source = "git+https://github.com/neivv/aise.git?rev=1572ffcd76a715030d4e54173f5c151467bf566c#1572ffcd76a715030d4e54173f5c151467bf566c"
+source = "git+https://github.com/neivv/aise.git?rev=257f4dc1dbff1719f80c96db81fe026e1144b680#257f4dc1dbff1719f80c96db81fe026e1144b680"
 dependencies = [
  "bitflags",
  "fxhash",
@@ -2317,7 +2317,7 @@ dependencies = [
 [[package]]
 name = "whack"
 version = "0.2.0"
-source = "git+https://github.com/neivv/whack.git?rev=6f4f24cbc949e3521f0c36e2633426b4f0b7c68d#6f4f24cbc949e3521f0c36e2633426b4f0b7c68d"
+source = "git+https://github.com/neivv/whack.git?rev=2d1adbae09d75bdaa2af65b0af12760740cd3d2b#2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
 dependencies = [
  "byteorder",
  "lde 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
