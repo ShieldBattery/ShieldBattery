@@ -208,7 +208,9 @@ impl OverlayState {
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
             "inter".to_string(),
-            FontData::from_static(include_bytes!("../../files/fonts/Inter-Regular.ttf")),
+            Arc::new(FontData::from_static(include_bytes!(
+                "../../files/fonts/Inter-Regular.ttf"
+            ))),
         );
         fonts
             .families

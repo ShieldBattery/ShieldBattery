@@ -155,7 +155,7 @@ impl OverlayState {
             .movable(false)
             .resizable(false)
             .title_bar(false)
-            .frame(egui::Frame::none())
+            .frame(egui::Frame::NONE)
             .show(ctx, |ui| {
                 // Want this so that the lines are tightly packed without
                 // transparent gaps in between.
@@ -171,7 +171,7 @@ impl OverlayState {
                         continue;
                     }
                     egui::Frame::popup(ui.style())
-                        .inner_margin(egui::Margin::same(2.0))
+                        .inner_margin(egui::Margin::same(2))
                         //.shadow(egui::epaint::Shadow::NONE)
                         .show(ui, |ui| {
                             let clicked = self.add_player_production(bw, ui, player_id);
@@ -258,7 +258,7 @@ impl OverlayState {
                 let rect_size = (6.0, production_image_size + margin * 2.0);
                 let color_rect = Rect::from_min_size(ui.next_widget_position(), rect_size.into());
                 let painter = ui.painter();
-                let rounding = egui::Rounding::same(2.0);
+                let rounding = egui::CornerRadius::same(2);
                 painter.rect_filled(color_rect, rounding, color);
                 ui.allocate_rect(color_rect, Sense::hover());
             }
@@ -317,7 +317,7 @@ impl OverlayState {
                 if matches!(production, Production::Unit(..)) {
                     let galley =
                         painter.layout_no_wrap(format!("{}", amount), font.clone(), Color32::WHITE);
-                    let rounding = egui::Rounding::same(1.0);
+                    let rounding = egui::CornerRadius::same(1);
                     let text_pos = rect.left_bottom() - Vec2::from((0.0, galley.rect.height()));
                     let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
                     let bg_color = ui.visuals().window_fill();
@@ -329,7 +329,7 @@ impl OverlayState {
                     rect.left_bottom() - Vec2::from((0.0, 2.0)),
                     (rect.width(), 4.0).into(),
                 );
-                let rounding = egui::Rounding::same(1.0);
+                let rounding = egui::CornerRadius::same(1);
                 painter.rect_filled(progress_rect, rounding, Color32::BLACK);
                 progress_rect.set_width(progress_rect.width() * progress.as_float());
                 painter.rect_filled(progress_rect, rounding, Color32::GREEN);
