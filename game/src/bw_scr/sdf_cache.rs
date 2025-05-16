@@ -95,7 +95,7 @@ unsafe fn render_sdf(
         *mut u32,
         *mut u32,
     ) -> *mut u8,
-) -> *mut u8 {
+) -> *mut u8 { unsafe {
     let mut cache = cache.lock();
     let font_id = match font_id_from_ptr(fonts, font) {
         Some(s) => s,
@@ -148,9 +148,9 @@ unsafe fn render_sdf(
             result
         }
     }
-}
+}}
 
-unsafe fn font_id_from_ptr(fonts: *mut *mut scr::Font, ttf: *mut scr::TtfFont) -> Option<FontId> {
+unsafe fn font_id_from_ptr(fonts: *mut *mut scr::Font, ttf: *mut scr::TtfFont) -> Option<FontId> { unsafe {
     for i in 0..4 {
         let font = *fonts.add(i);
         let ttf_set = (*font).ttf;
@@ -168,7 +168,7 @@ unsafe fn font_id_from_ptr(fonts: *mut *mut scr::Font, ttf: *mut scr::TtfFont) -
         }
     }
     None
-}
+}}
 
 /// A struct to manage SDF cache being loaded in one thread while
 /// other threads may potentially have to wait for it.

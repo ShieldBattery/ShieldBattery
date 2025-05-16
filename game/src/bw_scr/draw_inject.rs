@@ -80,7 +80,7 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+    pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget { unsafe {
         let width = (*bw).width as f32;
         let height = (*bw).height as f32;
         // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
@@ -100,7 +100,7 @@ impl RenderTarget {
             bw_w_recip: 1.0 / width,
             bw_h_recip: 1.0 / height,
         }
-    }
+    }}
 }
 
 #[repr(C)]
@@ -177,7 +177,7 @@ pub unsafe fn add_overlays(
     bw: &BwVars,
     overlay_out: draw_overlay::StepOutput,
     render_target: &RenderTarget,
-) {
+) { unsafe {
     update_textures(bw.renderer, state, &overlay_out.textures_delta);
     let layer = overlay_out.draw_layer;
     for primitive in overlay_out.primitives.into_iter() {
@@ -197,7 +197,7 @@ pub unsafe fn add_overlays(
         }
     }
     queue_free_textures(state, &overlay_out.textures_delta);
-}
+}}
 
 trait IndexSize: Copy {
     fn to_u16(self) -> u16;
@@ -231,19 +231,19 @@ fn align6(val: u32) -> u32 {
 unsafe fn draw_overlay_texture_ptr(
     bw: &BwVars,
     egui_user_id: u64,
-) -> Option<*mut scr::RendererTexture> {
+) -> Option<*mut scr::RendererTexture> { unsafe {
     use draw_overlay::Texture;
     match Texture::from_egui_user_id(egui_user_id)? {
         Texture::StatRes(frame) => ddsgrp_frame(bw.statres_icons, bw, frame),
         Texture::CmdIcon(frame) => ddsgrp_frame(bw.cmdicons, bw, frame),
     }
-}
+}}
 
 unsafe fn ddsgrp_frame(
     grp: *mut scr::DdsGrpSet,
     bw: &BwVars,
     frame: u16,
-) -> Option<*mut scr::RendererTexture> {
+) -> Option<*mut scr::RendererTexture> { unsafe {
     let index = match (bw.is_hd, bw.is_carbot) {
         (false, _) => 0,
         (true, false) => 1,
@@ -259,7 +259,7 @@ unsafe fn ddsgrp_frame(
         return None;
     }
     Some(renderer_texture)
-}
+}}
 
 unsafe fn draw_egui_mesh(
     layer: u16,
@@ -268,7 +268,7 @@ unsafe fn draw_egui_mesh(
     bw: &BwVars,
     render_target: &RenderTarget,
     clip_rect: &egui::Rect,
-) -> Result<(), DrawError> {
+) -> Result<(), DrawError> { unsafe {
     let texture = match mesh.texture_id {
         TextureId::Managed(_) => state.textures.get(&mesh.texture_id).map(|x| x.bw()),
         TextureId::User(id) => draw_overlay_texture_ptr(bw, id),
@@ -298,7 +298,7 @@ unsafe fn draw_egui_mesh(
         }
         Ok(())
     }
-}
+}}
 
 unsafe fn draw_egui_mesh_main<I: IndexSize>(
     layer: u16,
@@ -308,7 +308,7 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
     bw: &BwVars,
     render_target: &RenderTarget,
     clip_rect: &egui::Rect,
-) -> Result<(), DrawError> {
+) -> Result<(), DrawError> { unsafe {
     // Bw requires there to be some `quad_count`, and
     // vertex count being `4 * quad_count` and
     // index count being `6 * quad_count`.
@@ -387,14 +387,14 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
         }
     }
     Ok(())
-}
+}}
 
 unsafe fn add_draw_subcommand<D: Pod>(
     alloc_buf: *mut scr::DrawCommands,
     subcommands: *mut scr::DrawSubCommands,
     id: u32,
     data: D,
-) -> Result<(), DrawError> {
+) -> Result<(), DrawError> { unsafe {
     let length = mem::size_of::<scr::DrawSubCommand>() + mem::size_of::<D>();
     let start_offset = (*alloc_buf).subcommand_buffer_bytes_used;
     let end_offset = start_offset
@@ -420,17 +420,17 @@ unsafe fn add_draw_subcommand<D: Pod>(
     *insert_pos = command as *mut scr::DrawSubCommand;
 
     Ok(())
-}
+}}
 
-unsafe fn set_render_target_wh_recip(command: *mut scr::DrawCommand, render_target: &RenderTarget) {
+unsafe fn set_render_target_wh_recip(command: *mut scr::DrawCommand, render_target: &RenderTarget) { unsafe {
     (*command).shader_constants[0xe] = render_target.bw_w_recip;
     (*command).shader_constants[0xf] = render_target.bw_h_recip;
-}
+}}
 
 unsafe fn new_draw_command(
     commands: *mut scr::DrawCommands,
     layer: u16,
-) -> Option<*mut scr::DrawCommand> {
+) -> Option<*mut scr::DrawCommand> { unsafe {
     let index = (*commands).draw_command_count as usize;
     if index >= (*commands).commands.len() {
         return None;
@@ -449,20 +449,20 @@ unsafe fn new_draw_command(
     );
 
     Some(command)
-}
+}}
 
-unsafe fn pop_draw_commands(commands: *mut scr::DrawCommands, pos: u16) {
+unsafe fn pop_draw_commands(commands: *mut scr::DrawCommands, pos: u16) { unsafe {
     let pop_amount = (*commands).draw_command_count - pos;
     let draw_sort = addr_of_mut!((*commands).draw_sort_vector) as *mut scr::BwVector;
     (*draw_sort).length -= pop_amount as usize;
     (*commands).draw_command_count = pos;
-}
+}}
 
 unsafe fn allocate_vertices(
     vertex_buf: *mut scr::VertexBuffer,
     floats_per_vertex: u32,
     vertex_count: u32,
-) -> VertexBufferAlloc<f32> {
+) -> VertexBufferAlloc<f32> { unsafe {
     let float_count = (vertex_count * floats_per_vertex) as usize;
     // BW makes alignment multiple of vertex byte size (floats_per_vertex * 4),
     // but it seems to be pointless? What would alignment of 0x14 help?
@@ -485,16 +485,16 @@ unsafe fn allocate_vertices(
         byte_offset: start_offset,
         length: float_count,
     }
-}
+}}
 
-unsafe fn vertex_buf_capacity_bytes(vertex_buf: *mut scr::VertexBuffer) -> usize {
+unsafe fn vertex_buf_capacity_bytes(vertex_buf: *mut scr::VertexBuffer) -> usize { unsafe {
     (*vertex_buf).buffer_size_u32s * 4
-}
+}}
 
 unsafe fn allocate_indices(
     vertex_buf: *mut scr::VertexBuffer,
     count: u32,
-) -> VertexBufferAlloc<u16> {
+) -> VertexBufferAlloc<u16> { unsafe {
     let start_offset = (*vertex_buf).index_buffer_allocated_bytes;
     assert!(
         start_offset & 1 == 0,
@@ -512,14 +512,14 @@ unsafe fn allocate_indices(
         byte_offset: start_offset,
         length: count as usize,
     }
-}
+}}
 
-unsafe fn index_buf_capacity_bytes(vertex_buf: *mut scr::VertexBuffer) -> usize {
+unsafe fn index_buf_capacity_bytes(vertex_buf: *mut scr::VertexBuffer) -> usize { unsafe {
     (*vertex_buf).index_buf_size_u16s * 2
-}
+}}
 
 #[cold]
-unsafe fn vertex_buf_grow(vertex_buf: *mut scr::VertexBuffer) {
+unsafe fn vertex_buf_grow(vertex_buf: *mut scr::VertexBuffer) { unsafe {
     // You may think that this should check if heap_allocated was
     // 0 and not assume that there's a vector to be freed..
     // But it doesn't work like that for some reason
@@ -532,17 +532,17 @@ unsafe fn vertex_buf_grow(vertex_buf: *mut scr::VertexBuffer) {
     let vector = addr_of_mut!((*vertex_buf).buffer);
     bw_vector_reserve::<f32>(vector, new_capacity);
     (*vector).length = new_capacity;
-}
+}}
 
 #[cold]
-unsafe fn index_buf_grow(vertex_buf: *mut scr::VertexBuffer) {
+unsafe fn index_buf_grow(vertex_buf: *mut scr::VertexBuffer) { unsafe {
     let new_capacity = (*vertex_buf).index_buf_size_u16s * 2;
     (*vertex_buf).index_buf_size_u16s = new_capacity;
     (*vertex_buf).index_buf_heap_allocated = 1;
     let vector = addr_of_mut!((*vertex_buf).index_buffer);
     bw_vector_reserve::<u16>(vector, new_capacity);
     (*vector).length = new_capacity;
-}
+}}
 
 /// Releases texture on drop,
 struct OwnedBwTexture {
@@ -559,7 +559,7 @@ impl OwnedBwTexture {
         size: (u32, u32),
         data: &[u8],
         bilinear: bool,
-    ) -> Option<OwnedBwTexture> {
+    ) -> Option<OwnedBwTexture> { unsafe {
         // Format 0 = RGBA, 1 = BGRA, 2 = DXT1, 3 = DXT5, 4 = R (Single channel), 5 = RGBA16f
         let format = 0;
         let filtering = if bilinear { 1 } else { 0 };
@@ -589,7 +589,7 @@ impl OwnedBwTexture {
                 wrap_mode: wrap_mode as u8,
             })
         }
-    }
+    }}
 
     fn bw(&self) -> *mut scr::RendererTexture {
         self.texture
@@ -648,7 +648,7 @@ unsafe fn update_texture(
     format: u32,
     filtering: u32,
     wrap_mode: u32,
-) {
+) { unsafe {
     (*(*renderer).vtable).update_texture.call11(
         renderer,
         texture,
@@ -662,13 +662,13 @@ unsafe fn update_texture(
         filtering,
         wrap_mode,
     );
-}
+}}
 
 unsafe fn update_textures(
     renderer: *mut scr::Renderer,
     state: &mut RenderState,
     delta: &TexturesDelta,
-) {
+) { unsafe {
     for &(id, ref delta) in &delta.set {
         // Not really sure which is best way to handle this since BW will only
         // accept one filtering mode instead of min/mag split.
@@ -683,15 +683,15 @@ unsafe fn update_textures(
             } else {
                 warn_once!("Tried to update nonexistent texture {id:?}");
             }
-        } else if let Some(texture) = OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
+        } else { match OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) { Some(texture) => {
             if let Some(old) = state.textures.insert(id, texture) {
                 state.queued_texture_frees.push(old);
             }
-        } else {
+        } _ => {
             error!("Could not create texture of size {size:?}");
-        }
+        }}}
     }
-}
+}}
 
 fn egui_image_data_to_rgba<'a>(image: &'a epaint::ImageData, buffer: &'a mut Vec<u8>) -> &'a [u8] {
     match image {

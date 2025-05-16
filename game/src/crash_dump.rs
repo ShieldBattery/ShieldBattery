@@ -19,7 +19,7 @@ use crate::windows;
 
 /// Initializes our own crash handler and patches over
 /// SetUnhandledExceptionFilter so that nobody can override it.
-pub unsafe fn init_crash_handler() {
+pub unsafe fn init_crash_handler() { unsafe {
     use self::hooks::SetUnhandledExceptionFilterDecl;
 
     SetUnhandledExceptionFilter(Some(exception_handler));
@@ -34,7 +34,7 @@ pub unsafe fn init_crash_handler() {
         |_new, _orig| null_mut(),
         address as usize - kernel32.handle() as usize,
     );
-}
+}}
 
 mod hooks {
     system_hooks!(
@@ -42,13 +42,13 @@ mod hooks {
     );
 }
 
-unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {
+unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 { unsafe {
     crash_dump_and_exit(exception);
-}
+}}
 
-pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) -> ! {
+pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) -> ! { unsafe {
     crash_dump_and_exit(exception);
-}
+}}
 
 #[repr(C)]
 struct CppException {
@@ -61,7 +61,7 @@ struct CppExceptionVtable {
     message: Thiscall<unsafe extern "C" fn(*mut CppException) -> *const i8>,
 }
 
-unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
+unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! { unsafe {
     assert!(!exception.is_null());
     // TODO
     #[cfg(target_arch = "x86")]
@@ -100,7 +100,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     TerminateProcess(GetCurrentProcess(), exception_code);
     #[allow(clippy::empty_loop)] // This just runs until the process terminates from the above call
     loop {}
-}
+}}
 
 /// The exception is allowed to be null, in which case it'll just write a minidump
 /// without an exception.
@@ -110,14 +110,14 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
 /// dumped correctly.
 pub unsafe fn write_minidump_to_default_path(
     exception: *mut EXCEPTION_POINTERS,
-) -> Result<(), io::Error> {
+) -> Result<(), io::Error> { unsafe {
     let args = crate::parse_args();
     let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
     write_minidump(&minidump_path, exception)
-}
+}}
 
 /// The exception is allowed to be null.
-unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Result<(), io::Error> {
+unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Result<(), io::Error> { unsafe {
     let file = CreateFileW(
         windows::winapi_str(path).as_ptr(),
         GENERIC_WRITE,
@@ -154,7 +154,7 @@ unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Res
     } else {
         Ok(())
     }
-}
+}}
 
 #[repr(C, packed(4))]
 struct MinidumpExceptionInfo {
@@ -174,9 +174,9 @@ unsafe fn load_minidump_write_dump() -> Result<
         *mut c_void,
     ) -> u32,
     io::Error,
-> {
+> { unsafe {
     let dbghelp = windows::load_library("dbghelp")?;
     let func = dbghelp.proc_address("MiniDumpWriteDump")?;
     mem::forget(dbghelp);
     Ok(mem::transmute(func))
-}
+}}

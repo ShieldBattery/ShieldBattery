@@ -220,7 +220,7 @@ pub fn send_message<'a, T: serde::Serialize>(
     send: &'a mpsc::Sender<WsMessage>,
     command: &str,
     data: T,
-) -> impl Future<Output = Result<(), ()>> + 'a {
+) -> impl Future<Output = Result<(), ()>> + 'a + use<'a, T> {
     let message = encode_message(command, data);
     async move {
         match message {

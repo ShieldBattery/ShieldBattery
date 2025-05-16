@@ -25,7 +25,7 @@ pub unsafe fn spawn_dialog_hook(
     unk: usize,
     event_handler: usize,
     orig: unsafe extern "C" fn(*mut bw::Dialog, usize, usize) -> usize,
-) -> usize {
+) -> usize { unsafe {
     let dialog = Dialog::new(raw);
     let ctrl = dialog.as_control();
     let name = ctrl.string();
@@ -54,13 +54,13 @@ pub unsafe fn spawn_dialog_hook(
         event_handler
     };
     orig(raw, unk, event_handler)
-}
+}}
 
 unsafe extern "C" fn chat_box_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
+) -> u32 { unsafe {
     // This dialog checks if allies are enabled to allow/prevent ally chat;
     // as we disable allies to prevent changing them from what they originally
     // were, restore alliance state temporarely to make ally chat work.
@@ -71,13 +71,13 @@ unsafe extern "C" fn chat_box_event_handler(
     let ret = orig(ctrl, event);
     (*game_data).game_template.allies_enabled = old;
     ret
-}
+}}
 
 unsafe extern "C" fn msg_filter_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
+) -> u32 { unsafe {
     // Same as chat box, to make the radio button for "Send to allies" enabled even when
     // alliances cannot be changed.
     let bw = get_bw();
@@ -87,13 +87,13 @@ unsafe extern "C" fn msg_filter_event_handler(
     let ret = orig(ctrl, event);
     (*game_data).game_template.allies_enabled = old;
     ret
-}
+}}
 
 unsafe extern "C" fn minimap_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
+) -> u32 { unsafe {
     let bw = get_bw();
     if bw.console_hidden() {
         return 0;
@@ -128,25 +128,25 @@ unsafe extern "C" fn minimap_event_handler(
         }
     }
     ret
-}
+}}
 
 unsafe extern "C" fn console_dialog_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
+) -> u32 { unsafe {
     let bw = get_bw();
     if bw.console_hidden() {
         return 0;
     }
     orig(ctrl, event)
-}
+}}
 
 unsafe extern "C" fn prevent_button_hide(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
+) -> u32 { unsafe {
     let event = event as *mut bw::scr::ControlEvent;
     if (*event).ty == 0xe && (*event).ext_type == 0xe {
         // Hide
@@ -158,4 +158,4 @@ unsafe extern "C" fn prevent_button_hide(
         }
     }
     orig(ctrl, event as _)
-}
+}}

@@ -11,7 +11,7 @@ use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
 use winapi::um::synchapi::SetEvent;
 
 use crate::bw::{self, Bw};
-use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
+use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 use crate::windows::OwnedHandle;
 
 // 'SBAT'
@@ -137,7 +137,7 @@ pub unsafe extern "system" fn free_packet(
     _data: *const u8,
     _data_len: u32,
 ) -> i32 {
-    drop(Box::from_raw(from as *mut RawReceivedMessage));
+    drop(unsafe { Box::from_raw(from as *mut RawReceivedMessage) });
     1
 }
 
@@ -151,7 +151,7 @@ pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HAN
         let receive_callback = if let Some(receive_event) = receive_event {
             let receive_event =
                 OwnedHandle::duplicate(receive_event).expect("SNP event handle duplication failed");
-            Box::new(move || {
+            Box::new(move || unsafe {
                 SetEvent(receive_event.get());
             }) as Box<dyn Fn() + Send + Sync + 'static>
         } else {
@@ -184,15 +184,19 @@ pub unsafe extern "system" fn receive_packet(
             data: msg.data,
         };
         let ptr = Box::into_raw(Box::new(msg));
-        *addr = ptr as *mut sockaddr;
-        *data = (*ptr).data.as_ptr();
-        *length = (*ptr).data.len() as u32;
+        unsafe {
+            *addr = ptr as *mut sockaddr;
+            *data = (*ptr).data.as_ptr();
+            *length = (*ptr).data.len() as u32;
+        }
         1
     } else {
-        *addr = null_mut();
-        *data = null_mut();
-        *length = 0;
-        bw::get_bw().storm_set_last_error(STORM_ERROR_NO_MESSAGES_WAITING);
+        unsafe {
+            *addr = null_mut();
+            *data = null_mut();
+            *length = 0;
+            bw::get_bw().storm_set_last_error(STORM_ERROR_NO_MESSAGES_WAITING);
+        }
         0
     }
 }
@@ -202,8 +206,8 @@ pub unsafe extern "system" fn send_packet(
     data: *const u8,
     data_len: u32,
 ) -> i32 {
-    let target = sockaddr_to_std_ip(*target);
-    let data = std::slice::from_raw_parts(data, data_len as usize);
+    let target = sockaddr_to_std_ip(unsafe { *target });
+    let data = unsafe { std::slice::from_raw_parts(data, data_len as usize) };
     send_snp_message(SnpMessage::Send(target, data.into()));
     1
 }

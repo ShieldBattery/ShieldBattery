@@ -141,7 +141,7 @@ unsafe fn real_path(
     path: *const u8,
     params: *const scr::OpenParams,
     buffer: &mut ArrayVec<u8, 256>,
-) -> Option<&[u8]> {
+) -> Option<&[u8]> { unsafe {
     // Doing this 256-byte array lookup to normalize instead of a simpler match may be
     // an unnecessary micro-optimization, but the older code was quite excessively
     // verbose and SCR opens ~2000 files during startup so I'd say this is worth it.
@@ -197,9 +197,9 @@ unsafe fn real_path(
         *val = NORMALIZE_MAP[*val as usize];
     }
     Some(slice)
-}
+}}
 
-unsafe fn memory_buffer_to_bw_file_handle(buffer: &'static [u8], handle: *mut scr::FileHandle) {
+unsafe fn memory_buffer_to_bw_file_handle(buffer: &'static [u8], handle: *mut scr::FileHandle) { unsafe {
     let inner = Box::new(FileAllocation {
         file: FileState { buffer, pos: 0 },
         read: scr::FileRead {
@@ -235,7 +235,7 @@ unsafe fn memory_buffer_to_bw_file_handle(buffer: &'static [u8], handle: *mut sc
         file_ok: 1,
         close_callback,
     };
-}
+}}
 
 struct FileAllocation {
     file: FileState,
@@ -300,97 +300,97 @@ unsafe extern "C" fn file_handle_destroy_nop(_file: *mut scr::FileHandle, _dyn_f
 
 unsafe extern "C" fn function_nop_destory(_file: *mut scr::Function, _unk: u32) {}
 
-unsafe extern "C" fn function_object_size(_file: *mut scr::Function, size: *mut usize) {
+unsafe extern "C" fn function_object_size(_file: *mut scr::Function, size: *mut usize) { unsafe {
     *size = 3 * mem::size_of::<usize>();
     *size.add(1) = mem::size_of::<usize>();
     *(size.add(2) as *mut u8) = 0x1;
-}
+}}
 
-unsafe extern "C" fn function_copy(this: *mut scr::Function, other: *mut scr::Function) {
+unsafe extern "C" fn function_copy(this: *mut scr::Function, other: *mut scr::Function) { unsafe {
     *other = *this;
-}
+}}
 
-unsafe extern "C" fn read_file_wrap(file: *mut scr::FileHandle, out: *mut u8, size: u32) -> u32 {
+unsafe extern "C" fn read_file_wrap(file: *mut scr::FileHandle, out: *mut u8, size: u32) -> u32 { unsafe {
     let read = (*file).read;
     let vtable = (*read).vtable;
     (*vtable).read.call3(read, out, size)
-}
+}}
 
-unsafe extern "C" fn skip_wrap(file: *mut scr::FileHandle, size: u32) {
+unsafe extern "C" fn skip_wrap(file: *mut scr::FileHandle, size: u32) { unsafe {
     let read = (*file).read;
     let vtable = (*read).vtable;
     (*vtable).skip.call2(read, size)
-}
+}}
 
-unsafe extern "C" fn read_file(file: *mut scr::FileRead, out: *mut u8, size: u32) -> u32 {
+unsafe extern "C" fn read_file(file: *mut scr::FileRead, out: *mut u8, size: u32) -> u32 { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     let buf = std::slice::from_raw_parts_mut(out, size as usize);
     (*file).file.read(buf)
-}
+}}
 
-unsafe extern "C" fn skip(file: *mut scr::FileRead, size: u32) {
+unsafe extern "C" fn skip(file: *mut scr::FileRead, size: u32) { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     let pos = (*file).file.tell();
     (*file).file.seek(pos.saturating_add(size));
-}
+}}
 
-unsafe extern "C" fn peek_wrap(file: *mut c_void, out: *mut u8, size: u32) -> u32 {
+unsafe extern "C" fn peek_wrap(file: *mut c_void, out: *mut u8, size: u32) -> u32 { unsafe {
     let file = (file as *mut usize).sub(1) as *mut scr::FileHandle;
     let peek = (*file).peek;
     let vtable = (*peek).vtable;
     (*vtable).peek.call3(peek, out, size)
-}
+}}
 
-unsafe extern "C" fn peek(file: *mut scr::FilePeek, out: *mut u8, size: u32) -> u32 {
+unsafe extern "C" fn peek(file: *mut scr::FilePeek, out: *mut u8, size: u32) -> u32 { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     let buf = std::slice::from_raw_parts_mut(out, size as usize);
     let old_pos = (*file).file.tell();
     let result = (*file).file.read(buf);
     (*file).file.seek(old_pos);
     result
-}
+}}
 
-unsafe extern "C" fn tell_wrap(file: *mut c_void) -> u32 {
+unsafe extern "C" fn tell_wrap(file: *mut c_void) -> u32 { unsafe {
     let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).tell.call1(metadata)
-}
+}}
 
-unsafe extern "C" fn seek_wrap(file: *mut c_void, pos: u32) {
+unsafe extern "C" fn seek_wrap(file: *mut c_void, pos: u32) { unsafe {
     let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).seek.call2(metadata, pos)
-}
+}}
 
-unsafe extern "C" fn file_size_wrap(file: *mut c_void) -> u32 {
+unsafe extern "C" fn file_size_wrap(file: *mut c_void) -> u32 { unsafe {
     let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).file_size.call1(metadata)
-}
+}}
 
-unsafe extern "C" fn tell(file: *mut scr::FileMetadata) -> u32 {
+unsafe extern "C" fn tell(file: *mut scr::FileMetadata) -> u32 { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     (*file).file.tell()
-}
+}}
 
-unsafe extern "C" fn seek(file: *mut scr::FileMetadata, pos: u32) {
+unsafe extern "C" fn seek(file: *mut scr::FileMetadata, pos: u32) { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     (*file).file.seek(pos);
-}
+}}
 
-unsafe extern "C" fn file_size(file: *mut scr::FileMetadata) -> u32 {
+unsafe extern "C" fn file_size(file: *mut scr::FileMetadata) -> u32 { unsafe {
     let file = (*file).inner as *mut FileAllocation;
     (*file).file.size()
-}
+}}
 
-unsafe extern "C" fn close_file(this: *mut scr::Function) {
+unsafe extern "C" fn close_file(this: *mut scr::Function) { unsafe {
     let file = (*this).inner as *mut FileAllocation;
     // Hopefully ok?
     drop(Box::from_raw(file));
-}
+}}
 
 impl FileState {
     pub fn tell(&self) -> u32 {

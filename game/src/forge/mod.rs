@@ -65,7 +65,7 @@ unsafe extern "system" fn wnd_proc_scr(
     msg: u32,
     wparam: usize,
     lparam: isize,
-) -> isize {
+) -> isize { unsafe {
     if std::thread::panicking() {
         // Avoid recursive locking due to panics
         return DefWindowProcA(window, msg, wparam, lparam);
@@ -122,9 +122,9 @@ unsafe extern "system" fn wnd_proc_scr(
             DefWindowProcA(window, msg, wparam, lparam)
         }
     }
-}
+}}
 
-unsafe fn msg_game_started(window: HWND) {
+unsafe fn msg_game_started(window: HWND) { unsafe {
     debug!("Forge: Game started");
     let mut display_change_request = None;
     with_forge(|forge| {
@@ -186,9 +186,9 @@ unsafe fn msg_game_started(window: HWND) {
             None,
         );
     }
-}
+}}
 
-unsafe fn msg_timer(window: HWND, timer_id: i32) {
+unsafe fn msg_timer(window: HWND, timer_id: i32) { unsafe {
     if timer_id == FOREGROUND_HOTKEY_ID {
         // remove hotkey and timer
         UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
@@ -200,7 +200,7 @@ unsafe fn msg_timer(window: HWND, timer_id: i32) {
 
         ShowCursor(1);
     }
-}
+}}
 
 lazy_static! {
     static ref FORGE: Mutex<Option<Forge>> = Mutex::new(None);
@@ -557,7 +557,7 @@ fn register_hot_key(
     1
 }
 
-pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
+pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) { unsafe {
     use self::scr_hooks::*;
     // 1161 init can hook just starcraft/storm import table, unfortunately
     // that method won't work with SCR, we'll just GetProcAddress the
@@ -581,7 +581,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
         "SetWindowLongW", SetWindowLongW, set_window_long_w;
         "RegisterHotKey", RegisterHotKey, register_hot_key;
     );
-}
+}}
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
     let window_x = settings
@@ -634,7 +634,7 @@ const WM_GAME_STARTED: u32 = WM_USER + 7;
 /// here.
 ///
 /// Returns once `end_wnd_proc` is called.
-pub unsafe fn run_wnd_proc() {
+pub unsafe fn run_wnd_proc() { unsafe {
     // Note: Currently done even if forge itself is disabled and we use SCR's
     // own window. Having run/end_wnd_proc go through the Bw trait
     // and be separate for 1.16.1 and SCR would maybe be cleaner.
@@ -649,7 +649,7 @@ pub unsafe fn run_wnd_proc() {
     // Going to close everything since the window got closed / error happened.
     // TODO Ask async thread exit instead
     std::process::exit(0);
-}
+}}
 
 pub fn end_wnd_proc() {
     let handle = with_forge(|forge| match forge.window {

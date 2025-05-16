@@ -7,18 +7,18 @@ use super::scr;
 use super::{bw_free, bw_malloc};
 
 /// NOTE: Call only if `T` has no copy / move operators.
-pub unsafe fn bw_vector_push<T>(vec: *mut scr::BwVector, value: T) {
+pub unsafe fn bw_vector_push<T>(vec: *mut scr::BwVector, value: T) { unsafe {
     let length = (*vec).length;
     if length >= (*vec).capacity {
         bw_vector_reserve::<T>(vec, (*vec).capacity * 2);
     }
     ((*vec).data as *mut T).add(length).write(value);
     (*vec).length = length + 1;
-}
+}}
 
 /// NOTE: Call only if `T` has no copy / move operators.
 #[cold]
-pub unsafe fn bw_vector_reserve<T>(vec: *mut scr::BwVector, new_capacity: usize) {
+pub unsafe fn bw_vector_reserve<T>(vec: *mut scr::BwVector, new_capacity: usize) { unsafe {
     if (*vec).capacity >= new_capacity {
         return;
     }
@@ -28,4 +28,4 @@ pub unsafe fn bw_vector_reserve<T>(vec: *mut scr::BwVector, new_capacity: usize)
     bw_free(old_ptr as *mut u8);
     (*vec).data = new_ptr as *mut c_void;
     (*vec).capacity = new_capacity;
-}
+}}

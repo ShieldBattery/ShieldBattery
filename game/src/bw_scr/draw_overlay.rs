@@ -813,7 +813,7 @@ impl OverlayState {
         msg: u32,
         wparam: usize,
         lparam: isize,
-    ) -> Option<isize> {
+    ) -> Option<isize> { unsafe {
         use winapi::um::winuser::*;
         match msg {
             WM_SIZE => {
@@ -942,7 +942,7 @@ impl OverlayState {
             }
             _ => None,
         }
-    }
+    }}
 
     fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
         let panels = &mut self.replay_panels;
@@ -1051,7 +1051,7 @@ impl NetworkDebugInfo {
 }
 
 /// Yields active players `(team, player_id)`, ordered by team.
-fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> {
+fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
     // Teams are 1-based, but team 0 is used on games without teams.
     let players = bw.players;
     (0u8..5).flat_map(move |team| {
@@ -1136,7 +1136,7 @@ unsafe fn player_resources_info(
     player: *mut bw::Player,
     player_id: u8,
     apm: Option<&ApmStats>,
-) -> PlayerInfo {
+) -> PlayerInfo { unsafe {
     let game = bw.game;
     let get_supplies = |race| {
         let used = game.supply_used(player_id, race);
@@ -1184,14 +1184,14 @@ unsafe fn player_resources_info(
         apm: apm.map(|x| x.player_recent_apm(player_id)).unwrap_or(0),
         vision,
     }
-}
+}}
 
 /// Returns mask containing all player bits that this player has given/receives vision to,
 /// as long as all players in the group share vision both ways.
 /// If there is one-way vision somewhere, returns just `1 << player_id`
 ///
 /// So that entire team's vision is toggled at once.
-unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 {
+unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 { unsafe {
     if player_id >= 8 {
         return 0;
     }
@@ -1203,7 +1203,7 @@ unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 {
         }
     }
     mask
-}
+}}
 
 fn control_type_name(ty: u16) -> Cow<'static, str> {
     match ty {

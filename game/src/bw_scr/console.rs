@@ -13,7 +13,7 @@ impl BwScr {
         self.console_hidden_state.load(Ordering::Relaxed)
     }
 
-    pub unsafe fn hide_console(&self, first_dialog: Option<Dialog>) {
+    pub unsafe fn hide_console(&self, first_dialog: Option<Dialog>) { unsafe {
         for dialog in bw::iter_dialogs(first_dialog) {
             if is_console_dialog(dialog) {
                 // Note: While setting the hide flag is enough to make dialog not
@@ -26,9 +26,9 @@ impl BwScr {
         }
         self.console_hidden_state.store(true, Ordering::Relaxed);
         self.set_game_screen_height(1.0);
-    }
+    }}
 
-    pub unsafe fn show_console(&self, first_dialog: Option<Dialog>) {
+    pub unsafe fn show_console(&self, first_dialog: Option<Dialog>) { unsafe {
         for dialog in bw::iter_dialogs(first_dialog) {
             if is_console_dialog(dialog) {
                 (*(*dialog as *mut bw::scr::Control)).flags |= 0x2;
@@ -40,9 +40,9 @@ impl BwScr {
                 .load(Ordering::Relaxed),
         );
         self.set_game_screen_height(old_ratio);
-    }
+    }}
 
-    unsafe fn set_game_screen_height(&self, value: f32) {
+    unsafe fn set_game_screen_height(&self, value: f32) { unsafe {
         if let Some(ratio) = self.game_screen_height_ratio {
             ratio.write(value);
             let old_y = self.screen_y.resolve();
@@ -56,7 +56,7 @@ impl BwScr {
             let x = self.screen_x.resolve();
             (self.move_screen)(x, y);
         }
-    }
+    }}
 }
 
 fn is_console_dialog(dialog: Dialog) -> bool {

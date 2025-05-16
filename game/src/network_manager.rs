@@ -193,7 +193,7 @@ impl State {
     fn join_routes(
         &mut self,
         setup: Vec<RouteInput>,
-    ) -> impl Future<Output = Result<Vec<Arc<Route>>>> {
+    ) -> impl Future<Output = Result<Vec<Arc<Route>>>> + use<> {
         let futures = setup
             .into_iter()
             .map(|route| {
@@ -250,7 +250,7 @@ impl State {
     fn pick_server(
         &mut self,
         input: &app_messages::RallyPointServer,
-    ) -> impl Future<Output = Result<RallyPointServer>> {
+    ) -> impl Future<Output = Result<RallyPointServer>> + use<> {
         let key = match (&input.address6, &input.address4) {
             (Some(a), _) => (a.clone(), input.port),
             (_, Some(a)) => (a.clone(), input.port),
@@ -359,11 +359,11 @@ impl State {
                 self.check_network_ready();
             }
             NetworkManagerMessage::WaitNetworkReady(done) => {
-                if let Some(result) = self.network.ready_or_error() {
+                match self.network.ready_or_error() { Some(result) => {
                     let _ = done.send(result);
-                } else {
+                } _ => {
                     self.waiting_for_network.push(done);
-                }
+                }}
             }
             NetworkManagerMessage::Snp(message) => match message {
                 SnpMessage::CreateNetworkHandler(send) => {
@@ -471,7 +471,7 @@ impl State {
             NetworkManagerMessage::ReceivePacket(ip, mut packet, snp_send) => {
                 if let NetworkState::Ready(ref network) = self.network {
                     if let Some(route_state) = network.ip_to_routes.get(&ip) {
-                        if let Ok(game_message) = GameMessage::decode(&mut packet) {
+                        match GameMessage::decode(&mut packet) { Ok(game_message) => {
                             // CLion is bad at figuring out this type :(
                             let game_message = game_message as GameMessage;
 
@@ -541,9 +541,9 @@ impl State {
                                     _ => {}
                                 }
                             }
-                        } else {
+                        } _ => {
                             error!("Received a badly formed packet from {}", ip);
-                        }
+                        }}
                     } else {
                         error!("Received a packet without an associated route: {}", ip)
                     }
@@ -755,7 +755,7 @@ impl State {
         // Create the task which receives packets and forwards them to Storm
         let streams_done = ip_to_routes
             .iter()
-            .map(|(&ip, RouteState { ref route, .. })| {
+            .map(|(&ip, RouteState { route, .. })| {
                 let snp_send = snp_send_messages.clone();
                 let net_message_sender = self.send_messages.clone();
                 let rally_point = self.rally_point.clone();
@@ -898,7 +898,7 @@ impl DebugState {
 fn ping_server(
     rally_point: &RallyPoint,
     input: &app_messages::RallyPointServer,
-) -> impl Future<Output = Result<RallyPointServer>> {
+) -> impl Future<Output = Result<RallyPointServer>> + use<> {
     fn parse_address(input: &Option<String>) -> Option<IpAddr> {
         input.as_ref()?.parse::<IpAddr>().ok()
     }

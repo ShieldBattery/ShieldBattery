@@ -21,7 +21,7 @@ pub unsafe fn prepare_issue_order(
     target: Option<Unit>,
     fow_unit_id: u16,
     clear_queue: bool,
-) {
+) { unsafe {
     if unit.order() == order::DIE {
         return;
     }
@@ -54,7 +54,7 @@ pub unsafe fn prepare_issue_order(
     // The disassembly has checks for if order == CLOAK and logic to requeue
     // current order after cloak order, but this is dead (and broken) code,
     // and not how cloaking works, so it is not replicated here.
-    if let Some(alloc) = free_orders.alloc() {
+    match free_orders.alloc() { Some(alloc) => {
         let new_order = alloc.value();
         (*new_order).order_id = order.0;
         (*new_order).unit_id = fow_unit_id;
@@ -67,12 +67,12 @@ pub unsafe fn prepare_issue_order(
             (**unit).highlight_order_count = (**unit).highlight_order_count.wrapping_add(1);
         }
         bw.allocated_order_count.write(allocated_order_count + 1);
-    } else {
+    } _ => {
         warn!("Unable to allocate order");
-    }
-}
+    }}
+}}
 
-unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId) -> bool {
+unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId) -> bool { unsafe {
     // There are several different compatibility rules depending on replay version:
     // Also the non-SB rules erroneously check unit's current order instead of new order,
     // causing comparisions against orders be more pointless.
@@ -150,11 +150,11 @@ unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId)
     }
 
     true
-}
+}}
 
-unsafe fn order_supply_low(bw: &BwScr) -> bool {
+unsafe fn order_supply_low(bw: &BwScr) -> bool { unsafe {
     is_low_order_supply(bw.allocated_order_count.resolve(), bw.order_limit.resolve())
-}
+}}
 
 fn is_low_order_supply(allocated: u32, limit: u32) -> bool {
     allocated >= (limit as f32 * 0.9) as u32

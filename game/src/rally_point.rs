@@ -111,7 +111,7 @@ fn send_bytes_future(
     )>,
     message: Bytes,
     to: SocketAddrV6,
-) -> impl Future<Output = ()> + 'static {
+) -> impl Future<Output = ()> + 'static + use<> {
     let send = send_bytes.clone();
     async move {
         let _ = send.send((message, to, None)).await;
@@ -131,7 +131,7 @@ fn ping_id() -> u32 {
 }
 
 impl State {
-    fn external_request(&mut self, request: ExternalRequest) -> impl Future<Output = ()> {
+    fn external_request(&mut self, request: ExternalRequest) -> impl Future<Output = ()> + use<> {
         match request {
             ExternalRequest::JoinRoute(route, player, address, timeout, done) => {
                 let message = join_route_message(&route, player);
@@ -302,7 +302,7 @@ impl State {
         &mut self,
         message: ServerMessage,
         addr: SocketAddrV6,
-    ) -> impl Future<Output = ()> {
+    ) -> impl Future<Output = ()> + use<> {
         match message {
             ServerMessage::JoinRouteSuccess(route) => {
                 let key = route_key(&addr, &route);
@@ -650,7 +650,7 @@ impl RallyPoint {
         &self,
         route: &RouteId,
         address: &SocketAddr,
-    ) -> impl Stream<Item = Result<Bytes, RallyPointError>> + '_ {
+    ) -> impl Stream<Item = Result<Bytes, RallyPointError>> + '_ + use<'_> {
         let address = to_ipv6_addr(address);
         let (send, recv) = mpsc::channel(32);
         let request = ExternalRequest::ListenData(*route, address, send);

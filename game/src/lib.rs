@@ -189,7 +189,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "C" fn OnInject() {
     std::panic::set_hook(Box::new(panic_hook));
@@ -229,10 +229,12 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     if WAIT_DEBUGGER {
         debug!("Waiting for debugger");
         let start = std::time::Instant::now();
-        while winapi::um::debugapi::IsDebuggerPresent() == 0 {
-            std::thread::sleep(std::time::Duration::from_millis(10));
-            if start.elapsed().as_secs() > 100 {
-                std::process::exit(0);
+        unsafe {
+            while winapi::um::debugapi::IsDebuggerPresent() == 0 {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                if start.elapsed().as_secs() > 100 {
+                    std::process::exit(0);
+                }
             }
         }
         debug!("Debugger ok");
@@ -247,16 +249,20 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
             panic!("StarCraft build {} is not supported.", build);
         }
     };
-    bw.patch_game(image);
+    unsafe {
+        bw.patch_game(image);
+    }
     bw::set_bw_impl(bw);
     initialize();
-    bw.post_async_init();
+    unsafe {
+        bw.post_async_init();
+    }
 }
 
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
 static PROCESS_INIT_HOOK_REACHED: AtomicBool = AtomicBool::new(false);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub unsafe extern "system" fn DllMain(
     instance: usize,
@@ -291,7 +297,7 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
     let address = dll.proc_address("sb_init")?;
     // Leak the DLL as it should be kept alive for entire process
     mem::forget(dll);
-    Ok(mem::transmute(address))
+    Ok(unsafe { mem::transmute(address) })
 }
 
 lazy_static! {

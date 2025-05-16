@@ -76,7 +76,7 @@ impl ShaderReplaces {
         }
     }
 
-    pub fn iter_shaders(&self) -> impl Iterator<Item = (u8, &'static [scr::PrismShader])> {
+    pub fn iter_shaders(&self) -> impl Iterator<Item = (u8, &'static [scr::PrismShader])> + use<> {
         let result = {
             let mut shaders = self.shaders.lock();
             for &mut (_, ref mut data, ref mut path_time) in shaders.iter_mut() {

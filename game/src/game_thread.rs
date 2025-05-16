@@ -131,7 +131,7 @@ pub fn run_event_loop() -> ! {
     crate::wait_async_exit();
 }
 
-unsafe fn handle_game_request(request: GameThreadRequestType) {
+unsafe fn handle_game_request(request: GameThreadRequestType) { unsafe {
     use self::GameThreadRequestType::*;
     match request {
         Initialize => init_bw(),
@@ -153,7 +153,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             }
         }
     }
-}
+}}
 
 pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
     if PLAYER_ID_MAPPING.set(mapping).is_err() {
@@ -189,7 +189,7 @@ pub struct GameThreadResults {
     pub time: Duration,
 }
 
-unsafe fn game_results() -> GameThreadResults {
+unsafe fn game_results() -> GameThreadResults { unsafe {
     let bw = get_bw();
     let game = bw.game();
     let players = bw.players();
@@ -255,19 +255,19 @@ unsafe fn game_results() -> GameThreadResults {
         // Assuming fastest speed
         time: Duration::from_millis(((*game).frame_count as u64).saturating_mul(42)),
     }
-}
+}}
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
-unsafe fn init_bw() {
+unsafe fn init_bw() { unsafe {
     let bw = get_bw();
     bw.init_sprites();
     (*bw.game()).is_bw = 1;
     debug!("Process initialized");
-}
+}}
 
 /// Bw impl is expected to hook the point after init_game_data and call this.
-pub unsafe fn after_init_game_data() {
+pub unsafe fn after_init_game_data() { unsafe {
     // Let async thread know about player randomization.
     // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
     // data structures used in a game. Player randomization seems to have been done before that,
@@ -314,7 +314,7 @@ pub unsafe fn after_init_game_data() {
             }
         }
     }
-}
+}}
 
 /// Returns whether the current game is a Use Map Settings game.
 pub fn is_ums() -> bool {
@@ -362,12 +362,12 @@ pub fn map_name_for_filename() -> String {
 /// This function can be used for hooks that change gameplay state after BW has done (most of)
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
-pub unsafe fn after_step_game() {
+pub unsafe fn after_step_game() { unsafe {
     let bw = get_bw();
     add_fow_sprites_for_replay_vision_change(bw);
-}
+}}
 
-pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
+pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) { unsafe {
     if is_replay() && !is_ums() {
         // One thing BW's step_game does is that it removes any fog sprites that were
         // no longer in fog. Unfortunately now that we show fog sprites for unexplored
@@ -405,14 +405,14 @@ pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
             }
         }
     }
-}
+}}
 
 /// Reimplementation of replay command reading & processing since the default implementation
 /// has buffer overflows for replays where there are too many commands in a frame.
 ///
 /// A function pointer for the original function is still needed to handle replay ending
 /// case which we don't need to touch.
-pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
+pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) { unsafe {
     let bw = get_bw();
     let game = bw.game();
     let replay = bw.replay_data();
@@ -450,7 +450,7 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
     }
     let new_pos = (data_end as usize - data.len()) as *mut u8;
     (*replay).data_pos = new_pos;
-}
+}}
 
 struct ReplayFrame<'a> {
     frame: u32,
@@ -484,7 +484,7 @@ impl<'a> ReplayFrame<'a> {
 /// (It happens to be easy function for SC:R analysis to find and in a nice
 /// spot to inject game init hooks for things that require initialization to
 /// have progressed a bit but not too much)
-pub unsafe fn before_init_unit_data(bw: &BwScr) {
+pub unsafe fn before_init_unit_data(bw: &BwScr) { unsafe {
     let game = bw.game();
     if let Some(ext) = sbat_replay_data() {
         // This makes team game replays work.
@@ -543,9 +543,9 @@ pub unsafe fn before_init_unit_data(bw: &BwScr) {
             }
         }
     }
-}
+}}
 
-pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) {
+pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) { unsafe {
     // Show "Stacked (n)" text for stacked buildings
     if unit.is_landed_building() {
         fn normalize_id(id: UnitId) -> UnitId {
@@ -596,4 +596,4 @@ pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit
             }
         }
     }
-}
+}}

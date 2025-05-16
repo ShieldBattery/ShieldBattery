@@ -2,12 +2,12 @@
 
 use std::io;
 
-use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use libc::c_void;
 
 use crate::app_messages::GameSetupInfo;
-use crate::bw::players::BwPlayerId;
 use crate::bw::Bw;
+use crate::bw::players::BwPlayerId;
 use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::windows;
@@ -17,11 +17,11 @@ static REPLAY_MAGIC: &[u8] = &[
 ];
 
 pub const SECTION_ID: u32 = 0x74616253; // Sbat
-                                        // Change added by each version
-                                        // 1: Replay uses order queue limit fixes
-                                        // 2: Replay has UMS user selectable slots saved correctly
-                                        //      Was broken in SB replays before that; we don't currently do anything that
-                                        //      would need to know this, but going to make it easy to tell if we do in future.
+// Change added by each version
+// 1: Replay uses order queue limit fixes
+// 2: Replay has UMS user selectable slots saved correctly
+//      Was broken in SB replays before that; we don't currently do anything that
+//      would need to know this, but going to make it easy to tell if we do in future.
 pub const GAME_LOGIC_VERSION: u16 = 0x2;
 
 pub struct SbatReplayData {
@@ -33,19 +33,23 @@ pub struct SbatReplayData {
 /// Checks if the start of file matches what SC:R currently writes to every replay
 /// (This does not check for 1.16.1 / early SC:R magic bytes)
 pub unsafe fn has_replay_magic_bytes(file: *mut c_void) -> bool {
-    match has_replay_magic_bytes_res(file) {
-        Ok(o) => o,
-        Err(e) => {
-            error!("Unable to check file for replay magic: {}", e);
-            false
+    unsafe {
+        match has_replay_magic_bytes_res(file) {
+            Ok(o) => o,
+            Err(e) => {
+                error!("Unable to check file for replay magic: {}", e);
+                false
+            }
         }
     }
 }
 
 unsafe fn has_replay_magic_bytes_res(file: *mut c_void) -> Result<bool, io::Error> {
-    windows::file_seek(file, std::io::SeekFrom::Start(0))?;
     let mut buffer = [0u8; 0x10];
-    windows::file_read(file, &mut buffer[..])?;
+    unsafe {
+        windows::file_seek(file, std::io::SeekFrom::Start(0))?;
+        windows::file_read(file, &mut buffer[..])?;
+    }
     Ok(buffer == REPLAY_MAGIC)
 }
 
@@ -58,7 +62,9 @@ pub unsafe fn add_shieldbattery_data(
     setup_info: &GameSetupInfo,
     player_id_mapping: &[game_thread::PlayerIdMapping],
 ) -> Result<(), io::Error> {
-    windows::file_seek(file, io::SeekFrom::End(0))?;
+    unsafe {
+        windows::file_seek(file, io::SeekFrom::End(0))?;
+    }
     // Current format: (The first two u32s are required by SC:R, after that we can have anything)
     // u32 section_id
     // u32 data_length (Not counting these first 8 bytes)
@@ -78,7 +84,7 @@ pub unsafe fn add_shieldbattery_data(
     //      header, though there are 12 of them)
     // --- Format version 1 ---
     // 0x56     u16 game_logic_version (2)
-    let game = bw.game();
+    let game = unsafe { bw.game() };
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
     buffer.write_u32::<LE>(0)?;
@@ -90,9 +96,9 @@ pub unsafe fn add_shieldbattery_data(
         *out = *val;
     }
     buffer.extend_from_slice(&version_buf[..]);
-    let team_game_main_players = (*game).team_game_main_player;
+    let team_game_main_players = unsafe { (*game).team_game_main_player };
     buffer.extend_from_slice(&team_game_main_players);
-    let starting_races = (*game).starting_races;
+    let starting_races = unsafe { (*game).starting_races };
     buffer.extend_from_slice(&starting_races);
     write_uuid(&mut buffer, &setup_info.game_id)?;
 
@@ -108,7 +114,9 @@ pub unsafe fn add_shieldbattery_data(
 
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
-    windows::file_write(file, &buffer)?;
+    unsafe {
+        windows::file_write(file, &buffer)?;
+    }
     Ok(())
 }
 

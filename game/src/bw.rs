@@ -546,7 +546,7 @@ impl Iterator for FowSpriteIterator {
     }
 }
 
-pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
+pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> { unsafe {
     let name_length = (*player)
         .name
         .iter()
@@ -554,7 +554,7 @@ pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
         .unwrap_or((*player).name.len());
     let name = &(*player).name[..name_length];
     String::from_utf8_lossy(name)
-}
+}}
 
 pub unsafe fn player_color(
     game: bw_dat::Game,
@@ -562,7 +562,7 @@ pub unsafe fn player_color(
     use_rgb_colors: u8,
     rgb_colors: *mut [[f32; 4]; 8],
     player_id: u8,
-) -> [u8; 3] {
+) -> [u8; 3] { unsafe {
     let color = if use_rgb_colors == 0 {
         (**game)
             .player_minimap_color
@@ -581,7 +581,7 @@ pub unsafe fn player_color(
         })
     };
     color.unwrap_or([0xff, 0xff, 0xff])
-}
+}}
 
 pub fn iter_dialogs(
     first: Option<bw_dat::dialog::Dialog>,

@@ -252,7 +252,7 @@ impl PlayerInfo {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Route {
     #[serde(rename = "for")]
@@ -262,7 +262,7 @@ pub struct Route {
     pub player_id: u32,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 pub struct RallyPointServer {

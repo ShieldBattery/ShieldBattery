@@ -194,11 +194,11 @@ impl GameState {
     fn send_game_request(
         &mut self,
         request_type: GameThreadRequestType,
-    ) -> impl Future<Output = ()> {
+    ) -> impl Future<Output = ()> + use<> {
         send_game_request(&self.send_main_thread_requests, request_type)
     }
 
-    fn wait_can_start_game(&mut self) -> impl Future<Output = ()> {
+    fn wait_can_start_game(&mut self) -> impl Future<Output = ()> + use<> {
         let recv = match self.can_start_game {
             AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
@@ -218,7 +218,7 @@ impl GameState {
     fn init_game(
         &mut self,
         info: GameSetupInfo,
-    ) -> impl Future<Output = Result<(), GameInitError>> {
+    ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
         let game_type = match info.game_type() {
             Some(s) => s,
             None => {
@@ -443,7 +443,7 @@ impl GameState {
     }
 
     /// Future finishes after results have been sent to server
-    fn run_game(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+    fn run_game(&mut self) -> impl Future<Output = Result<(), GameInitError>> + use<> {
         let init_state = match self.init_state {
             InitState::Started(ref mut s) => s,
             _ => return future::err(GameInitError::GameInitNotInProgress).boxed(),
@@ -890,7 +890,7 @@ impl InitInProgress {
     // Waits until players have joined.
     // self.players_changed gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
-    fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+    fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> + use<> {
         let f = match self.all_players_joined {
             AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
@@ -910,7 +910,7 @@ impl InitInProgress {
     }
 
     /// Waits until all players have notified the host that they are ready.
-    fn wait_all_players_ready(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+    fn wait_all_players_ready(&mut self) -> impl Future<Output = Result<(), GameInitError>> + use<> {
         let f = match self.all_players_ready {
             AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
@@ -933,14 +933,14 @@ impl InitInProgress {
 
     fn wait_for_results(
         &mut self,
-    ) -> impl Future<Output = Result<Arc<GameResults>, GameInitError>> {
+    ) -> impl Future<Output = Result<Arc<GameResults>, GameInitError>> + use<> {
         let (send_done, recv_done) = oneshot::channel();
         self.waiting_for_result.push(send_done);
         recv_done.map_err(|_| GameInitError::Closed)
     }
 
     // Return Ok(true) on done, Ok(false) on keep waiting
-    unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
+    unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> { unsafe {
         let storm_names = storm_player_names(get_bw());
         self.update_bw_slots(&storm_names)?;
         if self.has_all_players() {
@@ -949,12 +949,12 @@ impl InitInProgress {
         } else {
             Ok(false)
         }
-    }
+    }}
 
     unsafe fn update_bw_slots(
         &mut self,
         storm_names: &[Option<String>],
-    ) -> Result<(), GameInitError> {
+    ) -> Result<(), GameInitError> { unsafe {
         let players = get_bw().players();
         // Remove any players that may have left.
         // Should be rare but something may end up making joining player not see themselves
@@ -977,7 +977,7 @@ impl InitInProgress {
         for (storm_id, name) in storm_names.iter().enumerate() {
             let storm_id = StormPlayerId(storm_id as u8);
             let name = match name {
-                Some(ref s) => &**s,
+                Some(s) => &**s,
                 None => continue,
             };
             let joined_pos = self.joined_players.iter().position(|x| x.name == name);
@@ -1019,7 +1019,7 @@ impl InitInProgress {
             }
         }
         Ok(())
-    }
+    }}
 
     fn has_all_players(&self) -> bool {
         let waiting_for = self
@@ -1092,17 +1092,17 @@ impl InitInProgress {
     }
 }
 
-unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
+unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> { unsafe {
     let map_path = Path::new(&info.map_path);
     get_bw()
         .create_lobby(map_path, &info.map, &info.name, info.into())
         .map_err(GameInitError::Bw)
-}
+}}
 
 unsafe fn join_lobby(
     info: &GameSetupInfo,
     game_type: GameType,
-) -> impl Future<Output = Result<(), GameInitError>> {
+) -> impl Future<Output = Result<(), GameInitError>> + use<> { unsafe {
     let map_data = match info.map.map_data {
         Some(ref s) => s,
         None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
@@ -1178,14 +1178,14 @@ unsafe fn join_lobby(
         Ok(())
     }
     .boxed()
-}
+}}
 
 async unsafe fn try_join_lobby_once(
     mut game_info: bw::BwGameData,
     is_eud: bool,
     options: LobbyOptions,
     map_path: &Arc<CString>,
-) -> Result<(), u32> {
+) -> Result<(), u32> { unsafe {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
     // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
     // that won't work out well (although did it work out "well" in the normal network interface? Not
@@ -1205,9 +1205,9 @@ async unsafe fn try_join_lobby_once(
         // Thread died??
         Err(_) => Err(!0u32),
     }
-}
+}}
 
-unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) {
+unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) { unsafe {
     let bw = get_bw();
     let is_ums = game_type.is_ums();
     let players = bw.players();
@@ -1323,9 +1323,9 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
             }
         }
     }
-}
+}}
 
-unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
+unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> { unsafe {
     let storm_players = bw.storm_players();
     storm_players
         .iter()
@@ -1342,9 +1342,9 @@ unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
             }
         })
         .collect::<Vec<_>>()
-}
+}}
 
-async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
+async unsafe fn do_lobby_game_init(info: &GameSetupInfo) { unsafe {
     let bw = get_bw();
     bw.do_lobby_game_init(info.seed);
     loop {
@@ -1355,7 +1355,7 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
         }
         tokio::time::sleep(Duration::from_millis(42)).await;
     }
-}
+}}
 
 pub async fn create_future(
     ws_send: app_socket::SendMessages,
@@ -1402,7 +1402,7 @@ pub async fn create_future(
 fn send_game_request(
     sender: &std::sync::mpsc::Sender<GameThreadRequest>,
     request_type: GameThreadRequestType,
-) -> impl Future<Output = ()> {
+) -> impl Future<Output = ()> + use<> {
     // (Error means that game thread closed)
     let result = start_game_request(sender, request_type);
     async move {
@@ -1563,7 +1563,7 @@ fn determine_game_results(
         for (&comp_id, result) in game_thread_results
             .player_results
             .iter_mut()
-            .filter(|(&id, _)| !bw_to_sb.contains_key(&id))
+            .filter(|&(&id, _)| !bw_to_sb.contains_key(&id))
         {
             for &ally_id in comp_ids.iter() {
                 if ally_id != comp_id
@@ -1702,7 +1702,7 @@ fn determine_game_results(
                 .expect("should have had PlayerResult for victor");
             let alliances = victor_player_result.alliances;
             debug!("processing player {victor_bw_id:?}, alliances: {alliances:?}");
-            for (sb_id, ally_result) in results.iter_mut().filter(|(&sb, r)| {
+            for (sb_id, ally_result) in results.iter_mut().filter(|&(&sb, ref r)| {
                 let bw_id = *sb_to_bw
                     .get(&sb)
                     .expect("Should have had BW ID id for ally");

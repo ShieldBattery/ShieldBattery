@@ -56,7 +56,7 @@ macro_rules! thiscall_hooks {
 // instead, but this was copy-pasted from older code that did it this way so this'll do for now.
 
 macro_rules! hook_winapi_exports {
-    ($active:expr, $expected_name:expr, $($name:expr, $hook:ident, $func:ident;)*) => {{
+    ($active:expr_2021, $expected_name:expr_2021, $($name:expr_2021, $hook:ident, $func:ident;)*) => {{
         let lib = crate::windows::load_library($expected_name).unwrap();
         let mut default_patcher = $active.patch_library($expected_name, 0);
         const fn zero(_name: &'static str) -> usize {
@@ -105,7 +105,7 @@ pub unsafe fn unprotect_memory_for_hook(
     whack::ModulePatcher,
     usize,
     Option<windows::MemoryProtectionGuard>,
-) {
+) { unsafe {
     // Windows has always 4k pages
     let start = proc_address & !0xfff;
     let end = ((proc_address + 0x10) | 0xfff) + 1;
@@ -120,7 +120,7 @@ pub unsafe fn unprotect_memory_for_hook(
     let guard = windows::unprotect_memory(start, len).ok();
     let patcher = active_patcher.patch_memory(start, start, !0);
     (patcher, proc_address - start as usize, guard)
-}
+}}
 
 /// Determines address for hooking the function.
 ///
@@ -128,7 +128,7 @@ pub unsafe fn unprotect_memory_for_hook(
 /// address returned by GetProcAddress, in order to avoid placing a second hook
 /// at a address which was already hooked by some system DLL (Nvidia driver).
 /// This should end up being more stable than otherwise.
-pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<usize, io::Error> {
+pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<usize, io::Error> { unsafe {
     let mut address = lib.proc_address(proc)? as *const u8;
     loop {
         match *address {
@@ -145,4 +145,4 @@ pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<us
             _ => return Ok(address as usize),
         }
     }
-}
+}}
