@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
-use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
+use hashbrown::hash_map::Entry;
 use parking_lot::Mutex;
 use prost::Message;
 use quick_error::quick_error;
@@ -17,7 +17,7 @@ use crate::app_messages;
 use crate::app_messages::{LobbyPlayerId, Route as RouteInput};
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::netcode::ack_manager::{self, AckManager};
-use crate::netcode::storm::{get_resend_info, get_storm_id, ResendType};
+use crate::netcode::storm::{ResendType, get_resend_info, get_storm_id};
 use crate::proto::messages::game_message_payload::Payload;
 use crate::proto::messages::{GameMessage, StormWrapper};
 use crate::rally_point::{PlayerId, RallyPoint, RallyPointError, RouteId};
@@ -358,13 +358,14 @@ impl State {
                 }
                 self.check_network_ready();
             }
-            NetworkManagerMessage::WaitNetworkReady(done) => {
-                match self.network.ready_or_error() { Some(result) => {
+            NetworkManagerMessage::WaitNetworkReady(done) => match self.network.ready_or_error() {
+                Some(result) => {
                     let _ = done.send(result);
-                } _ => {
+                }
+                _ => {
                     self.waiting_for_network.push(done);
-                }}
-            }
+                }
+            },
             NetworkManagerMessage::Snp(message) => match message {
                 SnpMessage::CreateNetworkHandler(send) => {
                     if let NetworkState::Incomplete(ref mut incomplete) = self.network {
@@ -471,79 +472,84 @@ impl State {
             NetworkManagerMessage::ReceivePacket(ip, mut packet, snp_send) => {
                 if let NetworkState::Ready(ref network) = self.network {
                     if let Some(route_state) = network.ip_to_routes.get(&ip) {
-                        match GameMessage::decode(&mut packet) { Ok(game_message) => {
-                            // CLion is bad at figuring out this type :(
-                            let game_message = game_message as GameMessage;
+                        match GameMessage::decode(&mut packet) {
+                            Ok(game_message) => {
+                                // CLion is bad at figuring out this type :(
+                                let game_message = game_message as GameMessage;
 
-                            {
-                                let mut ack_manager = route_state.ack_manager.lock();
-                                ack_manager.handle_incoming(&game_message);
-                            }
+                                {
+                                    let mut ack_manager = route_state.ack_manager.lock();
+                                    ack_manager.handle_incoming(&game_message);
+                                }
 
-                            let mut need_id = if let Some(storm_id) = self.ip_to_storm_id.get(&ip) {
-                                self.last_seen_packet_time.insert(*storm_id, Instant::now());
-                                false
-                            } else {
-                                true
-                            };
+                                let mut need_id = if let Some(storm_id) =
+                                    self.ip_to_storm_id.get(&ip)
+                                {
+                                    self.last_seen_packet_time.insert(*storm_id, Instant::now());
+                                    false
+                                } else {
+                                    true
+                                };
 
-                            for payload in game_message.payloads.into_iter() {
-                                match payload.payload {
-                                    Some(Payload::Storm(s)) => {
-                                        if need_id {
-                                            if let Some(from_id) =
-                                                get_storm_id(s.storm_data.as_ref())
-                                            {
-                                                if from_id != 255
-                                                    && get_resend_info(s.storm_data.as_ref())
-                                                        .is_none()
+                                for payload in game_message.payloads.into_iter() {
+                                    match payload.payload {
+                                        Some(Payload::Storm(s)) => {
+                                            if need_id {
+                                                if let Some(from_id) =
+                                                    get_storm_id(s.storm_data.as_ref())
                                                 {
-                                                    self.ip_to_storm_id
-                                                        .entry(ip)
-                                                        .or_insert(from_id);
-                                                    need_id = false;
-                                                    debug!(
-                                                        "{:?} found to have Storm ID: {}",
-                                                        ip, from_id
-                                                    );
+                                                    if from_id != 255
+                                                        && get_resend_info(s.storm_data.as_ref())
+                                                            .is_none()
+                                                    {
+                                                        self.ip_to_storm_id
+                                                            .entry(ip)
+                                                            .or_insert(from_id);
+                                                        need_id = false;
+                                                        debug!(
+                                                            "{:?} found to have Storm ID: {}",
+                                                            ip, from_id
+                                                        );
+                                                    }
                                                 }
                                             }
+
+                                            let message = snp::ReceivedMessage {
+                                                from: ip,
+                                                data: s.storm_data.clone(),
+                                            };
+                                            snp_send.send(message)
                                         }
+                                        Some(payload) => {
+                                            let message = NetworkToGameStateMessage::ReceivePayload(
+                                                route_state.route.lobby_player_id.clone(),
+                                                payload,
+                                            );
 
-                                        let message = snp::ReceivedMessage {
-                                            from: ip,
-                                            data: s.storm_data.clone(),
-                                        };
-                                        snp_send.send(message)
+                                            let game_state_send = self.game_state_send.clone();
+                                            let (cancel_token, canceler) = CancelToken::new();
+                                            self.cancel_child_tasks.push(canceler);
+
+                                            let cancelable = async move {
+                                                let task = pin!(async move {
+                                                    game_state_send
+                                                        .send(message)
+                                                        .map_err(|e| error!("Send error {}", e))
+                                                        .map(|_| ())
+                                                        .await
+                                                });
+                                                let _ = cancel_token.bind(task).await;
+                                            };
+                                            tokio::spawn(cancelable);
+                                        }
+                                        _ => {}
                                     }
-                                    Some(payload) => {
-                                        let message = NetworkToGameStateMessage::ReceivePayload(
-                                            route_state.route.lobby_player_id.clone(),
-                                            payload,
-                                        );
-
-                                        let game_state_send = self.game_state_send.clone();
-                                        let (cancel_token, canceler) = CancelToken::new();
-                                        self.cancel_child_tasks.push(canceler);
-
-                                        let cancelable = async move {
-                                            let task = pin!(async move {
-                                                game_state_send
-                                                    .send(message)
-                                                    .map_err(|e| error!("Send error {}", e))
-                                                    .map(|_| ())
-                                                    .await
-                                            });
-                                            let _ = cancel_token.bind(task).await;
-                                        };
-                                        tokio::spawn(cancelable);
-                                    }
-                                    _ => {}
                                 }
                             }
-                        } _ => {
-                            error!("Received a badly formed packet from {}", ip);
-                        }}
+                            _ => {
+                                error!("Received a badly formed packet from {}", ip);
+                            }
+                        }
                     } else {
                         error!("Received a packet without an associated route: {}", ip)
                     }

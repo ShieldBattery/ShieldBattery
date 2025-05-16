@@ -139,39 +139,45 @@ fn hash_u64_x86_64(mut accum: u64) -> u64 {
 }
 
 impl BwMove for scr::BwString {
-    unsafe fn move_construct(&mut self, dest: *mut Self) { unsafe {
-        ptr::copy_nonoverlapping(self, dest, 1);
-        if self.pointer == self.inline_buffer.as_mut_ptr() {
-            (*dest).pointer = (*dest).inline_buffer.as_mut_ptr();
+    unsafe fn move_construct(&mut self, dest: *mut Self) {
+        unsafe {
+            ptr::copy_nonoverlapping(self, dest, 1);
+            if self.pointer == self.inline_buffer.as_mut_ptr() {
+                (*dest).pointer = (*dest).inline_buffer.as_mut_ptr();
+            }
+            super::init_bw_string(self, b"");
         }
-        super::init_bw_string(self, b"");
-    }}
+    }
 }
 
 impl BwMove for scr::GameInfoValueOld {
-    unsafe fn move_construct(&mut self, dest: *mut Self) { unsafe {
-        ptr::copy_nonoverlapping(self, dest, 1);
-        if self.variant == 1 {
-            // String
-            let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
-            let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
-            (*self_string).move_construct(dest_string);
-            self.variant = 0;
+    unsafe fn move_construct(&mut self, dest: *mut Self) {
+        unsafe {
+            ptr::copy_nonoverlapping(self, dest, 1);
+            if self.variant == 1 {
+                // String
+                let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
+                let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
+                (*self_string).move_construct(dest_string);
+                self.variant = 0;
+            }
         }
-    }}
+    }
 }
 
 impl BwMove for scr::GameInfoValue {
-    unsafe fn move_construct(&mut self, dest: *mut Self) { unsafe {
-        ptr::copy_nonoverlapping(self, dest, 1);
-        if self.variant == 1 {
-            // String
-            let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
-            let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
-            (*self_string).move_construct(dest_string);
-            self.variant = 0;
+    unsafe fn move_construct(&mut self, dest: *mut Self) {
+        unsafe {
+            ptr::copy_nonoverlapping(self, dest, 1);
+            if self.variant == 1 {
+                // String
+                let self_string = ptr::addr_of_mut!(self.data.var1) as *mut scr::BwString;
+                let dest_string = ptr::addr_of_mut!((*dest).data.var1) as *mut scr::BwString;
+                (*self_string).move_construct(dest_string);
+                self.variant = 0;
+            }
         }
-    }}
+    }
 }
 
 impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
@@ -232,13 +238,13 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
         alloc::Layout::new::<scr::BwHashTableEntry<Key, Value>>()
     }
 
-    unsafe fn key_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Key { unsafe {
-        ptr::addr_of_mut!((*entry).pair.key)
-    }}
+    unsafe fn key_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Key {
+        unsafe { ptr::addr_of_mut!((*entry).pair.key) }
+    }
 
-    unsafe fn value_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Value { unsafe {
-        ptr::addr_of_mut!((*entry).pair.value)
-    }}
+    unsafe fn value_from_entry(&self, entry: *mut scr::BwHashTableEntry<Key, Value>) -> *mut Value {
+        unsafe { ptr::addr_of_mut!((*entry).pair.value) }
+    }
 }
 
 impl<Key: BwHash + BwMove, Value: BwMove> Drop for HashTable<Key, Value> {

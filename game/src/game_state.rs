@@ -3,7 +3,7 @@ use std::io;
 use std::mem;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
-use std::pin::{pin, Pin};
+use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,13 +16,13 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LobbyPlayerId, LocalUser,
-    MapForce, NetworkStallInfo, PlayerInfo, Route, Settings, SetupProgress, UmsLobbyRace,
-    GAME_STATUS_ERROR,
+    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo,
+    LobbyPlayerId, LocalUser, MapForce, NetworkStallInfo, PlayerInfo, Route, Settings,
+    SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
-use crate::bw::{self, get_bw, Bw, GameType, LobbyOptions, UserLatency};
+use crate::bw::{self, Bw, GameType, LobbyOptions, UserLatency, get_bw};
 use crate::bw_scr::BwScr;
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
@@ -693,7 +693,7 @@ impl GameState {
                     game_thread::DebugInfoRequest::Network(out) => {
                         self.network.request_debug_info(out).boxed()
                     }
-                }
+                };
             }
         }
         future::ready(()).boxed()
@@ -910,7 +910,9 @@ impl InitInProgress {
     }
 
     /// Waits until all players have notified the host that they are ready.
-    fn wait_all_players_ready(&mut self) -> impl Future<Output = Result<(), GameInitError>> + use<> {
+    fn wait_all_players_ready(
+        &mut self,
+    ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
         let f = match self.all_players_ready {
             AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
@@ -940,86 +942,90 @@ impl InitInProgress {
     }
 
     // Return Ok(true) on done, Ok(false) on keep waiting
-    unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> { unsafe {
-        let storm_names = storm_player_names(get_bw());
-        self.update_bw_slots(&storm_names)?;
-        if self.has_all_players() {
-            debug!("All players have joined: {:?}", self.joined_players);
-            Ok(true)
-        } else {
-            Ok(false)
+    unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
+        unsafe {
+            let storm_names = storm_player_names(get_bw());
+            self.update_bw_slots(&storm_names)?;
+            if self.has_all_players() {
+                debug!("All players have joined: {:?}", self.joined_players);
+                Ok(true)
+            } else {
+                Ok(false)
+            }
         }
-    }}
+    }
 
     unsafe fn update_bw_slots(
         &mut self,
         storm_names: &[Option<String>],
-    ) -> Result<(), GameInitError> { unsafe {
-        let players = get_bw().players();
-        // Remove any players that may have left.
-        // Should be rare but something may end up making joining player not see themselves
-        // join, making them leave a bit later.
-        // This is still going to have issues if the last player to join ends up leaving,
-        // we probably should add some extra step (E.g. sending some network packet)
-        // to make sure the person is totally joined before we add them here at all.
-        self.joined_players.retain(|joined_player| {
-            let retain = storm_names
-                .iter()
-                .any(|name| name.as_deref() == Some(&*joined_player.name));
-            if !retain {
-                warn!("Player {} has left", joined_player.name);
-                if let Some(bw_slot) = joined_player.player_id {
-                    (*players.add(bw_slot.0 as usize)).storm_id = u32::MAX;
+    ) -> Result<(), GameInitError> {
+        unsafe {
+            let players = get_bw().players();
+            // Remove any players that may have left.
+            // Should be rare but something may end up making joining player not see themselves
+            // join, making them leave a bit later.
+            // This is still going to have issues if the last player to join ends up leaving,
+            // we probably should add some extra step (E.g. sending some network packet)
+            // to make sure the person is totally joined before we add them here at all.
+            self.joined_players.retain(|joined_player| {
+                let retain = storm_names
+                    .iter()
+                    .any(|name| name.as_deref() == Some(&*joined_player.name));
+                if !retain {
+                    warn!("Player {} has left", joined_player.name);
+                    if let Some(bw_slot) = joined_player.player_id {
+                        (*players.add(bw_slot.0 as usize)).storm_id = u32::MAX;
+                    }
                 }
-            }
-            retain
-        });
-        for (storm_id, name) in storm_names.iter().enumerate() {
-            let storm_id = StormPlayerId(storm_id as u8);
-            let name = match name {
-                Some(s) => &**s,
-                None => continue,
-            };
-            let joined_pos = self.joined_players.iter().position(|x| x.name == name);
-            if let Some(joined_pos) = joined_pos {
-                if self.joined_players[joined_pos].storm_id != storm_id {
-                    return Err(GameInitError::StormIdChanged(name.to_string()));
-                }
-            } else if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
-                let player_id;
-                let bw_slot = (0..16).find(|&i| {
-                    let player = players.add(i);
-                    let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
-                    bw_name.to_str() == Ok(name)
-                });
-                if let Some(bw_slot) = bw_slot {
-                    (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
-                    player_id = Some(BwPlayerId(bw_slot as u8));
+                retain
+            });
+            for (storm_id, name) in storm_names.iter().enumerate() {
+                let storm_id = StormPlayerId(storm_id as u8);
+                let name = match name {
+                    Some(s) => &**s,
+                    None => continue,
+                };
+                let joined_pos = self.joined_players.iter().position(|x| x.name == name);
+                if let Some(joined_pos) = joined_pos {
+                    if self.joined_players[joined_pos].storm_id != storm_id {
+                        return Err(GameInitError::StormIdChanged(name.to_string()));
+                    }
+                } else if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
+                    let player_id;
+                    let bw_slot = (0..16).find(|&i| {
+                        let player = players.add(i);
+                        let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
+                        bw_name.to_str() == Ok(name)
+                    });
+                    if let Some(bw_slot) = bw_slot {
+                        (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
+                        player_id = Some(BwPlayerId(bw_slot as u8));
+                    } else {
+                        return Err(GameInitError::UnexpectedPlayer(name.to_string()));
+                    }
+                    if self.joined_players.iter().any(|x| x.player_id == player_id) {
+                        return Err(GameInitError::UnexpectedPlayer(name.to_string()));
+                    }
+                    // I believe there isn't any reason why a slot associated with
+                    // human wouldn't have shieldbattery user ids, so just fail here
+                    // instead of keeping sb_user_id as Option<u32>.
+                    let sb_user_id = slot
+                        .user_id
+                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
+                    debug!("Player {} received storm id {}", name, storm_id.0);
+                    self.joined_players.push(JoinedPlayer {
+                        name: name.to_string(),
+                        storm_id,
+                        player_id,
+                        sb_user_id,
+                    });
                 } else {
                     return Err(GameInitError::UnexpectedPlayer(name.to_string()));
                 }
-                if self.joined_players.iter().any(|x| x.player_id == player_id) {
-                    return Err(GameInitError::UnexpectedPlayer(name.to_string()));
-                }
-                // I believe there isn't any reason why a slot associated with
-                // human wouldn't have shieldbattery user ids, so just fail here
-                // instead of keeping sb_user_id as Option<u32>.
-                let sb_user_id = slot
-                    .user_id
-                    .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
-                debug!("Player {} received storm id {}", name, storm_id.0);
-                self.joined_players.push(JoinedPlayer {
-                    name: name.to_string(),
-                    storm_id,
-                    player_id,
-                    sb_user_id,
-                });
-            } else {
-                return Err(GameInitError::UnexpectedPlayer(name.to_string()));
             }
+            Ok(())
         }
-        Ok(())
-    }}
+    }
 
     fn has_all_players(&self) -> bool {
         let waiting_for = self
@@ -1092,270 +1098,282 @@ impl InitInProgress {
     }
 }
 
-unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> { unsafe {
-    let map_path = Path::new(&info.map_path);
-    get_bw()
-        .create_lobby(map_path, &info.map, &info.name, info.into())
-        .map_err(GameInitError::Bw)
-}}
+unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
+    unsafe {
+        let map_path = Path::new(&info.map_path);
+        get_bw()
+            .create_lobby(map_path, &info.map, &info.name, info.into())
+            .map_err(GameInitError::Bw)
+    }
+}
 
 unsafe fn join_lobby(
     info: &GameSetupInfo,
     game_type: GameType,
-) -> impl Future<Output = Result<(), GameInitError>> + use<> { unsafe {
-    let map_data = match info.map.map_data {
-        Some(ref s) => s,
-        None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
-    };
-    let map_name = match info.map.name {
-        Some(ref s) => s,
-        None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
-    };
-    let max_player_count = info.slots.len() as u8;
-    let active_player_count = info
-        .slots
-        .iter()
-        .filter(|x| x.is_human() || x.is_observer())
-        .count() as u8;
-    let is_eud = map_data.is_eud;
-
-    // This info isn't used ingame (with exception of game_type?),
-    // but it is written in the header of replays/saves.
-    let game_info = {
-        let mut game_info = bw::BwGameData {
-            index: 1,
-            map_width: map_data.width,
-            map_height: map_data.height,
-            active_player_count,
-            max_player_count,
-            game_speed: 6, // Fastest
-            game_type: game_type.primary as u16,
-            game_subtype: game_type.subtype as u16,
-            tileset: map_data.tileset,
-            is_replay: 0,
-            ..mem::zeroed()
+) -> impl Future<Output = Result<(), GameInitError>> + use<> {
+    unsafe {
+        let map_data = match info.map.map_data {
+            Some(ref s) => s,
+            None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
         };
-        for (out, val) in game_info.game_creator.iter_mut().zip(b"fakename".iter()) {
-            *out = *val;
-        }
-        for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
-            *out = *val;
-        }
-        for (out, val) in game_info
-            .map_name
-            .iter_mut()
-            .zip(map_name.as_bytes().iter())
-        {
-            *out = *val;
-        }
-        game_info
-    };
-    let map_path = match CString::new(info.map_path.as_bytes()) {
-        Ok(o) => Arc::new(o),
-        Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
-    };
-    let options: LobbyOptions = info.into();
-    async move {
-        let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
-        loop {
-            repeat_interval.tick().await;
-            match try_join_lobby_once(game_info, is_eud, options, &map_path).await {
-                Ok(()) => break,
-                Err(e) => debug!("Storm join error: {:08x}", e),
+        let map_name = match info.map.name {
+            Some(ref s) => s,
+            None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
+        };
+        let max_player_count = info.slots.len() as u8;
+        let active_player_count = info
+            .slots
+            .iter()
+            .filter(|x| x.is_human() || x.is_observer())
+            .count() as u8;
+        let is_eud = map_data.is_eud;
+
+        // This info isn't used ingame (with exception of game_type?),
+        // but it is written in the header of replays/saves.
+        let game_info = {
+            let mut game_info = bw::BwGameData {
+                index: 1,
+                map_width: map_data.width,
+                map_height: map_data.height,
+                active_player_count,
+                max_player_count,
+                game_speed: 6, // Fastest
+                game_type: game_type.primary as u16,
+                game_subtype: game_type.subtype as u16,
+                tileset: map_data.tileset,
+                is_replay: 0,
+                ..mem::zeroed()
+            };
+            for (out, val) in game_info.game_creator.iter_mut().zip(b"fakename".iter()) {
+                *out = *val;
             }
-        }
-        let bw = get_bw();
-        bw.init_game_network();
-        bw.maybe_receive_turns();
-        let storm_flags = bw.storm_player_flags();
-        for (i, &flags) in storm_flags.iter().enumerate() {
-            if flags != 0 {
-                bw.init_network_player_info(i as u32);
+            for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
+                *out = *val;
             }
+            for (out, val) in game_info
+                .map_name
+                .iter_mut()
+                .zip(map_name.as_bytes().iter())
+            {
+                *out = *val;
+            }
+            game_info
+        };
+        let map_path = match CString::new(info.map_path.as_bytes()) {
+            Ok(o) => Arc::new(o),
+            Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
+        };
+        let options: LobbyOptions = info.into();
+        async move {
+            let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
+            loop {
+                repeat_interval.tick().await;
+                match try_join_lobby_once(game_info, is_eud, options, &map_path).await {
+                    Ok(()) => break,
+                    Err(e) => debug!("Storm join error: {:08x}", e),
+                }
+            }
+            let bw = get_bw();
+            bw.init_game_network();
+            bw.maybe_receive_turns();
+            let storm_flags = bw.storm_player_flags();
+            for (i, &flags) in storm_flags.iter().enumerate() {
+                if flags != 0 {
+                    bw.init_network_player_info(i as u32);
+                }
+            }
+            let player_names = storm_player_names(bw);
+            debug!("Storm player names at join: {:?}", player_names);
+            Ok(())
         }
-        let player_names = storm_player_names(bw);
-        debug!("Storm player names at join: {:?}", player_names);
-        Ok(())
+        .boxed()
     }
-    .boxed()
-}}
+}
 
 async unsafe fn try_join_lobby_once(
     mut game_info: bw::BwGameData,
     is_eud: bool,
     options: LobbyOptions,
     map_path: &Arc<CString>,
-) -> Result<(), u32> { unsafe {
-    // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
-    // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
-    // that won't work out well (although did it work out "well" in the normal network interface? Not
-    // really. But I digress). Therefore, we queue this onto a background thread, which will let our
-    // network code actually do its job.
-    let (send, recv) = oneshot::channel();
-    let map_path = map_path.clone();
-    std::thread::spawn(move || {
-        let address = Ipv4Addr::new(10, 27, 27, 0);
+) -> Result<(), u32> {
+    unsafe {
+        // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
+        // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
+        // that won't work out well (although did it work out "well" in the normal network interface? Not
+        // really. But I digress). Therefore, we queue this onto a background thread, which will let our
+        // network code actually do its job.
+        let (send, recv) = oneshot::channel();
+        let map_path = map_path.clone();
+        std::thread::spawn(move || {
+            let address = Ipv4Addr::new(10, 27, 27, 0);
+            let bw = get_bw();
+            let result = bw.join_lobby(&mut game_info, is_eud, options, &map_path, address);
+            let _ = send.send(result);
+        });
+
+        match recv.await {
+            Ok(storm_result) => storm_result,
+            // Thread died??
+            Err(_) => Err(!0u32),
+        }
+    }
+}
+
+unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) {
+    unsafe {
         let bw = get_bw();
-        let result = bw.join_lobby(&mut game_info, is_eud, options, &map_path, address);
-        let _ = send.send(result);
-    });
+        let is_ums = game_type.is_ums();
+        let players = bw.players();
+        for i in 0..12 {
+            *players.add(i) = bw::Player {
+                id: i as u32,
+                storm_id: u32::MAX,
+                player_type: match slots.len() < i {
+                    true => bw::PLAYER_TYPE_OPEN,
+                    false => bw::PLAYER_TYPE_NONE,
+                },
+                race: bw::RACE_RANDOM,
+                team: 0,
+                name: [0; 25],
+            };
+        }
 
-    match recv.await {
-        Ok(storm_result) => storm_result,
-        // Thread died??
-        Err(_) => Err(!0u32),
-    }
-}}
+        for i in 12..16 {
+            *players.add(i) = bw::Player {
+                id: 128 + (i - 12) as u32,
+                storm_id: u32::MAX,
+                player_type: bw::PLAYER_TYPE_OBSERVER_NONE,
+                race: bw::RACE_RANDOM,
+                team: 0,
+                name: [0; 25],
+            };
+        }
 
-unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) { unsafe {
-    let bw = get_bw();
-    let is_ums = game_type.is_ums();
-    let players = bw.players();
-    for i in 0..12 {
-        *players.add(i) = bw::Player {
-            id: i as u32,
-            storm_id: u32::MAX,
-            player_type: match slots.len() < i {
-                true => bw::PLAYER_TYPE_OPEN,
-                false => bw::PLAYER_TYPE_NONE,
-            },
-            race: bw::RACE_RANDOM,
-            team: 0,
-            name: [0; 25],
-        };
-    }
+        let mut num_observers = 0;
+        for (i, slot) in slots.iter().enumerate() {
+            let slot_id = if is_ums {
+                slot.player_id.unwrap_or(0) as usize
+            } else if slot.is_observer() {
+                num_observers += 1;
+                if num_observers > 4 {
+                    panic!("Slots had more than 4 observers!");
+                }
 
-    for i in 12..16 {
-        *players.add(i) = bw::Player {
-            id: 128 + (i - 12) as u32,
-            storm_id: u32::MAX,
-            player_type: bw::PLAYER_TYPE_OBSERVER_NONE,
-            race: bw::RACE_RANDOM,
-            team: 0,
-            name: [0; 25],
-        };
-    }
-
-    let mut num_observers = 0;
-    for (i, slot) in slots.iter().enumerate() {
-        let slot_id = if is_ums {
-            slot.player_id.unwrap_or(0) as usize
-        } else if slot.is_observer() {
-            num_observers += 1;
-            if num_observers > 4 {
-                panic!("Slots had more than 4 observers!");
-            }
-
-            11 + num_observers
-        } else {
-            i
-        };
-
-        // This player_type_id check is completely ridiculous and doesn't make sense, but that gives
-        // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
-        // doesn't allow setting them anyways D:
-        let team = if !is_ums || (slot.player_type_id != 1 && slot.player_type_id != 2) {
-            slot.team_id
-        } else {
-            0
-        };
-        *players.add(slot_id) = bw::Player {
-            id: if slot.is_observer() {
-                128 + (slot_id - 12) as u32
+                11 + num_observers
             } else {
-                slot_id as u32
-            },
-            storm_id: match slot.is_human() || slot.is_observer() {
-                true => 27,
-                false => u32::MAX,
-            },
-            race: slot.bw_race(),
-            player_type: if is_ums && !slot.is_human() {
-                // The type of UMS computers is set in the map file, and we have no reason to
-                // worry about the various possibilities there are, so just pass the integer onwards.
-                slot.player_type_id
+                i
+            };
+
+            // This player_type_id check is completely ridiculous and doesn't make sense, but that gives
+            // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
+            // doesn't allow setting them anyways D:
+            let team = if !is_ums || (slot.player_type_id != 1 && slot.player_type_id != 2) {
+                slot.team_id
             } else {
-                slot.bw_player_type()
-            },
-            team,
-            name: [0; 25],
-        };
-        bw.set_player_name(slot_id as u8, &slot.name);
-    }
-    if game_type.is_ums() {
-        // BW would normally set UMS user selectable slots in replay header around the
-        // same part where it initializes lobby player data. As this function is pretty
-        // much replacement for that code, we'll have to set this replay header value here.
-        let replay_header = bw.replay_header();
-        for player in ums_forces.iter().flat_map(|x| x.players.iter()) {
-            if let Some(value) = (*replay_header)
-                .ums_user_select_slots
-                .get_mut(player.id as usize)
-            {
-                *value = if player.race == UmsLobbyRace::Any {
-                    1
+                0
+            };
+            *players.add(slot_id) = bw::Player {
+                id: if slot.is_observer() {
+                    128 + (slot_id - 12) as u32
                 } else {
-                    0
-                };
+                    slot_id as u32
+                },
+                storm_id: match slot.is_human() || slot.is_observer() {
+                    true => 27,
+                    false => u32::MAX,
+                },
+                race: slot.bw_race(),
+                player_type: if is_ums && !slot.is_human() {
+                    // The type of UMS computers is set in the map file, and we have no reason to
+                    // worry about the various possibilities there are, so just pass the integer onwards.
+                    slot.player_type_id
+                } else {
+                    slot.bw_player_type()
+                },
+                team,
+                name: [0; 25],
+            };
+            bw.set_player_name(slot_id as u8, &slot.name);
+        }
+        if game_type.is_ums() {
+            // BW would normally set UMS user selectable slots in replay header around the
+            // same part where it initializes lobby player data. As this function is pretty
+            // much replacement for that code, we'll have to set this replay header value here.
+            let replay_header = bw.replay_header();
+            for player in ums_forces.iter().flat_map(|x| x.players.iter()) {
+                if let Some(value) = (*replay_header)
+                    .ums_user_select_slots
+                    .get_mut(player.id as usize)
+                {
+                    *value = if player.race == UmsLobbyRace::Any {
+                        1
+                    } else {
+                        0
+                    };
+                }
+            }
+        }
+        // Verify that computer team races in team melee are either all random or no random.
+        // Otherwise the race randomization function will generate invalid races.
+        // This is also supposed to be prevented server-side, but verifying it also here is
+        // very preferable to debugging a game that broke due to invalid races.
+        if game_type.is_team_game() {
+            let players = std::slice::from_raw_parts(players, 8);
+            for i in 0..4 {
+                let team = i + 1;
+                if players.iter().any(|x| {
+                    x.team == team
+                        && x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER
+                        && x.race == bw::RACE_RANDOM
+                }) && players
+                    .iter()
+                    .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
+                {
+                    panic!(
+                        "Computer team {} has both random and non-random slots, which is not allowed",
+                        i
+                    );
+                }
             }
         }
     }
-    // Verify that computer team races in team melee are either all random or no random.
-    // Otherwise the race randomization function will generate invalid races.
-    // This is also supposed to be prevented server-side, but verifying it also here is
-    // very preferable to debugging a game that broke due to invalid races.
-    if game_type.is_team_game() {
-        let players = std::slice::from_raw_parts(players, 8);
-        for i in 0..4 {
-            let team = i + 1;
-            if players.iter().any(|x| {
-                x.team == team
-                    && x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER
-                    && x.race == bw::RACE_RANDOM
-            }) && players
-                .iter()
-                .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
-            {
-                panic!(
-                    "Computer team {} has both random and non-random slots, which is not allowed",
-                    i
-                );
-            }
-        }
-    }
-}}
+}
 
-unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> { unsafe {
-    let storm_players = bw.storm_players();
-    storm_players
-        .iter()
-        .map(|player| {
-            let name_len = player
-                .name
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(player.name.len());
-            if name_len != 0 {
-                Some(String::from_utf8_lossy(&player.name[..name_len]).into())
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>()
-}}
-
-async unsafe fn do_lobby_game_init(info: &GameSetupInfo) { unsafe {
-    let bw = get_bw();
-    bw.do_lobby_game_init(info.seed);
-    loop {
-        bw.maybe_receive_turns();
-        let done = bw.try_finish_lobby_game_init();
-        if done {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(42)).await;
+unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
+    unsafe {
+        let storm_players = bw.storm_players();
+        storm_players
+            .iter()
+            .map(|player| {
+                let name_len = player
+                    .name
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(player.name.len());
+                if name_len != 0 {
+                    Some(String::from_utf8_lossy(&player.name[..name_len]).into())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
     }
-}}
+}
+
+async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
+    unsafe {
+        let bw = get_bw();
+        bw.do_lobby_game_init(info.seed);
+        loop {
+            bw.maybe_receive_turns();
+            let done = bw.try_finish_lobby_game_init();
+            if done {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(42)).await;
+        }
+    }
+}
 
 pub async fn create_future(
     ws_send: app_socket::SendMessages,

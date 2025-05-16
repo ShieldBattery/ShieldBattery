@@ -3,8 +3,8 @@ use std::ffi::CStr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub use bw_dat::structs::*;
 use bw_dat::UnitId;
+pub use bw_dat::structs::*;
 use libc::{c_void, sockaddr};
 use once_cell::sync::OnceCell;
 use players::StormPlayerId;
@@ -546,15 +546,17 @@ impl Iterator for FowSpriteIterator {
     }
 }
 
-pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> { unsafe {
-    let name_length = (*player)
-        .name
-        .iter()
-        .position(|&x| x == 0)
-        .unwrap_or((*player).name.len());
-    let name = &(*player).name[..name_length];
-    String::from_utf8_lossy(name)
-}}
+pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
+    unsafe {
+        let name_length = (*player)
+            .name
+            .iter()
+            .position(|&x| x == 0)
+            .unwrap_or((*player).name.len());
+        let name = &(*player).name[..name_length];
+        String::from_utf8_lossy(name)
+    }
+}
 
 pub unsafe fn player_color(
     game: bw_dat::Game,
@@ -562,26 +564,28 @@ pub unsafe fn player_color(
     use_rgb_colors: u8,
     rgb_colors: *mut [[f32; 4]; 8],
     player_id: u8,
-) -> [u8; 3] { unsafe {
-    let color = if use_rgb_colors == 0 {
-        (**game)
-            .player_minimap_color
-            .get(player_id as usize)
-            .map(|&s| {
-                let color = main_palette.add(4 * s as usize);
-                [*color, *color.add(1), *color.add(2)]
+) -> [u8; 3] {
+    unsafe {
+        let color = if use_rgb_colors == 0 {
+            (**game)
+                .player_minimap_color
+                .get(player_id as usize)
+                .map(|&s| {
+                    let color = main_palette.add(4 * s as usize);
+                    [*color, *color.add(1), *color.add(2)]
+                })
+        } else {
+            (*rgb_colors).get(player_id as usize).map(|x| {
+                [
+                    (x[0] * 255.0) as u8,
+                    (x[1] * 255.0) as u8,
+                    (x[2] * 255.0) as u8,
+                ]
             })
-    } else {
-        (*rgb_colors).get(player_id as usize).map(|x| {
-            [
-                (x[0] * 255.0) as u8,
-                (x[1] * 255.0) as u8,
-                (x[2] * 255.0) as u8,
-            ]
-        })
-    };
-    color.unwrap_or([0xff, 0xff, 0xff])
-}}
+        };
+        color.unwrap_or([0xff, 0xff, 0xff])
+    }
+}
 
 pub fn iter_dialogs(
     first: Option<bw_dat::dialog::Dialog>,

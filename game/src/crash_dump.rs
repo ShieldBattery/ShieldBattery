@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 use libc::c_void;
 use scopeguard::defer;
 use winapi::um::errhandlingapi::SetUnhandledExceptionFilter;
-use winapi::um::fileapi::{CreateFileW, CREATE_ALWAYS};
+use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::processthreadsapi::{
     GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, TerminateProcess,
@@ -19,22 +19,24 @@ use crate::windows;
 
 /// Initializes our own crash handler and patches over
 /// SetUnhandledExceptionFilter so that nobody can override it.
-pub unsafe fn init_crash_handler() { unsafe {
-    use self::hooks::SetUnhandledExceptionFilterDecl;
+pub unsafe fn init_crash_handler() {
+    unsafe {
+        use self::hooks::SetUnhandledExceptionFilterDecl;
 
-    SetUnhandledExceptionFilter(Some(exception_handler));
-    let kernel32 = windows::load_library("kernel32").unwrap();
-    let address = kernel32
-        .proc_address("SetUnhandledExceptionFilter")
-        .unwrap();
-    let mut patcher = crate::PATCHER.lock();
-    let mut patcher = patcher.patch_library("kernel32", 0);
-    patcher.hook_closure_address(
-        SetUnhandledExceptionFilterDecl,
-        |_new, _orig| null_mut(),
-        address as usize - kernel32.handle() as usize,
-    );
-}}
+        SetUnhandledExceptionFilter(Some(exception_handler));
+        let kernel32 = windows::load_library("kernel32").unwrap();
+        let address = kernel32
+            .proc_address("SetUnhandledExceptionFilter")
+            .unwrap();
+        let mut patcher = crate::PATCHER.lock();
+        let mut patcher = patcher.patch_library("kernel32", 0);
+        patcher.hook_closure_address(
+            SetUnhandledExceptionFilterDecl,
+            |_new, _orig| null_mut(),
+            address as usize - kernel32.handle() as usize,
+        );
+    }
+}
 
 mod hooks {
     system_hooks!(
@@ -42,13 +44,17 @@ mod hooks {
     );
 }
 
-unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 { unsafe {
-    crash_dump_and_exit(exception);
-}}
+unsafe extern "system" fn exception_handler(exception: *mut EXCEPTION_POINTERS) -> i32 {
+    unsafe {
+        crash_dump_and_exit(exception);
+    }
+}
 
-pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) -> ! { unsafe {
-    crash_dump_and_exit(exception);
-}}
+pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) -> ! {
+    unsafe {
+        crash_dump_and_exit(exception);
+    }
+}
 
 #[repr(C)]
 struct CppException {
@@ -61,46 +67,49 @@ struct CppExceptionVtable {
     message: Thiscall<unsafe extern "C" fn(*mut CppException) -> *const i8>,
 }
 
-unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! { unsafe {
-    assert!(!exception.is_null());
-    // TODO
-    #[cfg(target_arch = "x86")]
-    let place = (*(*exception).ContextRecord).Eip;
-    #[cfg(target_arch = "x86_64")]
-    let place = (*(*exception).ContextRecord).Rip;
-    let exception_record = (*exception).ExceptionRecord;
-    let exception_code = (*exception_record).ExceptionCode;
-    let mut message = format!("Crash @ {:08x}\nException {:08x}", place, exception_code);
-    if exception_code == 0xe06d7363 {
-        // Execute C++ exception message() function.
-        // If this crashes then it's unfortunate though..
-        let cpp_exception = (*exception_record).ExceptionInformation[1] as *mut CppException;
-        if !cpp_exception.is_null() {
-            let vtable = (*cpp_exception).vtable;
-            if !vtable.is_null() {
-                let cpp_message = (*vtable).message.call1(cpp_exception);
-                if !cpp_message.is_null() {
-                    let msg = CStr::from_ptr(cpp_message);
-                    message = format!(
-                        "{}\nC++ exception message: '{}'",
-                        message,
-                        msg.to_string_lossy(),
-                    );
+unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
+    unsafe {
+        assert!(!exception.is_null());
+        // TODO
+        #[cfg(target_arch = "x86")]
+        let place = (*(*exception).ContextRecord).Eip;
+        #[cfg(target_arch = "x86_64")]
+        let place = (*(*exception).ContextRecord).Rip;
+        let exception_record = (*exception).ExceptionRecord;
+        let exception_code = (*exception_record).ExceptionCode;
+        let mut message = format!("Crash @ {:08x}\nException {:08x}", place, exception_code);
+        if exception_code == 0xe06d7363 {
+            // Execute C++ exception message() function.
+            // If this crashes then it's unfortunate though..
+            let cpp_exception = (*exception_record).ExceptionInformation[1] as *mut CppException;
+            if !cpp_exception.is_null() {
+                let vtable = (*cpp_exception).vtable;
+                if !vtable.is_null() {
+                    let cpp_message = (*vtable).message.call1(cpp_exception);
+                    if !cpp_message.is_null() {
+                        let msg = CStr::from_ptr(cpp_message);
+                        message = format!(
+                            "{}\nC++ exception message: '{}'",
+                            message,
+                            msg.to_string_lossy(),
+                        );
+                    }
                 }
             }
         }
-    }
 
-    if let Err(e) = write_minidump_to_default_path(exception) {
-        message = format!("{}\nCouldn't write dump: {}", message, e);
-    }
+        if let Err(e) = write_minidump_to_default_path(exception) {
+            message = format!("{}\nCouldn't write dump: {}", message, e);
+        }
 
-    error!("{}", message);
-    windows::message_box("Shieldbattery crash :(", &message);
-    TerminateProcess(GetCurrentProcess(), exception_code);
-    #[allow(clippy::empty_loop)] // This just runs until the process terminates from the above call
-    loop {}
-}}
+        error!("{}", message);
+        windows::message_box("Shieldbattery crash :(", &message);
+        TerminateProcess(GetCurrentProcess(), exception_code);
+        #[allow(clippy::empty_loop)]
+        // This just runs until the process terminates from the above call
+        loop {}
+    }
+}
 
 /// The exception is allowed to be null, in which case it'll just write a minidump
 /// without an exception.
@@ -110,51 +119,55 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! { unsafe 
 /// dumped correctly.
 pub unsafe fn write_minidump_to_default_path(
     exception: *mut EXCEPTION_POINTERS,
-) -> Result<(), io::Error> { unsafe {
-    let args = crate::parse_args();
-    let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
-    write_minidump(&minidump_path, exception)
-}}
+) -> Result<(), io::Error> {
+    unsafe {
+        let args = crate::parse_args();
+        let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
+        write_minidump(&minidump_path, exception)
+    }
+}
 
 /// The exception is allowed to be null.
-unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Result<(), io::Error> { unsafe {
-    let file = CreateFileW(
-        windows::winapi_str(path).as_ptr(),
-        GENERIC_WRITE,
-        0,
-        null_mut(),
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        null_mut(),
-    );
-    if file == INVALID_HANDLE_VALUE {
-        return Err(io::Error::last_os_error());
-    }
-    defer!({
-        CloseHandle(file);
-    });
+unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Result<(), io::Error> {
+    unsafe {
+        let file = CreateFileW(
+            windows::winapi_str(path).as_ptr(),
+            GENERIC_WRITE,
+            0,
+            null_mut(),
+            CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            null_mut(),
+        );
+        if file == INVALID_HANDLE_VALUE {
+            return Err(io::Error::last_os_error());
+        }
+        defer!({
+            CloseHandle(file);
+        });
 
-    let mut exception_param = MinidumpExceptionInfo {
-        thread_id: GetCurrentThreadId(),
-        exception,
-        client_pointers: 0,
-    };
-    let minidump_write_dump = load_minidump_write_dump()?;
-    let ok = minidump_write_dump(
-        GetCurrentProcess(),
-        GetCurrentProcessId(),
-        file,
-        1, // MiniDumpWithDataSegs
-        &mut exception_param,
-        null_mut(),
-        null_mut(),
-    );
-    if ok == 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
+        let mut exception_param = MinidumpExceptionInfo {
+            thread_id: GetCurrentThreadId(),
+            exception,
+            client_pointers: 0,
+        };
+        let minidump_write_dump = load_minidump_write_dump()?;
+        let ok = minidump_write_dump(
+            GetCurrentProcess(),
+            GetCurrentProcessId(),
+            file,
+            1, // MiniDumpWithDataSegs
+            &mut exception_param,
+            null_mut(),
+            null_mut(),
+        );
+        if ok == 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
     }
-}}
+}
 
 #[repr(C, packed(4))]
 struct MinidumpExceptionInfo {
@@ -174,9 +187,11 @@ unsafe fn load_minidump_write_dump() -> Result<
         *mut c_void,
     ) -> u32,
     io::Error,
-> { unsafe {
-    let dbghelp = windows::load_library("dbghelp")?;
-    let func = dbghelp.proc_address("MiniDumpWriteDump")?;
-    mem::forget(dbghelp);
-    Ok(mem::transmute(func))
-}}
+> {
+    unsafe {
+        let dbghelp = windows::load_library("dbghelp")?;
+        let func = dbghelp.proc_address("MiniDumpWriteDump")?;
+        mem::forget(dbghelp);
+        Ok(mem::transmute(func))
+    }
+}

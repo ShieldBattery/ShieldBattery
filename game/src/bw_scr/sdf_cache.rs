@@ -19,7 +19,7 @@ use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use tokio::fs;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt, BufReader};
 
-use super::{hooks, scr, BwScr};
+use super::{BwScr, hooks, scr};
 
 // 2M
 const MAX_CACHE_SIZE_BYTES: usize = 2 * 1024 * 1024;
@@ -95,80 +95,84 @@ unsafe fn render_sdf(
         *mut u32,
         *mut u32,
     ) -> *mut u8,
-) -> *mut u8 { unsafe {
-    let mut cache = cache.lock();
-    let font_id = match font_id_from_ptr(fonts, font) {
-        Some(s) => s,
-        None => {
-            warn!("Unknown font {:p}", font);
-            return std::ptr::null_mut();
-        }
-    };
-    let result = cache.get(font_id, glyph);
-    match result {
-        SdfCacheResult::Cached(sdf) => {
-            *out_w = sdf.width as u32;
-            *out_h = sdf.height as u32;
-            *out_x = 0;
-            *out_y = 0;
-            let data = sdf.data;
-            let out = ttf_malloc(data.len());
-            let out_slice = std::slice::from_raw_parts_mut(out, data.len());
-            out_slice.copy_from_slice(data);
-            out
-        }
-        SdfCacheResult::Missing(entry) => {
-            let result = orig(
-                font,
-                a2,
-                glyph,
-                border,
-                edge_value,
-                stroke_width,
-                out_w,
-                out_h,
-                out_x,
-                out_y,
-            );
-            if result.is_null() {
-                return result;
+) -> *mut u8 {
+    unsafe {
+        let mut cache = cache.lock();
+        let font_id = match font_id_from_ptr(fonts, font) {
+            Some(s) => s,
+            None => {
+                warn!("Unknown font {:p}", font);
+                return std::ptr::null_mut();
             }
-            let size = Some((*out_w, *out_h))
-                .filter(|&(w, h)| w < 0x10000 && h < 0x10000)
-                .and_then(|(w, h)| w.checked_mul(h));
-            let size = match size {
-                Some(s) => s as usize,
-                None => {
-                    warn!("Invalid glyph size {} x {}", *out_w, *out_h);
+        };
+        let result = cache.get(font_id, glyph);
+        match result {
+            SdfCacheResult::Cached(sdf) => {
+                *out_w = sdf.width as u32;
+                *out_h = sdf.height as u32;
+                *out_x = 0;
+                *out_y = 0;
+                let data = sdf.data;
+                let out = ttf_malloc(data.len());
+                let out_slice = std::slice::from_raw_parts_mut(out, data.len());
+                out_slice.copy_from_slice(data);
+                out
+            }
+            SdfCacheResult::Missing(entry) => {
+                let result = orig(
+                    font,
+                    a2,
+                    glyph,
+                    border,
+                    edge_value,
+                    stroke_width,
+                    out_w,
+                    out_h,
+                    out_x,
+                    out_y,
+                );
+                if result.is_null() {
                     return result;
                 }
-            };
-            let slice = std::slice::from_raw_parts(result, size);
-            entry.insert(*out_w as u16, *out_h as u16, slice);
-            result
-        }
-    }
-}}
-
-unsafe fn font_id_from_ptr(fonts: *mut *mut scr::Font, ttf: *mut scr::TtfFont) -> Option<FontId> { unsafe {
-    for i in 0..4 {
-        let font = *fonts.add(i);
-        let ttf_set = (*font).ttf;
-        let first_ttf = (*ttf_set).fonts.as_mut_ptr();
-        let last_ttf = first_ttf.add(4);
-        if ttf >= first_ttf && ttf <= last_ttf {
-            for j in 0..5 {
-                if first_ttf.add(j) == ttf {
-                    let ttf_data = std::slice::from_raw_parts((*ttf).raw_ttf, 0x100);
-                    let hash = fxhash::hash64(ttf_data);
-                    let scale = (*ttf).scale.to_bits();
-                    return Some(FontId(hash, scale, j as u8));
-                }
+                let size = Some((*out_w, *out_h))
+                    .filter(|&(w, h)| w < 0x10000 && h < 0x10000)
+                    .and_then(|(w, h)| w.checked_mul(h));
+                let size = match size {
+                    Some(s) => s as usize,
+                    None => {
+                        warn!("Invalid glyph size {} x {}", *out_w, *out_h);
+                        return result;
+                    }
+                };
+                let slice = std::slice::from_raw_parts(result, size);
+                entry.insert(*out_w as u16, *out_h as u16, slice);
+                result
             }
         }
     }
-    None
-}}
+}
+
+unsafe fn font_id_from_ptr(fonts: *mut *mut scr::Font, ttf: *mut scr::TtfFont) -> Option<FontId> {
+    unsafe {
+        for i in 0..4 {
+            let font = *fonts.add(i);
+            let ttf_set = (*font).ttf;
+            let first_ttf = (*ttf_set).fonts.as_mut_ptr();
+            let last_ttf = first_ttf.add(4);
+            if ttf >= first_ttf && ttf <= last_ttf {
+                for j in 0..5 {
+                    if first_ttf.add(j) == ttf {
+                        let ttf_data = std::slice::from_raw_parts((*ttf).raw_ttf, 0x100);
+                        let hash = fxhash::hash64(ttf_data);
+                        let scale = (*ttf).scale.to_bits();
+                        return Some(FontId(hash, scale, j as u8));
+                    }
+                }
+            }
+        }
+        None
+    }
+}
 
 /// A struct to manage SDF cache being loaded in one thread while
 /// other threads may potentially have to wait for it.

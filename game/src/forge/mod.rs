@@ -1,8 +1,8 @@
 use std::cell::Cell;
 use std::mem;
 use std::ptr::null_mut;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -11,11 +11,11 @@ use winapi::shared::windef::{HMENU, HWND};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
-use crate::bw::{get_bw, Bw};
-use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
+use crate::bw::{Bw, get_bw};
+use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
-    use super::{c_void, ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW};
+    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
 
     system_hooks!(
         !0 => CreateWindowExW(
@@ -65,142 +65,148 @@ unsafe extern "system" fn wnd_proc_scr(
     msg: u32,
     wparam: usize,
     lparam: isize,
-) -> isize { unsafe {
-    if std::thread::panicking() {
-        // Avoid recursive locking due to panics
-        return DefWindowProcA(window, msg, wparam, lparam);
-    }
-
-    let ret = with_scr_hooks_disabled(|| {
-        match msg {
-            WM_GAME_STARTED => {
-                msg_game_started(window);
-                return Some(0);
-            }
-            WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
-            WM_WINDOWPOSCHANGED => {
-                let new_pos = lparam as *const WINDOWPOS;
-                debug!(
-                    "Window pos changed to {},{},{},{}, flags 0x{:x}",
-                    (*new_pos).x,
-                    (*new_pos).y,
-                    (*new_pos).cx,
-                    (*new_pos).cy,
-                    (*new_pos).flags,
-                );
-
-                // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
-                // for some reason still does this? Anyway we ignore those when saving this state
-                if (*new_pos).x != -32000 && (*new_pos).y != -32000 {
-                    with_forge(|forge| {
-                        // TODO(tec27): We should probably also ignore events if the game has
-                        // completed, as SC:R seems to send one during the quit process
-                        if forge.game_started {
-                            send_game_msg_to_async(GameThreadMessage::WindowMove(
-                                (*new_pos).x,
-                                (*new_pos).y,
-                                (*new_pos).cx,
-                                (*new_pos).cy,
-                            ));
-                        }
-                    });
-                }
-            }
-            _ => (),
+) -> isize {
+    unsafe {
+        if std::thread::panicking() {
+            // Avoid recursive locking due to panics
+            return DefWindowProcA(window, msg, wparam, lparam);
         }
-        None
-    });
-    if let Some(ret) = ret {
-        ret
-    } else if let Some(ret) = get_bw().window_proc_hook(window, msg, wparam, lparam) {
-        ret
-    } else {
-        let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
-        if let Some(orig_wnd_proc) = orig_wnd_proc {
-            orig_wnd_proc(window, msg, wparam, lparam)
+
+        let ret = with_scr_hooks_disabled(|| {
+            match msg {
+                WM_GAME_STARTED => {
+                    msg_game_started(window);
+                    return Some(0);
+                }
+                WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
+                WM_WINDOWPOSCHANGED => {
+                    let new_pos = lparam as *const WINDOWPOS;
+                    debug!(
+                        "Window pos changed to {},{},{},{}, flags 0x{:x}",
+                        (*new_pos).x,
+                        (*new_pos).y,
+                        (*new_pos).cx,
+                        (*new_pos).cy,
+                        (*new_pos).flags,
+                    );
+
+                    // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
+                    // for some reason still does this? Anyway we ignore those when saving this state
+                    if (*new_pos).x != -32000 && (*new_pos).y != -32000 {
+                        with_forge(|forge| {
+                            // TODO(tec27): We should probably also ignore events if the game has
+                            // completed, as SC:R seems to send one during the quit process
+                            if forge.game_started {
+                                send_game_msg_to_async(GameThreadMessage::WindowMove(
+                                    (*new_pos).x,
+                                    (*new_pos).y,
+                                    (*new_pos).cx,
+                                    (*new_pos).cy,
+                                ));
+                            }
+                        });
+                    }
+                }
+                _ => (),
+            }
+            None
+        });
+        if let Some(ret) = ret {
+            ret
+        } else if let Some(ret) = get_bw().window_proc_hook(window, msg, wparam, lparam) {
+            ret
         } else {
-            DefWindowProcA(window, msg, wparam, lparam)
+            let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
+            if let Some(orig_wnd_proc) = orig_wnd_proc {
+                orig_wnd_proc(window, msg, wparam, lparam)
+            } else {
+                DefWindowProcA(window, msg, wparam, lparam)
+            }
         }
     }
-}}
+}
 
-unsafe fn msg_game_started(window: HWND) { unsafe {
-    debug!("Forge: Game started");
-    let mut display_change_request = None;
-    with_forge(|forge| {
-        forge.game_started = true;
-        // This request must be handled while forge is not being accessed,
-        // as ChangeDisplaySettingsExW will call WndProc before it returns.
-        display_change_request = forge.display_change_request.take();
-    });
+unsafe fn msg_game_started(window: HWND) {
+    unsafe {
+        debug!("Forge: Game started");
+        let mut display_change_request = None;
+        with_forge(|forge| {
+            forge.game_started = true;
+            // This request must be handled while forge is not being accessed,
+            // as ChangeDisplaySettingsExW will call WndProc before it returns.
+            display_change_request = forge.display_change_request.take();
+        });
 
-    if let Some(ref mut params) = display_change_request {
-        debug!("Applying delayed display settings change");
-        let device_name = match params.device_name {
-            Some(ref x) => x.as_ptr(),
-            None => std::ptr::null(),
-        };
-        let result = ChangeDisplaySettingsExW(
-            device_name,
-            &mut params.devmode,
-            null_mut(),
-            params.flags,
-            null_mut(),
-        );
-        if result != DISP_CHANGE_SUCCESSFUL {
-            let os_string;
-            let device_name_string = match params.device_name {
-                Some(ref x) => {
-                    os_string = crate::windows::os_string_from_winapi(x);
-                    os_string.to_string_lossy()
-                }
-                None => "(Default device)".into(),
+        if let Some(ref mut params) = display_change_request {
+            debug!("Applying delayed display settings change");
+            let device_name = match params.device_name {
+                Some(ref x) => x.as_ptr(),
+                None => std::ptr::null(),
             };
-            error!(
-                "Changing display mode for {} failed. Result {:x}",
-                device_name_string, result,
+            let result = ChangeDisplaySettingsExW(
+                device_name,
+                &mut params.devmode,
+                null_mut(),
+                params.flags,
+                null_mut(),
+            );
+            if result != DISP_CHANGE_SUCCESSFUL {
+                let os_string;
+                let device_name_string = match params.device_name {
+                    Some(ref x) => {
+                        os_string = crate::windows::os_string_from_winapi(x);
+                        os_string.to_string_lossy()
+                    }
+                    None => "(Default device)".into(),
+                };
+                error!(
+                    "Changing display mode for {} failed. Result {:x}",
+                    device_name_string, result,
+                );
+            }
+        }
+
+        // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
+        // but will allow you to do so if you're handling a global hotkey. So... we register
+        // a global hotkey and then press it ourselves, then bring ourselves into the
+        // foreground while handling it.
+        RegisterHotKey(window, FOREGROUND_HOTKEY_ID, 0, VK_F22 as u32);
+        {
+            let mut key_input = INPUT {
+                type_: INPUT_KEYBOARD,
+                ..mem::zeroed()
+            };
+            key_input.u.ki_mut().wVk = VK_F22 as u16;
+            key_input.u.ki_mut().wScan = MapVirtualKeyA(VK_F22 as u32, 0) as u16;
+            SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
+            key_input.u.ki_mut().dwFlags |= KEYEVENTF_KEYUP;
+            SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
+            // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
+            SetTimer(
+                window,
+                FOREGROUND_HOTKEY_ID as usize,
+                FOREGROUND_HOTKEY_TIMEOUT,
+                None,
             );
         }
     }
+}
 
-    // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
-    // but will allow you to do so if you're handling a global hotkey. So... we register
-    // a global hotkey and then press it ourselves, then bring ourselves into the
-    // foreground while handling it.
-    RegisterHotKey(window, FOREGROUND_HOTKEY_ID, 0, VK_F22 as u32);
-    {
-        let mut key_input = INPUT {
-            type_: INPUT_KEYBOARD,
-            ..mem::zeroed()
-        };
-        key_input.u.ki_mut().wVk = VK_F22 as u16;
-        key_input.u.ki_mut().wScan = MapVirtualKeyA(VK_F22 as u32, 0) as u16;
-        SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
-        key_input.u.ki_mut().dwFlags |= KEYEVENTF_KEYUP;
-        SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
-        // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
-        SetTimer(
-            window,
-            FOREGROUND_HOTKEY_ID as usize,
-            FOREGROUND_HOTKEY_TIMEOUT,
-            None,
-        );
+unsafe fn msg_timer(window: HWND, timer_id: i32) {
+    unsafe {
+        if timer_id == FOREGROUND_HOTKEY_ID {
+            // remove hotkey and timer
+            UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
+            KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
+
+            // Show the window and bring it to the front
+            ShowWindow(window, SW_SHOWNORMAL);
+            SetForegroundWindow(window);
+
+            ShowCursor(1);
+        }
     }
-}}
-
-unsafe fn msg_timer(window: HWND, timer_id: i32) { unsafe {
-    if timer_id == FOREGROUND_HOTKEY_ID {
-        // remove hotkey and timer
-        UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
-        KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
-
-        // Show the window and bring it to the front
-        ShowWindow(window, SW_SHOWNORMAL);
-        SetForegroundWindow(window);
-
-        ShowCursor(1);
-    }
-}}
+}
 
 lazy_static! {
     static ref FORGE: Mutex<Option<Forge>> = Mutex::new(None);
@@ -557,31 +563,33 @@ fn register_hot_key(
     1
 }
 
-pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) { unsafe {
-    use self::scr_hooks::*;
-    // 1161 init can hook just starcraft/storm import table, unfortunately
-    // that method won't work with SCR, we'll just GetProcAddress the
-    // required functions and hook them instead.
-    // May cause some unintended hooks if some another third-party DLL that
-    // is part of this same process also calls these functions, but ideally
-    // we'd only have the hooks act on main window HWND.
-    //
-    // Also this will mean that when we call these functions, those calls also get hooked,
-    // so the hooks need to be able to handle that (The hooking library is unfortunately
-    // not much of a help here, we'll have to set global bools)
+pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
+    unsafe {
+        use self::scr_hooks::*;
+        // 1161 init can hook just starcraft/storm import table, unfortunately
+        // that method won't work with SCR, we'll just GetProcAddress the
+        // required functions and hook them instead.
+        // May cause some unintended hooks if some another third-party DLL that
+        // is part of this same process also calls these functions, but ideally
+        // we'd only have the hooks act on main window HWND.
+        //
+        // Also this will mean that when we call these functions, those calls also get hooked,
+        // so the hooks need to be able to handle that (The hooking library is unfortunately
+        // not much of a help here, we'll have to set global bools)
 
-    // TODO possibly port keyboard hooks as well.
-    hook_winapi_exports!(patcher, "user32",
-        "CreateWindowExW", CreateWindowExW, create_window_w;
-        "RegisterClassExW", RegisterClassExW, register_class_w;
-        "ShowWindow", ShowWindow, show_window;
-        "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
-        "SetWindowPos", SetWindowPos, set_window_pos;
-        "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
-        "SetWindowLongW", SetWindowLongW, set_window_long_w;
-        "RegisterHotKey", RegisterHotKey, register_hot_key;
-    );
-}}
+        // TODO possibly port keyboard hooks as well.
+        hook_winapi_exports!(patcher, "user32",
+            "CreateWindowExW", CreateWindowExW, create_window_w;
+            "RegisterClassExW", RegisterClassExW, register_class_w;
+            "ShowWindow", ShowWindow, show_window;
+            "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
+            "SetWindowPos", SetWindowPos, set_window_pos;
+            "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
+            "SetWindowLongW", SetWindowLongW, set_window_long_w;
+            "RegisterHotKey", RegisterHotKey, register_hot_key;
+        );
+    }
+}
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
     let window_x = settings
@@ -634,22 +642,24 @@ const WM_GAME_STARTED: u32 = WM_USER + 7;
 /// here.
 ///
 /// Returns once `end_wnd_proc` is called.
-pub unsafe fn run_wnd_proc() { unsafe {
-    // Note: Currently done even if forge itself is disabled and we use SCR's
-    // own window. Having run/end_wnd_proc go through the Bw trait
-    // and be separate for 1.16.1 and SCR would maybe be cleaner.
-    let mut msg: MSG = mem::zeroed();
-    while GetMessageA(&mut msg, null_mut(), 0, 0) != 0 {
-        if msg.message == WM_END_WND_PROC_WORKER {
-            return;
+pub unsafe fn run_wnd_proc() {
+    unsafe {
+        // Note: Currently done even if forge itself is disabled and we use SCR's
+        // own window. Having run/end_wnd_proc go through the Bw trait
+        // and be separate for 1.16.1 and SCR would maybe be cleaner.
+        let mut msg: MSG = mem::zeroed();
+        while GetMessageA(&mut msg, null_mut(), 0, 0) != 0 {
+            if msg.message == WM_END_WND_PROC_WORKER {
+                return;
+            }
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
         }
-        TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        // Going to close everything since the window got closed / error happened.
+        // TODO Ask async thread exit instead
+        std::process::exit(0);
     }
-    // Going to close everything since the window got closed / error happened.
-    // TODO Ask async thread exit instead
-    std::process::exit(0);
-}}
+}
 
 pub fn end_wnd_proc() {
     let handle = with_forge(|forge| match forge.window {

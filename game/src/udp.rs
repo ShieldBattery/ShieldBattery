@@ -14,17 +14,17 @@ use std::mem;
 use std::net::{SocketAddr, SocketAddrV6, UdpSocket};
 use std::os::windows::io::FromRawSocket;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{self, Poll};
 
 use bytes::Bytes;
 use futures::prelude::*;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use winapi::shared::ws2def::{AF_INET6, IPPROTO_IPV6, SOCK_DGRAM};
 use winapi::shared::ws2ipdef::{IPV6_V6ONLY, SOCKADDR_IN6_LH};
 use winapi::um::winsock2::{
-    bind, setsockopt, socket, WSAGetLastError, WSAStartup, INVALID_SOCKET, WSADATA,
+    INVALID_SOCKET, WSADATA, WSAGetLastError, WSAStartup, bind, setsockopt, socket,
 };
 
 pub struct UdpSend {

@@ -9,9 +9,9 @@ use bw_dat::{Race, Unit};
 use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
-    pos2, vec2, Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
+    Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
     PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, UiBuilder, Vec2, Widget,
-    WidgetText,
+    WidgetText, pos2, vec2,
 };
 use winapi::shared::windef::{HWND, POINT};
 
@@ -493,8 +493,8 @@ impl OverlayState {
         ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
         let msg = format!(
             "Windows mouse {}, {},\n    egui {}, {}",
-            self.last_mouse_pos.0 .0,
-            self.last_mouse_pos.0 .1,
+            self.last_mouse_pos.0.0,
+            self.last_mouse_pos.0.1,
             self.last_mouse_pos.1.x,
             self.last_mouse_pos.1.y,
         );
@@ -813,136 +813,138 @@ impl OverlayState {
         msg: u32,
         wparam: usize,
         lparam: isize,
-    ) -> Option<isize> { unsafe {
-        use winapi::um::winuser::*;
-        match msg {
-            WM_SIZE => {
-                let w = lparam as i16;
-                let h = (lparam >> 16) as i16;
-                if let (Ok(w), Ok(h)) = (w.try_into(), h.try_into()) {
-                    // If something causes the window size be 0, it's probably better
-                    // to ignore it that potentially divide by 0 later on..
-                    if w != 0 && h != 0 {
-                        self.window_size = (w, h);
+    ) -> Option<isize> {
+        unsafe {
+            use winapi::um::winuser::*;
+            match msg {
+                WM_SIZE => {
+                    let w = lparam as i16;
+                    let h = (lparam >> 16) as i16;
+                    if let (Ok(w), Ok(h)) = (w.try_into(), h.try_into()) {
+                        // If something causes the window size be 0, it's probably better
+                        // to ignore it that potentially divide by 0 later on..
+                        if w != 0 && h != 0 {
+                            self.window_size = (w, h);
+                        }
                     }
+                    None
                 }
-                None
-            }
-            WM_MOUSEMOVE => {
-                let x = lparam as i16;
-                let y = (lparam >> 16) as i16;
-                let pos = self.window_pos_to_egui(x as i32, y as i32);
-                self.last_mouse_pos = ((x, y), pos);
-                self.events.push(Event::PointerMoved(pos));
-                None
-            }
-            WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP => {
-                let (button, button_idx) = match msg {
-                    WM_LBUTTONUP | WM_LBUTTONDOWN => (PointerButton::Primary, 0),
-                    WM_RBUTTONUP | WM_RBUTTONDOWN => (PointerButton::Secondary, 1),
-                    _ => return None,
-                };
-                let pressed = matches!(msg, WM_LBUTTONDOWN | WM_RBUTTONDOWN);
-                let x = lparam as i16;
-                let y = (lparam >> 16) as i16;
-                let pos = self.window_pos_to_egui(x as i32, y as i32);
-                let handle = if pressed {
-                    self.ui_rects.iter().any(|x| x.area.contains(pos))
-                } else {
-                    self.captured_mouse_down[button_idx]
-                };
-                self.mouse_down[button_idx] = pressed;
-                if !handle {
-                    return None;
+                WM_MOUSEMOVE => {
+                    let x = lparam as i16;
+                    let y = (lparam >> 16) as i16;
+                    let pos = self.window_pos_to_egui(x as i32, y as i32);
+                    self.last_mouse_pos = ((x, y), pos);
+                    self.events.push(Event::PointerMoved(pos));
+                    None
                 }
-                self.captured_mouse_down[button_idx] = pressed;
-                self.events.push(Event::PointerButton {
-                    pos,
-                    button,
-                    pressed,
-                    modifiers: egui::Modifiers {
-                        alt: GetKeyState(VK_MENU) & 1 != 0,
-                        ctrl: wparam & MK_CONTROL != 0,
-                        shift: wparam & MK_SHIFT != 0,
-                        mac_cmd: false,
-                        command: wparam & MK_CONTROL != 0,
-                    },
-                });
-                Some(0)
-            }
-            WM_MOUSEWHEEL => {
-                let x = lparam as i16;
-                let y = (lparam >> 16) as i16;
-                let mut point = POINT {
-                    x: x as i32,
-                    y: y as i32,
-                };
-                ScreenToClient(window, &mut point);
-                let pos = self.window_pos_to_egui(point.x, point.y);
-                let handle = self
-                    .ui_rects
-                    .iter()
-                    .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
-                if !handle {
-                    return None;
+                WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP => {
+                    let (button, button_idx) = match msg {
+                        WM_LBUTTONUP | WM_LBUTTONDOWN => (PointerButton::Primary, 0),
+                        WM_RBUTTONUP | WM_RBUTTONDOWN => (PointerButton::Secondary, 1),
+                        _ => return None,
+                    };
+                    let pressed = matches!(msg, WM_LBUTTONDOWN | WM_RBUTTONDOWN);
+                    let x = lparam as i16;
+                    let y = (lparam >> 16) as i16;
+                    let pos = self.window_pos_to_egui(x as i32, y as i32);
+                    let handle = if pressed {
+                        self.ui_rects.iter().any(|x| x.area.contains(pos))
+                    } else {
+                        self.captured_mouse_down[button_idx]
+                    };
+                    self.mouse_down[button_idx] = pressed;
+                    if !handle {
+                        return None;
+                    }
+                    self.captured_mouse_down[button_idx] = pressed;
+                    self.events.push(Event::PointerButton {
+                        pos,
+                        button,
+                        pressed,
+                        modifiers: egui::Modifiers {
+                            alt: GetKeyState(VK_MENU) & 1 != 0,
+                            ctrl: wparam & MK_CONTROL != 0,
+                            shift: wparam & MK_SHIFT != 0,
+                            mac_cmd: false,
+                            command: wparam & MK_CONTROL != 0,
+                        },
+                    });
+                    Some(0)
                 }
-                // Scroll amount seems to be fine without any extra scaling
-                let amount = ((wparam >> 16) as i16) as f32;
-                let modifiers = current_egui_modifiers();
-                self.events.push(Event::MouseWheel {
-                    unit: egui::MouseWheelUnit::Point,
-                    delta: egui::vec2(0.0, amount),
-                    modifiers,
-                });
-                Some(0)
-            }
-            WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
-                let mut modifiers = current_egui_modifiers();
-                let is_syskey = matches!(msg, WM_SYSKEYDOWN | WM_SYSKEYUP);
-                let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
-                modifiers.alt |= is_syskey;
-                let vkey = wparam as i32;
-                if let Some(key) = vkey_to_egui_key(vkey) {
-                    if !is_syskey && self.ctx.wants_keyboard_input() {
-                        self.events.push(Event::Key {
-                            key,
-                            // Probably fine to leave None, could also be Some(key) even
-                            // if it is not what it's supposed to mean. Properly figuring
-                            // out the physical key would be too much work.
-                            physical_key: None,
-                            pressed,
-                            // Could get repeat count from param, but egui docs say that
-                            // it will be automatically done anyway by egui.
-                            repeat: false,
-                            modifiers,
-                        });
+                WM_MOUSEWHEEL => {
+                    let x = lparam as i16;
+                    let y = (lparam >> 16) as i16;
+                    let mut point = POINT {
+                        x: x as i32,
+                        y: y as i32,
+                    };
+                    ScreenToClient(window, &mut point);
+                    let pos = self.window_pos_to_egui(point.x, point.y);
+                    let handle = self
+                        .ui_rects
+                        .iter()
+                        .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
+                    if !handle {
+                        return None;
+                    }
+                    // Scroll amount seems to be fine without any extra scaling
+                    let amount = ((wparam >> 16) as i16) as f32;
+                    let modifiers = current_egui_modifiers();
+                    self.events.push(Event::MouseWheel {
+                        unit: egui::MouseWheelUnit::Point,
+                        delta: egui::vec2(0.0, amount),
+                        modifiers,
+                    });
+                    Some(0)
+                }
+                WM_KEYDOWN | WM_KEYUP | WM_SYSKEYDOWN | WM_SYSKEYUP => {
+                    let mut modifiers = current_egui_modifiers();
+                    let is_syskey = matches!(msg, WM_SYSKEYDOWN | WM_SYSKEYUP);
+                    let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
+                    modifiers.alt |= is_syskey;
+                    let vkey = wparam as i32;
+                    if let Some(key) = vkey_to_egui_key(vkey) {
+                        if !is_syskey && self.ctx.wants_keyboard_input() {
+                            self.events.push(Event::Key {
+                                key,
+                                // Probably fine to leave None, could also be Some(key) even
+                                // if it is not what it's supposed to mean. Properly figuring
+                                // out the physical key would be too much work.
+                                physical_key: None,
+                                pressed,
+                                // Could get repeat count from param, but egui docs say that
+                                // it will be automatically done anyway by egui.
+                                repeat: false,
+                                modifiers,
+                            });
+                            return Some(0);
+                        }
+                        if pressed && self.check_replay_hotkey(&modifiers, key) {
+                            return Some(0);
+                        }
+                    }
+                    None
+                }
+                WM_CHAR => {
+                    if !self.ctx.wants_keyboard_input() {
+                        return None;
+                    }
+                    if wparam >= 0x80 {
+                        // Too lazy to figure out how windows sends
+                        // unicode chars to SC:R window, and we shouldn't need
+                        // egui to support actual text input outside some
+                        // debug stuff
                         return Some(0);
                     }
-                    if pressed && self.check_replay_hotkey(&modifiers, key) {
-                        return Some(0);
+                    if let Some(c) = char::from_u32(wparam as u32) {
+                        self.events.push(Event::Text(c.into()));
                     }
+                    Some(0)
                 }
-                None
+                _ => None,
             }
-            WM_CHAR => {
-                if !self.ctx.wants_keyboard_input() {
-                    return None;
-                }
-                if wparam >= 0x80 {
-                    // Too lazy to figure out how windows sends
-                    // unicode chars to SC:R window, and we shouldn't need
-                    // egui to support actual text input outside some
-                    // debug stuff
-                    return Some(0);
-                }
-                if let Some(c) = char::from_u32(wparam as u32) {
-                    self.events.push(Event::Text(c.into()));
-                }
-                Some(0)
-            }
-            _ => None,
         }
-    }}
+    }
 
     fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
         let panels = &mut self.replay_panels;
@@ -1136,74 +1138,78 @@ unsafe fn player_resources_info(
     player: *mut bw::Player,
     player_id: u8,
     apm: Option<&ApmStats>,
-) -> PlayerInfo { unsafe {
-    let game = bw.game;
-    let get_supplies = |race| {
-        let used = game.supply_used(player_id, race);
-        let available = game
-            .supply_provided(player_id, race)
-            .min(game.supply_max(player_id, race));
-        // Supply is internally twice the shown value (as zergling / scourge
-        // takes 0.5 supply per unit), used supply has to be rounded up
-        // when displayed.
-        (used.wrapping_add(1) / 2, available / 2)
-    };
-    let color = bw::player_color(
-        game,
-        bw.main_palette,
-        bw.use_rgb_colors,
-        bw.rgb_colors,
-        player_id,
-    );
-    let supplies = [
-        get_supplies(Race::Zerg),
-        get_supplies(Race::Terran),
-        get_supplies(Race::Protoss),
-    ];
-    let workers = [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
-        .iter()
-        .map(|&unit| game.completed_count(player_id, unit))
-        .sum::<u32>();
-    let mut name = bw::player_name(player);
-    if name.is_empty() {
-        name = format!("Player {}", player_id + 1).into();
+) -> PlayerInfo {
+    unsafe {
+        let game = bw.game;
+        let get_supplies = |race| {
+            let used = game.supply_used(player_id, race);
+            let available = game
+                .supply_provided(player_id, race)
+                .min(game.supply_max(player_id, race));
+            // Supply is internally twice the shown value (as zergling / scourge
+            // takes 0.5 supply per unit), used supply has to be rounded up
+            // when displayed.
+            (used.wrapping_add(1) / 2, available / 2)
+        };
+        let color = bw::player_color(
+            game,
+            bw.main_palette,
+            bw.use_rgb_colors,
+            bw.rgb_colors,
+            player_id,
+        );
+        let supplies = [
+            get_supplies(Race::Zerg),
+            get_supplies(Race::Terran),
+            get_supplies(Race::Protoss),
+        ];
+        let workers = [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
+            .iter()
+            .map(|&unit| game.completed_count(player_id, unit))
+            .sum::<u32>();
+        let mut name = bw::player_name(player);
+        if name.is_empty() {
+            name = format!("Player {}", player_id + 1).into();
+        }
+        let mut race = (*player).race;
+        if race > 2 {
+            race = 0;
+        }
+        let vision = has_player_vision(bw, player_id);
+        PlayerInfo {
+            name,
+            color: Color32::from_rgb(color[0], color[1], color[2]),
+            race,
+            minerals: game.minerals(player_id),
+            gas: game.gas(player_id),
+            supplies,
+            workers,
+            apm: apm.map(|x| x.player_recent_apm(player_id)).unwrap_or(0),
+            vision,
+        }
     }
-    let mut race = (*player).race;
-    if race > 2 {
-        race = 0;
-    }
-    let vision = has_player_vision(bw, player_id);
-    PlayerInfo {
-        name,
-        color: Color32::from_rgb(color[0], color[1], color[2]),
-        race,
-        minerals: game.minerals(player_id),
-        gas: game.gas(player_id),
-        supplies,
-        workers,
-        apm: apm.map(|x| x.player_recent_apm(player_id)).unwrap_or(0),
-        vision,
-    }
-}}
+}
 
 /// Returns mask containing all player bits that this player has given/receives vision to,
 /// as long as all players in the group share vision both ways.
 /// If there is one-way vision somewhere, returns just `1 << player_id`
 ///
 /// So that entire team's vision is toggled at once.
-unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 { unsafe {
-    if player_id >= 8 {
-        return 0;
-    }
-    let default_value = 1u8 << player_id;
-    let mask = (**bw.game).visions[player_id as usize] as u8;
-    for i in 0..8 {
-        if mask & (1 << i) != 0 && (**bw.game).visions[i] != mask as u32 {
-            return default_value;
+unsafe fn team_vision_mask(bw: &BwVars, player_id: u8) -> u8 {
+    unsafe {
+        if player_id >= 8 {
+            return 0;
         }
+        let default_value = 1u8 << player_id;
+        let mask = (**bw.game).visions[player_id as usize] as u8;
+        for i in 0..8 {
+            if mask & (1 << i) != 0 && (**bw.game).visions[i] != mask as u32 {
+                return default_value;
+            }
+        }
+        mask
     }
-    mask
-}}
+}
 
 fn control_type_name(ty: u16) -> Cow<'static, str> {
     match ty {

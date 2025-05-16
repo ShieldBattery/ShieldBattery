@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use futures::prelude::*;
-use quick_error::{quick_error, ResultExt};
+use quick_error::{ResultExt, quick_error};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::tungstenite::handshake::client::Response as HandshakeResponse;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
+use tokio_tungstenite::tungstenite::handshake::client::Response as HandshakeResponse;
 
 use crate::cancel_token::SharedCanceler;
 use crate::game_state::{self, GameStateMessage};

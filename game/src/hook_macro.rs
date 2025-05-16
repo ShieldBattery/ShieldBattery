@@ -105,22 +105,24 @@ pub unsafe fn unprotect_memory_for_hook(
     whack::ModulePatcher,
     usize,
     Option<windows::MemoryProtectionGuard>,
-) { unsafe {
-    // Windows has always 4k pages
-    let start = proc_address & !0xfff;
-    let end = ((proc_address + 0x10) | 0xfff) + 1;
-    let len = end - start;
-    // If the unprotection for some reason fails, just keep going and hope the memory
-    // can be written.
-    let start = start as *mut c_void;
-    debug!(
-        "Unprotecting memory for hook {:x} @ {:x}~{:x}",
-        proc_address, start as usize, len
-    );
-    let guard = windows::unprotect_memory(start, len).ok();
-    let patcher = active_patcher.patch_memory(start, start, !0);
-    (patcher, proc_address - start as usize, guard)
-}}
+) {
+    unsafe {
+        // Windows has always 4k pages
+        let start = proc_address & !0xfff;
+        let end = ((proc_address + 0x10) | 0xfff) + 1;
+        let len = end - start;
+        // If the unprotection for some reason fails, just keep going and hope the memory
+        // can be written.
+        let start = start as *mut c_void;
+        debug!(
+            "Unprotecting memory for hook {:x} @ {:x}~{:x}",
+            proc_address, start as usize, len
+        );
+        let guard = windows::unprotect_memory(start, len).ok();
+        let patcher = active_patcher.patch_memory(start, start, !0);
+        (patcher, proc_address - start as usize, guard)
+    }
+}
 
 /// Determines address for hooking the function.
 ///
@@ -128,21 +130,23 @@ pub unsafe fn unprotect_memory_for_hook(
 /// address returned by GetProcAddress, in order to avoid placing a second hook
 /// at a address which was already hooked by some system DLL (Nvidia driver).
 /// This should end up being more stable than otherwise.
-pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<usize, io::Error> { unsafe {
-    let mut address = lib.proc_address(proc)? as *const u8;
-    loop {
-        match *address {
-            // Long jump
-            0xe9 => {
-                let offset = (address.add(1) as *const i32).read_unaligned() as isize as usize;
-                address = address.wrapping_add(5).wrapping_add(offset);
+pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<usize, io::Error> {
+    unsafe {
+        let mut address = lib.proc_address(proc)? as *const u8;
+        loop {
+            match *address {
+                // Long jump
+                0xe9 => {
+                    let offset = (address.add(1) as *const i32).read_unaligned() as isize as usize;
+                    address = address.wrapping_add(5).wrapping_add(offset);
+                }
+                // Short jump
+                0xeb => {
+                    let offset = *address.add(1) as i8 as isize as usize;
+                    address = address.wrapping_add(2).wrapping_add(offset);
+                }
+                _ => return Ok(address as usize),
             }
-            // Short jump
-            0xeb => {
-                let offset = *address.add(1) as i8 as isize as usize;
-                address = address.wrapping_add(2).wrapping_add(offset);
-            }
-            _ => return Ok(address as usize),
         }
     }
-}}
+}

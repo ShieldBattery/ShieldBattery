@@ -7,7 +7,7 @@ use hashbrown::HashMap;
 use crate::bw;
 
 use super::{
-    player_has_units, replay_players_by_team, BwVars, OverlayState, ReplayUiValues, Texture,
+    BwVars, OverlayState, ReplayUiValues, Texture, player_has_units, replay_players_by_team,
 };
 
 pub struct ProductionState {

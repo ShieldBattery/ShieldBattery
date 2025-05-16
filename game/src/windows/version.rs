@@ -18,11 +18,7 @@ fn file_version_buf(path: &Path) -> Option<Vec<u8>> {
         let mut buf = vec![0; buf_size as usize];
         let buf_ptr = buf.as_mut_ptr() as *mut c_void;
         let ok = GetFileVersionInfoW(path.as_ptr(), 0, buf_size, buf_ptr);
-        if ok == 0 {
-            None
-        } else {
-            Some(buf)
-        }
+        if ok == 0 { None } else { Some(buf) }
     }
 }
 

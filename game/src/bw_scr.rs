@@ -2,9 +2,9 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::ptr::{self, null, null_mut, NonNull};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
@@ -15,22 +15,22 @@ use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::GetModuleHandleW;
 
-use scr_analysis::{scarf, DatType, VirtualAddress};
+use scr_analysis::{DatType, VirtualAddress, scarf};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
+use crate::GameThreadMessage;
 use crate::app_messages::{AtomicStartingFog, MapInfo, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
-use crate::bw::{commands, UserLatency};
+use crate::bw::{UserLatency, commands};
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::windows;
-use crate::GameThreadMessage;
 
 pub mod scr;
 
@@ -265,23 +265,25 @@ impl RendererState {
         shader: *mut scr::Shader,
         vertex_path: *const u8,
         pixel_path: *const u8,
-    ) { unsafe {
-        let id = (*shader).id as usize;
-        if self.shader_inputs.len() <= id {
-            self.shader_inputs.resize_with(id + 1, || ShaderState {
-                shader: null_mut(),
-                vertex_path: null(),
-                pixel_path: null(),
-            });
+    ) {
+        unsafe {
+            let id = (*shader).id as usize;
+            if self.shader_inputs.len() <= id {
+                self.shader_inputs.resize_with(id + 1, || ShaderState {
+                    shader: null_mut(),
+                    vertex_path: null(),
+                    pixel_path: null(),
+                });
+            }
+            if self.shader_inputs[id].shader != shader {
+                self.shader_inputs[id] = ShaderState {
+                    shader,
+                    vertex_path,
+                    pixel_path,
+                };
+            }
         }
-        if self.shader_inputs[id].shader != shader {
-            self.shader_inputs[id] = ShaderState {
-                shader,
-                vertex_path,
-                pixel_path,
-            };
-        }
-    }}
+    }
 }
 
 unsafe impl Send for RendererState {}
@@ -368,13 +370,13 @@ impl BwValue for f32 {
 }
 
 impl<T: BwValue> Value<T> {
-    unsafe fn resolve(&self) -> T { unsafe {
-        T::from_usize(resolve_operand(self.op, &[]))
-    }}
+    unsafe fn resolve(&self) -> T {
+        unsafe { T::from_usize(resolve_operand(self.op, &[])) }
+    }
 
-    unsafe fn resolve_with_custom(&self, custom: &[usize]) -> T { unsafe {
-        T::from_usize(resolve_operand(self.op, custom))
-    }}
+    unsafe fn resolve_with_custom(&self, custom: &[usize]) -> T {
+        unsafe { T::from_usize(resolve_operand(self.op, custom)) }
+    }
 
     /// Resolves the value as a pointer so it can be read/written as needed.
     ///
@@ -383,27 +385,29 @@ impl<T: BwValue> Value<T> {
     /// Because of that, it is preferable to use resolve/write instead of this
     /// where possible. (Write is not that much more flexible either at the moment,
     /// as it isn't necessary, but it could be improved if needed)
-    unsafe fn resolve_as_ptr(&self) -> *mut T { unsafe {
-        use scr_analysis::scarf::{MemAccessSize, OperandType};
-        match self.op.ty() {
-            OperandType::Memory(mem) => {
-                let expected_size = match mem::size_of::<T>() {
-                    1 => MemAccessSize::Mem8,
-                    2 => MemAccessSize::Mem16,
-                    3..=4 => MemAccessSize::Mem32,
-                    5..=8 => MemAccessSize::Mem64,
-                    _ => panic!("Cannot form pointer to {}", self.op),
-                };
-                if mem.size != expected_size {
-                    panic!("Cannot form pointer to {}", self.op);
+    unsafe fn resolve_as_ptr(&self) -> *mut T {
+        unsafe {
+            use scr_analysis::scarf::{MemAccessSize, OperandType};
+            match self.op.ty() {
+                OperandType::Memory(mem) => {
+                    let expected_size = match mem::size_of::<T>() {
+                        1 => MemAccessSize::Mem8,
+                        2 => MemAccessSize::Mem16,
+                        3..=4 => MemAccessSize::Mem32,
+                        5..=8 => MemAccessSize::Mem64,
+                        _ => panic!("Cannot form pointer to {}", self.op),
+                    };
+                    if mem.size != expected_size {
+                        panic!("Cannot form pointer to {}", self.op);
+                    }
+                    let (base, offset) = mem.address();
+                    let base = resolve_operand(base, &[]);
+                    base.wrapping_add(offset as usize) as *mut T
                 }
-                let (base, offset) = mem.address();
-                let base = resolve_operand(base, &[]);
-                base.wrapping_add(offset as usize) as *mut T
+                _ => panic!("Cannot form pointer to {}", self.op),
             }
-            _ => panic!("Cannot form pointer to {}", self.op),
         }
-    }}
+    }
 
     /// Writes over the value.
     ///
@@ -415,79 +419,83 @@ impl<T: BwValue> Value<T> {
     /// (Unlike in 1.16.1, the Game/Player structures are dynamically allocated
     /// so their pointer could technically be changed. But there still isn't
     /// any reason to.)
-    unsafe fn write(&self, value: T) { unsafe {
-        use scr_analysis::scarf::{MemAccessSize, OperandType};
-        let value = T::to_usize(value);
-        match self.op.ty() {
-            OperandType::Memory(mem) => {
-                let (base, offset) = mem.address();
-                let addr = resolve_operand(base, &[]).wrapping_add(offset as usize);
-                match mem.size {
-                    MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
-                    MemAccessSize::Mem16 => (addr as *mut u16).write_unaligned(value as u16),
-                    MemAccessSize::Mem32 => (addr as *mut u32).write_unaligned(value as u32),
-                    MemAccessSize::Mem64 => (addr as *mut u64).write_unaligned(value as u64),
-                };
-            }
-            _ => panic!("Cannot write to {}", self.op),
-        };
-    }}
+    unsafe fn write(&self, value: T) {
+        unsafe {
+            use scr_analysis::scarf::{MemAccessSize, OperandType};
+            let value = T::to_usize(value);
+            match self.op.ty() {
+                OperandType::Memory(mem) => {
+                    let (base, offset) = mem.address();
+                    let addr = resolve_operand(base, &[]).wrapping_add(offset as usize);
+                    match mem.size {
+                        MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
+                        MemAccessSize::Mem16 => (addr as *mut u16).write_unaligned(value as u16),
+                        MemAccessSize::Mem32 => (addr as *mut u32).write_unaligned(value as u32),
+                        MemAccessSize::Mem64 => (addr as *mut u64).write_unaligned(value as u64),
+                    };
+                }
+                _ => panic!("Cannot write to {}", self.op),
+            };
+        }
+    }
 }
 
 unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
 
-unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize { unsafe {
-    use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
-    match *op.ty() {
-        OperandType::Constant(c) => c as usize,
-        OperandType::Memory(ref mem) => {
-            let (base, offset) = mem.address();
-            let addr = resolve_operand(base, custom).wrapping_add(offset as usize);
-            if addr < 0x80 {
-                let val = read_fs_gs(addr);
-                match mem.size {
-                    MemAccessSize::Mem8 => val & 0xff,
-                    MemAccessSize::Mem16 => val & 0xffff,
-                    #[allow(clippy::identity_op)] // only identity_op on x86
-                    MemAccessSize::Mem32 => val & 0xffff_ffff,
-                    MemAccessSize::Mem64 => val,
-                }
-            } else {
-                match mem.size {
-                    MemAccessSize::Mem8 => (addr as *const u8).read_unaligned() as usize,
-                    MemAccessSize::Mem16 => (addr as *const u16).read_unaligned() as usize,
-                    MemAccessSize::Mem32 => (addr as *const u32).read_unaligned() as usize,
-                    MemAccessSize::Mem64 => (addr as *const u64).read_unaligned() as usize,
+unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
+    unsafe {
+        use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
+        match *op.ty() {
+            OperandType::Constant(c) => c as usize,
+            OperandType::Memory(ref mem) => {
+                let (base, offset) = mem.address();
+                let addr = resolve_operand(base, custom).wrapping_add(offset as usize);
+                if addr < 0x80 {
+                    let val = read_fs_gs(addr);
+                    match mem.size {
+                        MemAccessSize::Mem8 => val & 0xff,
+                        MemAccessSize::Mem16 => val & 0xffff,
+                        #[allow(clippy::identity_op)] // only identity_op on x86
+                        MemAccessSize::Mem32 => val & 0xffff_ffff,
+                        MemAccessSize::Mem64 => val,
+                    }
+                } else {
+                    match mem.size {
+                        MemAccessSize::Mem8 => (addr as *const u8).read_unaligned() as usize,
+                        MemAccessSize::Mem16 => (addr as *const u16).read_unaligned() as usize,
+                        MemAccessSize::Mem32 => (addr as *const u32).read_unaligned() as usize,
+                        MemAccessSize::Mem64 => (addr as *const u64).read_unaligned() as usize,
+                    }
                 }
             }
-        }
-        OperandType::Arithmetic(ref arith) => {
-            let left = resolve_operand(arith.left, custom);
-            let right = resolve_operand(arith.right, custom);
-            match arith.ty {
-                ArithOpType::Add => left.wrapping_add(right),
-                ArithOpType::Sub => left.wrapping_sub(right),
-                ArithOpType::Mul => left.wrapping_mul(right),
-                ArithOpType::Div => left / right,
-                ArithOpType::Modulo => left % right,
-                ArithOpType::And => left & right,
-                ArithOpType::Or => left | right,
-                ArithOpType::Xor => left ^ right,
-                ArithOpType::Lsh => left.wrapping_shl(right as u32),
-                ArithOpType::Rsh => left.wrapping_shr(right as u32),
-                ArithOpType::Equal => (left == right) as usize,
-                ArithOpType::GreaterThan => (left > right) as usize,
-                _ => panic!("Unimplemented resolve: {}", op),
+            OperandType::Arithmetic(ref arith) => {
+                let left = resolve_operand(arith.left, custom);
+                let right = resolve_operand(arith.right, custom);
+                match arith.ty {
+                    ArithOpType::Add => left.wrapping_add(right),
+                    ArithOpType::Sub => left.wrapping_sub(right),
+                    ArithOpType::Mul => left.wrapping_mul(right),
+                    ArithOpType::Div => left / right,
+                    ArithOpType::Modulo => left % right,
+                    ArithOpType::And => left & right,
+                    ArithOpType::Or => left | right,
+                    ArithOpType::Xor => left ^ right,
+                    ArithOpType::Lsh => left.wrapping_shl(right as u32),
+                    ArithOpType::Rsh => left.wrapping_shr(right as u32),
+                    ArithOpType::Equal => (left == right) as usize,
+                    ArithOpType::GreaterThan => (left > right) as usize,
+                    _ => panic!("Unimplemented resolve: {}", op),
+                }
             }
+            OperandType::Custom(id) => custom
+                .get(id as usize)
+                .copied()
+                .unwrap_or_else(|| panic!("Resolve needs custom id {}", id)),
+            _ => panic!("Unimplemented resolve: {}", op),
         }
-        OperandType::Custom(id) => custom
-            .get(id as usize)
-            .copied()
-            .unwrap_or_else(|| panic!("Resolve needs custom id {}", id)),
-        _ => panic!("Unimplemented resolve: {}", op),
     }
-}}
+}
 
 struct LinkedList<T> {
     start: Value<*mut T>,
@@ -495,12 +503,14 @@ struct LinkedList<T> {
 }
 
 impl<T> LinkedList<T> {
-    pub unsafe fn resolve(&self) -> bw::list::LinkedList<T> { unsafe {
-        bw::list::LinkedList {
-            start: self.start.resolve_as_ptr(),
-            end: self.end.resolve_as_ptr(),
+    pub unsafe fn resolve(&self) -> bw::list::LinkedList<T> {
+        unsafe {
+            bw::list::LinkedList {
+                start: self.start.resolve_as_ptr(),
+                end: self.end.resolve_as_ptr(),
+            }
         }
-    }}
+    }
 }
 
 /// For compatibility with two different struct layouts
@@ -517,13 +527,15 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
         }
     }
 
-    unsafe fn from_string(this: *mut Self, val: &[u8]) { unsafe {
-        (*this).variant = 1;
-        init_bw_string(
-            ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
-            val,
-        );
-    }}
+    unsafe fn from_string(this: *mut Self, val: &[u8]) {
+        unsafe {
+            (*this).variant = 1;
+            init_bw_string(
+                ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
+                val,
+            );
+        }
+    }
 }
 
 impl GameInfoValueTrait for scr::GameInfoValue {
@@ -534,13 +546,15 @@ impl GameInfoValueTrait for scr::GameInfoValue {
         }
     }
 
-    unsafe fn from_string(this: *mut Self, val: &[u8]) { unsafe {
-        (*this).variant = 1;
-        init_bw_string(
-            ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
-            val,
-        );
-    }}
+    unsafe fn from_string(this: *mut Self, val: &[u8]) {
+        unsafe {
+            (*this).variant = 1;
+            init_bw_string(
+                ptr::addr_of_mut!((*this).data.var1) as *mut scr::BwString,
+                val,
+            );
+        }
+    }
 }
 
 pub enum BwInitError {
@@ -987,1075 +1001,1104 @@ impl BwScr {
         })
     }
 
-    pub unsafe fn patch_game(&'static self, image: *mut u8) { unsafe {
-        use self::hooks::*;
-        debug!("Patching SCR");
-        let base = GetModuleHandleW(null()) as *mut _;
-        let mut active_patcher = crate::PATCHER.lock();
-        let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
-        let base = base as usize;
-        let address = self.mainmenu_entry_hook.0 as usize - base;
-        exe.call_hook_closure_address(
-            GameInit,
-            move |_| {
-                debug!("SCR game init hook");
-                crate::process_init_hook();
-            },
-            address,
-        );
+    pub unsafe fn patch_game(&'static self, image: *mut u8) {
+        unsafe {
+            use self::hooks::*;
+            debug!("Patching SCR");
+            let base = GetModuleHandleW(null()) as *mut _;
+            let mut active_patcher = crate::PATCHER.lock();
+            let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
+            let base = base as usize;
+            let address = self.mainmenu_entry_hook.0 as usize - base;
+            exe.call_hook_closure_address(
+                GameInit,
+                move |_| {
+                    debug!("SCR game init hook");
+                    crate::process_init_hook();
+                },
+                address,
+            );
 
-        let address = self.load_snp_list.0 as usize - base;
-        exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
-        // The UDP server seems to be just Bonjour stuff, which we don't use.
-        let address = self.start_udp_server.0 as usize - base;
-        exe.hook_closure_address(StartUdpServer, |_, _| 1, address);
+            let address = self.load_snp_list.0 as usize - base;
+            exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
+            // The UDP server seems to be just Bonjour stuff, which we don't use.
+            let address = self.start_udp_server.0 as usize - base;
+            exe.hook_closure_address(StartUdpServer, |_, _| 1, address);
 
-        let address = self.process_game_commands as usize - base;
-        exe.hook_closure_address(
-            ProcessGameCommands,
-            move |data, len, are_recorded_replay_commands, orig| {
-                let command_user = self.command_user.resolve();
-                let unique_command_user = self.unique_command_user.resolve();
-                let is_replay = game_thread::is_replay();
-                let is_observer = command_user >= 128;
-                let slice = std::slice::from_raw_parts(data, len);
-                let slice = commands::filter_invalid_commands(
-                    slice,
-                    are_recorded_replay_commands != 0,
-                    is_observer,
-                    &self.game_command_lengths,
-                );
-                let mut sync_seen = false;
-                // New scope for mutex locks (Not necessarily needed but avoiding calling back to
-                // BW with mutexes locked is generally a good pattern to follow IMO)
-                {
-                    let mut apm_state = self.apm_state.lock();
-                    for command in commands::iter_commands(&slice, &self.game_command_lengths) {
-                        if let Some(ref mut apm) = apm_state {
-                            if !is_replay || are_recorded_replay_commands != 0 {
-                                apm.action(unique_command_user as u8, command);
+            let address = self.process_game_commands as usize - base;
+            exe.hook_closure_address(
+                ProcessGameCommands,
+                move |data, len, are_recorded_replay_commands, orig| {
+                    let command_user = self.command_user.resolve();
+                    let unique_command_user = self.unique_command_user.resolve();
+                    let is_replay = game_thread::is_replay();
+                    let is_observer = command_user >= 128;
+                    let slice = std::slice::from_raw_parts(data, len);
+                    let slice = commands::filter_invalid_commands(
+                        slice,
+                        are_recorded_replay_commands != 0,
+                        is_observer,
+                        &self.game_command_lengths,
+                    );
+                    let mut sync_seen = false;
+                    // New scope for mutex locks (Not necessarily needed but avoiding calling back to
+                    // BW with mutexes locked is generally a good pattern to follow IMO)
+                    {
+                        let mut apm_state = self.apm_state.lock();
+                        for command in commands::iter_commands(&slice, &self.game_command_lengths) {
+                            if let Some(ref mut apm) = apm_state {
+                                if !is_replay || are_recorded_replay_commands != 0 {
+                                    apm.action(unique_command_user as u8, command);
+                                }
                             }
-                        }
-                        match command {
-                            [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
-                                if are_recorded_replay_commands == 0 {
-                                    let frame = LittleEndian::read_u32(rest);
-                                    let game = self.game();
-                                    if (*game).frame_count > frame {
-                                        self.is_replay_seeking.store(true, Ordering::Relaxed);
+                            match command {
+                                [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
+                                    if are_recorded_replay_commands == 0 {
+                                        let frame = LittleEndian::read_u32(rest);
+                                        let game = self.game();
+                                        if (*game).frame_count > frame {
+                                            self.is_replay_seeking.store(true, Ordering::Relaxed);
+                                        }
                                     }
                                 }
-                            }
-                            [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
-                                if are_recorded_replay_commands == 0 {
-                                    sync_seen = true;
+                                [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
+                                    if are_recorded_replay_commands == 0 {
+                                        sync_seen = true;
+                                    }
                                 }
+                                _ => (),
                             }
-                            _ => (),
                         }
                     }
-                }
 
-                if !is_replay {
-                    if let Some(players) = self.check_player_drops() {
-                        let frame = (*self.game()).frame_count;
-                        info!(
-                            "Dropped players {:?} at some point between last check and before \
-                            handling commands for game player {} net {}. Game frame 0x{:x}",
-                            players,
-                            command_user,
-                            self.storm_command_user.resolve(),
-                            frame,
-                        );
-                    }
-                }
-                // There should be no way this is called recursively, but even still
-                // handle that case by keeping track of was_processing.
-                let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
-                self.is_processing_game_commands
-                    .store(true, Ordering::Relaxed);
-                orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
-                self.is_processing_game_commands
-                    .store(was_processing, Ordering::Relaxed);
-                if !is_replay {
-                    if !sync_seen {
-                        if is_observer {
-                            // Observers don't send sync commands correctly.
-                            // Send no-op command 0x05 which counts as a correct sync to
-                            // prevent them from dropping.
-                            //
-                            // SC:R's setup has observers with storm id >= 128,
-                            // for which process_game_commands is not called at all.
-                            // Our setup uses "normal" storm ids for observers, as that
-                            // makes allocating storm ids during launch simpler, but will
-                            // require doing this (As well as filtering out almost all
-                            // commands the observer sends)
-                            orig(&5u8, 1, 0);
-                        } else {
-                            let storm_user = self.storm_command_user.resolve();
-                            self.dropped_players.store(
-                                self.dropped_players.load(Ordering::Relaxed) | (1 << storm_user),
-                                Ordering::Relaxed,
-                            );
+                    if !is_replay {
+                        if let Some(players) = self.check_player_drops() {
+                            let frame = (*self.game()).frame_count;
                             info!(
-                                "Didn't see sync command for game player {} net {}, {:02x?}, \
-                                they will be dropped",
-                                command_user, storm_user, slice,
+                                "Dropped players {:?} at some point between last check and before \
+                            handling commands for game player {} net {}. Game frame 0x{:x}",
+                                players,
+                                command_user,
+                                self.storm_command_user.resolve(),
+                                frame,
                             );
                         }
                     }
-                    if let Some(players) = self.check_player_drops() {
-                        let frame = (*self.game()).frame_count;
-                        info!(
-                            "Dropped players {:?} while handling commands for game player {} \
+                    // There should be no way this is called recursively, but even still
+                    // handle that case by keeping track of was_processing.
+                    let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
+                    self.is_processing_game_commands
+                        .store(true, Ordering::Relaxed);
+                    orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
+                    self.is_processing_game_commands
+                        .store(was_processing, Ordering::Relaxed);
+                    if !is_replay {
+                        if !sync_seen {
+                            if is_observer {
+                                // Observers don't send sync commands correctly.
+                                // Send no-op command 0x05 which counts as a correct sync to
+                                // prevent them from dropping.
+                                //
+                                // SC:R's setup has observers with storm id >= 128,
+                                // for which process_game_commands is not called at all.
+                                // Our setup uses "normal" storm ids for observers, as that
+                                // makes allocating storm ids during launch simpler, but will
+                                // require doing this (As well as filtering out almost all
+                                // commands the observer sends)
+                                orig(&5u8, 1, 0);
+                            } else {
+                                let storm_user = self.storm_command_user.resolve();
+                                self.dropped_players.store(
+                                    self.dropped_players.load(Ordering::Relaxed)
+                                        | (1 << storm_user),
+                                    Ordering::Relaxed,
+                                );
+                                info!(
+                                    "Didn't see sync command for game player {} net {}, {:02x?}, \
+                                they will be dropped",
+                                    command_user, storm_user, slice,
+                                );
+                            }
+                        }
+                        if let Some(players) = self.check_player_drops() {
+                            let frame = (*self.game()).frame_count;
+                            info!(
+                                "Dropped players {:?} while handling commands for game player {} \
                             net {}, {:02x?}. Game frame 0x{:x}",
-                            players,
-                            command_user,
-                            self.storm_command_user.resolve(),
-                            slice,
-                            frame,
-                        );
+                                players,
+                                command_user,
+                                self.storm_command_user.resolve(),
+                                slice,
+                                frame,
+                            );
+                        }
                     }
-                }
-            },
-            address,
-        );
-        let address = self.step_io.0 as usize - base;
-        exe.hook_closure_address(
-            StepIo,
-            move |scheduler, orig| {
-                orig(scheduler);
-                // BW actually only calls these in a case which would be equivalent with our SNP
-                // code calling receive_callback() (Which is nop in SCR for now), but these
-                // are cheap enough to always call. It may also be slightly better on
-                // unreliable networks as this sends packets every frame instead of every
-                // time a packets are received in a frame.
-                //
-                // Still need to check that the SNP is ready BW side.
-                if SNP_INITIALIZED.load(Ordering::Relaxed) {
-                    (self.snet_recv_packets)();
-                    (self.snet_send_packets)();
-                }
-            },
-            address,
-        );
-        let address = self.process_lobby_commands as usize - base;
-        exe.hook_closure_address(
-            ProcessLobbyCommands,
-            move |data, len, player, orig| {
-                let slice = std::slice::from_raw_parts(data, len);
-                if let Some(&byte) = slice.first() {
-                    if byte == 0x48 && player == 0 {
-                        self.lobby_game_init_command_seen
-                            .store(true, Ordering::Relaxed);
+                },
+                address,
+            );
+            let address = self.step_io.0 as usize - base;
+            exe.hook_closure_address(
+                StepIo,
+                move |scheduler, orig| {
+                    orig(scheduler);
+                    // BW actually only calls these in a case which would be equivalent with our SNP
+                    // code calling receive_callback() (Which is nop in SCR for now), but these
+                    // are cheap enough to always call. It may also be slightly better on
+                    // unreliable networks as this sends packets every frame instead of every
+                    // time a packets are received in a frame.
+                    //
+                    // Still need to check that the SNP is ready BW side.
+                    if SNP_INITIALIZED.load(Ordering::Relaxed) {
+                        (self.snet_recv_packets)();
+                        (self.snet_send_packets)();
                     }
-                }
-                orig(data, len, player);
-            },
-            address,
-        );
-        let address = self.step_game.0 as usize - base;
-        exe.hook_closure_address(
-            StepGame,
-            move |orig| {
-                if let Some(mut apm) = self.apm_state.lock() {
-                    apm.new_frame();
-                }
-                orig();
-                game_thread::after_step_game();
-            },
-            address,
-        );
-        let address = self.step_network_addr.0 as usize - base;
-        exe.hook_closure_address(
-            StepNetwork,
-            move |orig| {
-                let ret = orig();
-
-                let in_stall = !self.is_network_ready();
-                let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
-                if in_stall && !was_in_stall {
-                    let now = std::time::Instant::now();
-                    let mut stall_start = self.network_stall_start.write();
-                    *stall_start = Some(now);
-                } else if !in_stall && was_in_stall {
-                    let mut stall_start = self.network_stall_start.write();
-                    let stall_duration = stall_start
-                        .unwrap_or_else(std::time::Instant::now)
-                        .elapsed();
-                    *stall_start = None;
-
-                    send_game_msg_to_async(GameThreadMessage::NetworkStall(stall_duration));
-                }
-
-                ret
-            },
-            address,
-        );
-
-        let address = self.net_format_turn_rate.0 as usize - base;
-        exe.hook_closure_address(
-            NetFormatTurnRate,
-            move |result: *mut scr::NetFormatTurnRateResult, dtr_scan_in_progress, orig| {
-                // NOTE(tec27): We don't use the original value at all but it's a convenient way to
-                // get them to allocate a real string for us.
-                orig(result, dtr_scan_in_progress);
-
-                let turn_rate = match (*self.game_data()).turn_rate {
-                    0 => 24, // This only happens with DTR, and is temporary anyway
-                    val => val,
-                };
-                let cur_user_latency = self.net_user_latency.resolve();
-                let user_delay = 2 /* proto_latency */ + cur_user_latency;
-                let effective_latency =
-                    ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
-                let value = format!("Lat: {:.0}ms", effective_latency);
-                (*result).text.replace_all(value.as_str());
-                result
-            },
-            address,
-        );
-
-        let address = self.update_game_screen_size as usize - base;
-        exe.hook_closure_address(
-            UpdateGameScreenSize,
-            move |zoom, orig| {
-                // When using f5 to switch between sd-hd, 4:3 - 16:9 the game moves screen x
-                // to `x - 0.5 * (new_width - old_width)`, to keep the screen centered
-                // on what it used to be.
-                // However, if the screen happens to be near right edge of map, its x coordinate
-                // is clamped to (map_width_pixels - new_width) before centering move is done,
-                // causing the aspect-ratio correcting screen move be wrong.
-                //
-                // So we just implement the same algorithm but do aspect ratio fix first and
-                // right edge limiting second.
-                //
-                // Worth noting that update_game_screen_size is called for other cases than
-                // sd-hd switch, but I *think* that if we limit our changes to trigger only
-                // when game_screen_width_bwpx has changed, it won't break the other use cases.
-                // (Not sure what the other use cases are)
-                //
-                // If the above doesn't work, reading a global value that selects the screen
-                // size mode can be used to properly have these changes trigger only on
-                // sd-hd switch. But there isn't analysis for it right now, so hoping that it
-                // isn't needed.
-                let old_width = self.game_screen_width_bwpx.resolve();
-                let old_x = self.screen_x.resolve();
-                orig(zoom);
-                let new_width = self.game_screen_width_bwpx.resolve();
-                if old_width != new_width {
-                    let new_x = (|| {
-                        let diff = (new_width as i32).checked_sub(old_width as i32)?;
-                        (old_x as i32).checked_sub(diff / 2)
-                    })();
-                    if let Some(new_x) = new_x {
-                        let max_x =
-                            self.map_width_pixels.resolve().saturating_sub(new_width) as i32;
-                        let new_x = new_x.clamp(0, max_x) as u32;
-                        let y = self.screen_y.resolve();
-                        (self.move_screen)(new_x, y);
+                },
+                address,
+            );
+            let address = self.process_lobby_commands as usize - base;
+            exe.hook_closure_address(
+                ProcessLobbyCommands,
+                move |data, len, player, orig| {
+                    let slice = std::slice::from_raw_parts(data, len);
+                    if let Some(&byte) = slice.first() {
+                        if byte == 0x48 && player == 0 {
+                            self.lobby_game_init_command_seen
+                                .store(true, Ordering::Relaxed);
+                        }
                     }
-                }
-            },
-            address,
-        );
+                    orig(data, len, player);
+                },
+                address,
+            );
+            let address = self.step_game.0 as usize - base;
+            exe.hook_closure_address(
+                StepGame,
+                move |orig| {
+                    if let Some(mut apm) = self.apm_state.lock() {
+                        apm.new_frame();
+                    }
+                    orig();
+                    game_thread::after_step_game();
+                },
+                address,
+            );
+            let address = self.step_network_addr.0 as usize - base;
+            exe.hook_closure_address(
+                StepNetwork,
+                move |orig| {
+                    let ret = orig();
 
-        let address = self.init_game_data.0 as usize - base;
-        exe.hook_closure_address(
-            InitGameData,
-            move |orig| {
-                let ok = log_time("init_game_data", || orig());
-                if ok == 0 {
-                    error!("init_game_data failed");
-                    return 0;
-                }
-                if let Some(anti_troll) = self.anti_troll {
-                    (*anti_troll.resolve()).active = 0;
-                }
-                game_thread::after_init_game_data();
-                1
-            },
-            address,
-        );
-        let address = self.init_obs_ui.0 as usize - base;
-        exe.hook_closure_address(
-            InitObsUi,
-            move |orig| {
-                // Make bw think that it doesn't need to create obs ui,
-                // and load default ingame consoles instead
-                // ('is_dummy_ui' function in obs ui vtable would have to be patched
-                // if consoles aren't loaded)
-                let is_replay = self.is_replay.resolve();
-                let local_id = self.local_unique_player_id.resolve();
-                if is_replay != 0 || local_id >= 0x80 {
-                    self.is_replay.write(0);
-                    self.local_unique_player_id.write(0);
-                    let ui_consoles = (self.get_ui_consoles)();
-                    let game = self.game();
-                    let race_char = match (*game).player_race {
-                        0 => b'z',
-                        1 => b't',
-                        _ => b'p',
+                    let in_stall = !self.is_network_ready();
+                    let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
+                    if in_stall && !was_in_stall {
+                        let now = std::time::Instant::now();
+                        let mut stall_start = self.network_stall_start.write();
+                        *stall_start = Some(now);
+                    } else if !in_stall && was_in_stall {
+                        let mut stall_start = self.network_stall_start.write();
+                        let stall_duration = stall_start
+                            .unwrap_or_else(std::time::Instant::now)
+                            .elapsed();
+                        *stall_start = None;
+
+                        send_game_msg_to_async(GameThreadMessage::NetworkStall(stall_duration));
+                    }
+
+                    ret
+                },
+                address,
+            );
+
+            let address = self.net_format_turn_rate.0 as usize - base;
+            exe.hook_closure_address(
+                NetFormatTurnRate,
+                move |result: *mut scr::NetFormatTurnRateResult, dtr_scan_in_progress, orig| {
+                    // NOTE(tec27): We don't use the original value at all but it's a convenient way to
+                    // get them to allocate a real string for us.
+                    orig(result, dtr_scan_in_progress);
+
+                    let turn_rate = match (*self.game_data()).turn_rate {
+                        0 => 24, // This only happens with DTR, and is temporary anyway
+                        val => val,
                     };
-                    self.load_consoles.call1(ui_consoles);
-                    self.init_consoles.call2(ui_consoles, race_char as u32);
-                    orig();
-                    self.is_replay.write(is_replay);
-                    self.local_unique_player_id.write(local_id);
-                } else {
-                    orig();
-                }
-                if let Some(ratio) = self.game_screen_height_ratio {
-                    self.original_game_screen_height_ratio
-                        .store(ratio.resolve().to_bits(), Ordering::Relaxed);
-                }
-            },
-            address,
-        );
-        let address = self.init_unit_data.0 as usize - base;
-        exe.hook_closure_address(
-            InitUnitData,
-            move |orig| {
-                game_thread::before_init_unit_data(self);
-                log_time("init_unit_data", || orig());
-            },
-            address,
-        );
-        let address = self.step_replay_commands.0 as usize - base;
-        exe.hook_closure_address(
-            StepReplayCommands,
-            |orig| {
-                game_thread::step_replay_commands(orig);
-            },
-            address,
-        );
+                    let cur_user_latency = self.net_user_latency.resolve();
+                    let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                    let effective_latency =
+                        ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
+                    let value = format!("Lat: {:.0}ms", effective_latency);
+                    (*result).text.replace_all(value.as_str());
+                    result
+                },
+                address,
+            );
 
-        if let Some(ref patch) = self.replay_minimap_patch {
-            let address = patch.address.0 as usize - base;
-            exe.replace(address, &patch.data);
-        }
-
-        let address = self.open_file.0 as usize - base;
-        exe.hook_closure_address(
-            OpenFile,
-            move |a, b, c, orig| file_hook::open_file_hook(self, a, b, c, orig),
-            address,
-        );
-
-        #[cfg(target_arch = "x86")]
-        let prepare_issue_order_hook = move |unit, order, xy, target, fow, clear_queue, _orig| {
-            let unit = match Unit::from_ptr(unit) {
-                Some(s) => s,
-                None => return,
-            };
-            let order = bw_dat::OrderId(order as u8);
-            let x = xy as i16;
-            let y = (xy >> 16) as i16;
-            let target = Unit::from_ptr(target);
-            let fow = fow as u16;
-            let clear_queue = clear_queue != 0;
-
-            game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
-        };
-
-        #[cfg(target_arch = "x86_64")]
-        let prepare_issue_order_hook =
-            move |unit, order, target: *mut bw::PointAndUnit, fow, clear_queue, _orig| {
-                let unit = match Unit::from_ptr(unit) {
-                    Some(s) => s,
-                    None => return,
-                };
-                let order = bw_dat::OrderId(order as u8);
-                let x = (*target).pos.x;
-                let y = (*target).pos.y;
-                let target = Unit::from_ptr((*target).unit);
-                let fow = fow as u16;
-                let clear_queue = clear_queue != 0;
-
-                game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
-            };
-
-        let address = self.prepare_issue_order.0 as usize - base;
-        exe.hook_closure_address(PrepareIssueOrder, prepare_issue_order_hook, address);
-
-        let address = self.create_game_multiplayer.0 as usize - base;
-        exe.hook_closure_address(
-            CreateGameMultiplayer,
-            move |info, name, password, map_path, a5, a6, a7, a8, orig| {
-                // Logging these params just to have some more context if ever needed.
-                // (This is a 16-byte struct passed by value)
-                let unk0 = a5;
-                let turn_rate = a6;
-                let is_bnet_matchmaking = a7 & 0xff;
-                let unk9 = (a7 >> 8) & 0xff;
-                let old_game_limits = (a7 >> 16) & 0xff;
-                let eud = (a7 >> 24) & 0xff;
-                let dynamic_turn_rate = a8;
-                info!(
-                    "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
-                    unk0,
-                    turn_rate,
-                    is_bnet_matchmaking,
-                    unk9,
-                    old_game_limits,
-                    eud,
-                    dynamic_turn_rate,
-                );
-                // This value is originally set to how many human player starting locations
-                // there are, but set it to match what we set for join side in
-                // game_state::join_lobby. Makes sure everybody can join if there are observers.
-                (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
-                orig(info, name, password, map_path, a5, a6, a7, a8)
-            },
-            address,
-        );
-
-        let address = self.spawn_dialog.0 as usize - base;
-        exe.hook_closure_address(
-            SpawnDialog,
-            |a, b, c, o| dialog_hook::spawn_dialog_hook(a, b, c, o),
-            address,
-        );
-
-        let address = self.step_game_logic.0 as usize - base;
-        exe.hook_closure_address(
-            StepGameLogic,
-            move |a, o| step_game_logic_hook(self, a, o),
-            address,
-        );
-
-        let address = self.decide_cursor_type.0 as usize - base;
-        exe.hook_closure_address(
-            DecideCursorType,
-            move |orig| {
-                if let Some(render_state) = self.render_state.lock() {
-                    if let Some(val) = render_state.overlay.decide_cursor_type() {
-                        return val;
+            let address = self.update_game_screen_size as usize - base;
+            exe.hook_closure_address(
+                UpdateGameScreenSize,
+                move |zoom, orig| {
+                    // When using f5 to switch between sd-hd, 4:3 - 16:9 the game moves screen x
+                    // to `x - 0.5 * (new_width - old_width)`, to keep the screen centered
+                    // on what it used to be.
+                    // However, if the screen happens to be near right edge of map, its x coordinate
+                    // is clamped to (map_width_pixels - new_width) before centering move is done,
+                    // causing the aspect-ratio correcting screen move be wrong.
+                    //
+                    // So we just implement the same algorithm but do aspect ratio fix first and
+                    // right edge limiting second.
+                    //
+                    // Worth noting that update_game_screen_size is called for other cases than
+                    // sd-hd switch, but I *think* that if we limit our changes to trigger only
+                    // when game_screen_width_bwpx has changed, it won't break the other use cases.
+                    // (Not sure what the other use cases are)
+                    //
+                    // If the above doesn't work, reading a global value that selects the screen
+                    // size mode can be used to properly have these changes trigger only on
+                    // sd-hd switch. But there isn't analysis for it right now, so hoping that it
+                    // isn't needed.
+                    let old_width = self.game_screen_width_bwpx.resolve();
+                    let old_x = self.screen_x.resolve();
+                    orig(zoom);
+                    let new_width = self.game_screen_width_bwpx.resolve();
+                    if old_width != new_width {
+                        let new_x = (|| {
+                            let diff = (new_width as i32).checked_sub(old_width as i32)?;
+                            (old_x as i32).checked_sub(diff / 2)
+                        })();
+                        if let Some(new_x) = new_x {
+                            let max_x =
+                                self.map_width_pixels.resolve().saturating_sub(new_width) as i32;
+                            let new_x = new_x.clamp(0, max_x) as u32;
+                            let y = self.screen_y.resolve();
+                            (self.move_screen)(new_x, y);
+                        }
                     }
-                }
-                orig()
-            },
-            address,
-        );
+                },
+                address,
+            );
 
-        if let Some(funcs) = self.status_screen_funcs {
-            let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
-            for func in funcs {
-                unsafe extern "C" fn always_true() -> u32 {
+            let address = self.init_game_data.0 as usize - base;
+            exe.hook_closure_address(
+                InitGameData,
+                move |orig| {
+                    let ok = log_time("init_game_data", || orig());
+                    if ok == 0 {
+                        error!("init_game_data failed");
+                        return 0;
+                    }
+                    if let Some(anti_troll) = self.anti_troll {
+                        (*anti_troll.resolve()).active = 0;
+                    }
+                    game_thread::after_init_game_data();
                     1
-                }
-                unsafe extern "C" fn update_status(status_screen: *mut bw::Dialog) { unsafe {
-                    let bw = bw::get_bw();
+                },
+                address,
+            );
+            let address = self.init_obs_ui.0 as usize - base;
+            exe.hook_closure_address(
+                InitObsUi,
+                move |orig| {
+                    // Make bw think that it doesn't need to create obs ui,
+                    // and load default ingame consoles instead
+                    // ('is_dummy_ui' function in obs ui vtable would have to be patched
+                    // if consoles aren't loaded)
+                    let is_replay = self.is_replay.resolve();
+                    let local_id = self.local_unique_player_id.resolve();
+                    if is_replay != 0 || local_id >= 0x80 {
+                        self.is_replay.write(0);
+                        self.local_unique_player_id.write(0);
+                        let ui_consoles = (self.get_ui_consoles)();
+                        let game = self.game();
+                        let race_char = match (*game).player_race {
+                            0 => b'z',
+                            1 => b't',
+                            _ => b'p',
+                        };
+                        self.load_consoles.call1(ui_consoles);
+                        self.init_consoles.call2(ui_consoles, race_char as u32);
+                        orig();
+                        self.is_replay.write(is_replay);
+                        self.local_unique_player_id.write(local_id);
+                    } else {
+                        orig();
+                    }
+                    if let Some(ratio) = self.game_screen_height_ratio {
+                        self.original_game_screen_height_ratio
+                            .store(ratio.resolve().to_bits(), Ordering::Relaxed);
+                    }
+                },
+                address,
+            );
+            let address = self.init_unit_data.0 as usize - base;
+            exe.hook_closure_address(
+                InitUnitData,
+                move |orig| {
+                    game_thread::before_init_unit_data(self);
+                    log_time("init_unit_data", || orig());
+                },
+                address,
+            );
+            let address = self.step_replay_commands.0 as usize - base;
+            exe.hook_closure_address(
+                StepReplayCommands,
+                |orig| {
+                    game_thread::step_replay_commands(orig);
+                },
+                address,
+            );
 
-                    let selected = match bw.client_selection()[0] {
+            if let Some(ref patch) = self.replay_minimap_patch {
+                let address = patch.address.0 as usize - base;
+                exe.replace(address, &patch.data);
+            }
+
+            let address = self.open_file.0 as usize - base;
+            exe.hook_closure_address(
+                OpenFile,
+                move |a, b, c, orig| file_hook::open_file_hook(self, a, b, c, orig),
+                address,
+            );
+
+            #[cfg(target_arch = "x86")]
+            let prepare_issue_order_hook =
+                move |unit, order, xy, target, fow, clear_queue, _orig| {
+                    let unit = match Unit::from_ptr(unit) {
                         Some(s) => s,
                         None => return,
                     };
-                    let local_id = bw.local_player_id.resolve();
-                    if local_id >= 0x80 {
-                        // Show full unit info for observers
-                        bw.local_player_id.write(selected.player() as u32);
-                    }
-                    bw.call_original_status_screen_fn(selected.id(), status_screen);
-                    if local_id >= 0x80 {
-                        bw.local_player_id.write(local_id);
-                    }
-                    let status_screen = bw_dat::dialog::Dialog::new(status_screen);
-                    game_thread::after_status_screen_update(bw, status_screen, selected);
-                }}
-                // Updating status every frame by always returning 1 from has_changed
-                // should be very cheap relative to other SC:R stuff, and allows us
-                // to intercept the dialog layout with less work.
-                func.has_changed = always_true;
-                func.update_status = update_status;
-            }
-        }
+                    let order = bw_dat::OrderId(order as u8);
+                    let x = xy as i16;
+                    let y = (xy >> 16) as i16;
+                    let target = Unit::from_ptr(target);
+                    let fow = fow as u16;
+                    let clear_queue = clear_queue != 0;
 
-        self.rendering_patches(&mut exe, base);
+                    game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+                };
 
-        for &vtable in &self.console_vtables {
-            let vtable = vtable.0 as *const scr::V_UiConsole;
-            let relative = (*vtable).hit_test.cast_usize() - base;
-            // Make console hittest return false when console is hidden.
-            //
-            // Unfortunately BW doesn't update hittest result until mouse moves,
-            // so there's small bug with clicks right after console is shown/hidden.
+            #[cfg(target_arch = "x86_64")]
+            let prepare_issue_order_hook =
+                move |unit, order, target: *mut bw::PointAndUnit, fow, clear_queue, _orig| {
+                    let unit = match Unit::from_ptr(unit) {
+                        Some(s) => s,
+                        None => return,
+                    };
+                    let order = bw_dat::OrderId(order as u8);
+                    let x = (*target).pos.x;
+                    let y = (*target).pos.y;
+                    let target = Unit::from_ptr((*target).unit);
+                    let fow = fow as u16;
+                    let clear_queue = clear_queue != 0;
+
+                    game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+                };
+
+            let address = self.prepare_issue_order.0 as usize - base;
+            exe.hook_closure_address(PrepareIssueOrder, prepare_issue_order_hook, address);
+
+            let address = self.create_game_multiplayer.0 as usize - base;
             exe.hook_closure_address(
-                Console_HitTest,
-                move |console, x, y, orig| match self.console_hidden() {
-                    true => 0,
-                    false => orig(console, x, y),
+                CreateGameMultiplayer,
+                move |info, name, password, map_path, a5, a6, a7, a8, orig| {
+                    // Logging these params just to have some more context if ever needed.
+                    // (This is a 16-byte struct passed by value)
+                    let unk0 = a5;
+                    let turn_rate = a6;
+                    let is_bnet_matchmaking = a7 & 0xff;
+                    let unk9 = (a7 >> 8) & 0xff;
+                    let old_game_limits = (a7 >> 16) & 0xff;
+                    let eud = (a7 >> 24) & 0xff;
+                    let dynamic_turn_rate = a8;
+                    info!(
+                        "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
+                        unk0,
+                        turn_rate,
+                        is_bnet_matchmaking,
+                        unk9,
+                        old_game_limits,
+                        eud,
+                        dynamic_turn_rate,
+                    );
+                    // This value is originally set to how many human player starting locations
+                    // there are, but set it to match what we set for join side in
+                    // game_state::join_lobby. Makes sure everybody can join if there are observers.
+                    (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
+                    orig(info, name, password, map_path, a5, a6, a7, a8)
+                },
+                address,
+            );
+
+            let address = self.spawn_dialog.0 as usize - base;
+            exe.hook_closure_address(
+                SpawnDialog,
+                |a, b, c, o| dialog_hook::spawn_dialog_hook(a, b, c, o),
+                address,
+            );
+
+            let address = self.step_game_logic.0 as usize - base;
+            exe.hook_closure_address(
+                StepGameLogic,
+                move |a, o| step_game_logic_hook(self, a, o),
+                address,
+            );
+
+            let address = self.decide_cursor_type.0 as usize - base;
+            exe.hook_closure_address(
+                DecideCursorType,
+                move |orig| {
+                    if let Some(render_state) = self.render_state.lock() {
+                        if let Some(val) = render_state.overlay.decide_cursor_type() {
+                            return val;
+                        }
+                    }
+                    orig()
+                },
+                address,
+            );
+
+            if let Some(funcs) = self.status_screen_funcs {
+                let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
+                for func in funcs {
+                    unsafe extern "C" fn always_true() -> u32 {
+                        1
+                    }
+                    unsafe extern "C" fn update_status(status_screen: *mut bw::Dialog) {
+                        unsafe {
+                            let bw = bw::get_bw();
+
+                            let selected = match bw.client_selection()[0] {
+                                Some(s) => s,
+                                None => return,
+                            };
+                            let local_id = bw.local_player_id.resolve();
+                            if local_id >= 0x80 {
+                                // Show full unit info for observers
+                                bw.local_player_id.write(selected.player() as u32);
+                            }
+                            bw.call_original_status_screen_fn(selected.id(), status_screen);
+                            if local_id >= 0x80 {
+                                bw.local_player_id.write(local_id);
+                            }
+                            let status_screen = bw_dat::dialog::Dialog::new(status_screen);
+                            game_thread::after_status_screen_update(bw, status_screen, selected);
+                        }
+                    }
+                    // Updating status every frame by always returning 1 from has_changed
+                    // should be very cheap relative to other SC:R stuff, and allows us
+                    // to intercept the dialog layout with less work.
+                    func.has_changed = always_true;
+                    func.update_status = update_status;
+                }
+            }
+
+            self.rendering_patches(&mut exe, base);
+
+            for &vtable in &self.console_vtables {
+                let vtable = vtable.0 as *const scr::V_UiConsole;
+                let relative = (*vtable).hit_test.cast_usize() - base;
+                // Make console hittest return false when console is hidden.
+                //
+                // Unfortunately BW doesn't update hittest result until mouse moves,
+                // so there's small bug with clicks right after console is shown/hidden.
+                exe.hook_closure_address(
+                    Console_HitTest,
+                    move |console, x, y, orig| match self.console_hidden() {
+                        true => 0,
+                        false => orig(console, x, y),
+                    },
+                    relative,
+                );
+            }
+
+            sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
+
+            let create_file_hook_closure =
+                move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
+            let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
+                self.check_replay_file_finish(handle);
+                orig(handle)
+            };
+            let init_time = std::time::Instant::now();
+            let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
+            let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
+                // BW uses GetTickCount for a lot of things that should really have better than
+                // 16ms resolution, so we hook this to give them a better timer. In practice this
+                // improves the reliability of turn timing, which hopefully improves the reliability of
+                // the netcode, and maybe other things
+
+                // We add the initial tick count here because some other Windows APIs
+                // (notably GetMessageTime) return values that are expected to be in the same range.
+                // Without doing this, SC:R will discard some otherwise valid events and make it so
+                // things like keypresses take multiple presses to achieve one action.
+                (init_time.elapsed().as_millis() as u32).wrapping_add(init_tick_count)
+            };
+            drop(exe);
+            hook_winapi_exports!(&mut active_patcher, "kernel32",
+                "CreateEventW", CreateEventW, create_event_hook;
+                "CreateFileW", CreateFileW, create_file_hook_closure;
+                "CopyFileW", CopyFileW, copy_file_hook;
+                "CloseHandle", CloseHandle, close_handle_hook;
+                "GetTickCount", GetTickCount, get_tick_count_hook;
+            );
+
+            // SCR wants to update gamepad state every frame, but in the end it
+            // won't do any with it anyway. The query isn't completely free,
+            // so dummy it out to let game spend time on better things.
+            //
+            // Note: This patch gets only applied if the DLL is already loaded,
+            // so that we don't end up loading the DLL for no reason if a future
+            // patch stops using this function.
+            if windows::module_handle("xinput9_1_0").is_some() {
+                let xinput_get_state_hook =
+                    |_, _, _| winapi::shared::winerror::ERROR_DEVICE_NOT_CONNECTED;
+                hook_winapi_exports!(&mut active_patcher, "xinput9_1_0",
+                    "XInputGetState", XInputGetState, xinput_get_state_hook;
+                );
+            }
+            crate::forge::init_hooks_scr(&mut active_patcher);
+            debug!("Patched.");
+        }
+    }
+
+    pub unsafe fn post_async_init(&'static self) {
+        unsafe {
+            let base = GetModuleHandleW(null()) as usize;
+            let sdf_cache = self.sdf_cache.clone();
+            let async_handle = crate::async_handle();
+            let mut sdf_cache = sdf_cache.lock_owned();
+            async_handle.spawn(async move {
+                let exe_hash = pe_image::hash_pe_header(base as *const u8);
+                *sdf_cache = Some(SdfCache::init(exe_hash).await);
+            });
+        }
+    }
+
+    unsafe fn rendering_patches(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) {
+        unsafe {
+            use self::hooks::*;
+            let renderer_vtable = self.prism_renderer_vtable.0 as *const scr::V_Renderer;
+
+            let draw = (*renderer_vtable).draw;
+            let create_shader = (*renderer_vtable).create_shader;
+
+            let address = self.draw_graphic_layers.0 as usize - base;
+            // draw_graphic_layers is the main BW draw command queuing function.
+            // Usually called once per render to queue DrawCommands for all sprites of the game
+            // as well as UI, but when the user is in middle of switching between
+            // SD and HD, it will be called a second time with `second_draw == 1`
+            // so that the game will be able to fade between the two graphic modes.
+            exe.hook_closure_address(
+                DrawGraphicLayers,
+                move |extra_funcs, extra_func_len, second_draw, orig| {
+                    // It is expected that extra_funcs array has one (just one) function that
+                    // draws the UI console. If console is hidden just call orig with 0 extra funcs
+                    // and it should make the static parts of console hidden.
+                    // (Interactable parts of the console are dialogs which need to be hidden
+                    // separately.)
+                    let graphic_layers =
+                        self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
+                    if self.console_hidden() {
+                        if let Some(layers) = graphic_layers {
+                            // Don't draw tooltip layer if it was active.
+                            // It can stay active when hiding console depending on where
+                            // the mouse was on when console was hidden, even if the control
+                            // becomes uninteractable.
+                            // (Pretty sure that none of the menus use tooltips)
+                            (*layers.as_ptr().add(1)).draw = 0;
+                        }
+                        orig(extra_funcs, 0, second_draw);
+                    } else {
+                        orig(extra_funcs, extra_func_len, second_draw);
+                    }
+                    let renderer = self.renderer.resolve();
+                    let commands = self.draw_commands.resolve();
+                    let vertex_buffer = self.vertex_buffer.resolve();
+                    let players = self.players();
+                    let game = self.game();
+                    if game.is_null() {
+                        // Early screen draw
+                        return;
+                    }
+                    let game = bw_dat::Game::from_ptr(game);
+                    let is_replay_or_obs = self.is_replay_or_obs();
+                    let is_team_game = game_thread::is_team_game();
+                    let main_palette = self.main_palette.resolve();
+                    let rgb_colors = self.rgb_colors.resolve();
+                    let use_rgb_colors = self.use_rgb_colors.resolve();
+                    let statres_icons = self.statres_icons.resolve();
+                    let cmdicons = self.cmdicons.resolve();
+                    let replay_visions = self.replay_visions.resolve();
+                    let active_units = self.active_units();
+                    let first_player_unit = self.first_player_unit.resolve();
+                    let first_dialog = self.resolve_first_dialog();
+                    // Assuming that the last added draw command (Added during orig() call)
+                    // will have the is_hd value that is currently being used.
+                    // Could also probably examine the render target from get_render_target,
+                    // as that changes depending on if BW is currently rendering HD or not.
+                    let is_hd = (*commands)
+                        .draw_command_count
+                        .checked_sub(1)
+                        .and_then(|idx| (*commands).commands.get(idx as usize))
+                        .map(|x| x.is_hd != 0)
+                        .unwrap_or(false);
+                    // SC:R only enables carbot if both of these flags are set
+                    let is_carbot = self.is_carbot.load(Ordering::Relaxed)
+                        && self.show_skins.load(Ordering::Relaxed);
+                    // Render target 1 is for UI layers (0xb to 0x1d inclusive)
+                    let render_target =
+                        draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
+                    if let Some(mut render_state) = self.render_state.lock() {
+                        let apm_guard = self.apm_state.lock();
+                        let apm = apm_guard.as_deref();
+                        let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        let overlay_out = render_state.overlay.step(
+                            &draw_overlay::BwVars {
+                                is_replay_or_obs,
+                                is_team_game,
+                                game,
+                                players,
+                                main_palette,
+                                rgb_colors,
+                                use_rgb_colors,
+                                replay_visions,
+                                active_units,
+                                first_player_unit,
+                                first_dialog,
+                                graphic_layers,
+                                is_hd,
+                            },
+                            apm,
+                            size,
+                        );
+                        if replay_visions != overlay_out.replay_visions {
+                            self.replay_visions.write(overlay_out.replay_visions);
+                            // Has to be called here or otherwise there's minimap flicker
+                            // with the resources disappearing until the game logic moves
+                            // forward a step.
+                            game_thread::add_fow_sprites_for_replay_vision_change(self);
+                        }
+                        if let Some(unit) = overlay_out.select_unit {
+                            let units = [*unit];
+                            (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                            self.center_screen(&unit.position());
+                        }
+                        if let Some((ctrl, show)) = overlay_out.show_hide_control {
+                            if show {
+                                if ctrl.control_type() == 0 {
+                                    // ctrl.show() crashes for dialogs, but this seems to work..
+                                    // (It tries to check if mouse x/y is on control, but
+                                    // to do that it'll access parent rect, which won't exist
+                                    // for dialogs)
+                                    (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
+                                } else {
+                                    ctrl.show();
+                                }
+                            } else {
+                                ctrl.hide();
+                            }
+                        }
+                        if let Some((index, show)) = overlay_out.show_hide_graphic_layer {
+                            assert!(index < 8);
+                            if let Some(layers) = graphic_layers {
+                                let layer = layers.as_ptr().add(index as usize);
+                                if show {
+                                    if (*layer).draw_func.is_some() {
+                                        (*layer).draw = 1;
+                                    }
+                                } else {
+                                    (*layer).draw = 0;
+                                }
+                            }
+                        }
+                        let console_shown = !self.console_hidden();
+                        if overlay_out.show_console != console_shown {
+                            if overlay_out.show_console {
+                                self.show_console(first_dialog);
+                            } else {
+                                self.hide_console(first_dialog);
+                            }
+                        }
+                        draw_inject::add_overlays(
+                            &mut render_state.render,
+                            &draw_inject::BwVars {
+                                renderer,
+                                commands,
+                                vertex_buf: vertex_buffer,
+                                is_hd,
+                                is_carbot,
+                                statres_icons,
+                                cmdicons,
+                            },
+                            overlay_out,
+                            &render_target,
+                        );
+                    }
+                },
+                address,
+            );
+            // Render hook
+            let relative = draw.cast_usize() - base;
+            exe.hook_closure_address(
+                Renderer_Render,
+                move |renderer, commands, width, height, orig| {
+                    if self.shader_replaces.has_changed() {
+                        // Hot reload shaders.
+                        // Unfortunately repatching the .exe to replace shader sets in BW
+                        // memory is not currently possible.
+                        // Will have to write over the previously allocated scr::PrismShader slice
+                        // instead.
+                        for (id, new_set) in self.shader_replaces.iter_shaders() {
+                            if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
+                                let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
+                                assert_eq!((*shader_set).count as usize, new_set.len());
+                                let out = std::slice::from_raw_parts_mut(
+                                    (*shader_set).shaders,
+                                    (*shader_set).count as usize,
+                                );
+                                if out[0].data != new_set[0].data {
+                                    out.copy_from_slice(new_set);
+                                    let args = {
+                                        let renderer_state = self.renderer_state.lock();
+                                        renderer_state.shader_inputs.get(id as usize).copied()
+                                    };
+                                    if let Some(args) = args {
+                                        create_shader.call6(
+                                            renderer,
+                                            args.shader,
+                                            null(),
+                                            args.vertex_path,
+                                            args.pixel_path,
+                                            null_mut(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    let show_network_stalled =
+                        if self.visualize_network_stalls.load(Ordering::Relaxed)
+                            && !self.is_network_ready()
+                        {
+                            1.0
+                        } else {
+                            0.0
+                        };
+
+                    // Leave unexplored area in UMS maps black
+                    let use_new_mask = if crate::game_thread::is_ums()
+                        || self.starting_fog.load(Ordering::Relaxed) != StartingFog::Transparent
+                    {
+                        0.0
+                    } else {
+                        1.0
+                    };
+                    for cmd in &mut (*commands).commands {
+                        if cmd.shader_id == SHADER_ID_MASK {
+                            cmd.shader_constants[0] = use_new_mask;
+                            cmd.shader_constants[1] = show_network_stalled;
+                        }
+                    }
+                    let ret = orig(renderer, commands, width, height);
+                    if let Some(mut render_state) = self.render_state.lock() {
+                        draw_inject::free_textures(&mut render_state.render);
+                    }
+                    ret
                 },
                 relative,
             );
-        }
 
-        sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
-
-        let create_file_hook_closure =
-            move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
-        let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
-            self.check_replay_file_finish(handle);
-            orig(handle)
-        };
-        let init_time = std::time::Instant::now();
-        let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
-        let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
-            // BW uses GetTickCount for a lot of things that should really have better than
-            // 16ms resolution, so we hook this to give them a better timer. In practice this
-            // improves the reliability of turn timing, which hopefully improves the reliability of
-            // the netcode, and maybe other things
-
-            // We add the initial tick count here because some other Windows APIs
-            // (notably GetMessageTime) return values that are expected to be in the same range.
-            // Without doing this, SC:R will discard some otherwise valid events and make it so
-            // things like keypresses take multiple presses to achieve one action.
-            (init_time.elapsed().as_millis() as u32).wrapping_add(init_tick_count)
-        };
-        drop(exe);
-        hook_winapi_exports!(&mut active_patcher, "kernel32",
-            "CreateEventW", CreateEventW, create_event_hook;
-            "CreateFileW", CreateFileW, create_file_hook_closure;
-            "CopyFileW", CopyFileW, copy_file_hook;
-            "CloseHandle", CloseHandle, close_handle_hook;
-            "GetTickCount", GetTickCount, get_tick_count_hook;
-        );
-
-        // SCR wants to update gamepad state every frame, but in the end it
-        // won't do any with it anyway. The query isn't completely free,
-        // so dummy it out to let game spend time on better things.
-        //
-        // Note: This patch gets only applied if the DLL is already loaded,
-        // so that we don't end up loading the DLL for no reason if a future
-        // patch stops using this function.
-        if windows::module_handle("xinput9_1_0").is_some() {
-            let xinput_get_state_hook =
-                |_, _, _| winapi::shared::winerror::ERROR_DEVICE_NOT_CONNECTED;
-            hook_winapi_exports!(&mut active_patcher, "xinput9_1_0",
-                "XInputGetState", XInputGetState, xinput_get_state_hook;
+            // CreateShader hook
+            let relative = create_shader.cast_usize() - base;
+            exe.hook_closure_address(
+                Renderer_CreateShader,
+                move |renderer, shader, text, vertex, pixel, arg5, orig| {
+                    {
+                        let mut renderer_state = self.renderer_state.lock();
+                        renderer_state.set_shader_inputs(shader, vertex, pixel);
+                    }
+                    orig(renderer, shader, text, vertex, pixel, arg5)
+                },
+                relative,
             );
-        }
-        crate::forge::init_hooks_scr(&mut active_patcher);
-        debug!("Patched.");
-    }}
 
-    pub unsafe fn post_async_init(&'static self) { unsafe {
-        let base = GetModuleHandleW(null()) as usize;
-        let sdf_cache = self.sdf_cache.clone();
-        let async_handle = crate::async_handle();
-        let mut sdf_cache = sdf_cache.lock_owned();
-        async_handle.spawn(async move {
-            let exe_hash = pe_image::hash_pe_header(base as *const u8);
-            *sdf_cache = Some(SdfCache::init(exe_hash).await);
-        });
-    }}
-
-    unsafe fn rendering_patches(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) { unsafe {
-        use self::hooks::*;
-        let renderer_vtable = self.prism_renderer_vtable.0 as *const scr::V_Renderer;
-
-        let draw = (*renderer_vtable).draw;
-        let create_shader = (*renderer_vtable).create_shader;
-
-        let address = self.draw_graphic_layers.0 as usize - base;
-        // draw_graphic_layers is the main BW draw command queuing function.
-        // Usually called once per render to queue DrawCommands for all sprites of the game
-        // as well as UI, but when the user is in middle of switching between
-        // SD and HD, it will be called a second time with `second_draw == 1`
-        // so that the game will be able to fade between the two graphic modes.
-        exe.hook_closure_address(
-            DrawGraphicLayers,
-            move |extra_funcs, extra_func_len, second_draw, orig| {
-                // It is expected that extra_funcs array has one (just one) function that
-                // draws the UI console. If console is hidden just call orig with 0 extra funcs
-                // and it should make the static parts of console hidden.
-                // (Interactable parts of the console are dialogs which need to be hidden
-                // separately.)
-                let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
-                if self.console_hidden() {
-                    if let Some(layers) = graphic_layers {
-                        // Don't draw tooltip layer if it was active.
-                        // It can stay active when hiding console depending on where
-                        // the mouse was on when console was hidden, even if the control
-                        // becomes uninteractable.
-                        // (Pretty sure that none of the menus use tooltips)
-                        (*layers.as_ptr().add(1)).draw = 0;
-                    }
-                    orig(extra_funcs, 0, second_draw);
-                } else {
-                    orig(extra_funcs, extra_func_len, second_draw);
-                }
-                let renderer = self.renderer.resolve();
-                let commands = self.draw_commands.resolve();
-                let vertex_buffer = self.vertex_buffer.resolve();
-                let players = self.players();
-                let game = self.game();
-                if game.is_null() {
-                    // Early screen draw
-                    return;
-                }
-                let game = bw_dat::Game::from_ptr(game);
-                let is_replay_or_obs = self.is_replay_or_obs();
-                let is_team_game = game_thread::is_team_game();
-                let main_palette = self.main_palette.resolve();
-                let rgb_colors = self.rgb_colors.resolve();
-                let use_rgb_colors = self.use_rgb_colors.resolve();
-                let statres_icons = self.statres_icons.resolve();
-                let cmdicons = self.cmdicons.resolve();
-                let replay_visions = self.replay_visions.resolve();
-                let active_units = self.active_units();
-                let first_player_unit = self.first_player_unit.resolve();
-                let first_dialog = self.resolve_first_dialog();
-                // Assuming that the last added draw command (Added during orig() call)
-                // will have the is_hd value that is currently being used.
-                // Could also probably examine the render target from get_render_target,
-                // as that changes depending on if BW is currently rendering HD or not.
-                let is_hd = (*commands)
-                    .draw_command_count
-                    .checked_sub(1)
-                    .and_then(|idx| (*commands).commands.get(idx as usize))
-                    .map(|x| x.is_hd != 0)
-                    .unwrap_or(false);
-                // SC:R only enables carbot if both of these flags are set
-                let is_carbot = self.is_carbot.load(Ordering::Relaxed)
-                    && self.show_skins.load(Ordering::Relaxed);
-                // Render target 1 is for UI layers (0xb to 0x1d inclusive)
-                let render_target = draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
-                if let Some(mut render_state) = self.render_state.lock() {
-                    let apm_guard = self.apm_state.lock();
-                    let apm = apm_guard.as_deref();
-                    let size = ((*render_target.bw).width, (*render_target.bw).height);
-                    let overlay_out = render_state.overlay.step(
-                        &draw_overlay::BwVars {
-                            is_replay_or_obs,
-                            is_team_game,
-                            game,
-                            players,
-                            main_palette,
-                            rgb_colors,
-                            use_rgb_colors,
-                            replay_visions,
-                            active_units,
-                            first_player_unit,
-                            first_dialog,
-                            graphic_layers,
-                            is_hd,
-                        },
-                        apm,
-                        size,
-                    );
-                    if replay_visions != overlay_out.replay_visions {
-                        self.replay_visions.write(overlay_out.replay_visions);
-                        // Has to be called here or otherwise there's minimap flicker
-                        // with the resources disappearing until the game logic moves
-                        // forward a step.
-                        game_thread::add_fow_sprites_for_replay_vision_change(self);
-                    }
-                    if let Some(unit) = overlay_out.select_unit {
-                        let units = [*unit];
-                        (self.select_units)(units.len(), units.as_ptr(), 1, 1);
-                        self.center_screen(&unit.position());
-                    }
-                    if let Some((ctrl, show)) = overlay_out.show_hide_control {
-                        if show {
-                            if ctrl.control_type() == 0 {
-                                // ctrl.show() crashes for dialogs, but this seems to work..
-                                // (It tries to check if mouse x/y is on control, but
-                                // to do that it'll access parent rect, which won't exist
-                                // for dialogs)
-                                (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
-                            } else {
-                                ctrl.show();
-                            }
-                        } else {
-                            ctrl.hide();
-                        }
-                    }
-                    if let Some((index, show)) = overlay_out.show_hide_graphic_layer {
-                        assert!(index < 8);
-                        if let Some(layers) = graphic_layers {
-                            let layer = layers.as_ptr().add(index as usize);
-                            if show {
-                                if (*layer).draw_func.is_some() {
-                                    (*layer).draw = 1;
-                                }
-                            } else {
-                                (*layer).draw = 0;
-                            }
-                        }
-                    }
-                    let console_shown = !self.console_hidden();
-                    if overlay_out.show_console != console_shown {
-                        if overlay_out.show_console {
-                            self.show_console(first_dialog);
-                        } else {
-                            self.hide_console(first_dialog);
-                        }
-                    }
-                    draw_inject::add_overlays(
-                        &mut render_state.render,
-                        &draw_inject::BwVars {
-                            renderer,
-                            commands,
-                            vertex_buf: vertex_buffer,
-                            is_hd,
-                            is_carbot,
-                            statres_icons,
-                            cmdicons,
-                        },
-                        overlay_out,
-                        &render_target,
-                    );
-                }
-            },
-            address,
-        );
-        // Render hook
-        let relative = draw.cast_usize() - base;
-        exe.hook_closure_address(
-            Renderer_Render,
-            move |renderer, commands, width, height, orig| {
-                if self.shader_replaces.has_changed() {
-                    // Hot reload shaders.
-                    // Unfortunately repatching the .exe to replace shader sets in BW
-                    // memory is not currently possible.
-                    // Will have to write over the previously allocated scr::PrismShader slice
-                    // instead.
-                    for (id, new_set) in self.shader_replaces.iter_shaders() {
-                        if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
-                            let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
-                            assert_eq!((*shader_set).count as usize, new_set.len());
-                            let out = std::slice::from_raw_parts_mut(
-                                (*shader_set).shaders,
-                                (*shader_set).count as usize,
-                            );
-                            if out[0].data != new_set[0].data {
-                                out.copy_from_slice(new_set);
-                                let args = {
-                                    let renderer_state = self.renderer_state.lock();
-                                    renderer_state.shader_inputs.get(id as usize).copied()
-                                };
-                                if let Some(args) = args {
-                                    create_shader.call6(
-                                        renderer,
-                                        args.shader,
-                                        null(),
-                                        args.vertex_path,
-                                        args.pixel_path,
-                                        null_mut(),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-
-                let show_network_stalled = if self.visualize_network_stalls.load(Ordering::Relaxed)
-                    && !self.is_network_ready()
-                {
-                    1.0
-                } else {
-                    0.0
-                };
-
-                // Leave unexplored area in UMS maps black
-                let use_new_mask = if crate::game_thread::is_ums()
-                    || self.starting_fog.load(Ordering::Relaxed) != StartingFog::Transparent
-                {
-                    0.0
-                } else {
-                    1.0
-                };
-                for cmd in &mut (*commands).commands {
-                    if cmd.shader_id == SHADER_ID_MASK {
-                        cmd.shader_constants[0] = use_new_mask;
-                        cmd.shader_constants[1] = show_network_stalled;
-                    }
-                }
-                let ret = orig(renderer, commands, width, height);
-                if let Some(mut render_state) = self.render_state.lock() {
-                    draw_inject::free_textures(&mut render_state.render);
-                }
-                ret
-            },
-            relative,
-        );
-
-        // CreateShader hook
-        let relative = create_shader.cast_usize() - base;
-        exe.hook_closure_address(
-            Renderer_CreateShader,
-            move |renderer, shader, text, vertex, pixel, arg5, orig| {
-                {
-                    let mut renderer_state = self.renderer_state.lock();
-                    renderer_state.set_shader_inputs(shader, vertex, pixel);
-                }
-                orig(renderer, shader, text, vertex, pixel, arg5)
-            },
-            relative,
-        );
-
-        for (id, shader_set) in self.shader_replaces.iter_shaders() {
-            if let Some(&address) = self.prism_pixel_shaders.get(id as usize) {
-                let patch = scr::PrismShaderSet {
-                    count: shader_set.len() as u32,
-                    shaders: shader_set.as_ptr() as *mut _,
-                };
-                let relative = address.0 as usize - base;
-                exe.replace_val(relative, patch);
-            }
-        }
-    }}
-
-    unsafe fn center_screen(&self, pos: &bw::Point) { unsafe {
-        let width = self.game_screen_width_bwpx.resolve();
-        let height = self.game_screen_height_bwpx.resolve();
-        let max_width = match self.map_width_pixels.resolve().checked_sub(width) {
-            Some(s) => s,
-            None => return,
-        };
-        let max_height = match self.map_height_pixels.resolve().checked_sub(height) {
-            Some(s) => s,
-            None => return,
-        };
-        let x = (pos.x as u32).saturating_sub(width / 2).clamp(0, max_width);
-        let y = (pos.y as u32)
-            .saturating_sub(height / 2)
-            .clamp(0, max_height);
-        (self.move_screen)(x, y);
-    }}
-
-    unsafe fn update_nation_and_human_ids(&self) { unsafe {
-        let net_player_to_game = self.net_player_to_game.resolve();
-        let net_player_to_unique = self.net_player_to_unique.resolve();
-        let local_storm_id = self.local_storm_id.resolve();
-        let players = self.players.resolve();
-        for i in 0..NET_PLAYER_COUNT {
-            *net_player_to_unique.add(i) = 8;
-            *net_player_to_game.add(i) = 8;
-        }
-        // 0..8 are normal player slots, 8..12 can be used by UMS, 12..16 are observers
-        for i in 0..16 {
-            let player = players.add(i);
-            let storm_id = (*player).storm_id;
-
-            debug!(
-                "Slot {} has id {}, player_type {}, storm_id {}",
-                i,
-                (*player).id,
-                (*player).player_type,
-                (*player).storm_id
-            );
-            // Note: We set obs slot player types also be PLAYER_TYPE_HUMAN while BW uses
-            // a separate value for them, so this if includes both players and observers.
-            // Not 100% sure why we do it differently from BW, probably ended up doing that since
-            // the existing code didn't account for it and BW doesn't seem to care?
-            if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
-                assert!(storm_id < 16);
-                let game_id = match i < 12 {
-                    true => i,
-                    false => 128 + (i - 12),
-                };
-                *net_player_to_game.add(storm_id as usize) = game_id as u32;
-                *net_player_to_unique.add(storm_id as usize) = game_id as u32;
-                if storm_id == local_storm_id {
-                    self.local_player_id.write(game_id as u32);
-                    self.local_unique_player_id.write(game_id as u32);
+            for (id, shader_set) in self.shader_replaces.iter_shaders() {
+                if let Some(&address) = self.prism_pixel_shaders.get(id as usize) {
+                    let patch = scr::PrismShaderSet {
+                        count: shader_set.len() as u32,
+                        shaders: shader_set.as_ptr() as *mut _,
+                    };
+                    let relative = address.0 as usize - base;
+                    exe.replace_val(relative, patch);
                 }
             }
         }
-    }}
+    }
 
-    unsafe fn storm_last_error_ptr(&self) -> *mut u32 { unsafe {
-        // This just is starcraft.exe errno
-        // dword [[fs:[2c] + tls_index * 4] + 4]
-        let tls_index = *self.starcraft_tls_index.0;
-        let table = read_fs_gs(0xb * mem::size_of::<usize>()) as *mut *mut u32;
-        let tls_data = *table.add(tls_index as usize);
-        tls_data.add(1)
-    }}
-
-    unsafe fn storm_last_error(&self) -> u32 { unsafe {
-        *self.storm_last_error_ptr()
-    }}
-
-    unsafe fn init_team_game_playable_slots(&self) { unsafe {
-        // There's a bw::Player structure that contains player types as they were
-        // defined in the map scenario.chk; It is being used in lobby to know which slots
-        // are completely disabled, which ones are available for humans etc.
-        // Team games override that and set all those slots to open so that they can
-        // have all 8 slots available in lobby on smaller maps.
-        // This requires the player types to be copied to a backup array; usually people
-        // joining that get the array's contents from a message sent by the host, but we
-        // skip that. Copying that information from the chk players
-        // (which is same what the host does) is fine since we guarantee that all players
-        // have the map file ready before joining, so the data there is valid.
-        let chk_players = self.chk_players.resolve();
-        let init_player_types = self.init_chk_player_types.resolve();
-        for i in 0..12 {
-            *init_player_types.add(i) = (*chk_players.add(i)).player_type;
+    unsafe fn center_screen(&self, pos: &bw::Point) {
+        unsafe {
+            let width = self.game_screen_width_bwpx.resolve();
+            let height = self.game_screen_height_bwpx.resolve();
+            let max_width = match self.map_width_pixels.resolve().checked_sub(width) {
+                Some(s) => s,
+                None => return,
+            };
+            let max_height = match self.map_height_pixels.resolve().checked_sub(height) {
+                Some(s) => s,
+                None => return,
+            };
+            let x = (pos.x as u32).saturating_sub(width / 2).clamp(0, max_width);
+            let y = (pos.y as u32)
+                .saturating_sub(height / 2)
+                .clamp(0, max_height);
+            (self.move_screen)(x, y);
         }
-    }}
+    }
 
-    unsafe fn create_fow_sprite_main(&self, unit: Unit) -> Option<()> { unsafe {
-        // Going to be pessimistic and guess that the existing function for creating fog
-        // sprites is likely to be inlined in some future build.
-        // So going to write explicitly the equivalent function.
-        //
-        // This is simpler what BW does since it just allocates the Sprite/Image objects and
-        // copies existing data there, but it should not cause any issues.
-        //
-        // Also taking care to not actually add any objects to active lists before all
-        // allocations are done so that we can recover cleanly from allocation failures.
-        // (Though allocation failure is an edge case that likely never gets actually hit or
-        // tested :/)
-        let free_fow_sprites = self.free_fow_sprites.resolve();
-        let free_sprites = self.free_sprites.resolve();
-        let free_images = self.free_images.resolve();
-        let fow = free_fow_sprites.alloc()?;
-        let sprite = free_sprites.alloc()?;
-        let mut images: SmallVec<[bw::list::Allocation<bw::Image>; 8]> = SmallVec::new();
-        let in_sprite = (**unit).flingy.sprite as *mut scr::Sprite;
-        *sprite.value() = scr::Sprite {
-            prev: null_mut(),
-            next: null_mut(),
-            sprite_id: (*in_sprite).sprite_id,
-            player: (*in_sprite).player,
-            selection_index: (*in_sprite).selection_index,
-            visibility_mask: 0xff,
-            elevation_level: (*in_sprite).elevation_level,
-            flags: (*in_sprite).flags,
-            selection_flash_timer: (*in_sprite).selection_flash_timer,
-            index: (*in_sprite).index,
-            width: (*in_sprite).width,
-            height: (*in_sprite).height,
-            pos_x: (*in_sprite).pos_x,
-            pos_y: (*in_sprite).pos_y,
-            main_image: null_mut(),
-            first_image: null_mut(),
-            last_image: null_mut(),
-        };
-        let mut in_image = (*in_sprite).first_image;
-        while !in_image.is_null() {
-            let image = free_images.alloc()?;
-            *image.value() = bw::Image {
+    unsafe fn update_nation_and_human_ids(&self) {
+        unsafe {
+            let net_player_to_game = self.net_player_to_game.resolve();
+            let net_player_to_unique = self.net_player_to_unique.resolve();
+            let local_storm_id = self.local_storm_id.resolve();
+            let players = self.players.resolve();
+            for i in 0..NET_PLAYER_COUNT {
+                *net_player_to_unique.add(i) = 8;
+                *net_player_to_game.add(i) = 8;
+            }
+            // 0..8 are normal player slots, 8..12 can be used by UMS, 12..16 are observers
+            for i in 0..16 {
+                let player = players.add(i);
+                let storm_id = (*player).storm_id;
+
+                debug!(
+                    "Slot {} has id {}, player_type {}, storm_id {}",
+                    i,
+                    (*player).id,
+                    (*player).player_type,
+                    (*player).storm_id
+                );
+                // Note: We set obs slot player types also be PLAYER_TYPE_HUMAN while BW uses
+                // a separate value for them, so this if includes both players and observers.
+                // Not 100% sure why we do it differently from BW, probably ended up doing that since
+                // the existing code didn't account for it and BW doesn't seem to care?
+                if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
+                    assert!(storm_id < 16);
+                    let game_id = match i < 12 {
+                        true => i,
+                        false => 128 + (i - 12),
+                    };
+                    *net_player_to_game.add(storm_id as usize) = game_id as u32;
+                    *net_player_to_unique.add(storm_id as usize) = game_id as u32;
+                    if storm_id == local_storm_id {
+                        self.local_player_id.write(game_id as u32);
+                        self.local_unique_player_id.write(game_id as u32);
+                    }
+                }
+            }
+        }
+    }
+
+    unsafe fn storm_last_error_ptr(&self) -> *mut u32 {
+        unsafe {
+            // This just is starcraft.exe errno
+            // dword [[fs:[2c] + tls_index * 4] + 4]
+            let tls_index = *self.starcraft_tls_index.0;
+            let table = read_fs_gs(0xb * mem::size_of::<usize>()) as *mut *mut u32;
+            let tls_data = *table.add(tls_index as usize);
+            tls_data.add(1)
+        }
+    }
+
+    unsafe fn storm_last_error(&self) -> u32 {
+        unsafe { *self.storm_last_error_ptr() }
+    }
+
+    unsafe fn init_team_game_playable_slots(&self) {
+        unsafe {
+            // There's a bw::Player structure that contains player types as they were
+            // defined in the map scenario.chk; It is being used in lobby to know which slots
+            // are completely disabled, which ones are available for humans etc.
+            // Team games override that and set all those slots to open so that they can
+            // have all 8 slots available in lobby on smaller maps.
+            // This requires the player types to be copied to a backup array; usually people
+            // joining that get the array's contents from a message sent by the host, but we
+            // skip that. Copying that information from the chk players
+            // (which is same what the host does) is fine since we guarantee that all players
+            // have the map file ready before joining, so the data there is valid.
+            let chk_players = self.chk_players.resolve();
+            let init_player_types = self.init_chk_player_types.resolve();
+            for i in 0..12 {
+                *init_player_types.add(i) = (*chk_players.add(i)).player_type;
+            }
+        }
+    }
+
+    unsafe fn create_fow_sprite_main(&self, unit: Unit) -> Option<()> {
+        unsafe {
+            // Going to be pessimistic and guess that the existing function for creating fog
+            // sprites is likely to be inlined in some future build.
+            // So going to write explicitly the equivalent function.
+            //
+            // This is simpler what BW does since it just allocates the Sprite/Image objects and
+            // copies existing data there, but it should not cause any issues.
+            //
+            // Also taking care to not actually add any objects to active lists before all
+            // allocations are done so that we can recover cleanly from allocation failures.
+            // (Though allocation failure is an edge case that likely never gets actually hit or
+            // tested :/)
+            let free_fow_sprites = self.free_fow_sprites.resolve();
+            let free_sprites = self.free_sprites.resolve();
+            let free_images = self.free_images.resolve();
+            let fow = free_fow_sprites.alloc()?;
+            let sprite = free_sprites.alloc()?;
+            let mut images: SmallVec<[bw::list::Allocation<bw::Image>; 8]> = SmallVec::new();
+            let in_sprite = (**unit).flingy.sprite as *mut scr::Sprite;
+            *sprite.value() = scr::Sprite {
                 prev: null_mut(),
                 next: null_mut(),
-                image_id: (*in_image).image_id,
-                drawfunc: (*in_image).drawfunc,
-                direction: (*in_image).direction,
-                flags: (*in_image).flags,
-                x_offset: (*in_image).x_offset,
-                y_offset: (*in_image).y_offset,
-                iscript: bw::Iscript {
-                    header: (*in_image).iscript.header,
-                    pos: (*in_image).iscript.pos,
-                    return_pos: (*in_image).iscript.return_pos,
-                    animation: (*in_image).iscript.animation,
-                    wait: (*in_image).iscript.wait,
-                },
-                frameset: (*in_image).frameset,
-                frame: (*in_image).frame,
-                map_position: (*in_image).map_position,
-                screen_position: (*in_image).screen_position,
-                grp_bounds: (*in_image).grp_bounds,
-                grp: (*in_image).grp,
-                drawfunc_param: (*in_image).drawfunc_param,
-                draw: (*in_image).draw,
-                step_frame: (*in_image).step_frame,
-                parent: sprite.value() as *mut bw::Sprite,
+                sprite_id: (*in_sprite).sprite_id,
+                player: (*in_sprite).player,
+                selection_index: (*in_sprite).selection_index,
+                visibility_mask: 0xff,
+                elevation_level: (*in_sprite).elevation_level,
+                flags: (*in_sprite).flags,
+                selection_flash_timer: (*in_sprite).selection_flash_timer,
+                index: (*in_sprite).index,
+                width: (*in_sprite).width,
+                height: (*in_sprite).height,
+                pos_x: (*in_sprite).pos_x,
+                pos_y: (*in_sprite).pos_y,
+                main_image: null_mut(),
+                first_image: null_mut(),
+                last_image: null_mut(),
             };
-            if in_image == (*in_sprite).main_image {
-                (*sprite.value()).main_image = image.value();
+            let mut in_image = (*in_sprite).first_image;
+            while !in_image.is_null() {
+                let image = free_images.alloc()?;
+                *image.value() = bw::Image {
+                    prev: null_mut(),
+                    next: null_mut(),
+                    image_id: (*in_image).image_id,
+                    drawfunc: (*in_image).drawfunc,
+                    direction: (*in_image).direction,
+                    flags: (*in_image).flags,
+                    x_offset: (*in_image).x_offset,
+                    y_offset: (*in_image).y_offset,
+                    iscript: bw::Iscript {
+                        header: (*in_image).iscript.header,
+                        pos: (*in_image).iscript.pos,
+                        return_pos: (*in_image).iscript.return_pos,
+                        animation: (*in_image).iscript.animation,
+                        wait: (*in_image).iscript.wait,
+                    },
+                    frameset: (*in_image).frameset,
+                    frame: (*in_image).frame,
+                    map_position: (*in_image).map_position,
+                    screen_position: (*in_image).screen_position,
+                    grp_bounds: (*in_image).grp_bounds,
+                    grp: (*in_image).grp,
+                    drawfunc_param: (*in_image).drawfunc_param,
+                    draw: (*in_image).draw,
+                    step_frame: (*in_image).step_frame,
+                    parent: sprite.value() as *mut bw::Sprite,
+                };
+                if in_image == (*in_sprite).main_image {
+                    (*sprite.value()).main_image = image.value();
+                }
+                images.push(image);
+                in_image = (*in_image).next;
             }
-            images.push(image);
-            in_image = (*in_image).next;
-        }
-        *fow.value() = bw::FowSprite {
-            prev: null_mut(),
-            next: null_mut(),
-            unit_id: (**unit).unit_id,
-            sprite: sprite.value() as *mut c_void,
-        };
+            *fow.value() = bw::FowSprite {
+                prev: null_mut(),
+                next: null_mut(),
+                unit_id: (**unit).unit_id,
+                sprite: sprite.value() as *mut c_void,
+            };
 
-        // Now the allocations can be moved to active lists
-        let fow_list = self.active_fow_sprites.resolve();
-        let sprite_lists_start = self.sprites_by_y_tile.resolve();
-        let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
-        let y_tile = self.sprite_y(in_sprite) / 32;
-        if y_tile >= 0x100 {
-            error!("Sprite y tile was invalid: 0x{:x}", y_tile);
-            return None;
+            // Now the allocations can be moved to active lists
+            let fow_list = self.active_fow_sprites.resolve();
+            let sprite_lists_start = self.sprites_by_y_tile.resolve();
+            let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
+            let y_tile = self.sprite_y(in_sprite) / 32;
+            if y_tile >= 0x100 {
+                error!("Sprite y tile was invalid: 0x{:x}", y_tile);
+                return None;
+            }
+            let sprite_list = bw::list::LinkedList {
+                start: sprite_lists_start.add(y_tile as usize),
+                end: sprite_lists_end.add(y_tile as usize),
+            };
+            let sprite_images = bw::list::LinkedList {
+                start: &mut (*sprite.value()).first_image,
+                end: &mut (*sprite.value()).last_image,
+            };
+            while let Some(image) = images.pop() {
+                image.move_to(&sprite_images);
+            }
+            sprite.move_to(&sprite_list);
+            fow.move_to(&fow_list);
+            Some(())
         }
-        let sprite_list = bw::list::LinkedList {
-            start: sprite_lists_start.add(y_tile as usize),
-            end: sprite_lists_end.add(y_tile as usize),
-        };
-        let sprite_images = bw::list::LinkedList {
-            start: &mut (*sprite.value()).first_image,
-            end: &mut (*sprite.value()).last_image,
-        };
-        while let Some(image) = images.pop() {
-            image.move_to(&sprite_images);
+    }
+
+    unsafe fn sprite_x(&self, sprite: *mut scr::Sprite) -> i16 {
+        unsafe {
+            let ptr = sprite as usize + self.sprite_x.1 as usize;
+            let value = match self.sprite_x.2 {
+                scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
+            };
+            self.sprite_x.0.resolve_with_custom(&[value]) as i16
         }
-        sprite.move_to(&sprite_list);
-        fow.move_to(&fow_list);
-        Some(())
-    }}
+    }
 
-    unsafe fn sprite_x(&self, sprite: *mut scr::Sprite) -> i16 { unsafe {
-        let ptr = sprite as usize + self.sprite_x.1 as usize;
-        let value = match self.sprite_x.2 {
-            scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
-        };
-        self.sprite_x.0.resolve_with_custom(&[value]) as i16
-    }}
-
-    unsafe fn sprite_y(&self, sprite: *mut scr::Sprite) -> i16 { unsafe {
-        let ptr = sprite as usize + self.sprite_y.1 as usize;
-        let value = match self.sprite_y.2 {
-            scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
-            scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
-        };
-        self.sprite_y.0.resolve_with_custom(&[value]) as i16
-    }}
+    unsafe fn sprite_y(&self, sprite: *mut scr::Sprite) -> i16 {
+        unsafe {
+            let ptr = sprite as usize + self.sprite_y.1 as usize;
+            let value = match self.sprite_y.2 {
+                scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
+                scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
+            };
+            self.sprite_y.0.resolve_with_custom(&[value]) as i16
+        }
+    }
 
     unsafe fn register_possible_replay_handle(&self, handle: *mut c_void) {
         self.open_replay_file_count.fetch_add(1, Ordering::Relaxed);
         self.open_replay_files.lock().push(SendPtr(handle));
     }
 
-    unsafe fn check_replay_file_finish(&self, handle: *mut c_void) { unsafe {
-        if self.open_replay_file_count.load(Ordering::Relaxed) == 0 {
-            return;
-        }
-        let mut open_files = self.open_replay_files.lock();
-        match open_files.iter().position(|x| x.0 == handle) {
-            Some(i) => {
-                open_files.swap_remove(i);
-                self.open_replay_file_count.fetch_sub(1, Ordering::Relaxed);
+    unsafe fn check_replay_file_finish(&self, handle: *mut c_void) {
+        unsafe {
+            if self.open_replay_file_count.load(Ordering::Relaxed) == 0 {
+                return;
             }
-            None => return,
-        };
-        drop(open_files);
+            let mut open_files = self.open_replay_files.lock();
+            match open_files.iter().position(|x| x.0 == handle) {
+                Some(i) => {
+                    open_files.swap_remove(i);
+                    self.open_replay_file_count.fetch_sub(1, Ordering::Relaxed);
+                }
+                None => return,
+            };
+            drop(open_files);
 
-        if crate::replay::has_replay_magic_bytes(handle) {
-            if let Err(e) = crate::replay::add_shieldbattery_data(
-                handle,
-                self,
-                self.exe_build,
-                game_thread::setup_info(),
-                game_thread::player_id_mapping(),
-            ) {
-                error!("Unable to write extended replay data: {}", e);
+            if crate::replay::has_replay_magic_bytes(handle) {
+                if let Err(e) = crate::replay::add_shieldbattery_data(
+                    handle,
+                    self,
+                    self.exe_build,
+                    game_thread::setup_info(),
+                    game_thread::player_id_mapping(),
+                ) {
+                    error!("Unable to write extended replay data: {}", e);
+                }
             }
         }
-    }}
+    }
 
     /// Generic over scr::GameInfoValue and scr::GameInfoValueOld to support different versions
     /// in case blizzard is being indecisive.
@@ -2064,82 +2107,86 @@ impl BwScr {
         input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         options: LobbyOptions,
-    ) -> bw_hash_table::HashTable<scr::BwString, T> { unsafe {
-        let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20);
-        let mut add_param = |key: &[u8], value: u32| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
-            let mut value = T::from_u32(value);
-            params.insert(&mut string, &mut value);
-        };
-        add_param(b"save_game_id", input_game_info.save_checksum);
-        add_param(b"is_replay", input_game_info.is_replay as u32);
-        // Can lie for most of these player counts
-        add_param(b"players_current", 1);
-        add_param(b"players_max", input_game_info.max_player_count as u32);
-        add_param(b"observers_current", 0);
-        add_param(b"observers_max", 0);
-        add_param(b"players_ai", 0);
-        add_param(b"closed_slots", 0);
-        add_param(b"proxy", 0);
-        add_param(b"game_speed", input_game_info.game_speed as u32);
-        add_param(b"map_tile_set", input_game_info.tileset as u32);
-        add_param(b"map_width", input_game_info.map_width as u32);
-        add_param(b"map_height", input_game_info.map_height as u32);
-        add_param(b"net_turn_rate", options.turn_rate);
-        // Flag 0x4 = Old limits, 0x10 = EUD
-        let flags = if options.game_type.is_ums() && is_eud {
-            0x14
-        } else if options.use_legacy_limits {
-            0x4
-        } else {
-            0x0
-        };
-        add_param(b"flags", flags);
+    ) -> bw_hash_table::HashTable<scr::BwString, T> {
+        unsafe {
+            let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20);
+            let mut add_param = |key: &[u8], value: u32| {
+                let mut string: scr::BwString = mem::zeroed();
+                init_bw_string(&mut string, key);
+                let mut value = T::from_u32(value);
+                params.insert(&mut string, &mut value);
+            };
+            add_param(b"save_game_id", input_game_info.save_checksum);
+            add_param(b"is_replay", input_game_info.is_replay as u32);
+            // Can lie for most of these player counts
+            add_param(b"players_current", 1);
+            add_param(b"players_max", input_game_info.max_player_count as u32);
+            add_param(b"observers_current", 0);
+            add_param(b"observers_max", 0);
+            add_param(b"players_ai", 0);
+            add_param(b"closed_slots", 0);
+            add_param(b"proxy", 0);
+            add_param(b"game_speed", input_game_info.game_speed as u32);
+            add_param(b"map_tile_set", input_game_info.tileset as u32);
+            add_param(b"map_width", input_game_info.map_width as u32);
+            add_param(b"map_height", input_game_info.map_height as u32);
+            add_param(b"net_turn_rate", options.turn_rate);
+            // Flag 0x4 = Old limits, 0x10 = EUD
+            let flags = if options.game_type.is_ums() && is_eud {
+                0x14
+            } else if options.use_legacy_limits {
+                0x4
+            } else {
+                0x0
+            };
+            add_param(b"flags", flags);
 
-        let mut add_param_string = |key: &[u8], value_str: &[u8]| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
-            let mut value: T = mem::zeroed();
-            T::from_string(&mut value, value_str);
-            params.insert(&mut string, &mut value);
-        };
-        let host_name_length = input_game_info
-            .game_creator
-            .iter()
-            .position(|&x| x == 0)
-            .unwrap_or(input_game_info.game_creator.len());
-        add_param_string(
-            b"host_name",
-            &input_game_info.game_creator[..host_name_length],
-        );
-        let map_name_length = input_game_info
-            .map_name
-            .iter()
-            .position(|&x| x == 0)
-            .unwrap_or(input_game_info.map_name.len());
-        add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
-        params
-    }}
-
-    unsafe fn check_player_drops(&self) -> Option<Vec<u8>> { unsafe {
-        let mut result = None;
-        let mut dropped_players = self.dropped_players.load(Ordering::Relaxed);
-        for (i, _) in self
-            .storm_player_flags()
-            .iter()
-            .enumerate()
-            .filter(|x| *x.1 == 0x1_0000)
-        {
-            if dropped_players & (1 << i) == 0 {
-                dropped_players |= 1 << i;
-                result.get_or_insert_with(Vec::new).push(i as u8);
-                self.dropped_players
-                    .store(dropped_players, Ordering::Relaxed);
-            }
+            let mut add_param_string = |key: &[u8], value_str: &[u8]| {
+                let mut string: scr::BwString = mem::zeroed();
+                init_bw_string(&mut string, key);
+                let mut value: T = mem::zeroed();
+                T::from_string(&mut value, value_str);
+                params.insert(&mut string, &mut value);
+            };
+            let host_name_length = input_game_info
+                .game_creator
+                .iter()
+                .position(|&x| x == 0)
+                .unwrap_or(input_game_info.game_creator.len());
+            add_param_string(
+                b"host_name",
+                &input_game_info.game_creator[..host_name_length],
+            );
+            let map_name_length = input_game_info
+                .map_name
+                .iter()
+                .position(|&x| x == 0)
+                .unwrap_or(input_game_info.map_name.len());
+            add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
+            params
         }
-        result
-    }}
+    }
+
+    unsafe fn check_player_drops(&self) -> Option<Vec<u8>> {
+        unsafe {
+            let mut result = None;
+            let mut dropped_players = self.dropped_players.load(Ordering::Relaxed);
+            for (i, _) in self
+                .storm_player_flags()
+                .iter()
+                .enumerate()
+                .filter(|x| *x.1 == 0x1_0000)
+            {
+                if dropped_players & (1 << i) == 0 {
+                    dropped_players |= 1 << i;
+                    result.get_or_insert_with(Vec::new).push(i as u8);
+                    self.dropped_players
+                        .store(dropped_players, Ordering::Relaxed);
+                }
+            }
+            result
+        }
+    }
 
     /// This function should reset any state that affects synced gameplay logic to what
     /// it is on game init.
@@ -2231,89 +2278,101 @@ impl bw::Bw for BwScr {
         settings_file_path.push_str(&settings.settings_file_path);
     }
 
-    unsafe fn run_game_loop(&self) { unsafe {
-        loop {
-            self.reset_state_for_game_init();
-            self.game_state.write(3); // Playing
-            (self.game_loop)();
-            // Replay seeking exits game loop and sets a bool for it to restart,
-            // we don't have access to that bool but we hook the replay seek
-            // command and set our own
-            if !self.is_replay_seeking.load(Ordering::Relaxed) {
-                break;
+    unsafe fn run_game_loop(&self) {
+        unsafe {
+            loop {
+                self.reset_state_for_game_init();
+                self.game_state.write(3); // Playing
+                (self.game_loop)();
+                // Replay seeking exits game loop and sets a bool for it to restart,
+                // we don't have access to that bool but we hook the replay seek
+                // command and set our own
+                if !self.is_replay_seeking.load(Ordering::Relaxed) {
+                    break;
+                }
+                self.is_replay_seeking.store(false, Ordering::Relaxed);
             }
-            self.is_replay_seeking.store(false, Ordering::Relaxed);
         }
-    }}
+    }
 
     unsafe fn clean_up_for_exit(&self) {
         // TODO
     }
 
-    unsafe fn init_sprites(&self) { unsafe {
-        log_time("init_sprites", || (self.init_sprites)());
-        self.sprites_inited.write(1);
-        if let Some(init_rtl) = self.init_real_time_lighting {
-            log_time("init_real_time_lighting", || init_rtl());
+    unsafe fn init_sprites(&self) {
+        unsafe {
+            log_time("init_sprites", || (self.init_sprites)());
+            self.sprites_inited.write(1);
+            if let Some(init_rtl) = self.init_real_time_lighting {
+                log_time("init_real_time_lighting", || init_rtl());
+            }
         }
-    }}
+    }
 
-    unsafe fn maybe_receive_turns(&self) { unsafe {
-        // NOTE: This is actually not the same function that 1161 calls, but one
-        // level higher that also ends up handling any received commands.
-        // I think there was an issue where maybe_receive_turns was being inlined
-        // in some patches, making it not ideal function for SCR.
-        // Due to this being a function that does more, we have to do extra synchronization
-        // with do_lobby_game_init + try_finish_lobby_game_init that 1161 doesn't need to do.
-        //
-        // For SCR-1161 crossplay we'd have to make this part consistent across games.
-        // I think using 1161's function here is hard, but it would be better for load times,
-        // as this synchronization can add extra few hundred milliseconds to loads.
+    unsafe fn maybe_receive_turns(&self) {
+        unsafe {
+            // NOTE: This is actually not the same function that 1161 calls, but one
+            // level higher that also ends up handling any received commands.
+            // I think there was an issue where maybe_receive_turns was being inlined
+            // in some patches, making it not ideal function for SCR.
+            // Due to this being a function that does more, we have to do extra synchronization
+            // with do_lobby_game_init + try_finish_lobby_game_init that 1161 doesn't need to do.
+            //
+            // For SCR-1161 crossplay we'd have to make this part consistent across games.
+            // I think using 1161's function here is hard, but it would be better for load times,
+            // as this synchronization can add extra few hundred milliseconds to loads.
 
-        // Also call snet recv/send functions which we usually call in step_io hook.
-        // In some points where we expect maybe_receive_turns to advance networking state
-        // during lobby init, the main thread isn't running it's usual event loop that
-        // would call step_io.
-        // Hopefully this doesn't have thread safety issues when called from the async thread..
-        // Since the main thread isn't running it's normal loop at all, it's probably fine.
-        (self.snet_recv_packets)();
-        (self.snet_send_packets)();
-        (self.step_network)();
-    }}
-
-    unsafe fn init_game_network(&self) { unsafe {
-        (self.init_game_network)(0)
-    }}
-
-    unsafe fn init_network_player_info(&self, storm_player_id: u32) { unsafe {
-        (self.init_network_player_info)(storm_player_id, 0, 1, 5);
-    }}
-
-    unsafe fn do_lobby_game_init(&self, seed: u32) { unsafe {
-        self.update_nation_and_human_ids();
-        self.lobby_state.write(8);
-        let local_storm_id = self.local_storm_id.resolve();
-        if local_storm_id == 0 {
-            let data = bw::LobbyGameInitData {
-                game_init_command: 0x48,
-                random_seed: seed,
-                // TODO(tec27): deal with player bytes if we ever allow save games
-                player_bytes: [8; 8],
-            };
-            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-            let len = mem::size_of::<bw::LobbyGameInitData>();
-            (self.send_command)(ptr, len);
+            // Also call snet recv/send functions which we usually call in step_io hook.
+            // In some points where we expect maybe_receive_turns to advance networking state
+            // during lobby init, the main thread isn't running it's usual event loop that
+            // would call step_io.
+            // Hopefully this doesn't have thread safety issues when called from the async thread..
+            // Since the main thread isn't running it's normal loop at all, it's probably fine.
+            (self.snet_recv_packets)();
+            (self.snet_send_packets)();
+            (self.step_network)();
         }
-    }}
+    }
 
-    unsafe fn try_finish_lobby_game_init(&self) -> bool { unsafe {
-        if self.lobby_game_init_command_seen.load(Ordering::Relaxed) {
-            self.lobby_state.write(9);
-            true
-        } else {
-            false
+    unsafe fn init_game_network(&self) {
+        unsafe { (self.init_game_network)(0) }
+    }
+
+    unsafe fn init_network_player_info(&self, storm_player_id: u32) {
+        unsafe {
+            (self.init_network_player_info)(storm_player_id, 0, 1, 5);
         }
-    }}
+    }
+
+    unsafe fn do_lobby_game_init(&self, seed: u32) {
+        unsafe {
+            self.update_nation_and_human_ids();
+            self.lobby_state.write(8);
+            let local_storm_id = self.local_storm_id.resolve();
+            if local_storm_id == 0 {
+                let data = bw::LobbyGameInitData {
+                    game_init_command: 0x48,
+                    random_seed: seed,
+                    // TODO(tec27): deal with player bytes if we ever allow save games
+                    player_bytes: [8; 8],
+                };
+                let ptr = &data as *const bw::LobbyGameInitData as *const u8;
+                let len = mem::size_of::<bw::LobbyGameInitData>();
+                (self.send_command)(ptr, len);
+            }
+        }
+    }
+
+    unsafe fn try_finish_lobby_game_init(&self) -> bool {
+        unsafe {
+            if self.lobby_game_init_command_seen.load(Ordering::Relaxed) {
+                self.lobby_state.write(9);
+                true
+            } else {
+                false
+            }
+        }
+    }
 
     unsafe fn create_lobby(
         &self,
@@ -2321,103 +2380,105 @@ impl bw::Bw for BwScr {
         map_info: &MapInfo,
         lobby_name: &str,
         options: LobbyOptions,
-    ) -> Result<(), bw::LobbyCreateError> { unsafe {
-        let mut game_input: scr::GameInput = mem::zeroed();
-        init_bw_string(&mut game_input.name, lobby_name.as_bytes());
-        init_bw_string(&mut game_input.password, b"");
-        game_input.speed = 6;
-        game_input.game_type_subtype = options.game_type.as_u32();
-        game_input.turn_rate = options.turn_rate;
-        if options.use_legacy_limits {
-            game_input.old_limits = 1;
-        }
-
-        if options.game_type.is_ums() {
-            let is_eud = match map_info.map_data {
-                Some(ref s) => s.is_eud,
-                None => false,
-            };
-            if is_eud {
+    ) -> Result<(), bw::LobbyCreateError> {
+        unsafe {
+            let mut game_input: scr::GameInput = mem::zeroed();
+            init_bw_string(&mut game_input.name, lobby_name.as_bytes());
+            init_bw_string(&mut game_input.password, b"");
+            game_input.speed = 6;
+            game_input.game_type_subtype = options.game_type.as_u32();
+            game_input.turn_rate = options.turn_rate;
+            if options.use_legacy_limits {
                 game_input.old_limits = 1;
-                game_input.eud = 1;
             }
-        }
 
-        let map_dir = match map_path.parent() {
-            Some(s) => s.into(),
-            None => {
-                warn!(
-                    "Assuming map '{}' is in current working directory",
-                    map_path.display()
-                );
-                match std::env::current_dir() {
-                    Ok(o) => o,
-                    Err(_) => return Err(bw::LobbyCreateError::MapNotFound),
+            if options.game_type.is_ums() {
+                let is_eud = match map_info.map_data {
+                    Some(ref s) => s.is_eud,
+                    None => false,
+                };
+                if is_eud {
+                    game_input.old_limits = 1;
+                    game_input.eud = 1;
                 }
             }
-        };
-        let map_dir = match map_dir.to_str() {
-            Some(s) => s,
-            None => return Err(bw::LobbyCreateError::MapNotFound),
-        };
-        let map_file = match map_path.file_name().and_then(|x| x.to_str()) {
-            Some(s) => s,
-            None => return Err(bw::LobbyCreateError::MapNotFound),
-        };
 
-        let mut map_dir: Vec<u8> = map_dir.as_bytes().into();
-        if map_dir.last().cloned() != Some(b'\\') {
-            // BW does just dir.append(filename), so dir must have a trailing backslash
-            map_dir.push(b'\\');
+            let map_dir = match map_path.parent() {
+                Some(s) => s.into(),
+                None => {
+                    warn!(
+                        "Assuming map '{}' is in current working directory",
+                        map_path.display()
+                    );
+                    match std::env::current_dir() {
+                        Ok(o) => o,
+                        Err(_) => return Err(bw::LobbyCreateError::MapNotFound),
+                    }
+                }
+            };
+            let map_dir = match map_dir.to_str() {
+                Some(s) => s,
+                None => return Err(bw::LobbyCreateError::MapNotFound),
+            };
+            let map_file = match map_path.file_name().and_then(|x| x.to_str()) {
+                Some(s) => s,
+                None => return Err(bw::LobbyCreateError::MapNotFound),
+            };
+
+            let mut map_dir: Vec<u8> = map_dir.as_bytes().into();
+            if map_dir.last().cloned() != Some(b'\\') {
+                // BW does just dir.append(filename), so dir must have a trailing backslash
+                map_dir.push(b'\\');
+            }
+
+            let mut entry: scr::MapDirEntry = mem::zeroed();
+            init_bw_string(&mut entry.filename, map_file.as_bytes());
+            init_bw_string(&mut entry.title, b"");
+            init_bw_string(&mut entry.description, b"");
+            init_bw_string(&mut entry.error_message, b"");
+            init_bw_string(&mut entry.unk90, b"");
+            init_bw_string(&mut entry.unkac, b"");
+            init_bw_string(&mut entry.unkc8, b"");
+            init_bw_string(&mut entry.path_directory, &map_dir);
+            init_bw_string(&mut entry.path_filename, map_file.as_bytes());
+            entry.unk_linked_list[1] = entry.unk_linked_list.as_ptr() as usize;
+            let is_replay = map_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .filter(|&ext| ext == "rep")
+                .is_some();
+
+            entry.flags = if is_replay {
+                0x4
+            } else {
+                // Map
+                0x2
+            };
+
+            let mut vtable = scr::LobbyDialogVtable {
+                functions: [0usize; 0x50],
+            };
+            vtable.functions[self.lobby_create_callback_offset / mem::size_of::<usize>()] =
+                lobby_create_callback as usize;
+
+            let mut object: *const scr::LobbyDialogVtable = &vtable;
+            let result = log_time("select_map_entry", || {
+                (self.select_map_entry)(&mut game_input, &mut object, &mut entry)
+            });
+            if entry.error != 0 {
+                let error = std::ffi::CStr::from_ptr(entry.error_message.pointer as *const i8)
+                    .to_string_lossy();
+                return Err(bw::LobbyCreateError::Other(error.into()));
+            }
+            if result != 0 {
+                // The error check above should have already failed, but check return code
+                // as well, struct offsets may change and we may miss the error.
+                return Err(bw::LobbyCreateError::from_error_code(result));
+            }
+            log_time("init_game_network", || (self.init_game_network)(0));
+            Ok(())
         }
-
-        let mut entry: scr::MapDirEntry = mem::zeroed();
-        init_bw_string(&mut entry.filename, map_file.as_bytes());
-        init_bw_string(&mut entry.title, b"");
-        init_bw_string(&mut entry.description, b"");
-        init_bw_string(&mut entry.error_message, b"");
-        init_bw_string(&mut entry.unk90, b"");
-        init_bw_string(&mut entry.unkac, b"");
-        init_bw_string(&mut entry.unkc8, b"");
-        init_bw_string(&mut entry.path_directory, &map_dir);
-        init_bw_string(&mut entry.path_filename, map_file.as_bytes());
-        entry.unk_linked_list[1] = entry.unk_linked_list.as_ptr() as usize;
-        let is_replay = map_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .filter(|&ext| ext == "rep")
-            .is_some();
-
-        entry.flags = if is_replay {
-            0x4
-        } else {
-            // Map
-            0x2
-        };
-
-        let mut vtable = scr::LobbyDialogVtable {
-            functions: [0usize; 0x50],
-        };
-        vtable.functions[self.lobby_create_callback_offset / mem::size_of::<usize>()] =
-            lobby_create_callback as usize;
-
-        let mut object: *const scr::LobbyDialogVtable = &vtable;
-        let result = log_time("select_map_entry", || {
-            (self.select_map_entry)(&mut game_input, &mut object, &mut entry)
-        });
-        if entry.error != 0 {
-            let error = std::ffi::CStr::from_ptr(entry.error_message.pointer as *const i8)
-                .to_string_lossy();
-            return Err(bw::LobbyCreateError::Other(error.into()));
-        }
-        if result != 0 {
-            // The error check above should have already failed, but check return code
-            // as well, struct offsets may change and we may miss the error.
-            return Err(bw::LobbyCreateError::from_error_code(result));
-        }
-        log_time("init_game_network", || (self.init_game_network)(0));
-        Ok(())
-    }}
+    }
 
     unsafe fn join_lobby(
         &self,
@@ -2426,262 +2487,292 @@ impl bw::Bw for BwScr {
         options: LobbyOptions,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
-    ) -> Result<(), u32> { unsafe {
-        // The GameInfoValue struct is being changed on the newer versions that keeps
-        // getting rolled back.. Keep support for both versions.
-        let params = if self.uses_new_join_param_variant {
-            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud, options)
-        } else {
-            // HashTable itself has same layout regardless of which values it contains,
-            // so this kind of cast is fine. Only BW is going to read params after this,
-            // we can treat it as just bunch of bytes.
-            // Well.. mostly. Technically the destructor at the end of this function
-            // is dropping the HashTable, but scr::GameInfoValue doesn't have any destructors
-            // now so it is fine. We just leak the few strings that we have.
-            // Should remove this branch at some point anyway, once we're sure we don't need
-            // to support 9411.
-            mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(
-                input_game_info,
-                is_eud,
-                options,
-            ))
-        };
-
-        let mut game_info = scr::JoinableGameInfo {
-            params: params.bw_table(),
-            // AF_INET
-            sockaddr_family: 2,
-            port: 6112u16.to_be(),
-            ip: address.octets(),
-            // I don't think this gets read at any point, we skip past the part where
-            // BW would register a game id in its global structures.
-            // Just set this to some clearly invalid value.
-            game_id: 0x1234_1234_1234_1234,
-            // This game type enum is mostly offset by -1 for some reason, TvB is -2..
-            // Hence "new" game type
-            new_game_type: match input_game_info.game_type {
-                0xf => 0xd,
-                x => x as u32 - 1,
-            },
-            game_subtype: input_game_info.game_subtype as u32,
-            // SEXP
-            product_id: 0x53455850,
-            game_version: 0xe9,
-            ..mem::zeroed()
-        };
-        init_bw_string(&mut game_info.game_name, &input_game_info.name);
-        let mut password: scr::BwString = mem::zeroed();
-        init_bw_string(&mut password, b"");
-        self.storm_set_last_error(0);
-        let error = log_time("join_game", || {
-            (self.join_game)(&mut game_info, &mut password, 0)
-        });
-        if error != 0 {
-            // Try storm error first, if it's 0 then use the returned error.
-            let storm_error = self.storm_last_error();
-            if storm_error != 0 {
-                return Err(self.storm_last_error());
+    ) -> Result<(), u32> {
+        unsafe {
+            // The GameInfoValue struct is being changed on the newer versions that keeps
+            // getting rolled back.. Keep support for both versions.
+            let params = if self.uses_new_join_param_variant {
+                self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud, options)
             } else {
+                // HashTable itself has same layout regardless of which values it contains,
+                // so this kind of cast is fine. Only BW is going to read params after this,
+                // we can treat it as just bunch of bytes.
+                // Well.. mostly. Technically the destructor at the end of this function
+                // is dropping the HashTable, but scr::GameInfoValue doesn't have any destructors
+                // now so it is fine. We just leak the few strings that we have.
+                // Should remove this branch at some point anyway, once we're sure we don't need
+                // to support 9411.
+                mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(
+                    input_game_info,
+                    is_eud,
+                    options,
+                ))
+            };
+
+            let mut game_info = scr::JoinableGameInfo {
+                params: params.bw_table(),
+                // AF_INET
+                sockaddr_family: 2,
+                port: 6112u16.to_be(),
+                ip: address.octets(),
+                // I don't think this gets read at any point, we skip past the part where
+                // BW would register a game id in its global structures.
+                // Just set this to some clearly invalid value.
+                game_id: 0x1234_1234_1234_1234,
+                // This game type enum is mostly offset by -1 for some reason, TvB is -2..
+                // Hence "new" game type
+                new_game_type: match input_game_info.game_type {
+                    0xf => 0xd,
+                    x => x as u32 - 1,
+                },
+                game_subtype: input_game_info.game_subtype as u32,
+                // SEXP
+                product_id: 0x53455850,
+                game_version: 0xe9,
+                ..mem::zeroed()
+            };
+            init_bw_string(&mut game_info.game_name, &input_game_info.name);
+            let mut password: scr::BwString = mem::zeroed();
+            init_bw_string(&mut password, b"");
+            self.storm_set_last_error(0);
+            let error = log_time("join_game", || {
+                (self.join_game)(&mut game_info, &mut password, 0)
+            });
+            if error != 0 {
+                // Try storm error first, if it's 0 then use the returned error.
+                let storm_error = self.storm_last_error();
+                if storm_error != 0 {
+                    return Err(self.storm_last_error());
+                } else {
+                    return Err(error);
+                }
+            }
+            debug!("Joined game");
+
+            // Needs to be at least 0x24 bytes, but adding some buffer space in case the
+            // output struct changes.
+            let mut out = [0u32; 0x10];
+            self.storm_set_last_error(0);
+            let ok = (self.init_map_from_path)(
+                map_path.as_ptr() as *const u8,
+                out.as_mut_ptr() as *mut c_void,
+                0,
+                0,
+            );
+            if ok == 0 {
+                let error = self.storm_last_error();
+                error!("init_map_from_path failed: {:08x}", error);
                 return Err(error);
             }
+            self.init_team_game_playable_slots();
+            Ok(())
         }
-        debug!("Joined game");
+    }
 
-        // Needs to be at least 0x24 bytes, but adding some buffer space in case the
-        // output struct changes.
-        let mut out = [0u32; 0x10];
-        self.storm_set_last_error(0);
-        let ok = (self.init_map_from_path)(
-            map_path.as_ptr() as *const u8,
-            out.as_mut_ptr() as *mut c_void,
-            0,
-            0,
-        );
-        if ok == 0 {
-            let error = self.storm_last_error();
-            error!("init_map_from_path failed: {:08x}", error);
-            return Err(error);
+    unsafe fn remaining_game_init(&self, name_in: &str) {
+        unsafe {
+            let local_player_name = self.local_player_name.resolve();
+            let local_player_name = std::slice::from_raw_parts_mut(local_player_name, 25);
+            let name = name_in.as_bytes();
+            for (&input, out) in name.iter().zip(local_player_name.iter_mut()) {
+                *out = input;
+            }
+            // This kind of init_storm_networking call wasn't needed (Did it even exist?) in 1.16.1,
+            // would be interesting to know/verify what code loaded the SNP list there.
+            (self.init_storm_networking)();
+            let ok = (self.choose_snp)(crate::snp::PROVIDER_ID);
+            if ok == 0 {
+                panic!("Failed to select SNP");
+            }
+            self.is_multiplayer.write(1);
         }
-        self.init_team_game_playable_slots();
-        Ok(())
-    }}
+    }
 
-    unsafe fn remaining_game_init(&self, name_in: &str) { unsafe {
-        let local_player_name = self.local_player_name.resolve();
-        let local_player_name = std::slice::from_raw_parts_mut(local_player_name, 25);
-        let name = name_in.as_bytes();
-        for (&input, out) in name.iter().zip(local_player_name.iter_mut()) {
-            *out = input;
-        }
-        // This kind of init_storm_networking call wasn't needed (Did it even exist?) in 1.16.1,
-        // would be interesting to know/verify what code loaded the SNP list there.
-        (self.init_storm_networking)();
-        let ok = (self.choose_snp)(crate::snp::PROVIDER_ID);
-        if ok == 0 {
-            panic!("Failed to select SNP");
-        }
-        self.is_multiplayer.write(1);
-    }}
+    unsafe fn game(&self) -> *mut bw::Game {
+        unsafe { self.game.resolve() }
+    }
 
-    unsafe fn game(&self) -> *mut bw::Game { unsafe {
-        self.game.resolve()
-    }}
+    unsafe fn game_data(&self) -> *mut bw::BwGameData {
+        unsafe { self.game_data.resolve() }
+    }
 
-    unsafe fn game_data(&self) -> *mut bw::BwGameData { unsafe {
-        self.game_data.resolve()
-    }}
+    unsafe fn players(&self) -> *mut bw::Player {
+        unsafe { self.players.resolve() }
+    }
 
-    unsafe fn players(&self) -> *mut bw::Player { unsafe {
-        self.players.resolve()
-    }}
+    unsafe fn replay_data(&self) -> *mut bw::ReplayData {
+        unsafe { self.replay_data.resolve() }
+    }
 
-    unsafe fn replay_data(&self) -> *mut bw::ReplayData { unsafe {
-        self.replay_data.resolve()
-    }}
-
-    unsafe fn replay_header(&self) -> *mut bw::ReplayHeader { unsafe {
-        self.replay_header.resolve()
-    }}
+    unsafe fn replay_header(&self) -> *mut bw::ReplayHeader {
+        unsafe { self.replay_header.resolve() }
+    }
 
     fn game_command_lengths(&self) -> &[u32] {
         &self.game_command_lengths
     }
 
-    unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) { unsafe {
-        let players = self.players();
-        let game = self.game();
-        let unique_player =
-            match (0..8).position(|i| (*players.add(i)).storm_id as u8 == storm_player.0) {
-                Some(s) => s as u8,
-                None => return,
+    unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
+        unsafe {
+            let players = self.players();
+            let game = self.game();
+            let unique_player =
+                match (0..8).position(|i| (*players.add(i)).storm_id as u8 == storm_player.0) {
+                    Some(s) => s as u8,
+                    None => return,
+                };
+            let game_player = if game_thread::is_team_game() {
+                // Teams start from 1
+                let team = (*players.add(unique_player as usize)).team;
+                (*game).team_game_main_player[team as usize - 1]
+            } else {
+                unique_player
             };
-        let game_player = if game_thread::is_team_game() {
-            // Teams start from 1
-            let team = (*players.add(unique_player as usize)).team;
-            (*game).team_game_main_player[team as usize - 1]
-        } else {
-            unique_player
-        };
-        self.command_user.write(game_player as u32);
-        self.unique_command_user.write(unique_player as u32);
-        self.enable_rng.write(1);
-        (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
-        self.command_user.write(self.local_player_id.resolve());
-        self.unique_command_user
-            .write(self.local_unique_player_id.resolve());
-        self.enable_rng.write(0);
-    }}
-
-    unsafe fn replay_visions(&self) -> bw::ReplayVisions { unsafe {
-        bw::ReplayVisions {
-            show_entire_map: self.replay_show_entire_map.resolve() != 0,
-            players: self.replay_visions.resolve(),
+            self.command_user.write(game_player as u32);
+            self.unique_command_user.write(unique_player as u32);
+            self.enable_rng.write(1);
+            (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
+            self.command_user.write(self.local_player_id.resolve());
+            self.unique_command_user
+                .write(self.local_unique_player_id.resolve());
+            self.enable_rng.write(0);
         }
-    }}
+    }
 
-    unsafe fn set_player_name(&self, id: u8, name: &str) { unsafe {
-        let mut buffer = [0; 0x60];
-        for (i, &byte) in name.as_bytes().iter().take(0x5f).enumerate() {
-            buffer[i] = byte;
+    unsafe fn replay_visions(&self) -> bw::ReplayVisions {
+        unsafe {
+            bw::ReplayVisions {
+                show_entire_map: self.replay_show_entire_map.resolve() != 0,
+                players: self.replay_visions.resolve(),
+            }
         }
-        // SCR has longer player names after the bw::Player array,
-        // which are ones that it (mostly?) uses.
-        let players = self.players();
-        (*players.add(id as usize))
-            .name
-            .copy_from_slice(&buffer[..25]);
-        let player_names = players.add(0x10) as *mut u8;
-        let long_name = player_names.add(id as usize * 0x60);
-        let long_name = std::slice::from_raw_parts_mut(long_name, 0x60);
-        long_name.copy_from_slice(&buffer[..0x60]);
-    }}
+    }
 
-    unsafe fn active_units(&self) -> UnitIterator { unsafe {
-        UnitIterator::new(Unit::from_ptr(self.first_active_unit.resolve()))
-    }}
-
-    unsafe fn fow_sprites(&self) -> FowSpriteIterator { unsafe {
-        FowSpriteIterator::new(self.active_fow_sprites.start.resolve())
-    }}
-
-    unsafe fn create_fow_sprite(&self, unit: Unit) { unsafe {
-        self.create_fow_sprite_main(unit);
-    }}
-
-    unsafe fn sprite_position(&self, sprite: *mut c_void) -> bw::Point { unsafe {
-        let sprite = sprite as *mut scr::Sprite;
-        bw::Point {
-            x: self.sprite_x(sprite),
-            y: self.sprite_y(sprite),
+    unsafe fn set_player_name(&self, id: u8, name: &str) {
+        unsafe {
+            let mut buffer = [0; 0x60];
+            for (i, &byte) in name.as_bytes().iter().take(0x5f).enumerate() {
+                buffer[i] = byte;
+            }
+            // SCR has longer player names after the bw::Player array,
+            // which are ones that it (mostly?) uses.
+            let players = self.players();
+            (*players.add(id as usize))
+                .name
+                .copy_from_slice(&buffer[..25]);
+            let player_names = players.add(0x10) as *mut u8;
+            let long_name = player_names.add(id as usize * 0x60);
+            let long_name = std::slice::from_raw_parts_mut(long_name, 0x60);
+            long_name.copy_from_slice(&buffer[..0x60]);
         }
-    }}
+    }
 
-    unsafe fn client_selection(&self) -> [Option<Unit>; 12] { unsafe {
-        let selection = self.client_selection.resolve();
-        let mut out = [None; 12];
-        for (i, item) in out.iter_mut().enumerate() {
-            *item = Unit::from_ptr(*selection.add(i));
+    unsafe fn active_units(&self) -> UnitIterator {
+        unsafe { UnitIterator::new(Unit::from_ptr(self.first_active_unit.resolve())) }
+    }
+
+    unsafe fn fow_sprites(&self) -> FowSpriteIterator {
+        unsafe { FowSpriteIterator::new(self.active_fow_sprites.start.resolve()) }
+    }
+
+    unsafe fn create_fow_sprite(&self, unit: Unit) {
+        unsafe {
+            self.create_fow_sprite_main(unit);
         }
-        out
-    }}
+    }
 
-    unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> { unsafe {
-        let ptr = self.storm_players.resolve();
-        let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
-        scr_players
-            .iter()
-            .map(|player| bw::StormPlayer {
-                state: player.state,
-                unk1: player.unk1,
-                flags: player.flags,
-                unk4: player.unk4,
-                protocol_version: player.protocol_version,
-                name: {
-                    let mut name = [0; 0x19];
-                    name[..0x18].copy_from_slice(&player.name[..0x18]);
-                    name
-                },
-                padding: 0,
-            })
-            .collect()
-    }}
-
-    unsafe fn storm_player_flags(&self) -> Vec<u32> { unsafe {
-        let ptr = self.storm_player_flags.resolve() as *const u32;
-        std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT).into()
-    }}
-
-    unsafe fn storm_set_last_error(&self, error: u32) { unsafe {
-        *self.storm_last_error_ptr() = error;
-    }}
-
-    unsafe fn alloc(&self, size: usize) -> *mut u8 { unsafe {
-        let allocator = self.allocator.resolve();
-        (*(*allocator).vtable).alloc.call3(allocator, size, 8)
-    }}
-
-    unsafe fn free(&self, ptr: *mut u8) { unsafe {
-        let allocator = self.allocator.resolve();
-        (*(*allocator).vtable).free.call2(allocator, ptr)
-    }}
-
-    unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut bw::Dialog) { unsafe {
-        if let Some(&func) = self.original_status_screen_update.get(unit_id.0 as usize) {
-            func(dialog);
+    unsafe fn sprite_position(&self, sprite: *mut c_void) -> bw::Point {
+        unsafe {
+            let sprite = sprite as *mut scr::Sprite;
+            bw::Point {
+                x: self.sprite_x(sprite),
+                y: self.sprite_y(sprite),
+            }
         }
-    }}
+    }
 
-    unsafe fn is_network_ready(&self) -> bool { unsafe {
-        self.is_network_ready.resolve() != 0
-    }}
+    unsafe fn client_selection(&self) -> [Option<Unit>; 12] {
+        unsafe {
+            let selection = self.client_selection.resolve();
+            let mut out = [None; 12];
+            for (i, item) in out.iter_mut().enumerate() {
+                *item = Unit::from_ptr(*selection.add(i));
+            }
+            out
+        }
+    }
 
-    unsafe fn set_user_latency(&self, latency: UserLatency) { unsafe {
-        self.net_user_latency.write(match latency {
-            UserLatency::Low => 0,
-            UserLatency::High => 1,
-            UserLatency::ExtraHigh => 2,
-        });
-    }}
+    unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
+        unsafe {
+            let ptr = self.storm_players.resolve();
+            let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
+            scr_players
+                .iter()
+                .map(|player| bw::StormPlayer {
+                    state: player.state,
+                    unk1: player.unk1,
+                    flags: player.flags,
+                    unk4: player.unk4,
+                    protocol_version: player.protocol_version,
+                    name: {
+                        let mut name = [0; 0x19];
+                        name[..0x18].copy_from_slice(&player.name[..0x18]);
+                        name
+                    },
+                    padding: 0,
+                })
+                .collect()
+        }
+    }
+
+    unsafe fn storm_player_flags(&self) -> Vec<u32> {
+        unsafe {
+            let ptr = self.storm_player_flags.resolve() as *const u32;
+            std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT).into()
+        }
+    }
+
+    unsafe fn storm_set_last_error(&self, error: u32) {
+        unsafe {
+            *self.storm_last_error_ptr() = error;
+        }
+    }
+
+    unsafe fn alloc(&self, size: usize) -> *mut u8 {
+        unsafe {
+            let allocator = self.allocator.resolve();
+            (*(*allocator).vtable).alloc.call3(allocator, size, 8)
+        }
+    }
+
+    unsafe fn free(&self, ptr: *mut u8) {
+        unsafe {
+            let allocator = self.allocator.resolve();
+            (*(*allocator).vtable).free.call2(allocator, ptr)
+        }
+    }
+
+    unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut bw::Dialog) {
+        unsafe {
+            if let Some(&func) = self.original_status_screen_update.get(unit_id.0 as usize) {
+                func(dialog);
+            }
+        }
+    }
+
+    unsafe fn is_network_ready(&self) -> bool {
+        unsafe { self.is_network_ready.resolve() != 0 }
+    }
+
+    unsafe fn set_user_latency(&self, latency: UserLatency) {
+        unsafe {
+            self.net_user_latency.write(match latency {
+                UserLatency::Low => 0,
+                UserLatency::High => 1,
+                UserLatency::ExtraHigh => 2,
+            });
+        }
+    }
 
     unsafe fn window_proc_hook(
         &self,
@@ -2689,18 +2780,22 @@ impl bw::Bw for BwScr {
         msg: u32,
         wparam: usize,
         lparam: isize,
-    ) -> Option<isize> { unsafe {
-        let mut render_state = match self.render_state.lock() {
-            Some(s) => s,
-            None => {
-                warn!("Recursive window proc call?, not passing message {msg:x} to overlay state");
-                return None;
-            }
-        };
-        render_state
-            .overlay
-            .window_proc(window, msg, wparam, lparam)
-    }}
+    ) -> Option<isize> {
+        unsafe {
+            let mut render_state = match self.render_state.lock() {
+                Some(s) => s,
+                None => {
+                    warn!(
+                        "Recursive window proc call?, not passing message {msg:x} to overlay state"
+                    );
+                    return None;
+                }
+            };
+            render_state
+                .overlay
+                .window_proc(window, msg, wparam, lparam)
+        }
+    }
 
     fn starting_fog(&self) -> StartingFog {
         self.starting_fog.load(Ordering::Relaxed)
@@ -2712,20 +2807,22 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         table: &scr_analysis::DatTablePtr<'_>,
         out: &mut Vec<bw::DatTable>,
         entries: usize,
-    ) { unsafe {
-        // Dat tables in SC:R memory have at least one extra field, bw_dat expects
-        // 1.16.1 compatible format.
-        let mut value = resolve_operand(table.address, &[]) as *const u8;
-        for _ in 0..entries {
-            let bw_table = value as *mut bw::DatTable;
-            out.push(bw::DatTable {
-                data: (*bw_table).data,
-                entry_size: (*bw_table).entry_size,
-                entries: (*bw_table).entries,
-            });
-            value = value.add(table.entry_size as usize);
+    ) {
+        unsafe {
+            // Dat tables in SC:R memory have at least one extra field, bw_dat expects
+            // 1.16.1 compatible format.
+            let mut value = resolve_operand(table.address, &[]) as *const u8;
+            for _ in 0..entries {
+                let bw_table = value as *mut bw::DatTable;
+                out.push(bw::DatTable {
+                    data: (*bw_table).data,
+                    entry_size: (*bw_table).entry_size,
+                    entries: (*bw_table).entries,
+                });
+                value = value.add(table.entry_size as usize);
+            }
         }
-    }}
+    }
 
     let units = analysis.dat_table(DatType::Units).ok_or("units.dat")?;
     let weapons = analysis.dat_table(DatType::Weapons).ok_or("weapons.dat")?;
@@ -2759,13 +2856,13 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
     Ok(())
 }
 
-unsafe extern "C" fn bw_malloc(size: usize) -> *mut u8 { unsafe {
-    bw::get_bw().alloc(size)
-}}
+unsafe extern "C" fn bw_malloc(size: usize) -> *mut u8 {
+    unsafe { bw::get_bw().alloc(size) }
+}
 
-unsafe extern "C" fn bw_free(ptr: *mut u8) { unsafe {
-    bw::get_bw().free(ptr)
-}}
+unsafe extern "C" fn bw_free(ptr: *mut u8) {
+    unsafe { bw::get_bw().free(ptr) }
+}
 
 fn get_exe_build() -> u32 {
     let exe_path = windows::module_name(std::ptr::null_mut()).expect("Couldn't get exe path");
@@ -3062,49 +3159,55 @@ unsafe extern "system" fn snp_load_identify(
     name: *mut *const i8,
     description: *mut *const i8,
     caps: *mut *const crate::bw::SnpCapabilities,
-) -> u32 { unsafe {
-    if snp_index > 0 {
-        return 0;
-    }
+) -> u32 {
+    unsafe {
+        if snp_index > 0 {
+            return 0;
+        }
 
-    *id = snp::PROVIDER_ID;
-    *name = c"Shieldbattery".as_ptr();
-    *description = c"=)".as_ptr();
-    *caps = &snp::CAPABILITIES;
-    1
-}}
+        *id = snp::PROVIDER_ID;
+        *name = c"Shieldbattery".as_ptr();
+        *description = c"=)".as_ptr();
+        *caps = &snp::CAPABILITIES;
+        1
+    }
+}
 
 unsafe extern "system" fn snp_initialize(
     client_info: *const bw::ClientInfo,
     user_data: *mut c_void,
     battle_info: *mut c_void,
     module_data: *mut c_void,
-) -> i32 { unsafe {
-    snp::initialize(&*client_info, None);
-    // We'll also have to call the SCR's normal LAN SNP init function, which initializes
-    // a global that SCR will try to access on game joining. Luckily it won't initialize
-    // anything else we don't want.
-    let scr_init: unsafe extern "system" fn(
-        *const bw::ClientInfo,
-        *mut c_void,
-        *mut c_void,
-        *mut c_void,
-    ) -> i32 = mem::transmute(SCR_SNP_INITIALIZE.load(Ordering::Relaxed));
-    let result = scr_init(client_info, user_data, battle_info, module_data);
-    SNP_INITIALIZED.store(result != 0, Ordering::Relaxed);
-    result
-}}
+) -> i32 {
+    unsafe {
+        snp::initialize(&*client_info, None);
+        // We'll also have to call the SCR's normal LAN SNP init function, which initializes
+        // a global that SCR will try to access on game joining. Luckily it won't initialize
+        // anything else we don't want.
+        let scr_init: unsafe extern "system" fn(
+            *const bw::ClientInfo,
+            *mut c_void,
+            *mut c_void,
+            *mut c_void,
+        ) -> i32 = mem::transmute(SCR_SNP_INITIALIZE.load(Ordering::Relaxed));
+        let result = scr_init(client_info, user_data, battle_info, module_data);
+        SNP_INITIALIZED.store(result != 0, Ordering::Relaxed);
+        result
+    }
+}
 
 static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
 static SNP_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFunctions) -> u32 { unsafe {
-    if snp_index > 0 {
-        return 0;
+unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFunctions) -> u32 {
+    unsafe {
+        if snp_index > 0 {
+            return 0;
+        }
+        *funcs = &SNP_FUNCTIONS;
+        1
     }
-    *funcs = &SNP_FUNCTIONS;
-    1
-}}
+}
 
 #[allow(bad_style)]
 mod hooks {
@@ -3214,30 +3317,34 @@ static READ_FS_GS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
 #[no_mangle] // Workaround for linker errors on opt-level 1 ??
 static READ_FS_GS: [u8; 5] = [0x65, 0x48, 0x8b, 0x01, 0xc3];
 
-unsafe fn read_fs_gs(offset: usize) -> usize { unsafe {
-    let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS_GS.as_ptr());
-    func(offset)
-}}
+unsafe fn read_fs_gs(offset: usize) -> usize {
+    unsafe {
+        let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS_GS.as_ptr());
+        func(offset)
+    }
+}
 
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer
 /// if value doens't fit inline.
-unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) { unsafe {
-    if value.len() < 16 {
-        (*out).inline_buffer[..value.len()].copy_from_slice(value);
-        (*out).inline_buffer[value.len()] = 0;
-        (*out).pointer = (*out).inline_buffer.as_mut_ptr();
-        (*out).length = value.len();
-        (*out).capacity = 15 | (isize::MIN as usize);
-    } else {
-        let mut vec = mem::ManuallyDrop::new(Vec::with_capacity(value.len() + 1));
-        vec.extend(value.iter().cloned());
-        vec.push(0);
-        (*out).pointer = vec.as_mut_ptr();
-        (*out).length = value.len();
-        (*out).capacity = value.len();
+unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
+    unsafe {
+        if value.len() < 16 {
+            (*out).inline_buffer[..value.len()].copy_from_slice(value);
+            (*out).inline_buffer[value.len()] = 0;
+            (*out).pointer = (*out).inline_buffer.as_mut_ptr();
+            (*out).length = value.len();
+            (*out).capacity = 15 | (isize::MIN as usize);
+        } else {
+            let mut vec = mem::ManuallyDrop::new(Vec::with_capacity(value.len() + 1));
+            vec.extend(value.iter().cloned());
+            vec.push(0);
+            (*out).pointer = vec.as_mut_ptr();
+            (*out).length = value.len();
+            (*out).capacity = value.len();
+        }
     }
-}}
+}
 
 fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
     let time = std::time::Instant::now();
@@ -3255,34 +3362,36 @@ unsafe fn step_game_logic_hook(
     bw: &'static BwScr,
     param: usize, // Always 0, nonzero would affect replay playback somehow
     orig: unsafe extern "C" fn(usize) -> usize,
-) -> usize { unsafe {
-    // Observer / replay UI in SC:R has a bug with toggling player visions:
-    // In order to immediately update un/detected sprite to match what players see,
-    // BW calls update_detection_status(unit) that in addition to updating sprite
-    // (not expected to be synced), will write to unit.detection_status (expected to be synced).
-    //
-    // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
-    // this simpler to implement than adding analysis for the obs UI functions.
-    let units = bw.units.resolve();
-    {
-        // For first call of this function detection_status_copy should be empty
-        // and this loop before orig will not write to anything.
+) -> usize {
+    unsafe {
+        // Observer / replay UI in SC:R has a bug with toggling player visions:
+        // In order to immediately update un/detected sprite to match what players see,
+        // BW calls update_detection_status(unit) that in addition to updating sprite
+        // (not expected to be synced), will write to unit.detection_status (expected to be synced).
         //
-        // FWIW, it is be fine to rely on (*units).length and (*units).data being
-        // constant for the all step_game_logic calls across single game.
-        let detection_status = bw.detection_status_copy.lock();
-        let unit_ptr = (*units).data as *mut bw::Unit;
-        for (i, value) in detection_status.iter().copied().enumerate() {
-            (*unit_ptr.add(i)).detection_status = value;
+        // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
+        // this simpler to implement than adding analysis for the obs UI functions.
+        let units = bw.units.resolve();
+        {
+            // For first call of this function detection_status_copy should be empty
+            // and this loop before orig will not write to anything.
+            //
+            // FWIW, it is be fine to rely on (*units).length and (*units).data being
+            // constant for the all step_game_logic calls across single game.
+            let detection_status = bw.detection_status_copy.lock();
+            let unit_ptr = (*units).data as *mut bw::Unit;
+            for (i, value) in detection_status.iter().copied().enumerate() {
+                (*unit_ptr.add(i)).detection_status = value;
+            }
         }
+        let ret = orig(param);
+        {
+            let mut detection_status = bw.detection_status_copy.lock();
+            let unit_count = (*units).length;
+            let unit_ptr = (*units).data as *mut bw::Unit;
+            detection_status.clear();
+            detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
+        }
+        ret
     }
-    let ret = orig(param);
-    {
-        let mut detection_status = bw.detection_status_copy.lock();
-        let unit_count = (*units).length;
-        let unit_ptr = (*units).data as *mut bw::Unit;
-        detection_status.clear();
-        detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
-    }
-    ret
-}}
+}

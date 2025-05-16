@@ -20,7 +20,7 @@ use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
 };
-use crate::bw::{get_bw, Bw, GameType};
+use crate::bw::{Bw, GameType, get_bw};
 use crate::bw_scr::BwScr;
 use crate::replay;
 use crate::snp;
@@ -131,29 +131,31 @@ pub fn run_event_loop() -> ! {
     crate::wait_async_exit();
 }
 
-unsafe fn handle_game_request(request: GameThreadRequestType) { unsafe {
-    use self::GameThreadRequestType::*;
-    match request {
-        Initialize => init_bw(),
-        RunWndProc => forge::run_wnd_proc(),
-        StartGame => {
-            forge::game_started();
-            get_bw().run_game_loop();
-            debug!("Game loop ended");
-            send_game_results();
-            forge::hide_window();
-        }
-        // Saves registry settings etc.
-        ExitCleanup => {
-            get_bw().clean_up_for_exit();
-        }
-        SetupInfo(info) => {
-            if SETUP_INFO.set(info).is_err() {
-                warn!("Received second SetupInfo");
+unsafe fn handle_game_request(request: GameThreadRequestType) {
+    unsafe {
+        use self::GameThreadRequestType::*;
+        match request {
+            Initialize => init_bw(),
+            RunWndProc => forge::run_wnd_proc(),
+            StartGame => {
+                forge::game_started();
+                get_bw().run_game_loop();
+                debug!("Game loop ended");
+                send_game_results();
+                forge::hide_window();
+            }
+            // Saves registry settings etc.
+            ExitCleanup => {
+                get_bw().clean_up_for_exit();
+            }
+            SetupInfo(info) => {
+                if SETUP_INFO.set(info).is_err() {
+                    warn!("Received second SetupInfo");
+                }
             }
         }
     }
-}}
+}
 
 pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
     if PLAYER_ID_MAPPING.set(mapping).is_err() {
@@ -189,132 +191,138 @@ pub struct GameThreadResults {
     pub time: Duration,
 }
 
-unsafe fn game_results() -> GameThreadResults { unsafe {
-    let bw = get_bw();
-    let game = bw.game();
-    let players = bw.players();
+unsafe fn game_results() -> GameThreadResults {
+    unsafe {
+        let bw = get_bw();
+        let game = bw.game();
+        let players = bw.players();
 
-    let mut player_results = HashMap::new();
-    for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
-        if id.is_observer() {
-            // Observers should already be filtered out of the player ID mapping but just to be safe
-            continue;
+        let mut player_results = HashMap::new();
+        for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
+            if id.is_observer() {
+                // Observers should already be filtered out of the player ID mapping but just to be safe
+                continue;
+            }
+
+            let victory_state = (*game).victory_state[id.0 as usize]
+                .try_into()
+                .unwrap_or_else(|e| {
+                    warn!("Failed to convert victory state for player {id:?}: {e:?}");
+                    VictoryState::Playing
+                });
+            let race = (*players.add(id.0 as usize))
+                .race
+                .try_into()
+                .unwrap_or_else(|e| {
+                    warn!("Failed to convert race for player {id:?}: {e:?}");
+                    AssignedRace::Zerg
+                });
+            let alliances = (*game).alliances[id.0 as usize][0..8]
+                .iter()
+                .map(|&x| {
+                    x.try_into().unwrap_or_else(|e| {
+                        warn!("Failed to convert alliance state for player {id:?}: {e:?}",);
+                        AllianceState::Unallied
+                    })
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            player_results.insert(
+                id,
+                PlayerResult {
+                    victory_state,
+                    race,
+                    alliances,
+                },
+            );
         }
 
-        let victory_state = (*game).victory_state[id.0 as usize]
-            .try_into()
-            .unwrap_or_else(|e| {
-                warn!("Failed to convert victory state for player {id:?}: {e:?}");
-                VictoryState::Playing
-            });
-        let race = (*players.add(id.0 as usize))
-            .race
-            .try_into()
-            .unwrap_or_else(|e| {
-                warn!("Failed to convert race for player {id:?}: {e:?}");
-                AssignedRace::Zerg
-            });
-        let alliances = (*game).alliances[id.0 as usize][0..8]
-            .iter()
-            .map(|&x| {
-                x.try_into().unwrap_or_else(|e| {
-                    warn!("Failed to convert alliance state for player {id:?}: {e:?}",);
-                    AllianceState::Unallied
-                })
+        let network_results = (0..8)
+            .map(|i| {
+                (
+                    StormPlayerId(i as u8),
+                    FinalNetworkStatus {
+                        was_dropped: (*game).player_was_dropped[i] != 0,
+                        has_quit: bw.storm_player_flags()[i] == 0,
+                    },
+                )
             })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        player_results.insert(
-            id,
-            PlayerResult {
-                victory_state,
-                race,
-                alliances,
-            },
-        );
-    }
+            .collect::<HashMap<_, _>>();
 
-    let network_results = (0..8)
-        .map(|i| {
-            (
-                StormPlayerId(i as u8),
-                FinalNetworkStatus {
-                    was_dropped: (*game).player_was_dropped[i] != 0,
-                    has_quit: bw.storm_player_flags()[i] == 0,
-                },
-            )
-        })
-        .collect::<HashMap<_, _>>();
-
-    GameThreadResults {
-        game_type: (*bw.game_data()).game_type(),
-        player_results,
-        network_results,
-        local_player_lose_type: (*game).player_lose_type.try_into().ok(),
-        // Assuming fastest speed
-        time: Duration::from_millis(((*game).frame_count as u64).saturating_mul(42)),
+        GameThreadResults {
+            game_type: (*bw.game_data()).game_type(),
+            player_results,
+            network_results,
+            local_player_lose_type: (*game).player_lose_type.try_into().ok(),
+            // Assuming fastest speed
+            time: Duration::from_millis(((*game).frame_count as u64).saturating_mul(42)),
+        }
     }
-}}
+}
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
-unsafe fn init_bw() { unsafe {
-    let bw = get_bw();
-    bw.init_sprites();
-    (*bw.game()).is_bw = 1;
-    debug!("Process initialized");
-}}
+unsafe fn init_bw() {
+    unsafe {
+        let bw = get_bw();
+        bw.init_sprites();
+        (*bw.game()).is_bw = 1;
+        debug!("Process initialized");
+    }
+}
 
 /// Bw impl is expected to hook the point after init_game_data and call this.
-pub unsafe fn after_init_game_data() { unsafe {
-    // Let async thread know about player randomization.
-    // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
-    // data structures used in a game. Player randomization seems to have been done before that,
-    // so if it ever in future ends up being the case that the async thread has a point where it
-    // uses wrong game player ids, a more exact point for this hook should be decided.
-    //
-    // But for now it should be fine, and this should also be late enough in initialization that
-    // any possible alternate branches for save/replay/ums randomization should have been executed
-    // as well.
-    let bw = get_bw();
-    let mut mapping = [None; bw::MAX_STORM_PLAYERS];
-    let players = bw.players();
-    debug!("After randomization:");
-    for i in 0..16 {
-        let player = *players.add(i);
-        debug!(
-            "Slot {} has id {}, player_type {}, storm_id {}",
-            i, player.id, player.player_type, player.storm_id
-        );
-        let storm_id = player.storm_id;
-        if let Some(out) = mapping.get_mut(storm_id as usize) {
-            *out = Some(BwPlayerId(i as u8));
+pub unsafe fn after_init_game_data() {
+    unsafe {
+        // Let async thread know about player randomization.
+        // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
+        // data structures used in a game. Player randomization seems to have been done before that,
+        // so if it ever in future ends up being the case that the async thread has a point where it
+        // uses wrong game player ids, a more exact point for this hook should be decided.
+        //
+        // But for now it should be fine, and this should also be late enough in initialization that
+        // any possible alternate branches for save/replay/ums randomization should have been executed
+        // as well.
+        let bw = get_bw();
+        let mut mapping = [None; bw::MAX_STORM_PLAYERS];
+        let players = bw.players();
+        debug!("After randomization:");
+        for i in 0..16 {
+            let player = *players.add(i);
+            debug!(
+                "Slot {} has id {}, player_type {}, storm_id {}",
+                i, player.id, player.player_type, player.storm_id
+            );
+            let storm_id = player.storm_id;
+            if let Some(out) = mapping.get_mut(storm_id as usize) {
+                *out = Some(BwPlayerId(i as u8));
+            }
         }
-    }
 
-    let game_data = bw.game_data();
-    let had_allies_enabled = (*game_data).game_template.allies_enabled != 0;
-    bw::set_had_allies_enabled(had_allies_enabled);
-    if setup_info().disable_alliance_changes.unwrap_or(false) {
-        (*game_data).game_template.allies_enabled = 0;
-    }
+        let game_data = bw.game_data();
+        let had_allies_enabled = (*game_data).game_template.allies_enabled != 0;
+        bw::set_had_allies_enabled(had_allies_enabled);
+        if setup_info().disable_alliance_changes.unwrap_or(false) {
+            (*game_data).game_template.allies_enabled = 0;
+        }
 
-    send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
-    // Create fog-of-war sprites for any neutral buildings
-    if !is_ums()
-        && matches!(
-            bw.starting_fog(),
-            StartingFog::Transparent | StartingFog::ShowResources
-        )
-    {
-        for unit in bw.active_units() {
-            if unit.player() == 11 && unit.is_landed_building() {
-                bw.create_fow_sprite(unit);
+        send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
+        // Create fog-of-war sprites for any neutral buildings
+        if !is_ums()
+            && matches!(
+                bw.starting_fog(),
+                StartingFog::Transparent | StartingFog::ShowResources
+            )
+        {
+            for unit in bw.active_units() {
+                if unit.player() == 11 && unit.is_landed_building() {
+                    bw.create_fow_sprite(unit);
+                }
             }
         }
     }
-}}
+}
 
 /// Returns whether the current game is a Use Map Settings game.
 pub fn is_ums() -> bool {
@@ -362,95 +370,101 @@ pub fn map_name_for_filename() -> String {
 /// This function can be used for hooks that change gameplay state after BW has done (most of)
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
-pub unsafe fn after_step_game() { unsafe {
-    let bw = get_bw();
-    add_fow_sprites_for_replay_vision_change(bw);
-}}
+pub unsafe fn after_step_game() {
+    unsafe {
+        let bw = get_bw();
+        add_fow_sprites_for_replay_vision_change(bw);
+    }
+}
 
-pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) { unsafe {
-    if is_replay() && !is_ums() {
-        // One thing BW's step_game does is that it removes any fog sprites that were
-        // no longer in fog. Unfortunately now that we show fog sprites for unexplored
-        // resources as well, removing those fog sprites ends up being problematic if
-        // the user switches vision off from a player who had those resources explored.
-        // In such case the unexplored fog sprites would not appear and some of the
-        // expansions would show up as empty while other unexplored bases keep their
-        // fog sprites as usual.
-        // To get around this issue, check which neutral buildings don't have fog
-        // sprites and add them back.
+pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
+    unsafe {
+        if is_replay() && !is_ums() {
+            // One thing BW's step_game does is that it removes any fog sprites that were
+            // no longer in fog. Unfortunately now that we show fog sprites for unexplored
+            // resources as well, removing those fog sprites ends up being problematic if
+            // the user switches vision off from a player who had those resources explored.
+            // In such case the unexplored fog sprites would not appear and some of the
+            // expansions would show up as empty while other unexplored bases keep their
+            // fog sprites as usual.
+            // To get around this issue, check which neutral buildings don't have fog
+            // sprites and add them back.
 
-        let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
-        for fow in bw.fow_sprites() {
-            let sprite = (*fow).sprite;
-            let pos = bw.sprite_position(sprite);
-            fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
-        }
-        let replay_visions = bw.replay_visions();
-        for unit in bw.active_units() {
-            if unit.player() == 11 && unit.is_landed_building() {
-                // This currently adds fow sprites even for buildings that became
-                // neutral after player left. It's probably fine, but if it wasn't
-                // desired, checking that `sprite.player == 11` should only include
-                // buildings that existed from map start
-                if let Some(sprite) = unit.sprite() {
-                    let is_visible = replay_visions.show_entire_map
-                        || sprite.visibility_mask() & replay_visions.players != 0;
-                    if !is_visible {
-                        let pos = bw.sprite_position(*sprite as *mut c_void);
-                        if fow_sprites.insert((pos.x, pos.y, unit.id())) {
-                            bw.create_fow_sprite(unit);
+            let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
+            for fow in bw.fow_sprites() {
+                let sprite = (*fow).sprite;
+                let pos = bw.sprite_position(sprite);
+                fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
+            }
+            let replay_visions = bw.replay_visions();
+            for unit in bw.active_units() {
+                if unit.player() == 11 && unit.is_landed_building() {
+                    // This currently adds fow sprites even for buildings that became
+                    // neutral after player left. It's probably fine, but if it wasn't
+                    // desired, checking that `sprite.player == 11` should only include
+                    // buildings that existed from map start
+                    if let Some(sprite) = unit.sprite() {
+                        let is_visible = replay_visions.show_entire_map
+                            || sprite.visibility_mask() & replay_visions.players != 0;
+                        if !is_visible {
+                            let pos = bw.sprite_position(*sprite as *mut c_void);
+                            if fow_sprites.insert((pos.x, pos.y, unit.id())) {
+                                bw.create_fow_sprite(unit);
+                            }
                         }
                     }
                 }
             }
         }
     }
-}}
+}
 
 /// Reimplementation of replay command reading & processing since the default implementation
 /// has buffer overflows for replays where there are too many commands in a frame.
 ///
 /// A function pointer for the original function is still needed to handle replay ending
 /// case which we don't need to touch.
-pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) { unsafe {
-    let bw = get_bw();
-    let game = bw.game();
-    let replay = bw.replay_data();
-    let command_lengths = bw.game_command_lengths();
-    let frame = (*game).frame_count;
-    let data_end = (*replay).data_start.add((*replay).data_length as usize);
-    let remaining_length = (data_end as usize).saturating_sub((*replay).data_pos as usize);
-    // Data is in format
-    // u32 frame, u8 length, { u8 storm_player, u8 cmd[] }[length]
-    // Repeated for each frame in replay, if the commands don't fit in a single frame
-    // then there can be repeated blocks with equal frame number.
-    let mut data = std::slice::from_raw_parts((*replay).data_pos, remaining_length);
-    if data.is_empty() {
-        // Let the original function handle replay ending
-        orig();
-        return;
-    }
+pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
+    unsafe {
+        let bw = get_bw();
+        let game = bw.game();
+        let replay = bw.replay_data();
+        let command_lengths = bw.game_command_lengths();
+        let frame = (*game).frame_count;
+        let data_end = (*replay).data_start.add((*replay).data_length as usize);
+        let remaining_length = (data_end as usize).saturating_sub((*replay).data_pos as usize);
+        // Data is in format
+        // u32 frame, u8 length, { u8 storm_player, u8 cmd[] }[length]
+        // Repeated for each frame in replay, if the commands don't fit in a single frame
+        // then there can be repeated blocks with equal frame number.
+        let mut data = std::slice::from_raw_parts((*replay).data_pos, remaining_length);
+        if data.is_empty() {
+            // Let the original function handle replay ending
+            orig();
+            return;
+        }
 
-    loop {
-        let (mut frame_data, rest) = match replay_next_frame(data) {
-            Some(s) => s,
-            None => {
-                warn!("Broken replay? Unable to read next frame");
-                (*replay).data_pos = data_end;
-                return;
+        loop {
+            let (mut frame_data, rest) = match replay_next_frame(data) {
+                Some(s) => s,
+                None => {
+                    warn!("Broken replay? Unable to read next frame");
+                    (*replay).data_pos = data_end;
+                    return;
+                }
+            };
+            if frame_data.frame > frame {
+                break;
             }
-        };
-        if frame_data.frame > frame {
-            break;
+            data = rest;
+            while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
+                bw.process_replay_commands(command, storm_player);
+            }
         }
-        data = rest;
-        while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
-            bw.process_replay_commands(command, storm_player);
-        }
+        let new_pos = (data_end as usize - data.len()) as *mut u8;
+        (*replay).data_pos = new_pos;
     }
-    let new_pos = (data_end as usize - data.len()) as *mut u8;
-    (*replay).data_pos = new_pos;
-}}
+}
 
 struct ReplayFrame<'a> {
     frame: u32,
@@ -484,116 +498,120 @@ impl<'a> ReplayFrame<'a> {
 /// (It happens to be easy function for SC:R analysis to find and in a nice
 /// spot to inject game init hooks for things that require initialization to
 /// have progressed a bit but not too much)
-pub unsafe fn before_init_unit_data(bw: &BwScr) { unsafe {
-    let game = bw.game();
-    if let Some(ext) = sbat_replay_data() {
-        // This makes team game replays work.
-        // This hook is unfortunately after the game has calculated
-        // max supply for team games (It can be over 200), so we'll have to fix
-        // those as well.
-        //
-        // (I don't think we have a better way to check for team game replay right now
-        // other than just assuming that non-team games have main players as [0, 0, 0, 0])
-        if ext.team_game_main_players != [0, 0, 0, 0] {
-            (*game).team_game_main_player = ext.team_game_main_players;
-            (*game).starting_races = ext.starting_races;
-            let team_count = ext
-                .team_game_main_players
-                .iter()
-                .take_while(|&&x| x != 0xff)
-                .count();
-            let players_per_team = match team_count {
-                2 => 4,
-                3 => 3,
-                4 => 2,
-                _ => 0,
-            };
+pub unsafe fn before_init_unit_data(bw: &BwScr) {
+    unsafe {
+        let game = bw.game();
+        if let Some(ext) = sbat_replay_data() {
+            // This makes team game replays work.
+            // This hook is unfortunately after the game has calculated
+            // max supply for team games (It can be over 200), so we'll have to fix
+            // those as well.
+            //
+            // (I don't think we have a better way to check for team game replay right now
+            // other than just assuming that non-team games have main players as [0, 0, 0, 0])
+            if ext.team_game_main_players != [0, 0, 0, 0] {
+                (*game).team_game_main_player = ext.team_game_main_players;
+                (*game).starting_races = ext.starting_races;
+                let team_count = ext
+                    .team_game_main_players
+                    .iter()
+                    .take_while(|&&x| x != 0xff)
+                    .count();
+                let players_per_team = match team_count {
+                    2 => 4,
+                    3 => 3,
+                    4 => 2,
+                    _ => 0,
+                };
 
-            // Non-main players get 0 max supply.
-            // Clear what bw had already initialized.
-            // (Other players having unused max supply likely won't matter but you never know)
-            for race_supplies in (*game).supplies.iter_mut() {
-                for max in race_supplies.max.iter_mut() {
-                    *max = 0;
+                // Non-main players get 0 max supply.
+                // Clear what bw had already initialized.
+                // (Other players having unused max supply likely won't matter but you never know)
+                for race_supplies in (*game).supplies.iter_mut() {
+                    for max in race_supplies.max.iter_mut() {
+                        *max = 0;
+                    }
                 }
-            }
 
-            let mut pos = 0;
-            for i in 0..team_count {
-                let main_player = ext.team_game_main_players[i] as usize;
-                let first_pos = pos;
-                let mut race_counts = [0; 3];
-                for _ in 0..players_per_team {
-                    // The third team of 3-team game has only two slots, they
-                    // get their first slot counted twice
-                    let index = match pos < 8 {
-                        true => pos,
-                        false => first_pos,
-                    };
-                    let race = ext.starting_races[index];
-                    race_counts[race as usize] += 1;
-                    pos += 1;
-                }
-                for (race, &count) in race_counts.iter().enumerate() {
-                    let count = count.max(1);
-                    // This value is twice the displayed, so 200 max supply for each
-                    // player in team. (Or 200 if none)
-                    (*game).supplies[race].max[main_player] = count * 400;
-                }
-            }
-        }
-    }
-}}
-
-pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) { unsafe {
-    // Show "Stacked (n)" text for stacked buildings
-    if unit.is_landed_building() {
-        fn normalize_id(id: UnitId) -> UnitId {
-            use bw_dat::unit;
-            // For mineral fields, consider any mineral field unit as equivalent.
-            // May be useful in some fastest maps.
-            match id {
-                unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => unit::MINERAL_FIELD_1,
-                x => x,
-            }
-        }
-
-        // Find units that have same unit id and collide with this unit's center
-        // (So they don't necessarily have to be perfectly stacked)
-        let mut count = 0;
-        let pos = unit.position();
-        let id = normalize_id(unit.id());
-        // Doing a loop like this through every active unit is definitely worse
-        // than using some position searching structure, but building that structure
-        // would still require looping through the units once.
-        // If we have such structure in future for some other code it should be used
-        // here too though.
-        for other in bw.active_units() {
-            if normalize_id(other.id()) == id && other.collision_rect().contains_point(&pos) {
-                count += 1;
-            }
-        }
-        if count > 1 {
-            // Show the text at where unit rank/status is usually, as long as it hasn't
-            // been used.
-            if let Some(rank_status) = status_screen.child_by_id(-20) {
-                let existing_text = rank_status.string();
-                if rank_status.is_hidden()
-                    || existing_text.starts_with("Stacked")
-                    || existing_text.is_empty()
-                {
-                    use std::io::Write;
-
-                    let mut buffer = [0; 32];
-                    let buf_len = buffer.len();
-                    let mut out = &mut buffer[..];
-                    // TODO: Could use translations in other SC:R languages :)
-                    let _ = write!(&mut out, "Stacked ({})", count);
-                    let len = buf_len - out.len();
-                    rank_status.set_string(&buffer[..len]);
-                    rank_status.show();
+                let mut pos = 0;
+                for i in 0..team_count {
+                    let main_player = ext.team_game_main_players[i] as usize;
+                    let first_pos = pos;
+                    let mut race_counts = [0; 3];
+                    for _ in 0..players_per_team {
+                        // The third team of 3-team game has only two slots, they
+                        // get their first slot counted twice
+                        let index = match pos < 8 {
+                            true => pos,
+                            false => first_pos,
+                        };
+                        let race = ext.starting_races[index];
+                        race_counts[race as usize] += 1;
+                        pos += 1;
+                    }
+                    for (race, &count) in race_counts.iter().enumerate() {
+                        let count = count.max(1);
+                        // This value is twice the displayed, so 200 max supply for each
+                        // player in team. (Or 200 if none)
+                        (*game).supplies[race].max[main_player] = count * 400;
+                    }
                 }
             }
         }
     }
-}}
+}
+
+pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) {
+    unsafe {
+        // Show "Stacked (n)" text for stacked buildings
+        if unit.is_landed_building() {
+            fn normalize_id(id: UnitId) -> UnitId {
+                use bw_dat::unit;
+                // For mineral fields, consider any mineral field unit as equivalent.
+                // May be useful in some fastest maps.
+                match id {
+                    unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => unit::MINERAL_FIELD_1,
+                    x => x,
+                }
+            }
+
+            // Find units that have same unit id and collide with this unit's center
+            // (So they don't necessarily have to be perfectly stacked)
+            let mut count = 0;
+            let pos = unit.position();
+            let id = normalize_id(unit.id());
+            // Doing a loop like this through every active unit is definitely worse
+            // than using some position searching structure, but building that structure
+            // would still require looping through the units once.
+            // If we have such structure in future for some other code it should be used
+            // here too though.
+            for other in bw.active_units() {
+                if normalize_id(other.id()) == id && other.collision_rect().contains_point(&pos) {
+                    count += 1;
+                }
+            }
+            if count > 1 {
+                // Show the text at where unit rank/status is usually, as long as it hasn't
+                // been used.
+                if let Some(rank_status) = status_screen.child_by_id(-20) {
+                    let existing_text = rank_status.string();
+                    if rank_status.is_hidden()
+                        || existing_text.starts_with("Stacked")
+                        || existing_text.is_empty()
+                    {
+                        use std::io::Write;
+
+                        let mut buffer = [0; 32];
+                        let buf_len = buffer.len();
+                        let mut out = &mut buffer[..];
+                        // TODO: Could use translations in other SC:R languages :)
+                        let _ = write!(&mut out, "Stacked ({})", count);
+                        let len = buf_len - out.len();
+                        rank_status.set_string(&buffer[..len]);
+                        rank_status.show();
+                    }
+                }
+            }
+        }
+    }
+}

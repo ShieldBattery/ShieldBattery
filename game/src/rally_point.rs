@@ -1,6 +1,6 @@
 use std::collections::{
-    hash_map::{Entry, HashMap},
     HashSet,
+    hash_map::{Entry, HashMap},
 };
 
 use std::io;
@@ -9,7 +9,7 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use bytes::Bytes;
 use futures::future::Either;
 use futures::prelude::*;
@@ -17,7 +17,7 @@ use quick_error::quick_error;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::cancel_token::{cancelable_channel, CancelToken, CancelableSender, Canceler};
+use crate::cancel_token::{CancelToken, CancelableSender, Canceler, cancelable_channel};
 use crate::udp::{self, UdpRecv, UdpSend};
 
 quick_error! {
