@@ -1,9 +1,9 @@
 use crate::pubsub::PublishedMessage;
-use color_eyre::eyre::WrapErr;
 use color_eyre::Result;
+use color_eyre::eyre::WrapErr;
 use mobc::Connection;
-use mobc_redis::redis::AsyncCommands;
 use mobc_redis::RedisConnectionManager;
+use mobc_redis::redis::AsyncCommands;
 
 #[derive(Clone)]
 pub struct RedisPool(mobc::Pool<RedisConnectionManager>);

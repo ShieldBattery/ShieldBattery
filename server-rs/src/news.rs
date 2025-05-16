@@ -1,7 +1,7 @@
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::redis::RedisPool;
-use async_graphql::connection::{query, Connection, Edge};
+use async_graphql::connection::{Connection, Edge, query};
 use async_graphql::dataloader::DataLoader;
 use async_graphql::{ComplexObject, Context, Guard, InputObject, Object, SchemaBuilder};
 use async_graphql::{Result, SimpleObject};

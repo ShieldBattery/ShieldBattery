@@ -6,14 +6,14 @@ use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use secrecy::{ExposeSecret, SecretString};
-use serde_json::{json, Map, Value};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use serde_json::{Map, Value, json};
 use tokio::sync::RwLock;
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tracing::{Event, Subscriber};
 use tracing_bunyan_formatter::JsonStorage;
+use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::Layer;
 
 const SOURCE: &str = "sb-telemetry-datadog";
 const TAGS: &str = "version:0.1.0";
@@ -367,7 +367,9 @@ impl DatadogIngestor {
                     return Ok(());
                 }
                 400 => {
-                    eprintln!("DatadogIngestor got Bad Request (probably an issue with payload formatting)");
+                    eprintln!(
+                        "DatadogIngestor got Bad Request (probably an issue with payload formatting)"
+                    );
                 }
                 401 => {
                     eprintln!("DatadogIngestor got Unauthorized (probably a missing API key)");
@@ -376,7 +378,9 @@ impl DatadogIngestor {
                     eprintln!("DatadogIngestor got Forbidden (probably an invalid API key)");
                 }
                 408 => {
-                    eprintln!("DatadogIngestor got Request Timeout, request will be retried unless at max retries");
+                    eprintln!(
+                        "DatadogIngestor got Request Timeout, request will be retried unless at max retries"
+                    );
                 }
                 413 => {
                     eprintln!(
@@ -385,16 +389,24 @@ impl DatadogIngestor {
                     return Err(SendLogsError::PayloadTooLarge);
                 }
                 429 => {
-                    eprintln!("DatadogIngestor got Too Many Requests, request will be retried unless at max retries");
+                    eprintln!(
+                        "DatadogIngestor got Too Many Requests, request will be retried unless at max retries"
+                    );
                 }
                 500 => {
-                    eprintln!("DatadogIngestor got Internal Server Error, request will be retried unless at max retries");
+                    eprintln!(
+                        "DatadogIngestor got Internal Server Error, request will be retried unless at max retries"
+                    );
                 }
                 503 => {
-                    eprintln!("DatadogIngestor got Service Unavailable, request will be retried unless at max retries");
+                    eprintln!(
+                        "DatadogIngestor got Service Unavailable, request will be retried unless at max retries"
+                    );
                 }
                 status => {
-                    eprintln!("DatadogIngestor got unexpected status code {status}, request will be retried unless at max retries");
+                    eprintln!(
+                        "DatadogIngestor got unexpected status code {status}, request will be retried unless at max retries"
+                    );
                 }
             }
         }

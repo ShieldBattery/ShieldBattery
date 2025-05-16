@@ -1,6 +1,6 @@
 use crate::email::MailgunSettings;
 use color_eyre::eyre;
-use color_eyre::eyre::{eyre, WrapErr};
+use color_eyre::eyre::{WrapErr, eyre};
 use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;

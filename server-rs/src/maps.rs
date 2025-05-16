@@ -1,7 +1,8 @@
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{
+    ComplexObject, SchemaBuilder, SimpleObject,
     dataloader::{DataLoader, Loader},
-    scalar, ComplexObject, SchemaBuilder, SimpleObject,
+    scalar,
 };
 use chrono::{DateTime, Utc};
 use data_encoding::BASE64;

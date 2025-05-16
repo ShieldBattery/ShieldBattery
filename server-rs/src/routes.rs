@@ -7,11 +7,11 @@ use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, Graph
 use axum::body::Body;
 use axum::extract::{State, WebSocketUpgrade};
 use axum::http::header::CONTENT_TYPE;
-use axum::http::{header, HeaderName, Request, StatusCode};
+use axum::http::{HeaderName, Request, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{middleware, Router};
+use axum::{Router, middleware};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
 use color_eyre::eyre::{self, Context};
@@ -19,6 +19,7 @@ use jsonwebtoken::DecodingKey;
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use tower::ServiceBuilder;
+use tower_http::ServiceBuilderExt;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors;
@@ -28,7 +29,6 @@ use tower_http::sensitive_headers::{
 };
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
-use tower_http::ServiceBuilderExt;
 use tracing::Span;
 
 use crate::configuration::{Env, Settings};
@@ -40,10 +40,10 @@ use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
-use crate::schema::{build_schema, SbSchema};
-use crate::sessions::{jwt_middleware, SbSession};
+use crate::schema::{SbSchema, build_schema};
+use crate::sessions::{SbSession, jwt_middleware};
 use crate::state::AppState;
-use crate::users::names::{create_names_api, NameChecker};
+use crate::users::names::{NameChecker, create_names_api};
 use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
 async fn health_check() -> impl IntoResponse {

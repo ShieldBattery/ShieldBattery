@@ -1,5 +1,5 @@
 use async_graphql::{
-    dataloader::DataLoader, scalar, ComplexObject, Object, OutputType, SchemaBuilder, SimpleObject,
+    ComplexObject, Object, OutputType, SchemaBuilder, SimpleObject, dataloader::DataLoader, scalar,
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context as _};

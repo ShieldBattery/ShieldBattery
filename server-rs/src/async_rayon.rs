@@ -1,6 +1,6 @@
 use std::{
     future::Future,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
     pin::Pin,
     task::{Context, Poll},
     thread,

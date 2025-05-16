@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use async_graphql::dataloader::DataLoader;
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::post,
-    Json, Router,
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context};
@@ -18,7 +18,7 @@ use typeshare::typeshare;
 
 use crate::{async_rayon::spawn_rayon, state::AppState};
 
-use super::{user_id::SbUserId, SbUser, UsersLoader};
+use super::{SbUser, UsersLoader, user_id::SbUserId};
 
 pub fn create_names_api() -> Router<AppState> {
     Router::new().route("/check-allowed/{name}", post(check_allowed))
@@ -178,13 +178,16 @@ impl NameChecker {
                     restrictions_cache.exact.push(restriction.clone());
                 }
                 RestrictedNameKind::Regex => {
-                    if let Ok(re) = create_case_insensitive_regex(&restriction.pattern) {
-                        restrictions_cache.regex.push((restriction.clone(), re));
-                    } else {
-                        error!(
-                            "Invalid regex pattern [{}]: {}",
-                            restriction.id, restriction.pattern
-                        );
+                    match create_case_insensitive_regex(&restriction.pattern) {
+                        Ok(re) => {
+                            restrictions_cache.regex.push((restriction.clone(), re));
+                        }
+                        _ => {
+                            error!(
+                                "Invalid regex pattern [{}]: {}",
+                                restriction.id, restriction.pattern
+                            );
+                        }
                     }
                 }
             }
@@ -288,13 +291,16 @@ impl NameChecker {
                         exact.push(restriction)
                     }
                     RestrictedNameKind::Regex => {
-                        if let Ok(re) = create_case_insensitive_regex(&restriction.pattern) {
-                            regex.push((restriction, re));
-                        } else {
-                            error!(
-                                "Invalid regex pattern [{}]: {}",
-                                restriction.id, restriction.pattern
-                            );
+                        match create_case_insensitive_regex(&restriction.pattern) {
+                            Ok(re) => {
+                                regex.push((restriction, re));
+                            }
+                            _ => {
+                                error!(
+                                    "Invalid regex pattern [{}]: {}",
+                                    restriction.id, restriction.pattern
+                                );
+                            }
                         }
                     }
                 }

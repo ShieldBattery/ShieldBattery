@@ -1,16 +1,16 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use axum::Extension;
 use axum::body::Body;
 use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::Extension;
-use axum_extra::headers::authorization::Bearer;
-use axum_extra::headers::Authorization;
 use axum_extra::TypedHeader;
+use axum_extra::headers::Authorization;
+use axum_extra::headers::authorization::Bearer;
 use jsonwebtoken::DecodingKey;
 use mobc_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,7 @@ async fn load_session(
                     tracing::debug!("Invalid JWT: {e:?}");
                     Err((StatusCode::BAD_REQUEST, "Invalid JWT"))
                 }
-            }
+            };
         }
     };
     let claims = token_data.claims;

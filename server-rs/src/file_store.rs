@@ -6,7 +6,7 @@ use std::{
 
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{config::Credentials, presigning::PresigningConfig};
-use color_eyre::eyre::{self, bail, Context as _};
+use color_eyre::eyre::{self, Context as _, bail};
 use secrecy::ExposeSecret;
 use url::Url;
 
@@ -118,7 +118,9 @@ impl LocalFileStore {
 
         // Ensure the path is not absolute and does not start with a dot
         if normalized.is_absolute() || filename.starts_with('.') {
-            bail!("Invalid file path: absolute paths or paths starting with directory traversal are disallowed");
+            bail!(
+                "Invalid file path: absolute paths or paths starting with directory traversal are disallowed"
+            );
         }
 
         Ok(normalized.to_string_lossy().into_owned())
@@ -206,7 +208,9 @@ impl SpacesFileStore {
 
         // Ensure the path is not absolute and does not start with a dot
         if normalized.is_absolute() || filename.starts_with('.') {
-            bail!("Invalid file path: absolute paths or paths starting with directory traversal are disallowed");
+            bail!(
+                "Invalid file path: absolute paths or paths starting with directory traversal are disallowed"
+            );
         }
 
         // Force posix path separators on aws-compatible services which use them to create faux

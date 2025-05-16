@@ -8,8 +8,8 @@ use async_graphql::{
     ComplexObject, Context, Guard, InputObject, Object, Result, SchemaBuilder, SimpleObject,
 };
 use axum::extract::{FromRequestParts, OptionalFromRequestParts};
-use axum::http::request::Parts;
 use axum::http::StatusCode;
+use axum::http::request::Parts;
 use axum::{Extension, RequestPartsExt};
 use axum_client_ip::ClientIp;
 use color_eyre::eyre;
@@ -17,8 +17,8 @@ use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
 use mobc_redis::redis::AsyncCommands;
 use names::{
-    create_case_insensitive_regex, NameChecker, NameRestriction, RestrictedNameKind,
-    RestrictedNameReason,
+    NameChecker, NameRestriction, RestrictedNameKind, RestrictedNameReason,
+    create_case_insensitive_regex,
 };
 use rand::distr::{Alphanumeric, SampleString};
 use rand::rng;
@@ -118,7 +118,7 @@ impl IsCurrentUser {
 
 impl Guard for IsCurrentUser {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        if let Some(ref user) = ctx.data::<Option<CurrentUser>>()? {
+        if let Some(user) = ctx.data::<Option<CurrentUser>>()? {
             if user.id == self.0 {
                 return Ok(());
             }

@@ -1,5 +1,5 @@
 use color_eyre::eyre;
-use color_eyre::eyre::{eyre, WrapErr};
+use color_eyre::eyre::{WrapErr, eyre};
 use data_encoding::BASE64;
 use reqwest::Url;
 use secrecy::{ExposeSecret, SecretString};

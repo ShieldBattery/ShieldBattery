@@ -1,16 +1,16 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use axum::extract::Request;
 use axum::ServiceExt;
+use axum::extract::Request;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use mobc_redis::redis;
 use mobc_redis::RedisConnectionManager;
+use mobc_redis::redis;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 
-use server::configuration::{get_configuration, Env};
+use server::configuration::{Env, get_configuration};
 use server::redis::RedisPool;
 use server::routes::create_app;
 #[cfg(debug_assertions)]

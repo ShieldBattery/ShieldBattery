@@ -1,8 +1,8 @@
 use std::{fmt::Write as _, sync::Arc};
 
 use async_graphql::{
-    extensions::{Extension, ExtensionContext, ExtensionFactory, NextExecute},
     Error, ErrorExtensions, PathSegment, Response,
+    extensions::{Extension, ExtensionContext, ExtensionFactory, NextExecute},
 };
 use color_eyre::eyre::eyre;
 use tracing::error;
