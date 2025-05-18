@@ -10,18 +10,21 @@ import React, {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { getErrorStack } from '../../common/errors'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { SbUser } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useKeyListener } from '../keyboard/key-listener'
-import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
+
+// We limit the number of users we display in user mention popup to 10 so we don't need to have
+// scrollbars; and usually the person who is trying to mention someone is interested in only one
+// user anyway.
+export const MAX_MENTIONED_USERS = 10
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -101,7 +104,7 @@ export interface MessageInputProps {
    * Similar to the `mentionableUsers` property above, except this list will be used when the user
    * has only typed the @ character and nothing else after it.
    */
-  defaultMentionableUsers?: SbUser[]
+  baseMentionableUsers?: SbUser[]
 }
 
 export interface MessageInputHandle {
@@ -116,7 +119,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       showDivider,
       storageKey,
       mentionableUsers,
-      defaultMentionableUsers,
+      baseMentionableUsers,
       onSendChatMessage,
     },
     ref,
@@ -163,6 +166,9 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     useEffect(() => {
       const onSelectionChange = (event: Event) => {
         if (event.target instanceof HTMLInputElement) {
+          // This logic looks for the caret moving within a message that starts with @, while
+          // ignoring any cases where the user has made an actual selection.
+
           const { selectionStart, selectionEnd } = event.target
           if (selectionStart === null || selectionStart !== selectionEnd) {
             return
@@ -171,17 +177,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           // TODO(2Pac): Handle channel mentions as well.
 
           if (mentionableUsers) {
-            // Special case the single @ character (Discord displays last 10 people who posted in
-            // chat here).
+            // Looking for an @ with no characters after it to display base mentionable users.
             const singleAtCharacterIndex = message.slice(0, selectionStart).search(/(?<=^|\s)@$/)
             if (
               singleAtCharacterIndex !== -1 &&
-              defaultMentionableUsers &&
-              defaultMentionableUsers.length
+              baseMentionableUsers &&
+              baseMentionableUsers.length > 0
             ) {
               setUserMentionStartIndex(singleAtCharacterIndex)
               setUserMentionMatchedText('@')
-              setMatchedUsers(defaultMentionableUsers)
+              setMatchedUsers(baseMentionableUsers)
               openUserMentions(event)
               return
             }
@@ -213,8 +218,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
             setUserMentionStartIndex(userMentionStartIndex)
             setUserMentionMatchedText(userMention.text)
-            // We limit the number of matched users to 10 because Discord does as well ¯\_(ツ)_/¯
-            setMatchedUsers(matchedUsers.slice(0, 10))
+            setMatchedUsers(matchedUsers.slice(0, MAX_MENTIONED_USERS))
 
             if (matchedUsers.length) {
               openUserMentions(event)
@@ -225,13 +229,13 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         }
       }
 
-      const inputRefCopy = inputRef.current
-      inputRefCopy?.addEventListener('selectionchange', onSelectionChange)
-      return () => inputRefCopy?.removeEventListener('selectionchange', onSelectionChange)
+      const inputRefValue = inputRef.current
+      inputRefValue?.addEventListener('selectionchange', onSelectionChange)
+      return () => inputRefValue?.removeEventListener('selectionchange', onSelectionChange)
     }, [
       message,
       mentionableUsers,
-      defaultMentionableUsers,
+      baseMentionableUsers,
       openUserMentions,
       closeUserMentions,
       fuzzy,
@@ -277,28 +281,6 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       }),
     })
 
-    const onUserMentionSelect = useStableCallback((user: SbUser) => {
-      closeUserMentions()
-
-      if (userMentionStartIndex > -1 && userMentionMatchedText) {
-        setMessage(
-          message.slice(0, userMentionStartIndex) +
-            `@${user.name} ` +
-            message.slice(userMentionStartIndex + userMentionMatchedText.length),
-        )
-      }
-
-      inputRef.current?.focus()
-      // Setting the caret position immediately after the focus doesn't work for some reason, so we
-      // need to wait a tick first.
-      Promise.resolve()
-        .then(() => {
-          const newCaretPosition = userMentionStartIndex + user.name.length + 2
-          inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
-        })
-        .catch(err => logger.warning(`Error while setting caret position: ${getErrorStack(err)}`))
-    })
-
     return (
       <>
         <StyledTextField
@@ -340,7 +322,29 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 key={user.id}
                 text={user.name}
                 icon={<ConnectedAvatar userId={user.id} />}
-                onClick={() => onUserMentionSelect(user)}
+                onClick={() => {
+                  closeUserMentions()
+
+                  if (userMentionStartIndex > -1 && userMentionMatchedText) {
+                    setMessage(
+                      message.slice(0, userMentionStartIndex) +
+                        `@${user.name} ` +
+                        message.slice(userMentionStartIndex + userMentionMatchedText.length),
+                    )
+                  }
+
+                  if (!inputRef.current) {
+                    return
+                  }
+
+                  inputRef.current.focus()
+                  // Setting the caret position immediately after the focus doesn't work for some reason, so we
+                  // need to wait a tick first.
+                  queueMicrotask(() => {
+                    const newCaretPosition = userMentionStartIndex + user.name.length + 2
+                    inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+                  })
+                }}
               />
             ))}
           </StyledMenuList>
