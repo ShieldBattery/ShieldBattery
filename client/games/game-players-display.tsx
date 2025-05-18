@@ -20,6 +20,7 @@ const GamePreviewPlayers = styled.div`
 
 const GamePreviewTeam = styled.div`
   min-width: 0;
+  width: calc(50% - 8px);
 
   display: flex;
   flex-direction: column;
