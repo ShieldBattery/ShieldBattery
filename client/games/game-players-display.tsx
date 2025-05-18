@@ -3,18 +3,28 @@ import React, { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameRecordJson } from '../../common/games/games'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
 import { useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 
 const GamePreviewPlayers = styled.div`
-  column-count: 2;
-  column-gap: 16px;
-  text-align: start;
+  display: flex;
+  gap: 16px;
+`
+
+const GamePreviewTeam = styled.div`
+  min-width: 0;
+  width: calc(50% - 8px);
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `
 
 const GamePreviewTeamOverline = styled.div`
@@ -22,19 +32,18 @@ const GamePreviewTeamOverline = styled.div`
   ${singleLine};
 
   color: var(--theme-on-surface-variant);
-  margin-bottom: 8px;
 `
 
-const GamePreviewPlayer = styled.div`
-  ${titleSmall};
-  ${singleLine};
-
+const GamePreviewPlayerContainer = styled.div`
   height: 20px;
 
   display: flex;
   align-items: center;
+`
 
-  margin-bottom: 8px;
+const GamePreviewPlayerName = styled.span`
+  ${titleSmall};
+  ${singleLine};
 `
 
 const GamePreviewPlayerRaceRoot = styled.div`
@@ -115,10 +124,12 @@ function areUsersEqual(a: ReadonlyArray<SbUser>, b: ReadonlyArray<SbUser>): bool
 
 export function GamePlayersDisplay({
   game,
+  forUserId,
   showTeamLabels = true,
   className,
 }: {
   game: ReadonlyDeep<GameRecordJson>
+  forUserId?: SbUserId
   showTeamLabels?: boolean
   className?: string
 }) {
@@ -126,7 +137,7 @@ export function GamePlayersDisplay({
 
   const players = useAppSelector(usePlayersSelector(game), areUsersEqual)
   const playersMapping = useMemo(
-    () => new Map<number, SbUser>(players.map(p => [p.id, p])),
+    () => new Map<SbUserId, SbUser>(players.map(p => [p.id, p])),
     [players],
   )
 
@@ -134,92 +145,128 @@ export function GamePlayersDisplay({
     return new Map(game?.results ?? [])
   }, [game?.results])
 
-  const playerElems: React.ReactNode[] = []
+  // TODO(2Pac): Handle game types which can have more than two teams
+  let firstTeamElems: React.ReactNode[] = []
+  let secondTeamElems: React.ReactNode[] = []
+
   if (game.config.gameType === 'topVBottom') {
+    // Sort the teams so that the team with the user whose profile this is being displayed on comes
+    // first and keeps the teams in consistent order. This is mostly helpful when there are a lot of
+    // games with the same teams one after another.
+    const sortedTeams = game.config.teams.toSorted((a, b) => {
+      if (a.some(p => p.id === forUserId)) {
+        return -1
+      } else if (b.some(p => p.id === forUserId)) {
+        return 1
+      }
+
+      // TODO(2Pac): Figure out some way to keep consistent order of teams even if we're not showing
+      // this in a specific user profile (e.g. on public games page).
+      return 0
+    })
+    const [teamTop, teamBottom] = sortedTeams
+
+    const mapTeamToElems = (team: ReadonlyArray<GameConfigPlayer>) => {
+      return team
+        .toSorted((a, b) => {
+          const aName = playersMapping.get(a.id)?.name
+          const bName = playersMapping.get(b.id)?.name
+
+          if (!aName) {
+            return 1
+          } else if (!bName) {
+            return -1
+          }
+
+          return aName.localeCompare(bName)
+        })
+        .map((player, i) => {
+          const result = player.isComputer ? undefined : resultsById.get(player.id)
+          return (
+            <GamePreviewPlayerContainer key={`player-${i}`}>
+              <GamePreviewPlayerRace
+                race={result?.race ?? player.race}
+                isRandom={player.race === 'r'}
+              />
+              <GamePreviewPlayerName>
+                {player.isComputer
+                  ? t('game.playerName.computer', 'Computer')
+                  : (playersMapping.get(player.id)?.name ??
+                    t('game.playerName.unknown', 'Unknown player'))}
+              </GamePreviewPlayerName>
+            </GamePreviewPlayerContainer>
+          )
+        })
+    }
+
+    firstTeamElems = mapTeamToElems(teamTop)
+    secondTeamElems = mapTeamToElems(teamBottom)
+
     if (showTeamLabels) {
-      playerElems.push(
+      firstTeamElems.unshift(
         <GamePreviewTeamOverline key={'team-top'}>
           {t('game.teamName.top', 'Top')}
         </GamePreviewTeamOverline>,
       )
-    }
-    const [teamTop, teamBottom] = game.config.teams
-    const teamDiff = teamTop.length - teamBottom.length
-    playerElems.push(
-      ...teamTop.map((p, i) => {
-        const result = p.isComputer ? undefined : resultsById.get(p.id)
-        return (
-          <GamePreviewPlayer key={`team-top-${i}`}>
-            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-            <span>
-              {p.isComputer
-                ? t('game.playerName.computer', 'Computer')
-                : (playersMapping.get(p.id)?.name ??
-                  t('game.playerName.unknown', 'Unknown player'))}
-            </span>
-          </GamePreviewPlayer>
-        )
-      }),
-    )
-
-    // If teamBottom has more players, render placeholders for teamTop.
-    if (teamDiff < 0) {
-      for (let i = 0; i < Math.abs(teamDiff); i++) {
-        playerElems.push(<GamePreviewPlayer key={`placeholder-${i}`} />)
-      }
-    }
-
-    if (showTeamLabels) {
-      playerElems.push(
+      secondTeamElems.unshift(
         <GamePreviewTeamOverline key={'team-bottom'}>
           {t('game.teamName.bottom', 'Bottom')}
         </GamePreviewTeamOverline>,
       )
     }
-    playerElems.push(
-      ...teamBottom.map((p, i) => {
-        const result = p.isComputer ? undefined : resultsById.get(p.id)
-        return (
-          <GamePreviewPlayer key={`team-bottom-${i}`}>
-            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-            <span>
-              {p.isComputer
-                ? t('game.playerName.computer', 'Computer')
-                : (playersMapping.get(p.id)?.name ??
-                  t('game.playerName.unknown', 'Unknown player'))}
-            </span>
-          </GamePreviewPlayer>
-        )
-      }),
-    )
-
-    // If teamTop has more players, render placeholders for teamBottom.
-    if (teamDiff > 0) {
-      for (let i = 0; i < teamDiff; i++) {
-        playerElems.push(<GamePreviewPlayer key={`placeholder-${i}`} />)
-      }
-    }
   } else {
     // TODO(tec27): Handle UMS game types with 2 teams? Always add team labels for 1v1?
-    playerElems.push(
-      ...game.config.teams.flatMap((team, i) =>
-        team.map((p, j) => {
-          const result = p.isComputer ? undefined : resultsById.get(p.id)
-          return (
-            <GamePreviewPlayer key={`team-${i}-${j}`}>
-              <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
-              <span>
-                {p.isComputer
-                  ? t('game.playerName.computer', 'Computer')
-                  : (playersMapping.get(p.id)?.name ??
-                    t('game.playerName.unknown', 'Unknown player'))}
-              </span>
-            </GamePreviewPlayer>
-          )
-        }),
-      ),
-    )
+
+    const sortedPlayers = game.config.teams.flat().toSorted((a, b) => {
+      // Sort the players so that the player whose profile this is being displayed on comes first
+      // and all the rest are alphabetically sorted.
+      if (a.id === forUserId) {
+        return -1
+      } else if (b.id === forUserId) {
+        return 1
+      }
+
+      const aName = playersMapping.get(a.id)?.name
+      const bName = playersMapping.get(b.id)?.name
+
+      if (!aName) {
+        return 1
+      } else if (!bName) {
+        return -1
+      }
+
+      return aName.localeCompare(bName)
+    })
+
+    for (const [i, player] of sortedPlayers.entries()) {
+      const result = player.isComputer ? undefined : resultsById.get(player.id)
+      const playerElem = (
+        <GamePreviewPlayerContainer key={`player-${i}`}>
+          <GamePreviewPlayerRace
+            race={result?.race ?? player.race}
+            isRandom={player.race === 'r'}
+          />
+          <GamePreviewPlayerName>
+            {player.isComputer
+              ? t('game.playerName.computer', 'Computer')
+              : (playersMapping.get(player.id)?.name ??
+                t('game.playerName.unknown', 'Unknown player'))}
+          </GamePreviewPlayerName>
+        </GamePreviewPlayerContainer>
+      )
+
+      if (firstTeamElems.length === secondTeamElems.length) {
+        firstTeamElems.push(playerElem)
+      } else {
+        secondTeamElems.push(playerElem)
+      }
+    }
   }
 
-  return <GamePreviewPlayers className={className}>{playerElems}</GamePreviewPlayers>
+  return (
+    <GamePreviewPlayers className={className}>
+      <GamePreviewTeam>{firstTeamElems}</GamePreviewTeam>
+      <GamePreviewTeam>{secondTeamElems}</GamePreviewTeam>
+    </GamePreviewPlayers>
+  )
 }
