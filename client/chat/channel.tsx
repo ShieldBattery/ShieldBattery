@@ -9,6 +9,7 @@ import {
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -129,13 +130,17 @@ export function ConnectedChatChannel({
   const selfPreferences = useAppSelector(s => s.chat.idToSelfPreferences.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
-  // NOTE(2Pac): Reproducing the Discord's logic where when the user types the @ character, we show
-  // the last 10 chatters in the channel as an option to mention.
-  const lastTenChatters = useMemo(() => {
+  // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
+  // chatters in the channel as an option to mention.
+  const recentChatters = useMemo(() => {
     const chattersSet = new Set<SbUserId>()
     const reversedMessages = channelMessages?.messages.toReversed() ?? []
     for (const message of reversedMessages) {
-      if (message.type === ServerChatMessageType.TextMessage && chattersSet.size <= 10) {
+      if (chattersSet.size >= MAX_MENTIONED_USERS) {
+        break
+      }
+
+      if (message.type === ServerChatMessageType.TextMessage) {
         chattersSet.add(message.from)
       }
     }
@@ -157,9 +162,27 @@ export function ConnectedChatChannel({
     useUserEntriesSelector(channelUsers?.offline),
     areUserEntriesEqual,
   )
-  const lastTenChattersEntries = useAppSelector(
-    useUserEntriesSelector(lastTenChatters),
+  const recentChattersEntries = useAppSelector(
+    useUserEntriesSelector(recentChatters),
     areUserEntriesEqual,
+  )
+
+  const mentionableUsers = useMemo(
+    () =>
+      activeUserEntries
+        .concat(idleUserEntries)
+        .concat(offlineUserEntries)
+        .filter(([id, username]) => username !== undefined)
+        .map(([id, username]) => ({ id, name: username! })),
+    [activeUserEntries, idleUserEntries, offlineUserEntries],
+  )
+
+  const baseMentionableUsers = useMemo(
+    () =>
+      recentChattersEntries
+        .filter(([id, username]) => username !== undefined)
+        .map(([id, username]) => ({ id, name: username! })),
+    [recentChattersEntries],
   )
 
   const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
@@ -225,14 +248,8 @@ export function ConnectedChatChannel({
             inputProps={{
               onSendChatMessage,
               storageKey: `chat.${channelId}`,
-              mentionableUsers: activeUserEntries
-                .concat(idleUserEntries)
-                .concat(offlineUserEntries)
-                .filter(([id, username]) => username !== undefined)
-                .map(([id, username]) => ({ id, name: username! })),
-              defaultMentionableUsers: lastTenChattersEntries
-                .filter(([id, username]) => username !== undefined)
-                .map(([id, username]) => ({ id, name: username! })),
+              mentionableUsers,
+              baseMentionableUsers,
             }}
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead

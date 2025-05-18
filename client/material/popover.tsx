@@ -190,7 +190,7 @@ export interface PopoverProps {
   motionExit?: VariantLabels | TargetAndTransition
 
   /**
-   * Whether the popover should steal the focus when it is opened.
+   * Automatically focus the popover content when it's open. Defaults to `true`.
    */
   focusOnMount?: boolean
 }
