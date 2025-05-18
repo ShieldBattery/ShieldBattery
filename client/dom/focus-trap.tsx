@@ -11,7 +11,7 @@ export interface FocusTrapProps {
    */
   focusableRef: React.RefObject<HTMLElement | null>
   /**
-   * Whether the focus trap should steal the focus when it is mounted.
+   * Whether the focus trap should steal the focus when it is mounted. Defaults to `true`.
    */
   focusOnMount?: boolean
 }
