@@ -217,7 +217,9 @@
                     "current": "$🗡Enter your current password🗡!",
                     "new": "$🗡Enter a new password🗡!"
                 },
-                "unknownError": "$🗡Something went wrong, please try again later.🗡!"
+                "unknownError": "$🗡Something went wrong, please try again later.🗡!",
+                "emailUnverified": "$🗡Unverified🗡!",
+                "emailVerified": "$🗡Verified🗡!"
             }
         },
         "activity": {
@@ -230,7 +232,7 @@
             "required": "$🗡Enter an email address🗡!"
         },
         "emailVerification": {
-            "title": "$🗡Verify email🗡!",
+            "title": "$🗡Verify your email🗡!",
             "codeLabel": "$🗡Verification code🗡!",
             "codePattern": "$🗡Invalid code. It should look like {{example}}.🗡!",
             "resent": "$🗡Verification email resent!🗡!",

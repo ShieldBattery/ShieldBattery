@@ -219,7 +219,9 @@
                     "current": "introduce tu contraseña actual",
                     "new": "Introduzca una nueva contraseña"
                 },
-                "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
+                "unknownError": "Algo salió mal, inténtalo de nuevo más tarde.",
+                "emailUnverified": "No verificado",
+                "emailVerified": "Verificado"
             }
         },
         "activity": {
@@ -250,7 +252,18 @@
             "required": "Introduzca una dirección de correo electrónico"
         },
         "emailVerification": {
-            "title": "Verificar correo electrónico"
+            "title": "Verificar correo electrónico",
+            "codeLabel": "Código de verificación",
+            "codePattern": "Código inválido. Debe verse como {{example}}.",
+            "codeRequired": "Ingresa tu código de verificación",
+            "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
+            "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
+            "invalidCode": "Código inválido. Por favor, intenta de nuevo.",
+            "resend": "Reenviar correo",
+            "resendText": "¿No ves el correo?",
+            "resent": "¡Correo de verificación reenviado!",
+            "submitError": "Hubo un problema al verificar tu correo. Por favor, intenta de nuevo más tarde.",
+            "verify": "Verificar"
         },
         "forgot": {
             "backToLogin": "Atrás para iniciar sesión",
@@ -1158,7 +1171,9 @@
     },
     "social": {
         "chat": {
-            "label": "Charlar"
+            "label": "Charlar",
+            "loadingChannelsError": "Error al cargar los canales de chat",
+            "loadingWhispersError": "Error al cargar los susurros"
         },
         "friends": {
             "label": "Amigos ({{friendCount}})"

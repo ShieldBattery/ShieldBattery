@@ -218,7 +218,9 @@
                     "current": "输入您当前的密码",
                     "new": "输入新的密码"
                 },
-                "unknownError": "遇到错误。请稍后再试。"
+                "unknownError": "遇到错误。请稍后再试。",
+                "emailUnverified": "未验证",
+                "emailVerified": "已验证"
             }
         }
     },
@@ -255,7 +257,18 @@
             "required": "请输入电子邮箱地址"
         },
         "emailVerification": {
-            "title": "验证邮箱"
+            "title": "验证邮箱",
+            "explanation": "你的邮箱地址尚未验证。验证邮箱有助于保护你的账户安全，并在你忘记登录信息时提供帮助。",
+            "instructions": "输入发送到<2>{{email}}</2>的验证码。",
+            "invalidCode": "无效的验证码。请再试一次。",
+            "resend": "重新发送邮件",
+            "resendText": "没看到邮件？",
+            "resent": "验证邮件已重新发送！",
+            "submitError": "验证你的邮箱时出现问题。请稍后再试。",
+            "verify": "验证",
+            "codeLabel": "验证码",
+            "codePattern": "无效的验证码。格式应为{{example}}。",
+            "codeRequired": "输入你的验证码"
         },
         "login": {
             "forgotPassword": "忘了密码？",
