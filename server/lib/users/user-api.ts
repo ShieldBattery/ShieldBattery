@@ -327,7 +327,7 @@ export class UserApi {
 
     await ctx.beginSession(createdUser.user.id, false)
 
-    // No need to await for this, if it fails they can just re-send the email later
+    // No need to wait for this, if it fails they can just re-send the email later
     Promise.resolve()
       .then(async () => {
         const code = await genRandomCode()

@@ -132,12 +132,11 @@ export function AccountSettings() {
   const reduxEmailVerified = useSelfUser()?.emailVerified
 
   useEffect(() => {
-    if (reduxEmailVerified && !currentUser?.emailVerified) {
-      // Refresh the user information from gql since it's out of date after the user's email
-      // became verified
+    if (currentUser && reduxEmailVerified !== currentUser.emailVerified) {
+      // Refresh the user information from gql since it's out of date from what the redux store has
       refreshQuery({ requestPolicy: 'network-only' })
     }
-  }, [currentUser?.emailVerified, refreshQuery, reduxEmailVerified])
+  }, [refreshQuery, reduxEmailVerified, currentUser])
 
   if (!currentUser) {
     return (

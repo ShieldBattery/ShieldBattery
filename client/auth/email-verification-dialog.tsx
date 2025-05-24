@@ -112,11 +112,7 @@ export function EmailVerificationDialog({
             },
             onError: err => {
               setIsSubmitting(false)
-              setSubmitError(
-                (err && 'response' in err && (err as any).response?.error) ||
-                  err?.message ||
-                  t('auth.emailVerification.invalidCode', 'Invalid code. Please try again.'),
-              )
+              setSubmitError(err)
             },
           },
         ),
