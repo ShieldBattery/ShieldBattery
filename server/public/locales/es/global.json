@@ -258,7 +258,6 @@
             "codeRequired": "Ingresa tu código de verificación",
             "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
             "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
-            "invalidCode": "Código inválido. Por favor, intenta de nuevo.",
             "resend": "Reenviar correo",
             "resendText": "¿No ves el correo?",
             "resent": "¡Correo de verificación reenviado!",

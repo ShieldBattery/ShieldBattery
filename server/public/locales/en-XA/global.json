@@ -241,7 +241,6 @@
             "codeRequired": "$🗡Enter your verification code🗡!",
             "explanation": "$🗡Your email address has not been verified. Verifying your email helps us keep your account secure and allows us to assist you if you forget your login information.🗡!",
             "instructions": "$🗡Enter the verification code sent to <2>{{email}}</2>.🗡!",
-            "invalidCode": "$🗡Invalid code. Please try again.🗡!",
             "resend": "$🗡Resend email🗡!",
             "resendText": "$🗡Don't see the email?🗡!"
         },
