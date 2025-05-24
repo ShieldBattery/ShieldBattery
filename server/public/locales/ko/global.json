@@ -8,7 +8,6 @@
         },
         "actions": {
             "cancel": "취소",
-            "continue": "계속",
             "okay": "OK",
             "save": "저장",
             "apply": "적용",
@@ -273,21 +272,7 @@
             "resetCodePattern": "유효하지 않은 코드야. {{example}}처럼 보여야 해."
         },
         "emailVerification": {
-            "sendError": "확인 이메일을 보내는 중에 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
-            "switchUser": "사용자 전환",
-            "title": "이메일 확인",
-            "verifySuccess": "귀하의 이메일이 성공적으로 확인되었습니다.",
-            "wrongUserError": "오류: 이메일을 확인하려는 계정에 로그인해야 합니다. 아래 버튼을 클릭하여 사용자를 전환하고 다시 시도하십시오.",
-            "defaultError": "뭔가 크게 잘못되었습니다. 다시 시도해 주세요.",
-            "emailSent": "확인 이메일이 성공적으로 전송되었습니다.",
-            "emailUnverifiedMessage": "이메일이 확인되지 않았습니다! ShieldBattery에서 보낸 이메일을 확인하십시오. 보이지 않으면 <2>다른 하나를 보낼 수 있습니다</2>.",
-            "generalError": "오류: {{error}}",
-            "invalidCodeError": "오류: 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 일치한다면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
-            "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
-            "resendError": "이메일 재전송 오류: {{error}}",
-            "resendSuccess": "새 확인 코드가 계정의 이메일 주소로 전송되었습니다.",
-            "resendVerificationEmail": "확인 이메일 재전송",
-            "logIn": "로그인"
+            "title": "이메일 확인"
         },
         "emailValidator": {
             "pattern": "유효한 이메일 주소를 입력하세요",

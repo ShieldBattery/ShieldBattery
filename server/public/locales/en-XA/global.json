@@ -10,7 +10,6 @@
         },
         "actions": {
             "cancel": "$🗡Cancel🗡!",
-            "continue": "$🗡Continue🗡!",
             "save": "$🗡Save🗡!",
             "okay": "$🗡Okay🗡!",
             "join": "$🗡Join🗡!",
@@ -231,21 +230,18 @@
             "required": "$🗡Enter an email address🗡!"
         },
         "emailVerification": {
-            "emailSent": "$🗡Verification email has been sent successfully.🗡!",
-            "loggedOutError": "$🗡Error: You need to be logged in to verify your email. Please log in by clicking the button below and try again.🗡!",
-            "resendError": "$🗡Error resending email: {{error}}🗡!",
-            "resendSuccess": "$🗡A new verification code has been sent to your account's email address.🗡!",
-            "resendVerificationEmail": "$🗡Resend verification email🗡!",
-            "sendError": "$🗡Something went wrong while sending a verification email, please try again later.🗡!",
-            "switchUser": "$🗡Switch user🗡!",
             "title": "$🗡Verify email🗡!",
-            "defaultError": "$🗡Something went terribly wrong. Please try again.🗡!",
-            "emailUnverifiedMessage": "$🗡Your email is unverified! Check for an email from ShieldBattery. If you don't see one, we can <2>send another</2>.🗡!",
-            "generalError": "$🗡Error: {{error}}🗡!",
-            "invalidCodeError": "$🗡Error: The provided email or verification code is not valid. If the verification code matches the one you were emailed, it may have expired. Please request a new verification email and try again.🗡!",
-            "verifySuccess": "$🗡Your email has been successfully verified.🗡!",
-            "wrongUserError": "$🗡Error: You must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again.🗡!",
-            "logIn": "$🗡Log in🗡!"
+            "codeLabel": "$🗡Verification code🗡!",
+            "codePattern": "$🗡Invalid code. It should look like {{example}}.🗡!",
+            "resent": "$🗡Verification email resent!🗡!",
+            "submitError": "$🗡There was a problem verifying your email. Please try again later.🗡!",
+            "verify": "$🗡Verify🗡!",
+            "codeRequired": "$🗡Enter your verification code🗡!",
+            "explanation": "$🗡Your email address has not been verified. Verifying your email helps us keep your account secure and allows us to assist you if you forget your login information.🗡!",
+            "instructions": "$🗡Enter the verification code sent to <2>{{email}}</2>.🗡!",
+            "invalidCode": "$🗡Invalid code. Please try again.🗡!",
+            "resend": "$🗡Resend email🗡!",
+            "resendText": "$🗡Don't see the email?🗡!"
         },
         "forgot": {
             "backToLogin": "$🗡Back to login🗡!",

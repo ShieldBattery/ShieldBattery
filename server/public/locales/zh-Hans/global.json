@@ -8,7 +8,6 @@
         },
         "actions": {
             "cancel": "取消",
-            "continue": "继续",
             "okay": "好的",
             "save": "保存",
             "clear": "清除",
@@ -256,21 +255,7 @@
             "required": "请输入电子邮箱地址"
         },
         "emailVerification": {
-            "defaultError": "出错了。请再试一次。",
-            "emailSent": "验证邮件已成功发送。",
-            "invalidCodeError": "错误：您提供的电子邮箱或验证码无效。如果输入的验证码与您通过电子邮件收到的验证码相符，则该验证码可能已过期。请重新发送验证邮件并重试。",
-            "resendVerificationEmail": "重新发送验证邮件",
-            "emailUnverifiedMessage": "您的电子邮箱尚未验证！请查阅ShieldBattery发给您的电子邮件。如果您没有收到，我们可以<2>再发送一份</2>。",
-            "generalError": "错误：{{error}}",
-            "loggedOutError": "错误：您需要登录才能验证您的电子邮箱。请点击下面的按钮登录并重试。",
-            "resendError": "重新发送电子邮件时出错：{{error}}",
-            "resendSuccess": "新的验证码已发送至您的电子邮箱。",
-            "sendError": "发送验证邮件时出现问题，请稍后重试。",
-            "switchUser": "切换账号",
-            "title": "验证邮箱",
-            "verifySuccess": "您的电子邮箱已成功验证。",
-            "wrongUserError": "错误：您必须先登录账号才能验证绑定该账号的电子邮箱。请点击下面的按钮切换账号，然后重试。",
-            "logIn": "登录"
+            "title": "验证邮箱"
         },
         "login": {
             "forgotPassword": "忘了密码？",

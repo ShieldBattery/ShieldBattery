@@ -12,7 +12,6 @@
         },
         "actions": {
             "cancel": "Cancelar",
-            "continue": "Continuar",
             "okay": "Bueno",
             "save": "Ahorrar",
             "join": "Unirse",
@@ -251,21 +250,7 @@
             "required": "Introduzca una dirección de correo electrónico"
         },
         "emailVerification": {
-            "defaultError": "Algo salió terriblemente mal. Inténtalo de nuevo.",
-            "emailSent": "El correo electrónico de verificación se ha enviado con éxito.",
-            "emailUnverifiedMessage": "¡Tu correo electrónico no está verificado! Busque un correo electrónico de ShieldBattery. Si no ve uno, podemos <2>enviar otro</2>.",
-            "generalError": "Error: {{error}}",
-            "invalidCodeError": "Error: el correo electrónico proporcionado o el código de verificación no es válido. Si el código de verificación coincide con el que le enviaron por correo electrónico, es posible que haya caducado. Solicite un nuevo correo electrónico de verificación y vuelva a intentarlo.",
-            "loggedOutError": "Error: Debe iniciar sesión para verificar su correo electrónico. Inicie sesión haciendo clic en el botón de abajo y vuelva a intentarlo.",
-            "resendError": "Error al reenviar el correo electrónico: {{error}}",
-            "resendSuccess": "Se ha enviado un nuevo código de verificación a la dirección de correo electrónico de su cuenta.",
-            "resendVerificationEmail": "Reenviar correo electrónico de verificación",
-            "sendError": "Algo salió mal al enviar un correo electrónico de verificación, intente nuevamente más tarde.",
-            "switchUser": "Cambiar de usuario",
-            "title": "Verificar correo electrónico",
-            "verifySuccess": "Su correo electrónico ha sido verificado con éxito.",
-            "wrongUserError": "Error: Debe iniciar sesión en la cuenta cuyo correo electrónico desea verificar. Cambie de usuario haciendo clic en el botón de abajo y vuelva a intentarlo.",
-            "logIn": "Acceso"
+            "title": "Verificar correo electrónico"
         },
         "forgot": {
             "backToLogin": "Atrás para iniciar sesión",
