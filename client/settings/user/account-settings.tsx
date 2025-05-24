@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
@@ -8,7 +8,7 @@ import {
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../../common/constants'
-import { EmailVerificationWarningContent } from '../../auth/email-verification-notification-ui'
+import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
@@ -31,7 +31,7 @@ import { Card } from '../../material/card'
 import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
-import { useStableCallback } from '../../react/state-hooks'
+import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
@@ -54,22 +54,6 @@ const Section = styled.div``
 
 const SectionHeader = styled.div`
   ${titleLarge};
-  margin-bottom: 16px;
-`
-
-const ColoredWarningIcon = styledWithAttrs(MaterialIcon, { icon: 'warning', size: 36 })`
-  flex-shrink: 0;
-  color: var(--theme-amber);
-`
-
-const EmailVerificationWarning = styled.div`
-  max-width: 560px;
-  display: flex;
-  padding: 16px;
-
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 4px;
-  gap: 16px;
   margin-bottom: 16px;
 `
 
@@ -100,6 +84,25 @@ const EmailItem = styled.div`
   gap: 8px;
 `
 
+const EmailItemAndIcon = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+const MultiButtons = styled.div`
+  display: flex;
+  gap: 8px;
+`
+
+const VerifiedIcon = styledWithAttrs(MaterialIcon, { icon: 'check_circle', size: 24 })`
+  color: var(--theme-success);
+`
+
+const UnverifiedIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 24 })`
+  color: var(--theme-amber);
+`
+
 const CurrentUserFragment = graphql(/* GraphQL */ `
   fragment AccountSettings_CurrentUser on CurrentUser {
     id
@@ -121,27 +124,20 @@ const AccountSettingsQuery = graphql(/* GraphQL */ `
 export function AccountSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const [{ data }] = useQuery({
+  const [{ data }, refreshQuery] = useQuery({
     query: AccountSettingsQuery,
   })
   const currentUser = useFragment(CurrentUserFragment, data?.currentUser)
   const [emailRevealed, setEmailRevealed] = useState(false)
+  const reduxEmailVerified = useSelfUser()?.emailVerified
 
-  const onEditEmail = useStableCallback(() => {
-    dispatch(
-      openDialog({
-        type: DialogType.ChangeEmail,
-        initData: { currentEmail: currentUser?.email ?? '' },
-      }),
-    )
-  })
-  const onChangePassword = useStableCallback(() => {
-    dispatch(
-      openDialog({
-        type: DialogType.ChangePassword,
-      }),
-    )
-  })
+  useEffect(() => {
+    if (reduxEmailVerified && !currentUser?.emailVerified) {
+      // Refresh the user information from gql since it's out of date after the user's email
+      // became verified
+      refreshQuery({ requestPolicy: 'network-only' })
+    }
+  }, [currentUser?.emailVerified, refreshQuery, reduxEmailVerified])
 
   if (!currentUser) {
     return (
@@ -154,19 +150,13 @@ export function AccountSettings() {
   let emailText = currentUser.email
   if (!emailRevealed) {
     const lastAt = emailText.lastIndexOf('@')
-    emailText = '*'.repeat(lastAt) + emailText.slice(lastAt)
+    const numStars = Math.min(Math.max(6, lastAt), 10)
+    emailText = '*'.repeat(numStars) + emailText.slice(lastAt)
   }
 
   return (
     <Root>
       <Section>
-        {currentUser.emailVerified ? null : (
-          <EmailVerificationWarning data-test='email-verification-warning'>
-            <ColoredWarningIcon />
-            <EmailVerificationWarningContent />
-          </EmailVerificationWarning>
-        )}
-
         <UserCard>
           <EditableItem>
             <EditableContent>
@@ -191,28 +181,66 @@ export function AccountSettings() {
           <EditableItem>
             <EditableContent>
               <EditableOverline>{t('settings.user.account.email', 'Email')}</EditableOverline>
-              <EmailItem>
-                <BodyLarge data-test='account-email-text'>{emailText}</BodyLarge>
-                <BodyMedium>
-                  <a
-                    href='#'
-                    data-test='reveal-email-link'
-                    onClick={e => {
-                      setEmailRevealed(r => !r)
-                      e.preventDefault()
-                    }}>
-                    {emailRevealed
-                      ? t('common.actions.hide', 'Hide')
-                      : t('common.actions.reveal', 'Reveal')}
-                  </a>
-                </BodyMedium>
-              </EmailItem>
+
+              <EmailItemAndIcon>
+                {currentUser.emailVerified ? (
+                  <Tooltip
+                    text={t('settings.user.account.emailVerified', 'Verified')}
+                    position='bottom'>
+                    <VerifiedIcon data-test='email-verified-icon' />
+                  </Tooltip>
+                ) : (
+                  <Tooltip
+                    text={t('settings.user.account.emailUnverified', 'Unverified')}
+                    position='bottom'>
+                    <UnverifiedIcon data-test='email-unverified-icon' />
+                  </Tooltip>
+                )}
+                <EmailItem>
+                  <BodyLarge data-test='account-email-text'>{emailText}</BodyLarge>
+                  <BodyMedium>
+                    <a
+                      href='#'
+                      data-test='reveal-email-link'
+                      onClick={e => {
+                        setEmailRevealed(r => !r)
+                        e.preventDefault()
+                      }}>
+                      {emailRevealed
+                        ? t('common.actions.hide', 'Hide')
+                        : t('common.actions.reveal', 'Reveal')}
+                    </a>
+                  </BodyMedium>
+                </EmailItem>
+              </EmailItemAndIcon>
             </EditableContent>
-            <FilledButton
-              label={t('common.actions.edit', 'Edit')}
-              onClick={onEditEmail}
-              testName='edit-email-button'
-            />
+            <MultiButtons>
+              {!currentUser.emailVerified ? (
+                <FilledButton
+                  label={t('auth.emailVerification.verify', 'Verify')}
+                  testName='verify-email-button'
+                  onClick={() => {
+                    dispatch(
+                      openDialog({
+                        type: DialogType.EmailVerification,
+                      }),
+                    )
+                  }}
+                />
+              ) : null}
+              <FilledButton
+                label={t('common.actions.edit', 'Edit')}
+                onClick={() => {
+                  dispatch(
+                    openDialog({
+                      type: DialogType.ChangeEmail,
+                      initData: { currentEmail: currentUser?.email ?? '' },
+                    }),
+                  )
+                }}
+                testName='edit-email-button'
+              />
+            </MultiButtons>
           </EditableItem>
         </UserCard>
       </Section>
@@ -223,7 +251,13 @@ export function AccountSettings() {
         </SectionHeader>
         <FilledButton
           label={t('settings.user.account.changePasswordButton', 'Change password')}
-          onClick={onChangePassword}
+          onClick={() => {
+            dispatch(
+              openDialog({
+                type: DialogType.ChangePassword,
+              }),
+            )
+          }}
           testName='change-password-button'
         />
       </Section>

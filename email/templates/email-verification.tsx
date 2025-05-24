@@ -1,16 +1,9 @@
-import { Section } from '@react-email/components'
+import { Container, Section } from '@react-email/components'
 import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { EmailProps } from '../email-props'
 import { t } from '../i18n/i18next'
-import {
-  EmailButton,
-  EmailContainer,
-  EmailHeading,
-  EmailSignature,
-  EmailText,
-  SbEmail,
-} from '../ui/email-ui'
+import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
 export default function UsernameRecovery(props: EmailProps) {
   const title = t('emailVerification.title', 'ShieldBattery Email Verification')
@@ -22,7 +15,7 @@ export default function UsernameRecovery(props: EmailProps) {
       preview={t(
         'emailVerification.preview',
         'Thank you for signing up to ShieldBattery! Please confirm your email address by ' +
-          'clicking the link below.',
+          'entering the code in the account settings.',
       )}>
       <EmailContainer>
         <EmailHeading>{title}</EmailHeading>
@@ -36,20 +29,21 @@ export default function UsernameRecovery(props: EmailProps) {
 
           <EmailText>
             <Trans t={t} i18nKey='emailVerification.body'>
-              Please confirm your email address by clicking the link below. We may need to send you
-              critical information about our service and it is important that we have an accurate
-              email address.
+              Please confirm your email address by entering the following code in the account
+              settings inside ShieldBattery. We may need to send you critical information about our
+              service and it is important that we have an accurate email address.
             </Trans>
           </EmailText>
 
-          <div style={{ textAlign: 'center' }}>
-            <EmailButton
-              href={
-                '{{{HOST}}}/verify-email?token={{token}}&userId={{userId}}&username={{username}}'
-              }>
-              {t('emailVerification.button', 'Verify email')}
-            </EmailButton>
-          </div>
+          <Container
+            style={{
+              padding: '0 8px',
+              backgroundColor: '#f5f5f5',
+              border: '1px solid #e0e0e0',
+              borderRadius: '4px',
+            }}>
+            <EmailText style={{ fontSize: '20px' }}>{'{{code}}'}</EmailText>
+          </Container>
         </Section>
         <EmailSignature />
       </EmailContainer>

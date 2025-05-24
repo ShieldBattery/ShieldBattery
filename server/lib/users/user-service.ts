@@ -2,7 +2,7 @@ import Koa, { AppSession } from 'koa'
 import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
 import { SelfUser } from '../../../common/users/sb-user'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { AuthEvent } from '../../../common/users/user-network'
 import logger from '../logging/logger'
 import { getPermissions } from '../models/permissions'
@@ -47,10 +47,19 @@ export class UserService {
           case 'permissionsChanged':
             this.publisher.publish(`/userProfiles/${message.data.userId}`, {
               action: 'permissionsChanged',
-              userId: makeSbUserId(message.data.userId),
+              userId: message.data.userId,
               permissions: message.data.permissions,
             })
             break
+          case 'emailChanged':
+            this.publisher.publish(`/userProfiles/${message.data.userId}`, {
+              action: 'emailChanged',
+              userId: message.data.userId,
+              email: message.data.email,
+            })
+            break
+          default:
+            message satisfies never
         }
       })
       .catch(err => {
@@ -112,23 +121,14 @@ export class UserService {
    * Attempts to verify the current user's email, returning whether their email was verified. Will
    * update the cached user data.
    */
-  async verifyEmail({
-    id,
-    email,
-    code,
-  }: {
-    id: SbUserId
-    email: string
-    code: string
-  }): Promise<boolean> {
+  async verifyEmail({ userId, code }: { userId: SbUserId; code: string }): Promise<boolean> {
     const verified = await consumeEmailVerificationCode({
-      id,
-      email,
+      userId,
       code,
     })
 
     if (verified) {
-      await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+      await this.getSelfUserInfo(userId, CacheBehavior.ForceRefresh)
     }
 
     return verified

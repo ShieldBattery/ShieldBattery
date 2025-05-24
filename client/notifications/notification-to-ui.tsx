@@ -1,6 +1,5 @@
 import React from 'react'
 import { NotificationType, SbNotification } from '../../common/notifications'
-import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { logger } from '../logging/logger'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
 import {
@@ -15,7 +14,6 @@ import {
  */
 export function notificationHasUi(notification: SbNotification) {
   switch (notification.type) {
-    case NotificationType.EmailVerification:
     case NotificationType.PolicyUpdated:
     case NotificationType.FriendRequest:
     case NotificationType.FriendStart:
@@ -41,14 +39,6 @@ export interface NotificationUiProps {
  */
 export function NotificationUi({ notification, showDivider, ref }: NotificationUiProps) {
   switch (notification.type) {
-    case NotificationType.EmailVerification:
-      return (
-        <EmailVerificationNotificationUi
-          ref={ref}
-          showDivider={showDivider}
-          read={notification.read}
-        />
-      )
     case NotificationType.PartyInvite:
       return null
     case NotificationType.PolicyUpdated:

@@ -1,15 +1,18 @@
 import { expect, test } from '@playwright/test'
 import { ChatPage } from '../pages/chat-page'
+import { EmailVerificationDialogPage } from '../pages/email-verification-dialog-page'
 import { LoginPage } from '../pages/login-page'
 
 const ERROR_INCORRECT_CREDENTIALS = 'Incorrect username or password'
 
 let loginPage: LoginPage
 let chatPage: ChatPage
+let verificationDialogPage: EmailVerificationDialogPage
 
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
   chatPage = new ChatPage(page)
+  verificationDialogPage = new EmailVerificationDialogPage(page)
 })
 
 test('logging in with an existing account', async () => {
@@ -19,6 +22,8 @@ test('logging in with an existing account', async () => {
   await loginPage.fillLoginForm('admin', 'admin1234')
   await loginPage.checkRememberMe()
   await loginPage.clickLogInButton()
+
+  await verificationDialogPage.closeDialog()
 
   const actualChannelName = await chatPage.getNameOfShieldBatteryChannel()
   expect(actualChannelName).toBe(expectedChannelName)

@@ -152,7 +152,9 @@ export function Home() {
       <LeftSection>
         <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
         <Section>
-          <SectionTitle>{t('home.latestNewsTitle', 'Latest news')}</SectionTitle>
+          <SectionTitle data-test='latest-news-title'>
+            {t('home.latestNewsTitle', 'Latest news')}
+          </SectionTitle>
           <StaticNewsFeed />
         </Section>
       </LeftSection>

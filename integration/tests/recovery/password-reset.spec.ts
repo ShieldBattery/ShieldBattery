@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { clearLocalState } from '../../clear-local-state'
+import { EmailVerificationDialogPage } from '../../pages/email-verification-dialog-page'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
@@ -11,6 +12,8 @@ let loginPage: LoginPage
 
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
+
+  await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 })
 
 test('password reset flow', async ({ context, page }) => {

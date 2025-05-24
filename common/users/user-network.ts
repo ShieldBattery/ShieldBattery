@@ -10,6 +10,7 @@ import { SbUser, SelfUser } from './sb-user'
 import { SbUserId } from './sb-user-id'
 import { UserStats } from './user-stats'
 
+// NOTE(tec27): If you change this, make sure to update the Rust version as well.
 /**
  * Characters used in random verification codes sent through email. These were chosen because they
  * are not easily confused for other characters, removing vowels to avoid spelling anything.
@@ -181,6 +182,12 @@ export interface AdminGetUserIpsResponse {
   users: SbUser[]
 }
 
+export interface EmailChangedEvent {
+  action: 'emailChanged'
+  userId: SbUserId
+  email: string
+}
+
 export interface EmailVerifiedEvent {
   action: 'emailVerified'
   userId: SbUserId
@@ -192,7 +199,7 @@ export interface PermissionsChangedEvent {
   permissions: SbPermissions
 }
 
-export type AuthEvent = EmailVerifiedEvent | PermissionsChangedEvent
+export type AuthEvent = EmailChangedEvent | EmailVerifiedEvent | PermissionsChangedEvent
 
 export interface UsernameAvailableResponse {
   available: boolean

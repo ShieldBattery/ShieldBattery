@@ -8,7 +8,6 @@ import { getErrorStack } from '../common/errors'
 import { SbUser } from '../common/users/sb-user'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
-import { useShowEmailVerificationNotificationIfNeeded } from './auth/email-verification-notification-ui'
 import { ConnectedAvatar } from './avatars/avatar'
 import { openDialog, openSimpleDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
@@ -832,7 +831,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  useShowEmailVerificationNotificationIfNeeded()
   useShowPolicyNotificationsIfNeeded()
 
   const isLoggedIn = useIsLoggedIn()

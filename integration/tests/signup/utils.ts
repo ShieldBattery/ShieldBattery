@@ -1,5 +1,4 @@
 import { Page } from '@playwright/test'
-import { urlPath } from '../../../common/urls'
 import { emulateElectronClient } from '../../emulate-electron-client'
 
 export async function goToSignup(page: Page): Promise<void> {
@@ -22,12 +21,4 @@ export async function signupWith(
   // dialog
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
   await page.click('[data-test=submit-button]')
-}
-
-export function getVerificationLink(templateData: Record<string, any>): string {
-  return (
-    templateData.HOST +
-    urlPath`/verify-email?token=${templateData.token}&` +
-    urlPath`userId=${templateData.userId}&username=${templateData.username}`
-  )
 }

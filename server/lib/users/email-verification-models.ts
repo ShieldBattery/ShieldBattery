@@ -1,6 +1,7 @@
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
+import transact from '../db/transaction'
 
 export async function addEmailVerificationCode(
   {
@@ -20,8 +21,8 @@ export async function addEmailVerificationCode(
   try {
     await client.query(sql`
       INSERT INTO email_verifications
-      (user_id, email, verification_code, request_time, request_ip)
-      VALUES (${userId}, ${email}, ${code}, ${new Date()}, ${ip})
+      (user_id, email, verification_code, request_ip)
+      VALUES (${userId}, ${email}, ${code}, ${ip})
     `)
   } finally {
     done()
@@ -46,20 +47,14 @@ export async function getEmailVerificationsCount(
   }
 }
 
-export async function consumeEmailVerificationCode(
-  {
-    id,
-    email,
-    code,
-  }: {
-    id: SbUserId
-    email: string
-    code: string
-  },
-  withClient?: DbClient,
-): Promise<boolean> {
-  const { client, done } = await db(withClient)
-  try {
+export async function consumeEmailVerificationCode({
+  userId,
+  code,
+}: {
+  userId: SbUserId
+  code: string
+}): Promise<boolean> {
+  return await transact(async client => {
     // TODO(tec27): If we save an audit of these changes at some point, we'd only want to update
     // accounts that aren't already marked verified.
     const result = await client.query(sql`
@@ -67,15 +62,24 @@ export async function consumeEmailVerificationCode(
       SET email_verified = TRUE
       FROM email_verifications ev
       WHERE
-        ev.user_id = ${id} AND
-        ev.email = ${email} AND
         ev.user_id = u.id AND
         ev.email = u.email AND
+        ev.user_id = ${userId} AND
         ev.verification_code = ${code} AND
-        ev.request_time > (NOW() - INTERVAL '2 DAYS')
+        ev.request_time > (NOW() - INTERVAL '2 DAYS') AND
+        ev.exhausted = FALSE
     `)
+
+    if (result.rowCount) {
+      await client.query(sql`
+        UPDATE email_verifications
+        SET exhausted = TRUE
+        WHERE
+          user_id = ${userId} AND
+          verification_code = ${code};
+      `)
+    }
+
     return !!result.rowCount
-  } finally {
-    done()
-  }
+  })
 }

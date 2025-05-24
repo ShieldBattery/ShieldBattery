@@ -1,5 +1,6 @@
 import { test as setup } from '@playwright/test'
 import { setAdminJwt } from './admin-utils'
+import { EmailVerificationDialogPage } from './pages/email-verification-dialog-page'
 import { LoginPage } from './pages/login-page'
 
 setup('create admin account', async ({ page, request }) => {
@@ -26,6 +27,7 @@ setup('create admin account', async ({ page, request }) => {
 
   const loginPage = new LoginPage(page)
   await loginPage.navigateTo()
+  await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
   await loginPage.loginWith('admin', 'admin1234')
   await page.waitForSelector('[data-test=app-bar-user-button]')
 

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                            INSERT INTO email_verifications\n                            (user_id, email, verification_code, request_ip)\n                            VALUES\n                            ($1, $2, $3, $4)\n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Text",
+        "Inet"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6de59192da067cfce5ced160055e9f6734ccd8cea17579956c9610a521259ae"
+}

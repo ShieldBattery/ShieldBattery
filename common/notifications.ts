@@ -2,8 +2,6 @@ import { SbPolicyType } from './policies/policy-type'
 import { SbUserId } from './users/sb-user-id'
 
 export enum NotificationType {
-  /** The user needs to verify their email. */
-  EmailVerification = 'emailVerification',
   /** Two users are now friends. */
   FriendStart = 'friendStart',
   /** A user has sent a friend request to this user. */
@@ -19,7 +17,6 @@ export enum NotificationType {
 }
 
 export type SbNotification =
-  | EmailVerificationNotification
   | FriendRequestNotification
   | FriendStartNotification
   | PartyInviteNotification
@@ -42,13 +39,6 @@ export interface BaseNotification {
   /** A flag indicating whether the notification is generated locally or on the server. */
   readonly local?: boolean
 }
-
-export interface EmailVerificationNotification extends BaseNotification {
-  type: NotificationType.EmailVerification
-  local: true
-}
-
-export const EMAIL_VERIFICATION_ID = 'local-emailVerification'
 
 export interface FriendRequestNotification extends BaseNotification {
   type: NotificationType.FriendRequest

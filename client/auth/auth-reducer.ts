@@ -24,6 +24,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       permissions: { ...permissions },
     }
   },
+  ['@auth/emailChanged'](state, { payload: { email } }) {
+    state.self!.user.email = email
+    state.self!.user.emailVerified = false
+  },
   ['@auth/emailVerified'](state) {
     state.self!.user.emailVerified = true
   },

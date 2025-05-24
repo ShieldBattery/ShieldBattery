@@ -10,10 +10,9 @@
     "title": "ShieldBattery Email Changed"
   },
   "emailVerification": {
-    "body": "Please confirm your email address by clicking the link below. We may need to send you critical information about our service and it is important that we have an accurate email address.",
-    "button": "Verify email",
+    "body": "Please confirm your email address by entering the following code in the account settings inside ShieldBattery. We may need to send you critical information about our service and it is important that we have an accurate email address.",
     "intro": "Thank you for signing up to ShieldBattery!",
-    "preview": "Thank you for signing up to ShieldBattery! Please confirm your email address by clicking the link below.",
+    "preview": "Thank you for signing up to ShieldBattery! Please confirm your email address by entering the code in the account settings.",
     "title": "ShieldBattery Email Verification"
   },
   "passwordChange": {

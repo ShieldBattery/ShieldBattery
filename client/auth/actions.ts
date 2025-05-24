@@ -1,11 +1,16 @@
 import { SbPermissions } from '../../common/users/permissions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
-import { AcceptPoliciesResponse, ChangeLanguagesResponse } from '../../common/users/user-network'
+import {
+  AcceptPoliciesResponse,
+  ChangeLanguagesResponse,
+  EmailChangedEvent,
+} from '../../common/users/user-network'
 
 export type AuthActions =
   | LogOut
   | LoadCurrentSession
+  | EmailChanged
   | EmailVerified
   | AcceptPolicies
   | ChangeLanguage
@@ -25,6 +30,12 @@ export interface LogOut {
 export interface LoadCurrentSession {
   type: '@auth/loadCurrentSession'
   payload: ClientSessionInfo
+  error?: false
+}
+
+export interface EmailChanged {
+  type: '@auth/emailChanged'
+  payload: EmailChangedEvent
   error?: false
 }
 

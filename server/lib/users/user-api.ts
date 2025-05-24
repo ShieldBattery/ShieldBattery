@@ -1,11 +1,9 @@
 import { RouterContext } from '@koa/router'
 import bcrypt from 'bcrypt'
-import cuid from 'cuid'
 import got from 'got'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
-import uid from 'uid-safe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   PASSWORD_MINLENGTH,
@@ -208,19 +206,17 @@ function hashPass(password: string): Promise<string> {
 function sendVerificationEmail({
   email,
   code,
-  userId,
   username,
 }: {
   email: string
   code: string
-  userId: SbUserId
   username: string
 }) {
   return sendMailTemplate({
     to: email,
     subject: 'ShieldBattery Email Verification',
     templateName: 'email-verification',
-    templateData: { token: code, userId, username },
+    templateData: { code, username },
   })
 }
 
@@ -331,15 +327,18 @@ export class UserApi {
 
     await ctx.beginSession(createdUser.user.id, false)
 
-    const code = await uid(12)
-    await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })
-    // No need to await for this
-    sendVerificationEmail({
-      email,
-      code,
-      userId: createdUser.user.id,
-      username: createdUser.user.name,
-    }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
+    // No need to await for this, if it fails they can just re-send the email later
+    Promise.resolve()
+      .then(async () => {
+        const code = await genRandomCode()
+        await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })
+        await sendVerificationEmail({
+          email,
+          code,
+          username: createdUser.user.loginName,
+        })
+      })
+      .catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
     return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
   }
@@ -819,13 +818,12 @@ export class UserApi {
       throw new httpErrors.Conflict('Email is over verification limit')
     }
 
-    const code = cuid()
+    const code = await genRandomCode()
     await addEmailVerificationCode({ userId: user.id, email: user.email, code, ip: ctx.ip })
     await sendVerificationEmail({
       email: user.email,
       code,
-      userId: user.id,
-      username: user.name,
+      username: user.loginName,
     })
 
     ctx.status = 204
@@ -834,7 +832,7 @@ export class UserApi {
   @httpPost('/:id/email-verification')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.user.id)),
   )
   async verifyEmail(ctx: RouterContext): Promise<void> {
     const {
@@ -842,7 +840,7 @@ export class UserApi {
       body: { code },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.user!.id).required(),
+        id: joiUserId().valid(ctx.session!.user.id).required(),
       }),
       body: Joi.object<{ code: string }>({
         code: Joi.string().required(),
@@ -855,19 +853,13 @@ export class UserApi {
     }
 
     const emailVerified = await this.userService.verifyEmail({
-      id: user.id,
-      email: user.email,
+      userId: user.id,
       code,
     })
     if (!emailVerified) {
       throw new UserApiError(UserErrorCode.InvalidCode, 'invalid code')
     }
 
-    // Last thing to do is to notify all of the user's opened sockets that their email is now
-    // verified
-    // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
-    // connected when they open the email verification page), the client making the request won't
-    // actually get this event. Thankfully, that's easy to deal with on the client-side.
     this.publisher.publish(`/userProfiles/${user.id}`, {
       action: 'emailVerified',
       userId: user.id,

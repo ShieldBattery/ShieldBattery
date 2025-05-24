@@ -20,8 +20,6 @@ use names::{
     NameChecker, NameRestriction, RestrictedNameKind, RestrictedNameReason,
     create_case_insensitive_regex,
 };
-use rand::distr::{Alphanumeric, SampleString};
-use rand::rng;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
@@ -34,6 +32,7 @@ use crate::email::{
 };
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
 use crate::sessions::SbSession;
 use crate::state::AppState;
@@ -199,6 +198,9 @@ pub enum PublishedUserMessage {
         user_id: SbUserId,
         permissions: SbPermissions,
     },
+
+    #[serde(rename_all = "camelCase")]
+    EmailChanged { user_id: SbUserId, email: String },
 }
 
 #[derive(Default)]
@@ -258,6 +260,7 @@ impl UsersMutation {
         // TODO(tec27): Move this code out of the mutation impl and put it somewhere it's more
         // easily testable
         let mut emails = Vec::new();
+        let mut published_messages = Vec::new();
 
         let get_password_query = changes.new_password.map(|new_password| {
             emails.push(MailgunMessage {
@@ -293,27 +296,30 @@ impl UsersMutation {
                             username: user.name.clone(),
                         }),
                     });
-                    let token = generate_email_token();
+                    let code = gen_random_code();
                     let ip: IpNetwork = ctx.data::<ClientIp>()?.0.into();
                     email_verification = Some(sqlx::query!(
                         r#"
                             INSERT INTO email_verifications
-                            (user_id, email, verification_code, request_time, request_ip)
+                            (user_id, email, verification_code, request_ip)
                             VALUES
-                            ($1, $2, $3, NOW(), $4)
+                            ($1, $2, $3, $4)
                         "#,
                         user.id as _,
                         email.clone(),
-                        token,
+                        code,
                         ip,
                     ));
                     emails.push(MailgunMessage {
                         to: email.clone(),
                         template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                            user_id: user.id,
                             username: user.name.clone(),
-                            token,
+                            code,
                         }),
+                    });
+                    published_messages.push(PublishedUserMessage::EmailChanged {
+                        user_id: user.id,
+                        email: email.clone(),
                     });
 
                     has_update = true;
@@ -383,6 +389,15 @@ impl UsersMutation {
         };
 
         tx.commit().await.wrap_err("Failed to commit transaction")?;
+
+        let redis = ctx.data::<RedisPool>()?.clone();
+        spawn_with_tracing(async move {
+            for msg in published_messages.into_iter() {
+                if let Err(e) = redis.publish(msg).await {
+                    error!("Failed to publish message: {e:?}");
+                }
+            }
+        });
 
         let mailgun = ctx.data::<Arc<MailgunClient>>()?;
         for email in emails.into_iter() {
@@ -589,10 +604,6 @@ impl Loader<String> for UsersLoader {
         .try_collect()
         .await?)
     }
-}
-
-fn generate_email_token() -> String {
-    Alphanumeric.sample_string(&mut rng(), 12)
 }
 
 /// Repository implementation for retrieving/updating info about the current user. Utilizes a cache

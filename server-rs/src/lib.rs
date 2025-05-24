@@ -9,6 +9,7 @@ pub mod maps;
 pub mod matchmaking;
 pub mod news;
 pub mod pubsub;
+pub mod random_code;
 pub mod redis;
 pub mod routes;
 pub mod schema;

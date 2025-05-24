@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import path from 'path'
 import { CHANNEL_BANNERS } from '../../../common/flags'
 import { ChatPage } from '../../pages/chat-page'
+import { EmailVerificationDialogPage } from '../../pages/email-verification-dialog-page'
 import { HomePage } from '../../pages/home-page'
 import { LoginPage } from '../../pages/login-page'
 
@@ -21,6 +22,8 @@ test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
   homePage = new HomePage(page)
   chatPage = new ChatPage(page)
+
+  await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 })
 
 test('changing channel banner', async ({ page }) => {

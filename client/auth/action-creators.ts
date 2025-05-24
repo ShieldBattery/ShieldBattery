@@ -7,6 +7,8 @@ import {
   RequestPasswordResetRequest,
   ResetPasswordRequest,
 } from '../../common/users/user-network'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, type ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import logger from '../logging/logger'
@@ -68,6 +70,7 @@ function clearSessionRefresh() {
 function initSession(
   session: ClientSessionInfo,
   storageType = CredentialStorageType.Auto,
+  wasSignup = false,
 ): ThunkAction {
   return dispatch => {
     CREDENTIAL_STORAGE.store(session.jwt, storageType)
@@ -78,6 +81,16 @@ function initSession(
 
     dispatch(maybeChangeLanguageLocally(session.user.locale))
     scheduleSessionRefresh()
+
+    if (
+      !wasSignup &&
+      !session.user.emailVerified &&
+      !localStorage.getItem('__SB_TEST_DONT_SHOW_EMAIL_VERIFICATION_DIALOG')
+    ) {
+      dispatch(
+        openDialog({ type: DialogType.EmailVerification, initData: { showExplanation: true } }),
+      )
+    }
   }
 }
 
@@ -141,7 +154,7 @@ export function signUp(
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
 
-    dispatch(initSession(result, CredentialStorageType.Session))
+    dispatch(initSession(result, CredentialStorageType.Session, true /* wasSignup */))
   })
 }
 
@@ -222,13 +235,13 @@ export function resetPassword(
 }
 
 export function verifyEmail(
-  { userId, token }: { userId: SbUserId; token: string },
+  { userId, code }: { userId: SbUserId; code: string },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     await fetchJson<void>(apiUrl`users/${userId}/email-verification`, {
       method: 'post',
-      body: encodeBodyAsParams({ code: token }),
+      body: encodeBodyAsParams({ code }),
     })
     dispatch({
       type: '@auth/emailVerified',

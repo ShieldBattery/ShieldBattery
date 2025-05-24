@@ -3,7 +3,6 @@ import React, { cloneElement } from 'react'
 import styled from 'styled-components'
 import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
-import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword } from './auth/forgot-password'
 import { Login } from './auth/login'
 import { RecoverUsername } from './auth/recover-username'
@@ -71,7 +70,6 @@ export function AppRoutes({
             path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
             component={Signup}
           />
-          <Route path='/verify-email' component={EmailVerificationUi} />
 
           {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
 

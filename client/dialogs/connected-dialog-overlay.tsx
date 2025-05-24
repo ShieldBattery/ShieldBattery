@@ -4,6 +4,7 @@ import * as m from 'motion/react-m'
 import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
+import { EmailVerificationDialog } from '../auth/email-verification-dialog'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
@@ -75,6 +76,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelSettingsDialog, modal: true }
     case DialogType.Download:
       return { component: DownloadDialog }
+    case DialogType.EmailVerification:
+      return { component: EmailVerificationDialog }
     case DialogType.ExternalLink:
       return { component: ExternalLinkDialog }
     case DialogType.LeagueExplainer:

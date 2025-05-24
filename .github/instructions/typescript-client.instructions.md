@@ -13,3 +13,4 @@ applyTo: '**/client/**/*.ts*'
 - Prefer functional components of the form `function MyComponent({ prop1, prop2 }: Props) { ... }`
   over `const MyComponent = ({ prop1, prop2 }: Props) => { ... }`. Prefer functions over class
   components.
+- Use the `useForm` hook from `./client/hooks/form-hook.ts` for forms.

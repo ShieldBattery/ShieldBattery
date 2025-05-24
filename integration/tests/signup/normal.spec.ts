@@ -1,19 +1,25 @@
 import { expect, test } from '@playwright/test'
 import { clearLocalState } from '../../clear-local-state'
+import { EmailVerificationDialogPage } from '../../pages/email-verification-dialog-page'
+import { HomePage } from '../../pages/home-page'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
-import { getVerificationLink, goToSignup, signupWith } from './utils'
+import { goToSignup, signupWith } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
 
 let loginPage: LoginPage
+let homePage: HomePage
+let verificationDialogPage: EmailVerificationDialogPage
 
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
+  homePage = new HomePage(page)
+  verificationDialogPage = new EmailVerificationDialogPage(page)
 })
 
-test('sign up and verify email in same browser', async ({ page }) => {
+test('sign up and verify email in same session', async ({ page }) => {
   await goToSignup(page)
 
   const username = generateUsername()
@@ -25,54 +31,58 @@ test('sign up and verify email in same browser', async ({ page }) => {
     email,
   })
 
-  await page.click('[data-test=notifications-button]')
-  await page.waitForSelector('[data-test=email-verification-notification]')
+  await expect(homePage.latestNewsTitleLocator()).toBeVisible()
+
+  await page.click('[data-test=settings-button]')
+  await page.click('[data-test=verify-email-button]')
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const link = getVerificationLink(emails[0].templateVariables)
-  expect(link).toBeDefined()
+  const { code } = emails[0].templateVariables
+  expect(code).toBeDefined()
 
-  await page.goto(link!)
-
-  await page.click('[data-test=continue-button]')
-  await page.click('[data-test=notifications-button]')
-  await page.waitForSelector('[data-test=notifications-clear-button]')
-
-  await expect(page.locator('[data-test=email-verification-notification]')).toHaveCount(0)
+  await verificationDialogPage.verifyWithCode(code)
+  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
 })
 
-test('sign up and verify email in different browser', async ({ context, page }) => {
+test('sign up and verify email on subsequent login', async ({ context, page }) => {
   await goToSignup(page)
 
   const username = generateUsername()
   const email = `${username}@example.org`
+  const password = 'password123'
 
   await signupWith(page, {
     username,
-    password: 'password123',
+    password,
     email,
   })
 
-  await page.click('[data-test=notifications-button]')
-  await page.waitForSelector('[data-test=email-verification-notification]')
+  // Should land on home page after signup
+  await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
-  const emails = await sentEmailChecker.retrieveSentEmails(email)
-  expect(emails).toHaveLength(1)
-  const link = getVerificationLink(emails[0].templateVariables)
-  expect(link).toBeDefined()
-
+  // Log out
   await clearLocalState({ context, page })
-  await page.goto(link!)
 
-  await page.waitForSelector('[data-test=not-logged-in-error]')
-  await page.click('[data-test=log-in-button]')
+  // Log in
+  await loginPage.navigateTo()
+  await loginPage.fillLoginForm(username, password)
+  await loginPage.clickLogInButton()
 
-  await loginPage.loginWith(username, 'password123')
+  // EmailVerificationDialog should be visible
+  await expect(verificationDialogPage.dialogLocator()).toBeVisible()
 
-  await page.click('[data-test=continue-button]')
-  await page.click('[data-test=notifications-button]')
-  await page.waitForSelector('[data-test=notifications-clear-button]')
+  // Retrieve the verification code from the sent email
+  const emails = await sentEmailChecker.retrieveSentEmails(email)
+  expect(emails).toHaveLength(1)
+  const { code } = emails[0].templateVariables
+  expect(code).toBeDefined()
 
-  await expect(page.locator('[data-test=email-verification-notification]')).toHaveCount(0)
+  // Enter the code and verify
+  await verificationDialogPage.verifyWithCode(code)
+  await expect(verificationDialogPage.dialogLocator()).toHaveCount(0)
+
+  // Check that the verify email button is gone (user is now verified)
+  await page.click('[data-test=settings-button]')
+  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
 })

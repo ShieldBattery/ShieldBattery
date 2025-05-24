@@ -13,6 +13,7 @@ export enum DialogType {
   ChannelBanUser = 'channelBanUser',
   ChannelSettings = 'channelSettings',
   Download = 'download',
+  EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
@@ -55,6 +56,13 @@ export type ChannelSettingsDialogPayload = BaseDialogPayload<
   }
 >
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
+type EmailVerificationDialogPayload = BaseDialogPayload<
+  typeof DialogType.EmailVerification,
+  | {
+      showExplanation?: boolean
+    }
+  | undefined
+>
 type ExternalLinkDialogPayload = BaseDialogPayload<
   typeof DialogType.ExternalLink,
   {
@@ -129,6 +137,7 @@ export type DialogPayload =
   | ChannelBanUserDialogPayload
   | ChannelSettingsDialogPayload
   | DownloadDialogPayload
+  | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
