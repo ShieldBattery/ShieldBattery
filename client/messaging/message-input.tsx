@@ -177,18 +177,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           // TODO(2Pac): Handle channel mentions as well.
 
           if (mentionableUsers) {
-            // Looking for an @ with no characters after it to display base mentionable users.
-            const singleAtCharacterIndex = message.slice(0, selectionStart).search(/(?<=^|\s)@$/)
-            if (
-              singleAtCharacterIndex !== -1 &&
-              baseMentionableUsers &&
-              baseMentionableUsers.length > 0
-            ) {
-              setUserMentionStartIndex(singleAtCharacterIndex)
-              setUserMentionMatchedText('@')
-              setMatchedUsers(baseMentionableUsers)
-              openUserMentions(event)
-              return
+            if (baseMentionableUsers?.length) {
+              // Looking for an @ with no characters after it to display base mentionable users.
+              const messageBeforeCaret = message.slice(0, selectionStart)
+              if (messageBeforeCaret === '@' || messageBeforeCaret.endsWith(' @')) {
+                setUserMentionStartIndex(selectionStart - 1)
+                setUserMentionMatchedText('@')
+                setMatchedUsers(baseMentionableUsers)
+                openUserMentions(event)
+                return
+              }
             }
 
             // This gets the index of the last word in the message from the current caret position
