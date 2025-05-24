@@ -43,6 +43,7 @@ import { push } from './navigation/routing'
 import { NotificationsButton } from './notifications/app-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
+import { LoadingDotsArea } from './progress/dots'
 import { useMultiplexRef } from './react/refs'
 import { useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
@@ -112,7 +113,7 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
     grid-template-columns:
       var(--_cur-sidebar-column-size)
       minmax(auto, 1fr)
-      var(--_ cur-sidebar-column-size);
+      var(--_cur-sidebar-column-size);
   }
 `
 
@@ -821,6 +822,10 @@ function AppBar({
 export const MainLayoutContent = styled(m.div)`
   grid-area: content;
   overflow: auto;
+`
+
+export const MainLayoutLoadingDotsArea = styled(LoadingDotsArea)`
+  grid-area: content;
 `
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
