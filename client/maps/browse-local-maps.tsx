@@ -15,8 +15,6 @@ import {
 import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { uploadLocalMap } from './action-creators'
 
 const LoadingArea = styled.div`
@@ -36,8 +34,6 @@ async function getDocumentsMapsPath() {
 export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfoJson>) => void }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
-  const lastUploadError = useAppSelector(s => s.localMaps.lastError)
   const isUploading = useAppSelector(s => s.localMaps.isUploading)
   const localStarcraftPath = useAppSelector(s => s.settings.local.starcraftPath)
   const [documentsPath, setDocumentsPath] = useState<string>('')
@@ -47,15 +43,6 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfo
       .then(path => setDocumentsPath(path))
       .catch(swallowNonBuiltins)
   }, [])
-
-  useEffect(() => {
-    if (lastUploadError) {
-      snackbarController.showSnackbar(
-        t('maps.local.uploadError', 'There was a problem uploading the map'),
-        DURATION_LONG,
-      )
-    }
-  }, [snackbarController, lastUploadError, t])
 
   const onMapSelect = useCallback(
     (map: FileBrowserFileEntry) => {

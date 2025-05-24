@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
+import { FilesErrorCode } from '../../common/files'
 import {
   GetBatchMapInfoResponse,
   GetMapDetailsResponse,
@@ -18,6 +19,7 @@ import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { ClearMaps, GetMapsListParams } from './actions'
 import { upload } from './upload'
@@ -38,10 +40,16 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
       ({ map }) => {
         onMapSelect(map)
       },
-      () => {
-        externalShowSnackbar(
-          i18n.t('maps.local.uploadMapError', 'An error occurred while uploading the map'),
-        )
+      err => {
+        if (isFetchError(err) && err.code) {
+          if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
+            externalShowSnackbar(i18n.t('maps.local.mapTooLarge', 'The map is too large'))
+          }
+        } else {
+          externalShowSnackbar(
+            i18n.t('maps.local.uploadMapError', 'An error occurred while uploading the map'),
+          )
+        }
       },
     )
 

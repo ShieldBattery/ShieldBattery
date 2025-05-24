@@ -586,6 +586,7 @@
     },
     "local": {
       "documentsFolder": "Documents folder",
+      "mapTooLarge": "The map is too large",
       "programFolder": "Program folder",
       "title": "Local Maps",
       "uploadError": "There was a problem uploading the map",
