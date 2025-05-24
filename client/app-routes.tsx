@@ -1,6 +1,5 @@
 import { AnimatePresence } from 'motion/react'
 import React, { cloneElement } from 'react'
-import styled from 'styled-components'
 import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
 import { ForgotPassword } from './auth/forgot-password'
@@ -16,6 +15,7 @@ import { Faq } from './home/faq'
 import { Home } from './home/home'
 import { LadderRouteComponent } from './ladder/ladder'
 import { LeagueRoot } from './leagues/league-routes'
+import { MainLayoutLoadingDotsArea } from './main-layout'
 import { MapsRoot } from './maps/maps-root'
 import { AnimatedSwitch } from './navigation/animated-switch'
 import { StaticNewsRoute } from './news/static-news-details'
@@ -24,7 +24,6 @@ import {
   PrivacyPolicyPage,
   TermsOfServicePage,
 } from './policies/policy-displays'
-import { LoadingDotsArea } from './progress/dots'
 import { ReplaysRoot } from './replays/replays-root'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
@@ -38,10 +37,6 @@ const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
 }))
 
-const StyledLoadingDots = styled(LoadingDotsArea)`
-  height: 100%;
-`
-
 export function AppRoutes({
   container,
 }: {
@@ -49,7 +44,7 @@ export function AppRoutes({
 }) {
   const isAdmin = useIsAdmin()
 
-  const fallback = cloneElement(container, { children: <StyledLoadingDots /> })
+  const fallback = cloneElement(container, { children: <MainLayoutLoadingDotsArea /> })
 
   return (
     <React.Suspense fallback={fallback}>

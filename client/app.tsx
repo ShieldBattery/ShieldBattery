@@ -11,7 +11,7 @@ import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
-import { MainLayout, MainLayoutContent } from './main-layout'
+import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteSocketManager } from './network/site-socket-manager'
@@ -174,7 +174,7 @@ function MainLayoutRoute() {
   // this reduces some of the visual layout changes
   return (
     <MainLayout key={selfUser?.id ?? -1}>
-      <React.Suspense fallback={<LoadingDotsArea />}>
+      <React.Suspense fallback={<MainLayoutLoadingDotsArea />}>
         <AppRoutes
           container={
             <MainLayoutContent
