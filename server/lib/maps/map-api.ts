@@ -13,8 +13,8 @@ import {
   UpdateMapResponse,
   UploadMapResponse,
 } from '../../../common/maps'
-import { deleteFiles } from '../file-upload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
+import { deleteFiles } from '../files'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {

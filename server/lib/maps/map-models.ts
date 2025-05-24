@@ -12,7 +12,7 @@ import db from '../db'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
-import { getSignedUrl, getUrl } from '../file-upload'
+import { getSignedUrl, getUrl } from '../files'
 import { MapParseData } from './parse-data'
 import { imagePath, mapPath } from './paths'
 

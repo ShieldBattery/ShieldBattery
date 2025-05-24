@@ -19,7 +19,7 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
-import { getUrl } from '../file-upload'
+import { getUrl } from '../files'
 import { findUsersByIdQuery } from '../users/user-model'
 
 export interface UserChannelEntry {
