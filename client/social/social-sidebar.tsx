@@ -203,7 +203,14 @@ export function SocialSidebar({
   const [loadingJoinedChannelsError, setLoadingJoinedChannelsError] = useState<Error>()
   const [loadingWhisperSessionsError, setLoadingWhisperSessionsError] = useState<Error>()
 
+  // Chat channels/whispers get cleared out on reconnect, so we need to reload them whenever that
+  // happens
+  const isConnected = useAppSelector(s => s.network.isConnected)
   useEffect(() => {
+    if (!isConnected) {
+      return () => {}
+    }
+
     setIsLoadingJoinedChannels(true)
 
     const abortController = new AbortController()
@@ -226,9 +233,13 @@ export function SocialSidebar({
     return () => {
       abortController.abort()
     }
-  }, [dispatch])
+  }, [dispatch, isConnected])
 
   useEffect(() => {
+    if (!isConnected) {
+      return () => {}
+    }
+
     setIsLoadingWhisperSessions(true)
 
     const abortController = new AbortController()
@@ -251,7 +262,7 @@ export function SocialSidebar({
     return () => {
       abortController.abort()
     }
-  }, [dispatch])
+  }, [dispatch, isConnected])
 
   const content = (
     <NavigationTrackerProvider
