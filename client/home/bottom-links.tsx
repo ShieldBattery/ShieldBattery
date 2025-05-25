@@ -100,7 +100,7 @@ export function BottomLinks() {
       <BottomLinksList>
         <li>
           <Tooltip text='Discord' position='top' tabIndex={-1}>
-            <BottomLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
+            <BottomLink href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener' as='a'>
               <StyledDiscordLogo />
             </BottomLink>
           </Tooltip>
@@ -110,21 +110,26 @@ export function BottomLinks() {
             <BottomLink
               href='https://bsky.app/profile/shieldbattery.net'
               target='_blank'
-              rel='noopener'>
+              rel='noopener'
+              as='a'>
               <StyledBlueskyLogo />
             </BottomLink>
           </Tooltip>
         </li>
         <li>
           <Tooltip text='GitHub' position='top' tabIndex={-1}>
-            <BottomLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
+            <BottomLink
+              href='https://github.com/ShieldBattery'
+              target='_blank'
+              rel='noopener'
+              as='a'>
               <StyledGithubLogo />
             </BottomLink>
           </Tooltip>
         </li>
         <li>
           <Tooltip text='Patreon' position='top' tabIndex={-1}>
-            <BottomLink href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+            <BottomLink href='https://patreon.com/tec27' target='_blank' rel='noopener' as='a'>
               <StyledPatreonLogo />
             </BottomLink>
           </Tooltip>
