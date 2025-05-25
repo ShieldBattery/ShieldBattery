@@ -11,9 +11,8 @@ const ON = () => true
 export const DEV_ERROR = DEV()
 /** Show the "dev mode" indicator on the site (don't move this past dev mode). */
 export const DEV_INDICATOR = DEV()
-// TODO(2Pac): Flip this flag to ON once we have a news/home page
 /** Allows users to leave the ShieldBattery chat channel. */
-export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = OFF()
+export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = ON()
 /** Add a news/landing/home page. */
 export const NEWS_PAGE = DEV()
 /** Allow users to upload channel banners (and badges). */
