@@ -3,10 +3,10 @@ import { ChatEvent, ChatUserEvent, SbChannelId, makeSbChannelId } from '../../co
 import { TypedIpcRenderer } from '../../common/ipc'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
+import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
 

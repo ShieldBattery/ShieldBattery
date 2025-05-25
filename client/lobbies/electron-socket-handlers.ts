@@ -35,11 +35,11 @@ import {
 } from '../actions'
 import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
+import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
 

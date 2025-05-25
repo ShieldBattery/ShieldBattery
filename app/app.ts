@@ -226,6 +226,19 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.error('Error merging SC:R settings: ' + err)
     })
   })
+  ipcMain.handle('windowGetStatus', async () => {
+    if (!mainWindow) {
+      return {
+        focused: false,
+        maximized: false,
+      }
+    }
+
+    return {
+      focused: mainWindow.isFocused(),
+      maximized: mainWindow.isMaximized(),
+    }
+  })
 
   let lastRunAppAtSystemStart: boolean | undefined
   let lastRunAppAtSystemStartMinimized: boolean | undefined

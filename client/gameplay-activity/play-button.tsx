@@ -14,6 +14,7 @@ import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
+import { useWindowFocus } from '../dom/window-focus'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
@@ -171,6 +172,7 @@ function PlayButtonDisplay({
   children: React.ReactNode
   fastBreathing?: boolean
 }) {
+  const isWindowFocused = useWindowFocus()
   const [isBreathing, setIsBreathing] = useState(true)
   const breatheScale = useMotionValue(0)
   const breatheScale2 = useMotionValue(0)
@@ -180,6 +182,10 @@ function PlayButtonDisplay({
   const gradientY2 = useSpring(0, buttonSpring)
 
   useEffect(() => {
+    if (!isWindowFocused) {
+      return () => {}
+    }
+
     const controllers: Array<ReturnType<typeof animate>> = []
     if (!isBreathing) {
       controllers.push(
@@ -249,6 +255,7 @@ function PlayButtonDisplay({
       }
     }
   }, [
+    isWindowFocused,
     isBreathing,
     breatheScale,
     gradientX,

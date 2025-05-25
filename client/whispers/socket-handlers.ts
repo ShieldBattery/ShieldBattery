@@ -3,7 +3,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent } from '../../common/whispers'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
-import windowFocus from '../window-focus'
+import windowFocus from '../dom/window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
 

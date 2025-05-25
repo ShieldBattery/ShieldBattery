@@ -86,6 +86,8 @@ interface IpcInvokeables {
   settingsOverwriteBlizzardFile: () => void
 
   shieldbatteryCheckFiles: () => Promise<ShieldBatteryFileResult[]>
+
+  windowGetStatus: () => Promise<{ focused: boolean; maximized: boolean }>
 }
 
 /** Events that can be sent from the renderer process to the main process. */
