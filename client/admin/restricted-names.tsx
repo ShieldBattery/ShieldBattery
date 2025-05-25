@@ -141,6 +141,7 @@ function RestrictedNamesList({ ref }: { ref: React.Ref<RestrictedNamesListContro
           title='Refresh'
           onClick={() => reexecuteQuery({ requestPolicy: 'network-only' })}
           disabled={fetching}
+          testName='refresh-restricted-names-button'
         />
       </FilterAndRefresh>
       {error ? <ErrorText>Error loading restricted names: {error.message}</ErrorText> : null}
@@ -236,7 +237,7 @@ function RestrictedNameEntry({
   fetching: boolean
 }) {
   return (
-    <RestrictedNameEntryRoot>
+    <RestrictedNameEntryRoot data-test='restricted-name-row' data-pattern={pattern}>
       {confirmDelete ? (
         <>
           <BodyLarge>Are you sure you want to delete this restricted name?</BodyLarge>
@@ -287,6 +288,14 @@ const KindAndReasonInputs = styled.div`
   grid-template-columns: 1fr 1fr;
 `
 
+const AddedConfirmation = styled.div`
+  ${bodyLarge};
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
 const AddRestrictedNameMutation = graphql(/* GraphQL */ `
   mutation AddRestrictedName(
     $pattern: String!
@@ -313,7 +322,7 @@ interface AddRestrictedNameForm {
 }
 
 function AddForm() {
-  const [{ fetching, error }, addRestrictedName] = useMutation(AddRestrictedNameMutation)
+  const [{ data, fetching, error }, addRestrictedName] = useMutation(AddRestrictedNameMutation)
 
   const defaults: AddRestrictedNameForm = {
     pattern: '',
@@ -362,7 +371,18 @@ function AddForm() {
           </RadioGroup>
         </div>
       </KindAndReasonInputs>
-      <FilledButton label='Add' onClick={submit} disabled={fetching} />
+      <FilledButton
+        label='Add'
+        onClick={submit}
+        disabled={fetching}
+        testName='add-restricted-name-button'
+      />
+      {data ? (
+        <AddedConfirmation data-test='added-confirmation'>
+          <AllowedIcon icon='check_circle' />
+          <span>Pattern added</span>
+        </AddedConfirmation>
+      ) : null}
     </AddFormRoot>
   )
 }
