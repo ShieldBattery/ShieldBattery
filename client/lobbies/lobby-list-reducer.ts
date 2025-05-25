@@ -9,10 +9,10 @@ export class HostRecord extends Record({
 
 export class LobbySummary extends Record({
   name: '',
-  map: '',
+  map: null as any, // TODO(tec27): Use a proper type for this
   gameType: GameType.Melee,
   gameSubType: 0,
-  host: 'string',
+  host: new HostRecord(),
   openSlotCount: -1,
 }) {}
 

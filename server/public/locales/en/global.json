@@ -516,6 +516,8 @@
     },
     "joinLobby": {
       "action": "Join lobby",
+      "matchmakingActiveDialogText": "You cannot join lobbies while a matchmaking search is active.",
+      "matchmakingActiveDialogTitle": "Joining lobbies disabled",
       "noActiveLobbies": "There are no active lobbies",
       "noOpenLobbies": "There are no open lobbies",
       "openSlotCount_one": "{{count}} slot open",
@@ -707,6 +709,8 @@
         "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :("
       },
+      "goToLobby": "Go to lobby",
+      "lobbyDisabledText": "You can't use matchmaking while in a lobby.",
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
       "points": "Points",

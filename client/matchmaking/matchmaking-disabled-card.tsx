@@ -17,7 +17,7 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   timeZoneName: 'short',
 })
 
-export const DisabledCard = styled(Card)`
+const DisabledCard = styled(Card)`
   ${elevationPlus3};
 
   position: relative;
@@ -29,7 +29,7 @@ export const DisabledCard = styled(Card)`
   align-items: center;
 `
 
-export const DisabledText = styled.span`
+const DisabledText = styled.span`
   ${bodyMedium};
   margin: 24px 0 16px 0;
   overflow-wrap: break-word;

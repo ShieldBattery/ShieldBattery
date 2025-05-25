@@ -21,13 +21,17 @@ import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
 import { FilledButton } from '../material/button'
+import { Card } from '../material/card'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
+import { elevationPlus3 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
+import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
+  BodyLarge,
   TitleLarge,
   bodyLarge,
   bodyMedium,
@@ -65,6 +69,7 @@ const Contents = styled.div<{ $disabled: boolean }>`
   flex-grow: 1;
   overflow-y: ${props => (props.$disabled ? 'hidden' : 'auto')};
   contain: strict;
+  pointer-events: ${props => (props.$disabled ? 'none' : 'auto')};
 `
 
 const ContentsBody = styled.div`
@@ -88,39 +93,84 @@ const TabArea = styled.div`
 
 const DisabledOverlay = styled.div`
   position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 
-  background-color: var(--theme-dialog-scrim);
-  opacity: var(--theme-dialog-scrim-opacity);
   contain: strict;
+  pointer-events: auto;
   z-index: 100;
+
+  &:before {
+    content: '';
+    position: absolute;
+    inset: 0;
+
+    background-color: var(--theme-dialog-scrim);
+    opacity: var(--theme-dialog-scrim-opacity);
+
+    z-index: -1;
+  }
+`
+
+const InLobbyCard = styled(Card)`
+  ${elevationPlus3};
+
+  position: relative;
+  width: 480px;
+  padding: 24px;
+  gap: 32px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `
 
 interface DisabledContentsProps {
   matchmakingType: MatchmakingType
   isMatchmakingDisabled: boolean
+  isInLobby: boolean
 }
 
-function DisabledContents(props: DisabledContentsProps) {
-  const { matchmakingType, isMatchmakingDisabled } = props
+function DisabledContents({
+  matchmakingType,
+  isMatchmakingDisabled,
+  isInLobby,
+}: DisabledContentsProps) {
+  const { t } = useTranslation()
+  const lobbyName = useAppSelector(s => s.lobby.info.name)
 
-  if (isMatchmakingDisabled) {
+  if (isInLobby) {
+    return (
+      <DisabledOverlay>
+        <InLobbyCard>
+          <BodyLarge>
+            {t(
+              'matchmaking.findMatch.lobbyDisabledText',
+              "You can't use matchmaking while in a lobby.",
+            )}
+          </BodyLarge>
+          <FilledButton
+            label={t('matchmaking.findMatch.goToLobby', 'Go to lobby')}
+            onClick={() => {
+              push(urlPath`/lobbies/${lobbyName}`)
+            }}
+          />
+        </InLobbyCard>
+      </DisabledOverlay>
+    )
+  } else if (isMatchmakingDisabled) {
     return (
       <DisabledOverlay>
         <ConnectedMatchmakingDisabledCard type={matchmakingType} />
       </DisabledOverlay>
     )
+  } else {
+    return null
   }
-
-  return null
 }
 
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
@@ -151,6 +201,7 @@ export function FindMatch() {
   const isMatchmakingDisabled = !useAppSelector(
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
+  const inLobby = useAppSelector(s => s.lobby.inLobby)
 
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
     refreshToken: activeTab,
@@ -226,6 +277,8 @@ export function FindMatch() {
       contents = assertUnreachable(activeTab)
   }
 
+  const disabled = isMatchmakingDisabled || inLobby
+
   return (
     <Container>
       <TitleBar>
@@ -252,7 +305,7 @@ export function FindMatch() {
 
       {contents ? (
         <>
-          <Contents $disabled={isMatchmakingDisabled}>
+          <Contents $disabled={disabled}>
             {topElem}
             <ContentsBody>
               <RankInfo matchmakingType={activeTab as MatchmakingType} />
@@ -262,13 +315,14 @@ export function FindMatch() {
             <DisabledContents
               matchmakingType={activeTab as MatchmakingType}
               isMatchmakingDisabled={isMatchmakingDisabled}
+              isInLobby={inLobby}
             />
           </Contents>
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
             <FilledButton
               label={t('matchmaking.findMatch.action', 'Find match')}
-              disabled={isMatchmakingDisabled}
+              disabled={disabled}
               onClick={onFindClick}
             />
           </Actions>
