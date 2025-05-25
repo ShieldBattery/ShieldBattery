@@ -466,7 +466,9 @@
             "vetoDescriptionNoOverlap_one": "$🗡Veto up to {{count}} map. Vetoed maps will never be selected for play.🗡!",
             "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!",
             "mapSelectionDescription": "$🗡Select the maps you would like to play on. Only selected maps will be chosen.🗡!",
-            "unratedText": "$🗡No rating🗡!"
+            "unratedText": "$🗡No rating🗡!",
+            "goToLobby": "$🗡Go to lobby🗡!",
+            "lobbyDisabledText": "$🗡You can't use matchmaking while in a lobby.🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
@@ -1039,7 +1041,9 @@
             "title": "$🗡Join Lobby🗡!",
             "openSlotCount_one": "$🗡{{count}} slot open🗡!",
             "openSlotCount_other": "$🗡{{count}} slots open🗡!",
-            "action": "$🗡Join lobby🗡!"
+            "action": "$🗡Join lobby🗡!",
+            "matchmakingActiveDialogText": "$🗡You cannot join lobbies while a matchmaking search is active.🗡!",
+            "matchmakingActiveDialogTitle": "$🗡Joining lobbies disabled🗡!"
         },
         "loading": {
             "content": "$🗡<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>🗡!"

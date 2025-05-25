@@ -459,7 +459,9 @@
             "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
-            "unratedText": "Sin calificación"
+            "unratedText": "Sin calificación",
+            "goToLobby": "Ir al lobby",
+            "lobbyDisabledText": "No puedes usar emparejamiento mientras estés en un lobby."
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar.",
@@ -1045,7 +1047,9 @@
             "openSlotCount_one": "{{count}} ranura abierta",
             "openSlotCount_many": "{{count}} de ranuras abiertas",
             "openSlotCount_other": "{{count}} ranuras abiertas",
-            "action": "Unirse al lobby"
+            "action": "Unirse al lobby",
+            "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
+            "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> en </1><2>{{mapName}}</2>"

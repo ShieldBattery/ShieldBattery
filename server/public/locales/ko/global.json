@@ -446,7 +446,9 @@
             "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
             "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
             "mapSelectionDescription": "플레이하고 싶은 맵을 선택하세요. 선택된 맵만 선택됩니다.",
-            "unratedText": "평가 없음"
+            "unratedText": "평가 없음",
+            "goToLobby": "로비로 가기",
+            "lobbyDisabledText": "로비에 있는 동안 매치메이킹을 사용할 수 없습니다."
         },
         "match": {
             "gameInProgress": "게임 진행 중…",
@@ -569,7 +571,9 @@
             "title": "로비 참가",
             "noActiveLobbies": "활성 로비가 없습니다",
             "noOpenLobbies": "공개된 로비가 없습니다",
-            "action": "로비에 참여"
+            "action": "로비에 참여",
+            "matchmakingActiveDialogText": "매치메이킹 검색이 활성화되어 있는 동안 로비에 참여할 수 없습니다.",
+            "matchmakingActiveDialogTitle": "로비 참여 비활성화"
         },
         "slots": {
             "closeSlot": "슬롯 닫기",
