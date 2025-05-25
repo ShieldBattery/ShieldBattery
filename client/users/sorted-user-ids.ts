@@ -35,6 +35,9 @@ export function useUserEntriesSelector(
         id,
         state.users.byId.get(id)?.name,
       ])
+      // We need to sort the users here because the equality function we usually use this selector
+      // with (`areUserEntriesEqual`) expects consistent/stable ordering for it to work.
+      result.sort((a, b) => a[0] - b[0])
       return result
     },
     [userIds],
