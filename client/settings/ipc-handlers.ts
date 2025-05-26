@@ -1,7 +1,6 @@
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
-import { SHIELDBATTERY_FILES_VALIDITY } from '../actions'
 import audioManager from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
@@ -73,9 +72,9 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     .invoke('shieldbatteryCheckFiles')
     ?.then(fileResults => {
       dispatch({
-        type: SHIELDBATTERY_FILES_VALIDITY,
+        type: '@starcraft/shieldBatteryFilesValidity',
         payload: fileResults,
-      } as any)
+      })
     })
     .catch(swallowNonBuiltins)
 }

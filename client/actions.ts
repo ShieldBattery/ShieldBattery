@@ -134,14 +134,3 @@ export const LOBBY_PREFERENCES_GET = 'LOBBY_PREFERENCES_GET'
 export const LOBBY_PREFERENCES_UPDATE_BEGIN = 'LOBBY_PREFERENCES_UPDATE_BEGIN'
 // The server has responded with success/failure to us updating the lobby preferences
 export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
-
-// An updated validity status for each important ShieldBattery file, indicating whether they are
-// accessible and have the correct contents.
-export const SHIELDBATTERY_FILES_VALIDITY = 'SHIELDBATTERY_FILES_VALIDITY'
-
-// An updated StarCraft path validity status, stating whether or not the current path setting
-// contains an accessible starcraft.exe
-export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
-// An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
-// current path is a version we are compatible with
-export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'

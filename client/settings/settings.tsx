@@ -18,7 +18,6 @@ import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   headlineMedium,
@@ -75,7 +74,7 @@ export function ConnectedSettings() {
             <span ref={focusableRef} tabIndex={-1}>
               <Settings
                 page={page}
-                isStarcraftHealthy={checkIsStarcraftHealthy({ starcraft })}
+                isStarcraftHealthy={starcraft.pathValid && starcraft.versionValid}
                 onChangePage={setPage}
                 onCloseSettings={() => {
                   dispatch(closeSettings())

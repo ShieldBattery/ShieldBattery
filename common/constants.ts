@@ -18,7 +18,7 @@ export const CHANNEL_ALLOWED_CHARACTERS = String.raw`[A-Za-z0-9\`~!$^&*()[\]\-_+
 export const CHANNEL_PATTERN = new RegExp(String.raw`^${CHANNEL_ALLOWED_CHARACTERS}$`)
 export const CHANNEL_MAXLENGTH = 64
 
-export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
+export const STARCRAFT_DOWNLOAD_URL = 'https://download.battle.net/desktop'
 
 export function isValidUsername(username: string): boolean {
   return !!(

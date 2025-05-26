@@ -1,41 +1,39 @@
-import { Record } from 'immutable'
+import { ReadonlyDeep } from 'type-fest'
 import { ShieldBatteryFile } from '../../common/shieldbattery-file'
-import {
-  SHIELDBATTERY_FILES_VALIDITY,
-  STARCRAFT_PATH_VALIDITY,
-  STARCRAFT_VERSION_VALIDITY,
-} from '../actions'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
-export class ShieldBatteryFileStatus extends Record({
-  init: false,
-  main: false,
-}) {}
+export interface ShieldBatteryFileStatus {
+  init: boolean
+  main: boolean
+}
 
-export class StarcraftStatus extends Record({
+export interface StarcraftStatus {
+  pathValid: boolean
+  versionValid: boolean
+  shieldBattery: ShieldBatteryFileStatus
+}
+
+const DEFAULT_STATE: ReadonlyDeep<StarcraftStatus> = {
   pathValid: false,
   versionValid: false,
-  shieldBattery: new ShieldBatteryFileStatus(),
-}) {}
+  shieldBattery: {
+    init: false,
+    main: false,
+  },
+}
 
-export default keyedReducer(new StarcraftStatus(), {
-  [STARCRAFT_PATH_VALIDITY as any](state: StarcraftStatus, action: any) {
-    return state.set('pathValid', action.payload)
+export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@starcraft/pathValidity'](state, action) {
+    state.pathValid = action.payload
   },
 
-  [STARCRAFT_VERSION_VALIDITY as any](state: StarcraftStatus, action: any) {
-    return state.set('versionValid', action.payload)
+  ['@starcraft/versionValidity'](state, action) {
+    state.versionValid = action.payload
   },
 
-  [SHIELDBATTERY_FILES_VALIDITY as any](state: StarcraftStatus, action: any) {
+  ['@starcraft/shieldBatteryFilesValidity'](state, action) {
     const resultsMap = new Map<ShieldBatteryFile, boolean>(action.payload)
-
-    return state.set(
-      'shieldBattery',
-      new ShieldBatteryFileStatus({
-        init: resultsMap.get(ShieldBatteryFile.Init) ?? false,
-        main: resultsMap.get(ShieldBatteryFile.Main) ?? false,
-      }),
-    )
+    state.shieldBattery.init = resultsMap.get(ShieldBatteryFile.Init) ?? false
+    state.shieldBattery.main = resultsMap.get(ShieldBatteryFile.Main) ?? false
   },
 })
