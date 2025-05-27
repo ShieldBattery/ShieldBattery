@@ -249,7 +249,8 @@ const NavEntryRoot = styled.button<{ $isActive: boolean }>`
   transition: color 125ms linear;
 
   &[disabled] {
-    cursor: auto;
+    cursor: not-allowed;
+    color: rgba(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
   }
 
   :focus-visible {

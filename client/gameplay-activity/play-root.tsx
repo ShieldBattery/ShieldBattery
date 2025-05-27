@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
@@ -131,25 +131,25 @@ function Matchmaking() {
 }
 
 function Lobbies() {
-  const onNavigateToList = useCallback(() => {
-    push('/play/lobbies')
-  }, [])
-
-  const onNavigateToCreate = useCallback(() => {
-    push('/play/lobbies/create')
-  }, [])
-
   return (
     <Switch>
       {IS_ELECTRON ? (
         <Route path='/play/lobbies/create/*?'>
-          <CreateLobby onNavigateToList={onNavigateToList} />
+          <CreateLobby
+            onNavigateToList={() => {
+              push('/play/lobbies')
+            }}
+          />
         </Route>
       ) : (
         <></>
       )}
       <Route>
-        <JoinLobby onNavigateToCreate={onNavigateToCreate} />
+        <JoinLobby
+          onNavigateToCreate={() => {
+            push('/play/lobbies/create')
+          }}
+        />
       </Route>
     </Switch>
   )

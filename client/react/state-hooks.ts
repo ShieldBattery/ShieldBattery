@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } f
 import { ReadonlyDeep } from 'type-fest'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import logger from '../logging/logger'
 
@@ -247,4 +248,32 @@ export function useUserLocalStorageValue<T>(
   }, [load, userKey])
 
   return [value ?? defaultValue, storeValue]
+}
+
+/**
+ * Sets a value in localStorage for the specified user, properly interfacing with any
+ * `useUserLocalStorageValue` hooks that may use the key. `undefined` values will unset the key.
+ * T must be serializable to JSON.
+ */
+export function setUserLocalStorageValue<T>(
+  userId: SbUserId | 0,
+  key: string,
+  value: T | undefined,
+): void {
+  const userKey = `${String(userId)}|${key}`
+
+  if (value === undefined) {
+    localStorage.removeItem(userKey)
+  } else {
+    try {
+      localStorage.setItem(userKey, JSON.stringify(value))
+    } catch (err) {
+      // Ignore quota errors or serialization errors
+    }
+  }
+
+  const listeners = localStorageListeners.get(userKey) ?? []
+  for (const listener of listeners) {
+    listener()
+  }
 }

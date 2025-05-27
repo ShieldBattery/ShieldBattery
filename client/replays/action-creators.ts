@@ -12,6 +12,7 @@ import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { makeServerUrl } from '../network/server-url'
+import { healthChecked } from '../starcraft/health-checked'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -59,7 +60,7 @@ export function startReplay({
   path: string
   name?: string
 }): ThunkAction {
-  return (dispatch, getState) => {
+  return healthChecked((dispatch, getState) => {
     const {
       auth: { self },
     } = getState()
@@ -87,7 +88,7 @@ export function startReplay({
         )
       },
     )
-  }
+  })
 }
 
 export function showReplayInfo(filePath: string) {

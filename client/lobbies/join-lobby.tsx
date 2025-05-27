@@ -13,6 +13,7 @@ import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
 import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
 import { joinLobby, navigateToLobby } from './action-creators'
@@ -146,7 +147,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' size={20} />}
-            onClick={onNavigateToCreate}
+            onClick={healthChecked(onNavigateToCreate)}
           />
         ) : undefined}
       </TitleBar>
@@ -202,8 +203,10 @@ function LobbyList() {
                     ),
                   )
                 } else {
-                  dispatch(joinLobby(lobby.name))
-                  navigateToLobby(lobby.name)
+                  healthChecked(() => {
+                    dispatch(joinLobby(lobby.name))
+                    navigateToLobby(lobby.name)
+                  })()
                 }
               } else {
                 dispatch(openDialog({ type: DialogType.Download }))

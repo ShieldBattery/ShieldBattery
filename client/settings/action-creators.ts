@@ -5,6 +5,7 @@ import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { pushCurrentWithState } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { setUserLocalStorageValue } from '../react/state-hooks'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { SettingsPage } from './settings-page'
 
@@ -21,8 +22,7 @@ export function openSettings(page?: SettingsPage): ThunkAction {
   return (_, getState) => {
     if (page) {
       const userId = getState().auth.self?.user.id ?? 0
-      const pageKey = `${userId}|${SETTINGS_PAGE_KEY}`
-      localStorage.setItem(pageKey, page)
+      setUserLocalStorageValue(userId, SETTINGS_PAGE_KEY, page)
     }
 
     if (history.state !== SETTINGS_OPEN_STATE) {

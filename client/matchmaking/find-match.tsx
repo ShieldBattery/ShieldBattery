@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -30,6 +30,7 @@ import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { healthChecked } from '../starcraft/health-checked'
 import {
   BodyLarge,
   TitleLarge,
@@ -208,28 +209,17 @@ export function FindMatch() {
   })
   const formRef = useRef<FindMatchFormRef>(null)
 
-  const onTabChange = useCallback(
-    (tab: ExpandedMatchmakingType) => {
-      setLastActiveTab(tab)
-      setActiveTab(tab)
-    },
-    [setLastActiveTab],
-  )
+  const onSubmit = healthChecked((prefs: Immutable<MatchmakingPreferences>) => {
+    if (activeTab === '3v3') {
+      return
+    }
 
-  const onSubmit = useCallback(
-    (prefs: Immutable<MatchmakingPreferences>) => {
-      if (activeTab === '3v3') {
-        return
-      }
+    dispatch(findMatch(activeTab, prefs))
+  })
 
-      dispatch(findMatch(activeTab, prefs))
-    },
-    [activeTab, dispatch],
-  )
-
-  const onFindClick = useCallback(() => {
+  const onFindClick = () => {
     formRef.current?.submit()
-  }, [])
+  }
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -284,7 +274,12 @@ export function FindMatch() {
       <TitleBar>
         <TitleLarge>{t('matchmaking.findMatch.title', 'Find match')}</TitleLarge>
         <TabArea>
-          <Tabs activeTab={activeTab} onChange={onTabChange}>
+          <Tabs
+            activeTab={activeTab}
+            onChange={(tab: ExpandedMatchmakingType) => {
+              setLastActiveTab(tab)
+              setActiveTab(tab)
+            }}>
             <TabItem
               text={matchmakingTypeToLabel(MatchmakingType.Match1v1, t)}
               value={MatchmakingType.Match1v1}
