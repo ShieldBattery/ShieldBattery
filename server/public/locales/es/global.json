@@ -1197,5 +1197,8 @@
     "home": {
         "supportTitle": "Apoya el proyecto",
         "latestNewsTitle": "Últimas noticias"
+    },
+    "network": {
+        "notConnectedText": "No conectado"
     }
 }

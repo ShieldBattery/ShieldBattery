@@ -1185,5 +1185,8 @@
     "home": {
         "latestNewsTitle": "최신 뉴스",
         "supportTitle": "프로젝트를 지원하세요"
+    },
+    "network": {
+        "notConnectedText": "연결 안 됨"
     }
 }
