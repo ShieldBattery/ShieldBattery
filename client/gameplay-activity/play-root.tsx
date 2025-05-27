@@ -10,6 +10,7 @@ import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { push } from '../navigation/routing'
+import { NotConnected } from '../network/not-connected'
 import { useStableCallback, useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -97,6 +98,7 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
     push(`/play/${tab}`)
   })
   const lobbyCount = useAppSelector(s => s.lobbyList.count)
+  const isConnected = useAppSelector(s => s.network.isConnected)
 
   useEffect(() => {
     // Handle tab changes that happen only as URL changes
@@ -108,20 +110,24 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
   // TODO(tec27): Show different content instead of the normal route if searching for a match?
   return (
     <CenteredContentContainer>
-      <ContentGrid>
-        <TabsContainer>
-          <Tabs activeTab={activeTab} onChange={onTabChange}>
-            {ALL_TABS.map(tab => (
-              <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
-            ))}
-          </Tabs>
-        </TabsContainer>
-        <Switch>
-          <Route path='/play/matchmaking/*?' component={Matchmaking} />
-          <Route path='/play/lobbies/*?' component={Lobbies} />
-          <Redirect to={`/play/${activeTab}`} replace={true} />
-        </Switch>
-      </ContentGrid>
+      {isConnected ? (
+        <ContentGrid>
+          <TabsContainer>
+            <Tabs activeTab={activeTab} onChange={onTabChange}>
+              {ALL_TABS.map(tab => (
+                <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
+              ))}
+            </Tabs>
+          </TabsContainer>
+          <Switch>
+            <Route path='/play/matchmaking/*?' component={Matchmaking} />
+            <Route path='/play/lobbies/*?' component={Lobbies} />
+            <Redirect to={`/play/${activeTab}`} replace={true} />
+          </Switch>
+        </ContentGrid>
+      ) : (
+        <NotConnected />
+      )}
     </CenteredContentContainer>
   )
 }
