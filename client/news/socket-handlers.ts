@@ -1,17 +1,18 @@
 import { NydusClient } from 'nydus-client'
 import { NewsEvent } from '../../common/news'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import { urgentMessageId } from '../home/last-seen-urgent-message'
+import { jotaiStore } from '../jotai-store'
 
 type EventToNewsActionMap = {
-  [E in NewsEvent['type']]: (event: Extract<NewsEvent, { type: E }>) => Dispatchable | undefined
+  [E in NewsEvent['type']]: (
+    event: Extract<NewsEvent, { type: E }>,
+  ) => Dispatchable | undefined | void
 }
 
 const eventToAction: EventToNewsActionMap = {
   urgentMessageChange(event) {
-    return {
-      type: '@news/urgentMessageChange',
-      payload: event,
-    }
+    jotaiStore.set(urgentMessageId, event.id)
   },
 }
 

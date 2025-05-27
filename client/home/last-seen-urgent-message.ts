@@ -1,5 +1,7 @@
+import { atom, useAtom } from 'jotai'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { useAppSelector } from '../redux-hooks'
+
+export const urgentMessageId = atom<string | undefined>(undefined)
 
 export function useLastSeenUrgentMessage(): [
   lastSeenId: string | undefined,
@@ -14,7 +16,7 @@ export function useLastSeenUrgentMessage(): [
 
 export function useHasNewUrgentMessage(): boolean {
   const [lastSeenUrgentMessage] = useLastSeenUrgentMessage()
-  const curId = useAppSelector(s => s.news.urgentMessageId)
+  const [curId] = useAtom(urgentMessageId)
 
   return !!curId && curId !== lastSeenUrgentMessage
 }
