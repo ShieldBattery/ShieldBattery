@@ -70,7 +70,7 @@ export function StarcraftHealthCheckupDialog({ onCancel }: CommonDialogProps) {
           <p>
             <Trans t={t} i18nKey='starcraft.starcraftHealth.starcraftVersionContents'>
               Your StarCraft installation is out of date. ShieldBattery supports installations of
-              version 1.16.1 or the latest Remastered version. Please install the{' '}
+              the latest Remastered version from Battle.net. Please install the{' '}
               <span>
                 <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='noreferrer noopener'>
                   latest version

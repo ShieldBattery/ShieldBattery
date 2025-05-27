@@ -28,6 +28,11 @@ const RescanButton = styled(FilledButton)`
   margin-top: 40px;
 `
 
+const DevContent = styled.div`
+  margin-bottom: 24px;
+  color: var(--theme-error);
+`
+
 export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
   const [files] = useAtom(shieldBatteryFilesState)
@@ -55,38 +60,39 @@ export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
       onCancel={onCancel}
       showCloseButton={true}>
       {DEV_ERROR ? (
+        <DevContent>
+          <Text>
+            Couldn't find necessary ShieldBattery files, you probably need to run game/build.bat
+          </Text>
+        </DevContent>
+      ) : null}
+
+      <div>
         <Text>
-          Couldn't find necessary ShieldBattery files, you probably need to run game/build.bat
+          <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.topContents'>
+            We've detected that the following ShieldBattery files are missing or have been modified:
+          </Trans>
         </Text>
-      ) : (
-        <div>
-          <Text>
-            <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.topContents'>
-              We've detected that the following ShieldBattery files are missing or have been
-              modified:
-            </Trans>
-          </Text>
-          <FileList>
-            {initDescription}
-            {mainDescription}
-          </FileList>
+        <FileList>
+          {initDescription}
+          {mainDescription}
+        </FileList>
 
-          <Text>
-            <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.middleContents'>
-              This is often the result of installed anti-virus software taking action on false
-              positives. You may need to add exceptions for these files, or tell the software to
-              remove them from quarantine. You can also try re-installing ShieldBattery.
-            </Trans>
-          </Text>
+        <Text>
+          <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.middleContents'>
+            This is often the result of installed anti-virus software taking action on false
+            positives. You may need to add exceptions for these files, or tell the software to
+            remove them from quarantine. You can also try re-installing ShieldBattery.
+          </Trans>
+        </Text>
 
-          <Text>
-            <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.bottomContents'>
-              If you are able to, reporting these as false positives to your anti-virus vendor will
-              help this stop happening for other users as well!
-            </Trans>
-          </Text>
-        </div>
-      )}
+        <Text>
+          <Trans t={t} i18nKey='starcraft.shieldbatteryHealth.bottomContents'>
+            If you are able to, reporting these as false positives to your anti-virus vendor will
+            help this stop happening for other users as well!
+          </Trans>
+        </Text>
+      </div>
 
       <RescanButton
         label={t('starcraft.shieldbatteryHealth.rescanFiles', 'Rescan files')}
