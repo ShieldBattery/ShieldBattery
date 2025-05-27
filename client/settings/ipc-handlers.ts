@@ -3,7 +3,9 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
 import audioManager from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
-import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
+import { jotaiStore } from '../jotai-store'
+import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
+import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   let lastMasterVolume: number | undefined
@@ -25,7 +27,8 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       .invoke('settingsCheckStarcraftPath', lastPath)
       ?.then(result => {
         lastPathWasValid = result.path && result.version
-        dispatch(handleCheckStarcraftPathResult(result))
+        jotaiStore.set(starcraftPathValid, result.path)
+        jotaiStore.set(starcraftVersionValid, result.version)
       })
       .catch(swallowNonBuiltins)
   }
@@ -68,13 +71,5 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     })
     .catch(swallowNonBuiltins)
 
-  ipcRenderer
-    .invoke('shieldbatteryCheckFiles')
-    ?.then(fileResults => {
-      dispatch({
-        type: '@starcraft/shieldBatteryFilesValidity',
-        payload: fileResults,
-      })
-    })
-    .catch(swallowNonBuiltins)
+  checkShieldBatteryFiles()
 }

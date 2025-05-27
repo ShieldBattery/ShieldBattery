@@ -1,3 +1,4 @@
+import { useAtom } from 'jotai'
 import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -12,6 +13,7 @@ import { CheckBox } from '../../material/check-box'
 import { Tooltip } from '../../material/tooltip'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { starcraftHealthy } from '../../starcraft/health-state'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
@@ -81,7 +83,7 @@ export function StarcraftSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
-  const isValidInstall = useAppSelector(s => s.starcraft.pathValid && s.starcraft.versionValid)
+  const [isValidInstall] = useAtom(starcraftHealthy)
   const browseButtonRef = useRef<HTMLButtonElement>(null)
   const [detectionFailed, setDetectionFailed] = useState(false)
 

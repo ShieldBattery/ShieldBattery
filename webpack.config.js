@@ -43,7 +43,7 @@ const webBabelOpts = {
       },
     ],
     ['@babel/preset-typescript', { allExtensions: true, isTSX: true }],
-  ],
+  ].concat(process.env.NODE_ENV !== 'production' ? [['jotai/babel/preset']] : []),
   plugins: [
     ['babel-plugin-react-compiler'],
     [

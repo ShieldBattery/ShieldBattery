@@ -11,7 +11,6 @@ import { NetworkActions } from './network/actions'
 import { NewsActions } from './news/actions'
 import { NotificationActions } from './notifications/actions'
 import { SettingsActions } from './settings/actions'
-import { StarcraftActions } from './starcraft/actions'
 import { UserActions } from './users/actions'
 import { WhisperActions } from './whispers/actions'
 
@@ -29,7 +28,6 @@ type AllActions =
   | NewsActions
   | NotificationActions
   | SettingsActions
-  | StarcraftActions
   | UserActions
   | WhisperActions
 

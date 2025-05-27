@@ -1,3 +1,4 @@
+import { useAtom } from 'jotai'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import React, { useRef } from 'react'
@@ -17,7 +18,8 @@ import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
+import { starcraftHealthy } from '../starcraft/health-state'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   headlineMedium,
@@ -61,7 +63,7 @@ export function ConnectedSettings() {
       }
     },
   )
-  const starcraft = useAppSelector(s => s.starcraft)
+  const [healthy] = useAtom(starcraftHealthy)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const portalRef = useExternalElementRef()
@@ -74,7 +76,7 @@ export function ConnectedSettings() {
             <span ref={focusableRef} tabIndex={-1}>
               <Settings
                 page={page}
-                isStarcraftHealthy={starcraft.pathValid && starcraft.versionValid}
+                isStarcraftHealthy={healthy}
                 onChangePage={setPage}
                 onCloseSettings={() => {
                   dispatch(closeSettings())

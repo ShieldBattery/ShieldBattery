@@ -38,3 +38,15 @@ To change the default position of the overlay, use the following hotkey:
 ```
 ctrl + q
 ```
+
+### Jotai Developer Tools
+
+This is controlled via a floating button in the bottom left of the screen. By default it is not
+visible, but it can be toggled via the hotkey:
+
+```
+ctrl + i
+```
+
+This will toggle visibility of the entire UI (so if you have the panel open, you can toggle it
+on/off without losing its state).

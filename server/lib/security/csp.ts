@@ -23,7 +23,7 @@ export function getCspNonce(ctx: Koa.Context): string {
   const policy =
     `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
     `style-src 'self' 'nonce-${nonce}' ${!isFileSystem ? publicAssetsConfig.origin : ''};` +
-    `font-src 'self' ${!isFileSystem ? publicAssetsConfig.origin : ''};` +
+    `font-src 'self' ${!isFileSystem ? publicAssetsConfig.origin : ''} ${isDev ? 'data:' : ''};` +
     "object-src 'none';" +
     "form-action 'none';"
 

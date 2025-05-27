@@ -1,19 +1,22 @@
+import { useAtom } from 'jotai'
 import React, { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
 import { GameSettingsPage } from '../settings/settings-page'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
+import { starcraftPathValid, starcraftVersionValid } from './health-state'
 
 export function StarcraftHealthCheckupDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const { pathValid, versionValid } = useAppSelector(s => s.starcraft)
+  const [pathValid] = useAtom(starcraftPathValid)
+  const [versionValid] = useAtom(starcraftVersionValid)
 
   useEffect(() => {
     if (pathValid && versionValid) {
@@ -25,7 +28,7 @@ export function StarcraftHealthCheckupDialog({ onCancel }: CommonDialogProps) {
       )
       onCancel()
     }
-  }, [dispatch, onCancel, pathValid, snackbarController, t, versionValid])
+  }, [onCancel, pathValid, snackbarController, t, versionValid])
 
   return (
     <Dialog

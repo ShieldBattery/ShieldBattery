@@ -652,6 +652,7 @@ function setupCspProtocol(curSession: Session) {
         const chunkPolicy = isHot ? 'http://localhost:5566' : ''
         // If hot-reloading is on, we have to allow eval so it can work
         const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
+        const allowedFonts = "'self'" + (isDev ? ' data:' : '')
 
         return new Response(result, {
           headers: {
@@ -660,7 +661,7 @@ function setupCspProtocol(curSession: Session) {
               `script-src 'self' 'nonce-${nonce}' ${chunkPolicy} ` +
               `${scriptEvalPolicy};` +
               `style-src 'self' 'nonce-${nonce}';` +
-              "font-src 'self';" +
+              `font-src ${allowedFonts};` +
               "object-src 'none';" +
               "form-action 'none';",
           },

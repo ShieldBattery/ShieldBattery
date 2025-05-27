@@ -1,5 +1,6 @@
 import { enableMapSet, setAutoFreeze } from 'immer'
-import React, { StrictMode } from 'react'
+import { Provider as JotaiProvider } from 'jotai'
+import React, { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Router } from 'wouter'
@@ -13,11 +14,17 @@ import { registerDispatch } from './dispatch-registry'
 import './dom/window-focus'
 import i18n, { detectedLocale, initI18next } from './i18n/i18next'
 import { getBestLanguage } from './i18n/language-detector'
+import { jotaiStore } from './jotai-store'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
+import { LoadingDotsArea } from './progress/dots'
 import { RootErrorBoundary } from './root-error-boundary'
 import { setServerConfig } from './server-config-storage'
+
+const JotaiDevTools = React.lazy(() =>
+  import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })),
+)
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
@@ -75,6 +82,34 @@ if (module.hot) {
   }
 }
 
+if (isDev) {
+  // Fix for react-resizable-panels not getting a proper nonce from jotai-devtools
+  const headAppendChild = document.head.appendChild.bind(document.head)
+  document.head.appendChild = elem => {
+    if (elem.tagName === 'STYLE' && !elem.getAttribute('nonce')) {
+      if (new Error().stack.includes('react-resizable-panels')) {
+        elem.setAttribute('nonce', __webpack_nonce__)
+      }
+    }
+    return headAppendChild(elem)
+  }
+  // Remove annoying log
+  const consoleWarn = console.warn.bind(console)
+  console.warn = (...args) => {
+    if (args.length > 0) {
+      const firstArg = args[0]
+      if (
+        typeof firstArg === 'string' &&
+        firstArg.startsWith('[jotai-devtools]: automatic tree-shaking')
+      ) {
+        return
+      }
+    }
+
+    consoleWarn(...args)
+  }
+}
+
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
   if (elem) {
@@ -99,12 +134,12 @@ if (!IS_ELECTRON) {
 
 rootElemPromise
   .then(async elem => {
-    const store = createStore(ReduxDevTools)
-    registerDispatch(store.dispatch)
+    const reduxStore = createStore(ReduxDevTools)
+    registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()
 
     initAudioPromise.then(() => {
-      store.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
+      reduxStore.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
     })
 
     const detected = getBestLanguage()
@@ -137,7 +172,7 @@ rootElemPromise
       action = bootstrapSession(window._sbInitData.session)
     }
 
-    store.dispatch(action)
+    reduxStore.dispatch(action)
 
     try {
       const config = await configPromise
@@ -161,7 +196,7 @@ rootElemPromise
     try {
       await i18nextPromise
       let locale
-      store.dispatch((_, getState) => {
+      reduxStore.dispatch((_, getState) => {
         const {
           auth: { self },
         } = getState()
@@ -175,9 +210,9 @@ rootElemPromise
       log.error(`Error initializing i18next: ${err?.stack ?? err}`)
     }
 
-    return { elem, store }
+    return { elem, reduxStore }
   })
-  .then(({ elem, store }) => {
+  .then(({ elem, reduxStore }) => {
     const root = createRoot(elem)
 
     // Track the initial page load with normal referer info
@@ -186,14 +221,19 @@ rootElemPromise
     root.render(
       <StrictMode>
         <RootErrorBoundary isVeryTopLevel={true}>
-          <ReduxProvider store={store}>
-            <Router>
-              <>
-                <App />
-                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-              </>
-            </Router>
-          </ReduxProvider>
+          <Suspense fallback={<LoadingDotsArea />}>
+            <JotaiProvider store={jotaiStore}>
+              <ReduxProvider store={reduxStore}>
+                <Router>
+                  <>
+                    <App />
+                    {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+                    {isDev ? <JotaiDevTools /> : null}
+                  </>
+                </Router>
+              </ReduxProvider>
+            </JotaiProvider>
+          </Suspense>
         </RootErrorBoundary>
       </StrictMode>,
     )

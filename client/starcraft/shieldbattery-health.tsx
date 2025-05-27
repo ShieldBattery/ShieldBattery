@@ -1,16 +1,15 @@
+import { useAtom } from 'jotai'
 import React, { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DEV_ERROR } from '../../common/flags'
-import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { DialogType } from '../dialogs/dialog-type'
 import { FilledButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, bodyMedium } from '../styles/typography'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
+import { shieldBatteryFilesState, shieldBatteryHealthy } from './health-state'
 
 const Text = styled.div`
   ${bodyLarge};
@@ -31,12 +30,11 @@ const RescanButton = styled(FilledButton)`
 
 export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const files = useAppSelector(s => s.starcraft.shieldBattery)
+  const [files] = useAtom(shieldBatteryFilesState)
+  const [healthy] = useAtom(shieldBatteryHealthy)
   const snackbarController = useSnackbarController()
 
   useEffect(() => {
-    const healthy = Object.values(files).every(f => f)
     if (healthy) {
       snackbarController.showSnackbar(
         t(
@@ -44,9 +42,9 @@ export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
           'Your local installation is now free of problems.',
         ),
       )
-      dispatch(closeDialog(DialogType.ShieldBatteryHealth))
+      onCancel()
     }
-  }, [dispatch, files, snackbarController, t])
+  }, [healthy, onCancel, snackbarController, t])
 
   const initDescription = files.init ? null : <li>sb_init.dll</li>
   const mainDescription = files.main ? null : <li>shieldbattery.dll</li>
@@ -92,7 +90,7 @@ export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
 
       <RescanButton
         label={t('starcraft.shieldbatteryHealth.rescanFiles', 'Rescan files')}
-        onClick={() => checkShieldBatteryFiles(dispatch)}
+        onClick={() => checkShieldBatteryFiles()}
       />
     </Dialog>
   )

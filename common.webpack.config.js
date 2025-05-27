@@ -71,14 +71,15 @@ export default function ({
           test: /\.html?$/,
           use: [{ loader: 'html-loader' }],
         },
-        {
-          // Dumb workaround for `iconv-lite` not fixing their bugs. See this issue for more info:
-          // https://github.com/ashtuchkin/iconv-lite/issues/204
-          test: /node_modules[/\\](iconv-lite)[/\\].+/,
-          resolve: {
-            aliasFields: ['main'],
-          },
-        },
+        // We only need CSS for jotai-devtools, which is dev-only
+        ...(isProd
+          ? []
+          : [
+              {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader'],
+              },
+            ]),
         ...extraRules,
       ],
     },
