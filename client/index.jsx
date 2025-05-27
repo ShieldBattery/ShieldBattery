@@ -22,11 +22,14 @@ import { LoadingDotsArea } from './progress/dots'
 import { RootErrorBoundary } from './root-error-boundary'
 import { setServerConfig } from './server-config-storage'
 
-const JotaiDevTools = React.lazy(() =>
-  import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })),
-)
-
+// NOTE(tec27): Webpack seems to fail to utilize this in removing falsy conditional requires, so
+// only use this for checks intended to happen at runtime
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
+
+const JotaiDevTools =
+  __WEBPACK_ENV.NODE_ENV !== 'production'
+    ? require('./debug/jotai-devtools').JotaiDevTools
+    : undefined
 
 // eslint-disable-next-line camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
@@ -52,7 +55,7 @@ window.addEventListener('unhandledrejection', event => {
 })
 
 let ReduxDevTools, ReduxDevToolsContainer
-if (IS_ELECTRON && isDev) {
+if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
   const devtools = require('./debug/redux-devtools')
   ReduxDevToolsContainer = devtools.default
   ReduxDevTools = devtools.DevTools
@@ -228,7 +231,7 @@ rootElemPromise
                   <>
                     <App />
                     {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-                    {isDev ? <JotaiDevTools /> : null}
+                    {JotaiDevTools ? <JotaiDevTools /> : null}
                   </>
                 </Router>
               </ReduxProvider>
