@@ -903,7 +903,7 @@
             "noProblems": "$🗡Your local installation is now free of problems.🗡!",
             "starcraftVersionContents": "$🗡Your StarCraft installation is out of date. ShieldBattery supports installations of version 1.16.1 or the latest Remastered version. Please install the <2><0>latest version</0></2> and restart ShieldBattery.🗡!",
             "title": "$🗡Installation problems detected🗡!",
-            "installPathContents": "$🗡Your StarCraft path setting does not point to a valid installation. Please correct the value in <2>Settings</2>. If you do not have the game installed, it can be easily downloaded from <5><0>Blizzard's website</0></5>. You may need to restart ShieldBattery after installation.🗡!"
+            "installPathContents": "$🗡Your StarCraft path setting does not point to a valid installation. Please correct the value in <2>Settings</2>. If you do not have the game installed, it can be easily downloaded from <5><0>Battle.net</0></5>. You may need to restart ShieldBattery after installation.🗡!"
         }
     },
     "whispers": {
