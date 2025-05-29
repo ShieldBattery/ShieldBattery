@@ -1,7 +1,7 @@
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch } from '../dispatch-registry'
-import { getJotaiStore } from '../jotai-store'
+import { jotaiStore } from '../jotai-store'
 import { shieldBatteryHealthy, starcraftHealthy } from './health-state'
 
 /**
@@ -10,7 +10,6 @@ import { shieldBatteryHealthy, starcraftHealthy } from './health-state'
  */
 export function healthChecked<T extends unknown[]>(cb: (...args: T) => void): (...args: T) => void {
   return (...args: T) => {
-    const jotaiStore = getJotaiStore()
     if (!jotaiStore.get(starcraftHealthy)) {
       dispatch(openDialog({ type: DialogType.StarcraftHealth }))
     } else if (!jotaiStore.get(shieldBatteryHealthy)) {

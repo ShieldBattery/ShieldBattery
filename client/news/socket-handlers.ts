@@ -2,7 +2,7 @@ import { NydusClient } from 'nydus-client'
 import { NewsEvent } from '../../common/news'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { urgentMessageId } from '../home/last-seen-urgent-message'
-import { getJotaiStore } from '../jotai-store'
+import { jotaiStore } from '../jotai-store'
 
 type EventToNewsActionMap = {
   [E in NewsEvent['type']]: (
@@ -12,7 +12,7 @@ type EventToNewsActionMap = {
 
 const eventToAction: EventToNewsActionMap = {
   urgentMessageChange(event) {
-    getJotaiStore().set(urgentMessageId, event.id)
+    jotaiStore.set(urgentMessageId, event.id)
   },
 }
 

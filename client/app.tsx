@@ -13,7 +13,7 @@ import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import './dom/window-focus'
 import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
-import { getJotaiStore } from './jotai-store'
+import { jotaiStore } from './jotai-store'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
@@ -114,7 +114,7 @@ export interface AppProps {
 export function App({ reduxStore }: AppProps) {
   return (
     <RootErrorBoundary isVeryTopLevel={true}>
-      <JotaiProvider store={getJotaiStore()}>
+      <JotaiProvider store={jotaiStore}>
         <ReduxProvider store={reduxStore}>
           <Suspense fallback={<LoadingDotsArea />}>
             <InnerApp />

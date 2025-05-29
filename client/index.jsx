@@ -20,11 +20,6 @@ import { setServerConfig } from './server-config-storage'
 // only use this for checks intended to happen at runtime
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
-const jotaiDevtoolsPromise =
-  __WEBPACK_ENV.NODE_ENV !== 'production'
-    ? import('jotai-devtools').then(() => {})
-    : Promise.resolve()
-
 // eslint-disable-next-line camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
 
@@ -130,7 +125,6 @@ if (!IS_ELECTRON) {
 
 rootElemPromise
   .then(async elem => {
-    await jotaiDevtoolsPromise
     const reduxStore = createStore(ReduxDevTools)
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()

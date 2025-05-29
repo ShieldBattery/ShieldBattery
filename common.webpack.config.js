@@ -27,6 +27,15 @@ export default function ({
     ...webpackOpts,
     mode: isProd ? 'production' : 'development',
     context: __dirname,
+    externals: {
+      // Don't include jotai-devtools in prod
+      ...(isProd
+        ? {
+            'jotai-devtools': 'window',
+          }
+        : {}),
+      ...webpackOpts.externals,
+    },
     module: {
       rules: [
         {

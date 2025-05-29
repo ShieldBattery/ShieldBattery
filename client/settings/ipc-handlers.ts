@@ -3,7 +3,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
 import audioManager from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
-import { getJotaiStore } from '../jotai-store'
+import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
 import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
 
@@ -27,7 +27,6 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       .invoke('settingsCheckStarcraftPath', lastPath)
       ?.then(result => {
         lastPathWasValid = result.path && result.version
-        const jotaiStore = getJotaiStore()
         jotaiStore.set(starcraftPathValid, result.path)
         jotaiStore.set(starcraftVersionValid, result.version)
       })
