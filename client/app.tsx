@@ -1,14 +1,19 @@
+import { Provider as JotaiProvider } from 'jotai'
 import { LazyMotion, MotionConfig, Transition } from 'motion/react'
-import React, { useEffect, useLayoutEffect, useState } from 'react'
+import React, { Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import { Provider as ReduxProvider } from 'react-redux'
+import { Store } from 'redux'
 import { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
-import { Route, Switch } from 'wouter'
+import { Route, Router, Switch } from 'wouter'
 import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
 import { useSelfUser } from './auth/auth-utils'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
+import './dom/window-focus'
 import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
+import { getJotaiStore } from './jotai-store'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
@@ -18,6 +23,7 @@ import { SiteSocketManager } from './network/site-socket-manager'
 import { LoadingDotsArea } from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
+import { RootState } from './root-reducer'
 import { getServerConfig } from './server-config-storage'
 import { ConnectedSettings } from './settings/settings'
 import { SnackbarOverlay } from './snackbars/snackbar-overlay'
@@ -26,7 +32,19 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
-const DevComponent = IS_PRODUCTION ? () => null : React.lazy(() => import('./dev'))
+const JotaiDevTools =
+  __WEBPACK_ENV.NODE_ENV === 'production'
+    ? undefined
+    : React.lazy(() => import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })))
+
+let ReduxDevToolsContainer: any
+if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
+  const devtools = require('./debug/redux-devtools')
+  ReduxDevToolsContainer = devtools.default
+}
+
+const DevComponent =
+  __WEBPACK_ENV.NODE_ENV === 'production' ? () => null : React.lazy(() => import('./dev'))
 
 function LoadableDev() {
   return (
@@ -89,9 +107,28 @@ const DEFAULT_MOTION_CONFIG: Transition = {
   opacity: { type: 'spring', duration: 0.3, bounce: 0 },
 }
 
-export default function App() {
-  const graphqlClient = useUserSpecificGraphqlClient()
+export interface AppProps {
+  reduxStore: Store<RootState>
+}
 
+export function App({ reduxStore }: AppProps) {
+  return (
+    <RootErrorBoundary isVeryTopLevel={true}>
+      <JotaiProvider store={getJotaiStore()}>
+        <ReduxProvider store={reduxStore}>
+          <Suspense fallback={<LoadingDotsArea />}>
+            <InnerApp />
+            {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+            {JotaiDevTools ? <JotaiDevTools /> : null}
+          </Suspense>
+        </ReduxProvider>
+      </JotaiProvider>
+    </RootErrorBoundary>
+  )
+}
+
+function InnerApp() {
+  const graphqlClient = useUserSpecificGraphqlClient()
   useLayoutEffect(() => {
     // Calculate the scrollbar width and set it as a CSS variable so other styles can use it. We
     // directly control this on webkit-ish browsers, but Firefox doesn't have a way of directly
@@ -114,33 +151,35 @@ export default function App() {
   }, [])
 
   return (
-    <StyleSheetManager enableVendorPrefixes={!IS_ELECTRON}>
-      <>
-        <ResetStyle />
-        <GlobalStyle />
-        <KeyListenerBoundary>
-          <LazyMotion strict={true} features={loadMotionFeatures}>
-            <MotionConfig
-              reducedMotion='user'
-              nonce={(window as any).SB_CSP_NONCE}
-              transition={DEFAULT_MOTION_CONFIG}>
-              <RootErrorBoundary>
-                <UrqlProvider value={graphqlClient}>
-                  <FileDropZoneProvider>
-                    <React.Suspense fallback={<LoadingDotsArea />}>
-                      <SnackbarOverlay>
-                        <AppContent />
-                      </SnackbarOverlay>
-                    </React.Suspense>
-                  </FileDropZoneProvider>
-                </UrqlProvider>
-              </RootErrorBoundary>
-              <UpdateOverlay />
-            </MotionConfig>
-          </LazyMotion>
-        </KeyListenerBoundary>
-      </>
-    </StyleSheetManager>
+    <Router>
+      <StyleSheetManager enableVendorPrefixes={!IS_ELECTRON}>
+        <>
+          <ResetStyle />
+          <GlobalStyle />
+          <KeyListenerBoundary>
+            <LazyMotion strict={true} features={loadMotionFeatures}>
+              <MotionConfig
+                reducedMotion='user'
+                nonce={(window as any).SB_CSP_NONCE}
+                transition={DEFAULT_MOTION_CONFIG}>
+                <RootErrorBoundary>
+                  <UrqlProvider value={graphqlClient}>
+                    <FileDropZoneProvider>
+                      <React.Suspense fallback={<LoadingDotsArea />}>
+                        <SnackbarOverlay>
+                          <AppContent />
+                        </SnackbarOverlay>
+                      </React.Suspense>
+                    </FileDropZoneProvider>
+                  </UrqlProvider>
+                </RootErrorBoundary>
+                <UpdateOverlay />
+              </MotionConfig>
+            </LazyMotion>
+          </KeyListenerBoundary>
+        </>
+      </StyleSheetManager>
+    </Router>
   )
 }
 

@@ -1,3 +1,10 @@
 import { createStore } from 'jotai'
 
-export const jotaiStore = createStore()
+let store: ReturnType<typeof createStore> | undefined
+
+export function getJotaiStore() {
+  if (!store) {
+    store = createStore()
+  }
+  return store
+}

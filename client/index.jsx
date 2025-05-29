@@ -1,11 +1,8 @@
 import { enableMapSet, setAutoFreeze } from 'immer'
-import { Provider as JotaiProvider } from 'jotai'
-import React, { StrictMode, Suspense } from 'react'
+import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider as ReduxProvider } from 'react-redux'
-import { Router } from 'wouter'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
-import App from './app'
+import { App } from './app'
 import audioManager from './audio/audio-manager'
 import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
@@ -14,22 +11,19 @@ import { registerDispatch } from './dispatch-registry'
 import './dom/window-focus'
 import i18n, { detectedLocale, initI18next } from './i18n/i18next'
 import { getBestLanguage } from './i18n/language-detector'
-import { jotaiStore } from './jotai-store'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
-import { LoadingDotsArea } from './progress/dots'
-import { RootErrorBoundary } from './root-error-boundary'
 import { setServerConfig } from './server-config-storage'
 
 // NOTE(tec27): Webpack seems to fail to utilize this in removing falsy conditional requires, so
 // only use this for checks intended to happen at runtime
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
-const JotaiDevTools =
+const jotaiDevtoolsPromise =
   __WEBPACK_ENV.NODE_ENV !== 'production'
-    ? require('./debug/jotai-devtools').JotaiDevTools
-    : undefined
+    ? import('jotai-devtools').then(() => {})
+    : Promise.resolve()
 
 // eslint-disable-next-line camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
@@ -54,10 +48,9 @@ window.addEventListener('unhandledrejection', event => {
   )
 })
 
-let ReduxDevTools, ReduxDevToolsContainer
+let ReduxDevTools
 if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
   const devtools = require('./debug/redux-devtools')
-  ReduxDevToolsContainer = devtools.default
   ReduxDevTools = devtools.DevTools
 }
 
@@ -137,6 +130,7 @@ if (!IS_ELECTRON) {
 
 rootElemPromise
   .then(async elem => {
+    await jotaiDevtoolsPromise
     const reduxStore = createStore(ReduxDevTools)
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()
@@ -216,28 +210,13 @@ rootElemPromise
     return { elem, reduxStore }
   })
   .then(({ elem, reduxStore }) => {
-    const root = createRoot(elem)
-
     // Track the initial page load with normal referer info
     window.fathom?.trackPageview()
 
+    const root = createRoot(elem)
     root.render(
       <StrictMode>
-        <RootErrorBoundary isVeryTopLevel={true}>
-          <Suspense fallback={<LoadingDotsArea />}>
-            <JotaiProvider store={jotaiStore}>
-              <ReduxProvider store={reduxStore}>
-                <Router>
-                  <>
-                    <App />
-                    {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-                    {JotaiDevTools ? <JotaiDevTools /> : null}
-                  </>
-                </Router>
-              </ReduxProvider>
-            </JotaiProvider>
-          </Suspense>
-        </RootErrorBoundary>
+        <App reduxStore={reduxStore} />
       </StrictMode>,
     )
   })

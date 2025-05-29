@@ -300,7 +300,7 @@
     "jest-extended": "^5.0.3",
     "jest-mock": "^29.7.0",
     "jest-mock-random": "^1.1.1",
-    "jotai": "^2.12.4",
+    "jotai": "^2.12.5",
     "jotai-devtools": "^0.12.0",
     "jssuh": "^1.6.0",
     "keycode": "^2.2.1",
