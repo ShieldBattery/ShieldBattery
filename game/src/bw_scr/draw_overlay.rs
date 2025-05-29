@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
+use egui::epaint;
 use egui::load::SizedTexture;
 use egui::style::TextStyle;
 use egui::{
@@ -71,6 +72,7 @@ struct ReplayUiValues {
     production_pos: (f32, f32),
     production_image_size: f32,
     production_max: u32,
+    statbtn_dialog_offset: (i32, i32),
 }
 
 struct ReplayPanelState {
@@ -105,19 +107,21 @@ struct OutState {
 
 pub struct StepOutput {
     pub textures_delta: egui::TexturesDelta,
-    pub primitives: Vec<egui::ClippedPrimitive>,
+    // (draw layer, primitive data)
+    pub primitives: Vec<(u16, Vec<egui::ClippedPrimitive>)>,
     pub replay_visions: u8,
     pub select_unit: Option<Unit>,
-    pub draw_layer: u16,
     // true => show, false => hide
     pub show_hide_control: Option<(Control, bool)>,
     pub show_hide_graphic_layer: Option<(u8, bool)>,
+    pub statbtn_dialog_offset: (i32, i32),
     pub show_console: bool,
 }
 
 /// Bw globals used by OverlayState::step
 pub struct BwVars {
     pub is_replay_or_obs: bool,
+    pub is_replay: bool,
     pub is_team_game: bool,
     pub game: bw_dat::Game,
     pub players: *mut bw::Player,
@@ -274,6 +278,7 @@ impl OverlayState {
                 production_pos: (10.0, 100.0),
                 production_image_size: 40.0,
                 production_max: 16,
+                statbtn_dialog_offset: (0, 0),
             },
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
@@ -412,16 +417,80 @@ impl OverlayState {
                 self.add_debug_ui(bw, ctx);
             }
         });
+        let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
+        let mut primitives = Vec::with_capacity(8);
+        if bw.is_replay && self.replay_panels.show_console {
+            let rect = self.make_button_panel_rect(bw, pixels_per_point);
+            primitives.push((21, rect));
+        }
+        primitives.push((self.draw_layer, ui_primitives));
         StepOutput {
             textures_delta: output.textures_delta,
-            primitives: self.ctx.tessellate(output.shapes, pixels_per_point),
+            primitives,
             replay_visions: self.out_state.replay_visions,
             select_unit: self.out_state.select_unit,
-            draw_layer: self.draw_layer,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
             show_console: self.out_state.show_console,
+            statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
         }
+    }
+
+    /// Draws a black rectangle behind replay UI buttons as it doesn't have proper black
+    /// background otherwise.
+    fn make_button_panel_rect(
+        &mut self,
+        bw: &BwVars,
+        pixels_per_point: f32,
+    ) -> Vec<egui::ClippedPrimitive> {
+        let mut shapes = Vec::new();
+        let full_clip_rect = Rect::from_two_pos(
+            pos2(0.0, 0.0),
+            pos2(self.screen_size.0 as f32, self.screen_size.1 as f32),
+        );
+
+        let statbtn_dialog =
+            bw::iter_dialogs(bw.first_dialog).find(|x| x.as_control().string() == "StatBtn");
+        if let Some(dialog) = statbtn_dialog {
+            let ctrl = dialog.as_control();
+            if !ctrl.is_hidden() {
+                let area = ctrl.screen_coords();
+                let max_x = self.bw_dialog_coords_max_x() as i16;
+                let rect = epaint::RectShape::new(
+                    Rect::from_two_pos(
+                        // left - 1 just since otherwise there'd be a thin column of lighter
+                        // pixels left there.
+                        self.bw_dialog_point_to_egui(area.left - 1, area.top),
+                        // Dialog goes off the screen unless using minimap-on-center layout;
+                        // clamp to screen width so that border stays visible.
+                        self.bw_dialog_point_to_egui(area.right.min(max_x), 480),
+                    ),
+                    egui::CornerRadius::same(2),
+                    Color32::BLACK,
+                    egui::Stroke::new(2.0, Color32::DARK_GREEN),
+                    egui::StrokeKind::Inside,
+                );
+                shapes.push(epaint::ClippedShape {
+                    clip_rect: full_clip_rect,
+                    shape: rect.into(),
+                });
+            }
+        }
+        self.ctx.tessellate(shapes, pixels_per_point)
+    }
+
+    fn bw_dialog_coords_max_x(&self) -> f32 {
+        // BW dialog coordinates are in 640x480-range if aspect ratio is 4:3,
+        // and for wider aspect ratios Y range stays 480 while X range grows.
+        let aspect_ratio = self.screen_size.0 as f32 / self.screen_size.1 as f32;
+        480.0 * aspect_ratio
+    }
+
+    fn bw_dialog_point_to_egui(&self, x: i16, y: i16) -> egui::Pos2 {
+        let max_x = self.bw_dialog_coords_max_x();
+        let x = ((x as f32) / max_x) * self.screen_size.0 as f32;
+        let y = ((y as f32) / 480.0) * self.screen_size.1 as f32;
+        pos2(x, y)
     }
 
     fn add_debug_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
@@ -456,6 +525,12 @@ impl OverlayState {
                 (&mut v.production_image_size, "Production size"),
             ] {
                 ui.add(Slider::new(var, 0.0..=200.0).text(text));
+            }
+            for (var, text) in [
+                (&mut v.statbtn_dialog_offset.0, "Statbtn dialog X"),
+                (&mut v.statbtn_dialog_offset.1, "Statbtn dialog Y"),
+            ] {
+                ui.add(Slider::new(var, -100i32..=100).text(text));
             }
             for (var, text) in [(&mut v.production_max, "Production max")] {
                 ui.add(Slider::new(var, 0u32..=50).text(text));

@@ -237,12 +237,17 @@ pub struct BwScr {
     console_hidden_state: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
     game_results_sent: AtomicBool,
+    /// Used to have step_game_logic_hook do things once at start of the game, after initial
+    /// units are spawned and game logic is ready to run normally.
+    /// Will be reset on replay rewinds.
+    first_game_logic_frame_done: AtomicBool,
 }
 
 /// State mutated during renderer draw call
 struct RenderState {
     overlay: draw_overlay::OverlayState,
     render: draw_inject::RenderState,
+    debug_statbtn_dialog_offset: (i32, i32),
 }
 
 struct SendPtr<T>(T);
@@ -995,11 +1000,13 @@ impl BwScr {
             render_state: RecurseCheckedMutex::new(RenderState {
                 render: draw_inject::RenderState::new(),
                 overlay: draw_overlay::OverlayState::new(),
+                debug_statbtn_dialog_offset: (0, 0),
             }),
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
+            first_game_logic_frame_done: AtomicBool::new(false),
         })
     }
 
@@ -1623,6 +1630,7 @@ impl BwScr {
                     }
                     let game = bw_dat::Game::from_ptr(game);
                     let is_replay_or_obs = self.is_replay_or_obs();
+                    let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
                     let main_palette = self.main_palette.resolve();
                     let rgb_colors = self.rgb_colors.resolve();
@@ -1656,6 +1664,7 @@ impl BwScr {
                         let overlay_out = render_state.overlay.step(
                             &draw_overlay::BwVars {
                                 is_replay_or_obs,
+                                is_replay,
                                 is_team_game,
                                 game,
                                 players,
@@ -1672,6 +1681,9 @@ impl BwScr {
                             apm,
                             size,
                         );
+                        if cfg!(debug_assertions) {
+                            self.handle_debug_ui_actions(&overlay_out, &mut render_state);
+                        }
                         if replay_visions != overlay_out.replay_visions {
                             self.replay_visions.write(overlay_out.replay_visions);
                             // Has to be called here or otherwise there's minimap flicker
@@ -1683,34 +1695,6 @@ impl BwScr {
                             let units = [*unit];
                             (self.select_units)(units.len(), units.as_ptr(), 1, 1);
                             self.center_screen(&unit.position());
-                        }
-                        if let Some((ctrl, show)) = overlay_out.show_hide_control {
-                            if show {
-                                if ctrl.control_type() == 0 {
-                                    // ctrl.show() crashes for dialogs, but this seems to work..
-                                    // (It tries to check if mouse x/y is on control, but
-                                    // to do that it'll access parent rect, which won't exist
-                                    // for dialogs)
-                                    (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
-                                } else {
-                                    ctrl.show();
-                                }
-                            } else {
-                                ctrl.hide();
-                            }
-                        }
-                        if let Some((index, show)) = overlay_out.show_hide_graphic_layer {
-                            assert!(index < 8);
-                            if let Some(layers) = graphic_layers {
-                                let layer = layers.as_ptr().add(index as usize);
-                                if show {
-                                    if (*layer).draw_func.is_some() {
-                                        (*layer).draw = 1;
-                                    }
-                                } else {
-                                    (*layer).draw = 0;
-                                }
-                            }
                         }
                         let console_shown = !self.console_hidden();
                         if overlay_out.show_console != console_shown {
@@ -1834,6 +1818,66 @@ impl BwScr {
                     exe.replace_val(relative, patch);
                 }
             }
+        }
+    }
+
+    unsafe fn handle_debug_ui_actions(
+        &self,
+        overlay_out: &draw_overlay::StepOutput,
+        render_state: &mut RenderState,
+    ) {
+        if let Some((ctrl, show)) = overlay_out.show_hide_control {
+            if show {
+                if ctrl.control_type() == 0 {
+                    // ctrl.show() crashes for dialogs, but this seems to work..
+                    // (It tries to check if mouse x/y is on control, but
+                    // to do that it'll access parent rect, which won't exist
+                    // for dialogs)
+                    (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
+                } else {
+                    ctrl.show();
+                }
+            } else {
+                ctrl.hide();
+            }
+        }
+        if let Some((index, show)) = overlay_out.show_hide_graphic_layer {
+            assert!(index < 8);
+            let graphic_layers = self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
+            if let Some(layers) = graphic_layers {
+                let layer = layers.as_ptr().add(index as usize);
+                if show {
+                    if (*layer).draw_func.is_some() {
+                        (*layer).draw = 1;
+                    }
+                } else {
+                    (*layer).draw = 0;
+                }
+            }
+        }
+        let x_diff =
+            overlay_out.statbtn_dialog_offset.0 - render_state.debug_statbtn_dialog_offset.0;
+        let y_diff =
+            overlay_out.statbtn_dialog_offset.1 - render_state.debug_statbtn_dialog_offset.1;
+        render_state.debug_statbtn_dialog_offset = overlay_out.statbtn_dialog_offset;
+        self.offset_statbtn_dialog(x_diff, y_diff);
+    }
+
+    pub unsafe fn offset_statbtn_dialog(&self, x_diff: i32, y_diff: i32) -> bool {
+        if x_diff == 0 && y_diff == 0 {
+            return true;
+        }
+        let first_dialog = self.resolve_first_dialog();
+        if let Some(dialog) =
+            bw::iter_dialogs(first_dialog).find(|x| x.as_control().string() == "StatBtn")
+        {
+            (**dialog.as_control()).area.left += x_diff as i16;
+            (**dialog.as_control()).area.right += x_diff as i16;
+            (**dialog.as_control()).area.top += y_diff as i16;
+            (**dialog.as_control()).area.bottom += y_diff as i16;
+            true
+        } else {
+            false
         }
     }
 
@@ -2204,6 +2248,8 @@ impl BwScr {
     /// we don't need to and shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
         self.detection_status_copy.lock().clear();
+        self.first_game_logic_frame_done
+            .store(false, Ordering::Relaxed);
         if let Some(mut apm) = self.apm_state.lock() {
             *apm = ApmStats::new();
         }
@@ -3403,35 +3449,41 @@ unsafe fn step_game_logic_hook(
     param: usize, // Always 0, nonzero would affect replay playback somehow
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
-    unsafe {
-        // Observer / replay UI in SC:R has a bug with toggling player visions:
-        // In order to immediately update un/detected sprite to match what players see,
-        // BW calls update_detection_status(unit) that in addition to updating sprite
-        // (not expected to be synced), will write to unit.detection_status (expected to be synced).
-        //
-        // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
-        // this simpler to implement than adding analysis for the obs UI functions.
-        let units = bw.units.resolve();
-        {
-            // For first call of this function detection_status_copy should be empty
-            // and this loop before orig will not write to anything.
-            //
-            // FWIW, it is be fine to rely on (*units).length and (*units).data being
-            // constant for the all step_game_logic calls across single game.
-            let detection_status = bw.detection_status_copy.lock();
-            let unit_ptr = (*units).data as *mut bw::Unit;
-            for (i, value) in detection_status.iter().copied().enumerate() {
-                (*unit_ptr.add(i)).detection_status = value;
-            }
+    if !bw.first_game_logic_frame_done.load(Ordering::Relaxed) {
+        bw.first_game_logic_frame_done
+            .store(true, Ordering::Relaxed);
+        if game_thread::is_replay() {
+            // Make replay buttons line up better with the pre-SC:R replay ui
+            bw.offset_statbtn_dialog(3, -3);
         }
-        let ret = orig(param);
-        {
-            let mut detection_status = bw.detection_status_copy.lock();
-            let unit_count = (*units).length;
-            let unit_ptr = (*units).data as *mut bw::Unit;
-            detection_status.clear();
-            detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
-        }
-        ret
     }
+    // Observer / replay UI in SC:R has a bug with toggling player visions:
+    // In order to immediately update un/detected sprite to match what players see,
+    // BW calls update_detection_status(unit) that in addition to updating sprite
+    // (not expected to be synced), will write to unit.detection_status (expected to be synced).
+    //
+    // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
+    // this simpler to implement than adding analysis for the obs UI functions.
+    let units = bw.units.resolve();
+    {
+        // For first call of this function detection_status_copy should be empty
+        // and this loop before orig will not write to anything.
+        //
+        // FWIW, it is be fine to rely on (*units).length and (*units).data being
+        // constant for the all step_game_logic calls across single game.
+        let detection_status = bw.detection_status_copy.lock();
+        let unit_ptr = (*units).data as *mut bw::Unit;
+        for (i, value) in detection_status.iter().copied().enumerate() {
+            (*unit_ptr.add(i)).detection_status = value;
+        }
+    }
+    let ret = orig(param);
+    {
+        let mut detection_status = bw.detection_status_copy.lock();
+        let unit_count = (*units).length;
+        let unit_ptr = (*units).data as *mut bw::Unit;
+        detection_status.clear();
+        detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
+    }
+    ret
 }

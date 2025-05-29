@@ -182,20 +182,26 @@ pub unsafe fn add_overlays(
 ) {
     unsafe {
         update_textures(bw.renderer, state, &overlay_out.textures_delta);
-        let layer = overlay_out.draw_layer;
-        for primitive in overlay_out.primitives.into_iter() {
-            match primitive.primitive {
-                epaint::Primitive::Mesh(mesh) => {
-                    if let Err(e) =
-                        draw_egui_mesh(layer, state, mesh, bw, render_target, &primitive.clip_rect)
-                    {
-                        warn_once!("Failed to draw mesh: {e}");
+        for (layer, primitives) in overlay_out.primitives.into_iter() {
+            for primitive in primitives {
+                match primitive.primitive {
+                    epaint::Primitive::Mesh(mesh) => {
+                        if let Err(e) = draw_egui_mesh(
+                            layer,
+                            state,
+                            mesh,
+                            bw,
+                            render_target,
+                            &primitive.clip_rect,
+                        ) {
+                            warn_once!("Failed to draw mesh: {e}");
+                        }
                     }
-                }
-                epaint::Primitive::Callback(..) => {
-                    // Probably not going to get created without ui code explicitly
-                    // asking for PaintCallback?
-                    warn_once!("Unimplemented paint callback");
+                    epaint::Primitive::Callback(..) => {
+                        // Probably not going to get created without ui code explicitly
+                        // asking for PaintCallback?
+                        warn_once!("Unimplemented paint callback");
+                    }
                 }
             }
         }
