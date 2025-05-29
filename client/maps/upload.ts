@@ -1,3 +1,4 @@
+import { FilesErrorCode, MAX_FILE_SIZE } from '../../common/files'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { fetchJson } from '../network/fetch'
 
@@ -12,9 +13,31 @@ export function getExtension(filePath: string) {
   }
 }
 
-export async function upload<T>(filePath: string, apiPath: string): Promise<T> {
+export class ClientSideUploadError extends Error {
+  code: FilesErrorCode
+
+  constructor(code: FilesErrorCode, message: string) {
+    super(message)
+    this.name = 'ClientSideUploadError'
+    this.code = code
+  }
+}
+
+// TODO(2Pac): Move this outside the "maps" folder. I'm pretty this is already completely generic?
+export async function upload<T>(
+  filePath: string,
+  apiPath: string,
+  maxFileSize: number = MAX_FILE_SIZE,
+): Promise<T> {
   const extension = getExtension(filePath)
   const file = await ipcRenderer.invoke('fsReadFile', filePath)!
+
+  if (file.byteLength > maxFileSize) {
+    throw new ClientSideUploadError(
+      FilesErrorCode.MaxFileSizeExceeded,
+      'The file size exceeds the maximum allowed size.',
+    )
+  }
 
   const formData = new FormData()
   formData.append('extension', extension)

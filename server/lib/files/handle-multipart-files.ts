@@ -1,7 +1,7 @@
 import { unlink } from 'fs/promises'
 import Koa from 'koa'
 import koaBody from 'koa-body'
-import { FilesErrorCode } from '../../../common/files'
+import { FilesErrorCode, MAX_FILE_SIZE } from '../../../common/files'
 import { asHttpError } from '../errors/error-with-payload'
 import logger from '../logging/logger'
 import { FilesError } from './files-error'
@@ -9,17 +9,18 @@ import { FilesError } from './files-error'
 function convertFormidableError(err: Error) {
   // TODO(2Pac): Can't do a much better check here since koa-body uses an old version of formidable.
   // Looks like it might get updated soon tho: https://github.com/koajs/koa-body/issues/241
-  if ('code' in err === false) {
+  if (!('code' in err)) {
     throw err
   }
 
   switch ((err as any).code) {
-    // TODO(2Pac): koa-body seems to be using an ancient version of formidable internally; in the
-    // newest version of formidable, this error code got renamed to `biggerThanTotalMaxFileSize`.
-    // Annoyingly though, the error we use here also still exists with a different internal name.
-    // Once koa-body updates to newest formidable version (and we update koa-body), we need to
-    // update this to handle both codes.
+    // TODO(2Pac): koa-body seems to be using an ancient version of formidable internally so we
+    // can't use the actual error types here. In the newer version, these error codes correspond to
+    // `biggerThanTotalMaxFileSize` and `biggerThanMaxFileSize` respectively. In the version that
+    // koa-body currently uses, only the 1009 error code is used, so we should be fine when
+    // updating. We only need to update the types here so the code is more readable and type-safe.
     case 1009:
+    case 1016:
       throw asHttpError(
         413,
         new FilesError(FilesErrorCode.MaxFileSizeExceeded, 'Max file size exceeded'),
@@ -36,7 +37,7 @@ function convertFormidableError(err: Error) {
  * @param maxFileSize The maximum size a file upload can be, in bytes. Note that this is also
  * limited by nginx's client_max_body_size.
  */
-export function handleMultipartFiles(maxFileSize = 50 * 1024 * 1024) {
+export function handleMultipartFiles(maxFileSize = MAX_FILE_SIZE) {
   const bodyMiddleware = koaBody({
     multipart: true,
     formidable: {

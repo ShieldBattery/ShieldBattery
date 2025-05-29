@@ -9,6 +9,7 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapVisibility,
+  MAX_MAP_FILE_SIZE,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
@@ -171,7 +172,11 @@ export class MapsApi {
   }
 
   @httpPost('/official')
-  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'), handleMultipartFiles())
+  @httpBefore(
+    ensureLoggedIn,
+    checkAllPermissions('manageMaps'),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE),
+  )
   async uploadOfficial(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
       throw new httpErrors.BadRequest('A single map file must be provided')
@@ -205,7 +210,7 @@ export class MapsApi {
   @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user!.id)),
-    handleMultipartFiles(),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE),
   )
   async upload(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {

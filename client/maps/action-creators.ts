@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import prettyBytes from 'pretty-bytes'
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
@@ -7,12 +8,13 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapInfoJson,
+  MAX_MAP_FILE_SIZE,
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
 } from '../../common/maps'
 import { apiUrl, urlPath } from '../../common/urls'
-import { openDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -22,11 +24,11 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { ClearMaps, GetMapsListParams } from './actions'
-import { upload } from './upload'
+import { ClientSideUploadError, upload } from './upload'
 
 async function uploadMap(filePath: string) {
   if (IS_ELECTRON) {
-    return upload<UploadMapResponse>(filePath, apiUrl`maps`)
+    return upload<UploadMapResponse>(filePath, apiUrl`maps`, MAX_MAP_FILE_SIZE)
   } else {
     throw new Error('cannot upload maps on non-electron clients')
   }
@@ -41,15 +43,27 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
         onMapSelect(map)
       },
       err => {
-        if (isFetchError(err) && err.code) {
+        let message = i18n.t(
+          'maps.local.uploadMapError',
+          'An unknown error occurred while uploading the map. Please try again later.',
+        )
+
+        if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
           if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
-            externalShowSnackbar(i18n.t('maps.local.mapTooLarge', 'The map is too large'))
+            message = i18n.t('maps.local.mapFileSizeErrorMessage', {
+              defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
+              fileSize: prettyBytes(MAX_MAP_FILE_SIZE),
+            })
           }
-        } else {
-          externalShowSnackbar(
-            i18n.t('maps.local.uploadMapError', 'An error occurred while uploading the map'),
-          )
         }
+
+        dispatch(
+          openSimpleDialog(
+            i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
+            message,
+            true,
+          ),
+        )
       },
     )
 

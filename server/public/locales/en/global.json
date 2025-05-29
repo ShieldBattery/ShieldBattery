@@ -586,10 +586,11 @@
     },
     "local": {
       "documentsFolder": "Documents folder",
-      "mapTooLarge": "The map is too large",
+      "mapFileSizeErrorMessage": "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
       "programFolder": "Program folder",
       "title": "Local Maps",
-      "uploadMapError": "An error occurred while uploading the map"
+      "uploadMapError": "An unknown error occurred while uploading the map. Please try again later.",
+      "uploadMapErrorTitle": "Error uploading the map"
     },
     "mapSelect": {
       "browseMaps": "Browse maps"

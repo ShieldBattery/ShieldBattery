@@ -8,6 +8,8 @@ import { MapVisibility } from './typeshare'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
+export const MAX_MAP_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
   Badlands = 0,
