@@ -1,10 +1,17 @@
 import { cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
-import { requestPolicyExchange } from '@urql/exchange-request-policy'
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { CREDENTIAL_STORAGE } from './fetch'
+import { requestPolicyExchange } from './improved-request-policy-exchange'
 
-export function createGraphqlClient(serverConfig: ServerConfig) {
+export function createGraphqlClient(
+  serverConfig: ServerConfig,
+  // NOTE(tec27): We don't technically need this for this code, but it is implicitly depended on
+  // because we want a cache per user, so we require this such that any `useMemo`/`useEffect` that
+  // calls this will re-run
+  currentUserId: SbUserId | undefined,
+) {
   const url = new URL(serverConfig.graphqlOrigin)
   url.pathname = '/gql'
 
@@ -14,7 +21,7 @@ export function createGraphqlClient(serverConfig: ServerConfig) {
     url: url.toString(),
     exchanges: [
       requestPolicyExchange({
-        ttl: 5 * 60 * 1000,
+        ttl: 60 * 1000,
         shouldUpgrade: operation => operation.context.requestPolicy !== 'cache-only',
       }),
       cacheExchange({ schema, updates: cacheUpdates, keys: cacheKeys }),

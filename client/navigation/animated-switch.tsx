@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'motion/react'
-import React, { cloneElement, Fragment, isValidElement } from 'react'
+import React, { cloneElement, Fragment, isValidElement, Suspense } from 'react'
 import { Match, matchRoute, RouteProps, useLocation, useRouter } from 'wouter'
 
 function flattenChildren(children: React.ReactNode): Iterable<React.ReactNode> {
@@ -18,9 +18,11 @@ function flattenChildren(children: React.ReactNode): Iterable<React.ReactNode> {
 export function AnimatedSwitch({
   children,
   container,
+  fallback,
 }: {
   children: React.ReactNode
   container: React.ReactElement<{ children: React.ReactNode }>
+  fallback: React.ReactNode
 }) {
   const router = useRouter()
   const [location] = useLocation()
@@ -32,9 +34,10 @@ export function AnimatedSwitch({
 
     if (match[0]) {
       const contents = cloneElement(element, { match })
+      const children = <Suspense fallback={fallback}>{contents}</Suspense>
       return (
         <AnimatePresence key='--presence--' initial={false}>
-          {cloneElement(container, { key: String(element.props.path ?? ''), children: contents })}
+          {cloneElement(container, { key: String(element.props.path ?? ''), children })}
         </AnimatePresence>
       )
     }

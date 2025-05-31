@@ -1,6 +1,6 @@
 import { Provider as JotaiProvider } from 'jotai'
 import { LazyMotion, MotionConfig, Transition } from 'motion/react'
-import React, { Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import React, { Suspense, useEffect, useLayoutEffect, useMemo } from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Store } from 'redux'
 import { StyleSheetManager } from 'styled-components'
@@ -89,15 +89,20 @@ function RedirectOnUnauthorized() {
  */
 function useUserSpecificGraphqlClient() {
   const currentUserId = useAppSelector(s => s.auth.self?.user.id)
-  const [urqlClient, setUrqlClient] = useState<ReturnType<typeof createGraphqlClient>>(() =>
-    createGraphqlClient(getServerConfig()),
+  const serverConfig = getServerConfig()
+
+  const urqlClient = useMemo(
+    () => createGraphqlClient(serverConfig, currentUserId),
+    [serverConfig, currentUserId],
   )
 
-  useEffect(() => {
-    setUrqlClient(createGraphqlClient(getServerConfig()))
-  }, [currentUserId])
-
   return urqlClient
+}
+
+function UserSpecificUrqlProvider({ children }: { children: React.ReactNode }) {
+  const graphqlClient = useUserSpecificGraphqlClient()
+
+  return <UrqlProvider value={graphqlClient}>{children}</UrqlProvider>
 }
 
 const loadMotionFeatures = () => import('./motion-features').then(m => m.domMax)
@@ -116,11 +121,13 @@ export function App({ reduxStore }: AppProps) {
     <RootErrorBoundary isVeryTopLevel={true}>
       <JotaiProvider store={jotaiStore}>
         <ReduxProvider store={reduxStore}>
-          <Suspense fallback={<LoadingDotsArea />}>
-            <InnerApp />
-            {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-            {JotaiDevTools ? <JotaiDevTools /> : null}
-          </Suspense>
+          <UserSpecificUrqlProvider>
+            <Suspense fallback={<LoadingDotsArea />}>
+              <InnerApp />
+              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+              {JotaiDevTools ? <JotaiDevTools /> : null}
+            </Suspense>
+          </UserSpecificUrqlProvider>
         </ReduxProvider>
       </JotaiProvider>
     </RootErrorBoundary>
@@ -128,7 +135,6 @@ export function App({ reduxStore }: AppProps) {
 }
 
 function InnerApp() {
-  const graphqlClient = useUserSpecificGraphqlClient()
   useLayoutEffect(() => {
     // Calculate the scrollbar width and set it as a CSS variable so other styles can use it. We
     // directly control this on webkit-ish browsers, but Firefox doesn't have a way of directly
@@ -163,15 +169,13 @@ function InnerApp() {
                 nonce={(window as any).SB_CSP_NONCE}
                 transition={DEFAULT_MOTION_CONFIG}>
                 <RootErrorBoundary>
-                  <UrqlProvider value={graphqlClient}>
-                    <FileDropZoneProvider>
-                      <React.Suspense fallback={<LoadingDotsArea />}>
-                        <SnackbarOverlay>
-                          <AppContent />
-                        </SnackbarOverlay>
-                      </React.Suspense>
-                    </FileDropZoneProvider>
-                  </UrqlProvider>
+                  <FileDropZoneProvider>
+                    <React.Suspense fallback={<LoadingDotsArea />}>
+                      <SnackbarOverlay>
+                        <AppContent />
+                      </SnackbarOverlay>
+                    </React.Suspense>
+                  </FileDropZoneProvider>
                 </RootErrorBoundary>
                 <UpdateOverlay />
               </MotionConfig>

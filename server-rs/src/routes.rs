@@ -16,13 +16,14 @@ use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
 use color_eyre::eyre::{self, Context};
 use jsonwebtoken::DecodingKey;
+use reqwest::Method;
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::ServiceBuilderExt;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
-use tower_http::cors;
+use tower_http::cors::{self, AllowCredentials, AllowOrigin};
 use tower_http::request_id::MakeRequestUuid;
 use tower_http::sensitive_headers::{
     SetSensitiveRequestHeadersLayer, SetSensitiveResponseHeadersLayer,
@@ -231,13 +232,20 @@ pub async fn create_app(
                 .layer(CompressionLayer::new().no_br())
                 .layer(
                     cors::CorsLayer::new()
-                        .allow_origin(cors::Any)
-                        .allow_headers([
-                            CONTENT_TYPE,
-                            HeaderName::from_static("sb-session-id"),
-                            header::AUTHORIZATION,
+                        // NOTE(tec27): We do this instead of `Any` because browsers will preflight
+                        // every request with an Authorization header for `*`, but not if we specify
+                        // that this specific origin is allowed
+                        .allow_origin(AllowOrigin::predicate(|_, _| true))
+                        .allow_headers([CONTENT_TYPE, header::AUTHORIZATION])
+                        .allow_methods([
+                            Method::DELETE,
+                            Method::GET,
+                            Method::HEAD,
+                            Method::PATCH,
+                            Method::POST,
+                            Method::PUT,
                         ])
-                        .allow_methods(cors::Any)
+                        .allow_credentials(AllowCredentials::yes())
                         .max_age(Duration::from_secs(60 * 60 * 24)),
                 )
                 .layer(middleware::from_fn_with_state(
