@@ -27,11 +27,7 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, titleLarge } from '../../styles/typography'
-import {
-  areUserEntriesEqual,
-  sortUserEntries,
-  useUserEntriesSelector,
-} from '../../users/sorted-user-ids'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 import { updateChannel } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
@@ -163,7 +159,7 @@ export function AdminChannelView({
   const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
   const activeUserEntries = useAppSelector(useUserEntriesSelector(activeUsers), areUserEntriesEqual)
 
-  const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
+  const activeUserIds = useMemo(() => activeUserEntries.map(([id]) => id), [activeUserEntries])
 
   const getChannelMessagesAbortControllerRef = useRef<AbortController>(undefined)
 
@@ -355,7 +351,7 @@ export function AdminChannelView({
                   refreshToken={channelInfo.id}
                   MessageComponent={ChannelMessage}
                 />
-                <StyledUserList active={sortedActiveUsers} idle={[]} offline={[]} />
+                <StyledUserList active={activeUserIds} idle={[]} offline={[]} />
               </ChannelContainer>
             </ChatContext.Provider>
           </ChannelContext.Provider>
