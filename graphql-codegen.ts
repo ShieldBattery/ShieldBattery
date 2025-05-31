@@ -13,6 +13,10 @@ export default {
         afterOneFileWrite: ['prettier --write'],
       },
       config: {
+        dedupeFragments: true,
+        nonOptionalTypename: true,
+        strictScalars: true,
+
         namingConvention: {
           enumValues: 'change-case-all#pascalCase',
         },
@@ -27,7 +31,6 @@ export default {
           SbUserId: 'Types.SbUserId',
           UUID: 'string',
         },
-        strictScalars: true,
       },
       plugins: [
         {
