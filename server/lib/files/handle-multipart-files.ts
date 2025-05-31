@@ -34,8 +34,7 @@ function convertFormidableError(err: Error) {
  * A Koa middleware function that sets up multipart file handling and will clean up the files
  * once the request is completed.
  *
- * @param maxFileSize The maximum size a file upload can be, in bytes. Note that this is also
- * limited by nginx's client_max_body_size.
+ * @param maxFileSize The maximum size a file upload can be, in bytes
  */
 export function handleMultipartFiles(maxFileSize = DEFAULT_MAX_FILE_SIZE_BYTES) {
   const bodyMiddleware = koaBody({
