@@ -18,11 +18,7 @@ import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
-import {
-  areUserEntriesEqual,
-  sortUserEntries,
-  useUserEntriesSelector,
-} from '../users/sorted-user-ids'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import {
   activateChannel,
   correctChannelNameForChat,
@@ -185,12 +181,9 @@ export function ConnectedChatChannel({
     [recentChattersEntries],
   )
 
-  const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
-  const sortedIdleUsers = useMemo(() => sortUserEntries(idleUserEntries), [idleUserEntries])
-  const sortedOfflineUsers = useMemo(
-    () => sortUserEntries(offlineUserEntries),
-    [offlineUserEntries],
-  )
+  const activeUserIds = useMemo(() => activeUserEntries.map(([id]) => id), [activeUserEntries])
+  const idleUserIds = useMemo(() => idleUserEntries.map(([id]) => id), [idleUserEntries])
+  const offlineUserIds = useMemo(() => offlineUserEntries.map(([id]) => id), [offlineUserEntries])
 
   const prevIsInChannel = usePrevious(isInChannel)
   const prevChannelId = usePrevious(channelId)
@@ -271,11 +264,7 @@ export function ConnectedChatChannel({
               ) : undefined
             }
             extraContent={
-              <StyledUserList
-                active={sortedActiveUsers}
-                idle={sortedIdleUsers}
-                offline={sortedOfflineUsers}
-              />
+              <StyledUserList active={activeUserIds} idle={idleUserIds} offline={offlineUserIds} />
             }
             UserMenu={ChannelUserMenu}
             MessageMenu={ChannelMessageMenu}
