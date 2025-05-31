@@ -8,7 +8,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
-import { getUrl } from '../file-upload'
+import { getUrl } from '../files'
 
 type DbLeague = Dbify<League>
 

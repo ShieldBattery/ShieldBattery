@@ -9,12 +9,13 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapVisibility,
+  MAX_MAP_FILE_SIZE_BYTES,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
 } from '../../../common/maps'
-import { deleteFiles } from '../file-upload'
-import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
+import { deleteFiles } from '../files'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
@@ -171,7 +172,11 @@ export class MapsApi {
   }
 
   @httpPost('/official')
-  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'), handleMultipartFiles())
+  @httpBefore(
+    ensureLoggedIn,
+    checkAllPermissions('manageMaps'),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
+  )
   async uploadOfficial(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
       throw new httpErrors.BadRequest('A single map file must be provided')
@@ -205,7 +210,7 @@ export class MapsApi {
   @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user!.id)),
-    handleMultipartFiles(),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
   async upload(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
