@@ -7,18 +7,7 @@
 ;(global as any).__WEBPACK_ENV = {
   SB_SERVER: 'https://shieldbattery.net',
 }
-// I dunno why these aren't available in the browser env :(
-;(global as any).AudioContext = jest.fn(() => ({
-  createGain: jest.fn(() => ({
-    connect: jest.fn(),
-  })),
-  destination: {},
-}))
-;(global as any).ResizeObserver = jest.fn(() => ({
-  observe: jest.fn(),
-  disconnect: jest.fn(),
-  unobserve: jest.fn(),
-}))
+;(global as any).fetch = jest.fn(() => Promise.reject(new Error('fetch is disabled in tests')))
 
 // Ensure consistent locale formatting in tests
 Object.defineProperty(window.navigator, 'language', {
