@@ -954,7 +954,9 @@
             "documentsFolder": "Папка документов",
             "programFolder": "Папка программы",
             "title": "Местные карты",
-            "uploadMapError": "Произошла ошибка при загрузке карты"
+            "uploadMapError": "Произошла ошибка при загрузке карты",
+            "mapFileSizeErrorMessage": "Размер файла карты превышает максимальный допустимый размер {{fileSize}}.",
+            "uploadMapErrorTitle": "Ошибка при загрузке карты"
         },
         "mapSelect": {
             "browseMaps": "Просмотрите карты"

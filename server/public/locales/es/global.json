@@ -766,7 +766,9 @@
             "documentsFolder": "carpeta de documentos",
             "programFolder": "Carpeta del programa",
             "title": "Mapas locales",
-            "uploadMapError": "Ocurrió un error al cargar el mapa"
+            "uploadMapError": "Ocurrió un error al cargar el mapa",
+            "mapFileSizeErrorMessage": "El tamaño del archivo del mapa excede el tamaño máximo permitido de {{fileSize}}.",
+            "uploadMapErrorTitle": "Error al subir el mapa"
         },
         "server": {
             "browseLocal": "Explorar mapas locales",

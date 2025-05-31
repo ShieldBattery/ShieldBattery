@@ -32,7 +32,8 @@
             "reveal": "显示",
             "submit": "提交",
             "close": "关闭",
-            "read": "读"
+            "read": "读",
+            "download": "下载"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -249,6 +250,12 @@
             "privacyPolicy": "隐私政策",
             "termsOfService": "服务条款",
             "faq": "常问问题"
+        },
+        "splash": {
+            "blurb": "ShieldBattery 是一个支持官方 StarCraft: Remastered 客户端的社区服务器。下载我们的启动器以获取 1v1 和团队匹配、改进的网络代码、快速重放启动等功能！",
+            "disclaimerText": "StarCraft 是暴雪娱乐公司的注册商标。ShieldBattery 完全由社区成员开发，与暴雪无关，并未获得暴雪的官方认可或支持。",
+            "gameCount": "<0></0><1>已进行的游戏</1>",
+            "subtitle": "顶级 StarCraft 1 社区平台"
         }
     },
     "auth": {
@@ -456,7 +463,9 @@
             "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
             "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。",
             "mapSelectionDescription": "选择您想要玩的地图。仅选定的地图会被选择。",
-            "unratedText": "沒有評分"
+            "unratedText": "沒有評分",
+            "goToLobby": "前往房间",
+            "lobbyDisabledText": "在房间中无法使用匹配。"
         },
         "postMatchDialog": {
             "rating": "评分",
@@ -648,7 +657,9 @@
             "noActiveLobbies": "目前没有活跃的房间",
             "noOpenLobbies": "目前没有开放的房间",
             "title": "加入房间",
-            "action": "加入房间"
+            "action": "加入房间",
+            "matchmakingActiveDialogText": "在匹配搜索进行时无法加入房间。",
+            "matchmakingActiveDialogTitle": "加入房间已禁用"
         },
         "messageLayout": {
             "kickPlayer": "<0><0></0></0>已被踢出房间",
@@ -741,7 +752,9 @@
             "documentsFolder": "文档文件夹",
             "programFolder": "程序文件夹",
             "title": "本地地图",
-            "uploadMapError": "上传地图时遇到了错误"
+            "uploadMapError": "上传地图时遇到了错误",
+            "uploadMapErrorTitle": "上传地图时出错",
+            "mapFileSizeErrorMessage": "地图文件大小超过最大允许大小 {{fileSize}}。"
         },
         "mapSelect": {
             "browseMaps": "浏览地图"
@@ -1180,5 +1193,8 @@
     "home": {
         "latestNewsTitle": "最新消息",
         "supportTitle": "支持该项目"
+    },
+    "network": {
+        "notConnectedText": "未连接"
     }
 }
