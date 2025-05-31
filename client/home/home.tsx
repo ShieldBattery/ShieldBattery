@@ -21,8 +21,17 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
 import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
+import { SplashContent } from './splash'
 
-const Root = styled(CenteredContentContainer)`
+const Root = styled.div`
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+`
+
+const GridLayout = styled(CenteredContentContainer)`
+  height: auto;
   padding-top: 24px;
 
   display: grid;
@@ -147,55 +156,65 @@ export function Home() {
   // this and show a message if it fails (currently it just hides the non-static parts)
   const [{ data }] = useQuery({ query: HomeQuery, requestPolicy: 'cache-and-network' })
 
+  const hasSplash = !IS_ELECTRON
+
   return (
-    <Root>
-      <LeftSection>
-        <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
-        <Section>
-          <SectionTitle data-test='latest-news-title'>
-            {t('home.latestNewsTitle', 'Latest news')}
-          </SectionTitle>
-          <StaticNewsFeed />
-        </Section>
-      </LeftSection>
-      <RightSection>
-        <SupportSection>
-          <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
-          <SupportIcons>
-            <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
-              <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
-                <StyledGithubIcon />
-              </a>
-            </Tooltip>
-            <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
-              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-                <StyledPatreonIcon />
-              </a>
-            </Tooltip>
-            <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
-              <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-                <StyledKofiIcon />
-              </a>
-            </Tooltip>
-          </SupportIcons>
-        </SupportSection>
-        <Section>
-          <LiveGamesHomeFeed
-            query={data}
-            title={<SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>}
-          />
-        </Section>
-        <Section>
-          <LeagueHomeFeed
-            query={data}
-            title={<SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>}
-          />
-        </Section>
-      </RightSection>
-      <BottomLinksArea>
-        <BottomLinks />
-      </BottomLinksArea>
-    </Root>
+    <>
+      <Root>
+        {hasSplash ? <SplashContent /> : null}
+        <GridLayout>
+          <LeftSection>
+            <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
+            <Section>
+              <SectionTitle data-test='latest-news-title'>
+                {t('home.latestNewsTitle', 'Latest news')}
+              </SectionTitle>
+              <StaticNewsFeed />
+            </Section>
+          </LeftSection>
+          <RightSection>
+            <SupportSection>
+              <SupportText>{t('home.supportTitle', 'Support the project')}</SupportText>
+              <SupportIcons>
+                <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
+                  <a
+                    href='https://github.com/sponsors/ShieldBattery'
+                    target='_blank'
+                    rel='noopener'>
+                    <StyledGithubIcon />
+                  </a>
+                </Tooltip>
+                <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
+                  <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+                    <StyledPatreonIcon />
+                  </a>
+                </Tooltip>
+                <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
+                  <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
+                    <StyledKofiIcon />
+                  </a>
+                </Tooltip>
+              </SupportIcons>
+            </SupportSection>
+            <Section>
+              <LiveGamesHomeFeed
+                query={data}
+                title={<SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>}
+              />
+            </Section>
+            <Section>
+              <LeagueHomeFeed
+                query={data}
+                title={<SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>}
+              />
+            </Section>
+          </RightSection>
+          <BottomLinksArea>
+            <BottomLinks />
+          </BottomLinksArea>
+        </GridLayout>
+      </Root>
+    </>
   )
 }
 

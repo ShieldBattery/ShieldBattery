@@ -251,6 +251,7 @@
       "clear": "Clear",
       "close": "Close",
       "decline": "Decline",
+      "download": "Download",
       "edit": "Edit",
       "hide": "Hide",
       "join": "Join",
@@ -427,6 +428,12 @@
       "systemRequirementsAnswer": "<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>",
       "systemRequirementsQuestion": "What are the system requirements to play on ShieldBattery?",
       "title": "Frequently Asked Questions"
+    },
+    "splash": {
+      "blurb": "ShieldBattery is a community server that supports official StarCraft: Remastered clients. Download our launcher to get access to 1v1 and team matchmaking, improved netcode, fast replay launching, and more!",
+      "disclaimerText": "StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.",
+      "gameCount": "<0></0><1>games played</1>",
+      "subtitle": "The premier StarCraft 1 community platform"
     }
   },
   "leagues": {

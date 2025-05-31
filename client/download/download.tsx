@@ -7,6 +7,7 @@ import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { bodyLarge, titleLarge } from '../styles/typography'
+import { navigateToDownload } from './download-navigate'
 
 const Blurb = styled.div`
   ${titleLarge};
@@ -84,11 +85,6 @@ const InstallerButtonLabel = styled.span`
 export function Download() {
   const { t } = useTranslation()
 
-  const onDownloadClick = () => {
-    window.fathom?.trackGoal('BCSXAXFR', 0)
-    window.location.assign(`/published_artifacts/win/ShieldBattery.latest.exe?t${Date.now()}`)
-  }
-
   return (
     <>
       <Blurb>{t('clientDownload.blurb', 'Download the ShieldBattery client to:')}</Blurb>
@@ -99,7 +95,7 @@ export function Download() {
       </BlurbList>
       <InstallerLinks>
         <FilledButton
-          onClick={onDownloadClick}
+          onClick={navigateToDownload}
           iconStart={<MaterialIcon icon='download' />}
           label={
             <InstallerButtonLabel>

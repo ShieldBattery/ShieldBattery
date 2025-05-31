@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { Link } from 'wouter'
 import { DevSection } from './debug/dev-section'
 import { DevDownload } from './download/devonly/routes'
+import { DevHome } from './home/devonly/dev-home'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
@@ -40,6 +41,7 @@ export default function Dev() {
           baseUrl='/dev'
           routes={[
             ['Download components', 'download', DevDownload],
+            ['Home components', 'home', DevHome],
             ['Ladder components', 'ladder', DevLadder],
             ['List components', 'lists', DevLists],
             ['Lobby components', 'lobbies', DevLobbies],
