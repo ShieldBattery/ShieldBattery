@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef } from 'react'
-import { useStableCallback } from '../react/state-hooks'
 
 export interface FocusTrapProps {
   children: React.ReactNode
@@ -11,13 +10,17 @@ export interface FocusTrapProps {
    * keyboard-navigable, this can be `-1`, and should probably be `0` otherwise.
    */
   focusableRef: React.RefObject<HTMLElement | null>
+  /**
+   * Whether the focus trap should steal the focus when it is mounted. Defaults to `true`.
+   */
+  focusOnMount?: boolean
 }
 
 /**
  * A component that locks focus to its children, if were to navigate past the beginning or end of
  * the children, it will be placed back at the beginning.
  */
-export function FocusTrap({ children, focusableRef }: FocusTrapProps) {
+export function FocusTrap({ children, focusableRef, focusOnMount = true }: FocusTrapProps) {
   const topRef = useRef<HTMLSpanElement>(null)
   const bottomRef = useRef<HTMLSpanElement>(null)
 
@@ -25,16 +28,17 @@ export function FocusTrap({ children, focusableRef }: FocusTrapProps) {
     focusableRef.current?.focus()
   }, [focusableRef])
 
-  const focusOnMount = useStableCallback(() => {
-    focusableRef.current?.focus()
+  useEffect(() => {
+    if (focusOnMount) {
+      focusableRef.current?.focus()
+    }
     if (
       __WEBPACK_ENV.NODE_ENV !== 'production' &&
       !focusableRef.current?.hasAttribute('tabindex')
     ) {
       throw new Error('focusableRef must have a tabIndex set')
     }
-  })
-  useEffect(focusOnMount, [focusOnMount])
+  }, [focusOnMount, focusableRef])
 
   return (
     <>

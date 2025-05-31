@@ -27,8 +27,8 @@ import {
   removeFriendRequest,
 } from './action-creators'
 import { userRelationshipErrorToString } from './relationship-errors'
-import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './sorted-user-ids'
 import { ConnectedUserContextMenu } from './user-context-menu'
+import { areUserEntriesEqual, useUserEntriesSelector } from './user-entries'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
@@ -230,9 +230,9 @@ function VirtualizedFriendsList({ height }: { height: number }) {
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendUserEntries = useAppSelector(useUserEntriesSelector(friends), areUserEntriesEqual)
   const friendsByStatus = useMemo(() => {
-    const sortedFriends = sortUserEntries(friendUserEntries)
+    const friendIds = friendUserEntries.map(([id]) => id)
     const result = new Map<FriendActivityStatus, SbUserId[]>()
-    for (const f of sortedFriends) {
+    for (const f of friendIds) {
       appendToMultimap(result, friendActivityStatus.get(f) ?? FriendActivityStatus.Offline, f)
     }
     return result
@@ -327,20 +327,26 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     useUserEntriesSelector(outgoingRequests),
     areUserEntriesEqual,
   )
-  const sortedIncoming = useMemo(() => sortUserEntries(incomingUserEntries), [incomingUserEntries])
-  const sortedOutgoing = useMemo(() => sortUserEntries(outgoingUserEntries), [outgoingUserEntries])
+  const incomingUserIds = useMemo(
+    () => incomingUserEntries.map(([id]) => id),
+    [incomingUserEntries],
+  )
+  const outgoingUserIds = useMemo(
+    () => outgoingUserEntries.map(([id]) => id),
+    [outgoingUserEntries],
+  )
 
   const rowData = useMemo((): ReadonlyArray<FriendRequestsRowData> => {
     let result: FriendRequestsRowData[] = []
-    if (sortedIncoming.length > 0) {
+    if (incomingUserIds.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
         label: t('users.friendsList.header.incoming', 'Incoming'),
-        count: sortedIncoming.length,
+        count: incomingUserIds.length,
       })
 
       result = result.concat(
-        sortedIncoming.map(userId => ({
+        incomingUserIds.map(userId => ({
           type: FriendRequestsRowType.User,
           userId,
           relationship: incomingRequests.get(userId)!,
@@ -348,15 +354,15 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
       )
     }
 
-    if (sortedOutgoing.length > 0) {
+    if (outgoingUserIds.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
         label: t('users.friendsList.header.outgoing', 'Outgoing'),
-        count: sortedOutgoing.length,
+        count: outgoingUserIds.length,
       })
 
       result = result.concat(
-        sortedOutgoing.map(userId => ({
+        outgoingUserIds.map(userId => ({
           type: FriendRequestsRowType.User,
           userId,
           relationship: outgoingRequests.get(userId)!,
@@ -365,7 +371,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     }
 
     return result
-  }, [incomingRequests, outgoingRequests, sortedIncoming, sortedOutgoing, t])
+  }, [incomingRequests, outgoingRequests, incomingUserIds, outgoingUserIds, t])
 
   const renderRow = useCallback(
     (index: number, row: FriendRequestsRowData) => {
