@@ -1,4 +1,4 @@
-import { FilesErrorCode, MAX_FILE_SIZE } from '../../common/files'
+import { DEFAULT_MAX_FILE_SIZE_BYTES, FilesErrorCode } from '../../common/files'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { fetchJson } from '../network/fetch'
 
@@ -27,7 +27,7 @@ export class ClientSideUploadError extends Error {
 export async function upload<T>(
   filePath: string,
   apiPath: string,
-  maxFileSize: number = MAX_FILE_SIZE,
+  maxFileSize: number = DEFAULT_MAX_FILE_SIZE_BYTES,
 ): Promise<T> {
   const extension = getExtension(filePath)
   const file = await ipcRenderer.invoke('fsReadFile', filePath)!

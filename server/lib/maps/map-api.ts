@@ -9,7 +9,7 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapVisibility,
-  MAX_MAP_FILE_SIZE,
+  MAX_MAP_FILE_SIZE_BYTES,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
@@ -175,7 +175,7 @@ export class MapsApi {
   @httpBefore(
     ensureLoggedIn,
     checkAllPermissions('manageMaps'),
-    handleMultipartFiles(MAX_MAP_FILE_SIZE),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
   async uploadOfficial(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
@@ -210,7 +210,7 @@ export class MapsApi {
   @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user!.id)),
-    handleMultipartFiles(MAX_MAP_FILE_SIZE),
+    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
   async upload(ctx: RouterContext): Promise<UploadMapResponse> {
     if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {

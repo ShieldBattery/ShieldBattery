@@ -8,7 +8,7 @@ import {
   GetMapDetailsResponse,
   GetMapsResponse,
   MapInfoJson,
-  MAX_MAP_FILE_SIZE,
+  MAX_MAP_FILE_SIZE_BYTES,
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
@@ -28,7 +28,7 @@ import { ClientSideUploadError, upload } from './upload'
 
 async function uploadMap(filePath: string) {
   if (IS_ELECTRON) {
-    return upload<UploadMapResponse>(filePath, apiUrl`maps`, MAX_MAP_FILE_SIZE)
+    return upload<UploadMapResponse>(filePath, apiUrl`maps`, MAX_MAP_FILE_SIZE_BYTES)
   } else {
     throw new Error('cannot upload maps on non-electron clients')
   }
@@ -52,7 +52,7 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
           if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
             message = i18n.t('maps.local.mapFileSizeErrorMessage', {
               defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
-              fileSize: prettyBytes(MAX_MAP_FILE_SIZE),
+              fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
             })
           }
         }

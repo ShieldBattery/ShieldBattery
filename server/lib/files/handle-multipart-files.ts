@@ -1,7 +1,7 @@
 import { unlink } from 'fs/promises'
 import Koa from 'koa'
 import koaBody from 'koa-body'
-import { FilesErrorCode, MAX_FILE_SIZE } from '../../../common/files'
+import { DEFAULT_MAX_FILE_SIZE_BYTES, FilesErrorCode } from '../../../common/files'
 import { asHttpError } from '../errors/error-with-payload'
 import logger from '../logging/logger'
 import { FilesError } from './files-error'
@@ -37,7 +37,7 @@ function convertFormidableError(err: Error) {
  * @param maxFileSize The maximum size a file upload can be, in bytes. Note that this is also
  * limited by nginx's client_max_body_size.
  */
-export function handleMultipartFiles(maxFileSize = MAX_FILE_SIZE) {
+export function handleMultipartFiles(maxFileSize = DEFAULT_MAX_FILE_SIZE_BYTES) {
   const bodyMiddleware = koaBody({
     multipart: true,
     formidable: {
