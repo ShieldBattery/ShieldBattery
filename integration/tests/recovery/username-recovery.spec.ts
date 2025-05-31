@@ -6,6 +6,10 @@ import { goToSignup, signupWith } from '../signup/utils'
 
 const sentEmailChecker = new SentEmailChecker()
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('recover username after signing up', async ({ context, page }) => {
   // Sign up with a new account
   await goToSignup(page)

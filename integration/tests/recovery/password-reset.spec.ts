@@ -16,6 +16,10 @@ test.beforeEach(async ({ page }) => {
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 })
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('password reset flow', async ({ context, page }) => {
   // Step 1: Sign up with a new account
   await goToSignup(page)

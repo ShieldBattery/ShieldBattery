@@ -13,6 +13,9 @@ let loginPage: LoginPage
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
 })
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
 
 test('banned user can see message', async ({ page, baseURL }) => {
   await goToSignup(page)

@@ -15,6 +15,10 @@ test.beforeEach(async ({ page }) => {
   verificationDialogPage = new EmailVerificationDialogPage(page)
 })
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('logging in with an existing account', async () => {
   const expectedChannelName = '#ShieldBattery'
 

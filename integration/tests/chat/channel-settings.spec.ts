@@ -26,6 +26,10 @@ test.beforeEach(async ({ page }) => {
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 })
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('changing channel banner', async ({ page }) => {
   if (!CHANNEL_BANNERS) {
     expect(true).toBe(true)

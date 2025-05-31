@@ -14,6 +14,10 @@ test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
 })
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('restricted names block signup', async ({ context, page }) => {
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 

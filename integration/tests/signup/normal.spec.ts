@@ -19,6 +19,10 @@ test.beforeEach(async ({ page }) => {
   verificationDialogPage = new EmailVerificationDialogPage(page)
 })
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 test('sign up and verify email in same session', async ({ page }) => {
   await goToSignup(page)
 
