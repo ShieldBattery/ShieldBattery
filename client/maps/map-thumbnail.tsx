@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { OverrideProperties, ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
+import { useIsLoggedIn } from '../auth/auth-utils'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
@@ -207,6 +208,9 @@ export function MapThumbnail({
   onRegenMapImage,
 }: MapThumbnailProps) {
   const { t } = useTranslation()
+
+  const isLoggedIn = useIsLoggedIn()
+
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -261,7 +265,7 @@ export function MapThumbnail({
           onClick={onPreview}
         />
       ) : null}
-      {onToggleFavorite ? (
+      {onToggleFavorite && isLoggedIn ? (
         <FavoriteActionIcon
           disabled={isFavoriting}
           icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
