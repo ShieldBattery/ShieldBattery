@@ -741,7 +741,6 @@
             "documentsFolder": "文档文件夹",
             "programFolder": "程序文件夹",
             "title": "本地地图",
-            "uploadError": "上传地图时遇到问题",
             "uploadMapError": "上传地图时遇到了错误"
         },
         "mapSelect": {

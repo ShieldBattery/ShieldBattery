@@ -32,7 +32,8 @@
             "reveal": "노출",
             "submit": "제출하다",
             "close": "닫다",
-            "read": "읽다"
+            "read": "읽다",
+            "download": "다운로드"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -349,6 +350,12 @@
             "privacyPolicy": "개인 정보 정책",
             "termsOfService": "서비스 약관",
             "faq": "자주 묻는 질문"
+        },
+        "splash": {
+            "blurb": "ShieldBattery는 공식 StarCraft: Remastered 클라이언트를 지원하는 커뮤니티 서버야. 우리의 런처를 다운로드하면 1v1 및 팀 매치메이킹, 개선된 넷코드, 빠른 리플레이 실행 등 다양한 기능을 이용할 수 있어!",
+            "disclaimerText": "StarCraft는 블리자드 엔터테인먼트의 등록 상표야. ShieldBattery는 블리자드와 무관하게 커뮤니티 멤버들에 의해 개발되었고, 블리자드의 공식적인 지지나 지원을 받지 않아.",
+            "gameCount": "<0></0><1>게임 수</1>",
+            "subtitle": "최고의 StarCraft 1 커뮤니티 플랫폼"
         }
     },
     "clientDownload": {
@@ -765,7 +772,6 @@
             "documentsFolder": "문서 폴더",
             "programFolder": "프로그램 폴더",
             "title": "로컬 맵",
-            "uploadError": "맵을 업로드하는 중에 문제가 발생했습니다",
             "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다"
         },
         "mapSelect": {

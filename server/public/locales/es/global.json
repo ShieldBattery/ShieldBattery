@@ -36,7 +36,8 @@
             "reveal": "Revelar",
             "submit": "Entregar",
             "close": "Cerca",
-            "read": "Leer"
+            "read": "Leer",
+            "download": "Descargar"
         },
         "lists": {
             "empty": "Nada que ver aqui"
@@ -353,6 +354,12 @@
             "termsOfService": "Términos de servicio",
             "acceptableUsePolicy": "Política de uso aceptable",
             "faq": "Preguntas frecuentes"
+        },
+        "splash": {
+            "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1v1 y en equipo, mejor netcode, lanzamiento rápido de repeticiones y más.",
+            "gameCount": "<0></0><1>partidas jugadas</1>",
+            "disclaimerText": "StarCraft es una marca registrada de Blizzard Entertainment, Inc. ShieldBattery es desarrollado únicamente por miembros de la comunidad, sin afiliación con Blizzard, y no está oficialmente respaldado ni apoyado por Blizzard.",
+            "subtitle": "La plataforma comunitaria premier de StarCraft 1"
         }
     },
     "ladder": {
@@ -759,7 +766,6 @@
             "documentsFolder": "carpeta de documentos",
             "programFolder": "Carpeta del programa",
             "title": "Mapas locales",
-            "uploadError": "Hubo un problema al cargar el mapa.",
             "uploadMapError": "Ocurrió un error al cargar el mapa"
         },
         "server": {

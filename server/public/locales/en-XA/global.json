@@ -34,7 +34,8 @@
             "reveal": "$🗡Reveal🗡!",
             "submit": "$🗡Submit🗡!",
             "close": "$🗡Close🗡!",
-            "read": "$🗡Read🗡!"
+            "read": "$🗡Read🗡!",
+            "download": "$🗡Download🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -351,6 +352,12 @@
             "title": "$🗡Frequently Asked Questions🗡!",
             "systemRequirementsAnswer": "$🗡<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>🗡!",
             "isShieldBatteryFreeAnswer": "$🗡<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>🗡!"
+        },
+        "splash": {
+            "blurb": "$🗡ShieldBattery is a community server that supports official StarCraft: Remastered clients. Download our launcher to get access to 1v1 and team matchmaking, improved netcode, fast replay launching, and more!🗡!",
+            "disclaimerText": "$🗡StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.🗡!",
+            "gameCount": "$🗡<0></0><1>games played</1>🗡!",
+            "subtitle": "$🗡The premier StarCraft 1 community platform🗡!"
         }
     },
     "clientDownload": {
@@ -754,8 +761,9 @@
             "documentsFolder": "$🗡Documents folder🗡!",
             "programFolder": "$🗡Program folder🗡!",
             "title": "$🗡Local Maps🗡!",
-            "uploadError": "$🗡There was a problem uploading the map🗡!",
-            "uploadMapError": "$🗡An error occurred while uploading the map🗡!"
+            "uploadMapError": "$🗡An error occurred while uploading the map🗡!",
+            "mapFileSizeErrorMessage": "$🗡The map's file size exceeds the maximum allowed size of {{fileSize}}.🗡!",
+            "uploadMapErrorTitle": "$🗡Error uploading the map🗡!"
         },
         "server": {
             "browseLocal": "$🗡Browse local maps🗡!",
