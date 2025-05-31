@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { IterableElement } from 'type-fest'
 import { makeLeagueId } from '../../common/leagues/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { FragmentType, graphql, useFragment } from '../gql'
@@ -51,7 +52,13 @@ export function LeagueHomeFeed({
     futureLeagues: [],
   }
 
-  const shownLeagues = activeLeagues.concat(futureLeagues).slice(0, 4)
+  const shownLeagues = (
+    activeLeagues as Array<
+      IterableElement<typeof activeLeagues> | IterableElement<typeof futureLeagues>
+    >
+  )
+    .concat(futureLeagues)
+    .slice(0, 4)
 
   return shownLeagues.length > 0 ? (
     <>
