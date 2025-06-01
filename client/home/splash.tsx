@@ -33,6 +33,8 @@ const Root = styled(CenteredContentContainer)`
 
   display: grid;
   grid-template-rows: 1fr auto;
+
+  container-type: inline-size;
 `
 
 const ContentArea = styled.div`
@@ -47,19 +49,19 @@ const Monitor = styled.img`
   height: auto;
   right: 0;
 
-  @media (max-width: 1119px) {
+  @container (max-width: 1119px) {
     width: 400px;
     top: 36px;
     right: -24px;
   }
 
-  @media (max-width: 999px) {
+  @container (max-width: 999px) {
     width: 320px;
     top: 52px;
     right: -48px;
   }
 
-  @media (max-width: 860px) {
+  @container (max-width: 860px) {
     display: none;
   }
 `
@@ -87,7 +89,7 @@ const LogoTextAndSubtitle = styled.div`
   align-items: flex-start;
   gap: 8px;
 
-  @media (max-width: 640px) {
+  @container (max-width: 640px) {
     align-items: center;
     text-align: center;
   }
@@ -104,12 +106,12 @@ const LogoLayout = styled.div`
 
   contain: content;
 
-  @media (max-width: 860px) {
+  @container (max-width: 860px) {
     margin-inline: auto;
     align-items: center;
   }
 
-  @media (max-width: 640px) {
+  @container (max-width: 640px) {
     height: auto;
     flex-direction: column;
   }
@@ -150,7 +152,7 @@ const Blurb = styled.div`
   contain: content;
   text-shadow: 0 0px 4px rgb(from var(--color-grey-blue10) r g b / 0.8);
 
-  @media (max-width: 860px) {
+  @container (max-width: 860px) {
     max-width: 556px;
     margin-inline: auto;
     margin-top: 32px;
