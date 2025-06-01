@@ -184,8 +184,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       nydus-client:
-        specifier: ^4.0.4
-        version: 4.0.4
+        specifier: ^4.0.6
+        version: 4.0.6
       pg:
         specifier: ^8.16.0
         version: 8.16.0
@@ -8724,8 +8724,8 @@ packages:
   nullthrows@1.1.1:
     resolution: {integrity: sha512-2vPPEi+Z7WqML2jZYddDIfy5Dqb0r2fze2zTxNNknZaFpVHU3mFB3R+DWeJWGVx0ecvttSGlJTI+WG+8Z4cDWw==}
 
-  nydus-client@4.0.4:
-    resolution: {integrity: sha512-aEXNiN/4eFKBw7olMIotaXdK8wvudpRngZXmh/lgySzJwd45c+9m1ddl0Hg0kODiMYh6CZxxbuyjiMkdBtF6VQ==}
+  nydus-client@4.0.6:
+    resolution: {integrity: sha512-i3HBm3Vc1CYiN/V2hPfkQRSba1v0TXGAg/gXzf5kwvxGFEkuuwPuJBmDrdF1v/vffAKiUXjkKoSXFb4mHHdFJw==}
 
   nydus-protocol@2.0.0:
     resolution: {integrity: sha512-+k7iQZI0hfFFgeIsMMDpPeLGtjU28uuu/ZQdEKR2x+lBuPRVzQ0Dvfc1kwL630OQHU/CgPlrr1j+XUYK4GLfyQ==}
@@ -21549,7 +21549,7 @@ snapshots:
 
   nullthrows@1.1.1: {}
 
-  nydus-client@4.0.4:
+  nydus-client@4.0.6:
     dependencies:
       backo2: 1.0.2
       cuid: 2.1.8

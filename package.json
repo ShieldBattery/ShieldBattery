@@ -169,7 +169,7 @@
     "mime": "^3.0.0",
     "node-interval-tree": "^2.1.2",
     "nydus": "^4.0.2",
-    "nydus-client": "^4.0.4",
+    "nydus-client": "^4.0.6",
     "pg": "^8.16.0",
     "pino": "^9.7.0",
     "pino-datadog-transport": "^3.0.6",
