@@ -10,7 +10,7 @@ import { redirectToLogin, useIsLoggedIn, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
+import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
@@ -167,9 +167,6 @@ function ConnectedLobby() {
   const selfUser = useSelfUser()
   const lobby = useAppSelector(s => s.lobby.info)
   const chat = useAppSelector(s => s.lobby.chat)
-  const isFavoritingMap = useAppSelector(s =>
-    lobby.map ? s.maps.favoriteStatusRequests.has((lobby.map as any).id) : false,
-  )
 
   const onLeaveLobbyClick = useStableCallback(() => {
     dispatch(leaveLobby())
@@ -210,16 +207,12 @@ function ConnectedLobby() {
   const onMapPreview = useStableCallback(() => {
     dispatch(openMapPreviewDialog((lobby.map as any).id))
   })
-  const onToggleFavoriteMap = useStableCallback(() => {
-    dispatch(toggleFavoriteMap(lobby.map as any))
-  })
 
   return (
     <Lobby
       lobby={lobby}
       chat={chat}
       user={selfUser!}
-      isFavoritingMap={isFavoritingMap}
       onLeaveLobbyClick={onLeaveLobbyClick}
       onAddComputer={onAddComputer}
       onSetRace={onSetRace}
@@ -233,7 +226,6 @@ function ConnectedLobby() {
       onStartGame={onStartGame}
       onSendChatMessage={onSendChatMessage}
       onMapPreview={onMapPreview}
-      onToggleFavoriteMap={onToggleFavoriteMap}
     />
   )
 }
