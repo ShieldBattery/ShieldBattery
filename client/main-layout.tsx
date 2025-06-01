@@ -49,6 +49,7 @@ import { useUserLocalStorageValue } from './react/state-hooks'
 import { useAppDispatch } from './redux-hooks'
 import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
+import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
@@ -758,16 +759,11 @@ function AppBar({
           {selfUser ? (
             <>
               <NotificationsButton icon={<ShadowedIcon icon='notifications' />} />
-              <Tooltip
-                text={t('navigation.bar.social', 'Toggle social (ALT + H)')}
-                position='bottom'
-                tabIndex={-1}>
-                <IconButton
-                  icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
-                  onClick={onToggleSocial}
-                  testName='social-sidebar-button'
-                />
-              </Tooltip>
+              <SocialSidebarButton
+                icon={<ShadowedToggleIcon icon='chat' $active={sidebarOpen} />}
+                onClick={onToggleSocial}
+                isOpen={sidebarOpen}
+              />
             </>
           ) : undefined}
         </IconButtons>

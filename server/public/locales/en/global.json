@@ -781,7 +781,6 @@
       "home": "Home",
       "play": "Play",
       "playIngame": "Game in progress",
-      "social": "Toggle social (ALT + H)",
       "userMenu": "User menu"
     },
     "copyLink": {
@@ -1061,6 +1060,7 @@
       "label": "Friends ({{friendCount}})"
     },
     "sidebar": {
+      "buttonTooltip": "Toggle social (ALT + H)",
       "pinTooltip": "Pin sidebar",
       "unpinTooltip": "Unpin sidebar"
     }

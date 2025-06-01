@@ -12,17 +12,18 @@ import { ConnectedNotificationsList } from './notifications-list'
 const ALT_N: HotkeyProp = { keyCode: keycode('n'), altKey: true }
 
 const UnreadIndicator = styled.div`
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   position: absolute;
-  left: 8px;
-  top: 12px;
+  left: 6px;
+  top: 10px;
 
   background-color: var(--color-amber80);
   border-radius: 50%;
+  border: 2px solid rgb(from var(--color-grey-blue10) r g b / 100%);
+
   pointer-events: none;
 `
-
 const ButtonContainer = styled.div`
   width: 48px;
   height: 48px;
