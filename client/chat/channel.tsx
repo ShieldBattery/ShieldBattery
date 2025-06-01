@@ -146,44 +146,53 @@ export function ConnectedChatChannel({
 
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
-  const activeUserEntries = useAppSelector(
+  const sortedActiveUserEntries = useAppSelector(
     useUserEntriesSelector(channelUsers?.active),
     areUserEntriesEqual,
   )
-  const idleUserEntries = useAppSelector(
+  const sortedIdleUserEntries = useAppSelector(
     useUserEntriesSelector(channelUsers?.idle),
     areUserEntriesEqual,
   )
-  const offlineUserEntries = useAppSelector(
+  const sortedOfflineUserEntries = useAppSelector(
     useUserEntriesSelector(channelUsers?.offline),
     areUserEntriesEqual,
   )
-  const recentChattersEntries = useAppSelector(
+  const sortedRecentChattersEntries = useAppSelector(
     useUserEntriesSelector(recentChatters),
     areUserEntriesEqual,
   )
 
   const mentionableUsers = useMemo(
     () =>
-      activeUserEntries
-        .concat(idleUserEntries)
-        .concat(offlineUserEntries)
+      sortedActiveUserEntries
+        .concat(sortedIdleUserEntries)
+        .concat(sortedOfflineUserEntries)
         .filter(([id, username]) => username !== undefined)
         .map(([id, username]) => ({ id, name: username! })),
-    [activeUserEntries, idleUserEntries, offlineUserEntries],
+    [sortedActiveUserEntries, sortedIdleUserEntries, sortedOfflineUserEntries],
   )
 
   const baseMentionableUsers = useMemo(
     () =>
-      recentChattersEntries
+      sortedRecentChattersEntries
         .filter(([id, username]) => username !== undefined)
         .map(([id, username]) => ({ id, name: username! })),
-    [recentChattersEntries],
+    [sortedRecentChattersEntries],
   )
 
-  const activeUserIds = useMemo(() => activeUserEntries.map(([id]) => id), [activeUserEntries])
-  const idleUserIds = useMemo(() => idleUserEntries.map(([id]) => id), [idleUserEntries])
-  const offlineUserIds = useMemo(() => offlineUserEntries.map(([id]) => id), [offlineUserEntries])
+  const sortedActiveUserIds = useMemo(
+    () => sortedActiveUserEntries.map(([id]) => id),
+    [sortedActiveUserEntries],
+  )
+  const sortedIdleUserIds = useMemo(
+    () => sortedIdleUserEntries.map(([id]) => id),
+    [sortedIdleUserEntries],
+  )
+  const sortedOfflineUserIds = useMemo(
+    () => sortedOfflineUserEntries.map(([id]) => id),
+    [sortedOfflineUserEntries],
+  )
 
   const prevIsInChannel = usePrevious(isInChannel)
   const prevChannelId = usePrevious(channelId)
@@ -264,7 +273,11 @@ export function ConnectedChatChannel({
               ) : undefined
             }
             extraContent={
-              <StyledUserList active={activeUserIds} idle={idleUserIds} offline={offlineUserIds} />
+              <StyledUserList
+                active={sortedActiveUserIds}
+                idle={sortedIdleUserIds}
+                offline={sortedOfflineUserIds}
+              />
             }
             UserMenu={ChannelUserMenu}
             MessageMenu={ChannelMessageMenu}

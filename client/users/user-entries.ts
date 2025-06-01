@@ -10,9 +10,7 @@ export type UserEntry = [userId: SbUserId, username: string | undefined]
  * Returns a function for use with `useAppSelector` that maps the given `userIds` to their
  * associated names. Should be used with `areUserEntriesEqual` when passed to `useAppSelector`.
  *
- * The user entries are sorted because the `areUserEntriesEqual` equality function this selector is
- * used with expects consistent/stable ordering for it to work. Additionally, we sort the users by
- * names, because that's what we mostly need when using this selector.
+ * Returns the user entries sorted alphabetically, and the sort is stable.
  *
  * @example
  * const activeUserEntries = useAppSelector(

@@ -157,9 +157,15 @@ export function AdminChannelView({
 
   // We assume everyone is active in admin view, since tracking user activity is a hassle.
   const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
-  const activeUserEntries = useAppSelector(useUserEntriesSelector(activeUsers), areUserEntriesEqual)
+  const sortedActiveUserEntries = useAppSelector(
+    useUserEntriesSelector(activeUsers),
+    areUserEntriesEqual,
+  )
 
-  const activeUserIds = useMemo(() => activeUserEntries.map(([id]) => id), [activeUserEntries])
+  const sortedActiveUserIds = useMemo(
+    () => sortedActiveUserEntries.map(([id]) => id),
+    [sortedActiveUserEntries],
+  )
 
   const getChannelMessagesAbortControllerRef = useRef<AbortController>(undefined)
 
@@ -351,7 +357,7 @@ export function AdminChannelView({
                   refreshToken={channelInfo.id}
                   MessageComponent={ChannelMessage}
                 />
-                <StyledUserList active={activeUserIds} idle={[]} offline={[]} />
+                <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
               </ChannelContainer>
             </ChatContext.Provider>
           </ChannelContext.Provider>
