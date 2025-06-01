@@ -1056,8 +1056,34 @@
       "loadingChannelsError": "Error loading chat channels",
       "loadingWhispersError": "Error loading whispers"
     },
+    "errors": {
+      "friendsList": {
+        "errorAcceptingFriendRequest": "Error accepting friend request",
+        "errorDecliningFriendRequest": "Error declining friend request",
+        "errorRemovingFriendRequest": "Error removing friend request",
+        "load": "Failed to load friends list"
+      }
+    },
     "friends": {
       "label": "Friends ({{friendCount}})"
+    },
+    "friendsList": {
+      "header": {
+        "incoming": "Incoming",
+        "offline": "Offline",
+        "online": "Online",
+        "outgoing": "Outgoing"
+      },
+      "loadingUsername": "Username loading…",
+      "tabs": {
+        "addFriends": "Add friends",
+        "friendsList": "Friends list",
+        "socialSettings": "Social settings"
+      },
+      "title": {
+        "addFriends": "Add friends",
+        "friends": "Friends"
+      }
     },
     "sidebar": {
       "buttonTooltip": "Toggle social (ALT + H)",
@@ -1123,7 +1149,6 @@
         "errorUnblockingUser": "Error unblocking user",
         "invalidSelfAction": "you cannot perform this action on yourself`",
         "limitReached": "you have reached the maximum amount of friends or blocks, please remove some to add more",
-        "load": "Failed to load friends list",
         "noMatchingEntry": "no matching entry found"
       },
       "profile": {
@@ -1132,22 +1157,7 @@
     },
     "friendsList": {
       "friendStart": "You are now friends with <2>{{user}}</2>.",
-      "header": {
-        "incoming": "Incoming",
-        "offline": "Offline",
-        "online": "Online",
-        "outgoing": "Outgoing"
-      },
-      "receivedFriendRequest": "<0>{{user}}</0> sent you a friend request.",
-      "tabs": {
-        "addFriends": "Add friends",
-        "friendsList": "Friends list",
-        "socialSettings": "Social settings"
-      },
-      "title": {
-        "addFriends": "Add friends",
-        "friends": "Friends"
-      }
+      "receivedFriendRequest": "<0>{{user}}</0> sent you a friend request."
     },
     "profile": {
       "achievements": "Achievements",

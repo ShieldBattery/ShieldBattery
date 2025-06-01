@@ -48,7 +48,7 @@ const FadedFriendSettingsIcon = styledWithAttrs(MaterialIcon, { icon: 'manage_ac
   color: var(--theme-on-surface-variant);
 `
 
-function useRelationshipsLoader() {
+export function useRelationshipsLoader() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -62,7 +62,7 @@ function useRelationshipsLoader() {
         onSuccess: () => {},
         onError: () => {
           snackbarController.showSnackbar(
-            t('users.errors.friendsList.load', 'Failed to load friends list'),
+            t('social.errors.friendsList.load', 'Failed to load friends list'),
           )
         },
       }),
@@ -146,25 +146,25 @@ export function FriendsList() {
             }}>
             <TabItem
               text={<FadedFriendsIcon />}
-              title={t('users.friendsList.tabs.friendsList', 'Friends list')}
+              title={t('social.friendsList.tabs.friendsList', 'Friends list')}
               value={FriendsListTab.List}
             />
             <TabItem
               text={<FadedFriendAddIcon />}
-              title={t('users.friendsList.tabs.addFriends', 'Add friends')}
+              title={t('social.friendsList.tabs.addFriends', 'Add friends')}
               value={FriendsListTab.Requests}
             />
             <TabItem
               text={<FadedFriendSettingsIcon />}
-              title={t('users.friendsList.tabs.socialSettings', 'Social settings')}
+              title={t('social.friendsList.tabs.socialSettings', 'Social settings')}
               value={FriendsListTab.Settings}
             />
           </Tabs>
         </FriendsListTabsContainer>
         <TitleText>
           {activeTab === FriendsListTab.Requests
-            ? t('users.friendsList.title.addFriends', 'Add friends')
-            : t('users.friendsList.title.friends', 'Friends')}
+            ? t('social.friendsList.title.addFriends', 'Add friends')
+            : t('social.friendsList.title.friends', 'Friends')}
         </TitleText>
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
       </FriendsListHeader>
@@ -247,7 +247,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     let result: FriendsListRowData[] = [
       {
         type: FriendsListRowType.Header,
-        label: t('users.friendsList.header.online', 'Online'),
+        label: t('social.friendsList.header.online', 'Online'),
         count: onlineFriends.length,
       },
     ]
@@ -260,7 +260,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     if (offlineFriends.length > 0) {
       result.push({
         type: FriendsListRowType.Header,
-        label: t('users.friendsList.header.offline', 'Offline'),
+        label: t('social.friendsList.header.offline', 'Offline'),
         count: offlineFriends.length,
       })
 
@@ -339,7 +339,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     if (sortedIncoming.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
-        label: t('users.friendsList.header.incoming', 'Incoming'),
+        label: t('social.friendsList.header.incoming', 'Incoming'),
         count: sortedIncoming.length,
       })
 
@@ -355,7 +355,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     if (sortedOutgoing.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
-        label: t('users.friendsList.header.outgoing', 'Outgoing'),
+        label: t('social.friendsList.header.outgoing', 'Outgoing'),
         count: sortedOutgoing.length,
       })
 
@@ -395,7 +395,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                           userRelationshipErrorToString(
                             err,
                             t(
-                              'users.errors.friendsList.errorRemovingFriendRequest',
+                              'social.errors.friendsList.errorRemovingFriendRequest',
                               'Error removing friend request',
                             ),
                             t,
@@ -422,7 +422,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                           userRelationshipErrorToString(
                             err,
                             t(
-                              'users.errors.friendsList.errorDecliningFriendRequest',
+                              'social.errors.friendsList.errorDecliningFriendRequest',
                               'Error declining friend request',
                             ),
                             t,
@@ -446,7 +446,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
                           userRelationshipErrorToString(
                             err,
                             t(
-                              'users.errors.friendsList.errorAcceptingFriendRequest',
+                              'social.errors.friendsList.errorAcceptingFriendRequest',
                               'Error accepting friend request',
                             ),
                             t,
@@ -564,6 +564,7 @@ function FriendEntry({
   style?: React.CSSProperties
   actions?: React.ReactNode
 }) {
+  const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(userId))
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
@@ -591,7 +592,7 @@ function FriendEntry({
         {user ? (
           <FriendEntryName>{user.name}</FriendEntryName>
         ) : (
-          <LoadingName aria-label='Username loading…' />
+          <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>
