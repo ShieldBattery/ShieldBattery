@@ -536,7 +536,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
   const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
   const { onNavigation } = useNavigationTracker()
 
-  const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays<HTMLSpanElement>({
+  const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays({
     userId,
   })
 
