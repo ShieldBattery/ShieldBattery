@@ -177,7 +177,6 @@ interface LobbyProps {
   lobby: LobbyInfo
   chat: List<SbMessage>
   user: ReadonlyDeep<SelfUser>
-  isFavoritingMap: boolean
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onAddComputer: (slotId: string) => void
@@ -190,7 +189,6 @@ interface LobbyProps {
   onMakeObserver: (slotId: string) => void
   onRemoveObserver: (slotId: string) => void
   onMapPreview: () => void
-  onToggleFavoriteMap: () => void
   onStartGame: () => void
 }
 
@@ -334,15 +332,7 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
   }
 
   override render() {
-    const {
-      lobby,
-      isFavoritingMap,
-      onLeaveLobbyClick,
-      onSendChatMessage,
-      onMapPreview,
-      onToggleFavoriteMap,
-      t,
-    } = this.props
+    const { lobby, onLeaveLobbyClick, onSendChatMessage, onMapPreview, t } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -385,8 +375,6 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
           <StyledMapThumbnail
             map={lobby.map as unknown as Immutable<MapInfoJson>}
             onPreview={onMapPreview}
-            onToggleFavorite={onToggleFavoriteMap}
-            isFavoriting={isFavoritingMap}
           />
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>

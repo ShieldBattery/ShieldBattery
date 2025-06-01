@@ -284,10 +284,10 @@ export function BrowseServerMaps({
             favoriteStatusRequests={mapsState.favoriteStatusRequests}
             onMapSelect={onMapSelect}
             onMapPreview={map => dispatch(openMapPreviewDialog(map.id))}
-            onToggleFavoriteMap={map => dispatch(toggleFavoriteMap(map))}
+            onToggleFavoriteMap={selfUser ? map => dispatch(toggleFavoriteMap(map)) : undefined}
             onMapDetails={onMapDetails}
-            onRemoveMap={map => dispatch(removeMap(map))}
-            onRegenMapImage={map => dispatch(regenMapImage(map))}
+            onRemoveMap={selfUser ? map => dispatch(removeMap(map)) : undefined}
+            onRegenMapImage={selfUser ? map => dispatch(regenMapImage(map)) : undefined}
           />
         </ImageList>
       </>

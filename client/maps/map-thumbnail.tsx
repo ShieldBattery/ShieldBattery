@@ -208,9 +208,6 @@ export function MapThumbnail({
   onRegenMapImage,
 }: MapThumbnailProps) {
   const { t } = useTranslation()
-
-  const isLoggedIn = useIsLoggedIn()
-
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -265,7 +262,7 @@ export function MapThumbnail({
           onClick={onPreview}
         />
       ) : null}
-      {onToggleFavorite && isLoggedIn ? (
+      {onToggleFavorite ? (
         <FavoriteActionIcon
           disabled={isFavoriting}
           icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
