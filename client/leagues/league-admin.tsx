@@ -47,7 +47,7 @@ import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-l
 
 const Root = styled.div`
   width: 100%;
-  max-width: 1248px;
+  max-width: 1184px;
   padding: 16px 24px;
 `
 

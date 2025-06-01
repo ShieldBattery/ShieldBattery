@@ -5,14 +5,14 @@ import styled from 'styled-components'
  * (below app bar). Content inside of it will be horizontally centered and the left edge will fall
  * on a whole pixel.
  *
- * The target width can be changed by setting the `$targetWidth` prop (defaults to `1200px`). Target
+ * The target width can be changed by setting the `$targetWidth` prop (defaults to `1184px`). Target
  * padding can be changed by settings the $targetHorizontalPadding prop (defaults to `24px`).
  */
 export const CenteredContentContainer = styled.div<{
   $targetWidth?: number
   $targetHorizontalPadding?: number
 }>`
-  --_target-width: ${props => props.$targetWidth ?? 1200}px;
+  --_target-width: ${props => props.$targetWidth ?? 1184}px;
   --_target-horizontal-padding: ${props => props.$targetHorizontalPadding ?? 24}px;
 
   /** Dumb CSS properties just to avoid needing to write out this calculation multiple times. */

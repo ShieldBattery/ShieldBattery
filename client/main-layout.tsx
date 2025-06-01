@@ -68,8 +68,8 @@ const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const SIDEBAR_WIDTH = 320
 
-if (__WEBPACK_ENV.NODE_ENV !== 'production' && CAN_PIN_WIDTH >= SIDEBAR_WIDTH + 1248) {
-  throw new Error('CAN_PIN_WIDTH must be less than SIDEBAR_WIDTH + 1248 or styles need adjusting')
+if (__WEBPACK_ENV.NODE_ENV !== 'production' && CAN_PIN_WIDTH >= SIDEBAR_WIDTH + 1176) {
+  throw new Error('CAN_PIN_WIDTH must be less than SIDEBAR_WIDTH + 1176 or styles need adjusting')
 }
 
 const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
@@ -90,7 +90,7 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
     props.$sidebarOpen && props.$sidebarPinned ? 'var(--sb-sidebar-width)' : '0'};
   --_cur-sidebar-adjustment-size: ${props =>
     props.$sidebarOpen && props.$sidebarPinned
-      ? 'calc(100dvw - 1248px - var(--sb-sidebar-width))'
+      ? 'calc(100dvw - 1176px - var(--sb-sidebar-width))'
       : '0'};
 
   @media (min-width: ${CAN_PIN_WIDTH}px) {
@@ -103,14 +103,14 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
     }};
   }
 
-  @media (min-width: ${SIDEBAR_WIDTH + 1248}px) {
+  @media (min-width: ${SIDEBAR_WIDTH + 1176}px) {
     grid-template-columns:
       var(--_cur-sidebar-adjustment-size)
       minmax(auto, 1fr)
       var(--_cur-sidebar-column-size);
   }
 
-  @media (min-width: ${SIDEBAR_WIDTH * 2 + 1248}px) {
+  @media (min-width: ${SIDEBAR_WIDTH * 2 + 1176}px) {
     grid-template-columns:
       var(--_cur-sidebar-column-size)
       minmax(auto, 1fr)
