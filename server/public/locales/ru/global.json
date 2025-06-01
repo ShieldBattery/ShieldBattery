@@ -1011,7 +1011,6 @@
                 "errorSendingFriendRequest": "Ошибка отправки запроса на добавление в друзья",
                 "invalidSelfAction": "вы не можете выполнить это действие на себе`",
                 "limitReached": "вы достигли максимального количества друзей или блоков, пожалуйста, удалите некоторых, чтобы добавить больше",
-                "load": "Не удалось загрузить список друзей",
                 "errorUnblockingUser": "Ошибка разблокировки пользователя"
             },
             "profile": {
@@ -1020,22 +1019,7 @@
         },
         "friendsList": {
             "friendStart": "Теперь вы дружите с <2>{{user}}</2>.",
-            "header": {
-                "incoming": "Входящий",
-                "offline": "Не в сети",
-                "online": "В сети",
-                "outgoing": "Исходящий"
-            },
-            "receivedFriendRequest": "<0>{{user}}</0> отправил вам запрос на добавление в друзья.",
-            "tabs": {
-                "addFriends": "Добавить друзей",
-                "friendsList": "Список друзей",
-                "socialSettings": "Социальные настройки"
-            },
-            "title": {
-                "addFriends": "Добавить друзей",
-                "friends": "Друзья"
-            }
+            "receivedFriendRequest": "<0>{{user}}</0> отправил вам запрос на добавление в друзья."
         },
         "profile": {
             "achievements": "Достижения",
@@ -1198,7 +1182,34 @@
         },
         "sidebar": {
             "pinTooltip": "Закрепить боковую панель",
-            "unpinTooltip": "Открепить боковую панель"
+            "unpinTooltip": "Открепить боковую панель",
+            "buttonTooltip": "Переключить социальные (ALT + H)"
+        },
+        "errors": {
+            "friendsList": {
+                "errorAcceptingFriendRequest": "Ошибка при принятии запроса в друзья",
+                "errorDecliningFriendRequest": "Ошибка при отклонении запроса в друзья",
+                "errorRemovingFriendRequest": "Ошибка при удалении запроса в друзья",
+                "load": "Не удалось загрузить список друзей"
+            }
+        },
+        "friendsList": {
+            "header": {
+                "incoming": "Входящие",
+                "offline": "Офлайн",
+                "outgoing": "Исходящие",
+                "online": "Онлайн"
+            },
+            "loadingUsername": "Загрузка имени пользователя…",
+            "tabs": {
+                "addFriends": "Добавить друзей",
+                "friendsList": "Список друзей",
+                "socialSettings": "Социальные настройки"
+            },
+            "title": {
+                "addFriends": "Добавить друзей",
+                "friends": "Друзья"
+            }
         }
     },
     "home": {

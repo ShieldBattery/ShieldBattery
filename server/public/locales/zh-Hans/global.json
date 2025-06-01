@@ -999,8 +999,7 @@
                 "errorDecliningFriendRequest": "拒绝好友请求时出错",
                 "errorRemovingFriend": "删除好友时出错",
                 "errorRemovingFriendRequest": "删除好友请求时出错",
-                "errorSendingFriendRequest": "发送好友请求时出错",
-                "load": "加载好友列表失败"
+                "errorSendingFriendRequest": "发送好友请求时出错"
             },
             "profile": {
                 "loadUser": "加载该用户时遇到问题。"
@@ -1008,21 +1007,6 @@
         },
         "friendsList": {
             "friendStart": "您已与<2>{{user}}</2>成为好友。",
-            "header": {
-                "incoming": "正在传入",
-                "online": "在线",
-                "outgoing": "正在传出",
-                "offline": "离线"
-            },
-            "tabs": {
-                "socialSettings": "社交设置",
-                "addFriends": "添加好友",
-                "friendsList": "好友列表"
-            },
-            "title": {
-                "addFriends": "添加好友",
-                "friends": "好友"
-            },
             "receivedFriendRequest": "<0>{{user}}</0>向您发送了好友请求。"
         },
         "profile": {
@@ -1186,7 +1170,34 @@
         },
         "sidebar": {
             "pinTooltip": "固定侧边栏",
-            "unpinTooltip": "取消固定侧边栏"
+            "unpinTooltip": "取消固定侧边栏",
+            "buttonTooltip": "切换社交 (ALT + H)"
+        },
+        "errors": {
+            "friendsList": {
+                "errorAcceptingFriendRequest": "接受好友请求时出错",
+                "errorDecliningFriendRequest": "拒绝好友请求时出错",
+                "errorRemovingFriendRequest": "删除好友请求时出错",
+                "load": "加载好友列表失败"
+            }
+        },
+        "friendsList": {
+            "header": {
+                "offline": "离线用户",
+                "incoming": "来信",
+                "online": "在线",
+                "outgoing": "发信"
+            },
+            "loadingUsername": "用户名加载中…",
+            "tabs": {
+                "addFriends": "添加好友",
+                "friendsList": "好友列表",
+                "socialSettings": "社交设置"
+            },
+            "title": {
+                "addFriends": "添加好友",
+                "friends": "好友"
+            }
         }
     },
     "home": {

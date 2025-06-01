@@ -772,7 +772,9 @@
             "documentsFolder": "문서 폴더",
             "programFolder": "프로그램 폴더",
             "title": "로컬 맵",
-            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다"
+            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다",
+            "mapFileSizeErrorMessage": "맵 파일 크기가 허용된 최대 크기 {{fileSize}}를 초과했습니다.",
+            "uploadMapErrorTitle": "맵 업로드 중 오류 발생"
         },
         "mapSelect": {
             "browseMaps": "맵 찾아보기"
@@ -954,7 +956,6 @@
                 "errorUnblockingUser": "사용자 차단을 해제하는 중에 오류가 발생했습니다",
                 "invalidSelfAction": "자신에게 이 작업을 수행할 수 없습니다.`",
                 "limitReached": "최대 친구 또는 차단 수에 도달했습니다, 더 추가하려면 일부를 제거하세요",
-                "load": "친구 목록을 로드하지 못했습니다",
                 "noMatchingEntry": "일치하는 항목이 없습니다"
             },
             "profile": {
@@ -962,22 +963,7 @@
             }
         },
         "friendsList": {
-            "tabs": {
-                "friendsList": "친구 목록",
-                "socialSettings": "소셜 설정",
-                "addFriends": "친구 추가"
-            },
-            "title": {
-                "addFriends": "친구 추가",
-                "friends": "친구"
-            },
             "friendStart": "이제 <2>{{user}}</2>와 친구가 되었습니다.",
-            "header": {
-                "incoming": "들어오는",
-                "offline": "오프라인",
-                "online": "온라인",
-                "outgoing": "나가는"
-            },
             "receivedFriendRequest": "<0>{{user}}</0>님이 친구 요청을 보냈습니다."
         },
         "profile": {
@@ -1184,7 +1170,34 @@
         },
         "sidebar": {
             "unpinTooltip": "사이드바 고정 해제하기",
-            "pinTooltip": "사이드바 고정하기"
+            "pinTooltip": "사이드바 고정하기",
+            "buttonTooltip": "소셜 토글 (ALT + H)"
+        },
+        "errors": {
+            "friendsList": {
+                "errorAcceptingFriendRequest": "친구 요청 수락 오류",
+                "load": "친구 목록 로드 실패",
+                "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다",
+                "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다"
+            }
+        },
+        "friendsList": {
+            "loadingUsername": "사용자 이름 로딩 중…",
+            "header": {
+                "incoming": "들어오는",
+                "offline": "오프라인",
+                "online": "온라인",
+                "outgoing": "나가는"
+            },
+            "tabs": {
+                "addFriends": "친구 추가",
+                "friendsList": "친구 목록",
+                "socialSettings": "소셜 설정"
+            },
+            "title": {
+                "addFriends": "친구 추가",
+                "friends": "친구"
+            }
         }
     },
     "home": {
