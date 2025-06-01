@@ -11,7 +11,8 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { titleSmall } from '../styles/typography'
-import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
+import { getBatchUserInfo } from '../users/action-creators'
+import { acceptFriendRequest, declineFriendRequest } from './action-creators'
 
 const ColoredAddIcon = styledWithAttrs(MaterialIcon, { icon: 'group_add', size: 36 })`
   flex-shrink: 0;

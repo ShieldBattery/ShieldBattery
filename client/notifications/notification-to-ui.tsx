@@ -5,7 +5,7 @@ import { PolicyUpdateNotificationUi } from '../policies/policy-update-notificati
 import {
   FriendRequestNotificationUi,
   FriendStartNotificationUi,
-} from '../users/relationship-notifications'
+} from '../social/relationship-notifications'
 
 /**
  * Returns whether we have a renderable UI for a particular notification. If we don't,

@@ -10,6 +10,7 @@ import { MatchmakingActions } from './matchmaking/actions'
 import { NetworkActions } from './network/actions'
 import { NotificationActions } from './notifications/actions'
 import { SettingsActions } from './settings/actions'
+import { SocialActions } from './social/actions'
 import { UserActions } from './users/actions'
 import { WhisperActions } from './whispers/actions'
 
@@ -26,6 +27,7 @@ type AllActions =
   | NetworkActions
   | NotificationActions
   | SettingsActions
+  | SocialActions
   | UserActions
   | WhisperActions
 

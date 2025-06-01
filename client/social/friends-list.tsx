@@ -21,16 +21,20 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import {
+  areUserEntriesEqual,
+  sortUserEntries,
+  useUserEntriesSelector,
+} from '../users/sorted-user-ids'
+import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import { useUserOverlays } from '../users/user-overlays'
+import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+import {
   acceptFriendRequest,
   declineFriendRequest,
   getRelationshipsIfNeeded,
   removeFriendRequest,
 } from './action-creators'
 import { userRelationshipErrorToString } from './relationship-errors'
-import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './sorted-user-ids'
-import { ConnectedUserContextMenu } from './user-context-menu'
-import { useUserOverlays } from './user-overlays'
-import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
 const FadedFriendsIcon = styledWithAttrs(MaterialIcon, { icon: 'group' })`
   color: var(--theme-on-surface-variant);

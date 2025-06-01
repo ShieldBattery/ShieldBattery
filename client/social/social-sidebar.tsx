@@ -37,10 +37,10 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
-import { FriendsList } from '../users/friends-list'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
+import { FriendsList } from './friends-list'
 
 /** The width the window must be greater than for pinning to be enabled. */
 export const CAN_PIN_WIDTH = 1280

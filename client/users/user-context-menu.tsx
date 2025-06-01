@@ -13,17 +13,17 @@ import { Popover, PopoverProps } from '../material/popover'
 import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { navigateToWhisper } from '../whispers/action-creators'
 import {
   acceptFriendRequest,
   blockUser,
-  navigateToUserProfile,
   removeFriend,
   removeFriendRequest,
   sendFriendRequest,
   unblockUser,
-} from './action-creators'
-import { userRelationshipErrorToString } from './relationship-errors'
+} from '../social/action-creators'
+import { userRelationshipErrorToString } from '../social/relationship-errors'
+import { navigateToWhisper } from '../whispers/action-creators'
+import { navigateToUserProfile } from './action-creators'
 
 const LoadingItem = styled(MenuItem)`
   color: var(--theme-on-surface-variant);

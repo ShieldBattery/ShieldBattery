@@ -1,8 +1,3 @@
-import {
-  FriendActivityStatusUpdateEvent,
-  GetRelationshipsResponse,
-  UserRelationshipJson,
-} from '../../common/users/relationships'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
@@ -23,10 +18,6 @@ export type UserActions =
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
-  | GetRelationships
-  | UpsertUserRelationship
-  | DeleteUserRelationship
-  | UpdateFriendActivityStatus
   | GetUserRankingHistory
 
 export interface GetUserProfile {
@@ -76,31 +67,6 @@ export interface AdminBanUser {
 export interface AdminGetUserIps {
   type: '@users/adminGetUserIps'
   payload: AdminGetUserIpsResponse
-}
-
-export interface GetRelationships {
-  type: '@users/getRelationships'
-  payload: GetRelationshipsResponse
-}
-
-export interface UpsertUserRelationship {
-  type: '@users/upsertRelationship'
-  payload: {
-    relationship: UserRelationshipJson
-  }
-  meta: { selfId: SbUserId }
-}
-
-export interface DeleteUserRelationship {
-  type: '@users/deleteRelationship'
-  payload: {
-    targetUser: SbUserId
-  }
-}
-
-export interface UpdateFriendActivityStatus {
-  type: '@users/updateFriendActivityStatus'
-  payload: FriendActivityStatusUpdateEvent
 }
 
 export type GetUserRankingHistory = {
