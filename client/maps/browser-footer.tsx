@@ -130,17 +130,33 @@ export function BrowserFooter({
   onBrowseLocalMaps,
 }: BrowserFooterProps) {
   const { t } = useTranslation()
-  const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController()
-  const [sizeMenuOpen, openSizeMenu, closeSizeMenu] = usePopoverController()
-  const [sortMenuOpen, openSortMenu, closeSortMenu] = usePopoverController()
   const [localNumPlayersFilter, updateLocalNumPlayersFilter] = useImmerState(
     () => new Set(numPlayersFilter),
   )
   const [localTilesetFilter, updateLocalTilesetFilter] = useImmerState(() => new Set(tilesetFilter))
 
-  const [filterButtonRef, filterAnchorX, filterAnchorY] = useRefAnchorPosition('right', 'bottom')
-  const [sizeRef, sizeAnchorX, sizeAnchorY] = useRefAnchorPosition('right', 'bottom')
-  const [sortMenuRef, sortAnchorX, sortAnchorY] = useRefAnchorPosition('right', 'bottom')
+  const [filterButtonRef, filterAnchorX, filterAnchorY, refreshFilterPos] = useRefAnchorPosition(
+    'right',
+    'bottom',
+  )
+  const [sizeRef, sizeAnchorX, sizeAnchorY, refreshSizePos] = useRefAnchorPosition(
+    'right',
+    'bottom',
+  )
+  const [sortMenuRef, sortAnchorX, sortAnchorY, refreshSortPos] = useRefAnchorPosition(
+    'right',
+    'bottom',
+  )
+
+  const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController({
+    refreshAnchorPos: refreshFilterPos,
+  })
+  const [sizeMenuOpen, openSizeMenu, closeSizeMenu] = usePopoverController({
+    refreshAnchorPos: refreshSizePos,
+  })
+  const [sortMenuOpen, openSortMenu, closeSortMenu] = usePopoverController({
+    refreshAnchorPos: refreshSortPos,
+  })
 
   // TODO(tec27): The overlays menus should probably return focus to the button that opens them, so
   // that keyboard navigation of this interface is reasonably possible

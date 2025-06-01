@@ -361,8 +361,10 @@ export class MapPoolEditor extends React.Component {
 }
 
 const MapPoolHistoryRow = React.memo(props => {
-  const [actionsOverlayOpen, openActionsOverlay, closeActionsOverlay] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('left', 'top')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'top')
+  const [actionsOverlayOpen, openActionsOverlay, closeActionsOverlay] = usePopoverController({
+    refreshAnchorPos,
+  })
 
   const onMapActionClick = useCallback(
     handler => {

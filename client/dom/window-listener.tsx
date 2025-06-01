@@ -70,7 +70,7 @@ export function useWindowListener<E extends string, T extends Event>(
       }
     }
 
-    window.addEventListener(event, eventHandler as any)
+    window.addEventListener(event, eventHandler as any, { passive: true })
 
     return () => {
       if (rafId) {

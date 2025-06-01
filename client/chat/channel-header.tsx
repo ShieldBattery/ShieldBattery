@@ -134,8 +134,10 @@ export function ChannelHeader({
   const user = useSelfUser()
   const selfPermissions = useSelfPermissions()
 
-  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useRefAnchorPosition('right', 'bottom')
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
+    refreshAnchorPos,
+  })
 
   const [channelTopicRef, isChannelTopicOverflowing] = useOverflowingElement()
 

@@ -207,8 +207,8 @@ export function MapThumbnail({
   onRegenMapImage,
 }: MapThumbnailProps) {
   const { t } = useTranslation()
-  const [menuOpen, openMenu, closeMenu] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   const onActionClick = useCallback(
     (handler: () => void) => {

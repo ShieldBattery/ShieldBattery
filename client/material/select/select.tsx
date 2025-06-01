@@ -200,8 +200,8 @@ export function Select({
   const [focused, setFocused] = useState(false)
   const [inputElem, setInputElem] = useState<HTMLButtonElement | null>(null)
 
-  const [opened, openSelect, closeSelect] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('center', 'bottom')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('center', 'bottom')
+  const [opened, openSelect, closeSelect] = usePopoverController({ refreshAnchorPos })
 
   const focusedRef = useValueAsRef(focused)
   const openedRef = useValueAsRef(opened)

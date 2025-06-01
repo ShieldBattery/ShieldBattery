@@ -156,8 +156,10 @@ export function ConnectedChannelInfoCard({
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
   const isAdmin = useHasAnyPermission('moderateChatChannels')
 
-  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useRefAnchorPosition('left', 'top')
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'top')
+  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
+    refreshAnchorPos,
+  })
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
   const [isUserBanned, setIsUserBanned] = useState(false)

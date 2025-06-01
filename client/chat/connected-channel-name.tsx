@@ -41,8 +41,10 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
     }
   }, [dispatch, channelId, isChannelDeleted])
 
-  const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController()
-  const [anchor, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController({
+    refreshAnchorPos,
+  })
 
   if (isChannelDeleted) {
     return <span>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>

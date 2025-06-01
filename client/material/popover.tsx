@@ -28,13 +28,23 @@ export type PopoverOpenState = Tagged<boolean, 'PopoverOpenState'>
 
 const OPENING_EVENTS = new WeakSet<Event>()
 
+export interface PopoverControllerOptions {
+  /** Whether the popover should start open. Defaults to `false`. */
+  initialIsOpen?: boolean
+  /** An optional function to call when opening that refreshes the anchor's current position. */
+  refreshAnchorPos?: () => void
+}
+
 /**
  * A hook that returns controller methods for opening and closing a popover, as well as its current
  * state.
  *
  * This hook ensures that only one popover will be triggered to open for any individual input event.
  */
-export function usePopoverController(initialIsOpen = false): [
+export function usePopoverController({
+  initialIsOpen = false,
+  refreshAnchorPos,
+}: PopoverControllerOptions = {}): [
   /** A value indicating whether the popover is open or not. */
   open: PopoverOpenState,
   /**
@@ -48,15 +58,19 @@ export function usePopoverController(initialIsOpen = false): [
 ] {
   const [open, setOpen] = useState(initialIsOpen)
 
-  const openPopover = useCallback((triggeringEvent: Event | React.SyntheticEvent) => {
-    const event = (triggeringEvent as React.SyntheticEvent).nativeEvent ?? triggeringEvent
-    if (!OPENING_EVENTS.has(event)) {
-      OPENING_EVENTS.add(event)
-      setOpen(true)
-      return true
-    }
-    return false
-  }, [])
+  const openPopover = useCallback(
+    (triggeringEvent: Event | React.SyntheticEvent) => {
+      const event = (triggeringEvent as React.SyntheticEvent).nativeEvent ?? triggeringEvent
+      if (!OPENING_EVENTS.has(event)) {
+        OPENING_EVENTS.add(event)
+        refreshAnchorPos?.()
+        setOpen(true)
+        return true
+      }
+      return false
+    },
+    [refreshAnchorPos],
+  )
   const closePopover = useCallback(() => {
     setOpen(false)
   }, [])
@@ -412,7 +426,12 @@ export function PopoverContent({
 export function useRefAnchorPosition(
   originX: OriginX,
   originY: OriginY,
-): [ref: (instance: HTMLElement | null) => void, x: number | undefined, y: number | undefined] {
+): [
+  ref: (instance: HTMLElement | null) => void,
+  x: number | undefined,
+  y: number | undefined,
+  refresh: () => void,
+] {
   const [refreshToken, refresh] = useRefreshToken()
   const [ref, rect] = useElementRect(false, refreshToken)
 
@@ -452,7 +471,7 @@ export function useRefAnchorPosition(
     }
   }
 
-  return [ref, x, y]
+  return [ref, x, y, refresh]
 }
 
 /**
@@ -471,18 +490,19 @@ export function useElemAnchorPosition(
   element: HTMLElement | null,
   originX: OriginX,
   originY: OriginY,
-): [x: number | undefined, y: number | undefined] {
-  const [ref, x, y] = useRefAnchorPosition(originX, originY)
+): [x: number | undefined, y: number | undefined, refresh: () => void] {
+  const [ref, x, y, refresh] = useRefAnchorPosition(originX, originY)
   const cleanupRef = useRef<ReturnType<React.RefCallback<HTMLElement>>>(undefined)
 
   useLayoutEffect(() => {
     if (cleanupRef.current && element === null) {
       cleanupRef.current()
       cleanupRef.current = undefined
-    } else {
-      cleanupRef.current = assignRef(ref, element)
+      return
     }
+
+    cleanupRef.current = assignRef(ref, element)
   }, [element, ref])
 
-  return [x, y]
+  return [x, y, refresh]
 }

@@ -42,8 +42,14 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   UserMenu,
 }: UserOverlaysProps): UserOverlays<E> {
   const [clickableElem, setClickableElem] = useState<E | null>(null)
-  const [anchorX, anchorY] = useElemAnchorPosition(clickableElem, profileAnchorX, profileAnchorY)
-  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
+  const [anchorX, anchorY, refreshAnchorPos] = useElemAnchorPosition(
+    clickableElem,
+    profileAnchorX,
+    profileAnchorY,
+  )
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController({
+    refreshAnchorPos,
+  })
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   return {

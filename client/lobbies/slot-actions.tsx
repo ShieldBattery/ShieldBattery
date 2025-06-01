@@ -12,8 +12,8 @@ interface SlotActionsProps {
 
 export function SlotActions({ slotActions }: SlotActionsProps) {
   const { t } = useTranslation()
-  const [overlayOpen, openOverlay, closeOverlay] = usePopoverController()
-  const [anchorRef, anchorX, anchorY] = useRefAnchorPosition('right', 'top')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [overlayOpen, openOverlay, closeOverlay] = usePopoverController({ refreshAnchorPos })
 
   const onActionClick = useCallback(
     (handler: () => void) => {
