@@ -79,11 +79,18 @@ const rootCss = css`
   overflow-x: hidden;
 `
 
-const RootPinned = styled.div`
+const RootPinned = styled.div<{ $visible: boolean }>`
   ${rootCss};
 
   position: relative;
   grid-area: sidebar;
+
+  /*
+    Ensure that shadows, etc. don't bleed into the main content area when the sidebar is not
+    visible, since when pinned it will still be rendered + have normal width even when collapsed.
+  */
+  transition: ${props => (props.$visible ? 'unset' : 'visibility 150ms linear')};
+  visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
 `
 
 const RootOverlay = styled(m.div)`
@@ -323,7 +330,7 @@ export function SocialSidebar({
 
   if (actuallyPinned) {
     return (
-      <RootPinned className={className} data-test='social-sidebar'>
+      <RootPinned className={className} $visible={visible} data-test='social-sidebar'>
         {content}
       </RootPinned>
     )
