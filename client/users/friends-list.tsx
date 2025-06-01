@@ -562,21 +562,15 @@ function FriendEntry({
 }) {
   const user = useAppSelector(s => s.users.byId.get(userId))
 
-  const {
-    clickableElemRef,
-    profileOverlayProps,
-    contextMenuProps,
-    onClick,
-    onContextMenu,
-    isOverlayOpen,
-  } = useUserOverlays<HTMLDivElement>({
-    userId,
-    profileAnchorX: 'left',
-    profileAnchorY: 'top',
-    profileOriginX: 'right',
-    profileOriginY: 'top',
-    profileOffsetX: -4,
-  })
+  const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
+    useUserOverlays({
+      userId,
+      profileAnchorX: 'left',
+      profileAnchorY: 'top',
+      profileOriginX: 'right',
+      profileOriginY: 'top',
+      profileOffsetX: -4,
+    })
 
   return (
     <div style={style}>
@@ -584,7 +578,6 @@ function FriendEntry({
       <ConnectedUserContextMenu {...contextMenuProps} />
 
       <FriendEntryRoot
-        ref={clickableElemRef}
         key='entry'
         $faded={faded}
         $isOverlayOpen={isOverlayOpen}

@@ -134,23 +134,17 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
 
-  const {
-    clickableElemRef,
-    profileOverlayProps,
-    contextMenuProps,
-    onClick,
-    onContextMenu,
-    isOverlayOpen,
-  } = useUserOverlays<HTMLDivElement>({
-    userId: props.userId,
-    profileAnchorX: 'left',
-    profileAnchorY: 'top',
-    profileOriginX: 'right',
-    profileOriginY: 'top',
-    profileOffsetX: -4,
-    filterClick,
-    UserMenu: ChannelUserMenu,
-  })
+  const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
+    useUserOverlays({
+      userId: props.userId,
+      profileAnchorX: 'left',
+      profileAnchorY: 'top',
+      profileOriginX: 'right',
+      profileOriginY: 'top',
+      profileOffsetX: -4,
+      filterClick,
+      UserMenu: ChannelUserMenu,
+    })
 
   return (
     <div style={props.style}>
@@ -158,7 +152,6 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
       <ConnectedUserContextMenu {...contextMenuProps} />
 
       <UserListEntryItem
-        ref={clickableElemRef}
         key='entry'
         $faded={!!props.faded}
         $isOverlayOpen={isOverlayOpen}

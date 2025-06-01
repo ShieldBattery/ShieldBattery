@@ -53,17 +53,16 @@ export function ConnectedUsername({
     dispatch(getBatchUserInfo(userId))
   }, [dispatch, userId])
 
-  const { clickableElemRef, profileOverlayProps, contextMenuProps, onClick, onContextMenu } =
-    useUserOverlays<HTMLSpanElement>({
-      userId,
-      profileAnchorX: 'right',
-      profileAnchorY: 'top',
-      profileOriginX: 'left',
-      profileOriginY: 'top',
-      profileOffsetX: 4,
-      filterClick,
-      UserMenu,
-    })
+  const { profileOverlayProps, contextMenuProps, onClick, onContextMenu } = useUserOverlays({
+    userId,
+    profileAnchorX: 'right',
+    profileAnchorY: 'top',
+    profileOriginX: 'left',
+    profileOriginY: 'top',
+    profileOffsetX: 4,
+    filterClick,
+    UserMenu,
+  })
 
   const username = user?.name ?? (
     <LoadingName aria-label={'Username loading…'}>
@@ -76,11 +75,7 @@ export function ConnectedUsername({
       <ConnectedUserProfileOverlay {...profileOverlayProps} />
       <ConnectedUserContextMenu {...contextMenuProps} />
 
-      <Username
-        ref={clickableElemRef}
-        className={className}
-        onClick={onClick}
-        onContextMenu={onContextMenu}>
+      <Username className={className} onClick={onClick} onContextMenu={onContextMenu}>
         {prefix}
         {username}
       </Username>

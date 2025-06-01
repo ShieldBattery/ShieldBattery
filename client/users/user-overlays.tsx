@@ -17,8 +17,7 @@ export interface UserOverlaysProps {
   UserMenu?: UserMenuComponent
 }
 
-export interface UserOverlays<E extends HTMLElement = HTMLElement> {
-  clickableElemRef: React.RefCallback<E | null>
+export interface UserOverlays {
   profileOverlayProps: ConnectedUserProfileOverlayProps
   contextMenuProps: ConnectedUserContextMenuProps
   onClick: (event: React.MouseEvent) => void
@@ -29,8 +28,10 @@ export interface UserOverlays<E extends HTMLElement = HTMLElement> {
 /**
  * Returns nodes to render various types of user overlay UIs, and event handlers to attach to
  * elements that should trigger them. These can generally be used anywhere we display a username.
+ * Overlays will be attached to whichever element the `onClick`/`onContextMenu` handlers are
+ * attached to.
  */
-export function useUserOverlays<E extends HTMLElement = HTMLElement>({
+export function useUserOverlays({
   userId,
   profileAnchorX = 'left',
   profileAnchorY = 'top',
@@ -40,22 +41,16 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetY = 0,
   filterClick,
   UserMenu,
-}: UserOverlaysProps): UserOverlays<E> {
-  const [clickableElem, setClickableElem] = useState<E | null>(null)
-  const [anchorX, anchorY, refreshAnchorPos] = useElemAnchorPosition(
-    clickableElem,
-    profileAnchorX,
-    profileAnchorY,
-  )
-  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController({
-    refreshAnchorPos,
-  })
+}: UserOverlaysProps): UserOverlays {
+  const [clickableElem, setClickableElem] = useState<HTMLElement | null>(null)
+  const [anchorX, anchorY] = useElemAnchorPosition(clickableElem, profileAnchorX, profileAnchorY)
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   return {
-    clickableElemRef: setClickableElem,
     onClick: e => {
       if (!filterClick || !filterClick(userId, e)) {
+        setClickableElem(e.currentTarget as HTMLElement)
         openProfileOverlay(e)
       }
     },
@@ -67,6 +62,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
         open: profileOverlayOpen,
         onDismiss: () => {
           closeProfileOverlay()
+          setClickableElem(null)
         },
         anchorX: (anchorX ?? 0) + profileOffsetX,
         anchorY: (anchorY ?? 0) + profileOffsetY,
