@@ -89,7 +89,7 @@ const RootPinned = styled.div<{ $visible: boolean }>`
     Ensure that shadows, etc. don't bleed into the main content area when the sidebar is not
     visible, since when pinned it will still be rendered + have normal width even when collapsed.
   */
-  transition: ${props => (props.$visible ? 'unset' : 'visibility 150ms linear')};
+  transition: ${props => (props.$visible ? 'unset' : 'visibility 200ms linear')};
   visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
 `
 
