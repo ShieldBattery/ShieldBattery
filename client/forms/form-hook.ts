@@ -288,7 +288,9 @@ export function useForm<ModelType extends Record<string, any>>(
           }
 
           if (isValid) {
-            formCallbackRegistryRef.current._triggerOnSubmit(model)
+            queueMicrotask(() => {
+              formCallbackRegistryRef.current._triggerOnSubmit(model)
+            })
           }
         })
       })
