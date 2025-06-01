@@ -914,8 +914,7 @@
             "appMenu": "메뉴",
             "home": "집",
             "play": "놀다",
-            "playIngame": "게임 진행 중",
-            "social": "소셜 토글(ALT + H)"
+            "playIngame": "게임 진행 중"
         }
     },
     "users": {

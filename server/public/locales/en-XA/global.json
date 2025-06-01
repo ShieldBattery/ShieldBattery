@@ -873,7 +873,6 @@
             "logOutErrorMessage": "$🗡Something went wrong. Please try again later.🗡!"
         },
         "bar": {
-            "social": "$🗡Toggle social (ALT + H)🗡!",
             "userMenu": "$🗡User menu🗡!",
             "play": "$🗡Play🗡!",
             "appMenu": "$🗡Menu🗡!",
