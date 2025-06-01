@@ -7,11 +7,6 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
-import {
-  areUserEntriesEqual,
-  sortUserEntries,
-  useUserEntriesSelector,
-} from '../users/sorted-user-ids'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
@@ -199,7 +194,7 @@ interface UserListProps {
   className?: string
 }
 
-const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
+export const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
   const { t } = useTranslation()
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
@@ -258,38 +253,3 @@ const UserList = React.memo(({ active, idle, offline, className }: UserListProps
     </UserListContainer>
   )
 })
-
-export function ChannelUserList({
-  active,
-  idle,
-  offline,
-  className,
-}: {
-  active?: ReadonlySet<SbUserId>
-  idle?: ReadonlySet<SbUserId>
-  offline?: ReadonlySet<SbUserId>
-  className?: string
-}) {
-  // We map the user IDs to their usernames so we can sort them by their name without pulling all of
-  // the users from the store and depending on any of their changes.
-
-  const activeUserEntries = useAppSelector(useUserEntriesSelector(active), areUserEntriesEqual)
-  const idleUserEntries = useAppSelector(useUserEntriesSelector(idle), areUserEntriesEqual)
-  const offlineUserEntries = useAppSelector(useUserEntriesSelector(offline), areUserEntriesEqual)
-
-  const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
-  const sortedIdleUsers = useMemo(() => sortUserEntries(idleUserEntries), [idleUserEntries])
-  const sortedOfflineUsers = useMemo(
-    () => sortUserEntries(offlineUserEntries),
-    [offlineUserEntries],
-  )
-
-  return (
-    <UserList
-      className={className}
-      active={sortedActiveUsers}
-      idle={sortedIdleUsers}
-      offline={sortedOfflineUsers}
-    />
-  )
-}

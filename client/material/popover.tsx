@@ -188,6 +188,11 @@ export interface PopoverProps {
    * Animation state to use when exiting
    */
   motionExit?: VariantLabels | TargetAndTransition
+
+  /**
+   * Automatically focus the popover content when it's open. Defaults to `true`.
+   */
+  focusOnMount?: boolean
 }
 
 export const DEFAULT_VARIANTS: Variants = {
@@ -218,13 +223,16 @@ export function Popover(props: PopoverProps) {
     motionInitial = 'entering',
     motionAnimate = 'visible',
     motionExit = 'exiting',
+    focusOnMount = true,
     ...restProps
   } = props
 
   const onAnimationComplete = useStableCallback((state: VariantLabels) => {
     if (state === motionAnimate && focusableRef.current) {
       window.dispatchEvent(new Event('resize'))
-      focusableRef.current.focus()
+      if (focusOnMount) {
+        focusableRef.current.focus()
+      }
     }
   })
 
@@ -233,7 +241,7 @@ export function Popover(props: PopoverProps) {
       {open && (
         <Portal onDismiss={onDismiss} open={open}>
           <KeyListenerBoundary>
-            <FocusTrap focusableRef={focusableRef}>
+            <FocusTrap focusableRef={focusableRef} focusOnMount={focusOnMount}>
               <PopoverContent
                 {...restProps}
                 onDismiss={onDismiss}

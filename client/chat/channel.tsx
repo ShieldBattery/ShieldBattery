@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -7,7 +7,9 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -16,6 +18,7 @@ import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import {
   activateChannel,
   correctChannelNameForChat,
@@ -30,7 +33,7 @@ import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
-import { ChannelUserList } from './channel-user-list'
+import { UserList } from './channel-user-list'
 import {
   BanUserMessage,
   JoinChannelMessage,
@@ -62,7 +65,7 @@ const StyledChat = styled(Chat)`
   flex-grow: 1;
 `
 
-const StyledUserList = styled(ChannelUserList)`
+const StyledUserList = styled(UserList)`
   margin-bottom: 8px;
 `
 
@@ -123,6 +126,74 @@ export function ConnectedChatChannel({
   const selfPreferences = useAppSelector(s => s.chat.idToSelfPreferences.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
+  // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
+  // chatters in the channel as an option to mention.
+  const recentChatters = useMemo(() => {
+    const chattersSet = new Set<SbUserId>()
+    const reversedMessages = channelMessages?.messages.toReversed() ?? []
+    for (const message of reversedMessages) {
+      if (chattersSet.size >= MAX_MENTIONED_USERS) {
+        break
+      }
+
+      if (message.type === ServerChatMessageType.TextMessage) {
+        chattersSet.add(message.from)
+      }
+    }
+
+    return Array.from(chattersSet)
+  }, [channelMessages])
+
+  // We map the user IDs to their usernames so we can sort them by their name without pulling all of
+  // the users from the store and depending on any of their changes.
+  const sortedActiveUserEntries = useAppSelector(
+    useUserEntriesSelector(channelUsers?.active),
+    areUserEntriesEqual,
+  )
+  const sortedIdleUserEntries = useAppSelector(
+    useUserEntriesSelector(channelUsers?.idle),
+    areUserEntriesEqual,
+  )
+  const sortedOfflineUserEntries = useAppSelector(
+    useUserEntriesSelector(channelUsers?.offline),
+    areUserEntriesEqual,
+  )
+  const sortedRecentChattersEntries = useAppSelector(
+    useUserEntriesSelector(recentChatters),
+    areUserEntriesEqual,
+  )
+
+  const mentionableUsers = useMemo(
+    () =>
+      sortedActiveUserEntries
+        .concat(sortedIdleUserEntries)
+        .concat(sortedOfflineUserEntries)
+        .filter(([id, username]) => username !== undefined)
+        .map(([id, username]) => ({ id, name: username! })),
+    [sortedActiveUserEntries, sortedIdleUserEntries, sortedOfflineUserEntries],
+  )
+
+  const baseMentionableUsers = useMemo(
+    () =>
+      sortedRecentChattersEntries
+        .filter(([id, username]) => username !== undefined)
+        .map(([id, username]) => ({ id, name: username! })),
+    [sortedRecentChattersEntries],
+  )
+
+  const sortedActiveUserIds = useMemo(
+    () => sortedActiveUserEntries.map(([id]) => id),
+    [sortedActiveUserEntries],
+  )
+  const sortedIdleUserIds = useMemo(
+    () => sortedIdleUserEntries.map(([id]) => id),
+    [sortedIdleUserEntries],
+  )
+  const sortedOfflineUserIds = useMemo(
+    () => sortedOfflineUserEntries.map(([id]) => id),
+    [sortedOfflineUserEntries],
+  )
+
   const prevIsInChannel = usePrevious(isInChannel)
   const prevChannelId = usePrevious(channelId)
   const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelId === channelId
@@ -179,6 +250,8 @@ export function ConnectedChatChannel({
             inputProps={{
               onSendChatMessage,
               storageKey: `chat.${channelId}`,
+              mentionableUsers,
+              baseMentionableUsers,
             }}
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead
@@ -201,9 +274,9 @@ export function ConnectedChatChannel({
             }
             extraContent={
               <StyledUserList
-                active={channelUsers?.active}
-                idle={channelUsers?.idle}
-                offline={channelUsers?.offline}
+                active={sortedActiveUserIds}
+                idle={sortedIdleUserIds}
+                offline={sortedOfflineUserIds}
               />
             }
             UserMenu={ChannelUserMenu}

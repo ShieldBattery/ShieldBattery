@@ -10,6 +10,8 @@ export type UserEntry = [userId: SbUserId, username: string | undefined]
  * Returns a function for use with `useAppSelector` that maps the given `userIds` to their
  * associated names. Should be used with `areUserEntriesEqual` when passed to `useAppSelector`.
  *
+ * Returns the user entries sorted alphabetically, and the sort is stable.
+ *
  * @example
  * const activeUserEntries = useAppSelector(
  *   useUserEntriesSelector(activeUserIds),
@@ -35,7 +37,18 @@ export function useUserEntriesSelector(
         id,
         state.users.byId.get(id)?.name,
       ])
-      result.sort((a, b) => a[0] - b[0])
+      result.sort(([aId, aName], [bId, bName]) => {
+        // We put any user that still hasn't loaded at the bottom of the list
+        if (aName === bName) {
+          return aId - bId
+        } else if (!aName) {
+          return 1
+        } else if (!bName) {
+          return -1
+        }
+
+        return aName.localeCompare(bName)
+      })
       return result
     },
     [userIds],
@@ -62,28 +75,4 @@ export function areUserEntriesEqual(
   }
 
   return true
-}
-
-/**
- * Sorts a list of `UserEntry`s by their username, pushing unloaded users to the end of the list.
- *
- * @example
- * const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
- */
-export function sortUserEntries(userEntries: ReadonlyArray<UserEntry>): SbUserId[] {
-  return userEntries
-    .slice()
-    .sort(([aId, aName], [bId, bName]) => {
-      // We put any user that still hasn't loaded at the bottom of the list
-      if (aName === bName) {
-        return aId - bId
-      } else if (!aName) {
-        return 1
-      } else if (!bName) {
-        return -1
-      }
-
-      return aName.localeCompare(bName)
-    })
-    .map(([userId]) => userId)
 }

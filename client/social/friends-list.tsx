@@ -20,12 +20,8 @@ import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
-import {
-  areUserEntriesEqual,
-  sortUserEntries,
-  useUserEntriesSelector,
-} from '../users/sorted-user-ids'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
@@ -232,15 +228,17 @@ function VirtualizedFriendsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const friends = useAppSelector(s => s.relationships.friends)
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
-  const friendUserEntries = useAppSelector(useUserEntriesSelector(friends), areUserEntriesEqual)
+  const sortedFriendUserEntries = useAppSelector(
+    useUserEntriesSelector(friends),
+    areUserEntriesEqual,
+  )
   const friendsByStatus = useMemo(() => {
-    const sortedFriends = sortUserEntries(friendUserEntries)
     const result = new Map<FriendActivityStatus, SbUserId[]>()
-    for (const f of sortedFriends) {
-      appendToMultimap(result, friendActivityStatus.get(f) ?? FriendActivityStatus.Offline, f)
+    for (const [id] of sortedFriendUserEntries) {
+      appendToMultimap(result, friendActivityStatus.get(id) ?? FriendActivityStatus.Offline, id)
     }
     return result
-  }, [friendUserEntries, friendActivityStatus])
+  }, [friendActivityStatus, sortedFriendUserEntries])
 
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
     const onlineFriends = friendsByStatus.get(FriendActivityStatus.Online) ?? []
@@ -323,28 +321,26 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
   const selfUser = useSelfUser()!
   const incomingRequests = useAppSelector(s => s.relationships.incomingRequests)
   const outgoingRequests = useAppSelector(s => s.relationships.outgoingRequests)
-  const incomingUserEntries = useAppSelector(
+  const sortedIncomingUserEntries = useAppSelector(
     useUserEntriesSelector(incomingRequests),
     areUserEntriesEqual,
   )
-  const outgoingUserEntries = useAppSelector(
+  const sortedOutgoingUserEntries = useAppSelector(
     useUserEntriesSelector(outgoingRequests),
     areUserEntriesEqual,
   )
-  const sortedIncoming = useMemo(() => sortUserEntries(incomingUserEntries), [incomingUserEntries])
-  const sortedOutgoing = useMemo(() => sortUserEntries(outgoingUserEntries), [outgoingUserEntries])
 
   const rowData = useMemo((): ReadonlyArray<FriendRequestsRowData> => {
     let result: FriendRequestsRowData[] = []
-    if (sortedIncoming.length > 0) {
+    if (sortedIncomingUserEntries.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
         label: t('social.friendsList.header.incoming', 'Incoming'),
-        count: sortedIncoming.length,
+        count: sortedIncomingUserEntries.length,
       })
 
       result = result.concat(
-        sortedIncoming.map(userId => ({
+        sortedIncomingUserEntries.map(([userId]) => ({
           type: FriendRequestsRowType.User,
           userId,
           relationship: incomingRequests.get(userId)!,
@@ -352,15 +348,15 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
       )
     }
 
-    if (sortedOutgoing.length > 0) {
+    if (sortedOutgoingUserEntries.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
         label: t('social.friendsList.header.outgoing', 'Outgoing'),
-        count: sortedOutgoing.length,
+        count: sortedOutgoingUserEntries.length,
       })
 
       result = result.concat(
-        sortedOutgoing.map(userId => ({
+        sortedOutgoingUserEntries.map(([userId]) => ({
           type: FriendRequestsRowType.User,
           userId,
           relationship: outgoingRequests.get(userId)!,
@@ -369,7 +365,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     }
 
     return result
-  }, [incomingRequests, outgoingRequests, sortedIncoming, sortedOutgoing, t])
+  }, [incomingRequests, outgoingRequests, sortedIncomingUserEntries, sortedOutgoingUserEntries, t])
 
   const renderRow = useCallback(
     (index: number, row: FriendRequestsRowData) => {

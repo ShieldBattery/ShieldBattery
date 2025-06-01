@@ -22,16 +22,17 @@ import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useStableCallback } from '../../react/state-hooks'
-import { useAppDispatch } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, titleLarge } from '../../styles/typography'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 import { updateChannel } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
 import { ChannelMessageMenu } from '../channel-menu-items'
-import { ChannelUserList } from '../channel-user-list'
+import { UserList } from '../channel-user-list'
 
 const CHANNEL_MESSAGES_LIMIT = 50
 
@@ -130,7 +131,7 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const StyledUserList = styled(ChannelUserList)`
+const StyledUserList = styled(UserList)`
   margin-bottom: 8px;
 `
 
@@ -153,6 +154,18 @@ export function AdminChannelView({
   const [isRemovingBadge, setIsRemovingBadge] = useState(false)
 
   const [channelUsers, setChannelUsers] = useState<SbUser[]>([])
+
+  // We assume everyone is active in admin view, since tracking user activity is a hassle.
+  const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
+  const sortedActiveUserEntries = useAppSelector(
+    useUserEntriesSelector(activeUsers),
+    areUserEntriesEqual,
+  )
+
+  const sortedActiveUserIds = useMemo(
+    () => sortedActiveUserEntries.map(([id]) => id),
+    [sortedActiveUserEntries],
+  )
 
   const getChannelMessagesAbortControllerRef = useRef<AbortController>(undefined)
 
@@ -278,9 +291,6 @@ export function AdminChannelView({
     )
   })
 
-  // We assume everyone is active in admin view, since tracking user activity is a hassle.
-  const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
-
   if (error) {
     let errorText
     if (isFetchError(error)) {
@@ -347,7 +357,7 @@ export function AdminChannelView({
                   refreshToken={channelInfo.id}
                   MessageComponent={ChannelMessage}
                 />
-                <StyledUserList active={activeUsers} />
+                <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
               </ChannelContainer>
             </ChatContext.Provider>
           </ChannelContext.Provider>
