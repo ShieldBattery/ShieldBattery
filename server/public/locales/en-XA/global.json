@@ -339,7 +339,7 @@
             "hotkeyCustomizationQuestion": "$🗡Is hotkey customization allowed or provided?🗡!",
             "isShieldBatteryFreeQuestion": "$🗡Does ShieldBattery cost anything? How can I support the project?🗡!",
             "linuxSupportAnswer": "$🗡<0>This is not currently something that we have official support for.</0><1>However, there's a community-contributed integration of ShieldBattery with Wine. Check out our <2>Discord</2> to learn how to run ShieldBattery on Wine.</1>🗡!",
-            "linuxSupportQuestion": "$🗡Does ShieldBattery work on Linux or OS X?🗡!",
+            "linuxSupportQuestion": "$🗡Does ShieldBattery work on Linux or MacOS?🗡!",
             "officialSupportAnswer": "$🗡No, ShieldBattery is a project developed by passionate community members, and has no official support or acknowledgement from Blizzard.🗡!",
             "officialSupportQuestion": "$🗡Is ShieldBattery developed with the support of Blizzard?🗡!",
             "openSourceAnswer": "$🗡<0>Yes. You can access our main repository as well as the various additional projects we've written and separated into their own repositories at our <2>GitHub page</2>.</0><1>We could always use more contributors, so if you think you can help, check it out!</1>🗡!",

@@ -44,7 +44,7 @@
         }
     },
     "settings": {
-        "close": "Cerrar configuración",
+        "close": "Cerrar configuraciones",
         "game": {
             "starcraft": {
                 "title": "Barco de estrellas",
@@ -393,9 +393,9 @@
         "andMore": "¡Y más!",
         "blurb": "Descargue el cliente ShieldBattery para:",
         "downloadClient": "Descargar cliente",
-        "playGames": "Jugar juegos",
+        "playGames": "Jugar partidas",
         "supportProjectText": "¿Quieres apoyar el proyecto?",
-        "watchReplays": "Ver repeticiones",
+        "watchReplays": "Mira repeticiones",
         "download": "Descargar",
         "onlyInApp": "Esta función solo está disponible en la aplicación."
     },
@@ -495,12 +495,12 @@
     },
     "clientUpdate": {
         "overlay": {
-            "errorBody": "Hubo un error al descargar la actualización. Reinicie y vuelva a intentarlo o visite <2>nuestro sitio web</2> para descargar la última versión.",
+            "errorBody": "Hubo un error al descargar la actualización. Reinicia y prueba de nuevo, o visita <2>nuestro sitio web</2> para descargar la última versión.",
             "errorTitle": "Error al descargar la actualización",
-            "newUpdateDownloading": "Se está descargando una nueva actualización. Espere a que se complete la descarga para continuar.",
-            "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalarse. Reinicie la aplicación para continuar.",
+            "newUpdateDownloading": "Se está descargando una nueva actualización. Por favor, espera a que se complete la descarga para continuar.",
+            "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalar. Reinicia la aplicación para continuar.",
             "noErrorTitle": "Actualización disponible",
-            "restartNow": "Reiniciar ahora",
+            "restartNow": "Reinicia ahora",
             "progress": "{{transferred}} / {{total}} a {{perSecond}}/s"
         }
     },
@@ -530,23 +530,23 @@
         "channelMenu": {
             "kickingError": "Error al patear {{user.name}}",
             "userKicked": "{{user}} fue expulsado",
-            "banAction": "Prohibir {{user}}",
+            "banAction": "Prohíbe {{user}}",
             "kickAction": "Patada {{user}}"
         },
         "channelName": {
-            "deletedChannel": "canal eliminado"
+            "deletedChannel": "canal-borrado"
         },
         "channelValidator": {
-            "pattern": "El nombre del canal contiene caracteres no válidos",
-            "required": "Introduce un nombre de canal"
+            "pattern": "El nombre del canal contiene caracteres inválidos",
+            "required": "Ingresa un nombre de canal"
         },
         "createChannel": {
             "bannedError": "Estás baneado de este canal.",
-            "channelName": "Nombre del Canal",
-            "createAction": "Crear canal",
+            "channelName": "Nombre del canal",
+            "createAction": "Crea canal",
             "defaultError": "Ocurrió un error al crear el canal.",
-            "maximumOwnedError": "Ha alcanzado el límite de canales creados. Debe abandonar un canal que haya creado antes de poder crear otro.",
-            "title": "Crear canal"
+            "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
+            "title": "Crea canal"
         },
         "events": {
             "ban": "Has sido expulsado de {{channelName}}.",
@@ -606,8 +606,8 @@
             "general": {
                 "descriptionLabel": "Descripción",
                 "topicLabel": "Tema",
-                "saveErrorMessage": "Algo salió mal al guardar la configuración.",
-                "inappropriateImageErrorMessage": "La imagen seleccionada es inapropiada. Seleccione una imagen diferente."
+                "saveErrorMessage": "Algo salió mal al guardar la configuración",
+                "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente."
             }
         },
         "whispers": {
