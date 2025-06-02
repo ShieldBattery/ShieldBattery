@@ -173,12 +173,11 @@ export function Faq() {
         <p key='p1'>
           <Trans t={t} i18nKey='landing.faq.supportedStarcraftVersionAnswer'>
             ShieldBattery supports the latest version of StarCraft: Remastered. You can download the
-            free version of StarCraft: Remastered from the official{' '}
+            free version of StarCraft: Remastered from the{' '}
             <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
-              Blizzard site
+              Battle.net launcher
             </a>
-            , or install it through the Blizzard launcher. Any purchased addons (such as HD
-            graphics) will be usable on ShieldBattery.
+            . Any purchased addons (such as HD graphics) will be usable on ShieldBattery.
           </Trans>
         </p>
       ),
