@@ -233,19 +233,19 @@
         "userErrorDisplay": {
             "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
             "genericError": "Ocurrió un error: {{errorMessage}}",
-            "invalidCredentials": "Nombre de usuario o contraseña incorrecta",
+            "invalidCredentials": "Nombre de usuario o contraseña incorrectos",
             "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
-            "noConnectionErrorMessage": "Error al conectar con el servidor. Comprueba tu conexión a Internet e inténtalo de nuevo.",
+            "noConnectionErrorMessage": "No se pudo conectar al servidor. Revisa tu conexión a internet y vuelve a intentarlo.",
             "sessionExpired": "Sesión expirada",
-            "usernameTaken": "Ya existe un usuario con ese nombre",
-            "accountBanned": "Esta cuenta ha sido prohibida.<1><0>Motivo:</0><1>{{banReason}}</1></1><2>La prohibición expirará en {{expireTime}}.</2>",
-            "banWithoutReason": "Sin motivo especificado",
+            "usernameTaken": "Ya existe un usuario con ese nombre o el nombre está restringido",
+            "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
+            "banWithoutReason": "Sin razón especificada",
             "invalidCode": "El código proporcionado es inválido. Puede que haya expirado."
         },
         "usernameValidator": {
-            "pattern": "Nombre de usuario contiene caracteres inválidos",
-            "required": "Introduzca un nombre de usuario",
-            "notAvailable": "nombre de usuario no esta disponible",
+            "pattern": "El nombre de usuario contiene caracteres inválidos",
+            "required": "Ingresa un nombre de usuario",
+            "notAvailable": "El nombre de usuario no está disponible",
             "error": "Hubo un problema al verificar la disponibilidad del nombre de usuario."
         },
         "emailValidator": {
@@ -253,7 +253,7 @@
             "required": "Introduzca una dirección de correo electrónico"
         },
         "emailVerification": {
-            "title": "Verificar correo electrónico",
+            "title": "Verifica tu correo electrónico.",
             "codeLabel": "Código de verificación",
             "codePattern": "Código inválido. Debe verse como {{example}}.",
             "codeRequired": "Ingresa tu código de verificación",
@@ -266,10 +266,10 @@
             "verify": "Verificar"
         },
         "forgot": {
-            "backToLogin": "Atrás para iniciar sesión",
+            "backToLogin": "Volver al inicio de sesión",
             "password": {
-                "sendResetEmail": "Enviar correo electrónico de restablecimiento",
-                "title": "Restablecer la contraseña",
+                "sendResetEmail": "Envía el correo de reinicio",
+                "title": "Solicitar restablecimiento de contraseña",
                 "username": "Nombre de usuario",
                 "emailAddress": "Dirección de correo electrónico",
                 "alreadyHaveCodeLink": "¿Ya tienes un código?",
@@ -278,27 +278,27 @@
             "reset": {
                 "confirmPassword": "Confirmar nueva contraseña",
                 "newPassword": "Nueva contraseña",
-                "passwordCode": "Código de restablecimiento de contraseña",
+                "passwordCode": "Código de reinicio",
                 "setNewPassword": "Establecer nueva contraseña",
                 "successMessage": "Tu contraseña ha sido restablecida.",
-                "title": "Restablecer la contraseña",
+                "title": "Restablecer contraseña",
                 "continueToLogin": "Continuar para iniciar sesión",
                 "explanationText": "Recibirás un correo con un código de reinicio. Ingresa ese código aquí junto con tu nueva contraseña."
             },
             "user": {
-                "enterEmail": "Por favor, introduzca la dirección de correo electrónico con la que se registró.",
-                "recoverUsername": "recuperar nombre de usuario",
-                "successMessage": "Si hay usuarios registrados en esa dirección de correo electrónico, debería recibir un correo electrónico en los próximos minutos con los nombres de usuario correspondientes.",
+                "enterEmail": "Ingresa la dirección de correo electrónico asociada a tu cuenta. Te enviaremos un correo con todos los nombres de usuario vinculados a esa dirección (si hay alguno).",
+                "recoverUsername": "Recuperar nombre de usuario",
+                "successMessage": "Deberías recibir un correo en breve con todos los nombres de usuario asociados a esa dirección de correo (si hay alguno).",
                 "title": "Recupera tu nombre de usuario",
                 "emailAddress": "Dirección de correo electrónico"
             }
         },
         "login": {
-            "forgotPassword": "¿Has olvidado tu contraseña?",
-            "forgotUsername": "¿Olvidó su nombre de usuario?",
-            "rememberMe": "Acuérdate de mí",
-            "title": "Acceso",
-            "logIn": "Acceso",
+            "forgotPassword": "Restablecer contraseña",
+            "forgotUsername": "Recuperar nombre de usuario",
+            "rememberMe": "Recuerdame",
+            "title": "Inicia sesión en ShieldBattery",
+            "logIn": "Iniciar sesión",
             "password": "Contraseña",
             "username": "Nombre de usuario",
             "createAccountLinkText": "¿No tienes una cuenta? <1>Crea una cuenta</1>"
@@ -307,19 +307,19 @@
             "body": "No tienes suficientes permisos para acceder a esta página."
         },
         "passwordValidator": {
-            "confirm": "Confirmar la contraseña",
-            "matching": "Introduce una contraseña que coincida",
-            "required": "Ingrese una contraseña",
-            "resetCode": "Ingrese su código de restablecimiento de contraseña",
+            "confirm": "Confirma tu contraseña",
+            "matching": "Ingresa una contraseña que coincida",
+            "required": "Ingresa una contraseña",
+            "resetCode": "Ingresa tu código de reinicio de contraseña",
             "resetCodePattern": "Código inválido. Debería verse como {{example}}."
         },
         "signup": {
-            "ageConfirmation": "Certifico que tengo 13 años de edad o más",
-            "alreadyHaveAccount": "¿Ya tienes una cuenta?",
-            "confirmPassword": "Confirmar Contraseña",
-            "createAccount": "Crear una cuenta",
-            "readAndAgree": "He leído y acepto las <2>Condiciones de servicio</2>, <4>Uso aceptable</4> y <6>Políticas de privacidad</6>",
-            "title": "Crear una cuenta",
+            "ageConfirmation": "Certifico que tengo 13 años o más",
+            "alreadyHaveAccount": "¿Ya tienes una cuenta? <1>Inicia sesión</1>",
+            "confirmPassword": "Confirma la contraseña",
+            "createAccount": "Crea cuenta",
+            "readAndAgree": "He leído y estoy de acuerdo con los <2>Términos de Servicio</2>, <5>Uso Aceptable</5> y <8>Política de Privacidad</8>",
+            "title": "Crea cuenta",
             "emailAddress": "Dirección de correo electrónico",
             "password": "Contraseña",
             "username": "Nombre de usuario"
@@ -506,22 +506,22 @@
     },
     "chat": {
         "channelInfo": {
-            "notFound": "No se pudo encontrar este canal. Es posible que no exista o que otra persona lo haya recreado.",
+            "notFound": "Este canal no se pudo encontrar. Puede que no exista o que alguien más lo haya recreado.",
             "defaultError": "Ocurrió un error: {{statusText}}",
-            "genericError": "Error al obtener la información del canal para #{{channelName}}: {{errorMessage}}"
+            "genericError": "Error al obtener info del canal para #{{channelName}}: {{errorMessage}}"
         },
         "channelInfoCard": {
             "adminView": "Vista de administrador",
             "joined": "Unido",
-            "moreActions": "Mas acciones",
+            "moreActions": "Más acciones",
             "noDescription": "Este canal no tiene descripción.",
-            "private": "Este canal es privado y requiere una invitación para unirse.",
+            "private": "Este canal es privado y necesitas una invitación para unirte.",
             "userCount_one": "{{count}} miembro",
             "userCount_many": "{{count}} de miembros",
             "userCount_other": "{{count}} miembros"
         },
         "channelList": {
-            "createChannel": "Crear canal",
+            "createChannel": "Crea canal",
             "noMatchingChannels": "No hay canales de chat coincidentes.",
             "pageHeadline": "Canales de chat",
             "retrievingError": "Hubo un error al recuperar los canales de chat.",
@@ -566,18 +566,18 @@
             "selfJoinChannel": "Te uniste a <2><0></0></2>"
         },
         "banUser": {
-            "banAction": "Prohibir {{user}}",
-            "banReason": "Motivo de la prohibición (opcional)",
-            "dialogTitle": "¿Prohibir {{user}}?",
-            "successMessage": "{{user}} fue prohibido"
+            "banAction": "Prohíbe {{user}}",
+            "banReason": "Razón de baneo (opcional)",
+            "dialogTitle": "¿Banear {{user}}?",
+            "successMessage": "{{user}} fue baneado"
         },
         "banUserErrorDisplay": {
             "defaultError": "Ocurrió un error: {{statusText}}",
-            "genericError": "Error al prohibir {{user}}: {{errorMessage}}",
+            "genericError": "Error al banear {{user}}: {{errorMessage}}",
             "moderateChannelModerator": "No puedes banear a otro moderador",
             "moderateChannelOwner": "No puedes banear al dueño del canal",
-            "noPermissions": "No tienes suficientes permisos para prohibir a este usuario",
-            "notInChannel": "El usuario que intentas prohibir no está en este canal."
+            "noPermissions": "No tienes suficientes permisos para banear a este usuario",
+            "notInChannel": "El usuario que intentas banear no está en este canal"
         },
         "messageMenu": {
             "deleteError": "Mensaje de error al eliminar",
@@ -597,9 +597,9 @@
                 "channelSettings": "Configuración del canal",
                 "hideBanner": "Ocultar banner"
             },
-            "moreActions": "Mas acciones",
+            "moreActions": "Más acciones",
             "errors": {
-                "toggleBannerVisibility": "Algo salió mal al alternar la visibilidad del banner."
+                "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
             }
         },
         "channelSettings": {
@@ -1156,12 +1156,12 @@
     },
     "bugReport": {
         "details": "Detalles",
-        "detailsDescription": "Describa el error y proporcione tantos detalles como sea posible sobre lo que estaba haciendo cuando se produjo el error.",
-        "detailsRequired": "Los informes de errores deben incluir detalles.",
+        "detailsDescription": "Por favor, describe el bug y proporciona tantos detalles como sea posible sobre lo que estabas haciendo cuando ocurrió el bug.",
+        "detailsRequired": "Los reportes de bugs deben incluir detalles.",
         "error": "Error: {{errorMessage}}",
-        "logUploadDescription": "Su informe de error incluirá registros de ShieldBattery de su máquina para ayudar a diagnosticar el problema. Los registros se pueden conservar hasta por 30 días y solo el personal de ShieldBattery puede verlos.",
-        "reportSubmitted": "Informe de error enviado.",
-        "title": "Reportar un error"
+        "logUploadDescription": "Tu reporte de errores incluirá los registros de ShieldBattery de tu máquina para ayudar a diagnosticar el problema. Los registros pueden mantenerse por hasta 30 días y solo son visibles para el personal de ShieldBattery.",
+        "reportSubmitted": "Informe de errores enviado.",
+        "title": "Reporta un bug"
     },
     "social": {
         "chat": {

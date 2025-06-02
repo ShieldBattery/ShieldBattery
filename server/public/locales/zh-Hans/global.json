@@ -264,7 +264,7 @@
             "required": "请输入电子邮箱地址"
         },
         "emailVerification": {
-            "title": "验证邮箱",
+            "title": "验证你的邮箱",
             "explanation": "你的邮箱地址尚未验证。验证邮箱有助于保护你的账户安全，并在你忘记登录信息时提供帮助。",
             "instructions": "输入发送到<2>{{email}}</2>的验证码。",
             "resend": "重新发送邮件",
@@ -277,10 +277,10 @@
             "codeRequired": "输入你的验证码"
         },
         "login": {
-            "forgotPassword": "忘了密码？",
-            "forgotUsername": "忘了用户名？",
+            "forgotPassword": "重置密码",
+            "forgotUsername": "找回用户名",
             "rememberMe": "自动登录",
-            "title": "登录",
+            "title": "登录到ShieldBattery",
             "logIn": "登录",
             "password": "密码",
             "username": "用户名",
@@ -299,13 +299,13 @@
         "signup": {
             "title": "创建账号",
             "ageConfirmation": "我证明我已年满13岁",
-            "alreadyHaveAccount": "已有账号？",
+            "alreadyHaveAccount": "已经有账号了？<1>登录</1>",
             "confirmPassword": "确认密码",
             "createAccount": "创建账号",
             "emailAddress": "电子邮箱地址",
             "password": "密码",
             "username": "用户名",
-            "readAndAgree": "我已阅读并接受<2>服务条款</2>、<4>可接受的使用</4>和<6>隐私</6>政策"
+            "readAndAgree": "我已阅读并同意<2>服务条款</2>、<5>可接受使用</5>和<8>隐私</8>政策"
         },
         "userErrorDisplay": {
             "accountBanned": "此账号已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>账号将于{{expireTime}}解封。</2>",
@@ -316,14 +316,14 @@
             "machineBanned": "您的机器被禁止注册新帐号。",
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
             "sessionExpired": "会话已过期",
-            "usernameTaken": "该用户名已被注册",
+            "usernameTaken": "该用户名已被使用或该名称受限",
             "invalidCode": "提供的代码无效。可能已经过期。"
         },
         "forgot": {
             "backToLogin": "返回登录界面",
             "password": {
                 "sendResetEmail": "发送邮件以重置密码",
-                "title": "重置密码",
+                "title": "请求重置密码",
                 "emailAddress": "电子邮箱",
                 "username": "用户名",
                 "alreadyHaveCodeLink": "已经有代码了吗？",
@@ -332,7 +332,7 @@
             "reset": {
                 "confirmPassword": "确认新密码",
                 "newPassword": "新的密码",
-                "passwordCode": "密码重置验证码",
+                "passwordCode": "重置代码",
                 "setNewPassword": "设置新密码",
                 "successMessage": "您的密码已经重置。",
                 "title": "重置密码",
@@ -340,9 +340,9 @@
                 "explanationText": "您将收到一封包含重置代码的电子邮件。请在这里输入该代码和您的新密码。"
             },
             "user": {
-                "enterEmail": "请输入您注册时使用的电子邮箱。",
+                "enterEmail": "请输入与您的账户关联的电子邮件地址。我们会向该邮箱发送一封邮件，里面包含所有与该邮箱关联的用户名（如果有的话）。",
                 "recoverUsername": "找回用户名",
-                "successMessage": "如果有任何用户使用该电子邮箱注册，您应该会在几分钟内收到一封电子邮件，其中包含绑定该邮箱的用户名。",
+                "successMessage": "你很快会收到一封邮件，里面有与该邮箱地址相关的所有用户名（如果有的话）。",
                 "title": "找回您的用户名",
                 "emailAddress": "电子邮箱"
             }
@@ -709,7 +709,7 @@
             "started": "房间已经开始游戏。"
         },
         "activity": {
-            "title": "房间"
+            "title": "房间 ({{lobbyCount}})"
         },
         "createLobby": {
             "backToList": "返回列表",
