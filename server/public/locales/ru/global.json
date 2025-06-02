@@ -761,18 +761,18 @@
     },
     "chat": {
         "banUser": {
-            "dialogTitle": "Запретить {{user}}?",
+            "dialogTitle": "Забанить {{user}}?",
             "successMessage": "{{user}} был забанен",
-            "banAction": "Бан {{user}}",
-            "banReason": "Причина бана (необязательно)"
+            "banAction": "Забаньте {{user}}",
+            "banReason": "Причина бана (по желанию)"
         },
         "banUserErrorDisplay": {
             "defaultError": "Произошла ошибка: {{statusText}}",
-            "genericError": "Ошибка блокировки {{user}}: {{errorMessage}}",
-            "moderateChannelModerator": "Вы не можете забанить другого модератора",
-            "moderateChannelOwner": "Вы не можете забанить владельца канала",
-            "noPermissions": "У вас недостаточно прав, чтобы заблокировать этого пользователя",
-            "notInChannel": "Пользователь, которого вы пытаетесь заблокировать, не находится на этом канале."
+            "genericError": "Ошибка бана {{user}}: {{errorMessage}}",
+            "moderateChannelModerator": "Ты не можешь забанить другого модератора",
+            "moderateChannelOwner": "Ты не можешь забанить владельца канала",
+            "noPermissions": "У тебя недостаточно прав, чтобы забанить этого пользователя",
+            "notInChannel": "Пользователь, которого ты пытаешься забанить, не в этом канале"
         },
         "events": {
             "kick": "Вас исключили из {{channelName}}.",
@@ -780,14 +780,14 @@
         },
         "channelInfo": {
             "defaultError": "Произошла ошибка: {{statusText}}",
-            "genericError": "Ошибка получения информации о канале для #{{channelName}}: {{errorMessage}}",
-            "notFound": "Этот канал не может быть найден. Его может не быть, или он может быть воссоздан кем-то другим."
+            "genericError": "Ошибка получения информации о канале #{{channelName}}: {{errorMessage}}",
+            "notFound": "Этот канал не найден. Возможно, его не существует, или его мог создать кто-то другой."
         },
         "channelInfoCard": {
             "joined": "Присоединился",
             "moreActions": "Больше действий",
             "noDescription": "У этого канала нет описания.",
-            "private": "Этот канал является частным и требует приглашения для присоединения.",
+            "private": "Этот канал приватный, для входа требуется приглашение.",
             "userCount_one": "{{count}} участник",
             "userCount_few": "{{count}} участника",
             "userCount_many": "{{count}} участников",
@@ -795,15 +795,15 @@
         },
         "channelList": {
             "createChannel": "Создать канал",
-            "noMatchingChannels": "Нет подходящих каналов чата.",
-            "pageHeadline": "Каналы чата",
-            "retrievingError": "При получении каналов чата произошла ошибка.",
+            "noMatchingChannels": "Нет подходящих чатов.",
+            "pageHeadline": "Чат-каналы",
+            "retrievingError": "Произошла ошибка при получении каналов чата.",
             "browseChannels": "Просмотр каналов"
         },
         "channelMenu": {
-            "banAction": "Бан {{user}}",
-            "kickAction": "Удар {{user}}",
-            "kickingError": "Ошибка удаления {{user.name}}",
+            "banAction": "Забанить {{user}}",
+            "kickAction": "Кик {{user}}",
+            "kickingError": "Ошибка при кике {{user.name}}",
             "userKicked": "{{user}} был выгнан"
         },
         "channelName": {
@@ -848,13 +848,13 @@
         },
         "channelHeader": {
             "actionItems": {
-                "leaveChannel": "Покинуть канал",
+                "leaveChannel": "Покинь канал",
                 "channelSettings": "Настройки канала",
                 "hideBanner": "Скрыть баннер"
             },
             "moreActions": "Больше действий",
             "errors": {
-                "toggleBannerVisibility": "Что-то пошло не так при переключении видимости баннера"
+                "toggleBannerVisibility": "Что-то пошло не так с переключением видимости баннера"
             }
         },
         "channelSettings": {
@@ -1156,11 +1156,11 @@
     },
     "bugReport": {
         "details": "Подробности",
-        "detailsDescription": "Пожалуйста, опишите ошибку и предоставьте как можно больше подробностей о том, что вы делали, когда ошибка произошла.",
+        "detailsDescription": "Опиши баг и дай как можно больше деталей о том, что ты делал, когда он произошёл.",
         "error": "Ошибка: {{errorMessage}}",
-        "detailsRequired": "Отчеты об ошибках должны содержать подробности.",
-        "logUploadDescription": "В отчет об ошибке будут включены журналы ShieldBattery с вашего компьютера, которые помогут диагностировать проблему. Журналы могут храниться до 30 дней и доступны для просмотра только сотрудникам ShieldBattery.",
-        "reportSubmitted": "Отчет об ошибке отправлен.",
+        "detailsRequired": "Баги нужно описывать с деталями.",
+        "logUploadDescription": "Ваш отчет об ошибке будет включать логи ShieldBattery с вашего устройства для диагностики проблемы. Логи могут храниться до 30 дней и доступны только сотрудникам ShieldBattery.",
+        "reportSubmitted": "Баг-репорт отправлен.",
         "title": "Сообщить об ошибке"
     },
     "games": {

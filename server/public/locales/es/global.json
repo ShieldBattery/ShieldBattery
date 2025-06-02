@@ -12,35 +12,35 @@
         },
         "actions": {
             "cancel": "Cancelar",
-            "okay": "Bueno",
-            "save": "Ahorrar",
-            "join": "Unirse",
-            "view": "Vista",
+            "okay": "Aceptar",
+            "save": "Guardar",
+            "join": "Únete",
+            "view": "Ver",
             "hide": "Esconder",
             "refresh": "Actualizar",
             "search": "Buscar",
-            "show": "Espectáculo",
+            "show": "Mostrar",
             "apply": "Aplicar",
             "remove": "Eliminar",
             "previous": "Anterior",
-            "next": "Próximo",
+            "next": "Siguiente",
             "clear": "Claro",
             "start": "Comenzar",
             "decline": "Rechazar",
             "accept": "Aceptar",
             "block": "Bloquear",
-            "unblock": "Desatascar",
-            "stop": "Detener",
+            "unblock": "Desbloquear",
+            "stop": "Para",
             "test": "Prueba",
             "edit": "Editar",
             "reveal": "Revelar",
-            "submit": "Entregar",
+            "submit": "Enviar",
             "close": "Cerca",
             "read": "Leer",
             "download": "Descargar"
         },
         "lists": {
-            "empty": "Nada que ver aqui"
+            "empty": "Nada que ver aquí"
         }
     },
     "settings": {
@@ -400,8 +400,8 @@
         "onlyInApp": "Esta función solo está disponible en la aplicación."
     },
     "comingSoon": {
-        "subtitle": "Ayude a financiar el desarrollo de ShieldBattery",
-        "headline": "¡Esta característica estará disponible en breve!"
+        "subtitle": "Ayuda a financiar el desarrollo de ShieldBattery",
+        "headline": "¡Esta función llegará pronto!"
     },
     "matchmaking": {
         "division": {
@@ -549,21 +549,21 @@
             "title": "Crea canal"
         },
         "events": {
-            "ban": "Has sido expulsado de {{channelName}}.",
-            "kick": "Te han expulsado de {{channelName}}."
+            "ban": "Has sido baneado de {{channelName}}.",
+            "kick": "Has sido expulsado de {{channelName}}."
         },
         "joinChannel": {
-            "bannedError": "Tienes baneado de #{{channelName}}",
-            "genericError": "Ocurrió un error al unirse a #{{channelName}}",
-            "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes dejar uno antes de poder unirte a otro."
+            "bannedError": "Estás baneado de #{{channelName}}",
+            "genericError": "Ocurrió un error al unirte a #{{channelName}}",
+            "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
         },
         "messageLayout": {
-            "banUser": "<0><0></0></0> ha sido expulsado del canal",
+            "banUser": "<0><0></0></0> ha sido baneado del canal",
             "joinChannel": "<0><0></0></0> se ha unido al canal",
             "kickUser": "<0><0></0></0> ha sido expulsado del canal",
-            "leaveChannel": "<0><0></0></0> ha abandonado el canal",
-            "newChannelOwner": "<0><0></0></0> es el nuevo propietario del canal",
-            "selfJoinChannel": "Te uniste a <2><0></0></2>"
+            "leaveChannel": "<0><0></0></0> ha salido del canal",
+            "newChannelOwner": "<0><0></0></0> es el nuevo dueño del canal",
+            "selfJoinChannel": "Te uniste <2><0></0></2>"
         },
         "banUser": {
             "banAction": "Prohíbe {{user}}",
@@ -580,11 +580,11 @@
             "notInChannel": "El usuario que intentas banear no está en este canal"
         },
         "messageMenu": {
-            "deleteError": "Mensaje de error al eliminar",
-            "messageDeleted": "Mensaje borrado"
+            "deleteError": "Error al eliminar el mensaje",
+            "messageDeleted": "Mensaje eliminado"
         },
         "navEntry": {
-            "leaveChannel": "Abandonar canal"
+            "leaveChannel": "Salir del canal"
         },
         "userList": {
             "active": "Activo",
