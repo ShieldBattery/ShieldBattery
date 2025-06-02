@@ -314,7 +314,7 @@ export function Faq() {
       ),
     },
     {
-      question: t('landing.faq.linuxSupportQuestion', 'Does ShieldBattery work on Linux or OS X?'),
+      question: t('landing.faq.linuxSupportQuestion', 'Does ShieldBattery work on Linux or MacOS?'),
       answer: (
         <Trans t={t} i18nKey='landing.faq.linuxSupportAnswer'>
           <p key='p1'>This is not currently something that we have official support for.</p>
