@@ -2,13 +2,13 @@
     "common": {
         "validators": {
             "required": "Requerido",
-            "maxLength_one": "Ingrese como máximo el carácter {{count}}",
-            "maxLength_many": "Ingrese como máximo {{count}} de caracteres",
-            "maxLength_other": "Ingrese como máximo {{count}} caracteres",
-            "minLength_one": "Ingrese al menos el carácter {{count}}",
-            "minLength_many": "Ingrese al menos {{count}} de caracteres",
-            "minLength_other": "Ingrese al menos {{count}} caracteres",
-            "validatorError": "Se produjo un error desconocido al validar este campo"
+            "maxLength_one": "Introduce como máximo {{count}} carácter",
+            "maxLength_many": "Introduce como máximo {{count}} de caracteres",
+            "maxLength_other": "Introduce como máximo {{count}} caracteres",
+            "minLength_one": "Introduce al menos {{count}} carácter",
+            "minLength_many": "Introduce al menos {{count}} de caracteres",
+            "minLength_other": "Introduce al menos {{count}} caracteres",
+            "validatorError": "Ocurrió un error desconocido al validar este campo"
         },
         "actions": {
             "cancel": "Cancelar",
@@ -246,23 +246,23 @@
             "pattern": "El nombre de usuario contiene caracteres inválidos",
             "required": "Ingresa un nombre de usuario",
             "notAvailable": "El nombre de usuario no está disponible",
-            "error": "Hubo un problema al verificar la disponibilidad del nombre de usuario."
+            "error": "Hubo un problema al verificar la disponibilidad del nombre de usuario"
         },
         "emailValidator": {
-            "pattern": "Introduzca una dirección de correo electrónico válida",
-            "required": "Introduzca una dirección de correo electrónico"
+            "pattern": "Ingresa una dirección de correo electrónico válida",
+            "required": "Ingresa una dirección de correo electrónico"
         },
         "emailVerification": {
             "title": "Verifica tu correo electrónico.",
             "codeLabel": "Código de verificación",
-            "codePattern": "Código inválido. Debe verse como {{example}}.",
+            "codePattern": "Código inválido. Debería verse como {{example}}.",
             "codeRequired": "Ingresa tu código de verificación",
-            "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
+            "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo nos ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
             "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
-            "resend": "Reenviar correo",
+            "resend": "Reenvía el correo",
             "resendText": "¿No ves el correo?",
             "resent": "¡Correo de verificación reenviado!",
-            "submitError": "Hubo un problema al verificar tu correo. Por favor, intenta de nuevo más tarde.",
+            "submitError": "Hubo un problema al verificar tu correo. Intenta de nuevo más tarde.",
             "verify": "Verificar"
         },
         "forgot": {
@@ -273,7 +273,7 @@
                 "username": "Nombre de usuario",
                 "emailAddress": "Dirección de correo electrónico",
                 "alreadyHaveCodeLink": "¿Ya tienes un código?",
-                "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para establecer una nueva contraseña."
+                "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para que pongas una nueva contraseña."
             },
             "reset": {
                 "confirmPassword": "Confirmar nueva contraseña",
@@ -282,7 +282,7 @@
                 "setNewPassword": "Establecer nueva contraseña",
                 "successMessage": "Tu contraseña ha sido restablecida.",
                 "title": "Restablecer contraseña",
-                "continueToLogin": "Continuar para iniciar sesión",
+                "continueToLogin": "Continúa para iniciar sesión",
                 "explanationText": "Recibirás un correo con un código de reinicio. Ingresa ese código aquí junto con tu nueva contraseña."
             },
             "user": {
@@ -331,29 +331,29 @@
     },
     "landing": {
         "faq": {
-            "hotkeyCustomizationAnswer": "Sí, admitimos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas de acceso rápido. Si desea utilizar teclas de acceso rápido personalizadas, inicie StarCraft: Remastered a través del lanzador de Blizzard y personalícelas allí primero. Después de hacerlo, los lanzamientos futuros a través de ShieldBattery usarán esas teclas de acceso rápido.",
+            "hotkeyCustomizationAnswer": "Sí, soportamos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas. Si quieres usar teclas personalizadas, lanza StarCraft: Remastered a través del lanzador de Blizzard y personalízalas allí primero. Después de hacerlo, los futuros lanzamientos a través de ShieldBattery usarán esas teclas.",
             "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
             "isShieldBatteryFreeQuestion": "¿ShieldBattery cuesta algo? ¿Cómo puedo apoyar el proyecto?",
-            "linuxSupportAnswer": "<0>Actualmente, esto no es algo para lo que tengamos soporte oficial.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine aportada por la comunidad. Consulta nuestro <2>Discord</2> para aprender a ejecutar ShieldBattery en Wine.</1>",
-            "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por apasionados miembros de la comunidad y no cuenta con el apoyo o reconocimiento oficial de Blizzard.",
-            "officialSupportQuestion": "¿ShieldBattery está desarrollado con el apoyo de Blizzard?",
-            "openSourceAnswer": "<0>Sí. Puede acceder a nuestro repositorio principal, así como a los diversos proyectos adicionales que hemos escrito y separado en sus propios repositorios en nuestra <2>página de GitHub</2>.</0><1>Siempre podríamos usar más colaboradores, así que si crees que puedes ayudar, ¡échale un vistazo!</1>",
+            "linuxSupportAnswer": "<0>Esto no es algo que tengamos soporte oficial en este momento.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine hecha por la comunidad. Mira nuestro <2>Discord</2> para aprender a usar ShieldBattery en Wine.</1>",
+            "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por miembros apasionados de la comunidad y no cuenta con apoyo ni reconocimiento oficial de Blizzard.",
+            "officialSupportQuestion": "¿Se desarrolló ShieldBattery con el apoyo de Blizzard?",
+            "openSourceAnswer": "<0>Sí. Puedes acceder a nuestro repositorio principal y a los diferentes proyectos adicionales que hemos escrito y separado en sus propios repositorios en nuestra <2>página de GitHub</2>.</0><1>Siempre necesitamos más colaboradores, así que si crees que puedes ayudar, ¡échale un vistazo!</1>",
             "openSourceQuestion": "¿El proyecto es de código abierto?",
-            "reportIssuesAnswer": "La forma más fácil de informar errores o problemas es a través de nuestro <2>Discord</2>. Si se siente cómodo haciéndolo, también puede presentar problemas en nuestro <5>GitHub</5>.",
+            "reportIssuesAnswer": "La forma más fácil de reportar bugs o problemas es a través de nuestro <2>Discord</2>. Si te sientes cómodo haciéndolo, también puedes reportar problemas en nuestro <5>GitHub</5>.",
             "reportIssuesQuestion": "¿Cómo puedo reportar errores o problemas?",
             "supportedStarcraftVersionAnswer": "ShieldBattery es compatible con la última versión de StarCraft: Remastered. Puedes descargar la versión gratuita de StarCraft: Remastered desde el <2>sitio oficial de Blizzard</2>, o instalarla a través del lanzador de Blizzard. Cualquier complemento comprado (como gráficos HD) se podrá usar en ShieldBattery.",
-            "supportedStarcraftVersionQuestion": "¿Qué versión de StarCraft admite ShieldBattery?",
-            "systemRequirementsAnswer": "<0>Los requisitos de nuestro sistema se basan principalmente en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o posterior</0><1 >2 GB de RAM</1><2>NVIDIA GeForce 6800 (256 MB) o ATI Radeon X1600 Pro (256 MB) o superior</2><3>Una instalación de StarCraft: Remastered, parcheada a la última versión</3></ 1>",
+            "supportedStarcraftVersionQuestion": "¿Qué versión de StarCraft soporta ShieldBattery?",
+            "systemRequirementsAnswer": "<0>Nuestros requisitos del sistema están principalmente basados en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o superior</0><1>2GB de RAM</1><2>NVIDIA GeForce 6800 (256MB) o ATI Radeon X1600 Pro (256MB) o mejor</2><3>Una instalación de StarCraft: Remastered, actualizada a la última versión</3></1>",
             "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
-            "title": "Preguntas frecuentes",
+            "title": "Preguntas Frecuentes",
             "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?",
-            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
+            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es totalmente gratis para usar!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si quieres ayudarnos a cubrir esos costos, te lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
         },
         "bottomLinks": {
-            "privacyPolicy": "política de privacidad",
-            "termsOfService": "Términos de servicio",
-            "acceptableUsePolicy": "Política de uso aceptable",
-            "faq": "Preguntas frecuentes"
+            "privacyPolicy": "Política de Privacidad",
+            "termsOfService": "Términos de Servicio",
+            "acceptableUsePolicy": "Política de Uso Aceptable",
+            "faq": "Preguntas Frecuentes"
         },
         "splash": {
             "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1v1 y en equipo, mejor netcode, lanzamiento rápido de repeticiones y más.",
@@ -375,19 +375,19 @@
             "silver": "Plata",
             "unrated": "Sin clasificar"
         },
-        "errorRetrievingRankings": "Hubo un error al recuperar las clasificaciones actuales.",
-        "lastPlayedHeader": "Jugado por última vez",
+        "errorRetrievingRankings": "Ocurrió un error al obtener la clasificación actual.",
+        "lastPlayedHeader": "Última partida jugada",
         "mmrHeader": "MMR",
-        "noMatchingPlayers": "No hay jugadores coincidentes.",
-        "pageHeadline": "Escalera",
+        "noMatchingPlayers": "No hay jugadores disponibles.",
+        "pageHeadline": "Clasificatoria",
         "playerHeader": "Jugador",
         "rankHeader": "Rango",
         "updatedText": "Actualizado: {{timestamp}}",
-        "winLossHeader": "Ganar perder",
+        "winLossHeader": "Victoria/derrota",
         "activity": {
-            "title": "Escalera"
+            "title": "Clasificatoria"
         },
-        "season": "Estación"
+        "season": "Temporada"
     },
     "clientDownload": {
         "andMore": "¡Y más!",
@@ -397,7 +397,7 @@
         "supportProjectText": "¿Quieres apoyar el proyecto?",
         "watchReplays": "Mira repeticiones",
         "download": "Descargar",
-        "onlyInApp": "Esta función solo está disponible en la aplicación."
+        "onlyInApp": "Esta función solo está disponible en la app."
     },
     "comingSoon": {
         "subtitle": "Ayuda a financiar el desarrollo de ShieldBattery",
@@ -616,48 +616,48 @@
     },
     "fileBrowser": {
         "rootFolder": "Carpeta raíz",
-        "upOneDirectory": "Subir un directorio"
+        "upOneDirectory": "Sube un directorio"
     },
     "game": {
         "gameSource": {
             "custom": "Juego personalizado",
-            "ranked": "Clasificado {{matchmakingType}}"
+            "ranked": "Clasificatoria {{matchmakingType}}"
         },
         "gameType": {
             "captureTheFlag": "Captura la bandera",
-            "freeForAll": "Gratuita para todos",
+            "freeForAll": "Todos contra todos",
             "greed": "Codicia",
-            "melee": "Pelea confusa",
-            "oneOnOne": "Uno a uno",
-            "topVsBottom": "Arriba vs abajo",
+            "melee": "Melee",
+            "oneOnOne": "Uno contra uno",
+            "topVsBottom": "Arriba contra abajo",
             "unknown": "Desconocido",
-            "useMapSettings": "Usar la configuración del mapa",
-            "slaughter": "Sacrificio",
-            "suddenDeath": "La muerte súbita",
-            "teamCaptureTheFlag": "El equipo captura la bandera",
-            "teamMelee": "Cuerpo a cuerpo en equipo",
-            "teamFreeForAll": "Equipo gratis para todos"
+            "useMapSettings": "Usar configuración del mapa",
+            "slaughter": "Masacre",
+            "suddenDeath": "Muerte súbita",
+            "teamCaptureTheFlag": "Captura la bandera en equipo",
+            "teamMelee": "Melee en equipo",
+            "teamFreeForAll": "Todos contra todos por equipos"
         },
         "mapName": {
-            "unknown": "mapa desconocido"
+            "unknown": "Mapa desconocido"
         },
         "playerName": {
             "computer": "Computadora",
-            "unknown": "jugador desconocido"
+            "unknown": "Jugador desconocido"
         },
         "race": {
             "protoss": "Protoss",
             "random": "Aleatorio",
-            "terran": "terrano",
-            "zerg": "zerg"
+            "terran": "Terran",
+            "zerg": "Zerg"
         },
         "results": {
-            "draw": "Dibujar",
-            "loss": "Pérdida",
+            "draw": "Dibuja",
+            "loss": "Derrota",
             "unknown": "Desconocido",
-            "win": "Ganar",
+            "win": "Victoria",
             "lossShort": "L",
-            "winShort": "W"
+            "winShort": "V"
         },
         "teamName": {
             "bottom": "Abajo",
@@ -666,20 +666,20 @@
         }
     },
     "gameDetails": {
-        "buttonCopyLink": "Copiar enlace al juego",
+        "buttonCopyLink": "Copia el enlace al juego",
         "buttonSearchAgain": "Busca de nuevo",
         "errorLoading": "Hubo un problema al cargar este juego.",
         "headlineDefault": "Resultados",
-        "headlineDefeat": "¡Fracaso!",
-        "headlineDraw": "¡Dibujar!",
+        "headlineDefeat": "¡Derrota!",
+        "headlineDraw": "¡Empate!",
         "headlineInProgress": "En curso…",
         "headlineVictory": "¡Victoria!",
         "infoDate": "Fecha",
         "infoDuration": "Duración",
         "infoGameType": "Tipo",
         "summary": {
-            "pointsBonus": "Prima",
-            "rp": "PR",
+            "pointsBonus": "Bono",
+            "rp": "RP",
             "pointsBase": "Base",
             "mmr": "MMR"
         },
@@ -687,7 +687,7 @@
         "tabStats": "Estadísticas",
         "tabSummary": "Resumen",
         "statusFinal": "Final",
-        "statusLive": "Vivir"
+        "statusLive": "En vivo"
     },
     "messaging": {
         "blockedMessage": "mensaje bloqueado",
@@ -1091,7 +1091,7 @@
     },
     "leagues": {
         "explainer": {
-            "description": "¡Las ligas son una nueva forma de competir por premios, calificar para participar en torneos y más!",
+            "description": "¡Las ligas son una nueva forma de competir por premios, clasificar para entradas a torneos y más!",
             "howLeaguesWork": "Cómo funcionan las ligas",
             "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!",
             "joinTitle": "Unirse.",
@@ -1141,7 +1141,7 @@
             "viewAll": "Ver todas las ligas"
         },
         "activity": {
-            "title": "ligas"
+            "title": "Ligas"
         }
     },
     "rootErrorBoundary": {
@@ -1151,7 +1151,7 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "Elija el archivo"
+            "chooseFile": "Elige archivo"
         }
     },
     "bugReport": {
@@ -1206,10 +1206,10 @@
     },
     "games": {
         "activity": {
-            "title": "Juegos"
+            "title": "Partidas"
         },
         "liveGames": {
-            "title": "Juegos en vivo"
+            "title": "Partidas en vivo"
         }
     },
     "home": {
