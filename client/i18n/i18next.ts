@@ -73,6 +73,7 @@ export function initI18next() {
     })
   i18n.on('languageChanged', lang => {
     document.documentElement.lang = lang
+    document.body.dataset.lang = lang
   })
 
   i18next.then(

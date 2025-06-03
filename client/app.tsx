@@ -170,11 +170,11 @@ function InnerApp() {
                 transition={DEFAULT_MOTION_CONFIG}>
                 <RootErrorBoundary>
                   <FileDropZoneProvider>
-                    <React.Suspense fallback={<LoadingDotsArea />}>
-                      <SnackbarOverlay>
+                    <SnackbarOverlay>
+                      <React.Suspense fallback={<LoadingDotsArea />}>
                         <AppContent />
-                      </SnackbarOverlay>
-                    </React.Suspense>
+                      </React.Suspense>
+                    </SnackbarOverlay>
                   </FileDropZoneProvider>
                 </RootErrorBoundary>
                 <UpdateOverlay />

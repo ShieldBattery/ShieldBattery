@@ -122,7 +122,7 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   ${singleLine};
 
   position: relative;
-  min-width: 116px;
+  min-width: 140px;
   height: 64px;
   padding: 0 20px;
 
@@ -137,6 +137,10 @@ const MenuItemRoot = styled.a<{ $isActive?: boolean }>`
   text-transform: uppercase;
 
   --menu-item-fill: none;
+
+  [data-lang='es'] & {
+    min-width: 116px;
+  }
 
   &:link,
   &:visited {
