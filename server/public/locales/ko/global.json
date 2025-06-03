@@ -4,7 +4,7 @@
             "required": "필수",
             "maxLength_other": "최대 {{count}}자까지 입력하세요",
             "minLength_other": "최소 {{count}}자 이상 입력하세요",
-            "validatorError": "이 필드를 검증하는 중에 알 수 없는 오류가 발생했어요"
+            "validatorError": "이 필드를 검증하는 중에 알 수 없는 오류가 발생했습니다"
         },
         "actions": {
             "cancel": "취소해줘",
@@ -31,8 +31,8 @@
             "edit": "편집",
             "reveal": "노출",
             "submit": "제출해",
-            "close": "닫다",
-            "read": "읽다",
+            "close": "닫기",
+            "read": "읽기",
             "download": "다운로드"
         },
         "lists": {
@@ -240,8 +240,8 @@
                 "title": "비밀번호 재설정 요청",
                 "emailAddress": "이메일 주소",
                 "username": "사용자 이름",
-                "alreadyHaveCodeLink": "코드가 이미 있어?",
-                "explanationText": "계정과 연결된 이메일 주소와 사용자 이름을 입력해. 새로운 비밀번호를 설정할 수 있는 재설정 코드가 담긴 이메일을 보낼게."
+                "alreadyHaveCodeLink": "코드 이미 가지고 있어?",
+                "explanationText": "계정과 연결된 이메일 주소와 사용자 이름을 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드릴게요."
             },
             "reset": {
                 "confirmPassword": "새 비밀번호 확인",
@@ -250,8 +250,8 @@
                 "setNewPassword": "새 비밀번호 설정하기",
                 "successMessage": "당신의 비밀번호가 재설정되었습니다.",
                 "title": "비밀번호 재설정",
-                "continueToLogin": "로그인 계속하기",
-                "explanationText": "재설정 코드가 담긴 이메일을 받을 거야. 그 코드와 함께 새로운 비밀번호를 입력해."
+                "continueToLogin": "로그인 화면으로 이동",
+                "explanationText": "비밀번호 재설정 코드가 포함된 이메일이 전송됩니다. 받은 코드를 새 비밀번호와 함께 여기에 입력해주세요."
             }
         },
         "login": {
@@ -262,7 +262,7 @@
             "logIn": "로그인",
             "password": "비밀번호",
             "username": "사용자 이름",
-            "createAccountLinkText": "계정이 없어? <1>계정 만들기</1>"
+            "createAccountLinkText": "계정이 없으신가요? <1>계정 만들기</1>"
         },
         "noPermissionsPage": {
             "body": "이 페이지에 접근할 수 있는 권한이 없습니다."
@@ -272,20 +272,20 @@
             "matching": "매칭 비밀번호를 입력하세요",
             "required": "비밀번호를 입력하세요",
             "resetCode": "비밀번호 재설정 코드를 입력하세요",
-            "resetCodePattern": "유효하지 않은 코드야. {{example}}처럼 보여야 해."
+            "resetCodePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요."
         },
         "emailVerification": {
             "title": "이메일 확인",
             "codeLabel": "인증 코드",
-            "codePattern": "잘못된 코드입니다. {{example}} 형식이어야 합니다.",
+            "codePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요.",
             "codeRequired": "인증 코드를 입력하세요",
-            "explanation": "귀하의 이메일 주소가 확인되지 않았습니다. 이메일을 확인하면 계정을 안전하게 유지하고 로그인 정보를 잊어버릴 경우 도움을 받을 수 있습니다.",
-            "instructions": "<X2>{{email}}</X2>로 전송된 인증 코드를 입력하세요.",
+            "explanation": "이메일 주소가 확인되지 않았습니다. 이메일을 확인하면 계정을 안전하게 유지하고 로그인 정보를 잊어버렸을 때 도움을 받을 수 있습니다.",
+            "instructions": "<2>{{email}}</2>에 전송된 인증 코드를 입력하세요.",
             "resend": "이메일 재전송",
             "resendText": "이메일이 보이지 않나요?",
             "resent": "인증 이메일이 재전송되었습니다!",
-            "submitError": "이메일 확인 중 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
-            "verify": "확인"
+            "submitError": "이메일 인증에 문제가 발생했어요. 나중에 다시 시도해 주세요.",
+            "verify": "인증하기"
         },
         "emailValidator": {
             "pattern": "유효한 이메일 주소를 입력하세요",
@@ -312,7 +312,7 @@
             "noConnectionErrorMessage": "서버에 연결 실패. 인터넷 연결을 확인하고 다시 시도해봐.",
             "sessionExpired": "세션이 만료됐어요",
             "usernameTaken": "그 이름은 이미 존재하거나 제한된 이름이에요",
-            "invalidCode": "제공된 코드는 유효하지 않아. 만료됐을 수도 있어."
+            "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다."
         },
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
@@ -331,14 +331,14 @@
             "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery에서 해당 단축키를 사용합니다.",
             "hotkeyCustomizationQuestion": "단축키 사용자 설정이 허용되거나 제공됩니까?",
             "linuxSupportAnswer": "<0>현재 공식 지원이 되는 건 아니야.</0><1>하지만 ShieldBattery와 Wine을 연동한 커뮤니티 기여가 있어. ShieldBattery를 Wine에서 실행하는 방법은 <2>디스코드</2>에서 확인해봐.</1>",
-            "linuxSupportQuestion": "ShieldBattery는 Linux 또는 OS X에서 작동합니까?",
+            "linuxSupportQuestion": "ShieldBattery는 리눅스나 macOS에서 작동하나요?",
             "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 멤버들이 개발한 프로젝트이며, Blizzard로부터 공식적인 지원이나 인정을 받지 않았습니다.",
             "officialSupportQuestion": "ShieldBattery는 Blizzard의 지원을 받아 개발되었나요?",
             "openSourceAnswer": "<0>예. <2>GitHub 페이지</2>에서 다양한 추가 프로젝트 뿐만 아니라 기본 저장소에 액세스할 수 있습니다.</0><1>항상 더 많은 지원자를 사용할 수 있으므로 도움이 될 수 있다고 생각하시면 확인해 보세요!</1>",
             "openSourceQuestion": "이 프로젝트 오픈 소스야?",
             "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>Discord</2>를 이용하는 것입니다. 그런 방식으로, <5>GitHub</5>에 문제를 제기할 수도 있습니다.",
             "reportIssuesQuestion": "버그나 문제를 어떻게 신고하나요?",
-            "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 버전의 StarCraft: Remastered를 지원합니다. 무료 버전의 스타크래프트: 리마스터는 공식 <2>블리자드 사이트</2>에서 다운로드하거나 블리자드 런처를 통해 설치할 수 있습니다. 구매한 모든 애드온(예: HD 그래픽)은 ShieldBattery에서 사용할 수 있습니다.",
+            "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 스타크래프트: 리마스터 버전을 지원합니다. <2>Battle.net 런처</2>에서 스타크래프트: 리마스터 무료 버전을 다운로드할 수 있습니다. 구매한 애드온(HD 그래픽 등)은 ShieldBattery에서도 사용할 수 있습니다.",
             "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 StarCraft를 지원하나요?",
             "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1>2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></1>",
             "systemRequirementsQuestion": "ShieldBattery에서 플레이하려면 어떤 시스템 요구 사항이 필요해?",
@@ -349,7 +349,7 @@
             "acceptableUsePolicy": "허용된 사용 정책",
             "privacyPolicy": "개인정보 처리방침",
             "termsOfService": "서비스 약관",
-            "faq": "자주 묻는 질문"
+            "faq": "FAQ"
         },
         "splash": {
             "blurb": "ShieldBattery는 공식 StarCraft: Remastered 클라이언트를 지원하는 커뮤니티 서버야. 우리의 런처를 다운로드하면 1v1 및 팀 매치메이킹, 개선된 넷코드, 빠른 리플레이 실행 등 다양한 기능을 이용할 수 있어!",
@@ -366,7 +366,7 @@
         "watchReplays": "다시보기",
         "andMore": "추가로!",
         "download": "다운로드",
-        "onlyInApp": "이 기능은 앱에서만 사용할 수 있습니다."
+        "onlyInApp": "이 기능은 앱에서만 사용할 수 있어요."
     },
     "clientUpdate": {
         "overlay": {
@@ -388,7 +388,7 @@
         "divisionGroup": {
             "all": "모두",
             "bronze": "브론즈",
-            "champion": "우승자",
+            "champion": "챔피언",
             "diamond": "다이아몬드",
             "gold": "골드",
             "platinum": "플래티넘",
@@ -408,12 +408,12 @@
         "activity": {
             "title": "래더"
         },
-        "season": "계절"
+        "season": "시즌"
     },
     "matchmaking": {
         "division": {
             "silver": "실버 {{level}}",
-            "unrated": "등급 없음",
+            "unrated": "배치 전",
             "bronze": "브론즈 {{level}}",
             "champion": "챔피언",
             "diamond": "다이아몬드 {{level}}",
@@ -487,8 +487,8 @@
             "watchReplay": "다시 보기"
         },
         "type": {
-            "1v1": "1v1",
-            "2v2": "2v2",
+            "1v1": "1대1",
+            "2v2": "2대2",
             "3v3": "3v3",
             "1v1fastest": "1대1 가장 빠름"
         },
@@ -545,22 +545,22 @@
     },
     "lobbies": {
         "createLobby": {
-            "lobbyNameRequired": "로비 이름을 입력하세요",
-            "mapRequired": "플레이할 맵을 선택하세요",
-            "selectMap": "지도 선택",
-            "gameSubTypeHeader": "팀",
+            "lobbyNameRequired": "로비 이름을 입력해 주세요",
+            "mapRequired": "플레이할 맵을 선택해 주세요",
+            "selectMap": "맵 선택",
+            "gameSubTypeHeader": "팀 구성",
             "gameSubTypeOption": "{{numTeams}} 팀",
             "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
-            "gameTypeHeader": "게임 타입",
+            "gameTypeHeader": "게임 모드",
             "lobbyName": "로비 이름",
-            "backToList": "다시 목록으로",
+            "backToList": "목록으로 돌아가기",
             "title": "로비 만들기",
-            "turnRate": "회전율",
+            "turnRate": "턴 속도",
             "turnRateAuto": "자동",
-            "turnRateDynamic": "DTR(권장하지 않음)",
-            "useLegacyLimits": "레거시 단위 한도 사용",
+            "turnRateDynamic": "DTR (권장하지 않음)",
+            "useLegacyLimits": "옛 유닛 제한 사용",
             "advancedSettings": "고급 설정",
-            "lobbyNameInvalidCharacters": "로비 이름에 잘못된 문자가 포함되어 있습니다"
+            "lobbyNameInvalidCharacters": "로비 이름에 사용할 수 없는 문자가 포함되어 있어요"
         },
         "messageLayout": {
             "gameInitializationCanceled": "게임 초기화가 취소되었습니다",
@@ -578,8 +578,8 @@
             "title": "로비 참가",
             "noActiveLobbies": "활성 로비가 없습니다",
             "noOpenLobbies": "공개된 로비가 없습니다",
-            "action": "로비에 참여",
-            "matchmakingActiveDialogText": "매치메이킹 검색이 활성화되어 있는 동안 로비에 참여할 수 없습니다.",
+            "action": "로비 참여",
+            "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
             "matchmakingActiveDialogTitle": "로비 참여 비활성화"
         },
         "slots": {
@@ -615,14 +615,14 @@
             "unitLimitLegacy": "유산"
         },
         "events": {
-            "banned": "당신은 로비에서 금지되었습니다.",
-            "kicked": "당신은 로비에서 쫓겨났습니다."
+            "banned": "이 로비에서 차단되었습니다.",
+            "kicked": "로비에서 강퇴당했습니다."
         },
         "activity": {
             "title": "로비 ({{lobbyCount}})"
         },
         "errors": {
-            "alreadyInLobby": "이미 다른 로비에 있습니다.",
+            "alreadyInLobby": "이미 다른 로비에 참여 중입니다.",
             "load": "로비를 로드하는 중에 문제가 발생했습니다"
         }
     },
@@ -659,7 +659,7 @@
             "noMatchingChannels": "일치하는 채팅 채널이 없습니다.",
             "pageHeadline": "채팅 채널",
             "retrievingError": "채팅 채널을 찾는 중에 오류가 발생했습니다.",
-            "browseChannels": "채널 탐색"
+            "browseChannels": "채널 둘러보기"
         },
         "channelMenu": {
             "banAction": "차단 {{user}}",
@@ -731,7 +731,7 @@
             }
         },
         "whispers": {
-            "startWhisperButton": "귓속말을 시작하세요"
+            "startWhisperButton": "귓속말 시작하기"
         }
     },
     "starcraft": {
@@ -756,23 +756,23 @@
             "title": "지도"
         },
         "details": {
-            "editDescription": "설명 수정",
-            "editName": "이름 수정",
-            "mapDescription": "지도 설명",
+            "editDescription": "설명 편집",
+            "editName": "이름 편집",
+            "mapDescription": "맵 설명",
             "mapDescriptionRequired": "지도 설명을 입력하세요",
-            "mapName": "지도 이름",
-            "mapNameRequired": "지도 이름을 입력하세요",
-            "players": "플레이어: {{playerSize}}",
+            "mapName": "맵 이름",
+            "mapNameRequired": "맵 이름을 입력해 주세요",
+            "players": "플레이어 수: {{playerSize}}명",
             "retrieveError": "이 지도의 세부 정보를 탐색하는 중에 문제가 발생했습니다. 오류 메시지는 다음과 같습니다:",
-            "size": "크기: {{width}}x{{height}}",
+            "size": "크기: {{width}}×{{height}}",
             "tileset": "타일셋: {{tilesetName}}",
-            "title": "지도 세부정보"
+            "title": "맵 정보"
         },
         "local": {
             "documentsFolder": "문서 폴더",
             "programFolder": "프로그램 폴더",
             "title": "로컬 맵",
-            "uploadMapError": "맵을 업로드하는 중에 오류가 발생했습니다",
+            "uploadMapError": "맵 업로드 중 알 수 없는 오류가 발생했습니다. 나중에 다시 시도해 주세요.",
             "mapFileSizeErrorMessage": "맵 파일 크기가 허용된 최대 크기 {{fileSize}}를 초과했습니다.",
             "uploadMapErrorTitle": "맵 업로드 중 오류 발생"
         },
@@ -794,7 +794,7 @@
             "tab": {
                 "community": "커뮤니티",
                 "myMaps": "내 맵",
-                "official": "공식적인"
+                "official": "공식"
             },
             "thumbnailSize": {
                 "option": {
@@ -810,7 +810,7 @@
             "favorites": {
                 "added": "즐겨찾기에 추가됨",
                 "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다",
-                "removed": "즐겨찾기에서 삭제됨",
+                "removed": "즐겨찾기에서 제거됨",
                 "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다"
             },
             "filterOptions": {
@@ -829,11 +829,11 @@
             "noUploadedMapsWeb": "지도를 업로드하지 않았습니다."
         },
         "thumbnail": {
-            "addToFavorites": "즐겨 찾기에 추가",
+            "addToFavorites": "즐겨찾기에 추가",
             "mapActions": "맵 작업",
             "noMapPreview": "맵 미리보기를 사용할 수 없음",
             "regenerateImage": "이미지 재생성",
-            "removeFromFavorites": "즐겨 찾기에서 삭제하기",
+            "removeFromFavorites": "즐겨찾기에서 제거하기",
             "showMapPreview": "맵 미리보기 표시",
             "viewMapDetails": "맵 세부정보 보기"
         },
@@ -850,9 +850,9 @@
     },
     "replays": {
         "local": {
-            "watchReplay": "다시 보기",
-            "duration": "기간: {{durationStr}}",
-            "gameType": "게임 유형: {{gameTypeLabel}}",
+            "watchReplay": "리플레이 보기",
+            "duration": "재생 시간: {{durationStr}}",
+            "gameType": "게임 방식: {{gameTypeLabel}}",
             "loadingError": "리플레이를 로드하는 중에 문제가 발생했습니다",
             "rootFolderName": "리플레이",
             "title": "로컬 리플레이"
@@ -884,9 +884,9 @@
     },
     "messaging": {
         "blockedMessage": "차단된 메시지",
-        "mention": "언급하다",
-        "newDayMessage": "요일이 <2>{{day}}</2>(으)로 변경됨",
-        "sendMessage": "메세지를 보내다"
+        "mention": "멘션",
+        "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
+        "sendMessage": "메시지를 입력하세요"
     },
     "navigation": {
         "copyLink": {
@@ -985,12 +985,12 @@
     },
     "policy": {
         "acceptableUseAllCaps": "허용되는 사용 정책",
-        "policyUpdateNotification": "ShieldBattery의 <2>{{label}}</2>가 업데이트되었습니다.",
-        "privacyPolicy": "개인 정보 정책",
+        "policyUpdateNotification": "ShieldBattery의 <2>{{label}}</2>이(가) 업데이트되었습니다.",
+        "privacyPolicy": "개인정보 처리방침",
         "privacyPolicyAllCaps": "개인 정보 정책",
-        "termsOfService": "서비스 약관",
+        "termsOfService": "이용 약관",
         "termsOfServiceAllCaps": "서비스 약관",
-        "acceptableUse": "허용되는 사용"
+        "acceptableUse": "서비스 이용 정책"
     },
     "rootErrorBoundary": {
         "contents": "<2>Discord</2>에서 이 문제를 보고해 주십시오.",
@@ -1021,8 +1021,8 @@
     },
     "user": {
         "miniMatchHistory": {
-            "viewDetails": "세부 정보보기",
-            "noGameSelected": "선택한 게임 없음"
+            "viewDetails": "자세히 보기",
+            "noGameSelected": "선택된 게임이 없습니다"
         },
         "matchHistory": {
             "noMatchingGames": "일치하는 게임이 없습니다.",
@@ -1034,8 +1034,8 @@
         }
     },
     "windowControls": {
-        "close": "닫다",
-        "maximizeRestore": "최대화/복원",
+        "close": "닫기",
+        "maximizeRestore": "최대화 / 복원",
         "minimize": "최소화"
     },
     "gameDetails": {
@@ -1098,38 +1098,38 @@
             "dateText": "{{startDate}}에서 {{endDate}}로",
             "goBack": "목록으로 돌아가",
             "info": "정보",
-            "joined": "가입",
-            "joinError": "리그에 참가할 수 없습니다: {{errorMessage}}",
-            "leaderboard": "리더보드",
-            "leaderboardError": "리더보드를 검색하는 중에 문제가 발생했습니다: {{errorMessage}}",
+            "joined": "참가 중",
+            "joinError": "리그에 가입할 수 없음: {{errorMessage}}",
+            "leaderboard": "순위표",
+            "leaderboardError": "순위표를 불러오는 중 문제가 발생했어요: {{errorMessage}}",
             "leaderBoardHeader": {
-                "lastPlayed": "마지막 플레이",
+                "lastPlayed": "마지막 경기일",
                 "player": "플레이어",
-                "points": "포인트들",
-                "rank": "계급",
+                "points": "점수",
+                "rank": "순위",
                 "winLoss": "승/패"
             },
             "leagueEndedError": "리그가 이미 종료되어 참가할 수 없습니다",
-            "leagueJoined": "리그 가입",
+            "leagueJoined": "리그 참가됨",
             "noPlayers": "일치하는 플레이어가 없습니다.",
-            "notFound": "리그를 찾을 수 없음",
-            "retrieveError": "이 리그를 검색하는 동안 오류가 발생했습니다: {{errorMessage}}",
+            "notFound": "리그를 찾을 수 없습니다",
+            "retrieveError": "이 리그를 불러오는 중 오류가 발생했습니다: {{errorMessage}}",
             "rulesAndInfo": "규칙 및 정보"
         },
         "list": {
-            "acceptingSignups": "가입 수락",
-            "currentlyRunning": "현재 실행 중",
-            "ends": "{{endDate}} 종료",
-            "finished": "완성된",
-            "howDoLeaguesWork": "리그는 어떻게 운영되나요?",
-            "joined": "가입",
-            "loadingError": "리그 로드 오류",
+            "acceptingSignups": "참가 신청 접수 중",
+            "currentlyRunning": "진행 중",
+            "ends": "{{endDate}}에 종료",
+            "finished": "종료됨",
+            "howDoLeaguesWork": "리그는 어떻게 진행되나요?",
+            "joined": "참가 중",
+            "loadingError": "리그 불러오는 중 오류 발생",
             "manageLeagues": "리그 관리",
-            "noLeagues": "일치하는 리그 없음",
+            "noLeagues": "일치하는 리그가 없습니다",
             "pageHeadline": "리그",
             "starts": "{{startDate}} 시작",
             "viewInfo": "정보 보기",
-            "runningNow": "지금 달리고 있어!",
+            "runningNow": "진행 중!",
             "viewAll": "모든 리그 보기"
         }
     },
@@ -1153,10 +1153,10 @@
     },
     "games": {
         "activity": {
-            "title": "계략"
+            "title": "경기 기록"
         },
         "liveGames": {
-            "title": "라이브 게임"
+            "title": "진행 중인 경기"
         }
     },
     "social": {
@@ -1201,8 +1201,8 @@
         }
     },
     "home": {
-        "latestNewsTitle": "최신 뉴스",
-        "supportTitle": "프로젝트를 지원하세요"
+        "latestNewsTitle": "최신 소식",
+        "supportTitle": "프로젝트 후원하기"
     },
     "network": {
         "notConnectedText": "연결 안 됨"
