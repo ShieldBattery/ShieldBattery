@@ -98,7 +98,7 @@
                     "default": "Por defecto",
                     "krcGold": "KRC oro",
                     "krcSilver": "KRC plata",
-                    "title": "Piel de consola",
+                    "title": "Máscara de consola",
                     "warcraft3": "Botín de WarCraft 3"
                 },
                 "devOnlySettings": "Configuración solo para desarrolladores",
@@ -155,7 +155,7 @@
                     "umJeonKim": "Um, Jeon, Kim Trio"
                 },
                 "gameSubtitles": "Subtítulos del juego",
-                "backgroundSounds": "El sonido se reproduce mientras está en segundo plano.",
+                "backgroundSounds": "El sonido se reproduce mientras está en segundo plano",
                 "cinematicSubtitles": "Subtítulos cinematográficos",
                 "gameSounds": "Sonidos del juego",
                 "music": "Música",
@@ -174,8 +174,8 @@
                 "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
                 "startMinimized": "Iniciar minimizado",
                 "startupOverline": "Puesta en marcha",
-                "filesOverline": "archivos",
-                "replayQuickOpen": "Inicie las repeticiones abiertas con ShieldBattery inmediatamente sin vista previa"
+                "filesOverline": "Archivos",
+                "replayQuickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa"
             },
             "title": "Aplicación",
             "sound": {
@@ -356,7 +356,7 @@
             "faq": "Preguntas Frecuentes"
         },
         "splash": {
-            "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1v1 y en equipo, mejor netcode, lanzamiento rápido de repeticiones y más.",
+            "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1x1 y en equipo, mejor netcode, lanzamiento rápido de replays y más.",
             "gameCount": "<0></0><1>partidas jugadas</1>",
             "disclaimerText": "StarCraft es una marca registrada de Blizzard Entertainment, Inc. ShieldBattery es desarrollado únicamente por miembros de la comunidad, sin afiliación con Blizzard, y no está oficialmente respaldado ni apoyado por Blizzard.",
             "subtitle": "La plataforma comunitaria premier de StarCraft 1"
@@ -395,7 +395,7 @@
         "downloadClient": "Descargar cliente",
         "playGames": "Jugar partidas",
         "supportProjectText": "¿Quieres apoyar el proyecto?",
-        "watchReplays": "Mira repeticiones",
+        "watchReplays": "Mira replays",
         "download": "Descargar",
         "onlyInApp": "Esta función solo está disponible en la app."
     },
@@ -417,7 +417,7 @@
             "1v1": "1x1",
             "2v2": "2x2",
             "3v3": "3x3",
-            "1v1fastest": "1v1 más rápido"
+            "1v1fastest": "1x1 Fastest"
         },
         "acceptMatch": {
             "failedToAccept": "No se pudo aceptar",
@@ -449,7 +449,7 @@
                 "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :(",
-                "searchAgainError": "Hubo un problema al buscar una coincidencia."
+                "searchAgainError": "Hubo un problema al buscar un partido"
             },
             "mapPool": "Grupo de mapas",
             "points": "Puntos",
@@ -459,10 +459,10 @@
             "useAlternateRace": "Usa una raza alternativa para evitar enfrentamientos espejo",
             "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
             "race": "Raza",
-            "vetoDescriptionNoOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "vetoDescriptionNoOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados nunca se seleccionarán para jugar.",
             "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
             "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
-            "vetoDescriptionWithOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+            "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
@@ -490,7 +490,7 @@
             "watchReplay": "Ver replay"
         },
         "activity": {
-            "title": "Casamentero"
+            "title": "Emparejamiento"
         }
     },
     "clientUpdate": {
@@ -701,33 +701,33 @@
         "privacyPolicy": "Política de privacidad",
         "termsOfService": "Términos de servicio",
         "acceptableUseAllCaps": "Política de uso aceptable",
-        "privacyPolicyAllCaps": "política de privacidad",
+        "privacyPolicyAllCaps": "Política de privacidad",
         "termsOfServiceAllCaps": "Términos de servicio"
     },
     "replays": {
         "local": {
             "duration": "Duración: {{durationStr}}",
             "gameType": "Tipo de juego: {{gameTypeLabel}}",
-            "loadingError": "Hubo un problema al cargar el replay.",
+            "loadingError": "Hubo un problema al cargar el replay",
             "rootFolderName": "Replays",
             "title": "Replays locales",
             "watchReplay": "Ver Replay"
         },
         "activity": {
-            "title": "repeticiones"
+            "title": "Replays"
         },
         "loading": {
-            "dialogTitle": "Cargando repetición…",
-            "errorGeneric": "Algo salió mal al cargar la repetición.",
-            "initFailureBody": "No se pudo cargar la repetición seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
-            "initFailureTitle": "Error al cargar la reproducción"
+            "dialogTitle": "Cargando replay…",
+            "errorGeneric": "Algo salió mal al cargar el replay.",
+            "initFailureBody": "No se pudo cargar el replay seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
+            "initFailureTitle": "Error al cargar el replay"
         },
         "replayInfoDialog": {
-            "title": "Información de reproducción",
+            "title": "Información de replay",
             "watch": "Mirar"
         },
-        "fileDropError": "Hubo un problema al abrir el archivo de repetición",
-        "fileDropText": "Suelta las repeticiones aquí para verlas con ShieldBattery."
+        "fileDropError": "Hubo un problema al abrir el replay",
+        "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery."
     },
     "user": {
         "miniMatchHistory": {
@@ -758,7 +758,7 @@
             "players": "Jugadores: {{playerSize}}",
             "retrieveError": "Algo salió mal al intentar recuperar los detalles de este mapa. El mensaje de error fue:",
             "size": "Tamaño: {{width}}x{{height}}",
-            "tileset": "Conjunto de fichas: {{tilesetName}}",
+            "tileset": "Tileset: {{tilesetName}}",
             "title": "Detalles del mapa",
             "editName": "Editar nombre"
         },
@@ -804,7 +804,7 @@
                     "medium": "Medio",
                     "small": "Pequeño"
                 },
-                "title": "tamaño de la uña del pulgar"
+                "title": "Tamaño de miniatura de imagen"
             },
             "filterOptions": {
                 "section": {
@@ -829,19 +829,19 @@
             "noMapPreview": "Vista previa del mapa no disponible"
         },
         "activity": {
-            "title": "mapas"
+            "title": "Mapas"
         },
         "mapSelect": {
             "browseMaps": "Explorar mapas"
         },
         "tileset": {
-            "ashworld": "Ashworld",
+            "ashworld": "Mundo de ceniza",
             "badlands": "Páramos",
             "desert": "Desierto",
             "ice": "Hielo",
             "installation": "Instalación",
-            "jungleWorld": "mundo de la jungla",
-            "spacePlatform": "plataforma espacial",
+            "jungleWorld": "Mundo de la jungla",
+            "spacePlatform": "Plataforma espacial",
             "twilight": "Crepúsculo"
         }
     },
@@ -1019,8 +1019,8 @@
             "advancedSettings": "Ajustes avanzados",
             "turnRate": "Ritmo de turno",
             "turnRateAuto": "Auto",
-            "turnRateDynamic": "DTR (No recomendado)",
-            "useLegacyLimits": "Usar límite de unidades heredadas",
+            "turnRateDynamic": "Dinámico (No recomendado)",
+            "useLegacyLimits": "Usar límite de unidad heredado",
             "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos"
         },
         "errors": {
@@ -1032,7 +1032,7 @@
             "kicked": "Te han echado del lobby."
         },
         "joinLobby": {
-            "noOpenLobbies": "No hay lobbies abiertos.",
+            "noOpenLobbies": "No hay lobbies abiertos",
             "title": "Unirse al lobby",
             "noActiveLobbies": "No hay lobbies activos",
             "openSlotCount_one": "{{count}} ranura abierta",
@@ -1051,13 +1051,13 @@
             "startGame": "Empezar juego",
             "turnRate": "Ritmo de turno",
             "turnRateAuto": "Auto",
-            "turnRateDynamic": "DTR",
+            "turnRateDynamic": "Dinámico",
             "unitLimit": "Límite de unidad",
             "unitLimitExtended": "Extendido",
             "unitLimitLegacy": "Legado"
         },
         "messageLayout": {
-            "banPlayer": "<0><0></0></0> ha sido expulsado del lobby",
+            "banPlayer": "<0><0></0></0> se prohibió del lobby",
             "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
             "countdownStarted": "La cuenta regresiva del juego ha comenzado",
             "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
@@ -1086,7 +1086,7 @@
             "started": "Este lobby ya ha comenzado y no se puede unir."
         },
         "activity": {
-            "title": "Vestíbulos"
+            "title": "Lobbies ({{lobbyCount}})"
         }
     },
     "leagues": {
@@ -1134,9 +1134,9 @@
             "loadingError": "Error al cargar ligas",
             "manageLeagues": "Administrar ligas",
             "noLeagues": "Sin ligas coincidentes",
-            "pageHeadline": "ligas",
+            "pageHeadline": "Ligas",
             "starts": "Comienza {{startDate}}",
-            "viewInfo": "ver información",
+            "viewInfo": "Ver información",
             "runningNow": "¡Corriendo ahora!",
             "viewAll": "Ver todas las ligas"
         },
@@ -1145,7 +1145,7 @@
         }
     },
     "rootErrorBoundary": {
-        "reloadApp": "recargar aplicación",
+        "reloadApp": "Recargar aplicación",
         "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
         "title": "Algo salió mal :("
     },
