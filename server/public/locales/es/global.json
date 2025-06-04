@@ -47,7 +47,7 @@
         "close": "Cerrar configuraciones",
         "game": {
             "starcraft": {
-                "title": "Barco de estrellas",
+                "title": "StarCraft",
                 "browseManually": "Navegar manualmente",
                 "currentPathLabel": "Ruta de juego actual:",
                 "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
@@ -70,25 +70,25 @@
                 "realTimeLighting": "Iluminación en tiempo real",
                 "sdGraphicsFilter": "Filtro de gráficos SD",
                 "shadowStacking": "Apilamiento de sombras",
-                "showFps": "Mostrar fps",
+                "showFps": "Mostrar FPS",
                 "smoothUnitTurning": "Giro suave de la unidad",
                 "displayMode": {
                     "fullscreen": "Pantalla completa",
                     "title": "Modo de visualización",
-                    "windowed": "con ventana",
-                    "windowedFullscreen": "Con ventana (pantalla completa)"
+                    "windowed": "Modo de ventana",
+                    "windowedFullscreen": "Modo de ventana (pantalla completa)"
                 },
                 "fpsLimit": "límite de FPS",
-                "hdGraphics": "gráficos de alta definición",
+                "hdGraphics": "Gráficos de alta definición",
                 "title": "Video",
                 "customFpsLimit": "Límite de FPS personalizado"
             },
             "gameplay": {
                 "apmAlert": "Alerta cuando APM cae por debajo",
-                "apmColorText": "Texto en color",
-                "apmDisplay": "Pantalla APM",
+                "apmColorText": "Color del texto",
+                "apmDisplay": "Muestra de APM",
                 "apmSound": "Reproducir sonido",
-                "apmValue": "valor APM",
+                "apmValue": "Valor APM",
                 "apmValueValidation": "Introduzca un valor entre 1 y 999",
                 "colorCycling": "Habilitar ciclo de color",
                 "consoleSkins": {
@@ -102,12 +102,12 @@
                     "warcraft3": "Botín de WarCraft 3"
                 },
                 "devOnlySettings": "Configuración solo para desarrolladores",
-                "gameTimer": "temporizador de juego",
+                "gameTimer": "Temporizador de juego",
                 "ingameSkins": {
                     "carbot": "Carbot",
                     "none": "Ninguno",
                     "preorder": "Hacer un pedido",
-                    "title": "Piel dentro del juego"
+                    "title": "Máscara dentro del juego"
                 },
                 "latency": "Mostrar latencia",
                 "minimapPosition": {
@@ -115,16 +115,16 @@
                     "standard": "Estándar",
                     "title": "Posición del minimapa"
                 },
-                "showBonusSkins": "Mostrar pieles de bonificación",
+                "showBonusSkins": "Mostrar máscaras de bonificación",
                 "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
-                "title": "Como se Juega",
+                "title": "Gameplay",
                 "unitPortraits": {
                     "animated": "Animado",
                     "disabled": "Desactivado",
-                    "still": "Aún",
+                    "still": "Fija",
                     "title": "Retratos"
                 },
-                "visualizeNetworkStalls": "Visualice puestos de red",
+                "visualizeNetworkStalls": "Visualizar los bloqueos de la red",
                 "apmAlertHeader": "Alerta APM",
                 "startingFog": {
                     "legacy": "Legado",
@@ -146,15 +146,15 @@
             "sound": {
                 "announcer": {
                     "default": "Por defecto",
-                    "heyJini": "hola jin",
+                    "heyJini": "Hola jini",
                     "info": "Paquetes (deben comprarse en Blizzard)",
-                    "kimJungmin": "kim jungmin",
+                    "kimJungmin": "Kim Jungmin",
                     "title": "Locutor",
                     "umJaeKyung": "Um Jae Kyung",
                     "jeonYongJun": "Jeon Yongjun",
                     "umJeonKim": "Um, Jeon, Kim Trio"
                 },
-                "gameSubtitles": "subtítulos del juego",
+                "gameSubtitles": "Subtítulos del juego",
                 "backgroundSounds": "El sonido se reproduce mientras está en segundo plano.",
                 "cinematicSubtitles": "Subtítulos cinematográficos",
                 "gameSounds": "Sonidos del juego",
@@ -177,7 +177,7 @@
                 "filesOverline": "archivos",
                 "replayQuickOpen": "Inicie las repeticiones abiertas con ShieldBattery inmediatamente sin vista previa"
             },
-            "title": "aplicación",
+            "title": "Aplicación",
             "sound": {
                 "masterVolume": "Volumen principal",
                 "title": "Sonido"
@@ -414,14 +414,14 @@
             "unrated": "Sin clasificar"
         },
         "type": {
-            "1v1": "1v1",
-            "2v2": "2v2",
-            "3v3": "3v3",
+            "1v1": "1x1",
+            "2v2": "2x2",
+            "3v3": "3x3",
             "1v1fastest": "1v1 más rápido"
         },
         "acceptMatch": {
             "failedToAccept": "No se pudo aceptar",
-            "matchFound": "Coincidencia encontrada",
+            "matchFound": "Partido encontrado",
             "readyUp": "Listo",
             "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
             "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…",
@@ -439,13 +439,13 @@
         },
         "findMatch": {
             "action": "Encontrar pareja",
-            "alternateRace": "carrera alternativa",
+            "alternateRace": "Raza alternativa",
             "bonusPoints": "{{bonusAvailable}} puntos",
-            "bonusPool": "Fondo de bonificación",
-            "description": "Seleccione una carrera para usarla siempre que su oponente haya seleccionado la misma carrera principal.",
+            "bonusPool": "Grupo de bonificación",
+            "description": "Seleccione una raza para usarla siempre que su oponente haya seleccionado la misma raza principal.",
             "errors": {
                 "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
-                "dialogTitle": "Error al buscar una coincidencia",
+                "dialogTitle": "Error al buscar un partido",
                 "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :(",
@@ -454,11 +454,11 @@
             "mapPool": "Grupo de mapas",
             "points": "Puntos",
             "rating": "Clasificación",
-            "title": "Encontrar pareja",
+            "title": "Encontrar partido",
             "updated": "Actualizado",
-            "useAlternateRace": "Usa una carrera alternativa para evitar enfrentamientos espejo",
+            "useAlternateRace": "Usa una raza alternativa para evitar enfrentamientos espejo",
             "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
-            "race": "Carrera",
+            "race": "Raza",
             "vetoDescriptionNoOverlap_one": "Veto hasta el mapa {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
             "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
             "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
@@ -478,16 +478,16 @@
             "playerVsPlayer": "contra"
         },
         "navEntry": {
-            "matchFound": "¡Coincidencia encontrada!"
+            "matchFound": "¡Partido encontrado!"
         },
         "postMatchDialog": {
-            "leagues": "ligas",
-            "matchmaking": "Casamentero",
+            "leagues": "Ligas",
+            "matchmaking": "Busqueda de partido",
             "points": "Puntos",
             "rating": "Clasificación",
             "searchAgain": "Busca de nuevo",
-            "title": "resultados del partido",
-            "watchReplay": "Ver repetición"
+            "title": "Resultados del partido",
+            "watchReplay": "Ver replay"
         },
         "activity": {
             "title": "Casamentero"
@@ -690,8 +690,8 @@
         "statusLive": "En vivo"
     },
     "messaging": {
-        "blockedMessage": "mensaje bloqueado",
-        "mention": "Mencionar",
+        "blockedMessage": "Mensaje bloqueado",
+        "mention": "Mención",
         "newDayMessage": "Día cambiado a <2>{{day}}</2>",
         "sendMessage": "Enviar un mensaje"
     },
@@ -708,10 +708,10 @@
         "local": {
             "duration": "Duración: {{durationStr}}",
             "gameType": "Tipo de juego: {{gameTypeLabel}}",
-            "loadingError": "Hubo un problema al cargar la repetición.",
-            "rootFolderName": "repeticiones",
-            "title": "Repeticiones locales",
-            "watchReplay": "Ver repetición"
+            "loadingError": "Hubo un problema al cargar el replay.",
+            "rootFolderName": "Replays",
+            "title": "Replays locales",
+            "watchReplay": "Ver Replay"
         },
         "activity": {
             "title": "repeticiones"
@@ -744,7 +744,7 @@
         }
     },
     "windowControls": {
-        "close": "Cerca",
+        "close": "Cerrar",
         "maximizeRestore": "Maximizar/Restaurar",
         "minimize": "Minimizar"
     },
@@ -763,10 +763,10 @@
             "editName": "Editar nombre"
         },
         "local": {
-            "documentsFolder": "carpeta de documentos",
+            "documentsFolder": "Carpeta de documentos",
             "programFolder": "Carpeta del programa",
             "title": "Mapas locales",
-            "uploadMapError": "Ocurrió un error al cargar el mapa",
+            "uploadMapError": "Ocurrió un error al cargar el mapa.",
             "mapFileSizeErrorMessage": "El tamaño del archivo del mapa excede el tamaño máximo permitido de {{fileSize}}.",
             "uploadMapErrorTitle": "Error al subir el mapa"
         },
@@ -784,7 +784,7 @@
             "regenerateError": "Ocurrió un error al regenerar imágenes",
             "tab": {
                 "community": "Comunidad",
-                "myMaps": "mis mapas",
+                "myMaps": "Mis mapas",
                 "official": "Oficial"
             },
             "noResults": "No hay resultados.",
@@ -850,7 +850,7 @@
             "closeDialog": "Cerrar cuadro de diálogo"
         },
         "passwordField": {
-            "hide": "Contraseña oculta",
+            "hide": "Ocultar contraseña",
             "show": "Mostrar contraseña"
         }
     },
@@ -862,7 +862,7 @@
         "externalLink": {
             "alwaysTrust": "Confía siempre en este dominio",
             "dialogText": "<0>Este enlace lo llevará a un sitio fuera de ShieldBattery:</0><1>{{link}}</1><2>¿Está seguro de que desea ir allí?</2>",
-            "openLink": "Enlace abierto",
+            "openLink": "Abrir enlace",
             "title": "Enlace externo"
         },
         "leftNav": {
@@ -872,7 +872,7 @@
             "rankedGame": "Clasificado {{matchmakingType}}",
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
-            "whispers": "susurros",
+            "whispers": "Susurros",
             "reportBug": "Reportar un error",
             "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
             "logOutErrorTitle": "Error al cerrar sesión"
@@ -912,9 +912,9 @@
         },
         "starcraftHealth": {
             "header": "Los siguientes problemas deben corregirse antes de poder jugar juegos en ShieldBattery:",
-            "installPathContents": "Tu configuración de ruta de StarCraft no apunta a una instalación válida. Corrija el valor en <2>Configuración</2>. Si no tienes el juego instalado, puedes descargarlo fácilmente desde el <5><0>sitio web de Blizzard</0></5>. Es posible que deba reiniciar ShieldBattery después de la instalación.",
+            "installPathContents": "Tu configuración de ruta de StarCraft no apunta a una instalación válida. Corrija el valor en <2>Configuración</2>. Si no tienes el juego instalado, puedes descargarlo fácilmente desde el <5><0>Battle.net</0></5>. Es posible que deba reiniciar ShieldBattery después de la instalación.",
             "noProblems": "Su instalación local ahora está libre de problemas.",
-            "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la versión 1.16.1 o la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
+            "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
             "title": "Problemas de instalación detectados"
         }
     },
@@ -978,7 +978,7 @@
             "receivedFriendRequest": "<0>{{user}}</0> te envió una solicitud de amistad."
         },
         "profile": {
-            "achievements": "logros",
+            "achievements": "Logros",
             "latestGames": "Últimos juegos",
             "points": "Puntos",
             "rank": "Rango",
@@ -1006,16 +1006,16 @@
     },
     "lobbies": {
         "createLobby": {
-            "backToList": "volver a la lista",
+            "backToList": "Volver a la lista",
             "lobbyNameRequired": "Ingrese un nombre de lobby",
             "mapRequired": "Selecciona un mapa para jugar",
             "selectMap": "Seleccionar mapa",
-            "title": "Crear vestíbulo",
-            "gameSubTypeHeader": "equipos",
+            "title": "Crear lobby",
+            "gameSubTypeHeader": "Equipos",
             "gameSubTypeOption": "{{numTeams}} equipos",
-            "gameSubTypeOptionTvB": "{{topSlots}} frente a {{bottomSlots}}",
+            "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
             "gameTypeHeader": "Tipo de juego",
-            "lobbyName": "Nombre del vestíbulo",
+            "lobbyName": "Nombre del lobby",
             "advancedSettings": "Ajustes avanzados",
             "turnRate": "Ritmo de turno",
             "turnRateAuto": "Auto",
@@ -1024,17 +1024,17 @@
             "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos"
         },
         "errors": {
-            "alreadyInLobby": "Ya estás en otro vestíbulo.",
+            "alreadyInLobby": "Ya estás en otro lobby.",
             "load": "Hubo un problema al cargar este lobby"
         },
         "events": {
             "banned": "Has sido expulsado del lobby.",
-            "kicked": "Te han echado del vestíbulo."
+            "kicked": "Te han echado del lobby."
         },
         "joinLobby": {
-            "noOpenLobbies": "No hay vestíbulos abiertos.",
-            "title": "Unirse al vestíbulo",
-            "noActiveLobbies": "No hay grupos de presión activos.",
+            "noOpenLobbies": "No hay lobbies abiertos.",
+            "title": "Unirse al lobby",
+            "noActiveLobbies": "No hay lobbies activos",
             "openSlotCount_one": "{{count}} ranura abierta",
             "openSlotCount_many": "{{count}} de ranuras abiertas",
             "openSlotCount_other": "{{count}} ranuras abiertas",
@@ -1047,7 +1047,7 @@
         },
         "lobby": {
             "gameType": "Tipo de juego",
-            "leaveLobby": "Salir del vestíbulo",
+            "leaveLobby": "Salir del lobby",
             "startGame": "Empezar juego",
             "turnRate": "Ritmo de turno",
             "turnRateAuto": "Auto",
@@ -1058,32 +1058,32 @@
         },
         "messageLayout": {
             "banPlayer": "<0><0></0></0> ha sido expulsado del lobby",
-            "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada.",
+            "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
             "countdownStarted": "La cuenta regresiva del juego ha comenzado",
-            "gameInitializationCanceled": "La inicialización del juego ha sido cancelada.",
+            "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
             "hostChange": "<0><0></0></0> ahora es el anfitrión",
             "joinLobby": "<0><0></0></0> se ha unido al lobby",
             "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
-            "leaveLobby": "<0><0></0></0> ha salido de la sala de espera",
+            "leaveLobby": "<0><0></0></0> ha salido del lobby",
             "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
         },
         "slots": {
             "closeSlot": "Cerrar ranura",
-            "kickPlayer": "patear al jugador",
+            "kickPlayer": "Patear al jugador",
             "makeObserver": "Hacer observador",
-            "makePlayer": "hacer jugador",
+            "makePlayer": "Hacer jugador",
             "name": "Cerrado",
             "open": "Abierto",
-            "openSlot": "ranura abierta",
+            "openSlot": "Ranura abierta",
             "removeComputer": "Quitar computadora",
             "slotActions": "Acciones de tragamonedas",
             "addComputer": "Agregar computadora",
             "banPlayer": "Prohibir jugador"
         },
         "state": {
-            "exists": "El vestíbulo ya existe. ¿Únete?",
-            "nonexistent": "El vestíbulo no existe. crearlo?",
-            "started": "El lobby ya comenzó."
+            "exists": "Actualmente no estás en este lobby. ¿Únete?",
+            "nonexistent": "El lobby no existe. ¿Crearlo?",
+            "started": "Este lobby ya ha comenzado y no se puede unir."
         },
         "activity": {
             "title": "Vestíbulos"
@@ -1104,18 +1104,18 @@
             "about": "Acerca de",
             "copyLink": "Copiar enlace a la liga",
             "dateText": "{{startDate}} a {{endDate}}",
-            "goBack": "volver a la lista",
+            "goBack": "Volver a la lista",
             "info": "Información",
             "joined": "Unido",
             "joinError": "No pude unirme a la liga: {{errorMessage}}",
             "leaderboard": "Tabla de clasificación",
             "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
             "leaderBoardHeader": {
-                "lastPlayed": "Jugado por última vez",
+                "lastPlayed": "Juego anterior",
                 "player": "Jugador",
                 "points": "Puntos",
                 "rank": "Rango",
-                "winLoss": "Ganar perder"
+                "winLoss": "Victorias/perdidas"
             },
             "leagueEndedError": "No pude unirme porque la liga ya terminó",
             "leagueJoined": "Se unió a la liga",
