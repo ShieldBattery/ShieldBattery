@@ -421,28 +421,28 @@
             "platinum": "플래티넘 {{level}}"
         },
         "acceptMatch": {
-            "body": "모든 플레이어는 경기를 시작할 준비를 해야 합니다.",
+            "body": "모든 플레이어가 준비 완료해야 경기가 시작됩니다.",
             "failedToAccept": "수락하지 못했습니다",
-            "returningToQueue": "일부 플레이어는 제 시간에 준비하지 않았거나 로드하지 못했습니다. 매치메이킹 대기열로 돌아가는 중…",
+            "returningToQueue": "일부 플레이어가 제시간에 준비하지 않거나 로딩에 실패했습니다. 매치메이킹 대기열로 돌아갑니다…",
             "matchFound": "일치 항목을 찾았습니다",
-            "readyUp": "준비",
-            "removedFromQueue": "제시간에 준비하지 않아 대기열에서 제외되었습니다."
+            "readyUp": "준비 완료",
+            "removedFromQueue": "제시간에 준비 완료하지 않아 대기열에서 제외되었습니다."
         },
         "findMatch": {
             "bonusPoints": "{{bonusAvailable}} 포인트",
-            "bonusPool": "보너스 풀",
+            "bonusPool": "보너스 포인트 풀",
             "rating": "레이팅",
-            "title": "게임 찾기",
+            "title": "경기 검색",
             "updated": "업데이트됨",
             "useAlternateRace": "동족전을 피하기 위해 대체 종족 사용",
-            "vetoesLeft": "<0>남은 거부권: </0><1>{{vetoesLeft}}</1>",
-            "action": "일치하는 항목 찾기",
+            "vetoesLeft": "<0>남은 맵 제외 횟수: </0><1>{{vetoesLeft}}</1>",
+            "action": "경기 찾기",
             "alternateRace": "부종족",
             "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
             "errors": {
                 "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다",
                 "dialogTitle": "게임 검색 오류",
-                "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
+                "loadingRank": "현재 등급 정보를 불러오는 데 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
                 "searchAgainError": "매치 검색 중 문제가 발생했어"
@@ -459,16 +459,16 @@
         },
         "match": {
             "gameInProgress": "게임 진행 중…",
-            "gameFailedToLoad": "게임을 로드하지 못했습니다.",
+            "gameFailedToLoad": "게임 로딩에 실패했습니다.",
             "gameLoading": "게임 런칭…",
             "gameStarting": "게임 시작…",
             "playerVsPlayer": "대"
         },
         "disabledCard": {
-            "days": "날",
+            "days": "일",
             "hours": "시간",
             "minutes": "분",
-            "soon": "곧™",
+            "soon": "조만간™",
             "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다:",
             "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
             "seconds": "초",
@@ -488,7 +488,7 @@
         },
         "type": {
             "1v1": "1대1",
-            "2v2": "2대2",
+            "2v2": "2:2",
             "3v3": "3v3",
             "1v1fastest": "1대1 가장 빠름"
         },
