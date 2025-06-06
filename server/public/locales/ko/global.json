@@ -402,7 +402,7 @@
         "pageHeadline": "래더",
         "playerHeader": "플레이어",
         "pointsHeader": "점수",
-        "rankHeader": "랭크",
+        "rankHeader": "순위",
         "updatedText": "업데이트됨: {{timestamp}}",
         "winLossHeader": "승/패",
         "activity": {
@@ -448,7 +448,7 @@
                 "searchAgainError": "매치 검색 중 문제가 발생했어"
             },
             "mapPool": "맵 풀",
-            "points": "포인트",
+            "points": "점수",
             "race": "종족",
             "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
             "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
@@ -460,8 +460,8 @@
         "match": {
             "gameInProgress": "게임 진행 중…",
             "gameFailedToLoad": "게임 로딩에 실패했습니다.",
-            "gameLoading": "게임 런칭…",
-            "gameStarting": "게임 시작…",
+            "gameLoading": "게임 시작 중…",
+            "gameStarting": "게임이 곧 시작됩니다…",
             "playerVsPlayer": "대"
         },
         "disabledCard": {
@@ -475,21 +475,21 @@
             "title": "매치메이킹 비활성화됨"
         },
         "navEntry": {
-            "matchFound": "일치하는 항목을 찾았습니다!"
+            "matchFound": "매치가 잡혔습니다!"
         },
         "postMatchDialog": {
             "leagues": "리그",
-            "matchmaking": "결혼 중매",
-            "points": "포인트들",
-            "rating": "평가",
+            "matchmaking": "매치메이킹",
+            "points": "점수",
+            "rating": "레이팅",
             "searchAgain": "다시 검색",
             "title": "경기 결과",
-            "watchReplay": "다시 보기"
+            "watchReplay": "리플레이 보기"
         },
         "type": {
             "1v1": "1대1",
             "2v2": "2:2",
-            "3v3": "3v3",
+            "3v3": "3:3",
             "1v1fastest": "1대1 가장 빠름"
         },
         "activity": {
@@ -532,8 +532,8 @@
             "zerg": "저그"
         },
         "gameSource": {
-            "custom": "커스텀 게임",
-            "ranked": "{{matchmakingType}} 위"
+            "custom": "사용자 게임",
+            "ranked": "{{matchmakingType}} 래더"
         },
         "mapName": {
             "unknown": "알 수 없는 맵"
@@ -571,42 +571,42 @@
             "countdownStarted": "게임 카운트다운이 시작되었습니다",
             "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다",
             "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다",
-            "selfJoin": "<1>{{lobby}}</1>에 가입하셨습니다. 호스트는 <4><0></0></4>입니다."
+            "selfJoin": "<1>{{lobby}}</1>에 참가하셨습니다. 호스트는 <4><0></0></4>입니다."
         },
         "joinLobby": {
             "openSlotCount_other": "{{count}} 슬롯 열림",
             "title": "로비 참가",
             "noActiveLobbies": "활성 로비가 없습니다",
             "noOpenLobbies": "공개된 로비가 없습니다",
-            "action": "로비 참여",
+            "action": "로비 참가",
             "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
             "matchmakingActiveDialogTitle": "로비 참여 비활성화"
         },
         "slots": {
             "closeSlot": "슬롯 닫기",
-            "kickPlayer": "킥 선수",
-            "makeObserver": "관찰자로 만들기",
-            "makePlayer": "플레이어 만들기",
-            "name": "닫은",
-            "open": "열려 있는",
-            "openSlot": "열린 슬롯",
+            "kickPlayer": "플레이어 강퇴",
+            "makeObserver": "옵저버로 전환",
+            "makePlayer": "플레이어로 전환",
+            "name": "닫힘",
+            "open": "열림",
+            "openSlot": "슬롯 열기",
             "removeComputer": "컴퓨터 제거",
-            "slotActions": "슬롯 작업",
+            "slotActions": "슬롯 설정",
             "addComputer": "컴퓨터 추가",
-            "banPlayer": "플레이어 금지"
+            "banPlayer": "로비에서 추방"
         },
         "state": {
-            "exists": "로비가 이미 존재합니다. 그것에 합류 해?",
+            "exists": "현재 이 로비에 참여 중이 아닙니다. 참가하시겠어요?",
             "nonexistent": "로비가 존재하지 않습니다. 그것을 만드시겠습니까?",
             "started": "로비는 이미 시작되었습니다."
         },
         "loading": {
-            "content": "<0>{{gameType}}</0><1> </1><2>{{mapName}}</2>"
+            "content": "<0>{{gameType}}</0><1> - </1><2>{{mapName}}</2>"
         },
         "lobby": {
-            "gameType": "게임 타입",
+            "gameType": "게임 방식",
             "leaveLobby": "로비 나가기",
-            "startGame": "게임을 시작하다",
+            "startGame": "게임 시작",
             "turnRate": "회전율",
             "turnRateAuto": "자동",
             "turnRateDynamic": "DTR",
@@ -736,17 +736,17 @@
     },
     "starcraft": {
         "shieldbatteryHealth": {
-            "bottomContents": "가능한 경우 이를 안티바이러스 공급업체에 오탐으로 보고하면 다른 사용자에게도 이런 일이 발생하지 않도록 하는 데 도움이 됩니다!",
-            "middleContents": "이는 설치된 바이러스 백신 소프트웨어가 오탐지에 조치를 취한 결과인 경우가 많습니다. 이러한 파일에 대한 예외를 추가하거나 격리에서 파일을 제거하도록 소프트웨어에 지시해야 할 수 있습니다. ShieldBattery를 다시 설치해 볼 수도 있습니다.",
+            "bottomContents": "가능하다면 이 파일들이 오탐(false positive)이라고 백신 업체에 신고해 주세요. 그래야 다른 사용자들에게도 이런 문제가 생기지 않을 거예요!",
+            "middleContents": "이런 문제는 보통 설치된 백신 프로그램이 오탐(false positive)으로 잘못 판단해 파일에 조치를 취했을 때 발생합니다. 예외 목록에 해당 파일들을 추가하거나, 격리 해제 처리해야 할 수도 있어요. 또는 ShieldBattery를 다시 설치해 보는 것도 방법입니다.",
             "noProblems": "이제 로컬 설치에 문제가 없습니다.",
-            "rescanFiles": "파일 재검색",
+            "rescanFiles": "파일 다시 검사",
             "title": "설치 문제 감지됨",
             "topContents": "다음 ShieldBattery 파일이 없거나 수정되었음을 감지했습니다:"
         },
         "starcraftHealth": {
-            "installPathContents": "StarCraft 경로 설정이 올바른 설치를 가리키지 않습니다. <2>설정</2>에서 값을 수정하십시오. 게임이 설치되어 있지 않은 경우 <5><0>블리자드 웹사이트</0></5>에서 쉽게 다운로드할 수 있습니다. 설치 후 ShieldBattery를 다시 시작해야 할 수도 있습니다.",
-            "title": "설치 문제 감지됨",
-            "starcraftVersionContents": "StarCraft 설치가 오래되었습니다. ShieldBattery는 버전 1.16.1 또는 최신 Remastered 버전의 설치를 지원합니다. <2><0>최신 버전</0></2>을 설치하고 ShieldBattery를 다시 시작하세요.",
+            "installPathContents": "현재 StarCraft 경로 설정이 올바른 설치 위치를 가리키고 있지 않습니다. <2>설정</2>에서 경로를 다시 지정해 주세요. 아직 게임이 설치되어 있지 않다면, <5><0>Battle.net</0></5>에서 쉽게 다운로드할 수 있습니다. 설치 후 ShieldBattery를 다시 시작해야 할 수도 있어요.",
+            "title": "StarCraft 설치 문제 감지됨",
+            "starcraftVersionContents": "현재 설치된 StarCraft는 구버전입니다. ShieldBattery는 Battle.net에서 제공되는 최신 리마스터 버전만 지원합니다. <2><0>최신 버전</0></2>을 설치한 후 ShieldBattery를 다시 실행해 주세요.",
             "header": "ShieldBattery에서 게임을 플레이하려면 먼저 다음 문제를 수정해야 합니다:",
             "noProblems": "이제 로컬 설치에 문제가 없습니다."
         }
@@ -890,23 +890,23 @@
     },
     "navigation": {
         "copyLink": {
-            "copiedText": "복사했습니다!",
+            "copiedText": "복사되었습니다!",
             "defaultText": "링크 복사"
         },
         "externalLink": {
-            "alwaysTrust": "항상 이 도메인 신뢰",
-            "dialogText": "<0>이 링크는 ShieldBattery 외부 사이트로 이동합니다.</0><1>{{link}}</1><2>여기로 이동하시겠습니까?</2>",
+            "alwaysTrust": "이 도메인을 항상 신뢰",
+            "dialogText": "<0>이 링크는 ShieldBattery 외부 사이트로 연결됩니다:</0><1>{{link}}</1><2>정말 이 사이트로 이동하시겠습니까?</2>",
             "openLink": "링크 열기",
             "title": "외부 링크"
         },
         "leftNav": {
             "chatChannels": "채팅 채널",
-            "customGame": "커스텀 게임",
-            "logOut": "로그 아웃",
-            "rankedGame": "순위 {{matchmakingType}}",
-            "viewProfile": "프로필보기",
-            "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
-            "whispers": "속삭임",
+            "customGame": "사용자 게임",
+            "logOut": "로그아웃",
+            "rankedGame": "{{matchmakingType}} 래더",
+            "viewProfile": "프로필 보기",
+            "whisperCloseError": "귓속말 세션을 종료하는 중 오류가 발생했습니다: {{errorMessage}}",
+            "whispers": "귓속말",
             "reportBug": "버그 신고",
             "logOutErrorMessage": "뭔가 잘못됐어. 나중에 다시 시도해봐.",
             "logOutErrorTitle": "로그아웃 실패"
@@ -922,31 +922,31 @@
     "users": {
         "contextMenu": {
             "removeFriend": "친구 삭제",
-            "removeFriendRequest": "친구 요청 제거",
-            "userBlocked": "사용자가 차단됨",
-            "userUnblocked": "사용자가 차단 해제됨",
-            "viewProfile": "프로필보기",
-            "whisper": "속삭임",
+            "removeFriendRequest": "친구 요청 취소",
+            "userBlocked": "사용자가 차단되었습니다",
+            "userUnblocked": "사용자 차단 해제됨",
+            "viewProfile": "프로필 보기",
+            "whisper": "귓속말",
             "addFriend": "친구 추가",
-            "friendRemoved": "친구 삭제됨",
-            "friendRequestAccepted": "친구 요청 수락됨",
-            "friendRequestRemoved": "친구 요청이 삭제됨",
-            "friendRequestSent": "친구 요청이 전송",
-            "loadingUsers": "사용자 로드 중…"
+            "friendRemoved": "친구가 제거되었습니다",
+            "friendRequestAccepted": "친구 요청이 수락되었습니다",
+            "friendRequestRemoved": "친구 요청이 취소되었습니다",
+            "friendRequestSent": "친구 요청이 전송되었습니다",
+            "loadingUsers": "사용자 로딩 중…"
         },
         "profileOverlay": {
-            "viewProfile": "프로필보기",
+            "viewProfile": "프로필 보기",
             "info": "정보",
-            "joined": "{{date}} 가입",
-            "ranked": "랭크",
-            "rightClick": "추가 작업을 위해 사용자를 마우스 오른쪽 버튼으로 클릭"
+            "joined": "{{date}}에 가입함",
+            "ranked": "랭크전",
+            "rightClick": "사용자를 우클릭하면 더 많은 동작을 볼 수 있어요"
         },
         "titles": {
-            "novice": "초심자"
+            "novice": "초보자"
         },
         "errors": {
             "friendsList": {
-                "blockedByUser": "당신은 이 사용자에 의해 차단되었습니다",
+                "blockedByUser": "이 사용자가 당신을 차단했습니다",
                 "errorAcceptingFriendRequest": "친구 요청 수락 오류",
                 "errorBlockingUser": "사용자 차단 오류",
                 "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다",
@@ -954,12 +954,12 @@
                 "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다",
                 "errorSendingFriendRequest": "친구 요청을 보내는 중에 오류가 발생했습니다",
                 "errorUnblockingUser": "사용자 차단을 해제하는 중에 오류가 발생했습니다",
-                "invalidSelfAction": "자신에게 이 작업을 수행할 수 없습니다.`",
+                "invalidSelfAction": "자신에게 이 작업을 수행할 수 없습니다",
                 "limitReached": "최대 친구 또는 차단 수에 도달했습니다, 더 추가하려면 일부를 제거하세요",
                 "noMatchingEntry": "일치하는 항목이 없습니다"
             },
             "profile": {
-                "loadUser": "이 사용자를 로드하는 중에 문제가 발생했습니다."
+                "loadUser": "이 사용자를 불러오는 데 문제가 발생했습니다."
             }
         },
         "friendsList": {
@@ -968,19 +968,19 @@
         },
         "profile": {
             "achievements": "업적",
-            "latestGames": "최신 게임",
-            "points": "포인트들",
-            "rank": "계급",
-            "rating": "평가",
-            "record": "기록",
+            "latestGames": "최근 게임",
+            "points": "점수",
+            "rank": "순위",
+            "rating": "레이팅",
+            "record": "전적",
             "tabs": {
                 "admin": "관리자",
                 "matchHistory": "경기 기록",
-                "season": "계절",
+                "season": "시즌",
                 "stats": "통계",
                 "summary": "요약"
             },
-            "totalGames": "총 게임"
+            "totalGames": "총 게임 수"
         }
     },
     "policy": {
@@ -1003,20 +1003,20 @@
             "username": "사용자 이름",
             "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "usernameRequired": "사용자 이름을 입력하세요",
-            "title": "메세지를 보내다"
+            "title": "메시지 보내기"
         },
         "errors": {
-            "cantWhisperYourself": "당신은 자신과 속삭일 수 없습니다.",
+            "cantWhisperYourself": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
             "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",
-            "loadingHistory": "메시지 기록 로드 오류: {{errorMessage}}",
+            "loadingHistory": "메시지 기록을 불러오는 중 오류 발생: {{errorMessage}}",
             "noSelfMessaging": "자신에게 메시지를 보낼 수 없습니다",
-            "openSession": "사용자에게 귓속말 열기 오류: {{errorMessage}}",
+            "openSession": "사용자 {{errorMessage}}에게 귓속말을 열 수 없습니다",
             "sendingMessage": "메시지 전송 오류: {{errorMessage}}",
-            "unknownError": "알수없는 오류",
-            "userNotFound": "사용자를 찾을 수 없음"
+            "unknownError": "알 수 없는 오류",
+            "userNotFound": "사용자를 찾을 수 없습니다"
         },
         "navEntry": {
-            "closeWhisper": "가까운 속삭임"
+            "closeWhisper": "귓속말 닫기"
         }
     },
     "user": {
@@ -1064,8 +1064,8 @@
     },
     "notifications": {
         "activityButton": {
-            "read": "알림(Alt + N)",
-            "unread": "알림 - 읽지 않음(Alt + N)"
+            "read": "알림 (Alt + N)",
+            "unread": "알림 - 안 읽음 (Alt + N)"
         },
         "errors": {
             "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다",
@@ -1075,7 +1075,7 @@
             "title": "알림"
         },
         "popup": {
-            "markAsRead": "읽은 상태로 표시"
+            "markAsRead": "읽음 처리"
         }
     },
     "leagues": {
