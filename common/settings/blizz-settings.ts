@@ -31,9 +31,9 @@ export function getConsoleSkinName(skin: ConsoleSkin, t: TFunction): string {
     case ConsoleSkin.SC20thAnniversary:
       return t('settings.game.gameplay.consoleSkins.20thAnniversary', 'StarCraft 20th Anniversary')
     case ConsoleSkin.KrcSilver:
-      return t('settings.game.gameplay.consoleSkins.krcSilver', 'KRC Silver')
+      return t('settings.game.gameplay.consoleSkins.krcSilver', 'Silver - Orchestra 2019')
     case ConsoleSkin.KrcGold:
-      return t('settings.game.gameplay.consoleSkins.krcGold', 'KRC Gold')
+      return t('settings.game.gameplay.consoleSkins.krcGold', 'Gold - Orchestra 2019')
     case ConsoleSkin.War3Spoils:
       return t('settings.game.gameplay.consoleSkins.warcraft3', 'WarCraft 3 Spoils')
     default:
