@@ -1147,7 +1147,7 @@
         "errorRemovingFriendRequest": "Error removing friend request",
         "errorSendingFriendRequest": "Error sending friend request",
         "errorUnblockingUser": "Error unblocking user",
-        "invalidSelfAction": "you cannot perform this action on yourself`",
+        "invalidSelfAction": "you cannot perform this action on yourself",
         "limitReached": "you have reached the maximum amount of friends or blocks, please remove some to add more",
         "noMatchingEntry": "no matching entry found"
       },
