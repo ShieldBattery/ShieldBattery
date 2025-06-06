@@ -76,13 +76,13 @@
                     "title": "초상화"
                 },
                 "visualizeNetworkStalls": "네트워크 중단 시각화",
-                "apmAlert": "APM이 아래로 떨어지면 경고",
-                "apmColorText": "컬러 텍스트",
+                "apmAlert": "APM이 이 값 아래로 떨어지면 알림",
+                "apmColorText": "텍스트 색상 변경",
                 "apmDisplay": "APM 표시",
                 "apmSound": "소리 재생",
                 "apmValue": "APM 값",
                 "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
-                "colorCycling": "색상 순환 활성화",
+                "colorCycling": "색상 순환 사용",
                 "showBonusSkins": "보너스 스킨 보기",
                 "startingFog": {
                     "legacy": "유산",
@@ -209,12 +209,12 @@
         "app": {
             "sound": {
                 "masterVolume": "마스터 볼륨",
-                "title": "소리"
+                "title": "사운드"
             },
             "system": {
                 "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
-                "startMinimized": "최소화 시작",
-                "title": "체계",
+                "startMinimized": "최소화된 상태로 시작",
+                "title": "시스템",
                 "startupOverline": "시작",
                 "filesOverline": "파일",
                 "replayQuickOpen": "미리보기 없이 즉시 ShieldBattery로 열린 리플레이 실행"
@@ -222,7 +222,7 @@
             "title": "앱"
         },
         "errors": {
-            "save": "설정을 저장하는 중에 문제가 발생했습니다."
+            "save": "설정을 저장하는 데 문제가 발생했습니다."
         }
     },
     "auth": {
@@ -597,8 +597,8 @@
         },
         "state": {
             "exists": "현재 이 로비에 참여 중이 아닙니다. 참가하시겠어요?",
-            "nonexistent": "로비가 존재하지 않습니다. 그것을 만드시겠습니까?",
-            "started": "로비는 이미 시작되었습니다."
+            "nonexistent": "로비를 찾을 수 없습니다. 생성하시겠어요?",
+            "started": "이 로비는 이미 게임이 시작되어 참여할 수 없습니다."
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> - </1><2>{{mapName}}</2>"

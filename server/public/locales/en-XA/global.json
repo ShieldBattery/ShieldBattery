@@ -56,7 +56,7 @@
                     "blizzcon2017": "$🗡BlizzCon 2017🗡!",
                     "blizzcon2018": "$🗡BlizzCon 2018🗡!",
                     "default": "$🗡Default🗡!",
-                    "krcGold": "$🗡KRC Gold🗡!",
+                    "krcGold": "$🗡Gold - Orchestra 2019🗡!",
                     "krcSilver": "$🗡KRC Silver🗡!",
                     "title": "$🗡Console skin🗡!",
                     "warcraft3": "$🗡WarCraft 3 Spoils🗡!"
@@ -962,7 +962,7 @@
                 "limitReached": "$🗡you have reached the maximum amount of friends or blocks, please remove some to add more🗡!",
                 "noMatchingEntry": "$🗡no matching entry found🗡!",
                 "errorDecliningFriendRequest": "$🗡Error declining friend request🗡!",
-                "invalidSelfAction": "$🗡you cannot perform this action on yourself`🗡!"
+                "invalidSelfAction": "$🗡you cannot perform this action on yourself🗡!"
             },
             "profile": {
                 "loadUser": "$🗡There was a problem loading this user.🗡!"
