@@ -45,7 +45,7 @@
             "gameplay": {
                 "consoleSkins": {
                     "title": "콘솔 스킨",
-                    "warcraft3": "워크래프트 3 전리품",
+                    "warcraft3": "워크래프트 3 스포일즈",
                     "20thAnniversary": "스타크래프트 20주년",
                     "blizzcon2017": "블리즈컨 2017",
                     "blizzcon2018": "블리즈컨 2018",
@@ -56,26 +56,26 @@
                 "devOnlySettings": "개발자 전용 설정",
                 "gameTimer": "게임 타이머",
                 "ingameSkins": {
-                    "carbot": "카봇",
+                    "carbot": "카툰드",
                     "none": "없음",
-                    "preorder": "선주문",
+                    "preorder": "예약판",
                     "title": "인게임 스킨"
                 },
-                "latency": "대기 시간 표시",
+                "latency": "지연 시간 표시",
                 "minimapPosition": {
-                    "bottomLeft": "왼쪽 하단 모서리",
-                    "standard": "기준",
+                    "bottomLeft": "좌측 하단",
+                    "standard": "기본 위치",
                     "title": "미니맵 위치"
                 },
-                "skinsInfo": "스킨(블리자드에서 구매해야 함)",
-                "title": "게임 플레이",
+                "skinsInfo": "스킨 (블리자드에서 구매 필요)",
+                "title": "게임플레이",
                 "unitPortraits": {
-                    "animated": "생기 있는",
-                    "disabled": "장애가 있는",
-                    "still": "아직",
-                    "title": "초상화"
+                    "animated": "애니메이션",
+                    "disabled": "사용 안 함",
+                    "still": "정지됨",
+                    "title": "유닛 초상화"
                 },
-                "visualizeNetworkStalls": "네트워크 중단 시각화",
+                "visualizeNetworkStalls": "네트워크 지연 시각화",
                 "apmAlert": "APM이 이 값 아래로 떨어지면 알림",
                 "apmColorText": "텍스트 색상 변경",
                 "apmDisplay": "APM 표시",
@@ -83,7 +83,7 @@
                 "apmValue": "APM 값",
                 "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
                 "colorCycling": "색상 순환 사용",
-                "showBonusSkins": "보너스 스킨 보기",
+                "showBonusSkins": "보너스 스킨 표시",
                 "startingFog": {
                     "legacy": "유산",
                     "showResources": "리소스 표시",
@@ -99,35 +99,35 @@
                 "hardwareCursor": "하드웨어 커서",
                 "keyboardScrollSpeed": "키보드 스크롤 속도",
                 "lockCursor": "커서를 창에 고정",
-                "mouseScaling": "마우스 배율 사용",
+                "mouseScaling": "마우스 스케일링 사용",
                 "customMouseSensitivity": "사용자 지정 마우스 감도"
             },
             "sound": {
                 "announcer": {
                     "default": "기본",
                     "heyJini": "헤이지니",
-                    "info": "팩(블리자드에서 구매해야 함)",
+                    "info": "팩 (블리자드에서 구매해야 함)",
                     "jeonYongJun": "전용준",
                     "kimJungmin": "김정민",
                     "title": "아나운서",
                     "umJaeKyung": "엄재경",
-                    "umJeonKim": "엄전김 트리오"
+                    "umJeonKim": "엄전김"
                 },
-                "unitSpeech": "단위연설",
-                "backgroundSounds": "백그라운드에서 소리 재생",
+                "unitSpeech": "유닛 대사",
+                "backgroundSounds": "백그라운드에서도 소리 재생",
                 "buildingSounds": "건물 소리",
                 "cinematicSubtitles": "시네마틱 자막",
                 "gameSounds": "게임 사운드",
                 "gameSubtitles": "게임 자막",
                 "music": "음악",
                 "musicVolume": "음악 볼륨",
-                "originalVoiceOvers": "오리지널 유닛 보이스 오버",
-                "soundVolume": "음량",
+                "originalVoiceOvers": "원본 유닛 음성",
+                "soundVolume": "효과음 볼륨",
                 "title": "소리",
-                "unitAcknowledgements": "단위 승인"
+                "unitAcknowledgements": "유닛 인식 소리"
             },
             "starcraft": {
-                "title": "스타 크래프트",
+                "title": "StarCraft",
                 "browseManually": "수동으로 찾아보기",
                 "currentPathLabel": "현재 게임 경로:",
                 "detectionFailed": "설치 경로를 검색하지 못했습니다. 스타크래프트: 리마스터가 설치되어 있는지 확인하고 다시 시도하거나 경로를 수동으로 설정하세요.",
@@ -145,20 +145,20 @@
             "video": {
                 "displayMode": {
                     "fullscreen": "전체 화면",
-                    "title": "디스플레이 모드",
-                    "windowed": "창",
+                    "title": "화면 모드",
+                    "windowed": "창 모드",
                     "windowedFullscreen": "창 모드(전체 화면)"
                 },
                 "smoothUnitTurning": "부드러운 유닛 회전",
-                "title": "동영상",
-                "enableVerticalSync": "수직 동기화 활성화",
-                "environmentEffects": "환경 영향",
+                "title": "비디오",
+                "enableVerticalSync": "수직 동기화 사용",
+                "environmentEffects": "환경 효과",
                 "fpsLimit": "FPS 제한",
                 "hdGraphics": "HD 그래픽",
-                "pillarbox": "기둥 상자(4:3 가로세로 비율)",
+                "pillarbox": "필러박스 (4:3 화면 비율)",
                 "realTimeLighting": "실시간 조명",
                 "sdGraphicsFilter": "SD 그래픽 필터",
-                "shadowStacking": "그림자 쌓기",
+                "shadowStacking": "섀도우 스태킹",
                 "showFps": "FPS 표시",
                 "customFpsLimit": "사용자 정의 FPS 제한"
             },
@@ -209,7 +209,7 @@
         "app": {
             "sound": {
                 "masterVolume": "마스터 볼륨",
-                "title": "사운드"
+                "title": "소리"
             },
             "system": {
                 "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
