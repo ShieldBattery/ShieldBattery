@@ -18,7 +18,7 @@ export function userRelationshipErrorToString(err: Error, prefix: string, t: TFu
       case UserRelationshipServiceErrorCode.InvalidSelfAction:
         return `${prefix}: ${t(
           'users.errors.friendsList.invalidSelfAction',
-          'you cannot perform this action on yourself`',
+          'you cannot perform this action on yourself',
         )}`
       case UserRelationshipServiceErrorCode.LimitReached:
         return `${prefix}: ${t(
