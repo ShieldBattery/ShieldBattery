@@ -204,7 +204,7 @@
             }
         },
         "activity": {
-            "title": "설정(Alt + S)"
+            "title": "설정 (Alt + S)"
         },
         "app": {
             "sound": {
@@ -753,7 +753,7 @@
     },
     "maps": {
         "activity": {
-            "title": "지도"
+            "title": "맵"
         },
         "details": {
             "editDescription": "설명 편집",
@@ -785,9 +785,9 @@
             "regenerateError": "이미지를 재생성하는 동안 오류가 발생했습니다",
             "sortMaps": {
                 "option": {
-                    "dateUploaded": "업로드 날짜",
-                    "name": "이름",
-                    "numberOfPlayers": "플레이어 수"
+                    "dateUploaded": "업로드순",
+                    "name": "이름순",
+                    "numberOfPlayers": "인원수순"
                 },
                 "title": "맵 정렬"
             },
@@ -799,14 +799,14 @@
             "thumbnailSize": {
                 "option": {
                     "large": "큰",
-                    "medium": "중간",
-                    "small": "작은"
+                    "medium": "보통",
+                    "small": "작게"
                 },
                 "title": "썸네일 크기"
             },
             "allMaps": "모든 맵",
             "browseLocal": "로컬 맵 찾아보기",
-            "error": "문제 발생: {{errorMessage}}",
+            "error": "문제가 발생했습니다: {{errorMessage}}",
             "favorites": {
                 "added": "즐겨찾기에 추가됨",
                 "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다",
@@ -993,8 +993,8 @@
         "acceptableUse": "서비스 이용 정책"
     },
     "rootErrorBoundary": {
-        "contents": "<2>Discord</2>에서 이 문제를 보고해 주십시오.",
-        "reloadApp": "앱 새로고침",
+        "contents": "이 문제를 <2>디스코드</2>에서 저희에게 보고해 주세요.",
+        "reloadApp": "앱 다시 실행",
         "title": "문제가 발생했습니다"
     },
     "whispers": {

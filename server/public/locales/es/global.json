@@ -96,8 +96,8 @@
                     "blizzcon2017": "BlizzCon 2017",
                     "blizzcon2018": "BlizzCon 2018",
                     "default": "Por defecto",
-                    "krcGold": "KRC oro",
-                    "krcSilver": "KRC plata",
+                    "krcGold": "Oro - Orquesta 2019",
+                    "krcSilver": "Plata - Orquesta 2019",
                     "title": "Máscara de consola",
                     "warcraft3": "Botín de WarCraft 3"
                 },
@@ -965,7 +965,7 @@
                 "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
                 "errorSendingFriendRequest": "Error al enviar solicitud de amistad",
                 "errorUnblockingUser": "Error al desbloquear usuario",
-                "invalidSelfAction": "no puedes realizar esta acción en ti mismo`",
+                "invalidSelfAction": "no puedes realizar esta acción en ti mismo",
                 "limitReached": "ha alcanzado la cantidad máxima de amigos o bloques, elimine algunos para agregar más",
                 "noMatchingEntry": "no se encontró ninguna entrada coincidente"
             },
