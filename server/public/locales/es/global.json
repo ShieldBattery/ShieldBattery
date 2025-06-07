@@ -626,7 +626,7 @@
         "gameType": {
             "captureTheFlag": "Captura la bandera",
             "freeForAll": "Todos contra todos",
-            "greed": "Codicia",
+            "greed": "Avaricia",
             "melee": "Melee",
             "oneOnOne": "Uno contra uno",
             "topVsBottom": "Arriba contra abajo",
@@ -635,8 +635,8 @@
             "slaughter": "Masacre",
             "suddenDeath": "Muerte súbita",
             "teamCaptureTheFlag": "Captura la bandera en equipo",
-            "teamMelee": "Melee en equipo",
-            "teamFreeForAll": "Todos contra todos por equipos"
+            "teamMelee": "Melé en equipos",
+            "teamFreeForAll": "Todos contra todos en equipos"
         },
         "mapName": {
             "unknown": "Mapa desconocido"
