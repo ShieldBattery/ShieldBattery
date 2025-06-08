@@ -482,7 +482,7 @@
         },
         "postMatchDialog": {
             "leagues": "Ligas",
-            "matchmaking": "Busqueda de partido",
+            "matchmaking": "Emparejamiento",
             "points": "Puntos",
             "rating": "Clasificación",
             "searchAgain": "Busca de nuevo",
@@ -987,7 +987,7 @@
             "tabs": {
                 "admin": "Administración",
                 "matchHistory": "Historial de partidos",
-                "season": "Estaciones",
+                "season": "Temporadas",
                 "stats": "Estadísticas",
                 "summary": "Resumen"
             },

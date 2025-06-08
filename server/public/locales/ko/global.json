@@ -85,12 +85,12 @@
                 "colorCycling": "색상 순환 사용",
                 "showBonusSkins": "보너스 스킨 표시",
                 "startingFog": {
-                    "legacy": "유산",
-                    "showResources": "리소스 표시",
-                    "title": "전쟁의 안개가 시작되다",
-                    "transparent": "투명한"
+                    "legacy": "오리지널",
+                    "showResources": "자원 표시",
+                    "title": "초기 안개 설정",
+                    "transparent": "반투명"
                 },
-                "apmAlertHeader": "APM 알림"
+                "apmAlertHeader": "APM 경고"
             },
             "input": {
                 "mouseScrollSpeed": "마우스 스크롤 속도",
@@ -128,19 +128,19 @@
             },
             "starcraft": {
                 "title": "StarCraft",
-                "browseManually": "수동으로 찾아보기",
+                "browseManually": "수동으로 찾기",
                 "currentPathLabel": "현재 게임 경로:",
-                "detectionFailed": "설치 경로를 검색하지 못했습니다. 스타크래프트: 리마스터가 설치되어 있는지 확인하고 다시 시도하거나 경로를 수동으로 설정하세요.",
-                "detectPath": "설치 감지",
-                "pathInvalid": "이 경로는 유효한 스타크래프트: 리마스터 설치를 가리키지 않습니다. 설치가 최신인지 확인하거나 다른 경로를 시도해 보세요.",
-                "pathValid": "이 게임 경로는 유효한 설치인 것 같습니다.",
+                "detectionFailed": "설치 경로를 자동으로 찾지 못했습니다. StarCraft: Remastered가 설치되어 있는지 확인한 후 다시 시도하거나, 경로를 수동으로 설정해 주세요.",
+                "detectPath": "설치 경로 찾기",
+                "pathInvalid": "이 경로에는 올바른 StarCraft: Remastered 설치 파일이 없습니다. 설치가 최신 버전인지 확인하거나 다른 경로를 시도해 주세요.",
+                "pathValid": "이 게임 경로는 올바른 설치로 보입니다.",
                 "instructions": {
-                    "advanced": "감지에 실패하면 경로를 수동으로 설정할 수 있습니다. 아래 버튼을 클릭하고 스타크래프트: 리마스터 설치가 포함된 디렉토리를 선택하세요.",
-                    "description": "ShieldBattery를 사용하려면 StarCraft: Remastered의 유효한 최신 설치가 필요합니다. 아래 버튼을 클릭하면 설치 폴더를 자동으로 검색합니다."
+                    "advanced": "자동 감지에 실패한 경우 수동으로 경로를 설정할 수 있습니다. 아래 버튼을 클릭하고 StarCraft: Remastered가 설치된 디렉터리를 선택하세요.",
+                    "description": "ShieldBattery를 사용하려면 최신 버전의 StarCraft: Remastered가 올바르게 설치되어 있어야 합니다. 아래 버튼을 클릭하면 설치 폴더를 자동으로 감지합니다."
                 },
                 "devOnlySettings": "개발자 전용 설정",
-                "disableHd": "HD 그래픽 로드하지 마 (게임 내에서 HD로 전환하면 크래시 남)",
-                "launch64Bit": "64비트 실행 파일 실행"
+                "disableHd": "HD 그래픽 로드 안 함 (게임 중 HD로 전환 시 크래시 발생)",
+                "launch64Bit": "64비트 실행 파일로 실행"
             },
             "video": {
                 "displayMode": {
@@ -160,7 +160,7 @@
                 "sdGraphicsFilter": "SD 그래픽 필터",
                 "shadowStacking": "섀도우 스태킹",
                 "showFps": "FPS 표시",
-                "customFpsLimit": "사용자 정의 FPS 제한"
+                "customFpsLimit": "사용자 지정 FPS 제한"
             },
             "title": "게임"
         },
@@ -171,9 +171,9 @@
             },
             "title": "사용자",
             "account": {
-                "authenticationHeader": "입증",
+                "authenticationHeader": "인증",
                 "changeEmail": {
-                    "dialogTitle": "이메일을 바꾸다",
+                    "dialogTitle": "이메일 변경",
                     "patternError": "유효한 이메일 주소를 입력하세요",
                     "requiredError": "이메일 주소를 입력하세요",
                     "success": "이메일이 성공적으로 변경되었습니다."
@@ -181,26 +181,26 @@
                 "passwordValidator": {
                     "current": "현재 비밀번호를 입력하세요",
                     "new": "새 비밀번호를 입력하세요",
-                    "confirm": "일치하는 비밀번호를 입력하세요"
+                    "confirm": "매칭 비밀번호를 입력하세요"
                 },
                 "changePassword": {
                     "dialogTitle": "비밀번호 변경",
                     "success": "비밀번호가 성공적으로 변경되었습니다."
                 },
-                "changePasswordButton": "비밀번호 변경",
-                "confirmNewPassword": "새 암호를 확인합니다",
+                "changePasswordButton": "비밀번호 변경하기",
+                "confirmNewPassword": "새 비밀번호 확인",
                 "currentPassword": "현재 비밀번호",
-                "displayName": "이름 표시하기",
+                "displayName": "표시 이름",
                 "email": "이메일",
-                "error": "사용자 정보를 검색하는 중에 문제가 발생했습니다.",
-                "invalidCurrentPassword": "현재 암호가 잘못되었습니다",
+                "error": "사용자 정보를 가져오는 데 문제가 발생했습니다.",
+                "invalidCurrentPassword": "현재 비밀번호가 올바르지 않습니다",
                 "label": "계정",
                 "loginName": "로그인 이름",
                 "networkError": "네트워크 오류: {{errorMessage}}",
                 "newPassword": "새 비밀번호",
                 "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
-                "emailUnverified": "미확인",
-                "emailVerified": "확인됨"
+                "emailUnverified": "미인증",
+                "emailVerified": "인증됨"
             }
         },
         "activity": {
@@ -215,9 +215,9 @@
                 "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
                 "startMinimized": "최소화된 상태로 시작",
                 "title": "시스템",
-                "startupOverline": "시작",
+                "startupOverline": "시작 설정",
                 "filesOverline": "파일",
-                "replayQuickOpen": "미리보기 없이 즉시 ShieldBattery로 열린 리플레이 실행"
+                "replayQuickOpen": "ShieldBattery로 연 리플레이를 미리보기 없이 바로 실행"
             },
             "title": "앱"
         },
@@ -327,35 +327,35 @@
     },
     "landing": {
         "faq": {
-            "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있나요?",
-            "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery에서 해당 단축키를 사용합니다.",
-            "hotkeyCustomizationQuestion": "단축키 사용자 설정이 허용되거나 제공됩니까?",
-            "linuxSupportAnswer": "<0>현재 공식 지원이 되는 건 아니야.</0><1>하지만 ShieldBattery와 Wine을 연동한 커뮤니티 기여가 있어. ShieldBattery를 Wine에서 실행하는 방법은 <2>디스코드</2>에서 확인해봐.</1>",
+            "isShieldBatteryFreeQuestion": "ShieldBattery는 유료인가요? 프로젝트를 어떻게 후원할 수 있나요?",
+            "hotkeyCustomizationAnswer": "네, 커스텀 단축키를 지원하지만, 현재 단축키 편집기는 제공하지 않습니다. 커스텀 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행한 후 단축키를 먼저 설정해 주세요. 설정이 완료되면, 이후에는 ShieldBattery를 통해 실행하더라도 해당 단축키가 적용됩니다.",
+            "hotkeyCustomizationQuestion": "단축키 커스터마이징이 가능한가요?",
+            "linuxSupportAnswer": "<0>현재 공식적으로 지원하는 기능은 아닙니다.</0><1>하지만 커뮤니티에서 기여한 ShieldBattery와 Wine의 연동 방법이 있습니다. ShieldBattery를 Wine에서 실행하는 방법은 <2>디스코드</2>에서 확인해 보세요.</1>",
             "linuxSupportQuestion": "ShieldBattery는 리눅스나 macOS에서 작동하나요?",
-            "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 멤버들이 개발한 프로젝트이며, Blizzard로부터 공식적인 지원이나 인정을 받지 않았습니다.",
-            "officialSupportQuestion": "ShieldBattery는 Blizzard의 지원을 받아 개발되었나요?",
-            "openSourceAnswer": "<0>예. <2>GitHub 페이지</2>에서 다양한 추가 프로젝트 뿐만 아니라 기본 저장소에 액세스할 수 있습니다.</0><1>항상 더 많은 지원자를 사용할 수 있으므로 도움이 될 수 있다고 생각하시면 확인해 보세요!</1>",
-            "openSourceQuestion": "이 프로젝트 오픈 소스야?",
-            "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>Discord</2>를 이용하는 것입니다. 그런 방식으로, <5>GitHub</5>에 문제를 제기할 수도 있습니다.",
-            "reportIssuesQuestion": "버그나 문제를 어떻게 신고하나요?",
-            "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 스타크래프트: 리마스터 버전을 지원합니다. <2>Battle.net 런처</2>에서 스타크래프트: 리마스터 무료 버전을 다운로드할 수 있습니다. 구매한 애드온(HD 그래픽 등)은 ShieldBattery에서도 사용할 수 있습니다.",
-            "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 StarCraft를 지원하나요?",
-            "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1>2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></1>",
-            "systemRequirementsQuestion": "ShieldBattery에서 플레이하려면 어떤 시스템 요구 사항이 필요해?",
+            "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 구성원들이 개발한 프로젝트이며, 블리자드의 공식적인 지원이나 승인을 받지 않았습니다.",
+            "officialSupportQuestion": "ShieldBattery는 블리자드의 지원을 받아 개발되었나요?",
+            "openSourceAnswer": "<0>네, 저희의 메인 저장소뿐만 아니라 여러 부가 프로젝트들도 각각의 저장소로 나누어 <2>GitHub 페이지</2>에서 확인하실 수 있습니다.</0><1>항상 기여해 주실 분들을 환영하니, 도움이 되실 수 있다면 꼭 한 번 살펴봐 주세요!</1>",
+            "openSourceQuestion": "이 프로젝트는 오픈 소스인가요?",
+            "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>디스코드</2>를 이용하는 것입니다. 가능하시다면 <5>GitHub</5>에 이슈를 등록해 주셔도 됩니다.",
+            "reportIssuesQuestion": "버그나 문제는 어떻게 신고하나요?",
+            "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 버전의 스타크래프트: 리마스터를 지원합니다. <2>Battle.net 런처</2>에서 스타크래프트: 리마스터의 무료 버전을 다운로드하실 수 있습니다. 구매하신 애드온(예: HD 그래픽)은 ShieldBattery에서도 사용할 수 있습니다.",
+            "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 스타크래프트: 리마스터를 지원하나요?",
+            "systemRequirementsAnswer": "<0>시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 기반하지만, 간단히 말하면 다음과 같습니다:</0><1><0>Windows 10 이상이 설치된 컴퓨터</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 또는 ATI Radeon X1600 Pro (256MB) 이상의 그래픽 카드</2><3>최신 버전으로 패치된 스타크래프트: 리마스터 설치본</3></1>",
+            "systemRequirementsQuestion": "ShieldBattery를 플레이하기 위한 시스템 요구 사항은 무엇인가요?",
             "title": "자주 묻는 질문들",
-            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 지원 방법을 마련했습니다.</1>"
+            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 이용하실 수 있습니다!</0><1>하지만 ShieldBattery를 개발하고 운영하는 데에는 시간과 비용이 들어갑니다. 이러한 비용을 함께 부담해 주신다면 정말 감사하겠습니다. 후원하실 수 있는 여러 방법을 준비해 두었습니다:</1>"
         },
         "bottomLinks": {
             "acceptableUsePolicy": "허용된 사용 정책",
             "privacyPolicy": "개인정보 처리방침",
-            "termsOfService": "서비스 약관",
+            "termsOfService": "이용 약관",
             "faq": "FAQ"
         },
         "splash": {
             "blurb": "ShieldBattery는 공식 스타크래프트: 리마스터 클라이언트를 지원하는 커뮤니티 서버입니다. 우리의 런처를 다운로드하여 1:1 및 팀 매치메이킹, 개선된 넷코드, 빠른 리플레이 실행 등 다양한 기능에 접근하세요!",
             "disclaimerText": "스타크래프트는 블리자드 엔터테인먼트 주식회사의 등록 상표입니다. ShieldBattery는 블리자드와 무관한 커뮤니티 구성원들에 의해 독립적으로 개발되었으며, 블리자드에 의해 공식적으로 승인되거나 지원되지 않습니다.",
-            "gameCount": "<0></0><1>게임 수</1>",
-            "subtitle": "최고의 StarCraft 1 커뮤니티 플랫폼"
+            "gameCount": "<0></0><1>플레이한 게임 수</1>",
+            "subtitle": "스타크래프트 1 최고의 커뮤니티 플랫폼"
         }
     },
     "clientDownload": {
@@ -435,7 +435,7 @@
             "title": "경기 검색",
             "updated": "업데이트됨",
             "useAlternateRace": "동족전을 피하기 위해 대체 종족 사용",
-            "vetoesLeft": "<0>남은 맵 제외 횟수: </0><1>{{vetoesLeft}}</1>",
+            "vetoesLeft": "<0>남은 맵 밴 횟수: </0><1>{{vetoesLeft}}</1>",
             "action": "경기 찾기",
             "alternateRace": "부종족",
             "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
@@ -445,17 +445,17 @@
                 "loadingRank": "현재 등급 정보를 불러오는 데 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
-                "searchAgainError": "매치 검색 중 문제가 발생했어"
+                "searchAgainError": "경기 검색 중 문제가 발생했습니다"
             },
             "mapPool": "맵 풀",
             "points": "점수",
             "race": "종족",
-            "vetoDescriptionNoOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
-            "vetoDescriptionWithOverlap": "{{count}} 맵까지 거부권을 행사합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
-            "mapSelectionDescription": "플레이하고 싶은 맵을 선택하세요. 선택된 맵만 선택됩니다.",
-            "unratedText": "평가 없음",
-            "goToLobby": "로비로 가기",
-            "lobbyDisabledText": "로비에 있는 동안 매치메이킹을 사용할 수 없습니다."
+            "vetoDescriptionNoOverlap_other": "{{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다시 선택되지 않습니다.",
+            "vetoDescriptionWithOverlap_other": "최대 {{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다른 맵보다 훨씬 적게 선택됩니다.",
+            "mapSelectionDescription": "플레이할 맵을 선택하세요. 선택한 맵만 사용됩니다.",
+            "unratedText": "레이팅 없음",
+            "goToLobby": "로비로 이동",
+            "lobbyDisabledText": "로비에 있는 동안에는 매치메이킹을 사용할 수 없습니다."
         },
         "match": {
             "gameInProgress": "게임 진행 중…",
@@ -470,7 +470,7 @@
             "minutes": "분",
             "soon": "조만간™",
             "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다:",
-            "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
+            "nextDateRange": "<0>{{nextStartDate}}</0><1>부터</1><2>{{nextEndDate}}</2>까지",
             "seconds": "초",
             "title": "매치메이킹 비활성화됨"
         },
@@ -490,10 +490,10 @@
             "1v1": "1대1",
             "2v2": "2:2",
             "3v3": "3:3",
-            "1v1fastest": "1대1 가장 빠름"
+            "1v1fastest": "1:1 빨무"
         },
         "activity": {
-            "title": "결혼 중매"
+            "title": "매치메이킹"
         }
     },
     "game": {
@@ -580,7 +580,7 @@
             "noOpenLobbies": "공개된 로비가 없습니다",
             "action": "로비 참가",
             "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
-            "matchmakingActiveDialogTitle": "로비 참여 비활성화"
+            "matchmakingActiveDialogTitle": "로비 참가 비활성화됨"
         },
         "slots": {
             "closeSlot": "슬롯 닫기",
@@ -607,12 +607,12 @@
             "gameType": "게임 방식",
             "leaveLobby": "로비 나가기",
             "startGame": "게임 시작",
-            "turnRate": "회전율",
+            "turnRate": "턴 속도",
             "turnRateAuto": "자동",
             "turnRateDynamic": "DTR",
-            "unitLimit": "단위 제한",
-            "unitLimitExtended": "펼친",
-            "unitLimitLegacy": "유산"
+            "unitLimit": "유닛 제한",
+            "unitLimitExtended": "확장",
+            "unitLimitLegacy": "오리지널"
         },
         "events": {
             "banned": "이 로비에서 차단되었습니다.",
@@ -773,8 +773,8 @@
             "programFolder": "프로그램 폴더",
             "title": "로컬 맵",
             "uploadMapError": "맵 업로드 중 알 수 없는 오류가 발생했습니다. 나중에 다시 시도해 주세요.",
-            "mapFileSizeErrorMessage": "맵 파일 크기가 허용된 최대 크기 {{fileSize}}를 초과했습니다.",
-            "uploadMapErrorTitle": "맵 업로드 중 오류 발생"
+            "mapFileSizeErrorMessage": "맵 파일 크기가 허용된 최대 크기인 {{fileSize}}를 초과했습니다.",
+            "uploadMapErrorTitle": "맵 업로드 오류"
         },
         "mapSelect": {
             "browseMaps": "맵 찾아보기"
@@ -819,14 +819,14 @@
                     "tileset": "타일셋"
                 },
                 "title": "필터 옵션",
-                "numberOfPlayers": "{{numPlayers}} 플레이어"
+                "numberOfPlayers": "플레이어 {{numPlayers}}명"
             },
             "noCommunityMaps": "아직 커뮤니티에서 공개한 맵이 없습니다.",
             "noResults": "결과가 없습니다.",
-            "uploadedMap": "업로드된 지도",
-            "favoritedMaps": "즐겨찾는 지도",
-            "regenerated": "이미지가 재생성됨",
-            "noUploadedMapsWeb": "지도를 업로드하지 않았습니다."
+            "uploadedMap": "맵이 업로드되었습니다",
+            "favoritedMaps": "즐겨찾는 맵",
+            "regenerated": "이미지가 다시 생성되었습니다",
+            "noUploadedMapsWeb": "업로드한 맵이 없습니다."
         },
         "thumbnail": {
             "addToFavorites": "즐겨찾기에 추가",
@@ -839,13 +839,13 @@
         },
         "tileset": {
             "ashworld": "화산지",
-            "badlands": "황무지",
+            "badlands": "악지",
             "desert": "사막",
             "ice": "얼음",
-            "installation": "설치",
+            "installation": "시설",
             "jungleWorld": "정글",
             "spacePlatform": "우주",
-            "twilight": "어스름"
+            "twilight": "황혼"
         }
     },
     "replays": {
@@ -861,17 +861,17 @@
             "title": "리플레이"
         },
         "loading": {
-            "dialogTitle": "다시보기 로드 중…",
-            "errorGeneric": "리플레이를 로드하는 중에 문제가 발생했습니다.",
-            "initFailureBody": "선택한 다시보기를 로드할 수 없습니다. 손상되었거나 현재 지원되는 것보다 최신 버전의 StarCraft에서 생성되었을 수 있습니다.",
-            "initFailureTitle": "리플레이 로드 중 오류 발생"
+            "dialogTitle": "리플레이 불러오는 중…",
+            "errorGeneric": "리플레이를 불러오는 중 문제가 발생했습니다.",
+            "initFailureBody": "선택한 리플레이를 불러올 수 없습니다. 파일이 손상되었거나 현재 지원되지 않는 최신 버전의 스타크래프트에서 생성되었을 수 있습니다.",
+            "initFailureTitle": "리플레이 불러오기 오류"
         },
         "replayInfoDialog": {
-            "title": "다시보기 정보",
-            "watch": "보다"
+            "title": "리플레이 정보",
+            "watch": "관전하기"
         },
-        "fileDropError": "리플레이 파일을 여는 데 문제가 발생했습니다.",
-        "fileDropText": "여기에 리플레이를 드롭하면 ShieldBattery로 시청할 수 있습니다."
+        "fileDropError": "리플레이 파일을 여는 데 문제가 발생했습니다",
+        "fileDropText": "리플레이 파일을 여기에 끌어와 ShieldBattery로 감상하세요."
     },
     "material": {
         "dialog": {
@@ -908,14 +908,14 @@
             "whisperCloseError": "귓속말 세션을 종료하는 중 오류가 발생했습니다: {{errorMessage}}",
             "whispers": "귓속말",
             "reportBug": "버그 신고",
-            "logOutErrorMessage": "뭔가 잘못됐어. 나중에 다시 시도해봐.",
-            "logOutErrorTitle": "로그아웃 실패"
+            "logOutErrorMessage": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+            "logOutErrorTitle": "로그아웃에 실패했습니다"
         },
         "bar": {
             "userMenu": "사용자 메뉴",
             "appMenu": "메뉴",
-            "home": "집",
-            "play": "놀다",
+            "home": "홈",
+            "play": "플레이",
             "playIngame": "게임 진행 중"
         }
     },
@@ -984,12 +984,12 @@
         }
     },
     "policy": {
-        "acceptableUseAllCaps": "허용되는 사용 정책",
+        "acceptableUseAllCaps": "허용된 사용 정책",
         "policyUpdateNotification": "ShieldBattery의 <2>{{label}}</2>이(가) 업데이트되었습니다.",
         "privacyPolicy": "개인정보 처리방침",
-        "privacyPolicyAllCaps": "개인 정보 정책",
+        "privacyPolicyAllCaps": "개인정보 처리방침",
         "termsOfService": "이용 약관",
-        "termsOfServiceAllCaps": "서비스 약관",
+        "termsOfServiceAllCaps": "이용 약관",
         "acceptableUse": "서비스 이용 정책"
     },
     "rootErrorBoundary": {
@@ -1026,11 +1026,11 @@
         },
         "matchHistory": {
             "noMatchingGames": "일치하는 게임이 없습니다.",
-            "retrievingError": "경기 기록을 가져오는 중에 오류가 발생했습니다."
+            "retrievingError": "전적을 불러오는 중 오류가 발생했습니다."
         },
         "seasons": {
-            "noMatchingGames": "{{user}}는 지난 시즌에 경기를 치르지 않았습니다.",
-            "retrievingError": "순위 기록을 가져오는 중 오류가 발생했습니다."
+            "noMatchingGames": "{{user}}님은 이전 시즌에 게임을 플레이하지 않았습니다.",
+            "retrievingError": "랭킹 기록을 불러오는 중 오류가 발생했습니다."
         }
     },
     "windowControls": {
@@ -1069,7 +1069,7 @@
         },
         "errors": {
             "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다",
-            "clear": "알림을 지우는 중 오류가 발생했어"
+            "clear": "알림 삭제 중 오류가 발생했습니다"
         },
         "list": {
             "title": "알림"
@@ -1162,32 +1162,32 @@
     "social": {
         "chat": {
             "label": "채팅",
-            "loadingChannelsError": "채팅 채널 로드 오류",
-            "loadingWhispersError": "귓속말 로드 오류"
+            "loadingChannelsError": "채팅 채널 로드 중 오류가 발생했습니다",
+            "loadingWhispersError": "귓속말 로드 중 오류가 발생했습니다"
         },
         "friends": {
-            "label": "친구들 ({{friendCount}})"
+            "label": "친구 ({{friendCount}})"
         },
         "sidebar": {
-            "unpinTooltip": "사이드바 고정 해제하기",
-            "pinTooltip": "사이드바 고정하기",
-            "buttonTooltip": "소셜 토글 (ALT + H)"
+            "unpinTooltip": "사이드바 고정 해제",
+            "pinTooltip": "사이드바 고정",
+            "buttonTooltip": "소셜 사이드바 전환 (ALT + H)"
         },
         "errors": {
             "friendsList": {
-                "errorAcceptingFriendRequest": "친구 요청 수락 오류",
-                "load": "친구 목록 로드 실패",
-                "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다",
-                "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다"
+                "errorAcceptingFriendRequest": "친구 요청 수락 중 오류가 발생했습니다",
+                "load": "친구 목록 불러오기 실패했습니다",
+                "errorDecliningFriendRequest": "친구 요청 거절 중 오류가 발생했습니다",
+                "errorRemovingFriendRequest": "친구 요청 삭제 중 오류가 발생했습니다"
             }
         },
         "friendsList": {
-            "loadingUsername": "사용자 이름 로딩 중…",
+            "loadingUsername": "사용자 이름 불러오는 중…",
             "header": {
-                "incoming": "들어오는",
+                "incoming": "받은 요청",
                 "offline": "오프라인",
                 "online": "온라인",
-                "outgoing": "나가는"
+                "outgoing": "보낸 요청"
             },
             "tabs": {
                 "addFriends": "친구 추가",
@@ -1195,7 +1195,7 @@
                 "socialSettings": "소셜 설정"
             },
             "title": {
-                "addFriends": "친구 추가",
+                "addFriends": "친구 추가하기",
                 "friends": "친구"
             }
         }
@@ -1205,6 +1205,6 @@
         "supportTitle": "프로젝트 후원하기"
     },
     "network": {
-        "notConnectedText": "연결 안 됨"
+        "notConnectedText": "연결되지 않음"
     }
 }
