@@ -8,7 +8,7 @@ import path from 'path'
 const GOOGLE_FONTS_URL = constructURL({
   families: {
     Inter: {
-      wght: [400, 500],
+      wght: [400, 500, 550, 600, 700],
     },
     'Sofia Sans': {
       wght: [400, 600, 700],

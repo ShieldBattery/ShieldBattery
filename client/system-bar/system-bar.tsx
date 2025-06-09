@@ -56,7 +56,7 @@ const DevIndicator = styled.div`
 
   background-color: var(--theme-amber);
   color: var(--theme-on-amber);
-  font-variation-settings: 'wght' 600;
+  font-weight: 600;
 
   border-radius: 4px;
   cursor: pointer;

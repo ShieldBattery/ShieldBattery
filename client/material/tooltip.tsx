@@ -62,8 +62,22 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   border-radius: 4px;
   background-color: var(--theme-inverse-surface);
   color: var(--theme-inverse-on-surface);
-  font-variation-settings: 'wght' 600;
+  font-weight: 550;
   pointer-events: ${props => (props.$interactive ? 'auto' : 'none')};
+
+  a:link,
+  a:visited {
+    color: var(--color-blue50);
+    text-decoration: underline;
+    font-weight: 700;
+  }
+
+  a:hover,
+  a:active {
+    color: var(--color-blue60);
+    text-decoration: underline;
+    font-weight: 700;
+  }
 `
 
 const NoPointerPopoverContent = styled(PopoverContent)`

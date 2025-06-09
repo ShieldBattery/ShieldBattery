@@ -27,17 +27,17 @@ export const amber90 = '#ffdd90'
 export const amber95 = '#ffe7b3'
 export const amber99 = '#f8f0df'
 
-export const purple10 = '#161428'
-export const purple20 = '#281d3a'
-export const purple30 = '#372452'
-export const purple40 = '#4e3273'
-export const purple50 = '#7653a4'
-export const purple60 = '#9770c9'
-export const purple70 = '#a782d6'
-export const purple80 = '#c6a2f2'
-export const purple90 = '#ceadf8'
-export const purple95 = '#e4ceff'
-export const purple99 = '#f8ecf8'
+export const purple10 = '#131120'
+export const purple20 = '#2a1b3e'
+export const purple30 = '#3a2056'
+export const purple40 = '#592d83'
+export const purple50 = '#7a37b5'
+export const purple60 = '#9352cc'
+export const purple70 = '#ac7fd8'
+export const purple80 = '#c49be9'
+export const purple90 = '#cda6ee'
+export const purple95 = '#eacefd'
+export const purple99 = '#f3ebf9'
 
 export const greyBlue10 = '#101725'
 export const greyBlue20 = '#182031'
@@ -163,8 +163,8 @@ export const THEME_CSS = css`
   --theme-amber-container: var(--color-amber70);
   --theme-on-amber-container: var(--color-amber10);
 
-  --theme-purple: var(--color-purple80);
-  --theme-on-purple: var(--color-purple10);
+  --theme-purple: var(--color-purple60);
+  --theme-on-purple: var(--color-purple99);
   --theme-purple-container: var(--color-purple40);
   --theme-on-purple-container: var(--color-purple95);
 

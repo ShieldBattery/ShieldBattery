@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { bodyMedium } from '../styles/typography'
-import { IconButton, TextButton } from './button'
+import { IconButton, Label, TextButton } from './button'
 import { elevationPlus3 } from './shadows'
 
 const Root = styled.div`
@@ -33,6 +33,8 @@ const Root = styled.div`
 const Message = styled.div`
   ${bodyMedium};
   padding-block: calc(calc(48px - 20px) / 2);
+
+  font-weight: 500;
 `
 
 const Buttons = styled.div`
@@ -43,7 +45,10 @@ const Buttons = styled.div`
 const ActionButton = styled(TextButton)`
   color: var(--theme-inverse-primary);
   --sb-ripple-color: var(--theme-inverse-primary);
-  font-variation-settings: 'wght' 600;
+
+  & ${Label} {
+    font-weight: 600;
+  }
 `
 
 const CloseButton = styled(IconButton)`
