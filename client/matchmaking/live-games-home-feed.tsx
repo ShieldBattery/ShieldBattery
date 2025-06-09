@@ -124,6 +124,10 @@ const Team = styled.div`
   gap: 4px;
 `
 
+const OneTeam = styled(Team)`
+  grid-column: span 2;
+`
+
 function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFeedEntryFragment> }) {
   const game = useFragment(LiveGames_HomeFeedEntryFragment, query)
   const [buttonProps, rippleRef] = useButtonState({})
@@ -137,11 +141,13 @@ function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFee
   const teamElements =
     matchmakingType === MatchmakingType.Match1v1 ||
     matchmakingType === MatchmakingType.Match1v1Fastest
-      ? game.config.teams[0].map(p => (
-          <Team key={p.user!.id}>
-            <PlayerDisplay key={p.user!.id} query={p} />
-          </Team>
-        ))
+      ? [
+          <OneTeam key='0'>
+            {game.config.teams[0].map(p => (
+              <PlayerDisplay key={p.user!.id} query={p} />
+            ))}
+          </OneTeam>,
+        ]
       : game.config.teams.map((t, i) => (
           <Team key={i}>
             {t.map(p => (
