@@ -379,7 +379,7 @@ pub unsafe fn after_step_game() {
 
 pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
     unsafe {
-        if is_replay() && !is_ums() {
+        if is_replay() && !is_ums() && bw.starting_fog() != StartingFog::Legacy {
             // One thing BW's step_game does is that it removes any fog sprites that were
             // no longer in fog. Unfortunately now that we show fog sprites for unexplored
             // resources as well, removing those fog sprites ends up being problematic if
