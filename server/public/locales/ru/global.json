@@ -47,24 +47,24 @@
         "close": "Закрыть настройки",
         "game": {
             "gameplay": {
-                "apmValue": "значение APM",
-                "apmValueValidation": "Введите значение от 1 до 999.",
+                "apmValue": "Значение APM",
+                "apmValueValidation": "Введите значение от 1 до 999",
                 "colorCycling": "Включить циклическое изменение цвета",
                 "consoleSkins": {
-                    "20thAnniversary": "20-летие Старкрафта",
-                    "blizzcon2017": "БлизКон 2017",
-                    "blizzcon2018": "БлизКон 2018",
+                    "20thAnniversary": "20-летие StarCraft",
+                    "blizzcon2017": "BlizzCon 2017",
+                    "blizzcon2018": "BlizzCon 2018",
                     "default": "По умолчанию",
-                    "krcGold": "КРЦ Золото",
-                    "krcSilver": "КРЦ Сильвер",
+                    "krcGold": "Gold - Orchestra 2019",
+                    "krcSilver": "Silver - Orchestra 2019",
                     "title": "Скин консоли",
-                    "warcraft3": "Трофеи WarCraft 3"
+                    "warcraft3": "WarCraft 3 Spoils"
                 },
                 "devOnlySettings": "Настройки только для разработчиков",
                 "gameTimer": "Таймер игры",
                 "ingameSkins": {
-                    "carbot": "Карбот",
-                    "none": "Никто",
+                    "carbot": "Carbot",
+                    "none": "Нет",
                     "preorder": "Предварительный заказ",
                     "title": "Внутриигровой скин"
                 },
@@ -79,20 +79,20 @@
                 "title": "Геймплей",
                 "unitPortraits": {
                     "animated": "Анимированный",
-                    "disabled": "Неполноценный",
-                    "still": "Все еще",
+                    "disabled": "Отключено",
+                    "still": "Статичный",
                     "title": "Портреты"
                 },
-                "visualizeNetworkStalls": "Визуализируйте сетевые киоски",
-                "apmAlert": "Оповещение, когда APM падает ниже",
-                "apmColorText": "Цветной текст",
+                "visualizeNetworkStalls": "Визуализировать сетевые задержки",
+                "apmAlert": "Предупреждать, если APM падает ниже",
+                "apmColorText": "Цвет текста",
                 "apmDisplay": "АРМ-дисплей",
                 "apmSound": "Воспроизвести звук",
-                "apmAlertHeader": "оповещение APM",
+                "apmAlertHeader": "Оповещение APM",
                 "startingFog": {
-                    "legacy": "Наследие",
+                    "legacy": "Классический",
                     "showResources": "Показать ресурсы",
-                    "title": "Запуск тумана войны",
+                    "title": "Начальный туман войны",
                     "transparent": "Прозрачный"
                 }
             },
@@ -101,21 +101,21 @@
                 "originalVoiceOvers": "Оригинальные озвучки юнитов",
                 "soundVolume": "Громкость",
                 "title": "Звук",
-                "unitAcknowledgements": "Благодарности устройству",
-                "unitSpeech": "Юнит речи",
+                "unitAcknowledgements": "Озвучка юнитов",
+                "unitSpeech": "Речь юнитов",
                 "announcer": {
                     "default": "По умолчанию",
-                    "heyJini": "Эй Джини",
+                    "heyJini": "Hey Jini",
                     "info": "Наборы (должны быть приобретены у Blizzard)",
-                    "jeonYongJun": "Чон Ён Джун",
-                    "kimJungmin": "Ким Чонмин",
+                    "jeonYongJun": "Jeon Yong Jun",
+                    "kimJungmin": "Kim Jungmin",
                     "title": "Диктор",
-                    "umJaeKyung": "Ум Джэ Гён",
-                    "umJeonKim": "Эм, Чон, Ким Трио"
+                    "umJaeKyung": "Um Jae Kyung",
+                    "umJeonKim": "Um, Jeon, Kim Trio"
                 },
                 "backgroundSounds": "Звук воспроизводится в фоновом режиме",
-                "buildingSounds": "Строительные звуки",
-                "cinematicSubtitles": "Кинематографические субтитры",
+                "buildingSounds": "Звуки построек",
+                "cinematicSubtitles": "Субтитры в роликах",
                 "gameSounds": "Звуки игры",
                 "gameSubtitles": "Субтитры к игре",
                 "music": "Музыка"
@@ -162,9 +162,9 @@
                 "hardwareCursor": "Аппаратный курсор",
                 "keyboardScrollSpeed": "Скорость прокрутки клавиатуры",
                 "lockCursor": "Привязать курсор к окну",
-                "mouseScaling": "Используйте масштабирование мыши",
+                "mouseScaling": "Использовать масштабирование мыши",
                 "mouseSensitivity": "Чувствительность мыши",
-                "title": "Вход"
+                "title": "Ввод"
             },
             "title": "Игра"
         },
@@ -177,12 +177,12 @@
                 "title": "Звук"
             },
             "system": {
-                "runOnStartup": "Запускайте ShieldBattery при запуске системы",
-                "startMinimized": "Начать в свернутом виде",
+                "runOnStartup": "Запускать ShieldBattery при запуске системы",
+                "startMinimized": "Запускать в свернутом виде",
                 "title": "Система",
-                "startupOverline": "Запускать",
+                "startupOverline": "Запуск",
                 "filesOverline": "Файлы",
-                "replayQuickOpen": "Запускать повторы, открытые с помощью ShieldBattery, сразу без предварительного просмотра."
+                "replayQuickOpen": "Запускать повторы, открытые через ShieldBattery, сразу — без предварительного просмотра"
             },
             "title": "Приложение"
         },
@@ -392,7 +392,7 @@
     "matchmaking": {
         "division": {
             "bronze": "Бронза {{level}}",
-            "champion": "чемпион",
+            "champion": "Чемпион",
             "diamond": "Алмаз {{level}}",
             "gold": "Золото {{level}}",
             "platinum": "Платина {{level}}",
@@ -402,30 +402,30 @@
         "acceptMatch": {
             "body": "Все игроки должны быть готовы к началу матча.",
             "failedToAccept": "Не удалось принять",
-            "matchFound": "Совпадение найдено",
+            "matchFound": "Матч найден",
             "readyUp": "Готов",
-            "removedFromQueue": "Вы не подготовились вовремя и были удалены из очереди.",
-            "returningToQueue": "Некоторые игроки не подготовились вовремя или не смогли загрузиться. Возвращаясь к очереди подбора игроков…"
+            "removedFromQueue": "Вы не подтвердили готовность вовремя и были удалены из очереди.",
+            "returningToQueue": "Некоторые игроки не подтвердили готовность вовремя или не загрузились. Возвращаемся в очередь матчмейкинга…"
         },
         "findMatch": {
-            "alternateRace": "Альтернативная гонка",
-            "bonusPoints": "{{bonusAvailable}} баллов",
+            "alternateRace": "Альтернативная раса",
+            "bonusPoints": "Очки: {{bonusAvailable}}",
             "errors": {
-                "alreadyInGame": "Вы уже находитесь в игре, ищете матч или находитесь в пользовательском лобби.",
+                "alreadyInGame": "Вы уже находитесь в игре, ищете матч или находитесь в пользовательском лобби",
                 "loadingRank": "Не удалось загрузить ваш текущий ранг.",
-                "matchmakingDisabled": "Сватовство в настоящее время отключено",
+                "matchmakingDisabled": "Матчмейкинг сейчас отключён",
                 "somethingWentWrong": "Что-то пошло не так :(",
-                "dialogTitle": "Ошибка при поиске соответствия",
-                "searchAgainError": "Возникла проблема с поиском совпадения"
+                "dialogTitle": "Ошибка при поиске матча",
+                "searchAgainError": "Возникла проблема с поиском матча"
             },
-            "action": "Найти совпадение",
-            "bonusPool": "Бонусный фонд",
-            "description": "Выберите расу, которая будет использоваться всякий раз, когда ваш противник выбирает ту же основную расу.",
+            "action": "Найти матч",
+            "bonusPool": "Бонусный пул",
+            "description": "Выберите альтернативную расу на случай, если противник выберет ту же основную.",
             "mapPool": "Пул карт",
-            "points": "Точки",
+            "points": "Очки",
             "race": "Раса",
             "rating": "Рейтинг",
-            "title": "Найти совпадение",
+            "title": "Найти матч",
             "updated": "Обновлено",
             "useAlternateRace": "Используйте альтернативную расу, чтобы избежать зеркального матчапа",
             "vetoesLeft": "<0>Вето осталось: </0><1>{{vetoesLeft}}</1>",
@@ -435,48 +435,48 @@
             "vetoDescriptionWithOverlap_one": "Вето до {{count}} карты. Карты, на которые наложено вето, будут выбираться значительно реже, чем другие карты.",
             "vetoDescriptionWithOverlap_few": "Вето до {{count}} карт. Карты, на которые наложено вето, будут выбираться значительно реже, чем другие карты.",
             "vetoDescriptionWithOverlap_many": "Вето до {{count}} карт. Карты, на которые наложено вето, будут выбираться значительно реже, чем другие карты.",
-            "mapSelectionDescription": "Выберите карты, на которых вы хотели бы играть. Будут выбраны только выбранные карты.",
+            "mapSelectionDescription": "Выберите карты, на которых вы хотите играть. Будут выбраны только отмеченные карты.",
             "unratedText": "Нет рейтинга",
             "goToLobby": "Перейти в лобби",
             "lobbyDisabledText": "Вы не можете использовать матчмейкинг, находясь в лобби."
         },
         "disabledCard": {
             "days": "Дни",
-            "description": "Подбор матчей иногда закрывается на техническое обслуживание и разработку, и в настоящее время он отключен. Следующий период сватовства:",
+            "description": "Подбор матчей иногда отключается для технического обслуживания и разработки. В данный момент он недоступен. Следующий период матчмейкинга:",
             "minutes": "Минуты",
-            "nextDateRange": "<0>{{nextStartDate}}</0><1>в</1><2>{{nextEndDate}}</2>",
+            "nextDateRange": "с<0>{{nextStartDate}}</0><1>по</1><2>{{nextEndDate}}</2>",
             "seconds": "Секунды",
             "soon": "Скоро™",
-            "title": "Сватовство отключено",
+            "title": "Матчмейкинг отключён",
             "hours": "Часы"
         },
         "match": {
             "gameFailedToLoad": "Не удалось загрузить игру.",
             "gameInProgress": "Идет игра…",
             "gameLoading": "Запуск игры…",
-            "gameStarting": "Начало игры…",
+            "gameStarting": "Игра начинается…",
             "playerVsPlayer": "против"
         },
         "navEntry": {
-            "matchFound": "Совпадение найдено!"
+            "matchFound": "Матч найден!"
         },
         "postMatchDialog": {
             "leagues": "Лиги",
-            "matchmaking": "сватовство",
-            "points": "Точки",
+            "matchmaking": "Матчмейкинг",
+            "points": "Очки",
             "rating": "Рейтинг",
             "searchAgain": "Искать снова",
             "title": "Результаты матча",
-            "watchReplay": "Посмотреть повтор"
+            "watchReplay": "Посмотреть реплей"
         },
         "type": {
             "1v1": "1 на 1",
             "2v2": "2 на 2",
             "3v3": "3 на 3",
-            "1v1fastest": "1v1 Самый быстрый"
+            "1v1fastest": "1v1 Fastest"
         },
         "activity": {
-            "title": "Сватовство"
+            "title": "Матчмейкинг"
         }
     },
     "clientDownload": {
@@ -535,12 +535,12 @@
         "slots": {
             "kickPlayer": "Кикнуть игрока",
             "makeObserver": "Сделать наблюдателем",
-            "makePlayer": "Сделать плеер",
+            "makePlayer": "Сделать игроком",
             "name": "Закрыто",
-            "open": "Открыть",
+            "open": "Открыто",
             "openSlot": "Открытый слот",
             "removeComputer": "Удалить компьютер",
-            "slotActions": "Действия слота",
+            "slotActions": "Действия со слотом",
             "addComputer": "Добавить компьютер",
             "banPlayer": "Забанить игрока",
             "closeSlot": "Закрыть слот"
@@ -608,9 +608,9 @@
             "selfJoin": "Вы присоединились к <1>{{lobby}}</1>. Хост <4><0></0></4>."
         },
         "state": {
-            "exists": "Лобби уже есть. Присоединиться?",
-            "nonexistent": "Лобби не существует. Создать это?",
-            "started": "Лобби уже запущено."
+            "exists": "Вы не находитесь в этом лобби. Присоединиться?",
+            "nonexistent": "Лобби не найдено. Хотите создать его?",
+            "started": "Это лобби уже запущено, и к нему нельзя присоединиться."
         },
         "activity": {
             "title": "Лобби ({{lobbyCount}})"
@@ -694,11 +694,11 @@
             "viewProfile": "Просмотреть профиль",
             "chatChannels": "Каналы чата",
             "customGame": "Пользовательская игра",
-            "whisperCloseError": "Ошибка закрытия сеанса шепота: {{errorMessage}}",
-            "whispers": "шепот",
+            "whisperCloseError": "Ошибка при закрытии приватной переписки: {{errorMessage}}",
+            "whispers": "Приватные сообщения",
             "reportBug": "Сообщить об ошибке",
             "logOutErrorMessage": "Что-то пошло не так. Пожалуйста, попробуйте позже.",
-            "logOutErrorTitle": "Не удалось выйти из системы."
+            "logOutErrorTitle": "Не удалось выйти из системы"
         },
         "copyLink": {
             "copiedText": "Скопировано!",
@@ -706,12 +706,12 @@
         },
         "externalLink": {
             "alwaysTrust": "Всегда доверять этому домену",
-            "dialogText": "<0>Эта ссылка приведет вас на сайт за пределами ShieldBattery:</0><1>{{link}}</1><2>Вы уверены, что хотите туда перейти?</2>",
+            "dialogText": "<0>Эта ссылка ведёт на сайт вне ShieldBattery:</0><1>{{link}}</1><2>Вы уверены, что хотите перейти по ней?</2>",
             "openLink": "Открыть ссылку",
             "title": "Внешняя ссылка"
         },
         "bar": {
-            "home": "Дом",
+            "home": "Главная",
             "play": "Играть",
             "playIngame": "Игра в процессе",
             "userMenu": "Меню пользователя",
@@ -731,33 +731,33 @@
             "title": "Уведомления"
         },
         "popup": {
-            "markAsRead": "пометить, как прочитанное"
+            "markAsRead": "Отметить как прочитанное"
         }
     },
     "replays": {
         "local": {
             "gameType": "Тип игры: {{gameTypeLabel}}",
-            "loadingError": "Не удалось загрузить повтор",
-            "rootFolderName": "Повторы",
-            "title": "Локальные повторы",
-            "watchReplay": "Посмотреть повтор",
+            "loadingError": "Не удалось загрузить реплей",
+            "rootFolderName": "Реплеи",
+            "title": "Локальные реплеи",
+            "watchReplay": "Посмотреть реплей",
             "duration": "Продолжительность: {{durationStr}}"
         },
         "activity": {
-            "title": "Повторы"
+            "title": "Реплеи"
         },
         "loading": {
-            "dialogTitle": "Загрузка повтора…",
-            "errorGeneric": "Что-то пошло не так при загрузке повтора.",
-            "initFailureBody": "Не удалось загрузить выбранный повтор. Возможно, он поврежден или создан более новой версией StarCraft, чем поддерживается в настоящее время.",
-            "initFailureTitle": "Ошибка загрузки повтора"
+            "dialogTitle": "Загрузка реплея…",
+            "errorGeneric": "Что-то пошло не так при загрузке реплея.",
+            "initFailureBody": "Не удалось загрузить выбранный реплей. Возможно, он повреждён или был создан в более новой версии StarCraft, которая пока не поддерживается.",
+            "initFailureTitle": "Ошибка загрузки реплея"
         },
         "replayInfoDialog": {
-            "title": "Информация о повторе",
+            "title": "Информация о реплее",
             "watch": "Смотреть"
         },
-        "fileDropError": "Не удалось открыть файл повтора.",
-        "fileDropText": "Перетаскивайте повторы сюда, чтобы смотреть их с ShieldBattery."
+        "fileDropError": "Не удалось открыть реплей",
+        "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery."
     },
     "chat": {
         "banUser": {
@@ -875,14 +875,14 @@
     },
     "maps": {
         "tileset": {
-            "ice": "Лед",
-            "ashworld": "пепельный мир",
-            "badlands": "Бесплодные земли",
-            "desert": "Пустыня",
-            "installation": "Монтаж",
-            "jungleWorld": "мир джунглей",
-            "spacePlatform": "Космическая платформа",
-            "twilight": "Сумерки"
+            "ice": "Ice",
+            "ashworld": "Ashworld",
+            "badlands": "Badlands",
+            "desert": "Desert",
+            "installation": "Installation",
+            "jungleWorld": "Jungle world",
+            "spacePlatform": "Space platform",
+            "twilight": "Twilight"
         },
         "server": {
             "favorites": {
@@ -899,21 +899,21 @@
                     "tileset": "Тайлсет"
                 },
                 "title": "Параметры фильтра",
-                "numberOfPlayers": "{{numPlayers}} игроков"
+                "numberOfPlayers": "Игроков: {{numPlayers}}"
             },
             "sortMaps": {
                 "option": {
                     "dateUploaded": "Дата загрузки",
-                    "name": "Имя",
+                    "name": "Название",
                     "numberOfPlayers": "Количество игроков"
                 },
                 "title": "Сортировать карты"
             },
-            "noCommunityMaps": "Карты сообщества еще не опубликованы.",
+            "noCommunityMaps": "Карты от сообщества ещё не были опубликованы.",
             "noOfficialMaps": "Официальные карты еще не загружены.",
-            "noResults": "Без результатов.",
-            "noUploadedMaps": "Вы не загрузили ни одной карты. Вы можете загрузить карту, нажав на кнопку обзора ниже.",
-            "regenerateError": "Произошла ошибка при регенерации изображений",
+            "noResults": "Нет результатов.",
+            "noUploadedMaps": "У вас пока нет загруженных карт. Чтобы загрузить карту, нажмите кнопку «Обзор» ниже.",
+            "regenerateError": "Произошла ошибка при обновлении изображений",
             "tab": {
                 "community": "Сообщество",
                 "myMaps": "Мои карты",
@@ -922,15 +922,15 @@
             "thumbnailSize": {
                 "option": {
                     "large": "Большой",
-                    "medium": "Середина",
+                    "medium": "Средний",
                     "small": "Маленький"
                 },
-                "title": "Размер эскиза"
+                "title": "Размер превью"
             },
-            "browseLocal": "Просмотр местных карт",
+            "browseLocal": "Просмотреть локальные карты",
             "uploadedMap": "Загруженная карта",
             "favoritedMaps": "Избранные карты",
-            "regenerated": "Изображения регенерированы",
+            "regenerated": "Изображения пересозданы",
             "noUploadedMapsWeb": "Вы не загрузили ни одной карты."
         },
         "activity": {
@@ -938,7 +938,7 @@
         },
         "details": {
             "editDescription": "Изменить описание",
-            "editName": "Редактировать имя",
+            "editName": "Редактировать название",
             "mapDescription": "Описание карты",
             "mapDescriptionRequired": "Введите описание карты",
             "mapName": "Название карты",
@@ -950,24 +950,24 @@
             "title": "Детали карты"
         },
         "local": {
-            "documentsFolder": "Папка документов",
+            "documentsFolder": "Папка «Документы»",
             "programFolder": "Папка программы",
-            "title": "Местные карты",
-            "uploadMapError": "Произошла ошибка при загрузке карты",
+            "title": "Локальные карты",
+            "uploadMapError": "Произошла неизвестная ошибка при загрузке карты. Пожалуйста, попробуйте позже.",
             "mapFileSizeErrorMessage": "Размер файла карты превышает максимальный допустимый размер {{fileSize}}.",
             "uploadMapErrorTitle": "Ошибка при загрузке карты"
         },
         "mapSelect": {
-            "browseMaps": "Просмотрите карты"
+            "browseMaps": "Просмотреть карты"
         },
         "thumbnail": {
             "addToFavorites": "Добавить в избранное",
-            "mapActions": "Действия карты",
+            "mapActions": "Действия с картой",
             "removeFromFavorites": "Удалить из Избранного",
             "showMapPreview": "Показать предварительный просмотр карты",
             "viewMapDetails": "Посмотреть детали карты",
             "noMapPreview": "Предварительный просмотр карты недоступен",
-            "regenerateImage": "Восстановить изображение"
+            "regenerateImage": "Перегенерировать изображение"
         }
     },
     "user": {
@@ -1108,9 +1108,9 @@
         "acceptableUseAllCaps": "Политика допустимого использования",
         "policyUpdateNotification": "Обновлен <2>{{label}}</2> ShieldBattery.",
         "privacyPolicy": "Политика конфиденциальности",
-        "privacyPolicyAllCaps": "политика конфиденциальности",
+        "privacyPolicyAllCaps": "Политика Конфиденциальности",
         "termsOfService": "Условия использования",
-        "termsOfServiceAllCaps": "Условия использования"
+        "termsOfServiceAllCaps": "Условия Использования"
     },
     "starcraft": {
         "starcraftHealth": {
