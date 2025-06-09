@@ -67,6 +67,8 @@ export const LiveGames_HomeFeedEntryFragment = graphql(/* GraphQL */ `
       }
     }
     config {
+      __typename
+
       ... on GameConfigDataMatchmaking {
         gameSourceExtra {
           matchmakingType
@@ -235,6 +237,8 @@ export const LiveGames_HomeFeedEntryMapAndTypeFragment = graphql(/* GraphQL */ `
       }
     }
     config {
+      __typename
+
       ... on GameConfigDataMatchmaking {
         gameSourceExtra {
           matchmakingType

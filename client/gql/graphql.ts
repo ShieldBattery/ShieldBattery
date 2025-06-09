@@ -53,7 +53,7 @@ export type Scalars = {
 }
 
 export type CurrentUser = {
-  __typename: 'CurrentUser'
+  __typename?: 'CurrentUser'
   acceptedPrivacyVersion: Scalars['Int']['output']
   acceptedTermsVersion: Scalars['Int']['output']
   acceptedUsePolicyVersion: Scalars['Int']['output']
@@ -69,7 +69,7 @@ export type CurrentUser = {
 }
 
 export type Game = {
-  __typename: 'Game'
+  __typename?: 'Game'
   config: GameConfig
   disputable: Scalars['Boolean']['output']
   disputeRequested: Scalars['Boolean']['output']
@@ -85,7 +85,7 @@ export type Game = {
 export type GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
 
 export type GameConfigDataLobby = {
-  __typename: 'GameConfigDataLobby'
+  __typename?: 'GameConfigDataLobby'
   gameSourceExtra: LobbyExtra
   gameSubType: Scalars['Int']['output']
   gameType: Scalars['GameType']['output']
@@ -93,7 +93,7 @@ export type GameConfigDataLobby = {
 }
 
 export type GameConfigDataMatchmaking = {
-  __typename: 'GameConfigDataMatchmaking'
+  __typename?: 'GameConfigDataMatchmaking'
   gameSourceExtra: MatchmakingExtra
   gameSubType: Scalars['Int']['output']
   gameType: Scalars['GameType']['output']
@@ -101,14 +101,14 @@ export type GameConfigDataMatchmaking = {
 }
 
 export type GamePlayer = {
-  __typename: 'GamePlayer'
+  __typename?: 'GamePlayer'
   isComputer: Scalars['Boolean']['output']
   race: Scalars['Race']['output']
   user?: Maybe<SbUser>
 }
 
 export type GameRoute = {
-  __typename: 'GameRoute'
+  __typename?: 'GameRoute'
   latency: Scalars['Float']['output']
   p1: Scalars['Int']['output']
   p2: Scalars['Int']['output']
@@ -116,7 +116,7 @@ export type GameRoute = {
 }
 
 export type League = {
-  __typename: 'League'
+  __typename?: 'League'
   badgePath?: Maybe<Scalars['String']['output']>
   description: Scalars['String']['output']
   endAt: Scalars['DateTime']['output']
@@ -131,13 +131,13 @@ export type League = {
 }
 
 export type LobbyExtra = {
-  __typename: 'LobbyExtra'
+  __typename?: 'LobbyExtra'
   turnRate?: Maybe<Scalars['Int']['output']>
   useLegacyLimits?: Maybe<Scalars['Boolean']['output']>
 }
 
 export type MapFile = {
-  __typename: 'MapFile'
+  __typename?: 'MapFile'
   format: Scalars['String']['output']
   height: Scalars['Int']['output']
   id: Scalars['String']['output']
@@ -158,14 +158,14 @@ export type MapFile = {
 }
 
 export type MapForce = {
-  __typename: 'MapForce'
+  __typename?: 'MapForce'
   name: Scalars['String']['output']
   players: Array<MapForcePlayer>
   teamId: Scalars['Int']['output']
 }
 
 export type MapForcePlayer = {
-  __typename: 'MapForcePlayer'
+  __typename?: 'MapForcePlayer'
   isComputer: Scalars['Boolean']['output']
   playerId: Scalars['Int']['output']
   race: Scalars['MapForcePlayerRace']['output']
@@ -177,17 +177,17 @@ export type MatchmakingExtra = {
 }
 
 export type MatchmakingExtra1V1Data = MatchmakingExtra & {
-  __typename: 'MatchmakingExtra1V1Data'
+  __typename?: 'MatchmakingExtra1V1Data'
   matchmakingType: Scalars['MatchmakingType']['output']
 }
 
 export type MatchmakingExtra1V1FastestData = MatchmakingExtra & {
-  __typename: 'MatchmakingExtra1V1FastestData'
+  __typename?: 'MatchmakingExtra1V1FastestData'
   matchmakingType: Scalars['MatchmakingType']['output']
 }
 
 export type MatchmakingExtra2V2Data = MatchmakingExtra & {
-  __typename: 'MatchmakingExtra2V2Data'
+  __typename?: 'MatchmakingExtra2V2Data'
   matchmakingType: Scalars['MatchmakingType']['output']
   /**
    * The user Ids of players in the match, grouped into lists by party. Players not in a party
@@ -197,7 +197,7 @@ export type MatchmakingExtra2V2Data = MatchmakingExtra & {
 }
 
 export type Mutation = {
-  __typename: 'Mutation'
+  __typename?: 'Mutation'
   newsCreatePost: NewsPost
   /** Sets (or clears, if message is not provided) the urgent message at the top of the home page. */
   newsSetUrgentMessage: Scalars['Boolean']['output']
@@ -241,7 +241,7 @@ export type MutationUserUpdatePermissionsArgs = {
 }
 
 export type NameRestriction = {
-  __typename: 'NameRestriction'
+  __typename?: 'NameRestriction'
   createdAt: Scalars['DateTime']['output']
   createdBy?: Maybe<SbUser>
   id: Scalars['Int']['output']
@@ -251,7 +251,7 @@ export type NameRestriction = {
 }
 
 export type NewsPost = {
-  __typename: 'NewsPost'
+  __typename?: 'NewsPost'
   author?: Maybe<SbUser>
   content: Scalars['String']['output']
   coverImagePath?: Maybe<Scalars['String']['output']>
@@ -263,7 +263,7 @@ export type NewsPost = {
 }
 
 export type NewsPostConnection = {
-  __typename: 'NewsPostConnection'
+  __typename?: 'NewsPostConnection'
   /** A list of edges. */
   edges: Array<NewsPostEdge>
   /** A list of nodes. */
@@ -282,7 +282,7 @@ export type NewsPostCreation = {
 
 /** An edge in a connection. */
 export type NewsPostEdge = {
-  __typename: 'NewsPostEdge'
+  __typename?: 'NewsPostEdge'
   /** A cursor for use in pagination */
   cursor: Scalars['String']['output']
   /** The item at the end of the edge */
@@ -291,7 +291,7 @@ export type NewsPostEdge = {
 
 /** Information about pagination in a connection */
 export type PageInfo = {
-  __typename: 'PageInfo'
+  __typename?: 'PageInfo'
   /** When paginating forwards, the cursor to continue. */
   endCursor?: Maybe<Scalars['String']['output']>
   /** When paginating forwards, are there more items? */
@@ -303,7 +303,7 @@ export type PageInfo = {
 }
 
 export type Query = {
-  __typename: 'Query'
+  __typename?: 'Query'
   activeLeagues: Array<League>
   currentUser?: Maybe<CurrentUser>
   futureLeagues: Array<League>
@@ -338,14 +338,14 @@ export type QueryUserByDisplayNameArgs = {
 }
 
 export type ReconciledPlayerResult = {
-  __typename: 'ReconciledPlayerResult'
+  __typename?: 'ReconciledPlayerResult'
   apm: Scalars['Int']['output']
   race: Scalars['AssignedRace']['output']
   result: ReconciledResult
 }
 
 export type ReconciledPlayerResultEntry = {
-  __typename: 'ReconciledPlayerResultEntry'
+  __typename?: 'ReconciledPlayerResultEntry'
   id: Scalars['SbUserId']['output']
   result: ReconciledPlayerResult
 }
@@ -368,7 +368,7 @@ export enum RestrictedNameReason {
 }
 
 export type SbPermissions = {
-  __typename: 'SbPermissions'
+  __typename?: 'SbPermissions'
   banUsers: Scalars['Boolean']['output']
   debug: Scalars['Boolean']['output']
   editPermissions: Scalars['Boolean']['output']
@@ -413,7 +413,7 @@ export type SbPermissionsInput = {
 }
 
 export type SbUser = {
-  __typename: 'SbUser'
+  __typename?: 'SbUser'
   id: Scalars['SbUserId']['output']
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
@@ -426,7 +426,7 @@ export type UpdateCurrentUserChanges = {
 }
 
 export type UploadedMap = {
-  __typename: 'UploadedMap'
+  __typename?: 'UploadedMap'
   description: Scalars['String']['output']
   id: Scalars['UUID']['output']
   mapFile: MapFile
@@ -437,7 +437,7 @@ export type UploadedMap = {
 }
 
 export type UrgentMessage = {
-  __typename: 'UrgentMessage'
+  __typename?: 'UrgentMessage'
   id: Scalars['UUID']['output']
   message: Scalars['String']['output']
   /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
@@ -453,15 +453,15 @@ export type UrgentMessageInput = {
 export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
 
 export type RestrictedNamesQuery = {
-  __typename: 'Query'
+  __typename?: 'Query'
   restrictedNames: Array<{
-    __typename: 'NameRestriction'
+    __typename?: 'NameRestriction'
     id: number
     pattern: string
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename: 'SbUser'; id: Types.SbUserId } | null
+    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
   }>
 }
 
@@ -470,7 +470,7 @@ export type DeleteRestrictedNameMutationVariables = Exact<{
 }>
 
 export type DeleteRestrictedNameMutation = {
-  __typename: 'Mutation'
+  __typename?: 'Mutation'
   userDeleteRestrictedName: number
 }
 
@@ -481,15 +481,15 @@ export type AddRestrictedNameMutationVariables = Exact<{
 }>
 
 export type AddRestrictedNameMutation = {
-  __typename: 'Mutation'
+  __typename?: 'Mutation'
   userAddRestrictedName: {
-    __typename: 'NameRestriction'
+    __typename?: 'NameRestriction'
     id: number
     pattern: string
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename: 'SbUser'; id: Types.SbUserId } | null
+    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
   }
 }
 
@@ -498,9 +498,9 @@ export type TestRestrictedNameMutationVariables = Exact<{
 }>
 
 export type TestRestrictedNameMutation = {
-  __typename: 'Mutation'
+  __typename?: 'Mutation'
   userTestRestrictedName?: {
-    __typename: 'NameRestriction'
+    __typename?: 'NameRestriction'
     id: number
     pattern: string
     kind: RestrictedNameKind
@@ -512,14 +512,14 @@ export type SetUrgentMessageMutationVariables = Exact<{
   message?: InputMaybe<UrgentMessageInput>
 }>
 
-export type SetUrgentMessageMutation = { __typename: 'Mutation'; newsSetUrgentMessage: boolean }
+export type SetUrgentMessageMutation = { __typename?: 'Mutation'; newsSetUrgentMessage: boolean }
 
 export type HomePageContentQueryVariables = Exact<{ [key: string]: never }>
 
 export type HomePageContentQuery = {
-  __typename: 'Query'
+  __typename?: 'Query'
   urgentMessage?:
-    | ({ __typename: 'UrgentMessage' } & {
+    | ({ __typename?: 'UrgentMessage' } & {
         ' $fragmentRefs'?: {
           UrgentMessage_HomeDisplayFragmentFragment: UrgentMessage_HomeDisplayFragmentFragment
         }
@@ -533,23 +533,23 @@ export type HomePageContentQuery = {
 }
 
 export type UrgentMessage_HomeDisplayFragmentFragment = {
-  __typename: 'UrgentMessage'
+  __typename?: 'UrgentMessage'
   id: string
   title: string
   message: string
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
 export type Leagues_HomeFeedFragmentFragment = {
-  __typename: 'Query'
+  __typename?: 'Query'
   activeLeagues: Array<
-    { __typename: 'League'; id: string } & {
+    { __typename?: 'League'; id: string } & {
       ' $fragmentRefs'?: {
         Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
       }
     }
   >
   futureLeagues: Array<
-    { __typename: 'League'; id: string } & {
+    { __typename?: 'League'; id: string } & {
       ' $fragmentRefs'?: {
         Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
       }
@@ -558,7 +558,7 @@ export type Leagues_HomeFeedFragmentFragment = {
 } & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' }
 
 export type Leagues_HomeFeedEntryFragmentFragment = {
-  __typename: 'League'
+  __typename?: 'League'
   id: string
   name: string
   matchmakingType: Types.MatchmakingType
@@ -567,9 +567,9 @@ export type Leagues_HomeFeedEntryFragmentFragment = {
 } & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
 export type LiveGames_HomeFeedFragmentFragment = {
-  __typename: 'Query'
+  __typename?: 'Query'
   liveGames: Array<
-    { __typename: 'Game'; id: string } & {
+    { __typename?: 'Game'; id: string } & {
       ' $fragmentRefs'?: {
         LiveGames_HomeFeedEntryFragmentFragment: LiveGames_HomeFeedEntryFragmentFragment
       }
@@ -578,15 +578,15 @@ export type LiveGames_HomeFeedFragmentFragment = {
 } & { ' $fragmentName'?: 'LiveGames_HomeFeedFragmentFragment' }
 
 export type LiveGames_HomeFeedEntryFragmentFragment = ({
-  __typename: 'Game'
+  __typename?: 'Game'
   id: string
   startTime: string
   map: {
-    __typename: 'UploadedMap'
+    __typename?: 'UploadedMap'
     id: string
     name: string
     mapFile: {
-      __typename: 'MapFile'
+      __typename?: 'MapFile'
       id: string
       image256Url: string
       image512Url: string
@@ -601,14 +601,17 @@ export type LiveGames_HomeFeedEntryFragmentFragment = ({
     | {
         __typename: 'GameConfigDataMatchmaking'
         gameSourceExtra:
-          | { __typename: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
-          | { __typename: 'MatchmakingExtra1V1FastestData'; matchmakingType: Types.MatchmakingType }
-          | { __typename: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
+          | {
+              __typename?: 'MatchmakingExtra1V1FastestData'
+              matchmakingType: Types.MatchmakingType
+            }
+          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
         teams: Array<
           Array<
             {
-              __typename: 'GamePlayer'
-              user?: { __typename: 'SbUser'; id: Types.SbUserId } | null
+              __typename?: 'GamePlayer'
+              user?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
             } & {
               ' $fragmentRefs'?: {
                 LiveGames_HomeFeedEntryPlayersFragmentFragment: LiveGames_HomeFeedEntryPlayersFragmentFragment
@@ -624,20 +627,20 @@ export type LiveGames_HomeFeedEntryFragmentFragment = ({
 }) & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryFragmentFragment' }
 
 export type LiveGames_HomeFeedEntryPlayersFragmentFragment = {
-  __typename: 'GamePlayer'
+  __typename?: 'GamePlayer'
   race: Types.RaceChar
-  user?: { __typename: 'SbUser'; id: Types.SbUserId; name: string } | null
+  user?: { __typename?: 'SbUser'; id: Types.SbUserId; name: string } | null
 } & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryPlayersFragmentFragment' }
 
 export type LiveGames_HomeFeedEntryMapAndTypeFragmentFragment = {
-  __typename: 'Game'
+  __typename?: 'Game'
   id: string
   map: {
-    __typename: 'UploadedMap'
+    __typename?: 'UploadedMap'
     id: string
     name: string
     mapFile: {
-      __typename: 'MapFile'
+      __typename?: 'MapFile'
       id: string
       image256Url: string
       image512Url: string
@@ -652,14 +655,17 @@ export type LiveGames_HomeFeedEntryMapAndTypeFragmentFragment = {
     | {
         __typename: 'GameConfigDataMatchmaking'
         gameSourceExtra:
-          | { __typename: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
-          | { __typename: 'MatchmakingExtra1V1FastestData'; matchmakingType: Types.MatchmakingType }
-          | { __typename: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
+          | {
+              __typename?: 'MatchmakingExtra1V1FastestData'
+              matchmakingType: Types.MatchmakingType
+            }
+          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
       }
 } & { ' $fragmentName'?: 'LiveGames_HomeFeedEntryMapAndTypeFragmentFragment' }
 
 export type AccountSettings_CurrentUserFragment = {
-  __typename: 'CurrentUser'
+  __typename?: 'CurrentUser'
   id: Types.SbUserId
   name: string
   loginName: string
@@ -670,9 +676,9 @@ export type AccountSettings_CurrentUserFragment = {
 export type AccountSettingsQueryVariables = Exact<{ [key: string]: never }>
 
 export type AccountSettingsQuery = {
-  __typename: 'Query'
+  __typename?: 'Query'
   currentUser?:
-    | ({ __typename: 'CurrentUser' } & {
+    | ({ __typename?: 'CurrentUser' } & {
         ' $fragmentRefs'?: {
           AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment
         }
@@ -686,8 +692,8 @@ export type AccountSettingsChangePasswordMutationVariables = Exact<{
 }>
 
 export type AccountSettingsChangePasswordMutation = {
-  __typename: 'Mutation'
-  userUpdateCurrent: { __typename: 'CurrentUser' } & {
+  __typename?: 'Mutation'
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
@@ -698,8 +704,8 @@ export type AccountSettingsChangeEmailMutationVariables = Exact<{
 }>
 
 export type AccountSettingsChangeEmailMutation = {
-  __typename: 'Mutation'
-  userUpdateCurrent: { __typename: 'CurrentUser' } & {
+  __typename?: 'Mutation'
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
@@ -710,9 +716,9 @@ export type AdminUserProfileQueryVariables = Exact<{
 }>
 
 export type AdminUserProfileQuery = {
-  __typename: 'Query'
+  __typename?: 'Query'
   user?:
-    | ({ __typename: 'SbUser'; id: Types.SbUserId } & {
+    | ({ __typename?: 'SbUser'; id: Types.SbUserId } & {
         ' $fragmentRefs'?: {
           AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
         }
@@ -721,10 +727,10 @@ export type AdminUserProfileQuery = {
 }
 
 export type AdminUserProfile_PermissionsFragment = {
-  __typename: 'SbUser'
+  __typename?: 'SbUser'
   id: Types.SbUserId
   permissions: {
-    __typename: 'SbPermissions'
+    __typename?: 'SbPermissions'
     id: Types.SbUserId
     editPermissions: boolean
     debug: boolean
@@ -749,8 +755,8 @@ export type AdminUpdateUserPermissionsMutationVariables = Exact<{
 }>
 
 export type AdminUpdateUserPermissionsMutation = {
-  __typename: 'Mutation'
-  userUpdatePermissions: { __typename: 'SbUser' } & {
+  __typename?: 'Mutation'
+  userUpdatePermissions: { __typename?: 'SbUser' } & {
     ' $fragmentRefs'?: {
       AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
     }
@@ -924,6 +930,7 @@ export const LiveGames_HomeFeedEntryMapAndTypeFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -999,6 +1006,7 @@ export const LiveGames_HomeFeedEntryFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -1120,6 +1128,7 @@ export const LiveGames_HomeFeedEntryFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -1240,6 +1249,7 @@ export const LiveGames_HomeFeedFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -1310,6 +1320,7 @@ export const LiveGames_HomeFeedFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -1752,6 +1763,7 @@ export const HomePageContentDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {
@@ -1822,6 +1834,7 @@ export const HomePageContentDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
                 {
                   kind: 'InlineFragment',
                   typeCondition: {

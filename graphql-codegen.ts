@@ -14,7 +14,6 @@ export default {
       },
       config: {
         dedupeFragments: true,
-        nonOptionalTypename: true,
         strictScalars: true,
 
         namingConvention: {
