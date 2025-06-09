@@ -380,6 +380,10 @@ impl<'e> Analysis<'e> {
         self.0.replay_visions()
     }
 
+    pub fn local_visions(&mut self) -> Option<Operand<'e>> {
+        self.0.local_visions()
+    }
+
     pub fn replay_show_entire_map(&mut self) -> Option<Operand<'e>> {
         self.0.replay_show_entire_map()
     }

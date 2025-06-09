@@ -91,6 +91,7 @@ pub struct BwScr {
     replay_header: Value<*mut bw::ReplayHeader>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
+    local_visions: Value<u8>,
     replay_show_entire_map: Value<u8>,
     allocator: Value<*mut scr::Allocator>,
     allocated_order_count: Value<u32>,
@@ -764,6 +765,7 @@ impl BwScr {
         let replay_header = analysis.replay_header().ok_or("replay_header")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
+        let local_visions = analysis.local_visions().ok_or("local_visions")?;
         let replay_show_entire_map = analysis
             .replay_show_entire_map()
             .ok_or("replay_show_entire_map")?;
@@ -889,6 +891,7 @@ impl BwScr {
             replay_header: Value::new(ctx, replay_header),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
+            local_visions: Value::new(ctx, local_visions),
             replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
             allocator: Value::new(ctx, allocator),
             allocated_order_count: Value::new(ctx, allocated_order_count),
@@ -1686,6 +1689,7 @@ impl BwScr {
                         }
                         if replay_visions != overlay_out.replay_visions {
                             self.replay_visions.write(overlay_out.replay_visions);
+                            self.local_visions.write(overlay_out.replay_visions);
                             // Has to be called here or otherwise there's minimap flicker
                             // with the resources disappearing until the game logic moves
                             // forward a step.
