@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { getGameResultsUrl } from '../games/action-creators'
 import { FragmentType, graphql, useFragment } from '../gql'
+import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { NarrowDuration } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { UploadedMapImage } from '../maps/map-image'
@@ -30,22 +31,21 @@ const Root = styled.div`
 
 export function LiveGamesHomeFeed({
   query,
-  title,
 }: {
   query?: FragmentType<typeof LiveGames_HomeFeedFragment>
-  title: React.ReactNode
 }) {
+  const { t } = useTranslation()
   const { liveGames } = useFragment(LiveGames_HomeFeedFragment, query) ?? { liveGames: [] }
 
   return liveGames.length > 0 ? (
-    <>
-      {title}
+    <HomeSection>
+      <HomeSectionTitle>{t('games.liveGames.title', 'Live games')}</HomeSectionTitle>
       <Root>
         {liveGames.slice(0, 5).map(liveGame => (
           <LiveGameEntry key={liveGame.id} query={liveGame} />
         ))}
       </Root>
-    </>
+    </HomeSection>
   ) : null
 }
 

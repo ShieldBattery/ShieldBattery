@@ -5,6 +5,7 @@ import { IterableElement } from 'type-fest'
 import { makeLeagueId } from '../../common/leagues/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { FragmentType, graphql, useFragment } from '../gql'
+import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
@@ -41,10 +42,8 @@ const ListButtonContainer = styled.div`
 
 export function LeagueHomeFeed({
   query,
-  title,
 }: {
   query?: FragmentType<typeof Leagues_HomeFeedFragment>
-  title: React.ReactNode
 }) {
   const { t } = useTranslation()
   const { activeLeagues, futureLeagues } = useFragment(Leagues_HomeFeedFragment, query) ?? {
@@ -61,8 +60,8 @@ export function LeagueHomeFeed({
     .slice(0, 4)
 
   return shownLeagues.length > 0 ? (
-    <>
-      {title}
+    <HomeSection>
+      <HomeSectionTitle>{t('leagues.activity.title', 'Leagues')}</HomeSectionTitle>
       <Root>
         {shownLeagues.map(league => (
           <LeagueEntry key={league.id} query={league} />
@@ -77,7 +76,7 @@ export function LeagueHomeFeed({
           </LinkButton>
         </ListButtonContainer>
       </Root>
-    </>
+    </HomeSection>
   ) : null
 }
 

@@ -19,8 +19,9 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { singleLine, titleLarge, titleSmall } from '../styles/typography'
+import { singleLine, titleSmall } from '../styles/typography'
 import { BottomLinks } from './bottom-links'
+import { HomeSection, HomeSectionTitle } from './home-section'
 import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
 import { SplashContent } from './splash'
 
@@ -124,18 +125,6 @@ const StyledPatreonIcon = styled(PatreonIcon)`
   height: 32px;
   color: #fff;
 `
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const SectionTitle = styled.div`
-  ${titleLarge};
-  ${singleLine};
-`
-
 const BottomLinksArea = styled.div`
   grid-column: 1 / -1;
 `
@@ -167,12 +156,12 @@ export function Home() {
           <GridLayout>
             <LeftSection>
               <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
-              <Section>
-                <SectionTitle data-test='latest-news-title'>
+              <HomeSection>
+                <HomeSectionTitle data-test='latest-news-title'>
                   {t('home.latestNewsTitle', 'Latest news')}
-                </SectionTitle>
+                </HomeSectionTitle>
                 <StaticNewsFeed />
-              </Section>
+              </HomeSection>
             </LeftSection>
             <RightSection>
               <SupportSection>
@@ -198,18 +187,8 @@ export function Home() {
                   </Tooltip>
                 </SupportIcons>
               </SupportSection>
-              <Section>
-                <LiveGamesHomeFeed
-                  query={data}
-                  title={<SectionTitle>{t('games.liveGames.title', 'Live games')}</SectionTitle>}
-                />
-              </Section>
-              <Section>
-                <LeagueHomeFeed
-                  query={data}
-                  title={<SectionTitle>{t('leagues.activity.title', 'Leagues')}</SectionTitle>}
-                />
-              </Section>
+              <LiveGamesHomeFeed query={data} />
+              <LeagueHomeFeed query={data} />
             </RightSection>
             <BottomLinksArea>
               <BottomLinks />
