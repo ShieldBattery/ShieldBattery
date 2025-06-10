@@ -95,7 +95,7 @@ const LeagueEntryRoot = styled(LinkButton)`
 
   display: flex;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
 
   border-radius: inherit;
   contain: content;
@@ -104,6 +104,7 @@ const LeagueEntryRoot = styled(LinkButton)`
 const StyledLeagueBadge = styled(LeagueBadge)`
   flex-grow: 0;
   flex-shrink: 0;
+  margin-block: 2px;
 `
 
 const Info = styled.div`
@@ -125,13 +126,19 @@ const LeagueTypeAndDates = styled.div`
   ${bodyMedium};
   display: flex;
   align-items: center;
-  gap: 8px;
-
+  column-gap: 8px;
+  flex-wrap: wrap;
   color: var(--theme-on-surface-variant);
 `
+
 const LeagueType = styled.div`
   ${titleSmall};
   color: var(--theme-on-surface);
+  white-space: nowrap;
+`
+
+const NoWrapSpan = styled.span`
+  white-space: nowrap;
 `
 
 function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEntryFragment> }) {
@@ -151,7 +158,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
         <LeagueName>{league.name}</LeagueName>
         <LeagueTypeAndDates>
           <LeagueType>{matchmakingTypeToLabel(league.matchmakingType, t)}</LeagueType>
-          <span>·</span>
+          <NoWrapSpan>·</NoWrapSpan>
           {startAt <= curDate ? (
             <RunningLeagueDate curDate={curDate} endAt={endAt} />
           ) : (
@@ -166,6 +173,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
 
 const RunningText = styled.div`
   color: var(--theme-amber);
+  white-space: nowrap;
 `
 
 function RunningLeagueDate({ curDate, endAt }: { curDate: number; endAt: number }) {
@@ -178,9 +186,9 @@ function RunningLeagueDate({ curDate, endAt }: { curDate: number; endAt: number 
   return (
     <>
       <RunningText>{t('leagues.list.runningNow', 'Running now!')}</RunningText>
-      <span>·</span>
+      <NoWrapSpan>·</NoWrapSpan>
       <Tooltip text={tooltip} position='top'>
-        <span>{text}</span>
+        <NoWrapSpan>{text}</NoWrapSpan>
       </Tooltip>
     </>
   )
@@ -195,7 +203,7 @@ function FutureLeagueDate({ curDate, startAt }: { curDate: number; startAt: numb
   const tooltip = longTimestamp.format(startAt)
   return (
     <Tooltip text={tooltip} position='top'>
-      <span>{text}</span>
+      <NoWrapSpan>{text}</NoWrapSpan>
     </Tooltip>
   )
 }
