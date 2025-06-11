@@ -181,11 +181,11 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^4.0.2
-        version: 4.0.2
+        specifier: ^5.0.2
+        version: 5.0.2
       nydus-client:
-        specifier: ^4.0.6
-        version: 4.0.6
+        specifier: ^5.0.0
+        version: 5.0.0(prettier@3.5.3)(typescript@5.8.3)
       pg:
         specifier: ^8.16.0
         version: 8.16.0
@@ -5599,10 +5599,6 @@ packages:
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
 
-  cuid@2.1.8:
-    resolution: {integrity: sha512-xiEMER6E7TlTPnDxrM4eRiC6TRgjNX9xzEZ5U/Se2YJKr7Mq4pJn/2XEHjl3STcSh96GmkHPcBXLES8M29wyyg==}
-    deprecated: Cuid and other k-sortable and non-cryptographic ids (Ulid, ObjectId, KSUID, all UUIDs) are all insecure. Use @paralleldrive/cuid2 instead.
-
   cuid@3.0.0:
     resolution: {integrity: sha512-WZYYkHdIDnaxdeP8Misq3Lah5vFjJwGuItJuV+tvMafosMzw0nF297T7mrm8IOWiPJkV6gc7sa8pzx27+w25Zg==}
     deprecated: Cuid and other k-sortable and non-cryptographic ids (Ulid, ObjectId, KSUID, all UUIDs) are all insecure. Use @paralleldrive/cuid2 instead.
@@ -6565,6 +6561,10 @@ packages:
 
   form-data@4.0.2:
     resolution: {integrity: sha512-hGfm/slu0ZabnNt4oaRZ6uREyfCj6P4fT/n6A1rGV+Z0VdGXjfOhVUpkn6qVQONHGIFwmveGXyDs75+nr6FM8w==}
+    engines: {node: '>= 6'}
+
+  form-data@4.0.3:
+    resolution: {integrity: sha512-qsITQPfmvMOSAdeyZ+12I1c+CKSstAFAwu+97zrnWAbIr5u8wfsExUzCesVLC8NgHuRUqNN4Zy6UPWUTRGslcA==}
     engines: {node: '>= 6'}
 
   formdata-polyfill@4.0.10:
@@ -8565,6 +8565,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@5.1.5:
+    resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+
   native-addon-loader@2.0.1:
     resolution: {integrity: sha512-tAaKULhDUmHYNZNKAWlvEky0x+y17+6jbtscXpf0WeWCPRP1nR2h3sA128rWRwj0YbpXVaPhPeJT0ejN7bJtyw==}
 
@@ -8724,15 +8729,16 @@ packages:
   nullthrows@1.1.1:
     resolution: {integrity: sha512-2vPPEi+Z7WqML2jZYddDIfy5Dqb0r2fze2zTxNNknZaFpVHU3mFB3R+DWeJWGVx0ecvttSGlJTI+WG+8Z4cDWw==}
 
-  nydus-client@4.0.6:
-    resolution: {integrity: sha512-i3HBm3Vc1CYiN/V2hPfkQRSba1v0TXGAg/gXzf5kwvxGFEkuuwPuJBmDrdF1v/vffAKiUXjkKoSXFb4mHHdFJw==}
+  nydus-client@5.0.0:
+    resolution: {integrity: sha512-XZzhy4t6P0WjoxINy2ogOtzPtmMSWT/SHT8jqaPZpRRW6iFhndONPF5FKdGLldd50dQ+hYP9z8/XhjBATeoZQg==}
+    engines: {node: '>=22.12'}
 
-  nydus-protocol@2.0.0:
-    resolution: {integrity: sha512-+k7iQZI0hfFFgeIsMMDpPeLGtjU28uuu/ZQdEKR2x+lBuPRVzQ0Dvfc1kwL630OQHU/CgPlrr1j+XUYK4GLfyQ==}
+  nydus-protocol@3.0.0:
+    resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
+    engines: {node: '>=22.0.0'}
 
-  nydus@4.0.2:
-    resolution: {integrity: sha512-hHip9NJXBUBLk3RrqtwXDjjPISXIrNZAUrVTJqaZGPo+UdSKDW1HGsWjs2C/8aFxBWc9H0wcLtjCgdFUlzfuWQ==}
-    engines: {node: '>= 12.4.0'}
+  nydus@5.0.2:
+    resolution: {integrity: sha512-pEnEtnINagueqh9I4gywADZIEoHkVgL8aTeWKHTULrBJ86kJZ4C8bOGrqF8ELpryXDZcoW2rLz3E18VmY44Wbw==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -10189,8 +10195,8 @@ packages:
     resolution: {integrity: sha512-Fgl0YPZ902wEsAyiQ+idGd1A7rSFx/ayC1CQVMw5P+EQx2V0SgpGtf6OKFhVjPflPUl9YMmEOnmfjCdMUsygww==}
     engines: {node: '>= 10'}
 
-  socks@2.8.4:
-    resolution: {integrity: sha512-D3YaD0aRxR3mEcqnidIs7ReYJFVzWdd6fXJYUM8ixcQcJRGTka/b3saV0KflYhyVJXKhb947GndU35SxYNResQ==}
+  socks@2.8.5:
+    resolution: {integrity: sha512-iF+tNDQla22geJdTyJB1wM/qrX9DMRwWrciEPwWLPRWAUEM8sQiyxgckLxWT1f7+9VabJS0jTGGr4QgBuvi6Ww==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
 
   sonic-boom@2.8.0:
@@ -16333,7 +16339,7 @@ snapshots:
       ejs: 3.1.10
       electron-builder-squirrel-windows: 25.1.8(dmg-builder@26.0.12)
       electron-publish: 25.1.7
-      form-data: 4.0.2
+      form-data: 4.0.3
       fs-extra: 10.1.0
       hosted-git-info: 4.1.0
       is-ci: 3.0.1
@@ -17609,8 +17615,6 @@ snapshots:
 
   csstype@3.1.3: {}
 
-  cuid@2.1.8: {}
-
   cuid@3.0.0: {}
 
   cuint@0.2.2: {}
@@ -18858,6 +18862,14 @@ snapshots:
       asynckit: 0.4.0
       combined-stream: 1.0.8
       es-set-tostringtag: 2.1.0
+      mime-types: 2.1.35
+
+  form-data@4.0.3:
+    dependencies:
+      asynckit: 0.4.0
+      combined-stream: 1.0.8
+      es-set-tostringtag: 2.1.0
+      hasown: 2.0.2
       mime-types: 2.1.35
 
   formdata-polyfill@4.0.10:
@@ -21395,6 +21407,8 @@ snapshots:
 
   nanoid@3.3.11: {}
 
+  nanoid@5.1.5: {}
+
   native-addon-loader@2.0.1:
     dependencies:
       loader-utils: 1.4.2
@@ -21549,34 +21563,38 @@ snapshots:
 
   nullthrows@1.1.1: {}
 
-  nydus-client@4.0.6:
+  nydus-client@5.0.0(prettier@3.5.3)(typescript@5.8.3):
     dependencies:
       backo2: 1.0.2
-      cuid: 2.1.8
       engine.io-client: 6.6.3
-      nydus-protocol: 2.0.0
+      nanoid: 5.1.5
+      nydus-protocol: 3.0.0
+      prettier-plugin-organize-imports: 4.1.0(prettier@3.5.3)(typescript@5.8.3)
       ruta3: 2.0.1
-      typed-emitter: 2.1.0
+      tiny-typed-emitter: 2.1.0
     transitivePeerDependencies:
       - bufferutil
+      - prettier
       - supports-color
+      - typescript
       - utf-8-validate
+      - vue-tsc
 
-  nydus-protocol@2.0.0:
+  nydus-protocol@3.0.0:
     dependencies:
       debug: 4.4.1
     transitivePeerDependencies:
       - supports-color
 
-  nydus@4.0.2:
+  nydus@5.0.2:
     dependencies:
       backo2: 1.0.2
-      cuid: 2.1.8
       engine.io: 6.6.4
       immutable: 4.3.7
-      nydus-protocol: 2.0.0
+      nanoid: 5.1.5
+      nydus-protocol: 3.0.0
       ruta3: 2.0.1
-      typed-emitter: 2.1.0
+      tiny-typed-emitter: 2.1.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -23316,11 +23334,11 @@ snapshots:
     dependencies:
       agent-base: 6.0.2
       debug: 4.4.1
-      socks: 2.8.4
+      socks: 2.8.5
     transitivePeerDependencies:
       - supports-color
 
-  socks@2.8.4:
+  socks@2.8.5:
     dependencies:
       ip-address: 9.0.5
       smart-buffer: 4.2.0
