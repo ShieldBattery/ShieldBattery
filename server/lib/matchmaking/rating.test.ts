@@ -1963,6 +1963,153 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
+  test('2v2 - mixed upper/lower ratings, highest loses', () => {
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1800,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1300,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1450,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1550,
+    })
+    const results = new Map([
+      [player1.userId, LOSS],
+      [player2.userId, LOSS],
+      [opponent1.userId, WIN],
+      [opponent2.userId, WIN],
+    ])
+
+    const changes = calculateChangedRatings({
+      season: SEASON,
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+      activeLeagues: new Map(),
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      {
+        "leagues": [],
+        "matchmaking": {
+          "bonusUsed": 0.01706844708957159,
+          "bonusUsedChange": 0.01706844708957159,
+          "changeDate": 2022-05-02T00:00:00.000Z,
+          "gameId": "asdfzxcv",
+          "lifetimeGames": 1,
+          "matchmakingType": "2v2",
+          "outcome": "loss",
+          "points": 0,
+          "pointsChange": 0,
+          "pointsConverged": false,
+          "probability": 0.7605034968281987,
+          "rating": 1530.2355377705726,
+          "ratingChange": -269.7644622294274,
+          "uncertainty": 303.478782514052,
+          "uncertaintyChange": -46.521217485948,
+          "userId": 1,
+          "volatility": 0.060001145426850366,
+          "volatilityChange": 0.0000011454268503685583,
+        },
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      {
+        "leagues": [],
+        "matchmaking": {
+          "bonusUsed": 0.01706844708957159,
+          "bonusUsedChange": 0.01706844708957159,
+          "changeDate": 2022-05-02T00:00:00.000Z,
+          "gameId": "asdfzxcv",
+          "lifetimeGames": 1,
+          "matchmakingType": "2v2",
+          "outcome": "loss",
+          "points": 0,
+          "pointsChange": 0,
+          "pointsConverged": false,
+          "probability": 0.31641538274428405,
+          "rating": 1192.7660146747735,
+          "ratingChange": -107.23398532522651,
+          "uncertainty": 296.63609909206434,
+          "uncertaintyChange": -53.36390090793566,
+          "userId": 2,
+          "volatility": 0.059999373539620704,
+          "volatilityChange": -6.264603792938139e-7,
+        },
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      {
+        "leagues": [],
+        "matchmaking": {
+          "bonusUsed": 28,
+          "bonusUsedChange": 28,
+          "changeDate": 2022-05-02T00:00:00.000Z,
+          "gameId": "asdfzxcv",
+          "lifetimeGames": 1,
+          "matchmakingType": "2v2",
+          "outcome": "win",
+          "points": 323.98719990117183,
+          "pointsChange": 323.98719990117183,
+          "pointsConverged": false,
+          "probability": 0.4048860337291681,
+          "rating": 1645.3970569806693,
+          "ratingChange": 195.39705698066928,
+          "uncertainty": 291.97489452700995,
+          "uncertaintyChange": -58.02510547299005,
+          "userId": 3,
+          "volatility": 0.060000022241762076,
+          "volatilityChange": 2.2241762077934712e-8,
+        },
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      {
+        "leagues": [],
+        "matchmaking": {
+          "bonusUsed": 28,
+          "bonusUsedChange": 28,
+          "changeDate": 2022-05-02T00:00:00.000Z,
+          "gameId": "asdfzxcv",
+          "lifetimeGames": 1,
+          "matchmakingType": "2v2",
+          "outcome": "win",
+          "points": 323.98719990117183,
+          "pointsChange": 323.98719990117183,
+          "pointsConverged": false,
+          "probability": 0.5,
+          "rating": 1712.3108939062977,
+          "ratingChange": 162.31089390629768,
+          "uncertainty": 290.31896371798047,
+          "uncertaintyChange": -59.681036282019534,
+          "userId": 4,
+          "volatility": 0.05999967537233814,
+          "volatilityChange": -3.246276618559807e-7,
+        },
+      }
+    `)
+  })
+
   test('2v2 - mixed league status', () => {
     const player1 = createMatchmakingRating({
       userId: 1,
