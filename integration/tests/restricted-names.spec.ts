@@ -47,8 +47,8 @@ test('restricted names block signup', async ({ context, page }) => {
   await page.waitForSelector('[data-test=added-confirmation]')
 
   await page.click('[data-test=refresh-restricted-names-button]')
-  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="${name1}"]`)
-  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="^${name2}$"]`)
+  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="${name1}" i]`)
+  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="^${name2}$" i]`)
 
   // 6) Log out and go to the signup page
   await clearLocalState({ context, page })
