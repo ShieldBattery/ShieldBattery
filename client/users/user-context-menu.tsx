@@ -3,7 +3,7 @@ import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { appendToMultimap, cloneMultimap, mergeMultimaps } from '../../common/data-structures/maps'
+import { appendToMultimap, mergeMultimaps } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -194,7 +194,7 @@ function ConnectedUserContextMenuContents({
   })
 
   const baseItems = useBaseUserMenuItems()
-  const items: Map<MenuItemCategory, React.ReactNode[]> = cloneMultimap(baseItems)
+  const items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
   if (!user) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state
     appendToMultimap(
@@ -443,11 +443,12 @@ function ConnectedUserContextMenuContents({
       }
     }
   }
+  const mergedItems = mergeMultimaps(items, baseItems)
 
   return (
     <UserMenu
       MenuComponent={UserContextMenuList}
-      items={items}
+      items={mergedItems}
       userId={userId}
       onMenuClose={onDismiss}
     />
