@@ -11,6 +11,7 @@ applyTo: '**/*.ts*'
 - Use single-quotes for strings or backticks if they need to include variables,
   including in JSX (e.g. `<MyComponent value='foo' other={'bar'} />`)
 - Avoid unnecessary casts (`as`)
+- We use vitest for unit tests
 
 In `sql` usage that you find in `server/` model files:
 

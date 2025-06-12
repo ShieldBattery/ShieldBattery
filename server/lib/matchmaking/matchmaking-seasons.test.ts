@@ -1,13 +1,14 @@
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSeasonId, MatchmakingSeason } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { FakeClock } from '../time/testing/fake-clock'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models'
 
-jest.mock('./models', () => ({
-  getMatchmakingSeasons: jest.fn(),
-  addMatchmakingSeason: jest.fn(),
-  deleteMatchmakingSeason: jest.fn(),
+vi.mock('./models', () => ({
+  getMatchmakingSeasons: vi.fn(),
+  addMatchmakingSeason: vi.fn(),
+  deleteMatchmakingSeason: vi.fn(),
 }))
 
 const getMatchmakingSeasonsMock = asMockedFunction(getMatchmakingSeasons)
@@ -124,7 +125,7 @@ describe('matchmaking/matchmaking-seasons', () => {
     })
 
     await expect(result).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"New seasons must start in the future"`,
+      `[Error: New seasons must start in the future]`,
     )
   })
 
@@ -140,13 +141,15 @@ describe('matchmaking/matchmaking-seasons', () => {
 
   test('should error when deleting a non-existent season', async () => {
     const result = service.deleteSeason(makeSeasonId(4))
-    await expect(result).rejects.toThrowErrorMatchingInlineSnapshot(`"No matching season found"`)
+    await expect(result).rejects.toThrowErrorMatchingInlineSnapshot(
+      `[Error: No matching season found]`,
+    )
   })
 
   test('should error when deleting a past/current season', async () => {
     const result = service.deleteSeason(makeSeasonId(1))
     await expect(result).rejects.toThrowErrorMatchingInlineSnapshot(
-      `"Only future seasons can be deleted"`,
+      `[Error: Only future seasons can be deleted]`,
     )
   })
 })

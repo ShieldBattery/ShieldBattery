@@ -1,4 +1,5 @@
 import { NydusServer } from 'nydus'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import createDeferred from '../../../common/async/deferred'
 import {
   BasicChannelInfo,
@@ -64,7 +65,7 @@ import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
 
 const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 
-jest.mock('../../../common/flags', () => ({
+vi.mock('../../../common/flags', () => ({
   __esModule: true,
   CAN_LEAVE_SHIELDBATTERY_CHANNEL: false,
 }))
@@ -74,60 +75,62 @@ jest.mock('../../../common/flags', () => ({
 // methods.
 const dbClient = {} as DbClient
 
-jest.mock('../db/transaction', () =>
-  jest.fn(async next => {
+vi.mock('../db/transaction', () => ({
+  default: vi.fn(async next => {
     return await next(dbClient)
   }),
-)
+}))
 
-jest.mock('../models/permissions')
-jest.mock('../users/user-identifiers')
+vi.mock('../models/permissions')
+vi.mock('../users/user-identifiers')
 
-const user1: SbUser = { id: 1 as SbUserId, name: 'USER_NAME_1' }
-const user2: SbUser = { id: 2 as SbUserId, name: 'USER_NAME_2' }
+const { user1, user2 } = vi.hoisted(() => ({
+  user1: { id: 1 as SbUserId, name: 'USER_NAME_1' } as SbUser,
+  user2: { id: 2 as SbUserId, name: 'USER_NAME_2' } as SbUser,
+}))
 
-jest.mock('../users/user-model', () => {
+vi.mock('../users/user-model', () => {
   const USERS_BY_ID: ReadonlyMap<SbUserId, SbUser> = new Map([user1, user2].map(u => [u.id, u]))
   const USERS_BY_NAME: ReadonlyMap<string, SbUser> = new Map(
     [user1, user2].map(u => [u.name.toLowerCase(), u]),
   )
 
   return {
-    findUserById: jest.fn().mockImplementation(async (id: SbUserId) => USERS_BY_ID.get(id)),
-    findUsersById: jest.fn().mockImplementation(async (ids: ReadonlyArray<SbUserId>) => {
+    findUserById: vi.fn().mockImplementation(async (id: SbUserId) => USERS_BY_ID.get(id)),
+    findUsersById: vi.fn().mockImplementation(async (ids: ReadonlyArray<SbUserId>) => {
       return ids.map(id => USERS_BY_ID.get(id)).filter(u => !!u)
     }),
-    findUsersByName: jest.fn().mockImplementation(async (names: ReadonlyArray<string>) => {
+    findUsersByName: vi.fn().mockImplementation(async (names: ReadonlyArray<string>) => {
       return names.map(name => USERS_BY_NAME.get(name.toLowerCase())).filter(u => !!u)
     }),
   }
 })
 
-jest.mock('./chat-models', () => {
-  const originalModule = jest.requireActual('./chat-models')
+vi.mock('./chat-models', async () => {
+  const originalModule = await vi.importActual<typeof import('./chat-models')>('./chat-models')
   return {
-    getChannelsForUser: jest.fn().mockResolvedValue([]),
-    getUsersForChannel: jest.fn().mockResolvedValue([]),
-    getUserChannelEntryForUser: jest.fn(),
-    getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
-    createChannel: jest.fn(),
-    updateChannel: jest.fn(),
-    addUserToChannel: jest.fn(),
-    addMessageToChannel: jest.fn(),
-    getMessagesForChannel: jest.fn().mockResolvedValue([]),
-    deleteChannelMessage: jest.fn(),
-    removeUserFromChannel: jest.fn(),
-    updateUserPreferences: jest.fn(),
-    updateUserPermissions: jest.fn(),
-    countBannedIdentifiersForChannel: jest.fn(),
-    banUserFromChannel: jest.fn(),
-    banAllIdentifiersFromChannel: jest.fn(),
-    isUserBannedFromChannel: jest.fn(),
-    getChannelInfo: jest.fn(),
-    getChannelInfos: jest.fn().mockResolvedValue([]),
-    findChannelByName: jest.fn(),
-    findChannelsByName: jest.fn().mockResolvedValue([]),
-    searchChannels: jest.fn().mockResolvedValue([]),
+    getChannelsForUser: vi.fn().mockResolvedValue([]),
+    getUsersForChannel: vi.fn().mockResolvedValue([]),
+    getUserChannelEntryForUser: vi.fn(),
+    getUserChannelEntriesForUser: vi.fn().mockResolvedValue([]),
+    createChannel: vi.fn(),
+    updateChannel: vi.fn(),
+    addUserToChannel: vi.fn(),
+    addMessageToChannel: vi.fn(),
+    getMessagesForChannel: vi.fn().mockResolvedValue([]),
+    deleteChannelMessage: vi.fn(),
+    removeUserFromChannel: vi.fn(),
+    updateUserPreferences: vi.fn(),
+    updateUserPermissions: vi.fn(),
+    countBannedIdentifiersForChannel: vi.fn(),
+    banUserFromChannel: vi.fn(),
+    banAllIdentifiersFromChannel: vi.fn(),
+    isUserBannedFromChannel: vi.fn(),
+    getChannelInfo: vi.fn(),
+    getChannelInfos: vi.fn().mockResolvedValue([]),
+    findChannelByName: vi.fn(),
+    findChannelsByName: vi.fn().mockResolvedValue([]),
+    searchChannels: vi.fn().mockResolvedValue([]),
     toBasicChannelInfo: originalModule.toBasicChannelInfo,
     toDetailedChannelInfo: originalModule.toDetailedChannelInfo,
     toJoinedChannelInfo: originalModule.toJoinedChannelInfo,
@@ -409,7 +412,7 @@ describe('chat/chat-service', () => {
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
     client2 = connector.connectClient(user2, USER2_CLIENT_ID)
 
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     clearTestLogs(nydus)
   })
 
@@ -518,7 +521,7 @@ describe('chat/chat-service', () => {
           dbClient,
           Promise.resolve(),
         ),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"User doesn't exist"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User doesn't exist]`)
     })
 
     test("should throw if channel doesn't exist", async () => {
@@ -526,7 +529,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.joinInitialChannel(user1.id, dbClient, Promise.resolve()),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('works when user exists', async () => {
@@ -556,7 +559,7 @@ describe('chat/chat-service', () => {
         dbClient,
       )
 
-      jest.clearAllMocks()
+      vi.clearAllMocks()
 
       transactionPromise.resolve()
       await Promise.resolve()
@@ -611,7 +614,7 @@ describe('chat/chat-service', () => {
     test("should throw if user doesn't exist", async () => {
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, makeSbUserId(Number.MAX_SAFE_INTEGER)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"User doesn't exist"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User doesn't exist]`)
     })
 
     test("should throw if can't join anymore channels", async () => {
@@ -619,7 +622,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum joined channels reached"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum joined channels reached]`)
     })
 
     test("should throw if can't own anymore channels", async () => {
@@ -628,7 +631,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum owned channels reached"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum owned channels reached]`)
     })
 
     test('should throw if user is banned', async () => {
@@ -636,7 +639,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"User is banned"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is banned]`)
     })
 
     test('should throw if smurf account is banned', async () => {
@@ -646,7 +649,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"User is banned"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is banned]`)
     })
 
     test('works when channel already exists', async () => {
@@ -776,7 +779,7 @@ describe('chat/chat-service', () => {
           isAdmin: false,
           updates: {},
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('should throw if not a channel owner or an admin', async () => {
@@ -790,7 +793,7 @@ describe('chat/chat-service', () => {
           updates: {},
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Only channel owner and admins can edit the channel"`,
+        `[Error: Only channel owner and admins can edit the channel]`,
       )
     })
 
@@ -893,7 +896,7 @@ describe('chat/chat-service', () => {
     test('should throw if not in channel', async () => {
       await expect(
         chatService.leaveChannel(testChannel.id, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in channel to leave it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to leave it]`)
     })
 
     describe('when in ShieldBattery channel', () => {
@@ -917,7 +920,7 @@ describe('chat/chat-service', () => {
 
         await expect(
           chatService.leaveChannel(shieldBatteryChannel.id, user1.id),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't leave ShieldBattery channel"`)
+        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't leave ShieldBattery channel]`)
       })
 
       test("works when it's allowed", async () => {
@@ -977,7 +980,7 @@ describe('chat/chat-service', () => {
       )
 
       let mockCalled = false
-      asMockedFunction(removeUserFromChannelMock).mockImplementation(async () => {
+      removeUserFromChannelMock.mockImplementation(async () => {
         if (mockCalled) {
           return { newOwnerId: undefined }
         }
@@ -1008,7 +1011,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.moderateUser(testChannel.id, user1.id, user2.id, ChannelModerationAction.Kick),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('should throw if not in channel', async () => {
@@ -1016,7 +1019,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.moderateUser(testChannel.id, user1.id, user2.id, ChannelModerationAction.Kick),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in channel to moderate users"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to moderate users]`)
     })
 
     test('should throw if target user not in channel', async () => {
@@ -1031,7 +1034,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.moderateUser(testChannel.id, user1.id, user2.id, ChannelModerationAction.Kick),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"User must be in channel to moderate them"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User must be in channel to moderate them]`)
     })
 
     test('should throw if moderating yourself', async () => {
@@ -1039,7 +1042,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.moderateUser(testChannel.id, user1.id, user1.id, ChannelModerationAction.Kick),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't moderate yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't moderate yourself]`)
     })
 
     describe('when moderating ShieldBattery channel', () => {
@@ -1085,7 +1088,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `"Can't moderate users in the ShieldBattery channel"`,
+          `[Error: Can't moderate users in the ShieldBattery channel]`,
         )
       })
 
@@ -1170,7 +1173,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `"Only server moderators can moderate channel owners"`,
+          `[Error: Only server moderators can moderate channel owners]`,
         )
       })
 
@@ -1197,7 +1200,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `"Only server moderators and channel owners can moderate channel moderators"`,
+          `[Error: Only server moderators and channel owners can moderate channel moderators]`,
         )
       })
 
@@ -1221,7 +1224,7 @@ describe('chat/chat-service', () => {
             ChannelModerationAction.Kick,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `"Not enough permissions to moderate the user"`,
+          `[Error: Not enough permissions to moderate the user]`,
         )
       })
 
@@ -1445,7 +1448,7 @@ describe('chat/chat-service', () => {
     test('should throw if not in channel', async () => {
       await expect(
         chatService.sendChatMessage(testChannel.id, user1.id, 'Hello World!'),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in a channel to send a message to it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in a channel to send a message to it]`)
     })
 
     describe('when in channel', () => {
@@ -1538,7 +1541,7 @@ describe('chat/chat-service', () => {
           userId: user1.id,
           isAdmin: false,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not enough permissions to delete a message"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not enough permissions to delete a message]`)
     })
 
     test('works when an admin', async () => {
@@ -1577,7 +1580,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.getChannelInfo(testChannel.id, user1.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('returns channel info when found', async () => {
@@ -1910,7 +1913,7 @@ describe('chat/chat-service', () => {
             isAdmin: false,
           }),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `"Must be in a channel to retrieve message history"`,
+          `[Error: Must be in a channel to retrieve message history]`,
         )
       })
 
@@ -2025,7 +2028,7 @@ describe('chat/chat-service', () => {
             userId: user1.id,
             isAdmin: false,
           }),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in a channel to retrieve user list"`)
+        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in a channel to retrieve user list]`)
       })
 
       test('works when in channel', async () => {
@@ -2052,7 +2055,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.getChatUserProfile(testChannel.id, user1.id, user2.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Must be in a channel to retrieve user profile"`,
+        `[Error: Must be in a channel to retrieve user profile]`,
       )
     })
 
@@ -2097,7 +2100,7 @@ describe('chat/chat-service', () => {
 
         await expect(
           chatService.getChatUserProfile(testChannel.id, user1.id, user2.id),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
       })
 
       test('works when channel exists', async () => {
@@ -2129,7 +2132,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('should throw if not in channel', async () => {
@@ -2137,7 +2140,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in channel to get user's permissions"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to get user's permissions]`)
     })
 
     test('should throw if target user not in channel', async () => {
@@ -2153,7 +2156,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"User must be in channel to get their permissions"`,
+        `[Error: User must be in channel to get their permissions]`,
       )
     })
 
@@ -2172,7 +2175,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"You don't have enough permissions to get other user's permissions"`,
+        `[Error: You don't have enough permissions to get other user's permissions]`,
       )
     })
 
@@ -2241,7 +2244,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('should throw if not in channel', async () => {
@@ -2249,7 +2252,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Must be in channel to update preferences"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to update preferences]`)
     })
 
     test('works when updating channel preferences', async () => {
@@ -2289,7 +2292,7 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.updateUserPermissions(testChannel.id, user1.id, user2.id, channelPermissions),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Channel not found"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('should throw if not in channel', async () => {
@@ -2298,7 +2301,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.updateUserPermissions(testChannel.id, user1.id, user2.id, channelPermissions),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Must be in channel to update user's permissions"`,
+        `[Error: Must be in channel to update user's permissions]`,
       )
     })
 
@@ -2315,7 +2318,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.updateUserPermissions(testChannel.id, user1.id, user2.id, channelPermissions),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"User must be in channel to update their permissions"`,
+        `[Error: User must be in channel to update their permissions]`,
       )
     })
 
@@ -2334,7 +2337,7 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.updateUserPermissions(testChannel.id, user1.id, user2.id, channelPermissions),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"You don't have enough permissions to update other user's permissions"`,
+        `[Error: You don't have enough permissions to update other user's permissions]`,
       )
     })
 

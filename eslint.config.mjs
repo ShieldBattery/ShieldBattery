@@ -4,7 +4,7 @@ import js from '@eslint/js'
 import stylistic from '@stylistic/eslint-plugin'
 import typescriptEslint from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
-import jest from 'eslint-plugin-jest'
+import vitest from '@vitest/eslint-plugin'
 import prettier from 'eslint-plugin-prettier'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -135,6 +135,8 @@ export default [
           allowReferrer: true,
         },
       ],
+      'react/jsx-uses-react': 'off',
+      'react/react-in-jsx-scope': 'off',
       'react/no-deprecated': 'off',
       'react/no-unescaped-entities': 'off',
       'react/prop-types': 'off',
@@ -328,40 +330,29 @@ export default [
       },
     },
   },
-  ...compat.extends('plugin:jest/recommended', 'plugin:jest/style').map(config => ({
-    ...config,
-
-    files: [
-      '**/*.test.js',
-      '**/*.test.ts',
-      '**/*.test.tsx',
-      '**/testing/*',
-      '**/jest-client-setup.ts',
-    ],
-  })),
   {
     files: [
       '**/*.test.js',
       '**/*.test.ts',
       '**/*.test.tsx',
       '**/testing/*',
-      '**/jest-client-setup.ts',
+      '**/vitest-client-setup.ts',
+      '**/vitest-global-setup.ts',
+      '**/vitest-matchers.ts',
     ],
 
-    plugins: {
-      jest,
-    },
+    plugins: { vitest },
 
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...jest.environments.globals.globals,
         ...globals.node,
       },
     },
 
     rules: {
-      'jest/expect-expect': 0,
+      ...vitest.configs.recommended.rules,
+      'vitest/expect-expect': 0,
     },
   },
   {

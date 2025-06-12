@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import { describe, expect, test } from 'vitest'
 import { json } from './json-validator'
 
 describe('server/lib/json/json-validator', () => {

@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { matchUserMentions, matchUserMentionsMarkup } from './user-mentions'
 
 describe('common/text/mentions/matchUserMentions', () => {

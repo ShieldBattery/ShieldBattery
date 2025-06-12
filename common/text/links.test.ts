@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { matchLinks } from './links'
 
 function doMatch(text: string): string[] {
@@ -176,7 +177,7 @@ describe('common/text/links/matchLinks', () => {
     `)
   })
 
-  /* eslint-disable-next-line jest/no-commented-out-tests */
+  /* eslint-disable-next-line vitest/no-commented-out-tests */
   /* TODO(tec27): Fix these, they're broken
 
   test('link with host subcomponent, ipv6 RFC 3986', () => {

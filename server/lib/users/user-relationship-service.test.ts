@@ -1,4 +1,5 @@
 import { NydusServer } from 'nydus'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import {
@@ -33,7 +34,7 @@ function clearFakeDb() {
 }
 
 // TODO(tec27): These could really use some tests of their own tbh
-jest.mock('./user-relationship-models', () => {
+vi.mock('./user-relationship-models', () => {
   const fakeDb = new Map<SbUserId, UserRelationshipSummary>()
 
   function createSummary(): UserRelationshipSummary {
@@ -57,7 +58,7 @@ jest.mock('./user-relationship-models', () => {
   )
 
   return {
-    getRelationshipSummaryForUser: jest.fn(async (userId: SbUserId) => {
+    getRelationshipSummaryForUser: vi.fn(async (userId: SbUserId) => {
       const value = fakeDb.get(userId)
       return {
         friends: [...(value?.friends ?? [])],
@@ -67,17 +68,17 @@ jest.mock('./user-relationship-models', () => {
       }
     }),
 
-    countFriendsAndRequests: jest.fn(async (userId: SbUserId) => {
+    countFriendsAndRequests: vi.fn(async (userId: SbUserId) => {
       const value = fakeDb.get(userId)
       return (value?.friends?.length ?? 0) + (value?.outgoingRequests?.length ?? 0)
     }),
 
-    countBlocks: jest.fn(async (userId: SbUserId) => {
+    countBlocks: vi.fn(async (userId: SbUserId) => {
       const value = fakeDb.get(userId)
       return value?.blocks?.length ?? 0
     }),
 
-    sendFriendRequest: jest.fn(async (fromId: SbUserId, toId: SbUserId, date: Date) => {
+    sendFriendRequest: vi.fn(async (fromId: SbUserId, toId: SbUserId, date: Date) => {
       const UserRelationshipType = await userRelationshipTypePromise
 
       const fromSummary = fakeDb.get(fromId) ?? createSummary()
@@ -150,7 +151,7 @@ jest.mock('./user-relationship-models', () => {
       return result
     }),
 
-    acceptFriendRequest: jest.fn(
+    acceptFriendRequest: vi.fn(
       async (acceptingId: SbUserId, requestingId: SbUserId, date: Date) => {
         const UserRelationshipType = await userRelationshipTypePromise
 
@@ -214,7 +215,7 @@ jest.mock('./user-relationship-models', () => {
       },
     ),
 
-    removeFriendRequest: jest.fn(async (fromId: SbUserId, toId: SbUserId) => {
+    removeFriendRequest: vi.fn(async (fromId: SbUserId, toId: SbUserId) => {
       const fromSummary = fakeDb.get(fromId) ?? createSummary()
       const toSummary = fakeDb.get(toId) ?? createSummary()
 
@@ -229,7 +230,7 @@ jest.mock('./user-relationship-models', () => {
       return hasRequest
     }),
 
-    removeFriend: jest.fn(async (removerId: SbUserId, targetId: SbUserId) => {
+    removeFriend: vi.fn(async (removerId: SbUserId, targetId: SbUserId) => {
       const removerSummary = fakeDb.get(removerId) ?? createSummary()
       const targetSummary = fakeDb.get(targetId) ?? createSummary()
 
@@ -244,7 +245,7 @@ jest.mock('./user-relationship-models', () => {
       return hasFriend
     }),
 
-    blockUser: jest.fn(async (blockerId: SbUserId, targetId: SbUserId, date: Date) => {
+    blockUser: vi.fn(async (blockerId: SbUserId, targetId: SbUserId, date: Date) => {
       const UserRelationshipType = await userRelationshipTypePromise
 
       const blockerSummary = fakeDb.get(blockerId) ?? createSummary()
@@ -308,7 +309,7 @@ jest.mock('./user-relationship-models', () => {
       return result
     }),
 
-    unblockUser: jest.fn(async (unblockerId: SbUserId, targetId: SbUserId) => {
+    unblockUser: vi.fn(async (unblockerId: SbUserId, targetId: SbUserId) => {
       const unblockerSummary = fakeDb.get(unblockerId) ?? createSummary()
       const targetSummary = fakeDb.get(targetId) ?? createSummary()
 
@@ -348,7 +349,7 @@ jest.mock('./user-relationship-models', () => {
       return result
     }),
 
-    isUserBlockedBy: jest.fn(async (userId: SbUserId, potentialBlocker: SbUserId) => {
+    isUserBlockedBy: vi.fn(async (userId: SbUserId, potentialBlocker: SbUserId) => {
       const blockerSummary = fakeDb.get(potentialBlocker)
       return blockerSummary?.blocks?.some(r => r.toId === userId) ?? false
     }),
@@ -397,7 +398,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if sending a request to self', async () => {
       await expect(
         userRelationshipService.sendFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't send a friend request to yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't send a friend request to yourself]`)
     })
 
     test('should send a friend request to another user', async () => {
@@ -446,7 +447,7 @@ describe('users/user-relationship-service', () => {
 
       await expect(
         userRelationshipService.sendFriendRequest(makeSbUserId(1), makeSbUserId(2)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"You have been blocked by this user"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: You have been blocked by this user]`)
       expect(notificationService.addNotification).not.toHaveBeenCalled()
     })
 
@@ -559,7 +560,7 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.sendFriendRequest(makeSbUserId(1), makeSbUserId(9001)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Too many friends or outgoing requests, please remove some to add more"`,
+        `[Error: Too many friends or outgoing requests, please remove some to add more]`,
       )
     })
   })
@@ -568,7 +569,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if accepting a request to self', async () => {
       await expect(
         userRelationshipService.acceptFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't accept a friend request from yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't accept a friend request from yourself]`)
     })
 
     test("should succeed if there's a matching request", async () => {
@@ -631,7 +632,7 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.acceptFriendRequest(makeSbUserId(1), makeSbUserId(2)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Could not find a friend request from this user"`,
+        `[Error: Could not find a friend request from this user]`,
       )
     })
 
@@ -699,7 +700,7 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.acceptFriendRequest(FROM, makeSbUserId(9001)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Too many friends or outgoing requests, please remove some to add more"`,
+        `[Error: Too many friends or outgoing requests, please remove some to add more]`,
       )
     })
   })
@@ -708,7 +709,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if removing a request from self', async () => {
       await expect(
         userRelationshipService.removeFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't remove a friend request from yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't remove a friend request from yourself]`)
     })
 
     test('should remove an outgoing friend request', async () => {
@@ -747,7 +748,7 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.removeFriendRequest(makeSbUserId(1), makeSbUserId(2)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Could not find a friend request from this user"`,
+        `[Error: Could not find a friend request from this user]`,
       )
     })
   })
@@ -756,7 +757,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if removing self', async () => {
       await expect(
         userRelationshipService.removeFriend(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't remove friendship with yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't remove friendship with yourself]`)
     })
 
     test('should remove a friend', async () => {
@@ -783,7 +784,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if no friend is found', async () => {
       await expect(
         userRelationshipService.removeFriend(makeSbUserId(1), makeSbUserId(2)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently friends with that user"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not currently friends with that user]`)
     })
   })
 
@@ -791,7 +792,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if blocking self', async () => {
       await expect(
         userRelationshipService.blockUser(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't block yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't block yourself]`)
     })
 
     test('should allow blocking another user', async () => {
@@ -956,7 +957,7 @@ describe('users/user-relationship-service', () => {
       await expect(
         userRelationshipService.blockUser(FROM, makeSbUserId(9001)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `"Too many users blocked, please remove some to add more"`,
+        `[Error: Too many users blocked, please remove some to add more]`,
       )
     })
   })
@@ -965,7 +966,7 @@ describe('users/user-relationship-service', () => {
     test('should throw if unblocking self', async () => {
       await expect(
         userRelationshipService.unblockUser(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't unblock yourself"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't unblock yourself]`)
     })
 
     test('should work for a 1-way block', async () => {
@@ -1010,7 +1011,7 @@ describe('users/user-relationship-service', () => {
 
       await expect(
         userRelationshipService.unblockUser(FROM, TO),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not currently blocking that user]`)
     })
 
     test('should throw if no block found (different kind of outgoing relationship)', async () => {
@@ -1021,7 +1022,7 @@ describe('users/user-relationship-service', () => {
 
       await expect(
         userRelationshipService.unblockUser(FROM, TO),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not currently blocking that user]`)
     })
   })
 

@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { escapeSearchString } from './escape-search-string'
 
 describe('server/lib/db/escapeSearchString', () => {

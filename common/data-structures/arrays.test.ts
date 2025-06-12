@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { binarySearch, concatWithoutDuplicates, findLastIndex } from './arrays'
 
 const makeCallbackFn = (searchValue: number) => (value: number) => value === searchValue

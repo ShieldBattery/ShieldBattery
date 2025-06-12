@@ -20,62 +20,7 @@
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "main": "index.js",
   "engines": {
-    "node": ">= 22.0.0"
-  },
-  "jest": {
-    "projects": [
-      {
-        "prettierPath": null,
-        "displayName": "node",
-        "setupFilesAfterEnv": [
-          "./babel-register.js",
-          "core-js/proposals/reflect-metadata",
-          "jest-extended/all"
-        ],
-        "testEnvironment": "node",
-        "testMatch": [
-          "<rootDir>/app/**/*.test.[jt]s?(x)",
-          "<rootDir>/common/**/*.test.[jt]s?(x)",
-          "<rootDir>/server/**/*.test.[jt]s?(x)"
-        ]
-      },
-      {
-        "prettierPath": null,
-        "displayName": "browser",
-        "moduleNameMapper": {
-          "\\.svg$": "<rootDir>/client/__mocks__/svg-mock.tsx",
-          "\\.(html|htm|md)$": "<rootDir>/client/__mocks__/static-file-mock.ts"
-        },
-        "globalSetup": "./jest-global-setup.js",
-        "setupFilesAfterEnv": [
-          "./babel-register.js",
-          "core-js/proposals/reflect-metadata",
-          "jest-extended/all",
-          "./jest-client-setup.ts"
-        ],
-        "testEnvironment": "@happy-dom/jest-environment",
-        "testEnvironmentOptions": {
-          "html": "<html lang=\"en-US\"></html>"
-        },
-        "testMatch": [
-          "<rootDir>/client/**/*.test.[jt]s?(x)"
-        ]
-      }
-    ],
-    "testPathIgnorePatterns": [
-      "<rootDir>/app/dist",
-      "<rootDir>/app/node_modules",
-      "<rootDir>/dist",
-      "<rootDir>/node_modules",
-      "<rootDir>/server/public"
-    ],
-    "watchPathIgnorePatterns": [
-      "<rootDir>/app/dist",
-      "<rootDir>/app/node_modules",
-      "<rootDir>/dist",
-      "<rootDir>/node_modules",
-      "<rootDir>/server/public"
-    ]
+    "node": ">= 22.12.0"
   },
   "scripts": {
     "app": "SB_HOT=1 electron app",
@@ -108,7 +53,7 @@
     "packstaging": "pnpm run clean && SB_SERVER=https://staging.shieldbattery.net pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c staging.yml",
     "sqlx-prepare": "[ \"${NODE_ENV:-}\" != \"production\" ] && (cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features) || echo \"In production, not sqlx-preparing\"",
     "start-server": "node --trace-warnings ./server/index.js | pino-pretty -c -t",
-    "test": "jest",
+    "test": "vitest",
     "test:integration": "NODE_ENV=production playwright test",
     "typecheck": "tsc --skipLibCheck false"
   },
@@ -204,7 +149,6 @@
     "@graphql-codegen/client-preset": "^4.8.2",
     "@graphql-codegen/introspection": "^4.0.3",
     "@graphql-typed-document-node/core": "^3.2.0",
-    "@happy-dom/jest-environment": "^18.0.1",
     "@leeoniya/ufuzzy": "^1.0.18",
     "@parcel/watcher": "^2.5.1",
     "@playwright/test": "^1.53.0",
@@ -215,6 +159,7 @@
     "@redux-devtools/dock-monitor": "^4.1.1",
     "@redux-devtools/inspector-monitor": "^6.1.1",
     "@stylistic/eslint-plugin": "^4.4.1",
+    "@swc/core": "^1.12.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",
     "@types/archiver": "^6.0.3",
@@ -228,7 +173,6 @@
     "@types/hoist-non-react-statics": "^3.3.6",
     "@types/html-to-text": "^9.0.4",
     "@types/http-errors": "^2.0.5",
-    "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/koa": "^2.15.0",
@@ -264,7 +208,9 @@
     "@typescript-eslint/parser": "^8.34.0",
     "@urql/core": "^5.1.1",
     "@urql/exchange-graphcache": "^7.2.3",
-    "babel-jest": "^29.7.0",
+    "@vitejs/plugin-react": "^4.5.2",
+    "@vitest/coverage-v8": "^3.2.3",
+    "@vitest/eslint-plugin": "^1.2.2",
     "babel-loader": "^10.0.0",
     "babel-plugin-react-compiler": "19.1.0-rc.2",
     "babel-plugin-styled-components": "^2.1.4",
@@ -279,7 +225,6 @@
     "engine.io": "^6.6.4",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-jest": "^28.13.3",
     "eslint-plugin-prettier": "^5.4.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -291,15 +236,13 @@
     "google-fonts-helper": "^3.7.3",
     "graphql": "^16.11.0",
     "graphql-tag": "^2.12.6",
+    "happy-dom": "^18.0.1",
     "html-loader": "^5.1.0",
     "i18next": "^25.2.1",
     "i18next-fs-backend": "^2.6.0",
     "i18next-http-backend": "^3.0.2",
     "i18next-parser": "9.3.0",
-    "jest": "^29.7.0",
-    "jest-extended": "^5.0.3",
-    "jest-mock": "^29.7.0",
-    "jest-mock-random": "^1.1.1",
+    "jest-extended": "^6.0.0",
     "jotai": "^2.12.5",
     "jotai-devtools": "^0.12.0",
     "jssuh": "^1.6.0",
@@ -341,7 +284,9 @@
     "ts-proto": "^2.7.3",
     "type-fest": "^4.41.0",
     "typescript": "^5.8.3",
+    "unplugin-swc": "^1.5.4",
     "urql": "^4.2.2",
+    "vitest": "^3.2.3",
     "wait-on": "^8.0.3",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1",
@@ -362,6 +307,7 @@
     },
     "onlyBuiltDependencies": [
       "@parcel/watcher",
+      "@swc/core",
       "bcrypt",
       "core-js",
       "core-js-pure",
@@ -371,7 +317,8 @@
       "pino-datadog-transport",
       "protobufjs",
       "sharp",
-      "ssh2"
+      "ssh2",
+      "unrs-resolver"
     ]
   },
   "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"

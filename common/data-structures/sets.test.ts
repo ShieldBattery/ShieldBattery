@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { intersection, subtract, union } from './sets'
 
 const EMPTY = new Set<number>()

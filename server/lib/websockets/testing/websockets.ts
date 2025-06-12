@@ -4,6 +4,7 @@ import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
 import { Map as IMap } from 'immutable'
 import { NydusClient, NydusServer, RouteHandler } from 'nydus'
+import { vi } from 'vitest'
 import { SbUser } from '../../../../common/users/sb-user'
 import { RequestSessionLookup, SessionInfo } from '../session-lookup'
 
@@ -24,7 +25,7 @@ export class FakeNydusServer
 
   registerRoute(pathPattern: string, ...handlers: RouteHandler[]) {}
 
-  subscribeClient = jest.fn((client: NydusClient, path: string, initialData?: any) => {
+  subscribeClient = vi.fn((client: NydusClient, path: string, initialData?: any) => {
     if (!(client instanceof InspectableNydusClient)) {
       throw new Error(
         'Only InspectableNydusClients should be connected to FakeNydusServer. ' +
@@ -54,7 +55,7 @@ export class FakeNydusServer
       }
     }
   })
-  unsubscribeClient = jest.fn((client: NydusClient, path: string) => {
+  unsubscribeClient = vi.fn((client: NydusClient, path: string) => {
     const inspectableClient = client as InspectableNydusClient
     const unsubscribed = !!this.fakeSubscriptions.get(path)?.delete(inspectableClient)
 
@@ -64,13 +65,13 @@ export class FakeNydusServer
 
     return unsubscribed
   })
-  unsubscribeAll = jest.fn((path: string) => {
+  unsubscribeAll = vi.fn((path: string) => {
     this.fakeSubscriptions.get(path)?.forEach(client => {
       client.unsubscribe(path)
     })
     return this.fakeSubscriptions.delete(path)
   })
-  publish = jest.fn((path: string, data?: any) => {
+  publish = vi.fn((path: string, data?: any) => {
     this.fakeSubscriptions.get(path)?.forEach(client => {
       client.publish(path, data)
     })
@@ -96,9 +97,9 @@ export class FakeNydusServer
 export class InspectableNydusClient extends NydusClient {
   // NOTE(tec27): We add an explicit type because it makes calling the method have better
   // documentation (the arguments are named, vs the arg_0, arg_1 stuff from Jest)
-  publish: (path: string, data: any) => void = jest.fn()
-  unsubscribe: (path: string) => boolean = jest.fn()
-  disconnect = jest.fn(() => this.emit('close', 'CLIENT_DISCONNECT'))
+  publish: (path: string, data: any) => void = vi.fn()
+  unsubscribe: (path: string) => boolean = vi.fn()
+  disconnect = vi.fn(() => this.emit('close', 'CLIENT_DISCONNECT'))
 }
 
 export function clearTestLogs(nydus: NydusServer) {

@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { sql, sqlConcat, sqlRaw } from './sql'
 
 describe('server/lib/db/sql', () => {

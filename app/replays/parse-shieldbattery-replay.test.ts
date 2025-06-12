@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { parseGameId } from './parse-shieldbattery-replay'
 
 function gameIdAsBuffer(gameId: string): Buffer {

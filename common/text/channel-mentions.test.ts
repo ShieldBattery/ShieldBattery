@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { matchChannelMentions, matchChannelMentionsMarkup } from './channel-mentions'
 
 describe('common/text/mentions/matchChannelMentions', () => {

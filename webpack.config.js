@@ -32,7 +32,7 @@ const webBabelOpts = {
   configFile: false,
   cacheDirectory: process.env.NODE_ENV !== 'production',
   presets: [
-    '@babel/preset-react',
+    ['@babel/preset-react', { runtime: 'automatic' }],
     [
       '@babel/preset-env',
       {

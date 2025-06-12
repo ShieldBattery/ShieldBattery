@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { FakeClock } from '../time/testing/fake-clock'
 import { LazyScheduler } from './lazy-scheduler'
 

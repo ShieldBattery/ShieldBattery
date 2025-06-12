@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { BwUserLatency, turnRateToMaxLatency } from './network'
 
 describe('common/network', () => {

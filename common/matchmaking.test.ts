@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { MatchmakingDivision, pointsToMatchmakingDivisionAndBounds } from './matchmaking'
 
 describe('common/matchmaking', () => {

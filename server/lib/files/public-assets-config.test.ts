@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { FileStoreType, PublicAssetsConfig } from './public-assets-config'
 
 describe('publicAssetsConfig', () => {

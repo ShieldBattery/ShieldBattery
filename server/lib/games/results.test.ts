@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import {
   GameClientPlayerResult,
   GameClientResult,
@@ -21,7 +22,7 @@ function evaluateResults(
   expectedObj: { [key: number]: ReconciledPlayerResult },
 ) {
   const obj = Object.fromEntries(resultsMap.entries())
-  expect(obj).toContainAllEntries(Object.entries(expectedObj))
+  expect(obj).toEqual(expectedObj)
 }
 
 describe('games/results/reconcileResults', () => {

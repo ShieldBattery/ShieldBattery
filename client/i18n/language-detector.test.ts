@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { TranslationLanguage } from '../../common/i18n'
 import { getBestLanguage } from './language-detector'
 

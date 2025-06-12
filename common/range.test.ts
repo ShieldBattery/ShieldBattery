@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { range } from './range'
 
 describe('common/range', () => {
@@ -22,10 +23,10 @@ describe('common/range', () => {
 
   test("throws if parameters wouldn't make progress", () => {
     expect(() => Array.from(range(0, 5, -1))).toThrowErrorMatchingInlineSnapshot(
-      `"range was passed parameters that do not make progress: [start: 0, end: 5, step: -1]"`,
+      `[Error: range was passed parameters that do not make progress: [start: 0, end: 5, step: -1]]`,
     )
     expect(() => Array.from(range(5, 0, 1))).toThrowErrorMatchingInlineSnapshot(
-      `"range was passed parameters that do not make progress: [start: 5, end: 0, step: 1]"`,
+      `[Error: range was passed parameters that do not make progress: [start: 5, end: 0, step: 1]]`,
     )
   })
 })

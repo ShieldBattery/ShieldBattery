@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import React from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
+import { describe, expect, test } from 'vitest'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { TextMessage } from './common-message-layout'

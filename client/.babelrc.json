@@ -1,7 +1,7 @@
 // This should match what's in our webpack configs, it is used for Jest tests of client code
 {
   "presets": [
-    "@babel/preset-react",
+    ["@babel/preset-react", { "runtime": "automatic" }],
     [
       "@babel/preset-env",
       {

@@ -1,13 +1,14 @@
 import type { ImageAnnotatorClient } from '@google-cloud/vision'
+import { beforeEach, describe, expect, Mock, test, vi } from 'vitest'
 import { GoogleLikelihood, ImageService } from './image-service'
 
 describe('images/image-service', () => {
   let imageService: ImageService
   let imageAnnotatorClient: ImageAnnotatorClient
-  let mockSafeSearchDetection: jest.Mock<ReturnType<ImageAnnotatorClient['safeSearchDetection']>>
+  let mockSafeSearchDetection: Mock<ImageAnnotatorClient['safeSearchDetection']>
 
   beforeEach(() => {
-    mockSafeSearchDetection = jest.fn().mockResolvedValue([{}])
+    mockSafeSearchDetection = vi.fn().mockResolvedValue([{}])
     imageAnnotatorClient = {
       safeSearchDetection: mockSafeSearchDetection,
     } as unknown as ImageAnnotatorClient

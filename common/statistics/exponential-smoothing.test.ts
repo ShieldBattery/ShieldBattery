@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest'
 import { ExponentialSmoothValue } from './exponential-smoothing'
 
 describe('common/statistics/exponential-smoothing', () => {

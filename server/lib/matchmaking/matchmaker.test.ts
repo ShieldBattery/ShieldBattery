@@ -1,4 +1,4 @@
-import { mockRandomForEach } from 'jest-mock-random'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
@@ -40,12 +40,23 @@ function createPlayer(data: Partial<MatchmakingPlayer> = {}): QueuedMatchmakingE
 }
 
 describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
-  // NOTE(tec27): These values are mostly meaningless, just want to avoid return some combination
-  // of the same value + different ones to ferret out bugs
-  mockRandomForEach([0.4, 0.1, 0.4, 0.7, 0.5])
+  const origRandom = Math.random
 
   beforeEach(() => {
     curUserId = 1
+
+    // NOTE(tec27): These values are mostly meaningless, just want to avoid return some combination
+    // of the same value + different ones to ferret out bugs
+    const randomValues = [0.4, 0.1, 0.4, 0.7, 0.5]
+    Math.random = vi.fn().mockImplementation(() => {
+      const value = randomValues[0]
+      randomValues.push(randomValues.shift()!)
+      return value
+    })
+  })
+
+  afterEach(() => {
+    Math.random = origRandom
   })
 
   test('1v1 - should return the only opponent option if there is only 1', () => {
