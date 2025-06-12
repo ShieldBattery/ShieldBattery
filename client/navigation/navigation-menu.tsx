@@ -1,6 +1,7 @@
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useRef } from 'react'
+import * as React from 'react'
+import { useRef } from 'react'
 import styled from 'styled-components'
 import { Tagged } from 'type-fest'
 import { Link, LinkProps, useRoute } from 'wouter'

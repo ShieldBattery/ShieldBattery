@@ -9,7 +9,7 @@ import {
   Variants,
 } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -701,7 +701,7 @@ interface PointsBarViewProps {
 }
 
 const PointsBarView = m.create(
-  React.forwardRef<HTMLDivElement, PointsBarViewProps>(({ points }, ref) => {
+  forwardRef<HTMLDivElement, PointsBarViewProps>(({ points }, ref) => {
     const roundedPoints = useTransform(() => Math.round(points.get()))
 
     return (

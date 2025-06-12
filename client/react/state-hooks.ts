@@ -1,5 +1,6 @@
 import { freeze, produce, Producer } from 'immer'
-import React, { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useEffect, useInsertionEffect, useRef, useState } from 'react'
 import { ReadonlyDeep } from 'type-fest'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'

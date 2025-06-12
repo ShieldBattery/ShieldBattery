@@ -1,4 +1,4 @@
-import React from 'react'
+import * as React from 'react'
 import { Route, RouteProps } from 'wouter'
 import { SbChannelId, makeSbChannelId } from '../../common/chat'
 import { replace } from '../navigation/routing'

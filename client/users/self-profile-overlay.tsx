@@ -1,5 +1,5 @@
 import { Transition, Variants } from 'motion/react'
-import React from 'react'
+import * as React from 'react'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import { Popover, PopoverProps, useElemAnchorPosition } from '../material/popover'

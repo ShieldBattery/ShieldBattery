@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import * as React from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import LoadingIndicator from '../progress/dots'
 import { useValueAsRef } from '../react/state-hooks'

@@ -1,4 +1,3 @@
-import React from 'react'
 import { ALL_RACE_CHARS, RaceChar } from '../../common/races'
 import { RacePicker } from './race-picker'
 

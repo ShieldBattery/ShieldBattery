@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react'
+import * as React from 'react'
+import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'

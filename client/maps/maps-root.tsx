@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { lazy, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
@@ -10,7 +10,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { BrowseServerMaps } from './browse-server-maps'
 
-const LoadableLocalMaps = React.lazy(async () => ({
+const LoadableLocalMaps = lazy(async () => ({
   default: (await import('./browse-local-maps')).BrowseLocalMaps,
 }))
 

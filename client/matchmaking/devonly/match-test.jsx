@@ -1,8 +1,8 @@
-import React from 'react'
+import { Component } from 'react'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import MatchmakingMatch from '../matchmaking-match'
 
-export default class MapSelectionTest extends React.Component {
+export default class MapSelectionTest extends Component {
   state = {
     isLaunching: true,
     isCountingDown: false,

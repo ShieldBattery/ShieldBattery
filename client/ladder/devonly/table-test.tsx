@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { makeSeasonId, MatchmakingSeasonJson, MatchmakingType } from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'

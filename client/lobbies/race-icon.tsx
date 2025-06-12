@@ -1,4 +1,4 @@
-import React from 'react'
+import * as React from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../common/races'
 import { AutoSizeMaterialIcon } from '../icons/material/material-icon'

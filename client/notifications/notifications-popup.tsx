@@ -1,6 +1,6 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useCallback, useEffect, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -87,7 +87,7 @@ interface NotificationPopupProps {
   onDismiss: (notificationId: string) => void
 }
 
-const NotificationPopup = React.forwardRef<HTMLDivElement, NotificationPopupProps>(
+const NotificationPopup = forwardRef<HTMLDivElement, NotificationPopupProps>(
   ({ notificationId, onDismiss }, ref) => {
     const { t } = useTranslation()
     const dispatch = useAppDispatch()

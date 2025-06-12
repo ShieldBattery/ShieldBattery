@@ -1,6 +1,6 @@
 import { MotionValue, useSpring, useTransform } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { range } from '../../common/range'

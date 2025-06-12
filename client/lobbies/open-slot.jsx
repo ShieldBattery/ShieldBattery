@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RacePicker } from './race-picker'
@@ -7,7 +7,7 @@ import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRi
 import { SlotActions } from './slot-actions'
 
 @withTranslation()
-export default class OpenSlot extends React.Component {
+export default class OpenSlot extends Component {
   state = {
     isHovered: false,
   }

@@ -1,11 +1,11 @@
-import React, { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { Route, Switch } from 'wouter'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { LoadingDotsArea } from '../progress/dots'
 import { LeagueDetailsPage } from './league-details'
 import { LeagueList } from './league-list'
 
-const LoadableLeagueAdmin = React.lazy(async () => ({
+const LoadableLeagueAdmin = lazy(async () => ({
   default: (await import('./league-admin')).LeagueAdmin,
 }))
 

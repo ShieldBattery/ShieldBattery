@@ -1,6 +1,7 @@
 import { Provider as JotaiProvider } from 'jotai'
 import { LazyMotion, MotionConfig, Transition } from 'motion/react'
-import React, { Suspense, useEffect, useLayoutEffect, useMemo } from 'react'
+import * as React from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo } from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Store } from 'redux'
 import { StyleSheetManager } from 'styled-components'

@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { POINTS_FOR_RATING_TARGET_FACTOR } from '../../../common/matchmaking'
 import { RankIcon, UnratedIcon } from '../rank-icon'

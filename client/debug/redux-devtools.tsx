@@ -3,7 +3,7 @@ import { CacheProvider } from '@emotion/react'
 import { createDevTools } from '@redux-devtools/core'
 import { DockMonitor } from '@redux-devtools/dock-monitor'
 import { InspectorMonitor } from '@redux-devtools/inspector-monitor'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 
 const emotionCache = createEmotionCache({

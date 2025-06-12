@@ -1,4 +1,3 @@
-import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'

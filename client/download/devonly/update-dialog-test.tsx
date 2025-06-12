@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react'
+import * as React from 'react'
+import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'

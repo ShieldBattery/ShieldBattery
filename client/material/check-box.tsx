@@ -1,4 +1,5 @@
-import React, { useCallback, useId, useRef, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { standardEasing } from './curve-constants'
 

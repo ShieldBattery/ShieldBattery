@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useImperativeHandle, useMemo } from 'react'
+import { forwardRef, useImperativeHandle, useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import {
@@ -43,7 +43,7 @@ interface Form1v1FastestProps {
   onSubmit: (model: ReadonlyDeep<Model1v1Fastest>) => void
 }
 
-const Form1v1Fastest = React.forwardRef<FindMatchFormRef, Form1v1FastestProps>(
+const Form1v1Fastest = forwardRef<FindMatchFormRef, Form1v1FastestProps>(
   ({ disabled, model, mapPoolOutdated, mapPool, onValidatedChange, onSubmit }, ref) => {
     const { t } = useTranslation()
     const { submit, bindCheckable, bindCustom, getInputValue, form } = useForm<Model1v1Fastest>(

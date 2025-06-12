@@ -1,4 +1,3 @@
-import React from 'react'
 import { AutoSizeImage } from '../dom/auto-size-image'
 import { makePublicAssetUrl } from '../network/server-url'
 

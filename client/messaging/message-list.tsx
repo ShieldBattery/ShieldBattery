@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React from 'react'
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'

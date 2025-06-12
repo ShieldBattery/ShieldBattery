@@ -1,4 +1,3 @@
-import React from 'react'
 import { DevSection } from '../../debug/dev-section'
 import { GameCounterDev } from './game-counter-dev'
 

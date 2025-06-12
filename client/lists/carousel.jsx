@@ -1,4 +1,4 @@
-import React from 'react'
+import { Children, Component, createRef } from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import WindowListener from '../dom/window-listener'
@@ -55,7 +55,7 @@ const CarouselButton = styled(IconButton)`
 `
 
 @withTranslation('global', { withRef: true })
-export default class Carousel extends React.Component {
+export default class Carousel extends Component {
   state = {
     translateWidth: 0,
     carouselWidth: 0,
@@ -65,8 +65,8 @@ export default class Carousel extends React.Component {
     hasNextItems: false,
   }
 
-  _carouselRef = React.createRef()
-  _contentRef = React.createRef()
+  _carouselRef = createRef()
+  _contentRef = createRef()
   _animationId = null
   _refreshToken = 0
 
@@ -75,8 +75,8 @@ export default class Carousel extends React.Component {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    const prevCount = React.Children.count(prevProps.children)
-    const currCount = React.Children.count(this.props.children)
+    const prevCount = Children.count(prevProps.children)
+    const currCount = Children.count(this.props.children)
 
     if (prevCount !== currCount || prevState.translateWidth !== this.state.translateWidth) {
       this._calcCarouselWidth()

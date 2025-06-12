@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { forwardRef, memo, useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -30,8 +30,8 @@ export interface FriendRequestNotificationUiProps {
   read: boolean
 }
 
-export const FriendRequestNotificationUi = React.memo(
-  React.forwardRef<HTMLDivElement, FriendRequestNotificationUiProps>((props, ref) => {
+export const FriendRequestNotificationUi = memo(
+  forwardRef<HTMLDivElement, FriendRequestNotificationUiProps>((props, ref) => {
     const { t } = useTranslation()
     const { notificationId, from } = props
     const dispatch = useAppDispatch()
@@ -111,8 +111,8 @@ export interface FriendStartNotificationUiProps {
   read: boolean
 }
 
-export const FriendStartNotificationUi = React.memo(
-  React.forwardRef<HTMLDivElement, FriendStartNotificationUiProps>((props, ref) => {
+export const FriendStartNotificationUi = memo(
+  forwardRef<HTMLDivElement, FriendStartNotificationUiProps>((props, ref) => {
     const { otherUser } = props
     const { t } = useTranslation()
     const dispatch = useAppDispatch()

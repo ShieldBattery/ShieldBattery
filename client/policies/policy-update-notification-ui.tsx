@@ -1,4 +1,4 @@
-import React from 'react'
+import { forwardRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { SbPolicyType, policyTypeToLabel } from '../../common/policies/policy-type'
@@ -21,7 +21,7 @@ export interface PolicyUpdateNotificationUiProps {
   read: boolean
 }
 
-export const PolicyUpdateNotificationUi = React.forwardRef<
+export const PolicyUpdateNotificationUi = forwardRef<
   HTMLDivElement,
   PolicyUpdateNotificationUiProps
 >(({ policyType, showDivider, read }, ref) => {

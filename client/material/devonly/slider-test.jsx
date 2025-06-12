@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import { Card } from '../card'
 import { SelectOption } from '../select/option'
@@ -17,7 +17,7 @@ const StyledCard = styled(Card)`
   max-width: 640px;
 `
 
-export default class SliderTest extends React.Component {
+export default class SliderTest extends Component {
   state = {
     value1: 0,
     value2: 2,

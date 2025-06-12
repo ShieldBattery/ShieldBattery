@@ -1,4 +1,4 @@
-import React from 'react'
+import { memo } from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -28,7 +28,7 @@ interface PathBreadcrumbsProps {
   onNavigate: (navPath: string) => void
 }
 
-export const PathBreadcrumbs = React.memo<PathBreadcrumbsProps>(
+export const PathBreadcrumbs = memo<PathBreadcrumbsProps>(
   ({ className, onNavigate, path }) => {
     const pieces = path.split(/[\\/]/g)
     if (pieces[pieces.length - 1] === '') {

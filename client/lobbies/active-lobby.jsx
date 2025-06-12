@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -99,7 +99,7 @@ const PlayersContainer = styled.div`
 // structure and they keep getting out of sync :(
 
 @withTranslation()
-export default class ActiveLobby extends React.Component {
+export default class ActiveLobby extends Component {
   render() {
     const { lobby, t } = this.props
     // TODO(2Pac): For now we're special-casing only TvB lobbies and using default display for all

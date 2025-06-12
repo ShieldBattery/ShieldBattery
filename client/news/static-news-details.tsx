@@ -1,5 +1,4 @@
 import dedent from 'dedent'
-import React from 'react'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { BottomLinks } from '../home/bottom-links'

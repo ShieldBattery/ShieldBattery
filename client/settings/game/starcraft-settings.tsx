@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai'
-import React, { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../../common/flags'

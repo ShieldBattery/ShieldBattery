@@ -1,4 +1,4 @@
-import React from 'react'
+import * as React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'

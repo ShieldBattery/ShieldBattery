@@ -1,6 +1,7 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import * as React from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { Snackbar } from '../material/snackbar'
 import { zIndexSnackbar } from '../material/zindex'

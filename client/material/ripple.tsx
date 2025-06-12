@@ -1,4 +1,4 @@
-import React, {
+import {
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -7,6 +7,8 @@ import React, {
   useRef,
   useState,
 } from 'react'
+
+import * as React from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import { useForceUpdate, usePrevious, useValueAsRef } from '../react/state-hooks'
 import { standardEasing } from './curve-constants'

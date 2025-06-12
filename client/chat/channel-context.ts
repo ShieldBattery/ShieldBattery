@@ -1,4 +1,4 @@
-import React from 'react'
+import { createContext } from 'react'
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
 
 export interface ChannelContextValue {
@@ -6,6 +6,6 @@ export interface ChannelContextValue {
   channelId: SbChannelId
 }
 
-export const ChannelContext = React.createContext<ChannelContextValue>({
+export const ChannelContext = createContext<ChannelContextValue>({
   channelId: makeSbChannelId(0),
 })

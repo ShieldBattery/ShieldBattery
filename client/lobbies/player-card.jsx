@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
@@ -49,7 +49,7 @@ const StyledRaceIcon = styled(RaceIcon)`
 `
 
 @withTranslation()
-export default class PlayerCard extends React.Component {
+export default class PlayerCard extends Component {
   static defaultProps = {
     isReady: true,
   }

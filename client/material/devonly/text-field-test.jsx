@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../button'
@@ -26,7 +26,7 @@ const DenseIconButton = styled(IconButton)`
   padding: 0;
 `
 
-export default class TextFieldTest extends React.Component {
+export default class TextFieldTest extends Component {
   state = {
     value1: '',
     value2: '',

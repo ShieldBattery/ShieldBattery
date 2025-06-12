@@ -1,5 +1,5 @@
 import { createStore, Provider, useAtom } from 'jotai'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { FilledButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'

@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import { memo, useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
@@ -7,7 +7,7 @@ import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
 
-export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const JoinLobbyMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -27,7 +27,7 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(p
   )
 })
 
-export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const LeaveLobbyMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -47,7 +47,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
   )
 })
 
-export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const KickLobbyPlayerMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -67,7 +67,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
   )
 })
 
-export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const BanLobbyPlayerMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -87,7 +87,7 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId
   )
 })
 
-export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; hostId: SbUserId }>(
+export const SelfJoinLobbyMessage = memo<{ time: number; lobby: string; hostId: SbUserId }>(
   props => {
     const { time, lobby, hostId } = props
     const { t } = useTranslation()
@@ -110,7 +110,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
   },
 )
 
-export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const LobbyHostChangeMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -129,7 +129,7 @@ export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserI
   )
 })
 
-export const LobbyCountdownStartedMessage = React.memo<{ time: number }>(props => {
+export const LobbyCountdownStartedMessage = memo<{ time: number }>(props => {
   const { time } = props
   const { t } = useTranslation()
   return (
@@ -139,7 +139,7 @@ export const LobbyCountdownStartedMessage = React.memo<{ time: number }>(props =
   )
 })
 
-export const LobbyCountdownTickMessage = React.memo<{ time: number; timeLeft: number }>(props => {
+export const LobbyCountdownTickMessage = memo<{ time: number; timeLeft: number }>(props => {
   const { time, timeLeft } = props
   return (
     <SystemMessage time={time}>
@@ -148,7 +148,7 @@ export const LobbyCountdownTickMessage = React.memo<{ time: number; timeLeft: nu
   )
 })
 
-export const LobbyCountdownCanceledMessage = React.memo<{ time: number }>(props => {
+export const LobbyCountdownCanceledMessage = memo<{ time: number }>(props => {
   const { time } = props
   const { t } = useTranslation()
   return (
@@ -160,7 +160,7 @@ export const LobbyCountdownCanceledMessage = React.memo<{ time: number }>(props 
   )
 })
 
-export const LobbyLoadingCanceledMessage = React.memo<{ time: number }>(props => {
+export const LobbyLoadingCanceledMessage = memo<{ time: number }>(props => {
   // TODO(tec27): We really need to pass a reason back here
   const { time } = props
   const { t } = useTranslation()

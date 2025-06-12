@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import type { Components } from 'react-markdown'
 import styled from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
@@ -12,7 +12,7 @@ import {
   titleSmall,
 } from '../styles/typography'
 
-const LoadableMarkdown = React.lazy(() => import('react-markdown'))
+const LoadableMarkdown = lazy(() => import('react-markdown'))
 
 const Root = styled.div`
   &,

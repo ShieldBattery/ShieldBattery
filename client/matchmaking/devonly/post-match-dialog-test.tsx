@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react'
+import * as React from 'react'
+import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameSource } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'

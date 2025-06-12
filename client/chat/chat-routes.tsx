@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { Route, Switch } from 'wouter'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
@@ -9,7 +9,7 @@ import { ChannelList } from './channel-list'
 import { ChannelRoute } from './channel-route'
 import { CreateChannel } from './create-channel'
 
-const LoadableChatAdminComponent = React.lazy(async () => ({
+const LoadableChatAdminComponent = lazy(async () => ({
   default: (await import('./admin')).ChatAdmin,
 }))
 

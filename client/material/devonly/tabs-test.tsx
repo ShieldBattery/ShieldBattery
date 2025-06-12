@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import * as React from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { BodyMedium, titleLarge } from '../../styles/typography'
 import { Card } from '../card'

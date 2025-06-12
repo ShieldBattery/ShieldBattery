@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import React from 'react'
+import * as React from 'react'
 import { CloseDialog, OpenDialog } from './actions'
 import { DialogPayload, DialogType } from './dialog-type'
 

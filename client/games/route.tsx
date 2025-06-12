@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { ComingSoon } from '../coming-soon/coming-soon'

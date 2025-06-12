@@ -1,4 +1,5 @@
-import React, { useContext } from 'react'
+import * as React from 'react'
+import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'

@@ -1,4 +1,3 @@
-import React from 'react'
 import { Link, Route, Switch } from 'wouter'
 import { ButtonsTest } from './buttons-test'
 import { MenuTest as DevMenu } from './menu-test'

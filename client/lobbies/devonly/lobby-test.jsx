@@ -1,5 +1,5 @@
 import { List, Range } from 'immutable'
-import React from 'react'
+import { Component } from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
@@ -34,7 +34,7 @@ const LOBBIES = Range(2, 9).map(numSlots => {
 
 const USER = { id: 27, name: 'tec27' }
 
-export default class LobbyTest extends React.Component {
+export default class LobbyTest extends Component {
   renderLobby(lobby) {
     const containerStyle = {
       width: 400,

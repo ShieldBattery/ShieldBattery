@@ -1,4 +1,3 @@
-import React from 'react'
 import styled, { css } from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { randomColorForString } from '../avatars/colors'

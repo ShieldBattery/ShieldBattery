@@ -1,4 +1,4 @@
-import React from 'react'
+import * as React from 'react'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserMenuComponent } from '../users/user-context-menu'
 

@@ -398,7 +398,9 @@ describe('users/user-relationship-service', () => {
     test('should throw if sending a request to self', async () => {
       await expect(
         userRelationshipService.sendFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't send a friend request to yourself]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Can't send a friend request to yourself]`,
+      )
     })
 
     test('should send a friend request to another user', async () => {
@@ -569,7 +571,9 @@ describe('users/user-relationship-service', () => {
     test('should throw if accepting a request to self', async () => {
       await expect(
         userRelationshipService.acceptFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't accept a friend request from yourself]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Can't accept a friend request from yourself]`,
+      )
     })
 
     test("should succeed if there's a matching request", async () => {
@@ -709,7 +713,9 @@ describe('users/user-relationship-service', () => {
     test('should throw if removing a request from self', async () => {
       await expect(
         userRelationshipService.removeFriendRequest(makeSbUserId(1), makeSbUserId(1)),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't remove a friend request from yourself]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Can't remove a friend request from yourself]`,
+      )
     })
 
     test('should remove an outgoing friend request', async () => {

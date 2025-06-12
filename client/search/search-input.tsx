@@ -1,4 +1,5 @@
-import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import * as React from 'react'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'

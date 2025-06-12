@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useMemo, useRef } from 'react'
+import * as React from 'react'
+import { useContext, useEffect, useMemo, useRef } from 'react'
 import { useStableCallback, useValueAsRef } from '../react/state-hooks'
 
 interface KeyHandler {

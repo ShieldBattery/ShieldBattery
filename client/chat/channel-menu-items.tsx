@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react'
+import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'

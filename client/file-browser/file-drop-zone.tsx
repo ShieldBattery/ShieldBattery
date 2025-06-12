@@ -1,4 +1,5 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 
 interface FileDropZoneState {

@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { useMutation } from 'urql'
 import { useForm, useFormCallbacks } from '../forms/form-hook'

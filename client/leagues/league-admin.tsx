@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useId, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -72,7 +72,7 @@ const CardList = styled.div`
   gap: 8px;
 `
 
-const LeagueAdminContext = React.createContext<{ triggerRefresh: () => void }>({
+const LeagueAdminContext = createContext<{ triggerRefresh: () => void }>({
   triggerRefresh: () => {},
 })
 

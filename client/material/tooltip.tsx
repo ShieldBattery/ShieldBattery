@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react'
-import React, { useCallback, useEffect, useId, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import styled, { css, RuleSet } from 'styled-components'
 import { labelMedium } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useElemAnchorPosition } from './popover'

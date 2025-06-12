@@ -1,4 +1,5 @@
-import React, { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { assignRef } from '../react/refs'

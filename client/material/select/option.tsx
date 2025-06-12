@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import { useCallback } from 'react'
 import styled from 'styled-components'
 import { MenuItem } from '../menu/item'
 import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol'

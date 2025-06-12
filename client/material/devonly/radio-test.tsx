@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { range } from '../../../common/range'
 import { RadioButton, RadioGroup } from '../radio'

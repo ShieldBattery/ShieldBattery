@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai'
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'

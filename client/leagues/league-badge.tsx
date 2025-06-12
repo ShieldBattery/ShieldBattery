@@ -1,4 +1,3 @@
-import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import { LeagueId, LeagueJson } from '../../common/leagues/leagues'

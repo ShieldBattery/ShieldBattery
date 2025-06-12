@@ -1,4 +1,4 @@
-import React, { ComponentType } from 'react'
+import { ComponentType } from 'react'
 import { DefaultParams, Link, Route, RouteComponentProps, Switch } from 'wouter'
 
 /** Renders a list of links to dev-only components. */

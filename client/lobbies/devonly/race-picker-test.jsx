@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import { Card } from '../../material/card'
 import { RacePicker } from '../race-picker'
@@ -21,7 +21,7 @@ const StyledCard = styled(Card)`
   background-color: var(--theme-container-low);
 `
 
-export default class RacePickerTest extends React.Component {
+export default class RacePickerTest extends Component {
   state = {
     race: 'z',
   }

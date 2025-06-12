@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { Link, Route, Switch } from 'wouter'
 import MatchTest from './match-test'
 import { PostMatchDialogTest } from './post-match-dialog-test'
@@ -6,7 +6,7 @@ import { RankIconsTest } from './rank-icons-test'
 
 const BASE_URL = '/dev/matchmaking'
 
-class DevMatchmakingDashboard extends React.Component {
+class DevMatchmakingDashboard extends Component {
   render() {
     return (
       <ul>

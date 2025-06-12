@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'

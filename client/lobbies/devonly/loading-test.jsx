@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React from 'react'
+import { Component } from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
@@ -22,7 +22,7 @@ const STATUSES = [
   make('playing'),
 ]
 
-export default class LoadingTest extends React.Component {
+export default class LoadingTest extends Component {
   constructor(props) {
     super(props)
     this.state = {

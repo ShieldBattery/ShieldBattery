@@ -7,7 +7,8 @@ import {
   useTransform,
 } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useEffect, useId, useState } from 'react'
+import * as React from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'

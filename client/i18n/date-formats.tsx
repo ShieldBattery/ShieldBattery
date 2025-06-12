@@ -1,4 +1,3 @@
-import React from 'react'
 import { Except } from 'type-fest'
 import { Tooltip, TooltipProps } from '../material/tooltip'
 import { RelativeTimeFormatter } from './relative-time'

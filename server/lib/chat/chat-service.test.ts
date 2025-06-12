@@ -1034,7 +1034,9 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.moderateUser(testChannel.id, user1.id, user2.id, ChannelModerationAction.Kick),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User must be in channel to moderate them]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: User must be in channel to moderate them]`,
+      )
     })
 
     test('should throw if moderating yourself', async () => {
@@ -1448,7 +1450,9 @@ describe('chat/chat-service', () => {
     test('should throw if not in channel', async () => {
       await expect(
         chatService.sendChatMessage(testChannel.id, user1.id, 'Hello World!'),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in a channel to send a message to it]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Must be in a channel to send a message to it]`,
+      )
     })
 
     describe('when in channel', () => {
@@ -1541,7 +1545,9 @@ describe('chat/chat-service', () => {
           userId: user1.id,
           isAdmin: false,
         }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Not enough permissions to delete a message]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Not enough permissions to delete a message]`,
+      )
     })
 
     test('works when an admin', async () => {
@@ -2028,7 +2034,9 @@ describe('chat/chat-service', () => {
             userId: user1.id,
             isAdmin: false,
           }),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in a channel to retrieve user list]`)
+        ).rejects.toThrowErrorMatchingInlineSnapshot(
+          `[Error: Must be in a channel to retrieve user list]`,
+        )
       })
 
       test('works when in channel', async () => {
@@ -2140,7 +2148,9 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to get user's permissions]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Must be in channel to get user's permissions]`,
+      )
     })
 
     test('should throw if target user not in channel', async () => {
@@ -2252,7 +2262,9 @@ describe('chat/chat-service', () => {
 
       await expect(
         chatService.updateUserPreferences(testChannel.id, user1.id, channelPreferences),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to update preferences]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Must be in channel to update preferences]`,
+      )
     })
 
     test('works when updating channel preferences', async () => {

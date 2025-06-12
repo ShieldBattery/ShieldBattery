@@ -1,5 +1,6 @@
 import UFuzzy from '@leeoniya/ufuzzy'
-import React, {
+
+import {
   SetStateAction,
   useCallback,
   useEffect,
@@ -8,6 +9,8 @@ import React, {
   useRef,
   useState,
 } from 'react'
+
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { matchUserMentions } from '../../common/text/user-mentions'

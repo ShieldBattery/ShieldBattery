@@ -1,4 +1,5 @@
-import React, { useCallback, useContext } from 'react'
+import * as React from 'react'
+import { useCallback, useContext } from 'react'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ChatContext } from './chat-context'
 

@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { CenteredContentContainer } from '../../styles/centered-container'

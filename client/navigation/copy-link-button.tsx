@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import i18n from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'

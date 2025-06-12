@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import PlayerCard from '../lobbies/player-card'
@@ -77,7 +77,7 @@ const VsContainer = styled.div`
 `
 
 @withTranslation()
-export default class MatchmakingMatch extends React.Component {
+export default class MatchmakingMatch extends Component {
   renderStatus() {
     const { isCountingDown, countdownTimer, isLaunching, isStarting, t } = this.props
 

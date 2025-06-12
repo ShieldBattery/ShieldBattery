@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import * as React from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'

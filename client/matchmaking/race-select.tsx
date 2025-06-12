@@ -1,4 +1,3 @@
-import React from 'react'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { RacePicker, RacePickerProps } from '../lobbies/race-picker'
 

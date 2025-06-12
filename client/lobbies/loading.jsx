@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
@@ -194,7 +194,7 @@ const LoadingMessageContent = styled.div`
 
 const MESSAGE_TIME_MIN = 3000
 const MESSAGE_TIME_MAX = 5500
-class LoadingMessage extends React.Component {
+class LoadingMessage extends Component {
   constructor(props) {
     super(props)
     this.state = {
@@ -269,7 +269,7 @@ const StyledPlayerCard = styled(PlayerCard)`
 `
 
 @withTranslation()
-export default class LoadingScreen extends React.Component {
+export default class LoadingScreen extends Component {
   render() {
     const { lobby, gameStatus, user, t } = this.props
 

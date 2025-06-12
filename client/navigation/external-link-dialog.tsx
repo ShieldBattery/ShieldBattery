@@ -1,4 +1,5 @@
-import React, { useCallback } from 'react'
+import * as React from 'react'
+import { useCallback } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'

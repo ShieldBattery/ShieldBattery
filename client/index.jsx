@@ -1,5 +1,5 @@
 import { enableMapSet, setAutoFreeze } from 'immer'
-import React, { StrictMode } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { App } from './app'

@@ -1,4 +1,3 @@
-import React from 'react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { IconAvatar, IconContainer } from './avatar'

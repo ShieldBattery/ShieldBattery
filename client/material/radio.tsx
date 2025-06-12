@@ -1,4 +1,5 @@
-import React, { InputHTMLAttributes, ReactElement, useId } from 'react'
+import * as React from 'react'
+import { InputHTMLAttributes, ReactElement, useId } from 'react'
 import styled from 'styled-components'
 import { bodyMedium, labelMedium } from '../styles/typography'
 import { useButtonState } from './button'

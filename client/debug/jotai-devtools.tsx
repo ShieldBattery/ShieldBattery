@@ -2,7 +2,7 @@ import { useStore } from 'jotai'
 import { DevTools } from 'jotai-devtools'
 import 'jotai-devtools/styles.css'
 import keycode from 'keycode'
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createGlobalStyle } from 'styled-components'
 
 const I = keycode('i')

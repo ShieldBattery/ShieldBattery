@@ -1,4 +1,3 @@
-import React from 'react'
 import { Switch } from 'wouter'
 import { useHasAnyPermission } from '../../admin/admin-permissions'
 import { NoPermissionsPage } from '../../auth/no-permissions-page'

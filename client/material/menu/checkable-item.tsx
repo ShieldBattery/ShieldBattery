@@ -1,4 +1,3 @@
-import React from 'react'
 import { CheckIcon, CheckIconContainer } from '../check-box'
 import { MenuItem } from './item'
 import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'

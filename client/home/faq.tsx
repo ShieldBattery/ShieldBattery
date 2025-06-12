@@ -1,4 +1,5 @@
-import React, { useLayoutEffect, useRef } from 'react'
+import * as React from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'

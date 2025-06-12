@@ -1,5 +1,4 @@
 import { Link, Section } from '@react-email/components'
-import React from 'react'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { EmailProps } from '../email-props'
 import { TransInterpolation, t } from '../i18n/i18next'

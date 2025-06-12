@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import { Card } from '../card'
 import { CheckBox } from '../check-box'
@@ -18,7 +18,7 @@ const StyledCard = styled(Card)`
   max-width: 640px;
 `
 
-export default class SelectsTest extends React.Component {
+export default class SelectsTest extends Component {
   state = {
     value1: 2,
     value2: 5,

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import { Redirect, Route, Switch } from 'wouter'
 import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'

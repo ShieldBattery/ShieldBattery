@@ -1,5 +1,6 @@
 import { useIsPresent } from 'motion/react'
-import React, { useContext, useEffect, useRef } from 'react'
+import * as React from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { useStableCallback } from '../react/state-hooks'

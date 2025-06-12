@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import { DURATION_LONG } from '../../snackbars/snackbar-durations'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'

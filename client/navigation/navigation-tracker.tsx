@@ -1,4 +1,5 @@
-import React, { useContext } from 'react'
+import * as React from 'react'
+import { useContext } from 'react'
 
 export interface NavigationTrackerContextValue {
   onNavigation: () => void

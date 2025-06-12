@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'

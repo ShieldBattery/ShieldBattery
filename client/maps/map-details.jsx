@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component, createRef } from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
@@ -96,7 +96,7 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 `
 
 @form({ name: required(t => t('maps.details.mapNameRequired', 'Enter a map name')) })
-class NameForm extends React.Component {
+class NameForm extends Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel, t } = this.props
     const trailingIcons = [
@@ -141,7 +141,7 @@ class NameForm extends React.Component {
 @form({
   description: required(t => t('maps.details.mapDescriptionRequired', 'Enter a map description')),
 })
-class DescriptionForm extends React.Component {
+class DescriptionForm extends Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel, t } = this.props
     const trailingIcons = [
@@ -187,16 +187,16 @@ class DescriptionForm extends React.Component {
 
 @withTranslation()
 @connect(state => ({ auth: state.auth, mapDetails: state.mapDetails }))
-export default class MapDetails extends React.Component {
+export default class MapDetails extends Component {
   state = {
     isEditingName: false,
     isEditingDescription: false,
   }
 
-  _nameForm = React.createRef()
-  _descriptionForm = React.createRef()
-  _nameInput = React.createRef()
-  _descriptionInput = React.createRef()
+  _nameForm = createRef()
+  _descriptionForm = createRef()
+  _nameInput = createRef()
+  _descriptionInput = createRef()
 
   componentDidMount() {
     this.props.dispatch(getMapDetails(this.props.mapId))

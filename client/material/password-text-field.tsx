@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import { forwardRef, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -18,36 +18,34 @@ const VisibilityButton = styled(IconButton)<{ $dense?: boolean }>`
   }}
 `
 
-export const PasswordTextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
-  (props, ref) => {
-    const { t } = useTranslation()
-    const [visible, setVisible] = useState(false)
+export const PasswordTextField = forwardRef<HTMLInputElement, TextFieldProps>((props, ref) => {
+  const { t } = useTranslation()
+  const [visible, setVisible] = useState(false)
 
-    const onToggleVisibility = useCallback(() => {
-      setVisible(!visible)
-    }, [visible])
+  const onToggleVisibility = useCallback(() => {
+    setVisible(!visible)
+  }, [visible])
 
-    const visibilityButton = (
-      <VisibilityButton
-        icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
-        title={
-          visible
-            ? t('material.passwordField.hide', 'Hide password')
-            : t('material.passwordField.show', 'Show password')
-        }
-        $dense={props.dense}
-        onClick={onToggleVisibility}
-        tabIndex={0}
-      />
-    )
+  const visibilityButton = (
+    <VisibilityButton
+      icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
+      title={
+        visible
+          ? t('material.passwordField.hide', 'Hide password')
+          : t('material.passwordField.show', 'Show password')
+      }
+      $dense={props.dense}
+      onClick={onToggleVisibility}
+      tabIndex={0}
+    />
+  )
 
-    return (
-      <TextField
-        {...props}
-        ref={ref}
-        type={visible ? 'text' : 'password'}
-        trailingIcons={[visibilityButton]}
-      />
-    )
-  },
-)
+  return (
+    <TextField
+      {...props}
+      ref={ref}
+      type={visible ? 'text' : 'password'}
+      trailingIcons={[visibilityButton]}
+    />
+  )
+})

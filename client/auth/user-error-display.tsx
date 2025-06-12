@@ -1,4 +1,3 @@
-import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/user-network'

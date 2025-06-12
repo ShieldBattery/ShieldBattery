@@ -1,5 +1,5 @@
 import { List, OrderedMap } from 'immutable'
-import React, { useCallback } from 'react'
+import { Component, createRef, memo, PureComponent, useCallback } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MapVisibility } from '../../common/maps'
@@ -154,7 +154,7 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-export class MapPoolEditor extends React.Component {
+export class MapPoolEditor extends Component {
   state = {
     maps: new OrderedMap(),
     startDate: '',
@@ -165,7 +165,7 @@ export class MapPoolEditor extends React.Component {
     currentSearchPage: 0,
   }
 
-  _carouselRef = React.createRef()
+  _carouselRef = createRef()
 
   componentDidUpdate(prevProps) {
     if (prevProps.initialMaps !== this.props.initialMaps) {
@@ -360,7 +360,7 @@ export class MapPoolEditor extends React.Component {
   }
 }
 
-const MapPoolHistoryRow = React.memo(props => {
+const MapPoolHistoryRow = memo(props => {
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'top')
   const [actionsOverlayOpen, openActionsOverlay, closeActionsOverlay] = usePopoverController({
     refreshAnchorPos,
@@ -429,7 +429,7 @@ const MapPoolHistoryRow = React.memo(props => {
   )
 })
 
-class MapPoolHistory extends React.PureComponent {
+class MapPoolHistory extends PureComponent {
   render() {
     const { history } = this.props
 
@@ -483,7 +483,7 @@ class MapPoolHistory extends React.PureComponent {
 }
 
 @connect(state => ({ mapPools: state.adminMapPools }))
-export default class MapPools extends React.Component {
+export default class MapPools extends Component {
   state = {
     activeTab: MatchmakingType.Match1v1,
     initialMaps: new List(),

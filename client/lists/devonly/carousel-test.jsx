@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import { range } from '../../../common/range'
 import { Card } from '../../material/card'
@@ -48,7 +48,7 @@ const CarouselItem = styled.div`
 const TOTAL_ITEMS_COUNT = 50
 const ITEMS_PER_PAGE = 10
 
-export default class CarouselTest extends React.Component {
+export default class CarouselTest extends Component {
   state = {
     page: 1,
     isLoading: false,

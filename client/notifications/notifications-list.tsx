@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbNotification } from '../../common/notifications'

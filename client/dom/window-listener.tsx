@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { Component, useEffect } from 'react'
 
 export interface WindowListenerProps {
   event: string
@@ -11,7 +11,7 @@ export interface WindowListenerProps {
  * component assumes that its event and listener props will not change over its lifetime, and
  * ignores any changes to them.
  */
-export default class WindowListener extends React.Component<WindowListenerProps> {
+export default class WindowListener extends Component<WindowListenerProps> {
   private rafId: number | undefined
   private lastEvent: Event | undefined
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import { RacePicker } from './race-picker'
 import { SelectedRace } from './selected-race'
@@ -6,7 +6,7 @@ import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight 
 import { SlotActions } from './slot-actions'
 
 @withTranslation()
-export default class ClosedSlot extends React.Component {
+export default class ClosedSlot extends Component {
   renderControls() {
     const { controlledClosed, canSetRace, race, onSetRace } = this.props
     if (controlledClosed) {

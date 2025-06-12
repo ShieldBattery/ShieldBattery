@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 import LogoText from '../logos/logotext-640x100.svg'
 import { makePublicAssetUrl } from '../network/server-url'

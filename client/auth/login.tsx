@@ -1,5 +1,5 @@
 import queryString from 'query-string'
-import React, { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'

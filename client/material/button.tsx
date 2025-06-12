@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import * as React from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ContainerLevel, containerStyles } from '../styles/colors'

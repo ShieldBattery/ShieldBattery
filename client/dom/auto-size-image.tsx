@@ -1,4 +1,4 @@
-import React from 'react'
+import * as React from 'react'
 import { Except, SetRequired, Simplify } from 'type-fest'
 import { useMultiplexRef } from '../react/refs'
 import { useObservedDimensions } from './dimension-hooks'

@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect } from 'react'
+import { useCallback, useLayoutEffect } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'

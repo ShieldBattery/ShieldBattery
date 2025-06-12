@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react'
-import React, { cloneElement, Fragment, isValidElement, Suspense } from 'react'
+import * as React from 'react'
+import { cloneElement, Fragment, isValidElement, Suspense } from 'react'
 import { Match, matchRoute, RouteProps, useLocation, useRouter } from 'wouter'
 
 function flattenChildren(children: React.ReactNode): Iterable<React.ReactNode> {

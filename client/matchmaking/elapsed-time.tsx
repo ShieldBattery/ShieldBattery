@@ -1,4 +1,4 @@
-import React, { CSSProperties, useEffect, useState } from 'react'
+import { CSSProperties, useEffect, useState } from 'react'
 
 type TickerCallback = () => void
 

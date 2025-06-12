@@ -1,5 +1,5 @@
 import { ReplayHeader, ReplayPlayer } from 'jssuh'
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getGameDurationString } from '../../common/games/games'

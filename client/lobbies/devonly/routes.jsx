@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { Link, Route, Switch } from 'wouter'
 import ActiveTest from './active-test'
 import LoadingTest from './loading-test'
@@ -7,7 +7,7 @@ import RacePickerTest from './race-picker-test'
 
 const BASE_URL = '/dev/lobbies'
 
-class DevLobbiesDashboard extends React.Component {
+class DevLobbiesDashboard extends Component {
   render() {
     return (
       <ul>

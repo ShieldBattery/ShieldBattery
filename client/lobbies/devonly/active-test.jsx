@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React from 'react'
+import { Component } from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
@@ -10,7 +10,7 @@ import { LobbyInfo } from '../lobby-reducer'
 const TAB_MELEE = 0
 const TAB_TVB = 1
 
-export default class ActiveTest extends React.Component {
+export default class ActiveTest extends Component {
   state = {
     activeTab: 0,
   }

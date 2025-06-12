@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import * as React from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'

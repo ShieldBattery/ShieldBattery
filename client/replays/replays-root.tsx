@@ -1,8 +1,8 @@
-import React from 'react'
+import { lazy } from 'react'
 import { useTrackPageView } from '../analytics/analytics'
 import { OnlyInApp } from '../download/only-in-app'
 
-const LoadableLocalReplays = React.lazy(async () => ({
+const LoadableLocalReplays = lazy(async () => ({
   default: (await import('./browse-local-replays')).BrowseLocalReplays,
 }))
 

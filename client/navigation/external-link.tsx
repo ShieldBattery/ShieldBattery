@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react'
+import * as React from 'react'
+import { useMemo } from 'react'
 import logger from '../logging/logger'
 import { maybeOpenExternalLinkDialog } from '../messaging/action-creators'
 import { getServerOrigin, makeServerUrl } from '../network/server-url'

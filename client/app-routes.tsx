@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'motion/react'
-import React from 'react'
+import * as React from 'react'
 import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
 import { ForgotPassword } from './auth/forgot-password'

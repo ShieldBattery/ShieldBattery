@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import { memo, useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -13,7 +13,7 @@ import {
 import { ConnectedUsername } from '../users/connected-username'
 import { ConnectedChannelName } from './connected-channel-name'
 
-export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const JoinChannelMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -32,7 +32,7 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
   )
 })
 
-export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const LeaveChannelMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -51,7 +51,7 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
   )
 })
 
-export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const KickUserMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   // NOTE(tec27): We don't use UserMenu from the ChatContext here because the user is no longer in
@@ -70,7 +70,7 @@ export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(pr
   )
 })
 
-export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+export const BanUserMessage = memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const { t } = useTranslation()
   // NOTE(tec27): We don't use UserMenu from the ChatContext here because the user is no longer in
@@ -89,7 +89,7 @@ export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(pro
   )
 })
 
-export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
+export const NewChannelOwnerMessage = memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
@@ -108,7 +108,7 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
   )
 })
 
-export const SelfJoinChannelMessage = React.memo<{ channelId: SbChannelId }>(props => {
+export const SelfJoinChannelMessage = memo<{ channelId: SbChannelId }>(props => {
   const { channelId } = props
   const { t } = useTranslation()
   return (

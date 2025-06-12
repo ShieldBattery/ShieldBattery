@@ -1,4 +1,5 @@
-import React, { useLayoutEffect, useMemo, useState } from 'react'
+import * as React from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 
 export type DimensionsHookResult<T extends Element> = [
   ref: React.RefCallback<T>,

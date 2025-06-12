@@ -1,4 +1,5 @@
-import React, { Suspense } from 'react'
+import * as React from 'react'
+import { Suspense } from 'react'
 import { Link, Redirect, Route, Switch } from 'wouter'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { LoadingDotsArea } from '../progress/dots'

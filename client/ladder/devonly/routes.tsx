@@ -1,4 +1,3 @@
-import React from 'react'
 import { Link, Route, Switch } from 'wouter'
 import { TableTest } from './table-test'
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import * as React from 'react'
+import { useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { OriginX, OriginY, useElemAnchorPosition, usePopoverController } from '../material/popover'

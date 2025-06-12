@@ -1,4 +1,4 @@
-import React from 'react'
+import { Component } from 'react'
 import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
@@ -17,7 +17,7 @@ const StyledAvatar = styled(Avatar)`
 `
 
 @withTranslation()
-export default class PlayerSlot extends React.Component {
+export default class PlayerSlot extends Component {
   renderControls() {
     const { isObserver, canSetRace, race, onSetRace } = this.props
     if (isObserver) {
