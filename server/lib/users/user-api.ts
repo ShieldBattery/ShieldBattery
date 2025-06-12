@@ -267,7 +267,7 @@ export class UserApi {
 
     const { allowed } = await got
       .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
-        timeout: 5000,
+        timeout: { request: 5000 },
       })
       .json<CheckAllowedNameResponse>()
 
@@ -365,7 +365,7 @@ export class UserApi {
 
     const { allowed } = await got
       .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
-        timeout: 5000,
+        timeout: { request: 5000 },
       })
       .json<CheckAllowedNameResponse>()
 
