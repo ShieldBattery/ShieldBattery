@@ -565,9 +565,6 @@ importers:
       i18next-parser:
         specifier: 9.3.0
         version: 9.3.0
-      jest-extended:
-        specifier: ^6.0.0
-        version: 6.0.0(typescript@5.8.3)
       jotai:
         specifier: ^2.12.5
         version: 2.12.5(@types/react@19.1.7)(react@19.1.0)
@@ -7829,16 +7826,6 @@ packages:
   jest-diff@29.7.0:
     resolution: {integrity: sha512-LMIgiIrhigmPrs03JHpxUh2yISK3vLFPkAodPeo0+BuF7wA2FoQbkEg1u8gBYBThncu7e1oEDUfIXVuTqLRUjw==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
-
-  jest-extended@6.0.0:
-    resolution: {integrity: sha512-SM249N/q33YQ9XE8E06qZSnFuuV4GQFx7WrrmIj4wQUAP43jAo6budLT482jdBhf8ASwUiEEfJNjej0UusYs5A==}
-    engines: {node: ^18.12.0 || ^20.9.0 || ^22.11.0 || >=23.0.0}
-    peerDependencies:
-      jest: '>=27.2.5'
-      typescript: '>=5.0.0'
-    peerDependenciesMeta:
-      jest:
-        optional: true
 
   jest-get-type@29.6.3:
     resolution: {integrity: sha512-zrteXnqYxfQh7l5FHyL38jL39di8H8rHoecLH3JNxH3BwOrBsNeabdap5e0I23lD4HHI8W5VFBZqG4Eaq5LNcw==}
@@ -20301,11 +20288,6 @@ snapshots:
       diff-sequences: 29.6.3
       jest-get-type: 29.6.3
       pretty-format: 29.7.0
-
-  jest-extended@6.0.0(typescript@5.8.3):
-    dependencies:
-      jest-diff: 29.7.0
-      typescript: 5.8.3
 
   jest-get-type@29.6.3: {}
 

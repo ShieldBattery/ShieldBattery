@@ -249,7 +249,7 @@ variable.
 
 Our tests are split into two types:
 
-- **Unit tests**: These are written with Jest, and are next to the files they test with a
+- **Unit tests**: These are written with vitest, and are next to the files they test with a
   `.test.ts` extension. They run against the specific code they test _only_, so they don't have
   e.g. a real database and any service dependencies need to be mocked.
 - **Integration tests**: These are written with Playwright, and are located in the

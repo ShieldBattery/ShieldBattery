@@ -65,7 +65,7 @@ export class FakeClock extends Clock {
         this.timeoutsCompletedResolve = resolve
       })
       queueMicrotask(() => {
-        // In Jest tests, the unhandled promise exception should fail the test anyway, so we just
+        // In unit tests, the unhandled promise exception should fail the test anyway, so we just
         // let it pass through here
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         this.runTimeouts({ criteria: StopCriteria.EmptyQueue }, true)

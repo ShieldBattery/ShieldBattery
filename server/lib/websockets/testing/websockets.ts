@@ -92,11 +92,11 @@ export class FakeNydusServer
 
 /**
  * An extension of NydusClient that allows tests to check messages that were published to it (via
- * a Jest mock).
+ * a mock).
  */
 export class InspectableNydusClient extends NydusClient {
   // NOTE(tec27): We add an explicit type because it makes calling the method have better
-  // documentation (the arguments are named, vs the arg_0, arg_1 stuff from Jest)
+  // documentation (the arguments are named, vs the arg_0, arg_1 stuff from mock typings)
   publish: (path: string, data: any) => void = vi.fn()
   unsubscribe: (path: string) => boolean = vi.fn()
   disconnect = vi.fn(() => this.emit('close', 'CLIENT_DISCONNECT'))

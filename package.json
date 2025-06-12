@@ -243,7 +243,6 @@
     "i18next-fs-backend": "^2.6.0",
     "i18next-http-backend": "^3.0.2",
     "i18next-parser": "9.3.0",
-    "jest-extended": "^6.0.0",
     "jotai": "^2.12.5",
     "jotai-devtools": "^0.12.0",
     "jssuh": "^1.6.0",
