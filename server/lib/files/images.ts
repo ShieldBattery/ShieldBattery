@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 import sharp, { FitEnum, FormatEnum } from 'sharp'
 
 /** Maximum image size that we allow to be uploaded. */
@@ -9,10 +9,9 @@ export const MAX_IMAGE_SIZE = 5 * 1024 * 1024
  * the image extension.
  */
 export function createImagePath(rootFolder: string, imageExtension: string) {
-  const imageId = cuid()
-  // Note that cuid ID's are less random at the start so we use the end instead
-  const firstChars = imageId.slice(-4, -2)
-  const secondChars = imageId.slice(-2)
+  const imageId = nanoid()
+  const firstChars = imageId.slice(0, 2)
+  const secondChars = imageId.slice(2, 4)
   return `${rootFolder}/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
 }
 

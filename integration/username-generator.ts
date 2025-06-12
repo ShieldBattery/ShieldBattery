@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 
 /**
  * Generates a username. Intended for tests that need to sign up for new accounts that get a fresh
@@ -9,5 +9,5 @@ import cuid from 'cuid'
  * variable if you need to reference it again.
  */
 export function generateUsername() {
-  return cuid.slug()
+  return nanoid(8)
 }

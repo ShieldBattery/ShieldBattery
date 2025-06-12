@@ -1,8 +1,8 @@
-import cuid from 'cuid'
 import eio from 'engine.io'
 import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
 import { Map as IMap } from 'immutable'
+import { nanoid } from 'nanoid'
 import { NydusClient, NydusServer, RouteHandler } from 'nydus'
 import { vi } from 'vitest'
 import { SbUser } from '../../../../common/users/sb-user'
@@ -142,7 +142,7 @@ export class NydusConnector {
       },
     } as any as IncomingMessage
     const fakeSession: SessionInfo = {
-      sessionId: cuid(),
+      sessionId: nanoid(),
       userId: user.id,
       userName: user.name,
       clientId,

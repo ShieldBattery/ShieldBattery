@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 import {
   ClearNotificationsServerRequest,
   ClearNotificationsServerResponse,
@@ -26,7 +26,7 @@ export function clearNotifications(): ThunkAction {
     })
 
     const timestamp = newestServerId ? byId.get(newestServerId)?.createdAt : undefined
-    const reqId = cuid()
+    const reqId = nanoid()
 
     dispatch({
       type: '@notifications/clearBegin',

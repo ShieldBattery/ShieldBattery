@@ -1,5 +1,5 @@
-import cuid from 'cuid'
 import { List, Record } from 'immutable'
+import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Team } from '../../common/lobbies/index'
 import { Slot } from '../../common/lobbies/slot'
@@ -169,7 +169,7 @@ const chatHandlers = {
     const newMessage = action.payload.message
     return state.push(
       new TextMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: newMessage.time,
         from: newMessage.from,
         text: newMessage.text,
@@ -182,7 +182,7 @@ const chatHandlers = {
     if (slot.type === 'human') {
       return state.push(
         new JoinLobbyMessageRecord({
-          id: cuid(),
+          id: nanoid(),
           time: Date.now(),
           userId: slot.userId,
         }),
@@ -196,7 +196,7 @@ const chatHandlers = {
     const { player } = action.payload
     return state.push(
       new LeaveLobbyMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         userId: player.userId,
       }),
@@ -207,7 +207,7 @@ const chatHandlers = {
     const { player } = action.payload
     return state.push(
       new KickLobbyPlayerMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         userId: player.userId,
       }),
@@ -218,7 +218,7 @@ const chatHandlers = {
     const { player } = action.payload
     return state.push(
       new BanLobbyPlayerMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         userId: player.userId,
       }),
@@ -228,7 +228,7 @@ const chatHandlers = {
   [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
       new SelfJoinLobbyMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         lobby: lobbyInfo.name,
         hostId: lobbyInfo.host.userId,
@@ -239,7 +239,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_HOST_CHANGE](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
       new LobbyHostChangeMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         userId: lobbyInfo.host.userId,
       }),
@@ -250,13 +250,13 @@ const chatHandlers = {
     return state
       .push(
         new LobbyCountdownStartedMessageRecord({
-          id: cuid(),
+          id: nanoid(),
           time: Date.now(),
         }),
       )
       .push(
         new LobbyCountdownTickMessageRecord({
-          id: cuid(),
+          id: nanoid(),
           time: Date.now(),
           timeLeft: lobbyInfo.countdownTimer,
         }),
@@ -266,7 +266,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
       new LobbyCountdownTickMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
         timeLeft: lobbyInfo.countdownTimer,
       }),
@@ -276,7 +276,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_COUNTDOWN_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
       new LobbyCountdownCanceledMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
       }),
     )
@@ -285,7 +285,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_LOADING_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
       new LobbyLoadingCanceledMessageRecord({
-        id: cuid(),
+        id: nanoid(),
         time: Date.now(),
       }),
     )

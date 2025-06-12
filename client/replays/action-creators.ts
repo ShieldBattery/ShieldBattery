@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/game-type'
@@ -21,7 +21,7 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
     type: SlotType.Human,
     typeId: 6,
     name: user?.name ?? 'ShieldBattery User',
-    id: cuid(),
+    id: nanoid(),
     teamId: 0,
     userId: user?.id ?? 0,
   }
@@ -35,7 +35,7 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
       name: user?.name ?? 'ShieldBattery User',
     },
     setup: {
-      gameId: cuid(),
+      gameId: nanoid(),
       name: replay.name,
       map: { isReplay: true, path: replay.path },
       gameType: GameType.Melee,

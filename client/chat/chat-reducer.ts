@@ -1,5 +1,5 @@
-import cuid from 'cuid'
 import { Immutable } from 'immer'
+import { nanoid } from 'nanoid'
 import {
   BasicChannelInfo,
   ChannelModerationAction,
@@ -111,7 +111,7 @@ function removeUserFromChannel(
 
   updateMessages(state, channelId, true, m =>
     m.concat({
-      id: cuid(),
+      id: nanoid(),
       type: messageType,
       channelId,
       time: Date.now(),
@@ -124,7 +124,7 @@ function removeUserFromChannel(
 
     updateMessages(state, channelId, true, m =>
       m.concat({
-        id: cuid(),
+        id: nanoid(),
         type: ClientChatMessageType.NewChannelOwner,
         channelId,
         time: Date.now(),
@@ -246,7 +246,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
 
   updateMessages(state, channelId, false, m =>
     m.concat({
-      id: cuid(),
+      id: nanoid(),
       type: ClientChatMessageType.SelfJoinChannel,
       channelId,
       time: Date.now(),

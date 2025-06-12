@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 import * as React from 'react'
 import { CloseDialog, OpenDialog } from './actions'
 import { DialogPayload, DialogType } from './dialog-type'
@@ -8,7 +8,7 @@ export function openDialog(payload: DialogPayload): OpenDialog {
     type: '@dialogs/open',
     payload,
     meta: {
-      id: cuid(),
+      id: nanoid(),
     },
   }
 }

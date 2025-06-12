@@ -177,6 +177,9 @@ importers:
       mime:
         specifier: ^4.0.7
         version: 4.0.7
+      nanoid:
+        specifier: ^5.1.5
+        version: 5.1.5
       node-interval-tree:
         specifier: ^2.1.2
         version: 2.1.2

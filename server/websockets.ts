@@ -1,7 +1,7 @@
-import cuid from 'cuid'
 import fs from 'fs'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
+import { nanoid } from 'nanoid'
 import { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
@@ -98,7 +98,7 @@ export class WebsocketServer {
     req: IncomingMessage,
     cb: (err: Error | null, authorized?: boolean) => void,
   ) {
-    const logger = log.child({ reqId: cuid() })
+    const logger = log.child({ reqId: nanoid() })
     logger.info({ req }, 'websocket authorizing')
 
     const ctx = this.koa.createContext<StateWithJwt>(req, dummyRes)
@@ -114,7 +114,7 @@ export class WebsocketServer {
         return
       }
 
-      const clientId = getSingleQueryParam(ctx.query.clientId) ?? cuid()
+      const clientId = getSingleQueryParam(ctx.query.clientId) ?? nanoid()
       const handshakeData: SessionInfo = {
         sessionId: ctx.state.jwtData.sessionId,
         userId: ctx.session.user.id,

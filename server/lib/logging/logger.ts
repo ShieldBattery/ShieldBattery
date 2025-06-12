@@ -1,4 +1,4 @@
-import cuid from 'cuid'
+import { nanoid } from 'nanoid'
 import pino, { stdSerializers } from 'pino'
 
 const STDOUT_LEVEL = process.env.NODE_ENV === 'production' ? 'info' : 'debug'
@@ -27,7 +27,7 @@ export default pino(getLoggerOptions(), transport)
 
 export function getLoggerOptions() {
   return {
-    genReqId: cuid,
+    genReqId: nanoid,
     serializers: stdSerializers,
     // Make sure pino-http doesn't re-wrap these since we're specifying the serializers already
     wrapSerializers: false,

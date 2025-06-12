@@ -1,5 +1,5 @@
-import cuid from 'cuid'
 import { Record } from 'immutable'
+import { nanoid } from 'nanoid'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
 
@@ -32,7 +32,7 @@ export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId
     type: SlotType.Open,
     name: 'Open',
     race,
-    id: cuid(),
+    id: nanoid(),
     // These last three fields are used in UMS
     hasForcedRace,
     playerId,
@@ -45,7 +45,7 @@ export function createClosed(race: RaceChar = 'r', hasForcedRace = false, player
     type: SlotType.Closed,
     name: 'Closed',
     race,
-    id: cuid(),
+    id: nanoid(),
     // These last three fields are used in UMS
     hasForcedRace,
     playerId,
@@ -65,7 +65,7 @@ export function createHuman(
     userId,
     name,
     race,
-    id: cuid(),
+    id: nanoid(),
     joinedAt: Date.now(),
     // These last three fields are used in UMS
     hasForcedRace,
@@ -79,7 +79,7 @@ export function createComputer(race: RaceChar = 'r'): Slot {
     type: SlotType.Computer,
     name: 'Computer',
     race,
-    id: cuid(),
+    id: nanoid(),
   })
 }
 
@@ -91,7 +91,7 @@ export function createControlledOpen(race: RaceChar, controllerId: string): Slot
     type: SlotType.ControlledOpen,
     name: 'Open',
     race,
-    id: cuid(),
+    id: nanoid(),
     controlledBy: controllerId,
   })
 }
@@ -104,7 +104,7 @@ export function createControlledClosed(race: RaceChar, controllerId: string): Sl
     type: SlotType.ControlledClosed,
     name: 'Closed',
     race,
-    id: cuid(),
+    id: nanoid(),
     controlledBy: controllerId,
   })
 }
@@ -117,7 +117,7 @@ export function createUmsComputer(race: RaceChar, playerId: number, typeId: numb
     type: SlotType.UmsComputer,
     name: 'Computer',
     race,
-    id: cuid(),
+    id: nanoid(),
     hasForcedRace: true,
     playerId,
     typeId,
@@ -131,7 +131,7 @@ export function createObserver(name: string, userId: SbUserId) {
     type: SlotType.Observer,
     userId,
     name,
-    id: cuid(),
+    id: nanoid(),
     joinedAt: Date.now(),
   })
 }

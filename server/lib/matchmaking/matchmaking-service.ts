@@ -1,5 +1,5 @@
-import cuid from 'cuid'
 import { Immutable } from 'immer'
+import { nanoid } from 'nanoid'
 import { Counter, exponentialBuckets, Histogram } from 'prom-client'
 import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
@@ -300,7 +300,7 @@ export class MatchmakingService {
     onMatchFound: (teamA, teamB) => {
       const playerEntry = this.queueEntries.get(getMatchmakingEntityId(teamA[0]))!
 
-      const matchInfo = new Match(cuid(), playerEntry.type, [teamA, teamB])
+      const matchInfo = new Match(nanoid(), playerEntry.type, [teamA, teamB])
       this.matches.set(matchInfo.id, matchInfo)
 
       for (const entities of [teamA, teamB]) {
