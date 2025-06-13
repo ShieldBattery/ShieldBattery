@@ -196,11 +196,11 @@ jobs:
 
       - name: Wait for Postgres to be ready
         run: |
-          for /l %%i in (1,1,30) do (
-            docker exec postgres pg_isready && exit /b 0
-            timeout /t 1 >nul
-          )
-          exit /b 1
+          for i in {1..30}; do
+            docker exec postgres pg_isready && exit 0
+            sleep 1
+          done
+          exit 1
 
       - name: Copy init script into container
         run: docker cp ../deployment/appserver/db/init-scripts/20200505-create-user-and-db.sh postgres:/docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
