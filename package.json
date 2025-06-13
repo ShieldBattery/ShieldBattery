@@ -54,7 +54,7 @@
     "sqlx-prepare": "[ \"${NODE_ENV:-}\" != \"production\" ] && (cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features) || echo \"In production, not sqlx-preparing\"",
     "start-server": "node --trace-warnings ./server/index.js | pino-pretty -c -t",
     "test": "vitest",
-    "test-ui": "pnpm test --ui --coverage.enabled=true --api 9527",
+    "test-ui": "pnpm test --ui --coverage.enabled=true",
     "test:integration": "NODE_ENV=production playwright test",
     "typecheck": "tsc --skipLibCheck false"
   },

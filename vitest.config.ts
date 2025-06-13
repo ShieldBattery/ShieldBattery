@@ -7,6 +7,10 @@ export default defineConfig({
   test: {
     globalSetup: './vitest-global-setup.ts',
 
+    api: {
+      port: 9527,
+    },
+
     projects: [
       // App (Electron main process)
       {
