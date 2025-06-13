@@ -194,19 +194,23 @@ jobs:
         with:
           crate: sqlx-cli
 
+      - name: Get Postgres container ID
+        id: get_postgres_id
+        run: echo "CONTAINER_ID=$(docker ps --filter 'ancestor=postgres:17' --format '{{.ID}}' | head -n 1)" >> $GITHUB_ENV
+
       - name: Wait for Postgres to be ready
         run: |
           for i in {1..30}; do
-            docker exec postgres pg_isready && exit 0
+            docker exec $CONTAINER_ID pg_isready && exit 0
             sleep 1
           done
           exit 1
 
       - name: Copy init script into container
-        run: docker cp ../deployment/appserver/db/init-scripts/20200505-create-user-and-db.sh postgres:/docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
+        run: docker cp ../deployment/appserver/db/init-scripts/20200505-create-user-and-db.sh $CONTAINER_ID:/docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
 
       - name: Run init script in container
-        run: docker exec -u postgres postgres bash /docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
+        run: docker exec -u postgres $CONTAINER_ID bash /docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
 
       - name: Run migrations
         run: cargo sqlx migrate run --source ../migrations
