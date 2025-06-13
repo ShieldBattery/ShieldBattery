@@ -155,13 +155,23 @@ jobs:
 
   sqlx-prepare:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server-rs
+    strategy:
+      fail-fast: false
     env:
-      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres'
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/shieldbattery'
     services:
       postgres:
-        image: postgres
+        image: postgres:17
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+          SB_DB: shieldbattery
+          SB_DB_USER: shieldbattery
+          SB_DB_PASSWORD: shieldbattery
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -169,11 +179,8 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-    defaults:
-      run:
-        working-directory: ./server-rs
-    strategy:
-      fail-fast: false
+        volumes:
+          - ../deployment/appserver/db/init-scripts:/docker-entrypoint-initdb.d:ro
     steps:
       - uses: actions/checkout@v4
 
@@ -190,7 +197,7 @@ jobs:
           crate: sqlx-cli
 
       - name: Run migrations
-        run: cargo sqlx migrate run
+        run: cargo sqlx migrate run --source ../migrations
 
       - name: Check sqlx prepare
         run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
