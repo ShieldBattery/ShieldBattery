@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -95,13 +95,13 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Using pnpm
         uses: pnpm/action-setup@v4
 
       - name: Using Node.js 22.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -152,3 +152,28 @@ jobs:
             runGitDiff()
 
             core.setFailed('The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files. You may need to run "cargo install typeshare-cli" to get an updated version first.')
+
+  sqlx-prepare:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server-rs
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./server-rs
+
+      - name: Install sqlx-cli
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: sqlx-cli
+
+      - name: Check sqlx prepare
+        run: cargo sqlx prepare --check

@@ -12,13 +12,13 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Using pnpm
         uses: pnpm/action-setup@v4
 
       - name: Using Node.js 22.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
@@ -98,7 +98,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Building Docker containers
         run: cd ./integration && docker compose build
@@ -110,7 +110,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Using Node.js 22.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
