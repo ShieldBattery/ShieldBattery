@@ -176,4 +176,4 @@ jobs:
           crate: sqlx-cli
 
       - name: Check sqlx prepare
-        run: cargo sqlx prepare --check
+        run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
