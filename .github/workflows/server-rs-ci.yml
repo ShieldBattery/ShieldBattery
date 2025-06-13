@@ -179,8 +179,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-        volumes:
-          - ${{ github.workspace }}/deployment/appserver/db/init-scripts:/docker-entrypoint-initdb.d:ro
     steps:
       - uses: actions/checkout@v4
 
@@ -195,6 +193,20 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: sqlx-cli
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for /l %%i in (1,1,30) do (
+            docker exec postgres pg_isready && exit /b 0
+            timeout /t 1 >nul
+          )
+          exit /b 1
+
+      - name: Copy init script into container
+        run: docker cp ../deployment/appserver/db/init-scripts/20200505-create-user-and-db.sh postgres:/docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
+
+      - name: Run init script in container
+        run: docker exec -u postgres postgres bash /docker-entrypoint-initdb.d/20200505-create-user-and-db.sh
 
       - name: Run migrations
         run: cargo sqlx migrate run --source ../migrations
