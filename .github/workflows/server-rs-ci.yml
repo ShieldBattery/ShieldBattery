@@ -155,6 +155,20 @@ jobs:
 
   sqlx-prepare:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres'
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     defaults:
       run:
         working-directory: ./server-rs
@@ -174,6 +188,9 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: sqlx-cli
+
+      - name: Run migrations
+        run: cargo sqlx migrate run
 
       - name: Check sqlx prepare
         run: cargo sqlx prepare --check --workspace -- --all-targets --all-features
