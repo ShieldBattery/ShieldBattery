@@ -406,7 +406,7 @@ const eventToAction: EventToActionMap = {
       info: { name: lobbyName, map, gameType, gameSubType, host },
     } = lobby
 
-    const playerInfos = getIngameLobbySlotsWithIndexes(lobby.info as any)
+    const playerInfos = getIngameLobbySlotsWithIndexes(lobby.info)
       .map<PlayerInfo>(([teamIndex, , slot]: [number, any, any]) => ({
         id: slot.id,
         name: slot.name,
@@ -415,7 +415,7 @@ const eventToAction: EventToActionMap = {
         type: slot.type,
         typeId: slot.typeId,
         userId: slot.userId,
-        teamId: lobby.info.teams.get(teamIndex).teamId,
+        teamId: lobby.info.teams.get(teamIndex)!.teamId,
       }))
       .toArray()
     const hostInfo = playerInfos.find(s => s.id === host.id)!

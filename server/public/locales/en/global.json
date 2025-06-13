@@ -364,6 +364,17 @@
     "tabStats": "Stats",
     "tabSummary": "Summary"
   },
+  "gameplayActivity": {
+    "lobby": {
+      "slotCount": "{{takenSlots}} / {{totalSlots}}",
+      "slotsLabel": "Slots:",
+      "viewLobby": "View lobby"
+    },
+    "matchmaking": {
+      "matchFound": "Match found!",
+      "searching": "Searching for a match…"
+    }
+  },
   "games": {
     "activity": {
       "title": "Games"
@@ -741,9 +752,6 @@
       "gameStarting": "Game starting…",
       "playerVsPlayer": "vs"
     },
-    "navEntry": {
-      "matchFound": "Match found!"
-    },
     "postMatchDialog": {
       "leagues": "Leagues",
       "matchmaking": "Matchmaking",
@@ -780,7 +788,6 @@
       "appMenu": "Menu",
       "home": "Home",
       "play": "Play",
-      "playIngame": "Game in progress",
       "userMenu": "User menu"
     },
     "copyLink": {
@@ -795,11 +802,9 @@
     },
     "leftNav": {
       "chatChannels": "Chat channels",
-      "customGame": "Custom game",
       "logOut": "Log out",
       "logOutErrorMessage": "Something went wrong. Please try again later.",
       "logOutErrorTitle": "Logging out failed",
-      "rankedGame": "Ranked {{matchmakingType}}",
       "reportBug": "Report a bug",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",

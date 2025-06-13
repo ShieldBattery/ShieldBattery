@@ -14,6 +14,7 @@ import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import './dom/window-focus'
 import { UpdateOverlay } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
+import { GameplayActivityWidget } from './gameplay-activity/gameplay-activity-widget'
 import { jotaiStore } from './jotai-store'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
@@ -203,6 +204,7 @@ const AppContent = React.memo(() => {
           </Route>
         </Switch>
       </React.Suspense>
+      <GameplayActivityWidget />
       <React.Suspense fallback={<LoadingDotsArea />}>
         <ConnectedSettings />
       </React.Suspense>

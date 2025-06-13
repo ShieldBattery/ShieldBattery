@@ -13,20 +13,15 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
-import { urlPath } from '../../common/urls'
 import { useWindowFocus } from '../dom/window-focus'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { cancelFindMatch } from '../matchmaking/action-creators'
-import { ElapsedTime } from '../matchmaking/elapsed-time'
-import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
 import { elevationPlus1 } from '../material/shadows'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { showReplayInfo } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { BodyMedium, titleSmall } from '../styles/typography'
+import { BodyMedium } from '../styles/typography'
 
 const WIDTH = 240
 const HEIGHT = 72
@@ -167,11 +162,9 @@ const buttonSpring: SpringOptions = {
 function PlayButtonDisplay({
   targetPath,
   children,
-  fastBreathing = false,
 }: {
   targetPath: string
   children: React.ReactNode
-  fastBreathing?: boolean
 }) {
   const isWindowFocused = useWindowFocus()
   const [isBreathing, setIsBreathing] = useState(true)
@@ -202,7 +195,7 @@ function PlayButtonDisplay({
         }),
       )
     } else {
-      const duration = fastBreathing ? 8 : 21
+      const duration = 21
       controllers.push(
         animate(breatheScale, [null, 1, 0.7], {
           duration,
@@ -261,7 +254,6 @@ function PlayButtonDisplay({
     breatheScale,
     gradientX,
     gradientY,
-    fastBreathing,
     breatheScale2,
     gradientX2,
     gradientY2,
@@ -410,72 +402,6 @@ const PlayText = styled(OutlinedText)`
   --_stroke-opacity: 0.5;
 `
 
-const LobbyPlayContent = styled(PlayButtonContent)`
-  font-size: 28px;
-  text-transform: none;
-
-  white-space: normal;
-`
-
-const MatchLoadingPlayContent = styled(PlayButtonContent)`
-  font-size: 24px;
-  text-transform: none;
-  white-space: normal;
-`
-
-const IngamePlayContent = styled(PlayButtonContent)`
-  font-size: 24px;
-  text-transform: none;
-  white-space: normal;
-`
-
-const MatchmakingSearchPlayContent = styled(PlayButtonContent)`
-  font-size: 24px;
-  text-transform: none;
-  white-space: normal;
-`
-
-const HoverOnly = styled.div`
-  display: none;
-`
-
-const SearchInProgressContentRoot = styled(MatchmakingSearchPlayContent)`
-  width: 100%;
-  height: 100%;
-
-  &:hover {
-    & > ${HoverOnly} {
-      display: block;
-    }
-
-    & > :not(${HoverOnly}) {
-      display: none;
-    }
-  }
-`
-
-const StyledElapsedTime = styled(ElapsedTime)`
-  ${titleSmall};
-`
-
-function SearchInProgressContent() {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)!
-
-  return (
-    <SearchInProgressContentRoot
-      onClick={event => {
-        event.preventDefault()
-        dispatch(cancelFindMatch())
-      }}>
-      <span>{matchmakingTypeToLabel(matchmakingSearchInfo.matchmakingType, t)}</span>
-      <StyledElapsedTime startTimeMs={matchmakingSearchInfo.startTime} />
-      <HoverOnly>{t('common.actions.cancel', 'Cancel')}</HoverOnly>
-    </SearchInProgressContentRoot>
-  )
-}
-
 const StyledFileDropZone = styled(FileDropZone)`
   position: absolute;
   inset: 0;
@@ -541,84 +467,13 @@ function FileDrop() {
 export function PlayButton() {
   const { t } = useTranslation()
 
-  const isLobbyLoading = useAppSelector(s => s.lobby.info.isLoading)
-  const lobbyName = useAppSelector(s => s.lobby.info.name)
-  const isMatchLoading = useAppSelector(s => isMatchmakingLoading(s.matchmaking))
-  const matchmakingType = useAppSelector(s => s.matchmaking.match?.type)
-  const matchmakingLaunching = useAppSelector(s => s.matchmaking.isLaunching)
-  const matchmakingCountingDown = useAppSelector(s => s.matchmaking.isCountingDown)
-  const matchmakingStarting = useAppSelector(s => s.matchmaking.isStarting)
-
-  const isInActiveGame = useAppSelector(s => s.activeGame.isActive)
-  const gameInfo = useAppSelector(s => s.activeGame.info)
-
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
-  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)
-  const matchmakingMatch = useAppSelector(s => s.matchmaking.match)
-
-  let targetPath = '/play/'
-  let fastBreathing = false
-  let content = (
-    <PlayButtonContent>
-      <PlayText text={t('navigation.bar.play', 'Play')} />
-    </PlayButtonContent>
-  )
-  if (isLobbyLoading) {
-    targetPath = urlPath`/lobbies/${lobbyName}/loading-game`
-    content = (
-      <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
-    )
-  } else if (isMatchLoading) {
-    content = (
-      <MatchLoadingPlayContent>
-        {t('navigation.leftNav.rankedGame', {
-          defaultValue: 'Ranked {{matchmakingType}}',
-          matchmakingType: matchmakingType ? matchmakingTypeToLabel(matchmakingType, t) : '',
-        })}
-      </MatchLoadingPlayContent>
-    )
-
-    if (matchmakingLaunching) {
-      targetPath = '/matchmaking/countdown'
-    } else if (matchmakingCountingDown) {
-      targetPath = '/matchmaking/countdown'
-    } else if (matchmakingStarting) {
-      targetPath = '/matchmaking/game-starting'
-    } else {
-      // This should never really happen but it makes TS happy
-      targetPath = '/matchmaking/countdown'
-    }
-  } else if (isInActiveGame) {
-    content = (
-      <IngamePlayContent>{t('navigation.bar.playIngame', 'Game in progress')}</IngamePlayContent>
-    )
-    if (gameInfo?.type === 'lobby') {
-      targetPath = urlPath`/lobbies/${gameInfo.extra.lobby.info.name}/active-game`
-    } else if (gameInfo?.type === 'matchmaking') {
-      targetPath = '/matchmaking/active-game'
-    }
-  } else if (inLobby) {
-    targetPath = urlPath`/lobbies/${lobbyName}`
-    content = (
-      <LobbyPlayContent>{t('navigation.leftNav.customGame', 'Custom game')}</LobbyPlayContent>
-    )
-  } else if (matchmakingSearchInfo) {
-    fastBreathing = true
-    targetPath = '/play/matchmaking'
-    if (matchmakingMatch) {
-      content = (
-        <MatchmakingSearchPlayContent>
-          {t('matchmaking.navEntry.matchFound', 'Match found!')}
-        </MatchmakingSearchPlayContent>
-      )
-    } else {
-      content = <SearchInProgressContent />
-    }
-  }
-
   return (
-    <PlayButtonDisplay targetPath={targetPath} fastBreathing={fastBreathing}>
-      {content}
+    <PlayButtonDisplay targetPath={'/play/'}>
+      {
+        <PlayButtonContent>
+          <PlayText text={t('navigation.bar.play', 'Play')} />
+        </PlayButtonContent>
+      }
       {IS_ELECTRON ? <FileDrop /> : null}
     </PlayButtonDisplay>
   )

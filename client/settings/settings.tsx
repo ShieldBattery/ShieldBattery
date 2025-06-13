@@ -104,6 +104,7 @@ const Container = styled(m.div)`
   flex-direction: row;
 
   background-color: var(--theme-container-lowest);
+  contain: content;
   z-index: ${zIndexSettings};
 `
 

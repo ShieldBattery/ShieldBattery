@@ -131,7 +131,7 @@ export function LobbyView(props: LobbyViewProps) {
 }
 
 function LobbyLoadingScreen() {
-  const isLoading = useAppSelector(s => s.lobby.info.isLoading)
+  const isLoading = useAppSelector(s => s.lobby.loadingState.isLoading)
   const lobbyInfo = useAppSelector(s => s.lobby.info)
   const gameClientStatus = useAppSelector(s => s.gameClient.status)
   const user = useSelfUser()

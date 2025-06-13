@@ -9,10 +9,10 @@ export const zIndexDialog = 100
 // component controls both of them, and their DOM ordering is pretty guaranteed. While also allowing
 // us to display the scrim above the non-top dialogs in case more than one are open.
 export const zIndexDialogScrim = 100
+export const zIndexSettings = 99
 export const zIndexBottomSheet = 80
 export const zIndexScrollMask = 75
 export const zIndexSideNav = 70
 export const zIndexBackdrop = 60
 export const zIndexFab = 40
 export const zIndexAppBar = 30
-export const zIndexSettings = 25

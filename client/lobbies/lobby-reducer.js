@@ -1,7 +1,6 @@
 import { List, Record } from 'immutable'
 import { nanoid } from 'nanoid'
-import { GameType } from '../../common/games/game-type'
-import { Team } from '../../common/lobbies/index'
+import { Lobby, Team } from '../../common/lobbies/index'
 import { Slot } from '../../common/lobbies/slot'
 import {
   LOBBY_ACTIVATE,
@@ -41,23 +40,19 @@ import {
   SelfJoinLobbyMessageRecord,
 } from './lobby-message-records'
 
-export class LobbyInfo extends Record({
-  name: '',
-  map: undefined,
-  gameType: GameType.Melee,
-  gameSubType: 0,
-  teams: List(),
-  host: new Slot(),
-  turnRate: undefined,
-  useLegacyLimits: false,
-
+export class LobbyLoadingState extends Record({
   isCountingDown: false,
   countdownTimer: -1,
   isLoading: false,
 }) {}
 
 export class LobbyRecord extends Record({
-  info: new LobbyInfo(),
+  // TODO(tec27): This isn't totally correct as some parts of this are actually the JSON versions
+  // (i.e. the map). This makes the normal Lobby functions usable on this though and dealing with
+  // the types in Immutable is a real pain. We should clean this up when we move this off
+  // Immutable though (and probably just move the Map data out of this struct generally).
+  info: new Lobby(),
+  loadingState: new LobbyLoadingState(),
   chat: List(),
 
   activated: false,
@@ -68,7 +63,7 @@ export class LobbyRecord extends Record({
   }
 }
 
-const infoReducer = keyedReducer(undefined, {
+const infoReducer = keyedReducer(new Lobby(), {
   [LOBBY_INIT_DATA](state, action) {
     const { lobby } = action.payload
     const teams = lobby.teams.map(team => {
@@ -76,7 +71,7 @@ const infoReducer = keyedReducer(undefined, {
       const hiddenSlots = team.hiddenSlots.map(slot => new Slot(slot))
       return new Team({ ...team, slots: List(slots), hiddenSlots })
     })
-    const lobbyInfo = new LobbyInfo({
+    const lobbyInfo = new Lobby({
       ...lobby,
       teams: List(teams),
       host: new Slot(lobby.host),
@@ -106,19 +101,55 @@ const infoReducer = keyedReducer(undefined, {
   },
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
-    return new LobbyInfo()
+    return new Lobby()
   },
 
   [LOBBY_UPDATE_KICK_SELF](state, action) {
-    return new LobbyInfo()
+    return new Lobby()
   },
 
   [LOBBY_UPDATE_BAN_SELF](state, action) {
-    return new LobbyInfo()
+    return new Lobby()
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
     return state.set('host', new Slot(action.payload))
+  },
+
+  [LOBBY_UPDATE_GAME_STARTED](state, action) {
+    return new Lobby()
+  },
+
+  ['@network/connect'](state, action) {
+    return new Lobby()
+  },
+
+  ['@maps/toggleFavorite'](state, action) {
+    const { map } = action.meta
+
+    if (state.map && state.map.id === map.id) {
+      return state.setIn(['map', 'isFavorited'], !map.isFavorited)
+    }
+
+    return state
+  },
+})
+
+const loadingReducer = keyedReducer(new LobbyLoadingState(), {
+  [LOBBY_INIT_DATA](state, action) {
+    return new LobbyLoadingState()
+  },
+
+  [LOBBY_UPDATE_LEAVE_SELF](state, action) {
+    return new LobbyLoadingState()
+  },
+
+  [LOBBY_UPDATE_KICK_SELF](state, action) {
+    return new LobbyLoadingState()
+  },
+
+  [LOBBY_UPDATE_BAN_SELF](state, action) {
+    return new LobbyLoadingState()
   },
 
   [LOBBY_UPDATE_COUNTDOWN_START](state, action) {
@@ -142,21 +173,11 @@ const infoReducer = keyedReducer(undefined, {
   },
 
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
-    return new LobbyInfo()
+    return new LobbyLoadingState()
   },
 
   ['@network/connect'](state, action) {
-    return new LobbyInfo()
-  },
-
-  ['@maps/toggleFavorite'](state, action) {
-    const { map } = action.meta
-
-    if (state.map && state.map.id === map.id) {
-      return state.setIn(['map', 'isFavorited'], !map.isFavorited)
-    }
-
-    return state
+    return new LobbyLoadingState()
   },
 })
 
@@ -246,7 +267,7 @@ const chatHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_COUNTDOWN_START](lobbyInfo, lastLobbyInfo, state, action) {
+  [LOBBY_UPDATE_COUNTDOWN_START](lobbyInfo, lastLobbyInfo, state, action, loadingState) {
     return state
       .push(
         new LobbyCountdownStartedMessageRecord({
@@ -258,17 +279,17 @@ const chatHandlers = {
         new LobbyCountdownTickMessageRecord({
           id: nanoid(),
           time: Date.now(),
-          timeLeft: lobbyInfo.countdownTimer,
+          timeLeft: loadingState.countdownTimer,
         }),
       )
   },
 
-  [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action) {
+  [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action, loadingState) {
     return state.push(
       new LobbyCountdownTickMessageRecord({
         id: nanoid(),
         time: Date.now(),
-        timeLeft: lobbyInfo.countdownTimer,
+        timeLeft: loadingState.countdownTimer,
       }),
     )
   },
@@ -304,7 +325,8 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
 
 export default function lobbyReducer(state = new LobbyRecord(), action) {
   const nextInfo = infoReducer(state.info, action)
-  const nextChat = chatReducer(nextInfo, state.info, state.chat, action)
+  const nextLoading = loadingReducer(state.loadingState, action)
+  const nextChat = chatReducer(nextInfo, state.info, state.chat, action, nextLoading)
   let updated = state
   if (!nextInfo.name) {
     updated = updated.set('hasUnread', false).set('activated', false)
@@ -317,6 +339,7 @@ export default function lobbyReducer(state = new LobbyRecord(), action) {
   }
   return updated
     .set('info', nextInfo)
+    .set('loadingState', nextLoading)
     .set('chat', nextChat)
     .set('hasUnread', updated.hasUnread || (!updated.activated && nextChat !== state.chat))
 }
