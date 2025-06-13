@@ -54,6 +54,7 @@
     "sqlx-prepare": "[ \"${NODE_ENV:-}\" != \"production\" ] && (cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features) || echo \"In production, not sqlx-preparing\"",
     "start-server": "node --trace-warnings ./server/index.js | pino-pretty -c -t",
     "test": "vitest",
+    "test-ui": "pnpm test --ui --coverage.enabled=true --api 9527",
     "test:integration": "NODE_ENV=production playwright test",
     "typecheck": "tsc --skipLibCheck false"
   },
@@ -211,6 +212,7 @@
     "@vitejs/plugin-react": "^4.5.2",
     "@vitest/coverage-v8": "^3.2.3",
     "@vitest/eslint-plugin": "^1.2.2",
+    "@vitest/ui": "^3.2.3",
     "babel-loader": "^10.0.0",
     "babel-plugin-react-compiler": "19.1.0-rc.2",
     "babel-plugin-styled-components": "^2.1.4",

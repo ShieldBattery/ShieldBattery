@@ -1,6 +1,5 @@
 build/
-app/game/native/*/*.node
-app/styles/
+coverage/
 dist/
 node_modules/
 test-results/

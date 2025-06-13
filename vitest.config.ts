@@ -19,6 +19,7 @@ export default defineConfig({
           name: 'app',
           environment: 'node',
           include: ['app/**/*.test.{js,ts,tsx}', 'common/**/*.test.{js,ts,tsx}'],
+          exclude: ['app/dist/**', 'app/node_modules/**'],
           setupFiles: ['core-js/proposals/reflect-metadata'],
         },
       },
@@ -33,6 +34,7 @@ export default defineConfig({
           name: 'server',
           environment: 'node',
           include: ['server/**/*.test.{js,ts,tsx}', 'common/**/*.test.{js,ts,tsx}'],
+          exclude: ['server/public/**'],
           setupFiles: ['core-js/proposals/reflect-metadata'],
         },
       },
@@ -63,6 +65,14 @@ export default defineConfig({
     ],
 
     coverage: {
+      exclude: [
+        '.react-email/**',
+        'app/dist/**',
+        'dist/**',
+        'email/**',
+        'server/migrations/**',
+        'server/public/**',
+      ],
       reporter: ['text', 'html'],
     },
   },
