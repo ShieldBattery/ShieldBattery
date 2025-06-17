@@ -3,21 +3,60 @@ import { useLayoutEffect, useMemo, useState } from 'react'
 
 export type DimensionsHookResult<T extends Element> = [
   ref: React.RefCallback<T>,
-  contentRect?: DOMRectReadOnly,
+  dimensions?: { width: number; height: number },
 ]
+
+function resolveDimensions(
+  entry: ResizeObserverEntry,
+  options?: ResizeObserverOptions,
+): { width: number; height: number } {
+  switch (options?.box) {
+    case 'device-pixel-content-box':
+      return entry.devicePixelContentBoxSize.reduce(
+        (acc, size) => ({
+          width: acc.width + size.inlineSize,
+          height: acc.height + size.blockSize,
+        }),
+        { width: 0, height: 0 },
+      )
+
+    case 'content-box':
+      return entry.contentBoxSize.reduce(
+        (acc, size) => ({
+          width: acc.width + size.inlineSize,
+          height: acc.height + size.blockSize,
+        }),
+        { width: 0, height: 0 },
+      )
+
+    case 'border-box':
+    default:
+      return entry.borderBoxSize.reduce(
+        (acc, size) => ({
+          width: acc.width + size.inlineSize,
+          height: acc.height + size.blockSize,
+        }),
+        { width: 0, height: 0 },
+      )
+  }
+}
 
 /**
  * A hook that returns the current width/height for an element. Included in the return value is a
  * `ref` that must be attached to the element you wish to measure. A ResizeObserver will be attached
- * to the `ref'd` element and return new dimension values when it changes.
+ * to the `ref'd` element and return new dimension values when it changes. By default, the
+ * `border-box` size will be returned, but you can change this with the options.
  *
- * Note that although this returns a `DomRect`, only the width and height are really meaningful. If
- * you need a position, you may want to consider `useElementRect` (either instead of this, or in
+ * If you need a position, you may want to consider `useElementRect` (either instead of this, or in
  * addition to this).
  */
-export function useObservedDimensions<T extends Element>(): DimensionsHookResult<T> {
-  const [ref, observerEntry] = useResizeObserver()
-  return [ref, observerEntry?.contentRect]
+export function useObservedDimensions<T extends Element>(
+  options?: ResizeObserverOptions,
+): DimensionsHookResult<T> {
+  const [ref, observerEntry] = useResizeObserver(options)
+  const dimensions = observerEntry ? resolveDimensions(observerEntry, options) : undefined
+
+  return [ref, dimensions]
 }
 
 type ResizeObserverHookCallback = (entry: ResizeObserverEntry) => void
@@ -53,11 +92,11 @@ export function useResizeObserver<T extends Element>(
         let changed = false
 
         switch (options.box) {
-          case 'border-box':
-            changed = entry.borderBoxSize.some(
+          case 'device-pixel-content-box':
+            changed = entry.devicePixelContentBoxSize.some(
               (boxSize, i) =>
-                boxSize.inlineSize !== curEntry.borderBoxSize[i].inlineSize ||
-                boxSize.blockSize !== curEntry.borderBoxSize[i].blockSize,
+                boxSize.inlineSize !== curEntry.devicePixelContentBoxSize[i].inlineSize ||
+                boxSize.blockSize !== curEntry.devicePixelContentBoxSize[i].blockSize,
             )
             break
 
@@ -69,18 +108,13 @@ export function useResizeObserver<T extends Element>(
             )
             break
 
-          case 'device-pixel-content-box':
-            changed = entry.devicePixelContentBoxSize.some(
-              (boxSize, i) =>
-                boxSize.inlineSize !== curEntry.devicePixelContentBoxSize[i].inlineSize ||
-                boxSize.blockSize !== curEntry.devicePixelContentBoxSize[i].blockSize,
-            )
-            break
-
+          case 'border-box':
           default:
-            changed =
-              entry.contentRect.width !== curEntry.contentRect.width ||
-              entry.contentRect.height !== curEntry.contentRect.height
+            changed = entry.borderBoxSize.some(
+              (boxSize, i) =>
+                boxSize.inlineSize !== curEntry.borderBoxSize[i].inlineSize ||
+                boxSize.blockSize !== curEntry.borderBoxSize[i].blockSize,
+            )
             break
         }
 
