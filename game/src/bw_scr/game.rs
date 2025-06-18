@@ -108,12 +108,8 @@ unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId)
         //
         // (*) Multiple separate values in replay can be used to trigger this Newer SC:R build rule.
 
-        let sbat_rules = !game_thread::is_replay()
-            || game_thread::sbat_replay_data()
-                .map(|x| x.game_logic_version >= 1)
-                .unwrap_or(false);
         let order_supply_low = order_supply_low(bw);
-        if sbat_rules {
+        if game_thread::sb_game_logic_version() >= 1 {
             if new_order == order::DIE {
                 return true;
             }
