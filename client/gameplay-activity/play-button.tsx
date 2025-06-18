@@ -1,11 +1,4 @@
-import {
-  animate,
-  frame,
-  SpringOptions,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from 'motion/react'
+import { animate, frame, SpringOptions, useSpring, useTransform } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useEffect, useId, useState } from 'react'
@@ -49,6 +42,8 @@ const Root = styled(m.a)`
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
+
+  transform-origin: center top;
 
   &:link,
   &:visited {
@@ -153,10 +148,10 @@ const GradientCircle = styled(m.div)`
 
 const buttonSpring: SpringOptions = {
   mass: 24,
-  damping: 350,
+  damping: 360,
   stiffness: 650,
-  restDelta: 0.00001,
-  restSpeed: 0.00001,
+  restDelta: 0.0000001,
+  restSpeed: 0.0000001,
 }
 
 function PlayButtonDisplay({
@@ -167,131 +162,112 @@ function PlayButtonDisplay({
   children: React.ReactNode
 }) {
   const isWindowFocused = useWindowFocus()
-  const [isBreathing, setIsBreathing] = useState(true)
-  const breatheScale = useMotionValue(0)
-  const breatheScale2 = useMotionValue(0)
-  const gradientX = useSpring(0, buttonSpring)
-  const gradientY = useSpring(0, buttonSpring)
+  const [isHovered, setIsHovered] = useState(false)
+  const gradientX1 = useSpring(0, buttonSpring)
+  const gradientY1 = useSpring(0, buttonSpring)
   const gradientX2 = useSpring(0, buttonSpring)
   const gradientY2 = useSpring(0, buttonSpring)
 
+  const topLeftGradientX = useTransform(() => -2 * HEIGHT + HEIGHT / 6 + gradientX1.get())
+  const topLeftGradientY = useTransform(() => -HEIGHT - HEIGHT / 2 + gradientY1.get())
+  const bottomRightGradientX = useTransform(() => WIDTH - HEIGHT - HEIGHT / 5 + gradientX2.get())
+  const bottomRightGradientY = useTransform(() => -HEIGHT / 6 + gradientY2.get())
+
+  const isBreathing = isWindowFocused && !isHovered
   useEffect(() => {
-    if (!isWindowFocused) {
+    if (!isBreathing) {
       return () => {}
     }
 
     const controllers: Array<ReturnType<typeof animate>> = []
-    if (!isBreathing) {
-      controllers.push(
-        animate(breatheScale, 1, {
-          duration: 1.5,
-          ease: 'easeInOut',
-        }),
-      )
-      controllers.push(
-        animate(breatheScale2, 1, {
-          duration: 1.5,
-          ease: 'easeInOut',
-        }),
-      )
-    } else {
-      const duration = 21
-      controllers.push(
-        animate(breatheScale, [null, 1, 0.7], {
-          duration,
-          repeat: Infinity,
-          repeatType: 'mirror',
-          ease: 'easeInOut',
-        }),
-      )
-      controllers.push(
-        animate(breatheScale2, [null, 0.7, 1], {
-          duration: duration + 1,
-          repeat: Infinity,
-          repeatType: 'mirror',
-          ease: 'easeInOut',
-        }),
-      )
+    const duration = 21
 
-      controllers.push(
-        animate(gradientX, [null, WIDTH / 24, -WIDTH / 10, -WIDTH / 6], {
-          duration,
-          repeat: Infinity,
-          repeatType: 'mirror',
-        }),
-      )
-      controllers.push(
-        animate(gradientY, [null, -HEIGHT / 3, 0, -HEIGHT / 6, HEIGHT / 6], {
-          duration,
-          repeat: Infinity,
-          repeatType: 'mirror',
-        }),
-      )
-      controllers.push(
-        animate(gradientX2, [null, -WIDTH / 12, WIDTH / 5, -WIDTH / 16, WIDTH / 8], {
-          duration: duration + 1,
-          repeat: Infinity,
-          repeatType: 'mirror',
-        }),
-      )
-      controllers.push(
-        animate(gradientY2, [null, -HEIGHT + HEIGHT / 3, 0, -HEIGHT + HEIGHT / 5, HEIGHT / 8], {
-          duration: duration + 1,
-          repeat: Infinity,
-          repeatType: 'mirror',
-        }),
-      )
-    }
+    controllers.push(
+      animate(gradientX1, [null, WIDTH / 24, -WIDTH / 8, -WIDTH / 4], {
+        duration,
+        repeat: Infinity,
+        repeatType: 'mirror',
+      }),
+    )
+    controllers.push(
+      animate(gradientY1, [null, -HEIGHT / 2, 0, -HEIGHT / 4, HEIGHT / 6], {
+        duration,
+        repeat: Infinity,
+        repeatType: 'mirror',
+      }),
+    )
+    controllers.push(
+      animate(gradientX2, [null, -WIDTH / 16, WIDTH / 5, -WIDTH / 14, WIDTH / 3], {
+        duration: duration + 7,
+        repeat: Infinity,
+        repeatType: 'mirror',
+      }),
+    )
+    controllers.push(
+      animate(gradientY2, [null, -HEIGHT + HEIGHT / 3, 0, -HEIGHT + HEIGHT / 5, HEIGHT / 8], {
+        duration: duration + 7,
+        repeat: Infinity,
+        repeatType: 'mirror',
+      }),
+    )
 
     return () => {
       for (const controller of controllers) {
         controller.stop()
       }
     }
-  }, [
-    isWindowFocused,
-    isBreathing,
-    breatheScale,
-    gradientX,
-    gradientY,
-    breatheScale2,
-    gradientX2,
-    gradientY2,
-  ])
-
-  const topLeftGradientX = useTransform(() => -2 * HEIGHT + HEIGHT / 6 + gradientX.get())
-  const topLeftGradientY = useTransform(() => -HEIGHT - HEIGHT / 2 + gradientY.get())
-  const bottomRightGradientX = useTransform(() => WIDTH - HEIGHT - HEIGHT / 5 + gradientX2.get())
-  const bottomRightGradientY = useTransform(() => -HEIGHT / 6 + gradientY2.get())
+  }, [isBreathing, gradientX1, gradientY1, gradientX2, gradientY2])
 
   return (
     <Link href={targetPath} asChild={true}>
       <Root
         draggable={false}
+        animate={isBreathing ? 'animate' : undefined}
+        whileHover='hover'
+        whileTap='tap'
+        variants={{
+          tap: {
+            scale: 0.975,
+            transition: {
+              type: 'spring',
+              duration: 0.2,
+            },
+          },
+        }}
         onMouseEnter={() => {
-          setIsBreathing(false)
+          setIsHovered(true)
         }}
         onMouseLeave={() => {
-          setIsBreathing(true)
+          setIsHovered(false)
         }}
         onMouseMove={(event: React.MouseEvent) => {
-          const { clientX, clientY, currentTarget } = event
+          const { clientX, currentTarget } = event
           frame.read(() => {
             const rect = currentTarget.getBoundingClientRect()
             const halfWidth = rect.width / 2
             const halfHeight = rect.height / 2
+            const pointerX = clientX - rect.left
+            const pointerY = event.clientY - rect.top
+            // 0 (left edge) to 1 (right edge)
+            const xNorm = Math.max(0, Math.min(1, pointerX / rect.width))
+
+            const minY = -halfHeight
+            const maxY = halfHeight
+            const yValue = minY + (maxY - minY) * (1 - xNorm)
+
             const fromCenterX = Math.max(
-              Math.min(clientX - rect.left - halfWidth, halfWidth * 0.6),
+              Math.min(pointerX - halfWidth, halfWidth * 0.6),
               -halfWidth * 0.6,
             )
             const fromCenterY = Math.max(
-              Math.min(clientY - rect.top - rect.height / 2, halfHeight * 0.6),
-              -halfHeight * 0.6,
+              Math.min(pointerY - halfHeight, halfHeight * 0.4),
+              -halfHeight * 0.4,
             )
-            gradientX.set(fromCenterX - 0.4 * halfWidth)
-            gradientY.set(fromCenterY - 0.4 * halfHeight)
+
+            gradientX1.set(fromCenterX - 0.4 * halfWidth)
+            gradientY1.set(yValue + fromCenterY)
             gradientX2.set(fromCenterX + 0.4 * halfWidth)
-            gradientY2.set(fromCenterY + 0.4 * halfHeight)
+            gradientY2.set(-yValue + fromCenterY)
           })
         }}>
         <PlayButtonBackground>
@@ -303,9 +279,27 @@ function PlayButtonDisplay({
                 width: HEIGHT * 3,
                 x: topLeftGradientX,
                 y: topLeftGradientY,
-                scale: breatheScale,
+                scale: 0.7,
               } as any
             }
+            variants={{
+              animate: {
+                scale: [null, 0.7, 1],
+                transition: {
+                  type: 'easeInOut',
+                  duration: 21,
+                  repeat: Infinity,
+                  repeatType: 'reverse',
+                },
+              },
+              hover: {
+                scale: 1,
+                transition: {
+                  type: 'spring',
+                  ...buttonSpring,
+                },
+              },
+            }}
           />
           <GradientCircle
             style={
@@ -314,9 +308,27 @@ function PlayButtonDisplay({
                 width: HEIGHT * 3,
                 x: bottomRightGradientX,
                 y: bottomRightGradientY,
-                scale: breatheScale2,
+                scale: 1,
               } as any
             }
+            variants={{
+              animate: {
+                scale: [null, 1, 0.7],
+                transition: {
+                  type: 'easeInOut',
+                  duration: 28,
+                  repeat: Infinity,
+                  repeatType: 'reverse',
+                },
+              },
+              hover: {
+                scale: 1,
+                transition: {
+                  type: 'spring',
+                  ...buttonSpring,
+                },
+              },
+            }}
           />
         </PlayButtonBackground>
         {children}
