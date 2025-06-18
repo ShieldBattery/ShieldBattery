@@ -314,12 +314,12 @@ const chatHandlers = {
 }
 
 const EMPTY_CHAT = List()
-function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
+function chatReducer(lobbyInfo, lastLobbyInfo, state, action, nextLoading) {
   if (!lobbyInfo.name) {
     return EMPTY_CHAT
   }
   return Object.hasOwn(chatHandlers, action.type)
-    ? prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action))
+    ? prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action, nextLoading))
     : state
 }
 

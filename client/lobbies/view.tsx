@@ -38,7 +38,7 @@ import {
 } from './action-creators'
 import ActiveLobby from './active-lobby'
 import LoadingScreen from './loading'
-import Lobby from './lobby'
+import LobbyComponent from './lobby'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -167,6 +167,7 @@ function ConnectedLobby() {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const lobby = useAppSelector(s => s.lobby.info)
+  const loadingState = useAppSelector(s => s.lobby.loadingState)
   const chat = useAppSelector(s => s.lobby.chat)
 
   const onLeaveLobbyClick = useStableCallback(() => {
@@ -210,8 +211,9 @@ function ConnectedLobby() {
   })
 
   return (
-    <Lobby
+    <LobbyComponent
       lobby={lobby}
+      loadingState={loadingState}
       chat={chat}
       user={selfUser!}
       onLeaveLobbyClick={onLeaveLobbyClick}

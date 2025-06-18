@@ -3,7 +3,7 @@ import { Component } from 'react'
 import { Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
-import Lobby from '../lobby'
+import LobbyComponent from '../lobby'
 import { LobbyInfo } from '../lobby-reducer.js'
 
 const SLOTS = new List([
@@ -52,7 +52,12 @@ export default class LobbyTest extends Component {
     return (
       <div key={lobby.name} style={containerStyle}>
         <div key={lobby.name} style={scaledStyle}>
-          <Lobby lobby={lobby} user={USER} chat={new List()} onSendChatMessage={() => null} />
+          <LobbyComponent
+            lobby={lobby}
+            user={USER}
+            chat={new List()}
+            onSendChatMessage={() => null}
+          />
         </div>
       </div>
     )

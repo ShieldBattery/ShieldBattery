@@ -12,6 +12,7 @@ import {
   findSlotByName,
   hasOpposingSides,
   isUms,
+  Lobby,
   Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
@@ -41,7 +42,7 @@ import {
   SelfJoinLobbyMessage,
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
-import { LobbyInfo } from './lobby-reducer'
+import { LobbyLoadingState } from './lobby-reducer'
 import OpenSlot from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
@@ -174,7 +175,8 @@ function turnRateToLabel(turnRate: BwTurnRate | 0 | undefined, t: WithTranslatio
 }
 
 interface LobbyProps {
-  lobby: LobbyInfo
+  lobby: Lobby
+  loadingState: LobbyLoadingState
   chat: List<SbMessage>
   user: ReadonlyDeep<SelfUser>
   onLeaveLobbyClick: () => void
@@ -192,7 +194,7 @@ interface LobbyProps {
   onStartGame: () => void
 }
 
-class Lobby extends React.Component<LobbyProps & WithTranslation> {
+class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   getTeamSlots(team: Team, isObserver: boolean, isLobbyUms: boolean) {
     const {
       lobby,
@@ -338,7 +340,7 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
     const slots = []
     const obsSlots = []
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
-      const currentTeam = lobby.teams.get(teamIndex)
+      const currentTeam = lobby.teams.get(teamIndex)!
       const isObserver = currentTeam.isObserver
       const displayTeamName =
         (isTeamType(lobby.gameType) || isLobbyUms || isObserver) && currentTeam.slots.size !== 0
@@ -400,21 +402,21 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
   }
 
   renderCountdown() {
-    const { lobby } = this.props
-    if (!lobby.isCountingDown) {
+    const { loadingState } = this.props
+    if (!loadingState.isCountingDown) {
       return null
     }
 
-    return <Countdown>{lobby.countdownTimer}</Countdown>
+    return <Countdown>{loadingState.countdownTimer}</Countdown>
   }
 
   renderStartButton() {
-    const { lobby, user, onStartGame, t } = this.props
+    const { lobby, user, onStartGame, loadingState, t } = this.props
     if (!user || lobby.host.name !== user.name) {
       return null
     }
 
-    const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
+    const isDisabled = loadingState.isCountingDown || !hasOpposingSides(lobby)
     return (
       <StartButton
         label={t('lobbies.lobby.startGame', 'Start game')}
@@ -425,4 +427,4 @@ class Lobby extends React.Component<LobbyProps & WithTranslation> {
   }
 }
 
-export default withTranslation()(Lobby)
+export default withTranslation()(LobbyComponent)
