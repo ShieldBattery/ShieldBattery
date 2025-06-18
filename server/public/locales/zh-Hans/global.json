@@ -489,9 +489,6 @@
             "gameStarting": "游戏正在开始……",
             "playerVsPlayer": "对"
         },
-        "navEntry": {
-            "matchFound": "匹配成功！"
-        },
         "activity": {
             "title": "匹配"
         }
@@ -833,11 +830,9 @@
     },
     "navigation": {
         "leftNav": {
-            "customGame": "自定义游戏",
             "whispers": "私聊",
             "chatChannels": "聊天频道",
             "logOut": "登出",
-            "rankedGame": "{{matchmakingType}}排位",
             "viewProfile": "查看资料",
             "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
             "reportBug": "反馈 bug",
@@ -858,7 +853,6 @@
             "appMenu": "菜单",
             "home": "首页",
             "play": "播放",
-            "playIngame": "游戏正在进行中",
             "userMenu": "用户菜单"
         }
     },

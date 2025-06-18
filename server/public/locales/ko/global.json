@@ -474,9 +474,6 @@
             "seconds": "초",
             "title": "매치메이킹 비활성화됨"
         },
-        "navEntry": {
-            "matchFound": "매치가 잡혔습니다!"
-        },
         "postMatchDialog": {
             "leagues": "리그",
             "matchmaking": "매치메이킹",
@@ -901,9 +898,7 @@
         },
         "leftNav": {
             "chatChannels": "채팅 채널",
-            "customGame": "사용자 게임",
             "logOut": "로그아웃",
-            "rankedGame": "{{matchmakingType}} 래더",
             "viewProfile": "프로필 보기",
             "whisperCloseError": "귓속말 세션을 종료하는 중 오류가 발생했습니다: {{errorMessage}}",
             "whispers": "귓속말",
@@ -915,8 +910,7 @@
             "userMenu": "사용자 메뉴",
             "appMenu": "메뉴",
             "home": "홈",
-            "play": "플레이",
-            "playIngame": "게임 진행 중"
+            "play": "플레이"
         }
     },
     "users": {

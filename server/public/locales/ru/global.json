@@ -457,9 +457,6 @@
             "gameStarting": "Игра начинается…",
             "playerVsPlayer": "против"
         },
-        "navEntry": {
-            "matchFound": "Матч найден!"
-        },
         "postMatchDialog": {
             "leagues": "Лиги",
             "matchmaking": "Матчмейкинг",
@@ -690,10 +687,8 @@
     "navigation": {
         "leftNav": {
             "logOut": "Выйти",
-            "rankedGame": "Рейтинг {{matchmakingType}}",
             "viewProfile": "Просмотреть профиль",
             "chatChannels": "Каналы чата",
-            "customGame": "Пользовательская игра",
             "whisperCloseError": "Ошибка при закрытии приватной переписки: {{errorMessage}}",
             "whispers": "Приватные сообщения",
             "reportBug": "Сообщить об ошибке",
@@ -713,7 +708,6 @@
         "bar": {
             "home": "Главная",
             "play": "Играть",
-            "playIngame": "Игра в процессе",
             "userMenu": "Меню пользователя",
             "appMenu": "Меню"
         }

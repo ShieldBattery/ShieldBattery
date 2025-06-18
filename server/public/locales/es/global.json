@@ -477,9 +477,6 @@
             "gameStarting": "Juego comenzando…",
             "playerVsPlayer": "contra"
         },
-        "navEntry": {
-            "matchFound": "¡Partido encontrado!"
-        },
         "postMatchDialog": {
             "leagues": "Ligas",
             "matchmaking": "Emparejamiento",
@@ -867,9 +864,7 @@
         },
         "leftNav": {
             "chatChannels": "Canales de chat",
-            "customGame": "Juego personalizado",
             "logOut": "Cerrar sesión",
-            "rankedGame": "Clasificado {{matchmakingType}}",
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "Susurros",
@@ -878,7 +873,6 @@
             "logOutErrorTitle": "Error al cerrar sesión"
         },
         "bar": {
-            "playIngame": "Juego en progreso",
             "home": "Hogar",
             "play": "Jugar",
             "userMenu": "Menú de usuario",

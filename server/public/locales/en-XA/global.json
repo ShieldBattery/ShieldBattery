@@ -484,9 +484,6 @@
             "gameStarting": "$🗡Game starting…🗡!",
             "playerVsPlayer": "$🗡vs🗡!"
         },
-        "navEntry": {
-            "matchFound": "$🗡Match found!🗡!"
-        },
         "postMatchDialog": {
             "leagues": "$🗡Leagues🗡!",
             "matchmaking": "$🗡Matchmaking🗡!",
@@ -862,9 +859,7 @@
         },
         "leftNav": {
             "chatChannels": "$🗡Chat channels🗡!",
-            "customGame": "$🗡Custom game🗡!",
             "logOut": "$🗡Log out🗡!",
-            "rankedGame": "$🗡Ranked {{matchmakingType}}🗡!",
             "viewProfile": "$🗡View profile🗡!",
             "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
             "whispers": "$🗡Whispers🗡!",
@@ -876,8 +871,7 @@
             "userMenu": "$🗡User menu🗡!",
             "play": "$🗡Play🗡!",
             "appMenu": "$🗡Menu🗡!",
-            "home": "$🗡Home🗡!",
-            "playIngame": "$🗡Game in progress🗡!"
+            "home": "$🗡Home🗡!"
         }
     },
     "notifications": {
