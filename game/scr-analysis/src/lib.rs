@@ -605,4 +605,16 @@ impl<'e> Analysis<'e> {
         out.extend(self.0.vtables_for_class(b".?AVHDWideConsole@@"));
         out
     }
+
+    pub fn order_harvest_gas(&mut self) -> Option<VirtualAddress> {
+        self.0.order_function(0x53)
+    }
+
+    pub fn move_unit(&mut self) -> Option<VirtualAddress> {
+        self.0.move_unit()
+    }
+
+    pub fn pathing(&mut self) -> Option<Operand<'e>> {
+        self.0.pathing()
+    }
 }

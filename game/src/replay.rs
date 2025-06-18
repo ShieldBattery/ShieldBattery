@@ -22,7 +22,9 @@ pub const SECTION_ID: u32 = 0x74616253; // Sbat
 // 2: Replay has UMS user selectable slots saved correctly
 //      Was broken in SB replays before that; we don't currently do anything that
 //      would need to know this, but going to make it easy to tell if we do in future.
-pub const GAME_LOGIC_VERSION: u16 = 0x2;
+// 3: Has workaround for workers getting stuck in gas building if they managed to enter
+//      it while on unwalkable terrain (game_thread::order_harvest_gas)
+pub const GAME_LOGIC_VERSION: u16 = 0x3;
 
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],
@@ -83,7 +85,7 @@ pub unsafe fn add_shieldbattery_data(
     //      Shieldbattery ids; Same order as ingame players (Which are saved in BW's replay
     //      header, though there are 12 of them)
     // --- Format version 1 ---
-    // 0x56     u16 game_logic_version (2)
+    // 0x56     u16 game_logic_version (GAME_LOGIC_VERSION)
     let game = unsafe { bw.game() };
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;

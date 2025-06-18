@@ -1,5 +1,7 @@
 //! Hooks and other code that is running on the game/main thread (As opposed to async threads).
 
+mod pathing;
+
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -614,4 +616,113 @@ pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit
             }
         }
     }
+}
+
+pub fn sb_game_logic_version() -> u16 {
+    if is_replay() {
+        sbat_replay_data()
+            .map(|x| x.game_logic_version)
+            .unwrap_or(0)
+    } else {
+        replay::GAME_LOGIC_VERSION
+    }
+}
+
+pub unsafe fn order_harvest_gas(
+    bw: &BwScr,
+    unit: *mut bw::Unit,
+    orig: unsafe extern "C" fn(*mut bw::Unit),
+) {
+    // Fix a rare issue where the worker won't not be able to exit a gas building
+    // if it managed to enter it while on unwalkable terrain.
+    //
+    // This should be very rare as BW doesn't usually let ground units to move on unwalkable
+    // terrain.
+    if sb_game_logic_version() >= 3 {
+        if let Some(unit) = Unit::from_ptr(unit) {
+            // Check if unit is about to try exiting gas building on this step.
+            if unit.order_state() == 5 && (**unit).order_timer == 0 {
+                let game = bw_dat::Game::from_ptr(bw.game());
+                let pathing = bw.pathing();
+                let pos = unit.position();
+                if pathing::is_at_unwalkable_region(pathing, &pos) {
+                    debug!(
+                        "Fixing gas worker position at {}, {}, during step {}",
+                        pos.x,
+                        pos.y,
+                        game.frame_count(),
+                    );
+                    if let Some(new_pos) =
+                        find_walkable_position_for_gas_worker(game, pathing, unit)
+                    {
+                        debug!("Moved gas worker to {}, {}", new_pos.x, new_pos.y);
+                        bw.move_unit(unit, &new_pos);
+                    }
+                }
+            }
+        }
+    }
+    orig(unit)
+}
+
+fn find_walkable_position_for_gas_worker(
+    game: bw_dat::Game,
+    pathing: *mut bw::Pathing,
+    unit: Unit,
+) -> Option<bw::Point> {
+    // Note: Using gas position as a starting point.
+    // Moving the worker on top of gas building is fine, BW's unit placement algorithm
+    // will find an empty spot from there as long as the starting position is walkable.
+    let pos = unit.target()?.position();
+
+    // BW tile walkability is in 8x8 pixel tile precision. Gas buildings are 128x64 pixels large,
+    // and their position should be in middle at (64, 32), so searching [-72, +72] x range,
+    // [-40, 40] y range should cover every possible tile at gas, and one tile around
+    // them, in case the gas is entirely at unwalkable terrain.
+    //
+    // (This offset list was sorted to place x = 72 and y = 40 offsets last, and after than that
+    // sorted by distance from (0, 0).
+    #[rustfmt::skip]
+    static SEARCH_OFFSETS: &[(i16, i16)] = &[
+        (0, 0), (-8, 0), (0, -8), (0, 8), (8, 0), (-8, -8), (-8, 8), (8, -8), (8, 8), (-16, 0),
+        (0, -16), (0, 16), (16, 0), (-16, -8), (-16, 8), (-8, -16), (-8, 16), (8, -16), (8, 16),
+        (16, -8), (16, 8), (-16, -16), (-16, 16), (16, -16), (16, 16), (-24, 0), (0, -24), (0, 24),
+        (24, 0), (-24, -8), (-24, 8), (-8, -24), (-8, 24), (8, -24), (8, 24), (24, -8), (24, 8),
+        (-24, -16), (-24, 16), (-16, -24), (-16, 24), (16, -24), (16, 24), (24, -16), (24, 16),
+        (-32, 0), (0, -32), (0, 32), (32, 0), (-32, -8), (-32, 8), (-8, -32), (-8, 32), (8, -32),
+        (8, 32), (32, -8), (32, 8), (-24, -24), (-24, 24), (24, -24), (24, 24), (-32, -16),
+        (-32, 16), (-16, -32), (-16, 32), (16, -32), (16, 32), (32, -16), (32, 16), (-40, 0),
+        (-32, -24), (-32, 24), (-24, -32), (-24, 32), (24, -32), (24, 32), (32, -24), (32, 24),
+        (40, 0), (-40, -8), (-40, 8), (40, -8), (40, 8), (-40, -16), (-40, 16), (40, -16),
+        (40, 16), (-32, -32), (-32, 32), (32, -32), (32, 32), (-40, -24), (-40, 24), (40, -24),
+        (40, 24), (-48, 0), (48, 0), (-48, -8), (-48, 8), (48, -8), (48, 8), (-48, -16), (-48, 16),
+        (48, -16), (48, 16), (-40, -32), (-40, 32), (40, -32), (40, 32), (-48, -24), (-48, 24),
+        (48, -24), (48, 24), (-56, 0), (56, 0), (-56, -8), (-56, 8), (56, -8), (56, 8), (-48, -32),
+        (-48, 32), (48, -32), (48, 32), (-56, -16), (-56, 16), (56, -16), (56, 16), (-56, -24),
+        (-56, 24), (56, -24), (56, 24), (-64, 0), (64, 0), (-64, -8), (-64, 8), (-56, -32),
+        (-56, 32), (56, -32), (56, 32), (64, -8), (64, 8), (-64, -16), (-64, 16), (64, -16),
+        (64, 16), (-64, -24), (-64, 24), (64, -24), (64, 24), (-64, -32), (-64, 32), (64, -32),
+        (64, 32),
+
+        (0, -40), (0, 40), (-8, -40), (-8, 40), (8, -40), (8, 40), (-16, -40), (-16, 40),
+        (16, -40), (16, 40), (-24, -40), (-24, 40), (24, -40), (24, 40), (-32, -40), (-32, 40),
+        (32, -40), (32, 40), (-40, -40), (-40, 40), (40, -40), (40, 40), (-48, -40), (-48, 40),
+        (48, -40), (48, 40), (-56, -40), (-56, 40), (56, -40), (56, 40), (-72, 0), (72, 0),
+        (-72, -8), (-72, 8), (72, -8), (72, 8), (-72, -16), (-72, 16), (72, -16), (72, 16),
+        (-64, -40), (-64, 40), (64, -40), (64, 40), (-72, -24), (-72, 24), (72, -24), (72, 24),
+        (-72, -32), (-72, 32), (72, -32), (72, 32), (-72, -40), (-72, 40), (72, -40), (72, 40)
+    ];
+    SEARCH_OFFSETS.iter().find_map(|offset| {
+        let pos = bw::Point {
+            x: pos.x.checked_add(offset.0)?,
+            y: pos.y.checked_add(offset.1)?,
+        };
+        if pathing::is_outside_map_coords(game, &pos) {
+            return None;
+        }
+        if pathing::is_at_unwalkable_region(pathing, &pos) {
+            return None;
+        }
+        Some(pos)
+    })
 }

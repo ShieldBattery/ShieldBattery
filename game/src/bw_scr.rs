@@ -57,6 +57,7 @@ pub struct BwScr {
     game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
     chk_players: Value<*mut bw::Player>,
+    pathing: Value<*mut bw::Pathing>,
     init_chk_player_types: Value<*mut u8>,
     storm_players: Value<*mut scr::StormPlayer>,
     storm_player_flags: Value<*mut u32>,
@@ -175,6 +176,7 @@ pub struct BwScr {
     // select_units(amount, pointers, bool, bool)
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
+    move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -186,6 +188,7 @@ pub struct BwScr {
     step_game: VirtualAddress,
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
+    order_harvest_gas: VirtualAddress,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<VirtualAddress>,
     prism_renderer_vtable: VirtualAddress,
@@ -626,6 +629,7 @@ impl BwScr {
         let game = analysis.game().ok_or("Game")?;
         let game_data = analysis.game_data().ok_or("Game Data")?;
         let players = analysis.players().ok_or("Players")?;
+        let pathing = analysis.pathing().ok_or("Pathing")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
         let init_chk_player_types = analysis
             .original_chk_player_types()
@@ -698,6 +702,7 @@ impl BwScr {
         let step_replay_commands = analysis
             .step_replay_commands()
             .ok_or("step_replay_commands")?;
+        let order_harvest_gas = analysis.order_harvest_gas().ok_or("order_harvest_gas")?;
 
         let prism_pixel_shaders = analysis
             .prism_pixel_shaders()
@@ -812,6 +817,7 @@ impl BwScr {
         let update_game_screen_size = analysis
             .update_game_screen_size()
             .ok_or("update_game_screen_size")?;
+        let move_unit = analysis.move_unit().ok_or("move_unit")?;
         let get_render_target = analysis.get_render_target().ok_or("get_render_target")?;
         let load_consoles = analysis.load_consoles().ok_or("load_consoles")?;
         let init_consoles = analysis.init_consoles().ok_or("init_consoles")?;
@@ -860,6 +866,7 @@ impl BwScr {
             game_data: Value::new(ctx, game_data),
             players: Value::new(ctx, players),
             chk_players: Value::new(ctx, chk_players),
+            pathing: Value::new(ctx, pathing),
             init_chk_player_types: Value::new(ctx, init_chk_player_types),
             storm_players: Value::new(ctx, storm_players),
             storm_player_flags: Value::new(ctx, storm_player_flags),
@@ -955,6 +962,7 @@ impl BwScr {
             get_render_target: unsafe { mem::transmute(get_render_target.0) },
             load_consoles: Thiscall::foreign(load_consoles.0 as usize),
             init_consoles: Thiscall::foreign(init_consoles.0 as usize),
+            move_unit: Thiscall::foreign(move_unit.0 as usize),
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
             load_snp_list,
@@ -965,6 +973,7 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             step_replay_commands,
+            order_harvest_gas,
             step_game,
             step_io,
             init_game_data,
@@ -1354,6 +1363,14 @@ impl BwScr {
                 StepReplayCommands,
                 |orig| {
                     game_thread::step_replay_commands(orig);
+                },
+                address,
+            );
+            let address = self.order_harvest_gas.0 as usize - base;
+            exe.hook_closure_address(
+                OrderFn,
+                |unit, orig| {
+                    game_thread::order_harvest_gas(self, unit, orig);
                 },
                 address,
             );
@@ -1905,6 +1922,10 @@ impl BwScr {
         }
     }
 
+    pub unsafe fn move_unit(&self, unit: Unit, pos: &bw::Point) {
+        self.move_unit.call3(*unit, pos.x as i32, pos.y as i32)
+    }
+
     unsafe fn update_nation_and_human_ids(&self) {
         unsafe {
             let net_player_to_game = self.net_player_to_game.resolve();
@@ -2276,6 +2297,10 @@ impl BwScr {
     /// caller.
     pub fn trigger_game_results_sent(&self) -> bool {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
+    }
+
+    pub fn pathing(&self) -> *mut bw::Pathing {
+        unsafe { self.pathing.resolve() }
     }
 }
 
@@ -3381,6 +3406,7 @@ mod hooks {
             *mut c_void,
         ) -> usize;
         !0 => Console_HitTest(*mut scr::UiConsole, i32, i32) -> u8;
+        !0 => OrderFn(*mut bw::Unit);
     );
 
     #[cfg(target_arch = "x86")]
