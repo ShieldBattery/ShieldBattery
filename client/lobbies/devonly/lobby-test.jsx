@@ -1,10 +1,10 @@
 import { List, Range } from 'immutable'
 import { Component } from 'react'
-import { Team } from '../../../common/lobbies'
+import { Lobby, Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LobbyComponent from '../lobby'
-import { LobbyInfo } from '../lobby-reducer.js'
+import { LobbyLoadingState } from '../lobby-reducer'
 
 const SLOTS = new List([
   new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' }),
@@ -18,7 +18,7 @@ const SLOTS = new List([
 ])
 
 const LOBBIES = Range(2, 9).map(numSlots => {
-  return new LobbyInfo({
+  return new Lobby({
     name: `My ${numSlots}-slot Lobby`,
     map: FightingSpirit,
     gameType: 'melee',
@@ -56,6 +56,7 @@ export default class LobbyTest extends Component {
             lobby={lobby}
             user={USER}
             chat={new List()}
+            loadingState={new LobbyLoadingState()}
             onSendChatMessage={() => null}
           />
         </div>

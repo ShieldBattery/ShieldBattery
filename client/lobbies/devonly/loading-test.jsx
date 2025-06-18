@@ -1,10 +1,9 @@
 import { List } from 'immutable'
 import { Component } from 'react'
-import { Team } from '../../../common/lobbies'
+import { Lobby, Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LoadingScreen from '../loading'
-import { LobbyInfo } from '../lobby-reducer'
 
 const make = (state, extra) => ({
   state,
@@ -46,7 +45,7 @@ export default class LoadingTest extends Component {
 
   render() {
     const host = new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' })
-    const lobby = new LobbyInfo({
+    const lobby = new Lobby({
       name: 'This is just a test',
       map: FightingSpirit,
       gameType: 'melee',

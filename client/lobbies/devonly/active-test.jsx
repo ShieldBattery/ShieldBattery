@@ -1,11 +1,10 @@
 import { List } from 'immutable'
 import { Component } from 'react'
-import { Team } from '../../../common/lobbies'
+import { Lobby, Team } from '../../../common/lobbies'
 import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import { TabItem, Tabs } from '../../material/tabs'
 import ActiveLobby from '../active-lobby'
-import { LobbyInfo } from '../lobby-reducer'
 
 const TAB_MELEE = 0
 const TAB_TVB = 1
@@ -17,7 +16,7 @@ export default class ActiveTest extends Component {
 
   render() {
     const { activeTab } = this.state
-    const meleeLobby = new LobbyInfo({
+    const meleeLobby = new Lobby({
       map: FightingSpirit,
       gameType: 'melee',
       teams: new List([
@@ -33,7 +32,7 @@ export default class ActiveTest extends Component {
       ]),
       host: 'a',
     })
-    const tvbLobby = new LobbyInfo({
+    const tvbLobby = new Lobby({
       map: FightingSpirit,
       gameType: 'topVBottom',
       teams: new List([
