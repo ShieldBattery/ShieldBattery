@@ -715,7 +715,7 @@ fn find_walkable_position_for_gas_worker(
     SEARCH_OFFSETS.iter().find_map(|offset| {
         let pos = bw::Point {
             x: pos.x.checked_add(offset.0)?,
-            y: pos.y.checked_add(offset.0)?,
+            y: pos.y.checked_add(offset.1)?,
         };
         if pathing::is_outside_map_coords(game, &pos) {
             return None;
