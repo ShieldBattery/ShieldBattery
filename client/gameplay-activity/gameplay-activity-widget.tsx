@@ -1,7 +1,10 @@
 import { atom, useAtom } from 'jotai'
+import { AnimatePresence } from 'motion/react'
+import * as m from 'motion/react-m'
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { Except } from 'type-fest'
 import { useRoute } from 'wouter'
 import { slotCount, takenSlotCount } from '../../common/lobbies'
 import { urlPath } from '../../common/urls'
@@ -27,7 +30,8 @@ import {
   titleMedium,
 } from '../styles/typography'
 
-const gameplayActivityWidgetPositionAtom = atom<{ x: number; y: number }>({ x: 0, y: 0 })
+const widgetXAtom = atom(0)
+const widgetYAtom = atom(0)
 
 const PositioningArea = styled.div`
   position: fixed;
@@ -49,7 +53,8 @@ export function GameplayActivityWidget() {
 
   const positioningAreaRef = useRef<HTMLDivElement>(null)
   const widgetRef = useRef<HTMLDivElement>(null)
-  const [, setPosition] = useAtom(gameplayActivityWidgetPositionAtom)
+  const [x, setX] = useAtom(widgetXAtom)
+  const [y, setY] = useAtom(widgetYAtom)
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -76,7 +81,8 @@ export function GameplayActivityWidget() {
       const areaRect = positioningAreaRef.current.getBoundingClientRect()
       const x = e.clientX - areaRect.left - (dragOffset?.x ?? 0)
       const y = e.clientY - areaRect.top - (dragOffset?.y ?? 0)
-      setPosition({ x, y })
+      setX(x)
+      setY(y)
     }
     function onMouseUp() {
       setDragging(false)
@@ -87,29 +93,38 @@ export function GameplayActivityWidget() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [dragging, dragOffset, setPosition])
+  }, [dragging, dragOffset, setX, setY])
 
   let widget: React.ReactNode | undefined
   if (inLobby && !onLobbyRoute) {
-    widget = <LobbyWidget ref={widgetRef} onDragStart={onDragStart} />
+    widget = <LobbyWidget key='lobby' ref={widgetRef} onDragStart={onDragStart} />
   } else if (matchmakingSearchInfo) {
-    widget = <MatchmakingWidget ref={widgetRef} onDragStart={onDragStart} />
+    widget = <MatchmakingWidget key='matchmaking' ref={widgetRef} onDragStart={onDragStart} />
   }
 
   return (
     <Portal open={!!widget}>
-      <PositioningArea ref={positioningAreaRef}>{widget}</PositioningArea>
+      <PositioningArea
+        ref={positioningAreaRef}
+        style={
+          {
+            '--widget-left': `${x}px`,
+            '--widget-top': `${y}px`,
+          } as React.CSSProperties
+        }>
+        <AnimatePresence>{widget}</AnimatePresence>
+      </PositioningArea>
     </Portal>
   )
 }
 
-const WidgetRoot = styled.div`
+const WidgetRoot = styled(m.div)`
   ${containerStyles(ContainerLevel.High)};
   ${elevationPlus2};
 
   position: absolute;
-  left: var(--widget-left, 0px);
-  top: var(--widget-top, 0px);
+  left: clamp(0px, var(--widget-left, 0px), calc(100% - var(--_width, 0px)));
+  top: clamp(0px, var(--widget-top, 0px), calc(100% - var(--_height, 0px)));
   max-width: 280px;
 
   padding-block: 8px;
@@ -118,7 +133,7 @@ const WidgetRoot = styled.div`
   pointer-events: auto;
 `
 
-const WidgetTitleArea = styled.div<{ $hasPip?: boolean }>`
+const WidgetTitleArea = styled(m.div)<{ $hasPip?: boolean }>`
   position: relative;
   height: 24px;
   margin-bottom: 8px;
@@ -151,12 +166,21 @@ const WidgetTitleArea = styled.div<{ $hasPip?: boolean }>`
   }}
 `
 
+const InitialWash = styled(m.div)`
+  position: absolute;
+  inset: 0;
+
+  background-color: var(--theme-primary);
+  pointer-events: none;
+  z-index: 1;
+`
+
 const WidgetTitle = styled.div`
   ${titleMedium};
   ${singleLine};
 `
 
-const WidgetChildren = styled.div`
+const WidgetChildren = styled(m.div)`
   padding-inline: 8px;
 
   display: flex;
@@ -167,20 +191,15 @@ const WidgetChildren = styled.div`
 
 const DragHandle = styledWithAttrs(MaterialIcon, { icon: 'drag_indicator' })``
 
-function Widget({
-  ref,
-  title,
-  hasTitlePip = false,
-  onDragStart,
-  children,
-}: {
+interface WidgetProps {
   ref: React.Ref<HTMLDivElement>
   title: string
   hasTitlePip?: boolean
   onDragStart: (e: React.MouseEvent) => void
   children: React.ReactNode
-}) {
-  const [position] = useAtom(gameplayActivityWidgetPositionAtom)
+}
+
+function Widget({ ref, title, hasTitlePip = false, onDragStart, children, ...rest }: WidgetProps) {
   const [sizeRef, contentRect] = useObservedDimensions<HTMLDivElement>()
   const composedRef = useMultiplexRef(ref, sizeRef)
 
@@ -189,23 +208,55 @@ function Widget({
 
   return (
     <WidgetRoot
+      {...rest}
       ref={composedRef}
       style={
         {
-          '--widget-left': `clamp(0px, ${position.x}px, calc(100% - ${width}px))`,
-          '--widget-top': `clamp(0px, ${position.y}px, calc(100% - ${height}px))`,
+          '--_width': `${width}px`,
+          '--_height': `${height}px`,
         } as React.CSSProperties
-      }>
-      <WidgetTitleArea onMouseDown={onDragStart} style={{ cursor: 'move' }} $hasPip={hasTitlePip}>
+      }
+      layout='size'
+      initial='initial'
+      animate='animate'
+      exit='exit'
+      variants={{
+        initial: { clipPath: 'circle(0% at center center)', opacity: 1, pointerEvents: 'none' },
+        animate: {
+          clipPath: 'circle(100% at center center)',
+          opacity: 1,
+          pointerEvents: 'auto',
+          transition: {
+            type: 'spring',
+            duration: 0.6,
+            bounce: 0,
+          },
+        },
+        exit: {
+          clipPath: 'circle(100% at center center)',
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: { type: 'spring', duration: 0.3, bounce: 0 },
+        },
+      }}>
+      <WidgetTitleArea
+        layout='size'
+        onMouseDown={onDragStart}
+        style={{ cursor: 'move' }}
+        $hasPip={hasTitlePip}>
         <DragHandle />
         <WidgetTitle>{title}</WidgetTitle>
       </WidgetTitleArea>
-      <WidgetChildren>{children}</WidgetChildren>
+      <WidgetChildren layout='size'>{children}</WidgetChildren>
+      <InitialWash
+        variants={{ initial: { opacity: 1 }, animate: { opacity: 0 } }}
+        transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+      />
     </WidgetRoot>
   )
 }
 
-type WidgetContainerProps = Omit<React.ComponentProps<typeof Widget>, 'children' | 'title'>
+type WidgetContainerProps = Except<WidgetProps, 'children' | 'title'>
 
 const LobbyInfo = styled.div`
   display: grid;
