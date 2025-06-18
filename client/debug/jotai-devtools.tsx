@@ -3,15 +3,8 @@ import { DevTools } from 'jotai-devtools'
 import 'jotai-devtools/styles.css'
 import keycode from 'keycode'
 import { useEffect, useState } from 'react'
-import { createGlobalStyle } from 'styled-components'
 
 const I = keycode('i')
-
-const ShowHideStyle = createGlobalStyle`
-  #jotai-devtools-root {
-    display: var(--jotai-devtools-display, unset) !important;
-  }
-`
 
 export function JotaiDevTools() {
   const [show, setShow] = useState(false)
@@ -31,19 +24,12 @@ export function JotaiDevTools() {
     }
   }, [])
 
-  useEffect(() => {
-    document.documentElement.style.setProperty('--jotai-devtools-display', show ? 'unset' : 'none')
-  }, [show])
-
-  return (
-    <>
-      <ShowHideStyle />
-      <DevTools
-        store={store}
-        nonce={(window as any).SB_CSP_NONCE}
-        options={{ snapshotHistoryLimit: 30 }}
-        isInitialOpen={true}
-      />
-    </>
-  )
+  return show ? (
+    <DevTools
+      store={store}
+      nonce={(window as any).SB_CSP_NONCE}
+      options={{ snapshotHistoryLimit: 30 }}
+      isInitialOpen={true}
+    />
+  ) : null
 }
