@@ -1206,5 +1206,16 @@
     },
     "network": {
         "notConnectedText": "$🗡Not connected🗡!"
+    },
+    "gameplayActivity": {
+        "lobby": {
+            "slotCount": "$🗡{{takenSlots}} / {{totalSlots}}🗡!",
+            "slotsLabel": "$🗡Slots:🗡!",
+            "viewLobby": "$🗡View lobby🗡!"
+        },
+        "matchmaking": {
+            "matchFound": "$🗡Match found!🗡!",
+            "searching": "$🗡Searching for a match…🗡!"
+        }
     }
 }

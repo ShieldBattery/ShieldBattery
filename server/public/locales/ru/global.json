@@ -1212,5 +1212,16 @@
     },
     "network": {
         "notConnectedText": "Не подключен"
+    },
+    "gameplayActivity": {
+        "lobby": {
+            "slotsLabel": "Слоты:",
+            "viewLobby": "Просмотреть лобби",
+            "slotCount": "{{takenSlots}} / {{totalSlots}}"
+        },
+        "matchmaking": {
+            "searching": "Поиск матча…",
+            "matchFound": "Матч найден"
+        }
     }
 }

@@ -1200,5 +1200,16 @@
     },
     "network": {
         "notConnectedText": "연결되지 않음"
+    },
+    "gameplayActivity": {
+        "lobby": {
+            "slotCount": "{{takenSlots}} / {{totalSlots}}",
+            "slotsLabel": "슬롯:",
+            "viewLobby": "로비 보기"
+        },
+        "matchmaking": {
+            "searching": "경기를 찾는 중…",
+            "matchFound": "일치 항목을 찾았습니다"
+        }
     }
 }

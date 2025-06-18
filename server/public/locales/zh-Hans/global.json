@@ -1200,5 +1200,16 @@
     },
     "network": {
         "notConnectedText": "未连接"
+    },
+    "gameplayActivity": {
+        "lobby": {
+            "slotCount": "{{takenSlots}} / {{totalSlots}}",
+            "slotsLabel": "位置：",
+            "viewLobby": "查看房间"
+        },
+        "matchmaking": {
+            "searching": "正在寻找比赛…",
+            "matchFound": "已找到对手"
+        }
     }
 }

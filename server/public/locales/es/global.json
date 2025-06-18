@@ -1212,5 +1212,16 @@
     },
     "network": {
         "notConnectedText": "No conectado"
+    },
+    "gameplayActivity": {
+        "lobby": {
+            "slotsLabel": "Espacios:",
+            "viewLobby": "Ver lobby",
+            "slotCount": "{{takenSlots}} / {{totalSlots}}"
+        },
+        "matchmaking": {
+            "searching": "Buscando un partido…",
+            "matchFound": "Partido encontrado"
+        }
     }
 }
