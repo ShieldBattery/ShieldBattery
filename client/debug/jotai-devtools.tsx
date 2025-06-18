@@ -12,7 +12,7 @@ export function JotaiDevTools() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.keyCode === I && event.ctrlKey) {
+      if (event.keyCode === I && event.ctrlKey && !event.shiftKey) {
         setShow(s => !s)
       }
     }
