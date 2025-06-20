@@ -1,14 +1,11 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { BasicChannelInfo } from '../../common/chat'
-import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
+import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
-import { MapExtension, MapInfoJson } from '../../common/maps'
-import { BwTurnRate, BwUserLatency } from '../../common/network'
+import { LobbyEvent } from '../../common/lobbies/lobby-network'
+import { MapInfoJson } from '../../common/maps'
 import { urlPath } from '../../common/urls'
-import { SbUser } from '../../common/users/sb-user'
-import { SbUserId } from '../../common/users/sb-user-id'
 import {
   LOBBIES_COUNT_UPDATE,
   LOBBIES_LIST_UPDATE,
@@ -79,160 +76,6 @@ function clearCountdownTimer(leaveAtmosphere = false) {
   }
 }
 
-type LobbyEvent =
-  | LobbyInitEvent
-  | LobbyDiffEvent
-  | LobbySlotCreateEvent
-  | LobbyRaceChangeEvent
-  | LobbyLeaveEvent
-  | LobbyKickEvent
-  | LobbyBanEvent
-  | LobbyHostChangeEvent
-  | LobbySlotChangeEvent
-  | LobbySlotDeletedEvent
-  | LobbyStartCountdownEvent
-  | LobbyCancelCountdownEvent
-  | LobbySetupGameEvent
-  | LobbySetRoutesEvent
-  | LobbyStartWhenReadyEvent
-  | LobbyCancelLoadingEvent
-  | LobbyGameStartedEvent
-  | LobbyChatEvent
-  | LobbyStatusEvent
-
-interface LobbyUser {
-  id: SbUserId
-  name: string
-}
-
-interface LobbyInitEvent {
-  type: 'init'
-  // TODO(tec27): actually type this
-  lobby: {
-    map: {
-      hash: string
-      mapData: {
-        format: MapExtension
-      }
-      mapUrl: string
-    }
-  }
-  /** An array of infos for all users that were in the lobby at this point. */
-  userInfos: LobbyUser[]
-}
-
-interface LobbyDiffEvent {
-  type: 'diff'
-  diffEvents: LobbyEvent[]
-}
-
-interface LobbySlotCreateEvent {
-  type: 'slotCreate'
-  // TODO(tec27): actually type this
-  slot: {
-    type: 'human' | 'computer'
-  }
-  /** In case a human slot was created, this field will contain their properties, e.g. name. */
-  userInfo?: LobbyUser
-}
-
-interface LobbyRaceChangeEvent {
-  type: 'raceChange'
-}
-
-interface LobbyLeaveEvent {
-  type: 'leave'
-  player: {
-    name: string
-  }
-}
-
-interface LobbyKickEvent {
-  type: 'kick'
-  player: {
-    name: string
-  }
-}
-
-interface LobbyBanEvent {
-  type: 'ban'
-  player: {
-    name: string
-  }
-}
-
-interface LobbyHostChangeEvent {
-  type: 'hostChange'
-  host: any
-}
-
-interface LobbySlotChangeEvent {
-  type: 'slotChange'
-}
-
-interface LobbySlotDeletedEvent {
-  type: 'slotDeleted'
-}
-
-interface LobbyStartCountdownEvent {
-  type: 'startCountdown'
-}
-
-interface LobbyCancelCountdownEvent {
-  type: 'cancelCountdown'
-}
-
-interface LobbySetupGameEvent {
-  type: 'setupGame'
-  setup: {
-    gameId: string
-    seed: number
-    turnRate?: BwTurnRate | 0
-    userLatency?: BwUserLatency
-    useLegacyLimits?: boolean
-  }
-  // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
-  // that should be handled differently?
-  resultCode?: string
-}
-
-interface LobbySetRoutesEvent {
-  type: 'setRoutes'
-  gameId: string
-  routes: GameRoute[]
-}
-
-interface LobbyStartWhenReadyEvent {
-  type: 'startWhenReady'
-  gameId: string
-}
-
-interface LobbyCancelLoadingEvent {
-  type: 'cancelLoading'
-}
-
-interface LobbyGameStartedEvent {
-  type: 'gameStarted'
-}
-
-interface LobbyChatMessage {
-  lobbyName: string
-  time: number
-  from: SbUserId
-  text: string
-}
-
-interface LobbyChatEvent {
-  type: 'chat'
-  message: LobbyChatMessage
-  mentions: SbUser[]
-  channelMentions: BasicChannelInfo[]
-}
-
-interface LobbyStatusEvent {
-  type: 'status'
-}
-
 type EventToActionMap = {
   [E in LobbyEvent['type']]: (
     lobbyName: string,
@@ -288,8 +131,8 @@ const eventToAction: EventToActionMap = {
   leave: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.self!.user.name
-    if (user === event.player.name) {
+    const user = auth.self!.user.id
+    if (user === event.player.userId) {
       // The leaver was me all along!!!
       clearCountdownTimer()
       dispatch({
@@ -306,8 +149,8 @@ const eventToAction: EventToActionMap = {
   kick: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.self!.user.name
-    if (user === event.player.name) {
+    const user = auth.self!.user.id
+    if (user === event.player.userId) {
       // We have been kicked from a lobby
       clearCountdownTimer()
       externalShowSnackbar(i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'))
@@ -325,8 +168,8 @@ const eventToAction: EventToActionMap = {
   ban: (name, event) => (dispatch, getState) => {
     const { auth } = getState()
 
-    const user = auth.self!.user.name
-    if (user === event.player.name) {
+    const user = auth.self!.user.id
+    if (user === event.player.userId) {
       // It was us who have been banned from a lobby (shame on us!)
       clearCountdownTimer()
       externalShowSnackbar(i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'))
@@ -545,7 +388,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/lobbies/:lobby', lobbyHandler)
-  siteSocket.registerRoute('/lobbies/:lobby/:playerName', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobby/:userId', lobbyHandler)
   siteSocket.registerRoute('/lobbies/:lobby/:userId/:clientId', lobbyHandler)
 
   siteSocket.registerRoute('/lobbies', (route, event) => {

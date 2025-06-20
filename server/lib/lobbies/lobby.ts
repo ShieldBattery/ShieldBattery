@@ -18,6 +18,7 @@ import {
   takenSlotCount,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
+import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import {
   Slot,
   SlotType,
@@ -29,7 +30,7 @@ import {
   createOpen,
   createUmsComputer,
 } from '../../../common/lobbies/slot'
-import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps'
+import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -87,13 +88,13 @@ export function getSlotsPerTeam(
  * Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the open
  * lobbies.
  */
-export function toSummaryJson(lobby: Lobby) {
+export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
   return {
     name: lobby.name,
-    map: lobby.map,
+    map: toMapInfoJson(lobby.map!),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
-    host: { name: lobby.host.name, id: lobby.host.id },
+    host: { name: lobby.host.name, id: lobby.host.userId },
     openSlotCount: openSlotCount(lobby),
   }
 }
@@ -102,11 +103,13 @@ export function toSummaryJson(lobby: Lobby) {
  * Finds the next available slot in the lobby (ie. `open` or `controlledOpen` slot type).
  *
  * @returns the `[teamIndex, slotIndex, slot]` tuple of the available slot if found. If there are no
- * available slots, it returns a [-1, -1, undefined] tuple.
+ * available slots, it returns a [undefined, undefined, undefined] tuple.
  */
 export function findAvailableSlot(
   lobby: Lobby,
-): [teamIndex: number, slotIndex: number, slot: Slot | undefined] {
+):
+  | [teamIndex: undefined, slotIndex: undefined, slot: undefined]
+  | [teamIndex: number, slotIndex: number, slot: Slot] {
   const slotsCount = slotCount(lobby)
   const takenCount = takenSlotCount(lobby)
   if (slotsCount <= takenCount) {
@@ -117,11 +120,11 @@ export function findAvailableSlot(
       // Find the first available slot in the observer team
       const slotIndex = observerTeam!.slots.findIndex(slot => slot.type === SlotType.Open)
       return slotIndex !== -1
-        ? [teamIndex!, slotIndex, observerTeam!.slots.get(slotIndex)]
-        : [-1, -1, undefined]
+        ? [teamIndex!, slotIndex, observerTeam!.slots.get(slotIndex)!]
+        : [undefined, undefined, undefined]
     } else {
       // There is no available slot in the lobby
-      return [-1, -1, undefined]
+      return [undefined, undefined, undefined]
     }
   }
 
@@ -148,7 +151,7 @@ export function findAvailableSlot(
   const slotIndex = team.slots.findIndex(
     slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
   )
-  return [teamIndex, slotIndex, team.slots.get(slotIndex)]
+  return [teamIndex, slotIndex, team.slots.get(slotIndex)!]
 }
 
 function createInitialTeams(

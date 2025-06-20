@@ -98,7 +98,12 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [isActiveGame, prevGameClientGameId, prevIsActiveGame])
 
+  const isConnected = useAppSelector(s => s.network.isConnected)
   useEffect(() => {
+    if (!isConnected) {
+      return () => {}
+    }
+
     dispatch(getLobbyState(routeLobby))
 
     if (inLobby) {
@@ -108,7 +113,7 @@ export function LobbyView(props: LobbyViewProps) {
     return () => {
       dispatch(deactivateLobby() as any)
     }
-  }, [dispatch, inLobby, routeLobby])
+  }, [dispatch, inLobby, routeLobby, isConnected])
 
   if (!isLoggedIn) {
     redirectToLogin()

@@ -16,8 +16,8 @@ export function isValidGameType(type: string): boolean {
   return ALL_GAME_TYPES.includes(type as GameType)
 }
 
-export function isValidGameSubType(type?: number | null): boolean {
-  return type === null || type === undefined || (type >= 1 && type <= 7)
+export function isValidGameSubType(type?: number): boolean {
+  return type === undefined || (type >= 1 && type <= 7)
 }
 
 export function gameTypeToLabel(gameType: GameType, t: TFunction): string {

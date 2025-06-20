@@ -1,12 +1,14 @@
 import errors from 'http-errors'
-import { List, Map, Record, Set } from 'immutable'
+import { Map, Record, Set } from 'immutable'
+import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
 import CancelToken from '../../../common/async/cancel-token'
-import createDeferred from '../../../common/async/deferred'
+import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
-import { GameSource } from '../../../common/games/configuration'
-import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
+import { GameRoute } from '../../../common/game-launch-config'
+import { GameConfig, GameSource } from '../../../common/games/configuration'
+import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
   findSlotById,
   findSlotByName,
@@ -16,39 +18,51 @@ import {
   getObserverTeam,
   hasOpposingSides,
   isUms,
+  Lobby,
 } from '../../../common/lobbies'
+import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import * as Slots from '../../../common/lobbies/slot'
-import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
+import { Slot } from '../../../common/lobbies/slot'
+import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/network'
+import { urlPath } from '../../../common/urls'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
-import { GameLoader } from '../games/game-loader'
+import { GameLoader, GameSetupGameInfo } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
+import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import {
+  ClientSocketsGroup,
+  ClientSocketsManager,
+  UserSocketsGroup,
+  UserSocketsManager,
+} from '../websockets/socket-groups'
 import validateBody from '../websockets/validate-body'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
-const nonEmptyString = str => typeof str === 'string' && str.length > 0
+const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
 
-const isValidTurnRate = number =>
-  number === undefined || number === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(number)
+const isValidTurnRate = (num: unknown) =>
+  num === undefined || num === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(num as BwTurnRate)
 
-const Countdown = Record({
-  timer: null,
-})
+class Countdown extends Record({
+  timer: undefined as Deferred<void> | undefined,
+}) {}
 
-const ListSubscription = Record({
-  onUnsubscribe: null,
+class ListSubscription extends Record({
+  onUnsubscribe: undefined as (() => void) | undefined,
   count: 0,
-})
+}) {}
 
-function checkSubTypeValidity(gameType, gameSubType = 0, numSlots) {
+function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSlots: number) {
   if (gameType === 'topVBottom') {
     if (gameSubType < 1 || gameSubType > numSlots - 1) {
       throw new errors.BadRequest('Invalid game sub-type')
@@ -64,29 +78,34 @@ const MOUNT_BASE = '/lobbies'
 
 @Mount(MOUNT_BASE)
 export class LobbyApi {
-  constructor(nydus, userSockets, clientSockets) {
-    this.nydus = nydus
-    this.userSockets = userSockets
-    this.clientSockets = clientSockets
-    this.activityRegistry = container.resolve(GameplayActivityRegistry)
-    this.gameLoader = container.resolve(GameLoader)
-    this.lobbies = new Map()
-    this.lobbyClients = new Map()
-    this.lobbyBannedUsers = new Map()
-    this.lobbyCountdowns = new Map()
-    this.loadingLobbies = new Map()
-    this.subscribedSockets = new Map()
+  readonly activityRegistry = container.resolve(GameplayActivityRegistry)
+  readonly gameLoader = container.resolve(GameLoader)
 
+  lobbies = Map<string, Lobby>()
+  lobbyClients = Map<ClientSocketsGroup, string>()
+  lobbyBannedUsers = Map<string, Set<SbUserId>>()
+  lobbyCountdowns = Map<string, Countdown>()
+  loadingLobbies = Map<string, string>()
+  subscribedSockets = Map<string, ListSubscription>()
+
+  constructor(
+    readonly nydus: NydusServer,
+    readonly userSockets: UserSocketsManager,
+    readonly clientSockets: ClientSocketsManager,
+  ) {
     this.clientSockets.on('newClient', client => {
       client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
     })
   }
 
   @Api('/subscribe')
-  async subscribe(data, next) {
+  async subscribe(data: Map<string, any>, next: NextFunc) {
     const socket = data.get('client')
     if (this.subscribedSockets.has(socket.id)) {
-      this.subscribedSockets = this.subscribedSockets.updateIn([socket.id, 'count'], c => c + 1)
+      this.subscribedSockets = this.subscribedSockets.updateIn(
+        [socket.id, 'count'],
+        c => (c as number) + 1,
+      )
       return
     }
 
@@ -106,19 +125,22 @@ export class LobbyApi {
   }
 
   @Api('/unsubscribe')
-  async unsubscribe(data, next) {
-    const socket = data.get('client')
+  async unsubscribe(data: Map<string, any>, next: NextFunc) {
+    const socket = data.get('client') as NydusClient
     if (!this.subscribedSockets.has(socket.id)) {
       throw new errors.Conflict('not subscribed')
     }
 
-    const subscription = this.subscribedSockets.get(socket.id)
+    const subscription = this.subscribedSockets.get(socket.id)!
     if (subscription.count === 1) {
       this.nydus.unsubscribeClient(socket, MOUNT_BASE)
       this.subscribedSockets = this.subscribedSockets.delete(socket.id)
-      subscription.onUnsubscribe()
+      subscription.onUnsubscribe?.()
     } else {
-      this.subscribedSockets = this.subscribedSockets.updateIn([socket.id, 'count'], c => c - 1)
+      this.subscribedSockets = this.subscribedSockets.updateIn(
+        [socket.id, 'count'],
+        c => (c as number) - 1,
+      )
     }
   }
 
@@ -130,12 +152,20 @@ export class LobbyApi {
       gameType: isValidGameType,
       gameSubType: isValidGameSubType,
       turnRate: isValidTurnRate,
-      useLegacyLimits: b => b === undefined || b === true || b === false,
+      useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
     }),
   )
-  async create(data, next) {
+  async create(data: Map<string, any>, next: NextFunc) {
     const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits } =
-      data.get('body')
+      data.get('body') as {
+        name: string
+        map: string
+        gameType: GameType
+        gameSubType?: number
+        allowObservers?: boolean
+        turnRate?: BwTurnRate
+        useLegacyLimits?: boolean
+      }
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -173,12 +203,12 @@ export class LobbyApi {
       name,
       map: mapInfo,
       gameType,
-      gameSubType,
+      gameSubType: gameSubType ?? undefined,
       numSlots,
       hostName: client.name,
       hostUserId: client.userId,
       hostRace: undefined,
-      allowObservers,
+      allowObservers: allowObservers ?? false,
       turnRate,
       useLegacyLimits,
     })
@@ -199,26 +229,26 @@ export class LobbyApi {
       name: isValidLobbyName,
     }),
   )
-  async join(data, next) {
-    const { name } = data.get('body')
+  async join(data: Map<string, any>, next: NextFunc) {
+    const { name } = data.get('body') as { name: string }
     const user = this.getUser(data)
     const client = this.getClient(data)
 
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
     }
-    const lobby = this.lobbies.get(name)
+    const lobby = this.lobbies.get(name)!
     this.ensureLobbyNotTransient(lobby)
 
     if (
       this.lobbyBannedUsers.has(lobby.name) &&
-      this.lobbyBannedUsers.get(lobby.name).includes(client.name)
+      this.lobbyBannedUsers.get(lobby.name)!.includes(client.userId)
     ) {
       throw new errors.Conflict('user has been banned from this lobby')
     }
 
     const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
-    if (teamIndex < 0 || slotIndex < 0) {
+    if (teamIndex === undefined || slotIndex === undefined) {
       throw new errors.Conflict('lobby is full')
     }
 
@@ -245,7 +275,7 @@ export class LobbyApi {
     }
 
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
-    const mapInfo = (await getMapInfo([lobby.map.id], lobby.host.userId))[0]
+    const mapInfo = (await getMapInfo([lobby.map!.id], lobby.host.userId))[0]
     updated = updated.set('map', mapInfo)
 
     this.lobbies = this.lobbies.set(name, updated)
@@ -255,12 +285,15 @@ export class LobbyApi {
     this._subscribeClientToLobby(lobby, user, client)
   }
 
-  _subscribeClientToLobby(lobby, user, client) {
+  _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
     const lobbyName = lobby.name
     client.subscribe(
       LobbyApi._getPath(lobby),
       () => {
         const lobby = this.lobbies.get(lobbyName)
+        if (!lobby) {
+          return undefined
+        }
         return {
           type: 'init',
           lobby,
@@ -270,12 +303,18 @@ export class LobbyApi {
           })),
         }
       },
-      client => this._removeClientFromLobby(this.lobbies.get(lobbyName), client),
+      client => {
+        try {
+          this._removeClientFromLobby(this.lobbies.get(lobbyName)!, client)
+        } catch (err) {
+          logger.warn({ err }, 'error removing client from lobby on disconnect')
+        }
+      },
     )
-    user.subscribe(LobbyApi._getUserPath(lobby, user.name), () => {
+    user.subscribe(LobbyApi._getUserPath(lobby, user.userId), () => {
       return {
         type: 'status',
-        lobby: Lobbies.toSummaryJson(lobby),
+        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyName)!),
       }
     })
     client.subscribe(LobbyApi._getClientPath(lobby, client))
@@ -287,7 +326,7 @@ export class LobbyApi {
       text: nonEmptyString,
     }),
   )
-  async sendChat(data, next) {
+  async sendChat(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const time = Date.now()
@@ -314,11 +353,11 @@ export class LobbyApi {
       slotId: nonEmptyString,
     }),
   )
-  async addComputer(data, next) {
+  async addComputer(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     if (isUms(lobby.gameType)) {
@@ -335,7 +374,7 @@ export class LobbyApi {
     }
 
     const computer = Slots.createComputer()
-    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, computer)
+    const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
   }
@@ -346,7 +385,7 @@ export class LobbyApi {
       slotId: nonEmptyString,
     }),
   )
-  async changeSlot(data, next) {
+  async changeSlot(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     this.ensureLobbyNotTransient(lobby)
@@ -368,13 +407,13 @@ export class LobbyApi {
     try {
       updated = Lobbies.movePlayerToSlot(
         lobby,
-        sourceTeamIndex,
-        sourceSlotIndex,
-        destTeamIndex,
-        destSlotIndex,
+        sourceTeamIndex!,
+        sourceSlotIndex!,
+        destTeamIndex!,
+        destSlotIndex!,
       )
     } catch (err) {
-      throw new errors.BadRequest(err.message)
+      throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
@@ -387,7 +426,7 @@ export class LobbyApi {
       race: validRace,
     }),
   )
-  async setRace(data, next) {
+  async setRace(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     this.ensureLobbyNotLoading(lobby)
@@ -408,18 +447,18 @@ export class LobbyApi {
     }
 
     if (slotToSetRace.type === 'computer') {
-      this.ensureIsLobbyHost(lobby, player)
+      this.ensureIsLobbyHost(lobby, player!)
     } else if (slotToSetRace.controlledBy) {
-      if (slotToSetRace.controlledBy !== player.id) {
+      if (slotToSetRace.controlledBy !== player!.id) {
         throw new errors.Forbidden('must control a slot to set its race')
       }
-    } else if (slotToSetRace.id !== player.id) {
+    } else if (slotToSetRace.id !== player!.id) {
       throw new errors.Forbidden("cannot set other user's races")
     } else if (slotToSetRace.hasForcedRace) {
       throw new errors.Forbidden('this slot has a forced race and cannot be changed')
     }
 
-    const updatedLobby = Lobbies.setRace(lobby, teamIndex, slotIndex, race)
+    const updatedLobby = Lobbies.setRace(lobby, teamIndex!, slotIndex!, race)
     this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
     this._publishLobbyDiff(lobby, updatedLobby)
   }
@@ -430,11 +469,11 @@ export class LobbyApi {
       slotId: nonEmptyString,
     }),
   )
-  async openSlot(data, next) {
+  async openSlot(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -452,9 +491,9 @@ export class LobbyApi {
 
     let updated
     try {
-      updated = Lobbies.openSlot(lobby, teamIndex, slotIndex)
+      updated = Lobbies.openSlot(lobby, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest(err.message)
+      throw new errors.BadRequest((err as any).message)
     }
 
     this.lobbies = this.lobbies.set(lobby.name, updated)
@@ -467,12 +506,12 @@ export class LobbyApi {
       slotId: nonEmptyString,
     }),
   )
-  async closeSlot(data, next) {
+  async closeSlot(data: Map<string, any>, next: NextFunc) {
     const user = this.getUser(data)
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -494,27 +533,27 @@ export class LobbyApi {
       slotToClose.type === 'computer' ||
       slotToClose.type === 'observer'
     ) {
-      this._kickPlayerFromLobby(lobby, user, teamIndex, slotIndex, slotToClose)
+      this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
     }
-    const afterKick = this.lobbies.get(lobby.name)
+    const afterKick = this.lobbies.get(lobby.name)!
 
     let updated
     try {
-      updated = Lobbies.closeSlot(afterKick, teamIndex, slotIndex)
+      updated = Lobbies.closeSlot(afterKick, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest(err.message)
+      throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(afterKick, updated)
   }
 
   @Api('/kickPlayer')
-  async kickPlayer(data, next) {
+  async kickPlayer(data: Map<string, any>, next: NextFunc) {
     const user = this.getUser(data)
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -530,26 +569,37 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    this._kickPlayerFromLobby(lobby, user, teamIndex, slotIndex, playerToKick)
+    this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, playerToKick)
   }
 
-  _kickPlayerFromLobby(lobby, user, teamIndex, slotIndex, playerToKick) {
+  _kickPlayerFromLobby(
+    lobby: Lobby,
+    user: UserSocketsGroup,
+    teamIndex: number,
+    slotIndex: number,
+    playerToKick: Slot,
+  ) {
     if (playerToKick.type === 'computer') {
-      const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)
+      // NOTE(tec27): We know that removing a computer can never result in an empty lobby since a
+      // human has to do it
+      const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
       this.lobbies = this.lobbies.set(lobby.name, updated)
       this._publishLobbyDiff(lobby, updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       const client = this.activityRegistry.getClientForUser(playerToKick.userId)
+      if (!client) {
+        throw new errors.Conflict('target player has no active client')
+      }
       this._removeClientFromLobby(lobby, client, REMOVAL_TYPE_KICK)
     }
   }
 
   @Api('/banPlayer')
-  async banPlayer(data, next) {
+  async banPlayer(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -561,20 +611,23 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.name, List(), val =>
-      val.push(playerToBan.name),
+    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.name, Set(), val =>
+      val.add(playerToBan.userId),
     )
 
     const clientToBan = this.activityRegistry.getClientForUser(playerToBan.userId)
+    if (!clientToBan) {
+      throw new errors.Conflict('target player has no active client')
+    }
     this._removeClientFromLobby(lobby, clientToBan, REMOVAL_TYPE_BAN)
   }
 
   @Api('/makeObserver')
-  async makeObserver(data, next) {
+  async makeObserver(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -585,20 +638,20 @@ export class LobbyApi {
 
     let updated
     try {
-      updated = Lobbies.makeObserver(lobby, teamIndex, slotIndex)
+      updated = Lobbies.makeObserver(lobby, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest(err.message)
+      throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
   }
 
   @Api('/removeObserver')
-  async removeObserver(data, next) {
+  async removeObserver(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
@@ -606,31 +659,35 @@ export class LobbyApi {
     if (!slot) {
       throw new errors.BadRequest('invalid slot id')
     }
-    if (!lobby.teams.get(teamIndex).isObserver) {
+    if (!lobby.teams.get(teamIndex!)?.isObserver) {
       throw new errors.BadRequest('Slot is not in the observer team')
     }
 
     let updated
     try {
-      updated = Lobbies.removeObserver(lobby, slotIndex)
+      updated = Lobbies.removeObserver(lobby, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest(err.message)
+      throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
   }
 
   @Api('/leave')
-  async leave(data, next) {
+  async leave(data: Map<string, any>, next: NextFunc) {
     const user = this.getUser(data)
     const client = this.getActiveClientForUser(user.userId)
     const lobby = this.getLobbyForClient(client)
     this._removeClientFromLobby(lobby, client)
   }
 
-  _removeClientFromLobby(lobby, client, removalType = REMOVAL_TYPE_NORMAL) {
+  _removeClientFromLobby(
+    lobby: Lobby,
+    client: ClientSocketsGroup,
+    removalType = REMOVAL_TYPE_NORMAL,
+  ) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, client.name)
-    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
+    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex!, slotIndex!, player!)
     const isLobbyEmpty = !updatedLobby
 
     if (isLobbyEmpty) {
@@ -649,14 +706,14 @@ export class LobbyApi {
       this._publishLobbyDiff(
         lobby,
         updatedLobby,
-        removalType === REMOVAL_TYPE_KICK ? client.name : null,
-        removalType === REMOVAL_TYPE_BAN ? client.name : null,
+        removalType === REMOVAL_TYPE_KICK ? client.userId : undefined,
+        removalType === REMOVAL_TYPE_BAN ? client.userId : undefined,
       )
     }
     this.lobbyClients = this.lobbyClients.delete(client)
     this.activityRegistry.unregisterClientForUser(client.userId)
 
-    this._publishToUser(lobby, client.name, {
+    this._publishToUser(lobby, client.userId, {
       type: 'status',
       lobby: null,
     })
@@ -666,7 +723,7 @@ export class LobbyApi {
 
     try {
       const user = this.getUserById(client.userId)
-      user.unsubscribe(LobbyApi._getUserPath(lobby, client.name))
+      user.unsubscribe(LobbyApi._getUserPath(lobby, client.userId))
     } catch {
       // Getting the user can fail if they've gone offline, but we don't need to unsubscribe
       // them in that case, so ignoring this error is fine
@@ -676,7 +733,7 @@ export class LobbyApi {
   }
 
   @Api('/startCountdown')
-  async startCountdown(data, next) {
+  async startCountdown(data: Map<string, any>, next: NextFunc) {
     const client = this.getClient(data)
     const lobby = this.getLobbyForClient(client)
     if (!hasOpposingSides(lobby)) {
@@ -684,14 +741,17 @@ export class LobbyApi {
     }
 
     const [, , player] = findSlotByName(lobby, client.name)
-    this.ensureIsLobbyHost(lobby, player)
+    this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     const lobbyName = lobby.name
-    const countdownTimer = createDeferred()
+    const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
 
-    let countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
+    let countdownTimerId: ReturnType<typeof setTimeout> | undefined = setTimeout(
+      () => countdownTimer.resolve(),
+      5000,
+    )
     this.lobbyCountdowns = this.lobbyCountdowns.set(
       lobbyName,
       new Countdown({ timer: countdownTimer }),
@@ -700,7 +760,7 @@ export class LobbyApi {
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby.name)
 
-    const gameConfig = {
+    const gameConfig: GameConfig = {
       gameType: lobby.gameType,
       gameSubType: lobby.gameSubType,
       gameSource: GameSource.Lobby,
@@ -724,14 +784,14 @@ export class LobbyApi {
         .toArray(),
     }
 
-    let startWhenReadyTimerId
+    let startWhenReadyTimerId: ReturnType<typeof setTimeout> | undefined
     try {
-      let gameId
+      let gameId: string
       // TODO(tec27): actually make use of this CancelToken for disconnects
       const cancelToken = new CancelToken()
       const gameLoaded = this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
-        mapId: lobby.map.id,
+        mapId: lobby.map!.id,
         gameConfig,
         cancelToken,
         onGameSetup: (setup, resultCodes) => {
@@ -774,16 +834,20 @@ export class LobbyApi {
     } finally {
       if (countdownTimerId) {
         clearTimeout(countdownTimerId)
-        countdownTimerId = null
+        countdownTimerId = undefined
       }
       if (startWhenReadyTimerId) {
         clearTimeout(startWhenReadyTimerId)
-        startWhenReadyTimerId = null
+        startWhenReadyTimerId = undefined
       }
     }
   }
 
-  _onGameSetup(lobby, setup, resultCodes) {
+  _onGameSetup(
+    lobby: Lobby,
+    setup: GameSetupGameInfo,
+    resultCodes: globalThis.Map<SbUserId, string>,
+  ) {
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, setup.gameId)
     const players = getHumanSlots(lobby)
     for (const player of players) {
@@ -795,9 +859,9 @@ export class LobbyApi {
     }
   }
 
-  _onRoutesSet(lobby, playerName, routes, gameId) {
+  _onRoutesSet(lobby: Lobby, playerName: string, routes: GameRoute[], gameId: string) {
     // TODO(tec27): the game loader should really just deliver us the userId
-    const player = getHumanSlots(lobby).find(s => s.name === playerName)
+    const player = getHumanSlots(lobby).find(s => s.name === playerName)!
     this._publishToClient(lobby, player.userId, {
       type: 'setRoutes',
       routes,
@@ -805,7 +869,7 @@ export class LobbyApi {
     })
   }
 
-  _maybeCancelLoading(lobby, isLobbyEmpty = false) {
+  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false) {
     if (!this.loadingLobbies.has(lobby.name)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
@@ -821,35 +885,36 @@ export class LobbyApi {
     }
   }
 
-  _onGameLoaded(lobby) {
+  _onGameLoaded(lobby: Lobby) {
     this._publishTo(lobby, { type: 'gameStarted' })
 
     getHumanSlots(lobby)
-      .map(p => this.activityRegistry.getClientForUser(p.userId))
+      .map(p => this.activityRegistry.getClientForUser(p.userId)!)
       .forEach(client => {
         const user = this.getUserById(client.userId)
-        this._publishToUser(lobby, user.name, {
+        this._publishToUser(lobby, user.userId, {
           type: 'status',
           lobby: null,
         })
-        user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
+        user.unsubscribe(LobbyApi._getUserPath(lobby, user.userId))
         client.unsubscribe(LobbyApi._getPath(lobby))
         client.unsubscribe(LobbyApi._getClientPath(lobby, client))
         this.lobbyClients = this.lobbyClients.delete(client)
         this.activityRegistry.unregisterClientForUser(user.userId)
       })
     this.lobbies = this.lobbies.delete(lobby.name)
+    this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobby, isLobbyEmpty = false) {
+  _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false) {
     if (!this.lobbyCountdowns.has(lobby.name)) {
       return
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.name)
-    countdown.timer.reject(new Error('Countdown cancelled'))
+    countdown?.timer?.reject(new Error('Countdown cancelled'))
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelCountdown',
@@ -865,7 +930,7 @@ export class LobbyApi {
       lobbyName: nonEmptyString,
     }),
   )
-  async getLobbyState(data, next) {
+  async getLobbyState(data: Map<string, any>, next: NextFunc) {
     this.getClient(data)
     const { lobbyName } = data.get('body')
 
@@ -884,44 +949,44 @@ export class LobbyApi {
     return { lobbyName, lobbyState }
   }
 
-  getUser(data) {
+  getUser(data: Map<string, any>): UserSocketsGroup {
     const user = this.userSockets.getBySocket(data.get('client'))
     if (!user) throw new errors.Unauthorized('authorization required')
     return user
   }
 
-  getUserById(id) {
+  getUserById(id: SbUserId): UserSocketsGroup {
     const user = this.userSockets.getById(id)
     if (!user) throw new errors.BadRequest('user not online')
     return user
   }
 
-  getActiveClientForUser(userId) {
+  getActiveClientForUser(userId: SbUserId): ClientSocketsGroup {
     const client = this.activityRegistry.getClientForUser(userId)
     if (!client) throw new errors.BadRequest('no active client for user')
     return client
   }
 
-  getClient(data) {
+  getClient(data: Map<string, any>): ClientSocketsGroup {
     const client = this.clientSockets.getCurrentClient(data.get('client'))
     if (!client) throw new errors.Unauthorized('authorization required')
     return client
   }
 
-  getLobbyForClient(client) {
+  getLobbyForClient(client: ClientSocketsGroup): Lobby {
     if (!this.lobbyClients.has(client)) {
       throw new errors.BadRequest('must be in a lobby')
     }
-    return this.lobbies.get(this.lobbyClients.get(client))
+    return this.lobbies.get(this.lobbyClients.get(client)!)!
   }
 
-  ensureIsLobbyHost(lobby, player) {
+  ensureIsLobbyHost(lobby: Lobby, player: Slot) {
     if (player.id !== lobby.host.id) {
       throw new errors.Unauthorized('must be a lobby host')
     }
   }
 
-  ensureLobbyNotLoading(lobby) {
+  ensureLobbyNotLoading(lobby: Lobby) {
     if (this.loadingLobbies.has(lobby.name)) {
       throw new errors.Conflict('lobby has already started')
     }
@@ -930,7 +995,7 @@ export class LobbyApi {
   // Ensures that the lobby is not in a 'transient' state, that is, a state between being a lobby
   // and being an active game (counting down, loading, etc.). Transient states can be rolled back
   // (bringing the lobby back to a non-transient state)
-  ensureLobbyNotTransient(lobby) {
+  ensureLobbyNotTransient(lobby: Lobby) {
     if (this.lobbyCountdowns.has(lobby.name)) {
       throw new errors.Conflict('lobby is counting down')
     }
@@ -948,20 +1013,20 @@ export class LobbyApi {
     this.nydus.publish('/lobbiesCount', { count: this._getLobbiesCount() })
   }
 
-  _publishListChange(action, summary) {
+  _publishListChange(action: 'add' | 'delete' | 'update', summary: LobbySummaryJson | string) {
     this.nydus.publish(MOUNT_BASE, { action, payload: summary })
     this._publishLobbiesCount()
   }
 
-  _publishTo(lobby, data) {
+  _publishTo(lobby: Lobby, data?: any) {
     this.nydus.publish(LobbyApi._getPath(lobby), data)
   }
 
-  _publishToUser(lobby, username, data) {
-    this.nydus.publish(LobbyApi._getUserPath(lobby, username), data)
+  _publishToUser(lobby: Lobby, userId: SbUserId, data?: any) {
+    this.nydus.publish(LobbyApi._getUserPath(lobby, userId), data)
   }
 
-  _publishToClient(lobby, userId, data) {
+  _publishToClient(lobby: Lobby, userId: SbUserId, data?: any) {
     const client = this.activityRegistry.getClientForUser(userId)
     if (!client) {
       return
@@ -969,7 +1034,13 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getClientPath(lobby, client), data)
   }
 
-  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null, deletedSlotIndex) {
+  _publishLobbyDiff(
+    oldLobby: Lobby,
+    newLobby: Lobby,
+    kickedUser?: SbUserId,
+    bannedUser?: SbUserId,
+    deletedSlotIndex?: number,
+  ) {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
@@ -980,20 +1051,20 @@ export class LobbyApi {
       })
     }
 
-    const oldSlots = new Set(getLobbySlots(oldLobby).map(oldSlot => oldSlot.id))
-    const newSlots = new Set(getLobbySlots(newLobby).map(newSlot => newSlot.id))
-    const oldHumans = new Set(getHumanSlots(oldLobby).map(oldHuman => oldHuman.id))
+    const oldSlots = Set(getLobbySlots(oldLobby).map(oldSlot => oldSlot.id))
+    const newSlots = Set(getLobbySlots(newLobby).map(newSlot => newSlot.id))
+    const oldHumans = Set(getHumanSlots(oldLobby).map(oldHuman => oldHuman.id))
     const same = oldSlots.intersect(newSlots)
     const left = oldHumans.subtract(same)
     const created = newSlots.subtract(same)
 
-    const oldIdSlots = new Map(
+    const oldIdSlots = Map<string, [teamIndex: number, slotIndex: number, slot: Slot]>(
       getLobbySlotsWithIndexes(oldLobby).map(([teamIndex, slotIndex, slot]) => [
         slot.id,
         [teamIndex, slotIndex, slot],
       ]),
     )
-    const newIdSlots = new Map(
+    const newIdSlots = Map<string, [teamIndex: number, slotIndex: number, slot: Slot]>(
       getLobbySlotsWithIndexes(newLobby).map(([teamIndex, slotIndex, slot]) => [
         slot.id,
         [teamIndex, slotIndex, slot],
@@ -1006,13 +1077,13 @@ export class LobbyApi {
       // slots on the client-side in response to this operation (since they'll be overriden in the
       // `slotCreate` operation below anyways). This also means we only care about `human` slots
       // leaving just so we can display appropriate message in the lobby.
-      const [, , player] = oldIdSlots.get(id)
-      if (kickedUser === player.name) {
+      const [, , player] = oldIdSlots.get(id)!
+      if (kickedUser === player.userId) {
         diffEvents.push({
           type: 'kick',
           player,
         })
-      } else if (bannedUser === player.name) {
+      } else if (bannedUser === player.userId) {
         diffEvents.push({
           type: 'ban',
           player,
@@ -1031,8 +1102,8 @@ export class LobbyApi {
     // similar fashion as we do when determining if the user was kicked/banned, we pass the slot
     // index of a deleted slot from the method that knows which slot it is
     for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
-      const oldTeam = oldLobby.teams.get(teamIndex)
-      const newTeam = newLobby.teams.get(teamIndex)
+      const oldTeam = oldLobby.teams.get(teamIndex)!
+      const newTeam = newLobby.teams.get(teamIndex)!
       if (oldTeam.slots.size > newTeam.slots.size) {
         diffEvents.push({
           type: 'slotDeleted',
@@ -1046,8 +1117,8 @@ export class LobbyApi {
       // These are all of the slots that were created in the new lobby compared to the old one. This
       // includes the slots that were created as a result of players leaving the lobby, moving to a
       // different slot, open/closing a slot, etc.
-      const [teamIndex, slotIndex, slot] = newIdSlots.get(id)
-      const slotCreatedEvent = {
+      const [teamIndex, slotIndex, slot] = newIdSlots.get(id)!
+      const slotCreatedEvent: LobbySlotCreateEvent = {
         type: 'slotCreate',
         teamIndex,
         slotIndex,
@@ -1069,8 +1140,8 @@ export class LobbyApi {
     }
 
     for (const id of same.values()) {
-      const [oldTeamIndex, oldSlotIndex, oldSlot] = oldIdSlots.get(id)
-      const [newTeamIndex, newSlotIndex, newSlot] = newIdSlots.get(id)
+      const [oldTeamIndex, oldSlotIndex, oldSlot] = oldIdSlots.get(id)!
+      const [newTeamIndex, newSlotIndex, newSlot] = newIdSlots.get(id)!
 
       const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
       if (samePlace && oldSlot === newSlot) continue
@@ -1103,20 +1174,24 @@ export class LobbyApi {
     this._publishListChange('update', Lobbies.toSummaryJson(newLobby))
   }
 
-  static _getPath(lobby) {
-    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}`
+  static _getPath(lobby: Lobby) {
+    return MOUNT_BASE + urlPath`/${lobby.name}`
   }
 
-  static _getUserPath(lobby, username) {
-    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}/${encodeURIComponent(username)}`
+  static _getUserPath(lobby: Lobby, userId: SbUserId) {
+    return MOUNT_BASE + urlPath`/${lobby.name}/${userId}`
   }
 
-  static _getClientPath(lobby, client) {
-    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}/${client.userId}/${client.clientId}`
+  static _getClientPath(lobby: Lobby, client: ClientSocketsGroup) {
+    return MOUNT_BASE + urlPath`/${lobby.name}/${client.userId}/${client.clientId}`
   }
 }
 
-export default function registerApi(nydus, userSockets, clientSockets) {
+export default function registerApi(
+  nydus: NydusServer,
+  userSockets: UserSocketsManager,
+  clientSockets: ClientSocketsManager,
+) {
   const api = new LobbyApi(nydus, userSockets, clientSockets)
   registerApiRoutes(api, nydus)
   return api

@@ -119,14 +119,16 @@ const LoadingDatas = {
   },
 }
 
+export interface GameSetupGameInfo {
+  gameId: string
+  seed: number
+  turnRate?: BwTurnRate | 0
+  userLatency?: BwUserLatency
+  useLegacyLimits?: boolean
+}
+
 export type OnGameSetupFunc = (
-  gameInfo: {
-    gameId: string
-    seed: number
-    turnRate?: BwTurnRate | 0
-    userLatency?: BwUserLatency
-    useLegacyLimits?: boolean
-  },
+  gameInfo: GameSetupGameInfo,
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
 ) => void | Promise<void>

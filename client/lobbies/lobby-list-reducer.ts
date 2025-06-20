@@ -1,15 +1,18 @@
 import { List, Map, Record } from 'immutable'
 import { GameType } from '../../common/games/game-type'
+import { LobbySummaryJson } from '../../common/lobbies/lobby-network'
+import { MapInfoJson } from '../../common/maps'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
 
 export class HostRecord extends Record({
   name: '',
-  id: '',
+  id: 0 as SbUserId,
 }) {}
 
 export class LobbySummary extends Record({
   name: '',
-  map: null as any, // TODO(tec27): Use a proper type for this
+  map: undefined as MapInfoJson | undefined,
   gameType: GameType.Melee,
   gameSubType: 0,
   host: new HostRecord(),
@@ -22,14 +25,14 @@ export class LobbyList extends Record({
   count: 0,
 }) {}
 
-function createSummary(lobbyData: any): LobbySummary {
+function createSummary(lobbyData: LobbySummaryJson): LobbySummary {
   return new LobbySummary({
     ...lobbyData,
     host: new HostRecord(lobbyData.host),
   })
 }
 
-function handleFull(state: LobbyList, data: any[]): LobbyList {
+function handleFull(state: LobbyList, data: LobbySummaryJson[]): LobbyList {
   const byName = Map(
     data.map(lobby => {
       const summary = createSummary(lobby)
@@ -43,7 +46,7 @@ function handleFull(state: LobbyList, data: any[]): LobbyList {
   return new LobbyList({ list, byName, count: state.count })
 }
 
-function handleAdd(state: LobbyList, data: any): LobbyList {
+function handleAdd(state: LobbyList, data: LobbySummaryJson): LobbyList {
   if (state.byName.has(data.name)) return state
 
   const insertBefore = state.list.findEntry(name => data.name.localeCompare(name) < 1)
@@ -52,7 +55,7 @@ function handleAdd(state: LobbyList, data: any): LobbyList {
   return state.setIn(['byName', data.name], createSummary(data)).set('list', updatedList)
 }
 
-function handleUpdate(state: LobbyList, data: any): LobbyList {
+function handleUpdate(state: LobbyList, data: LobbySummaryJson): LobbyList {
   if (!state.byName.has(data.name)) return state
 
   const summary = createSummary(data)

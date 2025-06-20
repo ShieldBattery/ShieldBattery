@@ -27,6 +27,8 @@ export class Slot extends Record({
   typeId: 0,
 }) {}
 
+export type SlotJson = ReturnType<Slot['toJSON']>
+
 export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
     type: SlotType.Open,

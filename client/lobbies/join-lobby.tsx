@@ -84,7 +84,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
         </BodyMedium>
       </Info>
       <MapPreview>
-        <MapThumbnail map={lobby.map} showMapName={true} />
+        <MapThumbnail map={lobby.map!} showMapName={true} />
       </MapPreview>
     </ListEntryRoot>
   )

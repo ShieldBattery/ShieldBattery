@@ -9,7 +9,7 @@ import {
   Team,
 } from '../../../common/lobbies'
 import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
-import { MapInfo, MapVisibility, Tileset } from '../../../common/maps'
+import { MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import {
@@ -95,15 +95,12 @@ const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
   const json = JSON.stringify(toSummaryJson(lobby))
   const parsed = JSON.parse(json)
 
-  const id = lobby.host.id
+  const id = lobby.host.userId
   expect(parsed).toEqual({
     name: '5v3 Comp Stomp Pros Only',
     // TODO(tec27): Probably we should numerically convert this Date like in other places, or just
     // move the MapInfo out of this structure? Dunno
-    map: {
-      ...BigGameHunters,
-      uploadDate: BigGameHunters.uploadDate.toISOString(),
-    },
+    map: toMapInfoJson(BigGameHunters),
     gameType: 'melee',
     gameSubType: 0,
     host: { name: 'Slayers`Boxer', id },
@@ -151,8 +148,8 @@ describe('Lobbies - melee', () => {
       allowObservers: true,
     })
     const [t2, s2] = findAvailableSlot(fullLobby)
-    expect(t2).toBe(-1)
-    expect(s2).toBe(-1)
+    expect(t2).toBeUndefined()
+    expect(s2).toBeUndefined()
 
     let fullLobbyWithObservers = createLobby({
       name: 'Full',
@@ -166,8 +163,8 @@ describe('Lobbies - melee', () => {
       allowObservers: true,
     })
     const [t3, s3] = findAvailableSlot(fullLobbyWithObservers)
-    expect(t3).toBe(-1)
-    expect(s3).toBe(-1)
+    expect(t3).toBeUndefined()
+    expect(s3).toBeUndefined()
     fullLobbyWithObservers = openSlot(fullLobbyWithObservers, 1, 0)
     const [t4, s4] = findAvailableSlot(fullLobbyWithObservers)
     expect(t4).toBe(1)
@@ -182,7 +179,7 @@ describe('Lobbies - melee', () => {
     let lobby = orig
 
     const [t1, s1] = findAvailableSlot(lobby)
-    lobby = addPlayer(lobby, t1, s1, babo)
+    lobby = addPlayer(lobby, t1!, s1!, babo)
     expect(lobby).not.toEqual(orig)
     const [, , p1] = findSlotById(lobby, babo.id)
     expect(p1).toEqual(babo)
@@ -190,7 +187,7 @@ describe('Lobbies - melee', () => {
     expect(hasOpposingSides(lobby)).toBe(true)
 
     const [t2, s2] = findAvailableSlot(lobby)
-    lobby = addPlayer(lobby, t2, s2, pachi)
+    lobby = addPlayer(lobby, t2!, s2!, pachi)
     expect(lobby).not.toEqual(orig)
     const [, , p2] = findSlotById(lobby, pachi.id)
     expect(p2).toEqual(pachi)
@@ -205,13 +202,13 @@ describe('Lobbies - melee', () => {
 
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
     const [t2, s2] = findAvailableSlot(lobby)
-    lobby = addPlayer(lobby, t2, s2, babo)
+    lobby = addPlayer(lobby, t2!, s2!, babo)
     const beforeRemoval = lobby
-    lobby = removePlayer(lobby, t2, s2, babo)!
+    lobby = removePlayer(lobby, t2!, s2!, babo)!
 
     expect(lobby).not.toEqual(beforeRemoval)
     expect(humanSlotCount(lobby)).toBe(1)
-    expect(lobby.teams.get(t2)!.slots.get(s2)!.type).toBe('open')
+    expect(lobby.teams.get(t2!)!.slots.get(s2!)!.type).toBe('open')
 
     const [t3, s3, host] = findSlotByName(lobby, lobby.host.name)
     lobby = removePlayer(lobby, t3!, s3!, host!)!
@@ -221,17 +218,17 @@ describe('Lobbies - melee', () => {
   test('should support setting the race of a player', () => {
     const computer = createComputer('t')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    let lobby = addPlayer(BOXER_LOBBY, t1, s1, computer)
+    let lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
-    lobby = setRace(lobby, t1, s1, 'z')
+    lobby = setRace(lobby, t1!, s1!, 'z')
 
-    expect(lobby.teams.get(t1)!.slots.get(s1)!.race).toBe('z')
+    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.race).toBe('z')
   })
 
   test('should support finding players by name', () => {
     const computer = createComputer('p')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    const lobby = addPlayer(BOXER_LOBBY, t1, s1, computer)
+    const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
     const [, , p1] = findSlotByName(lobby, 'asdf')
     expect(p1).toBeUndefined()
@@ -248,7 +245,7 @@ describe('Lobbies - melee', () => {
   test('should support finding players by id', () => {
     const computer = createComputer('p')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    const lobby = addPlayer(BOXER_LOBBY, t1, s1, computer)
+    const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
     const [, , p1] = findSlotById(lobby, '10')
     expect(p1).toBeUndefined()
@@ -263,7 +260,7 @@ describe('Lobbies - melee', () => {
   test('should close the lobby if only computers are left', () => {
     const computer = createComputer('p')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    let lobby = addPlayer(BOXER_LOBBY, t1, s1, computer)
+    let lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
     const [t2, s2, p1] = findSlotById(lobby, lobby.host.id)
     lobby = removePlayer(lobby, t2!, s2!, p1!)!
@@ -276,11 +273,11 @@ describe('Lobbies - melee', () => {
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
     const pachi = createHuman('pachi', makeSbUserId(2), 't')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    let lobby = addPlayer(BOXER_LOBBY, t1, s1, computer)
+    let lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
     const [t2, s2] = findAvailableSlot(lobby)
-    lobby = addPlayer(lobby, t2, s2, babo)
+    lobby = addPlayer(lobby, t2!, s2!, babo)
     const [t3, s3] = findAvailableSlot(lobby)
-    lobby = addPlayer(lobby, t3, s3, pachi)
+    lobby = addPlayer(lobby, t3!, s3!, pachi)
 
     const [t4, s4, p1] = findSlotById(lobby, lobby.host.id)
     lobby = removePlayer(lobby, t4!, s4!, p1!)!
@@ -291,12 +288,12 @@ describe('Lobbies - melee', () => {
   test('should support moving players between slots', () => {
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
-    let lobby = addPlayer(BOXER_LOBBY, t1, s1, babo)
-    lobby = movePlayerToSlot(lobby, t1, s1, 0, 3)
+    let lobby = addPlayer(BOXER_LOBBY, t1!, s1!, babo)
+    lobby = movePlayerToSlot(lobby, t1!, s1!, 0, 3)
 
     expect(humanSlotCount(lobby)).toBe(2)
     expect(lobby.teams.get(0)!.slots.get(3)).toBe(babo)
-    expect(lobby.teams.get(t1)!.slots.get(s1)!.type).toBe('open')
+    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.type).toBe('open')
   })
 
   test('should support closing an open slot', () => {
@@ -460,59 +457,59 @@ describe('Lobbies - Top vs bottom', () => {
     expect(t1).toBe(1)
     expect(s1).toBe(0)
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
-    let l = addPlayer(TEAM_LOBBY, t1, s1, babo)
+    let l = addPlayer(TEAM_LOBBY, t1!, s1!, babo)
     expect(hasOpposingSides(l)).toBe(true)
 
     const [t2, s2] = findAvailableSlot(l)
     expect(t2).toBe(1)
     expect(s2).toBe(1)
     const pachi = createHuman('pachi', makeSbUserId(2), 't')
-    l = addPlayer(l, t2, s2, pachi)
+    l = addPlayer(l, t2!, s2!, pachi)
 
     const [t3, s3] = findAvailableSlot(l)
     expect(t3).toBe(1)
     expect(s3).toBe(2)
     const computer1 = createComputer('p')
-    l = addPlayer(l, t3, s3, computer1)
+    l = addPlayer(l, t3!, s3!, computer1)
 
     const [t4, s4] = findAvailableSlot(l)
     expect(t4).toBe(1)
     expect(s4).toBe(3)
     const computer2 = createComputer('z')
-    l = addPlayer(l, t4, s4, computer2)
+    l = addPlayer(l, t4!, s4!, computer2)
 
     const [t5, s5] = findAvailableSlot(l)
     expect(t5).toBe(1)
     expect(s5).toBe(4)
     const computer3 = createComputer('z')
-    l = addPlayer(l, t5, s5, computer3)
+    l = addPlayer(l, t5!, s5!, computer3)
 
     const [t6, s6] = findAvailableSlot(l)
     expect(t6).toBe(0)
     expect(s6).toBe(1)
     const computer4 = createComputer('z')
-    l = addPlayer(l, t6, s6, computer4)
+    l = addPlayer(l, t6!, s6!, computer4)
 
     const [t7, s7] = findAvailableSlot(l)
     expect(t7).toBe(1)
     expect(s7).toBe(5)
     const computer5 = createComputer('z')
-    l = addPlayer(l, t7, s7, computer5)
+    l = addPlayer(l, t7!, s7!, computer5)
 
     const [t8, s8] = findAvailableSlot(l)
-    expect(t8).toBe(-1)
-    expect(s8).toBe(-1)
+    expect(t8).toBeUndefined()
+    expect(s8).toBeUndefined()
   })
 
   test('should support moving players between slots', () => {
     const [t1, s1] = findAvailableSlot(TEAM_LOBBY)
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
-    let lobby = addPlayer(TEAM_LOBBY, t1, s1, babo)
-    lobby = movePlayerToSlot(lobby, t1, s1, 1, 3)
+    let lobby = addPlayer(TEAM_LOBBY, t1!, s1!, babo)
+    lobby = movePlayerToSlot(lobby, t1!, s1!, 1, 3)
 
     expect(humanSlotCount(lobby)).toBe(2)
     expect(lobby.teams.get(1)!.slots.get(3)).toBe(babo)
-    expect(lobby.teams.get(t1)!.slots.get(s1)!.type).toBe('open')
+    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.type).toBe('open')
   })
 })
 
@@ -661,42 +658,42 @@ describe('Lobbies - Team melee', () => {
     expect(t1).toBe(1)
     expect(s1).toBe(0)
     const babo = createHuman('dronebabo', makeSbUserId(1), 'z')
-    let l = addPlayer(TEAM_MELEE_4, t1, s1, babo)
+    let l = addPlayer(TEAM_MELEE_4, t1!, s1!, babo)
     expect(hasOpposingSides(l)).toBe(true)
 
     const [t2, s2] = findAvailableSlot(l)
     expect(t2).toBe(2)
     expect(s2).toBe(0)
     const pachi = createHuman('pachi', makeSbUserId(2), 't')
-    l = addPlayer(l, t2, s2, pachi)
+    l = addPlayer(l, t2!, s2!, pachi)
 
     const [t3, s3] = findAvailableSlot(l)
     expect(t3).toBe(3)
     expect(s3).toBe(0)
     const computer1 = createComputer('p')
-    l = addPlayer(l, t3, s3, computer1)
+    l = addPlayer(l, t3!, s3!, computer1)
 
     const [t4, s4] = findAvailableSlot(l)
     expect(t4).toBe(0)
     expect(s4).toBe(1)
     const trozz = createHuman('trozz', makeSbUserId(3), 'p')
-    l = addPlayer(l, t4, s4, trozz)
+    l = addPlayer(l, t4!, s4!, trozz)
 
     const [t5, s5] = findAvailableSlot(l)
     expect(t5).toBe(1)
     expect(s5).toBe(1)
     const intothetest = createHuman('IntoTheTest', makeSbUserId(4), 'p')
-    l = addPlayer(l, t5, s5, intothetest)
+    l = addPlayer(l, t5!, s5!, intothetest)
 
     const [t6, s6] = findAvailableSlot(l)
     expect(t6).toBe(2)
     expect(s6).toBe(1)
     const harem = createHuman('harem', makeSbUserId(5), 'p')
-    l = addPlayer(l, t6, s6, harem)
+    l = addPlayer(l, t6!, s6!, harem)
 
     const [t7, s7] = findAvailableSlot(l)
-    expect(t7).toBe(-1)
-    expect(s7).toBe(-1)
+    expect(t7).toBeUndefined()
+    expect(s7).toBeUndefined()
   })
 
   test('should remove the controlled open slots when the last player on a team leaves', () => {
