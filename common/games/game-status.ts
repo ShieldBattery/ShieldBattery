@@ -1,5 +1,3 @@
-import { assertUnreachable } from './assert-unreachable'
-
 /**
  * Represents the status of a game in progress. These are considered "ordered" (that is, a higher
  * number means a later state). Their values/existence do not need to be preserved across versions,
@@ -45,13 +43,14 @@ export function statusToString(status: GameStatus) {
     case GameStatus.Error:
       return 'error'
     default:
-      return assertUnreachable(status)
+      status satisfies never
+      return 'unknown'
   }
 }
 
 export type GameStatusString = ReturnType<typeof statusToString>
 
-export function stringToStatus(str: ReturnType<typeof statusToString>) {
+export function stringToStatus(str: GameStatusString): GameStatus {
   switch (str) {
     case 'unknown':
       return GameStatus.Unknown
@@ -74,7 +73,8 @@ export function stringToStatus(str: ReturnType<typeof statusToString>) {
     case 'error':
       return GameStatus.Error
     default:
-      return assertUnreachable(str)
+      str satisfies never
+      return GameStatus.Unknown
   }
 }
 

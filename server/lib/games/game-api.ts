@@ -5,7 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameStatus } from '../../../common/game-status'
+import { GameStatus } from '../../../common/games/game-status'
 import { GetGameResponse, toGameRecordJson } from '../../../common/games/games'
 import {
   ALL_GAME_CLIENT_RESULTS,

@@ -1,6 +1,6 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
+import { GameLaunchConfig, PlayerInfo } from '../../common/games/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
@@ -286,12 +286,6 @@ const eventToAction: EventToActionMap = {
       type: '@active-game/launch',
       payload: ipcRenderer.invoke('activeGameSetConfig', config)!,
     })
-  },
-
-  setRoutes: (name, event) => dispatch => {
-    const { routes, gameId } = event
-
-    ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
   },
 
   startWhenReady: (name, event) => {

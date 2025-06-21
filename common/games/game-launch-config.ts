@@ -1,10 +1,10 @@
-import { GameType } from './games/game-type'
-import { SlotType } from './lobbies/slot'
-import { MapInfoJson } from './maps'
-import { BwTurnRate, BwUserLatency } from './network'
-import { RaceChar } from './races'
-import { ResolvedRallyPointServer } from './rally-point'
-import { SbUserId } from './users/sb-user-id'
+import { SlotType } from '../lobbies/slot'
+import { MapInfoJson } from '../maps'
+import { BwTurnRate, BwUserLatency } from '../network'
+import { RaceChar } from '../races'
+import { ResolvedRallyPointServer } from '../rally-point/index'
+import { SbUserId } from '../users/sb-user-id'
+import { GameType } from './game-type'
 
 /**
  * Configuration for a particular player in a game. This is similar to Lobby's `Slot` structure,

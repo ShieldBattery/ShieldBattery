@@ -10,7 +10,6 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { intersection, subtract } from '../../../common/data-structures/sets'
-import { GameRoute } from '../../../common/game-launch-config'
 import {
   GameConfig,
   GameConfigPlayer,
@@ -93,12 +92,6 @@ interface GameLoaderCallbacks {
     chosenMap: MapInfoJson
     cancelToken: CancelToken
   }) => void | Promise<void>
-  onRoutesSet: (
-    clients: ReadonlyArray<ClientSocketsGroup>,
-    playerName: string,
-    routes: ReadonlyArray<GameRoute>,
-    gameId: string,
-  ) => void
   onGameLoaded: (clients: ReadonlyArray<ClientSocketsGroup>) => void
 }
 
@@ -445,21 +438,6 @@ export class MatchmakingService {
           }
         }),
       )
-    },
-
-    onRoutesSet: (clients, playerName, routes, gameId) => {
-      for (const c of clients) {
-        // TODO(tec27): It'd be a lot nicer if this just delivered us the user ID of this player
-        // instead of their name (or gave both).
-        if (c.name === playerName) {
-          this.publishToActiveClient(c.userId, {
-            type: 'setRoutes',
-            routes,
-            gameId,
-          })
-          break
-        }
-      }
     },
 
     onGameLoaded: clients => {
@@ -932,8 +910,6 @@ export class MatchmakingService {
           chosenMap: toMapInfoJson(chosenMap),
           cancelToken: loadCancelToken,
         }),
-      onRoutesSet: (playerName, routes, gameId) =>
-        this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
     })
 
     await gameLoaded

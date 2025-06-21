@@ -4,16 +4,19 @@ import { container, singleton } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
-import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
+import { GameRoute } from '../../../common/games/game-launch-config'
+import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameRouteDebugInfo } from '../../../common/games/games'
 import { Slot } from '../../../common/lobbies/slot'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
+import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
@@ -158,11 +161,10 @@ export interface GameLoadRequest {
    * An optional callback for when the game setup info has been sent to clients.
    */
   onGameSetup?: OnGameSetupFunc
-  /**
-   * An optional callback that will be called for each player when their routes to all other
-   * players have been set up and are ready to be used.
-   */
-  onRoutesSet?: OnRoutesSetFunc
+}
+
+function gameUserPath(gameId: string, userId: SbUserId) {
+  return urlPath`/gameLoader/${gameId}/${userId}`
 }
 
 @singleton()
@@ -194,13 +196,18 @@ export class GameLoader {
   })
   // TODO(tec27): Add a metric for the chosen turn rate if we turn the static turnrate feature on
 
+  constructor(
+    private publisher: TypedPublisher<GameLoaderEvent>,
+    private activityRegistry: GameplayActivityRegistry,
+  ) {}
+
   /**
    * Starts the process of loading a new game.
    *
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({ players, mapId, gameConfig, cancelToken, onGameSetup, onRoutesSet }: GameLoadRequest) {
+  loadGame({ players, mapId, gameConfig, cancelToken, onGameSetup }: GameLoadRequest) {
     const gameLoaded = createDeferred<void>()
 
     this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
@@ -217,7 +224,7 @@ export class GameLoader {
             deferred: gameLoaded,
           }),
         )
-        this.doGameLoad(gameId, gameConfig, resultCodes, onGameSetup, onRoutesSet).catch(err => {
+        this.doGameLoad(gameId, gameConfig, resultCodes, onGameSetup).catch(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
 
@@ -316,126 +323,152 @@ export class GameLoader {
     gameConfig: GameConfig,
     resultCodes: Map<SbUserId, string>,
     onGameSetup?: OnGameSetupFunc,
-    onRoutesSet?: OnRoutesSetFunc,
   ) {
     if (!this.loadingGames.has(gameId)) {
       throw new Error(`tried to load a game that doesn't exist: ${gameId}`)
     }
 
+    const activeClients = resultCodes.keys().map(userId => {
+      const client = this.activityRegistry.getClientForUser(userId)
+      if (!client) {
+        throw new GameLoaderError(GameLoadErrorType.PlayerFailed, `A player had no active client`, {
+          data: { userId },
+        })
+      }
+      return client
+    })
+
     const loadingData = this.loadingGames.get(gameId)!
     const { players, cancelToken } = loadingData
 
-    const rallyPointService = container.resolve(RallyPointService)
-    const activityRegistry = container.resolve(GameplayActivityRegistry)
+    for (const client of activeClients) {
+      client.subscribe(gameUserPath(gameId, client.userId), undefined, () => {
+        cancelToken.cancel()
+      })
+    }
 
-    const hasMultipleHumans = players.size > 1
-    const pingPromise = !hasMultipleHumans
-      ? Promise.resolve()
-      : Promise.all(
-          players.map(p =>
-            rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId)!),
-          ),
+    try {
+      const rallyPointService = container.resolve(RallyPointService)
+      const activityRegistry = container.resolve(GameplayActivityRegistry)
+
+      const hasMultipleHumans = players.size > 1
+      const pingPromise = !hasMultipleHumans
+        ? Promise.resolve()
+        : Promise.all(
+            players.map(p =>
+              rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId)!),
+            ),
+          )
+
+      await pingPromise
+      cancelToken.throwIfCancelling()
+
+      const routes = hasMultipleHumans ? await createRoutes(players) : []
+      cancelToken.throwIfCancelling()
+
+      let chosenTurnRate: BwTurnRate | 0 | undefined
+      let chosenUserLatency: BwUserLatency | undefined
+
+      if (
+        gameConfig.gameSource === GameSource.Matchmaking ||
+        gameConfig.gameSourceExtra?.turnRate === undefined
+      ) {
+        let maxEstimatedLatency = 0
+        for (const route of routes) {
+          if (route.estimatedLatency > maxEstimatedLatency) {
+            maxEstimatedLatency = route.estimatedLatency
+          }
+        }
+
+        this.maxEstimatedLatencyMetric
+          .labels(loadingData.gameSource)
+          .observe(maxEstimatedLatency / 1000)
+
+        let availableTurnRates = MAX_LATENCIES_LOW.filter(
+          ([_, latency]) => latency > maxEstimatedLatency,
         )
-
-    await pingPromise
-    cancelToken.throwIfCancelling()
-
-    const routes = hasMultipleHumans ? await createRoutes(players) : []
-    cancelToken.throwIfCancelling()
-
-    let chosenTurnRate: BwTurnRate | 0 | undefined
-    let chosenUserLatency: BwUserLatency | undefined
-
-    if (
-      gameConfig.gameSource === GameSource.Matchmaking ||
-      gameConfig.gameSourceExtra?.turnRate === undefined
-    ) {
-      let maxEstimatedLatency = 0
-      for (const route of routes) {
-        if (route.estimatedLatency > maxEstimatedLatency) {
-          maxEstimatedLatency = route.estimatedLatency
+        if (availableTurnRates.length) {
+          // Of the turn rates that work for this latency, pick the best one
+          chosenTurnRate = availableTurnRates.at(-1)![0]
+          chosenUserLatency = BwUserLatency.Low
+        } else {
+          // Fall back to a latency that will work for High latency
+          availableTurnRates = MAX_LATENCIES_HIGH.filter(
+            ([_, latency]) => latency > maxEstimatedLatency,
+          )
+          // Of the turn rates that work for this latency, pick the best one
+          chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+          chosenUserLatency = BwUserLatency.High
         }
       }
 
-      this.maxEstimatedLatencyMetric
-        .labels(loadingData.gameSource)
-        .observe(maxEstimatedLatency / 1000)
+      const onGameSetupResult = onGameSetup
+        ? onGameSetup(
+            {
+              gameId,
+              seed: generateSeed(),
+              turnRate: chosenTurnRate,
+              useLegacyLimits:
+                gameConfig.gameSource === GameSource.Lobby
+                  ? gameConfig.gameSourceExtra?.useLegacyLimits
+                  : undefined,
+              userLatency: chosenUserLatency,
+            },
+            resultCodes,
+          )
+        : Promise.resolve()
 
-      let availableTurnRates = MAX_LATENCIES_LOW.filter(
-        ([_, latency]) => latency > maxEstimatedLatency,
-      )
-      if (availableTurnRates.length) {
-        // Of the turn rates that work for this latency, pick the best one
-        chosenTurnRate = availableTurnRates.at(-1)![0]
-        chosenUserLatency = BwUserLatency.Low
-      } else {
-        // Fall back to a latency that will work for High latency
-        availableTurnRates = MAX_LATENCIES_HIGH.filter(
-          ([_, latency]) => latency > maxEstimatedLatency,
-        )
-        // Of the turn rates that work for this latency, pick the best one
-        chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
-        chosenUserLatency = BwUserLatency.High
+      // get a list of routes + player IDs per player, broadcast that to each player
+      const routesByPlayer = routes.reduce((result, route) => {
+        const {
+          p1Slot,
+          p2Slot,
+          server,
+          route: { routeId, p1Id, p2Id },
+        } = route
+        return result
+          .update(p1Slot, List(), val =>
+            val.push({ for: p2Slot.id, server, routeId, playerId: p1Id }),
+          )
+          .update(p2Slot, List(), val =>
+            val.push({ for: p1Slot.id, server, routeId, playerId: p2Id }),
+          )
+      }, IMap<Slot, List<GameRoute>>())
+
+      const debugRouteInfo = routes.map<GameRouteDebugInfo>(route => ({
+        p1: route.p1,
+        p2: route.p2,
+        server: route.server.id,
+        latency: route.estimatedLatency,
+      }))
+      Promise.resolve()
+        .then(() => updateRouteDebugInfo(gameId, debugRouteInfo))
+        .catch(err => {
+          log.error({ err }, 'error updating route debug info')
+        })
+
+      for (const [player, routes] of routesByPlayer.entries()) {
+        this.publisher.publish(gameUserPath(gameId, player.userId), {
+          type: 'setRoutes',
+          gameId,
+          routes: routes.toArray(),
+        })
+      }
+      if (!hasMultipleHumans) {
+        const human = players.first<Slot>().userId!
+        this.publisher.publish(gameUserPath(gameId, human), {
+          type: 'setRoutes',
+          gameId,
+          routes: [],
+        })
+      }
+
+      await onGameSetupResult
+      cancelToken.throwIfCancelling()
+    } finally {
+      for (const client of activeClients) {
+        client.unsubscribe(urlPath`/gameLoader/${gameId}`)
       }
     }
-
-    const onGameSetupResult = onGameSetup
-      ? onGameSetup(
-          {
-            gameId,
-            seed: generateSeed(),
-            turnRate: chosenTurnRate,
-            useLegacyLimits:
-              gameConfig.gameSource === GameSource.Lobby
-                ? gameConfig.gameSourceExtra?.useLegacyLimits
-                : undefined,
-            userLatency: chosenUserLatency,
-          },
-          resultCodes,
-        )
-      : Promise.resolve()
-
-    // get a list of routes + player IDs per player, broadcast that to each player
-    const routesByPlayer = routes.reduce((result, route) => {
-      const {
-        p1Slot,
-        p2Slot,
-        server,
-        route: { routeId, p1Id, p2Id },
-      } = route
-      return result
-        .update(p1Slot, List(), val =>
-          val.push({ for: p2Slot.id, server, routeId, playerId: p1Id }),
-        )
-        .update(p2Slot, List(), val =>
-          val.push({ for: p1Slot.id, server, routeId, playerId: p2Id }),
-        )
-    }, IMap<Slot, List<GameRoute>>())
-
-    const debugRouteInfo = routes.map<GameRouteDebugInfo>(route => ({
-      p1: route.p1,
-      p2: route.p2,
-      server: route.server.id,
-      latency: route.estimatedLatency,
-    }))
-    Promise.resolve()
-      .then(() => updateRouteDebugInfo(gameId, debugRouteInfo))
-      .catch(err => {
-        log.error({ err }, 'error updating route debug info')
-      })
-
-    for (const [player, routes] of routesByPlayer.entries()) {
-      if (onRoutesSet) {
-        onRoutesSet(player.name!, routes.toArray(), gameId)
-      }
-    }
-    if (!hasMultipleHumans) {
-      if (onRoutesSet) {
-        onRoutesSet(players.first<Slot>().name!, [], gameId)
-      }
-    }
-
-    await onGameSetupResult
-    cancelToken.throwIfCancelling()
   }
 }

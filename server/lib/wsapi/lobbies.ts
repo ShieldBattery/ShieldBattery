@@ -6,7 +6,6 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
-import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
@@ -798,10 +797,6 @@ export class LobbyApi {
           gameId = setup.gameId
           this._onGameSetup(lobby, setup, resultCodes)
         },
-        onRoutesSet: (playerName, routes, forGameId) => {
-          gameId = forGameId
-          this._onRoutesSet(lobby, playerName, routes, forGameId)
-        },
       })
 
       countdownTimer
@@ -857,16 +852,6 @@ export class LobbyApi {
         resultCode: resultCodes.get(player.userId),
       })
     }
-  }
-
-  _onRoutesSet(lobby: Lobby, playerName: string, routes: GameRoute[], gameId: string) {
-    // TODO(tec27): the game loader should really just deliver us the userId
-    const player = getHumanSlots(lobby).find(s => s.name === playerName)!
-    this._publishToClient(lobby, player.userId, {
-      type: 'setRoutes',
-      routes,
-      gameId,
-    })
   }
 
   _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false) {

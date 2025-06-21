@@ -1,14 +1,45 @@
+import { NydusClient, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { stringToStatus } from '../../common/game-status'
+import { GameLoaderEvent } from '../../common/games/game-loader-network'
+import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
-import { dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { updateActiveGame } from './wait-for-active-game'
 
-export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
+type EventToActionMap = {
+  [E in GameLoaderEvent['type']]: (
+    gameId: string,
+    event: Extract<GameLoaderEvent, { type: E }>,
+  ) => Dispatchable | void
+}
+
+export default function ({
+  ipcRenderer,
+  siteSocket,
+}: {
+  ipcRenderer: TypedIpcRenderer
+  siteSocket: NydusClient
+}) {
+  const eventToAction: EventToActionMap = {
+    setRoutes(_, { routes, gameId }) {
+      ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
+    },
+  }
+
+  siteSocket.registerRoute(
+    '/gameLoader/:gameId/:userId',
+    (route: RouteInfo, event: GameLoaderEvent) => {
+      const action = eventToAction[event.type]?.(route.params.gameId, event)
+      if (action) {
+        dispatch(action)
+      }
+    },
+  )
+
   ipcRenderer
     .on('activeGameStatus', (event, status) => {
       dispatch({

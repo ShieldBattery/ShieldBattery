@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { ReportedGameStatus } from '../../common/game-status'
+import { ReportedGameStatus } from '../../common/games/game-status'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface GameClientState {

@@ -1,5 +1,4 @@
 import { BasicChannelInfo } from '../chat'
-import { GameRoute } from '../game-launch-config'
 import { GameType } from '../games/game-type'
 import { MapExtension, MapInfoJson } from '../maps'
 import { BwTurnRate, BwUserLatency } from '../network'
@@ -21,7 +20,6 @@ export type LobbyEvent =
   | LobbyStartCountdownEvent
   | LobbyCancelCountdownEvent
   | LobbySetupGameEvent
-  | LobbySetRoutesEvent
   | LobbyStartWhenReadyEvent
   | LobbyCancelLoadingEvent
   | LobbyGameStartedEvent
@@ -125,12 +123,6 @@ export interface LobbySetupGameEvent {
   // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
   // that should be handled differently?
   resultCode?: string
-}
-
-export interface LobbySetRoutesEvent {
-  type: 'setRoutes'
-  gameId: string
-  routes: GameRoute[]
 }
 
 export interface LobbyStartWhenReadyEvent {

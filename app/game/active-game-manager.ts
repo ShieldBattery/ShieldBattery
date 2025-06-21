@@ -8,8 +8,8 @@ import {
   GameRoute,
   isReplayLaunchConfig,
   isReplayMapInfo,
-} from '../../common/game-launch-config'
-import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
+} from '../../common/games/game-launch-config'
+import { GameStatus, ReportedGameStatus, statusToString } from '../../common/games/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { TypedEventEmitter } from '../../common/typed-emitter'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
