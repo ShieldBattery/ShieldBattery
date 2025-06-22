@@ -230,7 +230,7 @@ function PlayButtonDisplay({
             scale: 0.975,
             transition: {
               type: 'spring',
-              duration: 0.2,
+              duration: 0.15,
             },
           },
         }}
