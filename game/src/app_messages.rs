@@ -39,7 +39,7 @@ pub struct SetupProgressInfo {
     pub extra: Option<String>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct LocalUser {
     /// The local user's ShieldBattery user ID.
     pub id: u32,
@@ -55,7 +55,7 @@ pub struct WindowMove {
     pub h: i32,
 }
 
-#[derive(Deserialize, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize)]
 pub enum UmsLobbyRace {
     #[serde(rename = "z")]
     Zerg,
@@ -107,7 +107,7 @@ pub struct ReplaySaved {
     pub path: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameSetupInfo {
     pub name: String,
@@ -117,6 +117,8 @@ pub struct GameSetupInfo {
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
+    #[allow(dead_code)]
+    pub ratings: Option<Vec<(u32, f32)>>,
     pub disable_alliance_changes: Option<bool>,
     pub use_legacy_limits: Option<bool>,
     pub turn_rate: Option<u32>,
@@ -124,6 +126,11 @@ pub struct GameSetupInfo {
     pub seed: u32,
     pub game_id: String,
     pub result_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerConfig {
     pub server_url: String,
 }
 
@@ -159,7 +166,7 @@ impl From<&GameSetupInfo> for LobbyOptions {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 pub struct MapInfo {
@@ -171,7 +178,7 @@ pub struct MapInfo {
     pub path: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 pub struct MapData {
@@ -184,13 +191,13 @@ pub struct MapData {
     pub is_eud: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapForce {
     pub players: Vec<MapForcePlayer>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapForcePlayer {
     pub id: u8,
@@ -201,7 +208,7 @@ pub struct MapForcePlayer {
 #[serde(transparent)]
 pub struct LobbyPlayerId(String);
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
     pub id: LobbyPlayerId,

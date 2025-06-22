@@ -226,12 +226,8 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       ? map.path
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
-    this.emit('gameCommand', id, 'localUser', {
-      // NOTE(tec27): We explicitly send these fields to avoid the Rust code logging private info
-      // (emails), to make the log files safer to post publicly
-      id: config.localUser.id,
-      name: config.localUser.name,
-    })
+    this.emit('gameCommand', id, 'localUser', config.localUser)
+    this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local: await this.localSettings.get(),
       scr: await this.scrSettings.get(),

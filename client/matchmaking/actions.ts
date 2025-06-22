@@ -34,7 +34,6 @@ export type MatchmakingActions =
   | MatchReady
   | CountdownStarted
   | CountdownTick
-  | GameStarting
   | LoadingCanceled
   | GameStarted
   | QueueStatus
@@ -180,10 +179,6 @@ export interface CountdownStarted {
 export interface CountdownTick {
   type: '@matchmaking/countdownTick'
   payload: number
-}
-
-export interface GameStarting {
-  type: '@matchmaking/gameStarting'
 }
 
 export interface LoadingCanceled {

@@ -14,7 +14,7 @@ function MatchmakingMatchHolder() {
   const matchmaking = useAppSelector(s => s.matchmaking)
 
   const { isActive: hasActiveGame, info: gameInfo } = activeGame
-  const { isLaunching, isCountingDown, countdownTimer, isStarting, match } = matchmaking
+  const { isLaunching, isCountingDown, countdownTimer, match } = matchmaking
 
   const hasActiveMatchmakingGame = hasActiveGame && gameInfo?.type === 'matchmaking'
   if (!hasActiveMatchmakingGame && !match) {
@@ -29,7 +29,6 @@ function MatchmakingMatchHolder() {
       isLaunching={isLaunching}
       isCountingDown={isCountingDown}
       countdownTimer={countdownTimer}
-      isStarting={isStarting}
       map={chosenMap}
       players={players}
     />

@@ -2,7 +2,6 @@ import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
 import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
-import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
@@ -15,6 +14,7 @@ import {
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getObserverTeam,
+  getPlayerInfos,
   hasOpposingSides,
   isUms,
   Lobby,
@@ -26,7 +26,7 @@ import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/n
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
-import { GameLoader, GameSetupGameInfo } from '../games/game-loader'
+import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import logger from '../logging/logger'
@@ -84,7 +84,7 @@ export class LobbyApi {
   lobbyClients = Map<ClientSocketsGroup, string>()
   lobbyBannedUsers = Map<string, Set<SbUserId>>()
   lobbyCountdowns = Map<string, Countdown>()
-  loadingLobbies = Map<string, string>()
+  loadingLobbies = Set<string>()
   subscribedSockets = Map<string, ListSubscription>()
 
   constructor(
@@ -746,11 +746,7 @@ export class LobbyApi {
     const lobbyName = lobby.name
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
-
-    let countdownTimerId: ReturnType<typeof setTimeout> | undefined = setTimeout(
-      () => countdownTimer.resolve(),
-      5000,
-    )
+    setTimeout(() => countdownTimer.resolve(), 5000)
     this.lobbyCountdowns = this.lobbyCountdowns.set(
       lobbyName,
       new Countdown({ timer: countdownTimer }),
@@ -764,6 +760,7 @@ export class LobbyApi {
       gameSubType: lobby.gameSubType,
       gameSource: GameSource.Lobby,
       gameSourceExtra: {
+        host: lobby.host.userId,
         turnRate: lobby.turnRate,
         useLegacyLimits: lobby.useLegacyLimits,
       },
@@ -783,37 +780,18 @@ export class LobbyApi {
         .toArray(),
     }
 
-    let startWhenReadyTimerId: ReturnType<typeof setTimeout> | undefined
     try {
-      let gameId: string
-      // TODO(tec27): actually make use of this CancelToken for disconnects
-      const cancelToken = new CancelToken()
-      const gameLoaded = this.gameLoader.loadGame({
+      await countdownTimer
+      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      this.loadingLobbies = this.loadingLobbies.add(lobbyName)
+
+      await this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
+        playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
-        cancelToken,
-        onGameSetup: (setup, resultCodes) => {
-          gameId = setup.gameId
-          this._onGameSetup(lobby, setup, resultCodes)
-        },
       })
 
-      countdownTimer
-        .then(() => {
-          // Have some leeway after the countdown finishes and before allowing the game to start so
-          // we can, for example, show the loading screen for some minimum amount of time
-          startWhenReadyTimerId = setTimeout(() => {
-            this._publishTo(lobby, {
-              type: 'startWhenReady',
-              gameId,
-            })
-          }, 2000)
-          this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-        })
-        .catch(swallowNonBuiltins)
-
-      await Promise.all([countdownTimer, gameLoaded])
       this._onGameLoaded(lobby)
     } catch (err) {
       // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
@@ -826,31 +804,6 @@ export class LobbyApi {
         this._maybeCancelCountdown(lobby)
         this._maybeCancelLoading(lobby)
       }
-    } finally {
-      if (countdownTimerId) {
-        clearTimeout(countdownTimerId)
-        countdownTimerId = undefined
-      }
-      if (startWhenReadyTimerId) {
-        clearTimeout(startWhenReadyTimerId)
-        startWhenReadyTimerId = undefined
-      }
-    }
-  }
-
-  _onGameSetup(
-    lobby: Lobby,
-    setup: GameSetupGameInfo,
-    resultCodes: globalThis.Map<SbUserId, string>,
-  ) {
-    this.loadingLobbies = this.loadingLobbies.set(lobby.name, setup.gameId)
-    const players = getHumanSlots(lobby)
-    for (const player of players) {
-      this._publishToClient(lobby, player.userId, {
-        type: 'setupGame',
-        setup,
-        resultCode: resultCodes.get(player.userId),
-      })
     }
   }
 

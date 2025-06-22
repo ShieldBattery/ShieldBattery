@@ -211,11 +211,11 @@ export class GameApi {
     }
 
     if (status === GameStatus.Playing) {
-      if (!this.gameLoader.registerGameAsLoaded(gameId, user.name)) {
+      if (!this.gameLoader.registerGameAsLoaded(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else if (status === GameStatus.Error) {
-      if (!this.gameLoader.maybeCancelLoading(gameId, user.name)) {
+      if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else {

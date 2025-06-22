@@ -311,7 +311,7 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
   const isMatched = useAppSelector(s => !!s.matchmaking.match)
   const startTime = useAppSelector(s => s.matchmaking.searchInfo?.startTime)
   const isGameInProgress = useAppSelector(
-    s => s.matchmaking.isLaunching || s.matchmaking.isCountingDown || s.matchmaking.isStarting,
+    s => s.matchmaking.isLaunching || s.matchmaking.isCountingDown,
   )
 
   if (isGameInProgress) {

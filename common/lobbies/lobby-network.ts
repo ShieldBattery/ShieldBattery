@@ -1,7 +1,6 @@
 import { BasicChannelInfo } from '../chat'
 import { GameType } from '../games/game-type'
 import { MapExtension, MapInfoJson } from '../maps'
-import { BwTurnRate, BwUserLatency } from '../network'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { SlotJson } from './slot'
@@ -19,8 +18,6 @@ export type LobbyEvent =
   | LobbySlotDeletedEvent
   | LobbyStartCountdownEvent
   | LobbyCancelCountdownEvent
-  | LobbySetupGameEvent
-  | LobbyStartWhenReadyEvent
   | LobbyCancelLoadingEvent
   | LobbyGameStartedEvent
   | LobbyChatEvent
@@ -109,25 +106,6 @@ export interface LobbyStartCountdownEvent {
 
 export interface LobbyCancelCountdownEvent {
   type: 'cancelCountdown'
-}
-
-export interface LobbySetupGameEvent {
-  type: 'setupGame'
-  setup: {
-    gameId: string
-    seed: number
-    turnRate?: BwTurnRate | 0
-    userLatency?: BwUserLatency
-    useLegacyLimits?: boolean
-  }
-  // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
-  // that should be handled differently?
-  resultCode?: string
-}
-
-export interface LobbyStartWhenReadyEvent {
-  type: 'startWhenReady'
-  gameId: string
 }
 
 export interface LobbyCancelLoadingEvent {

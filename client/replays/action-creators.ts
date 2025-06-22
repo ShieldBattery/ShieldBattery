@@ -23,7 +23,7 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
     name: user?.name ?? 'ShieldBattery User',
     id: nanoid(),
     teamId: 0,
-    userId: user?.id ?? 0,
+    userId: user?.id ?? makeSbUserId(0),
   }
   const slots = [player]
 
@@ -34,6 +34,9 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
       id: user?.id ?? makeSbUserId(0),
       name: user?.name ?? 'ShieldBattery User',
     },
+    serverConfig: {
+      serverUrl: makeServerUrl(''),
+    },
     setup: {
       gameId: nanoid(),
       name: replay.name,
@@ -43,7 +46,6 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
       slots,
       host: player,
       seed: header?.seed ?? 0,
-      serverUrl: makeServerUrl(''),
     },
   })
 }

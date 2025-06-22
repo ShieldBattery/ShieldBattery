@@ -1,5 +1,6 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../common/games/game-loader-network'
 import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -8,6 +9,7 @@ import { dispatch, Dispatchable } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { makeServerUrl } from '../network/server-url'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -25,15 +27,54 @@ export default function ({
   siteSocket: NydusClient
 }) {
   const eventToAction: EventToActionMap = {
+    setGameConfig(_, { setup, gameId }) {
+      return (dispatch, getState) => {
+        const {
+          auth: { self },
+        } = getState()
+
+        if ('mapUrl' in setup.map) {
+          const {
+            hash,
+            mapData: { format },
+            mapUrl,
+          } = setup.map
+          // The map should already be downloaded at this point, but just in case we trigger a check
+          // to re-download it if necessary
+          ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl!)?.catch(err => {
+            // TODO(tec27): Report this to the server so the loading is canceled immediately
+
+            // This is already logged to our file by the map store, so we just log it to the console
+            // for easy visibility during development
+            console.error('Error downloading map: ' + err.stack)
+          })
+        }
+
+        const config: GameLaunchConfig = {
+          localUser: {
+            id: self!.user.id,
+            name: self!.user.name,
+          },
+          serverConfig: {
+            serverUrl: makeServerUrl(''),
+          },
+          setup,
+        }
+        ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
+      }
+    },
     setRoutes(_, { routes, gameId }) {
       ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
+    },
+    startWhenReady(_, { gameId }) {
+      ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
     },
   }
 
   siteSocket.registerRoute(
     '/gameLoader/:gameId/:userId',
     (route: RouteInfo, event: GameLoaderEvent) => {
-      const action = eventToAction[event.type]?.(route.params.gameId, event)
+      const action = eventToAction[event.type]?.(route.params.gameId, event as any)
       if (action) {
         dispatch(action)
       }

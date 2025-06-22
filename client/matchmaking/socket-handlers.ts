@@ -1,7 +1,5 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameLaunchConfig, PlayerInfo } from '../../common/games/game-launch-config'
-import { GameType } from '../../common/games/game-type'
 import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
@@ -18,7 +16,6 @@ import { Dispatchable, dispatch } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
 
@@ -174,77 +171,6 @@ const eventToAction: EventToActionMap = {
       payload: event,
     })
     push('/matchmaking/countdown')
-
-    const {
-      auth: { self },
-    } = getState()
-
-    const {
-      hash,
-      mapData: { format },
-      mapUrl,
-    } = event.chosenMap
-    // Even though we're downloading the whole map pool as soon as the player enters the queue,
-    // we're still leaving this as a check to make sure the map exists before starting a game.
-    ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl!)?.catch(err => {
-      // TODO(tec27): Report this to the server so the loading is canceled immediately
-
-      // This is already logged to our file by the map store, so we just log it to the console for
-      // easy visibility during development
-      console.error('Error downloading map: ' + err.stack)
-    })
-
-    const totalPlayers = event.slots.length
-    // TODO(tec27): If matchmaking bugs, this can result in floating point numbers (e.g. if
-    // 3 players get queued into a 2v2), which breaks the game load. Ideally the server would send
-    // the actual teams instead of just an array of players, and we'd use the first team's size to
-    // pick the subtype. (Or the server could send the whole configuration directly)
-    const teamSize = totalPlayers / 2
-    const slots: PlayerInfo[] = event.slots.map((slot, i) => ({
-      id: slot.id,
-      name: slot.name,
-      race: slot.race,
-      playerId: slot.playerId,
-      teamId:
-        event.matchmakingType === MatchmakingType.Match1v1 ||
-        event.matchmakingType === MatchmakingType.Match1v1Fastest ||
-        i < teamSize
-          ? 0
-          : 1,
-      type: slot.type,
-      typeId: slot.typeId,
-      userId: slot.userId,
-    }))
-
-    const config: GameLaunchConfig = {
-      localUser: {
-        id: self!.user.id,
-        name: self!.user.name,
-      },
-      setup: {
-        gameId: event.setup.gameId,
-        name: 'Matchmaking game',
-        map: event.chosenMap,
-        gameType:
-          event.matchmakingType === MatchmakingType.Match2v2
-            ? GameType.TopVsBottom
-            : GameType.OneVsOne,
-        gameSubType: event.matchmakingType === MatchmakingType.Match2v2 ? teamSize : 0,
-        slots,
-        host: slots[0], // Arbitrarily set first player as host
-        disableAllianceChanges: true,
-        turnRate: event.setup.turnRate,
-        userLatency: event.setup.userLatency,
-        seed: event.setup.seed,
-        resultCode: event.resultCode!,
-        serverUrl: makeServerUrl(''),
-      },
-    }
-
-    dispatch({
-      type: '@active-game/launch',
-      payload: ipcRenderer.invoke('activeGameSetConfig', config)!,
-    })
   },
 
   setRoutes: (matchmakingType, event) => () => {
@@ -275,18 +201,6 @@ const eventToAction: EventToActionMap = {
         clearCountdownTimer(true /* leaveAtmosphere */)
       }
     }, 1000)
-  },
-
-  startWhenReady: (matchmakingType, event) => (dispatch, getState) => {
-    const { gameId } = event
-
-    const currentPath = location.pathname
-    if (currentPath === '/matchmaking/countdown') {
-      replace('/matchmaking/game-starting')
-    }
-    dispatch({ type: '@matchmaking/gameStarting' })
-
-    ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
   },
 
   cancelLoading: (matchmakingType, event) => (dispatch, getState) => {

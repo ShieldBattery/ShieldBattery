@@ -1,10 +1,6 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameLaunchConfig, PlayerInfo } from '../../common/games/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
-import { MapInfoJson } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import {
   LOBBIES_COUNT_UPDATE,
@@ -35,7 +31,6 @@ import { Dispatchable, dispatch } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -237,61 +232,6 @@ const eventToAction: EventToActionMap = {
     return {
       type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
     } as any
-  },
-
-  setupGame: (name, event) => (dispatch, getState) => {
-    const {
-      lobby,
-      auth: { self },
-    } = getState()
-
-    const {
-      info: { name: lobbyName, map, gameType, gameSubType, host },
-    } = lobby
-
-    const playerInfos = getIngameLobbySlotsWithIndexes(lobby.info)
-      .map<PlayerInfo>(([teamIndex, , slot]: [number, any, any]) => ({
-        id: slot.id,
-        name: slot.name,
-        race: slot.race,
-        playerId: slot.playerId,
-        type: slot.type,
-        typeId: slot.typeId,
-        userId: slot.userId,
-        teamId: lobby.info.teams.get(teamIndex)!.teamId,
-      }))
-      .toArray()
-    const hostInfo = playerInfos.find(s => s.id === host.id)!
-
-    const config: GameLaunchConfig = {
-      localUser: { id: self!.user.id, name: self!.user.name },
-      setup: {
-        gameId: event.setup.gameId,
-        name: lobbyName,
-        map: map as unknown as MapInfoJson,
-        gameType,
-        gameSubType,
-        slots: playerInfos,
-        host: hostInfo,
-        seed: event.setup.seed,
-        turnRate: event.setup.turnRate,
-        userLatency: event.setup.userLatency,
-        useLegacyLimits: event.setup.useLegacyLimits,
-        resultCode: event.resultCode,
-        serverUrl: makeServerUrl(''),
-      },
-    }
-
-    dispatch({
-      type: '@active-game/launch',
-      payload: ipcRenderer.invoke('activeGameSetConfig', config)!,
-    })
-  },
-
-  startWhenReady: (name, event) => {
-    const { gameId } = event
-
-    ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {

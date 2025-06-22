@@ -32,6 +32,7 @@ export type LobbyGameConfig = SetOptional<
 >
 
 export interface LobbyExtra {
+  host?: SbUserId
   turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
 }

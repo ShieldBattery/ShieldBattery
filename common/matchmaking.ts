@@ -4,9 +4,7 @@ import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './games/game-launch-config'
 import { Jsonify } from './json'
-import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
-import { BwTurnRate, BwUserLatency } from './network'
 import { AssignedRaceChar, RaceChar } from './races'
 import { MatchmakingType } from './typeshare'
 import { SbUserId } from './users/sb-user-id'
@@ -741,13 +739,6 @@ export interface RequeueEvent {
 
 export interface MatchReadyEvent {
   type: 'matchReady'
-  matchmakingType: MatchmakingType
-  setup: { gameId: string; seed: number; turnRate?: BwTurnRate | 0; userLatency?: BwUserLatency }
-  resultCode?: string
-  // TODO(tec27): This is not a correct type, this cannot be a Record, it's deserialized from JSON
-  slots: Slot[]
-  players: MatchmakingPlayer[]
-  chosenMap: MapInfoJson
 }
 
 export interface SetRoutesEvent {
@@ -758,11 +749,6 @@ export interface SetRoutesEvent {
 
 export interface StartCountdownEvent {
   type: 'startCountdown'
-}
-
-export interface StartWhenReadyEvent {
-  type: 'startWhenReady'
-  gameId: string
 }
 
 export interface CancelLoadingEvent {
@@ -792,7 +778,6 @@ export type MatchmakingEvent =
   | MatchReadyEvent
   | SetRoutesEvent
   | StartCountdownEvent
-  | StartWhenReadyEvent
   | CancelLoadingEvent
   | GameStartedEvent
   | QueueStatusEvent

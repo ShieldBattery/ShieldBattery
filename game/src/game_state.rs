@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo,
-    LobbyPlayerId, LocalUser, MapForce, NetworkStallInfo, PlayerInfo, Route, Settings,
-    SetupProgress, UmsLobbyRace,
+    LobbyPlayerId, LocalUser, MapForce, NetworkStallInfo, PlayerInfo, Route, ServerConfig,
+    Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -66,6 +66,7 @@ enum InitState {
 
 struct IncompleteInit {
     local_user: Option<LocalUser>,
+    server_config: Option<ServerConfig>,
     settings_set: bool,
     routes_set: bool,
 }
@@ -84,9 +85,14 @@ impl IncompleteInit {
         if self.local_user.is_none() {
             return Err(GameInitError::LocalUserNotSet);
         }
+        if self.server_config.is_none() {
+            return Err(GameInitError::ServerConfigNotSet);
+        }
+
         Ok(InitInProgress::new(
             info.clone(),
-            Arc::new(self.local_user.take().unwrap()),
+            self.local_user.take().unwrap(),
+            self.server_config.take().unwrap(),
         ))
     }
 }
@@ -96,6 +102,7 @@ pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
     SetLocalUser(LocalUser),
+    SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     StartWhenReady,
     InLobby,
@@ -118,6 +125,9 @@ quick_error! {
         }
         LocalUserNotSet {
             display("Local user not set")
+        }
+        ServerConfigNotSet {
+            display("Server config not set")
         }
         RoutesNotSet {
             display("Routes not set")
@@ -177,6 +187,14 @@ impl GameState {
             state.local_user = Some(user);
         } else {
             error!("Received local user after game was started");
+        }
+    }
+
+    fn set_server_config(&mut self, config: ServerConfig) {
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            state.server_config = Some(config);
+        } else {
+            error!("Received server config after game was started");
         }
     }
 
@@ -449,6 +467,7 @@ impl GameState {
             _ => return future::err(GameInitError::GameInitNotInProgress).boxed(),
         };
         let local_user = init_state.local_user.clone();
+        let server_config = init_state.server_config.clone();
         let info = init_state.setup_info.clone();
         self.game_started = true;
 
@@ -470,7 +489,7 @@ impl GameState {
             // as the Victory/Defeat dialog is shown, which is before the game loop exits
             let results = results.await?;
             if !info.is_replay() {
-                send_game_result(&results, &info, &local_user, &ws_send).await;
+                send_game_result(&results, &info, &local_user, &server_config, &ws_send).await;
             }
             debug!("Network stall statistics: {:?}", results.network_stalls);
 
@@ -534,6 +553,9 @@ impl GameState {
             }
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
+            }
+            SetServerConfig(config) => {
+                self.set_server_config(config);
             }
             StartWhenReady => {
                 match mem::replace(&mut self.can_start_game, AwaitableTaskState::Complete) {
@@ -758,6 +780,7 @@ async fn send_game_result(
     results: &GameResults,
     info: &GameSetupInfo,
     local_user: &LocalUser,
+    server_config: &ServerConfig,
     ws_send: &app_socket::SendMessages,
 ) {
     // Send results to the app.
@@ -772,7 +795,10 @@ async fn send_game_result(
     // Attempt to send results to the server, if this fails, we expect
     // the app to retry in the future
     let client = reqwest::Client::new();
-    let result_url = format!("{}/api/1/games/{}/results2", info.server_url, info.game_id);
+    let result_url = format!(
+        "{}/api/1/games/{}/results2",
+        server_config.server_url, info.game_id
+    );
 
     let mut result_headers = HeaderMap::new();
     result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
@@ -811,13 +837,16 @@ async fn send_game_result(
 }
 
 struct InitInProgress {
+    setup_info: Arc<GameSetupInfo>,
+    local_user: LocalUser,
+    server_config: ServerConfig,
+
     all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
     all_players_ready: AwaitableTaskState<()>,
-    setup_info: Arc<GameSetupInfo>,
-    local_user: Arc<LocalUser>,
     joined_players: Vec<JoinedPlayer>,
     unready_players: HashSet<LobbyPlayerId>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
+
     stall_durations: Vec<Duration>,
     stall_count: usize,
     stall_min: Duration,
@@ -833,7 +862,11 @@ struct JoinedPlayer {
 }
 
 impl InitInProgress {
-    fn new(setup_info: Arc<GameSetupInfo>, local_user: Arc<LocalUser>) -> InitInProgress {
+    fn new(
+        setup_info: Arc<GameSetupInfo>,
+        local_user: LocalUser,
+        server_config: ServerConfig,
+    ) -> InitInProgress {
         let is_host = setup_info.host.name == local_user.name;
         // Only the host tracks client readiness
         let unready_players = if is_host {
@@ -853,10 +886,12 @@ impl InitInProgress {
         };
 
         let mut result = InitInProgress {
-            all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
-            all_players_ready: AwaitableTaskState::Incomplete(Vec::new()),
             setup_info,
             local_user,
+            server_config,
+
+            all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
+            all_players_ready: AwaitableTaskState::Incomplete(Vec::new()),
             joined_players: Vec::new(),
             unready_players,
             waiting_for_result: Vec::new(),
@@ -1387,9 +1422,10 @@ pub async fn create_future(
     let (from_network_send, mut from_network_recv) = mpsc::channel(64);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
-            settings_set: false,
             local_user: None,
+            server_config: None,
             routes_set: false,
+            settings_set: false,
         }),
         network: NetworkManager::new(from_network_send, network_recv),
         network_send,

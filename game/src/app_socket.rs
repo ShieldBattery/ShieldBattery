@@ -163,6 +163,13 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             let user = serde_json::from_value(payload).context(("Invalid local user", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
+        "serverConfig" => {
+            let config =
+                serde_json::from_value(payload).context(("Invalid server config", &*text))?;
+            Ok(MessageResult::Game(GameStateMessage::SetServerConfig(
+                config,
+            )))
+        }
         "routes" => {
             let routes = serde_json::from_value(payload).context(("Invalid routes", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))

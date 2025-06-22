@@ -1,4 +1,5 @@
 import { List, Record } from 'immutable'
+import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { BwTurnRate } from '../network'
@@ -76,7 +77,7 @@ export function getHumanSlots(lobby: Lobby): List<Slot> {
   )
 }
 
-type SlotWithIndexes = [teamIndex: number, slotIndex: number, slot: Slot]
+export type SlotWithIndexes = [teamIndex: number, slotIndex: number, slot: Slot]
 
 /**
  * Returns a List of tuples with info for each slot in the lobby.
@@ -99,6 +100,24 @@ export function getIngameLobbySlotsWithIndexes(lobby: Lobby): List<SlotWithIndex
   return lobby.teams.flatMap((team, teamIndex) =>
     team.slots.concat(team.hiddenSlots).map((slot, slotIndex) => [teamIndex, slotIndex, slot]),
   )
+}
+
+/**
+ * Returns an array of `PlayerInfo` objects that can be used to initialize a game from this lobby.
+ */
+export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
+  return getIngameLobbySlotsWithIndexes(lobby)
+    .map(([teamIndex, _slotIndex, slot]) => ({
+      id: slot.id,
+      userId: slot.userId,
+      name: slot.name,
+      race: slot.race,
+      playerId: slot.playerId,
+      type: slot.type,
+      typeId: slot.typeId,
+      teamId: lobby.teams.get(teamIndex)?.teamId ?? 0,
+    }))
+    .toArray()
 }
 
 // TODO(tec27): Make this use user IDs, and also make the return types not dumb af lol

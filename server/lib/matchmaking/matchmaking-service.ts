@@ -16,9 +16,10 @@ import {
   GameSource,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
+import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
-import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
+import { MapInfo } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   hasVetoes,
@@ -31,7 +32,6 @@ import {
   MatchmakingType,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
-import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
@@ -75,24 +75,6 @@ import { adjustMatchmakingRatingForInactivity } from './rating'
 
 interface MatchmakerCallbacks {
   onMatchFound: OnMatchFoundFunc
-}
-
-interface GameLoaderCallbacks {
-  onGameSetup: (props: {
-    matchInfo: Readonly<Match>
-    clients: ReadonlyArray<ClientSocketsGroup>
-    slots: ReadonlyArray<Slot>
-    setup: {
-      gameId: string
-      seed: number
-      turnRate?: BwTurnRate | 0
-      userLatency?: BwUserLatency
-    }
-    resultCodes: ReadonlyMap<SbUserId, string>
-    chosenMap: MapInfoJson
-    cancelToken: CancelToken
-  }) => void | Promise<void>
-  onGameLoaded: (clients: ReadonlyArray<ClientSocketsGroup>) => void
 }
 
 class Match {
@@ -334,107 +316,6 @@ export class MatchmakingService {
       this.matchesFoundMetric.labels(matchInfo.type).inc()
 
       this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
-    },
-  }
-
-  private gameLoaderDelegate: GameLoaderCallbacks = {
-    onGameSetup: async ({
-      matchInfo,
-      clients,
-      slots,
-      setup,
-      resultCodes,
-      chosenMap,
-      cancelToken,
-    }) => {
-      cancelToken.throwIfCancelling()
-
-      const playersJson = matchInfo.teams.flatMap(team =>
-        team.flatMap(entities =>
-          Array.from(getPlayersFromEntity(entities), p => {
-            const slot = slots.find(s => s.name === p.name)!
-
-            return {
-              id: p.id,
-              name: p.name,
-              race: slot.race,
-              rating: p.rating,
-            }
-          }),
-        ),
-      )
-
-      // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
-      // catches any of the errors inside.
-      await Promise.all(
-        clients.map(async client => {
-          let published = this.publishToActiveClient(client.userId, {
-            type: 'matchReady',
-            matchmakingType: matchInfo.type,
-            setup,
-            resultCode: resultCodes.get(client.userId),
-            slots,
-            players: playersJson,
-            chosenMap,
-          })
-
-          if (!published) {
-            throw new MatchmakingServiceError(
-              MatchmakingServiceErrorCode.ClientDisconnected,
-              `Match cancelled, ${client.name} disconnected`,
-            )
-          }
-
-          let countdownTimerId
-          try {
-            let timers = this.clientTimers.get(client.userId) ?? { cancelToken }
-            this.clientTimers.set(client.userId, timers)
-            cancelToken.throwIfCancelling()
-
-            published = this.publishToActiveClient(client.userId, { type: 'startCountdown' })
-            if (!published) {
-              throw new MatchmakingServiceError(
-                MatchmakingServiceErrorCode.ClientDisconnected,
-                `Match cancelled, ${client.name} disconnected`,
-              )
-            }
-
-            const countdownTimer = createDeferred<void>()
-            countdownTimer.catch(swallowNonBuiltins)
-            timers = this.clientTimers.get(client.userId) ?? { cancelToken }
-            timers.countdownTimer = countdownTimer
-            this.clientTimers.set(client.userId, timers)
-            countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
-
-            await countdownTimer
-            cancelToken.throwIfCancelling()
-
-            published = this.publishToActiveClient(client.userId, {
-              type: 'startWhenReady',
-              gameId: setup.gameId!,
-            })
-            if (!published) {
-              throw new MatchmakingServiceError(
-                MatchmakingServiceErrorCode.ClientDisconnected,
-                `Match cancelled, ${client.name} disconnected`,
-              )
-            }
-          } finally {
-            if (countdownTimerId) {
-              clearTimeout(countdownTimerId)
-              countdownTimerId = null
-            }
-          }
-        }),
-      )
-    },
-
-    onGameLoaded: clients => {
-      for (const client of clients) {
-        this.publishToActiveClient(client.userId, { type: 'gameStarted' })
-        // TODO(tec27): Should this be maintained until the client reports game exit instead?
-        this.unregisterActivity(client.userId)
-      }
     },
   }
 
@@ -758,6 +639,7 @@ export class MatchmakingService {
 
   private async doGameLoad(match: Match) {
     let slots: Slot[]
+    let playerInfos: PlayerInfo[]
     let teams: GameConfigPlayer[][]
     const players = Array.from(match.players())
     const clients: ClientSocketsGroup[] = []
@@ -813,6 +695,16 @@ export class MatchmakingService {
         slots = players.map(p => createHuman(p.name, p.id, p.race))
       }
 
+      playerInfos = slots.map(s => ({
+        id: s.id,
+        userId: s.userId,
+        name: s.name,
+        race: s.race,
+        playerId: s.playerId,
+        teamId: 0,
+        type: s.type,
+        typeId: s.typeId,
+      }))
       teams = [
         slots.map(s => ({
           id: s.userId,
@@ -828,6 +720,18 @@ export class MatchmakingService {
         ),
       )
       slots = slotsInTeams.flat()
+      playerInfos = slotsInTeams.flatMap((t, i) =>
+        t.map(s => ({
+          id: s.id,
+          userId: s.userId,
+          name: s.name,
+          race: s.race,
+          playerId: s.playerId,
+          teamId: i,
+          type: s.type,
+          typeId: s.typeId,
+        })),
+      )
       teams = slotsInTeams.map(t =>
         t.map(s => ({
           id: s.userId,
@@ -883,31 +787,35 @@ export class MatchmakingService {
       teams,
     }
 
-    const loadCancelToken = new CancelToken()
-    const gameLoaded = this.gameLoader.loadGame({
+    const ratings = match.teams.flatMap(team =>
+      team.flatMap(entities =>
+        Array.from(
+          getPlayersFromEntity(entities),
+          p => [p.id, p.rating] as [id: SbUserId, rating: number],
+        ),
+      ),
+    )
+
+    for (const client of clients) {
+      this.publishToActiveClient(client.userId, { type: 'matchReady' })
+    }
+
+    await this.gameLoader.loadGame({
       players: slots,
+      playerInfos,
       mapId: chosenMap.id,
       gameConfig,
-      cancelToken: loadCancelToken,
-      onGameSetup: (setup, resultCodes) =>
-        this.gameLoaderDelegate.onGameSetup({
-          matchInfo: match,
-          clients,
-          slots,
-          setup,
-          resultCodes,
-          chosenMap: toMapInfoJson(chosenMap),
-          cancelToken: loadCancelToken,
-        }),
+      ratings,
     })
-
-    await gameLoaded
 
     for (const player of match.players()) {
       this.queueEntries.delete(player.id)
     }
-
-    this.gameLoaderDelegate.onGameLoaded(clients)
+    for (const client of clients) {
+      this.publishToActiveClient(client.userId, { type: 'gameStarted' })
+      // TODO(tec27): Should this be maintained until the client reports game exit instead?
+      this.unregisterActivity(client.userId)
+    }
   }
 
   private unregisterActivity(userId: SbUserId) {

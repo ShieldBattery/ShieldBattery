@@ -21,13 +21,12 @@ export interface MatchmakingState {
   isLaunching: boolean
   isCountingDown: boolean
   countdownTimer?: number
-  isStarting: boolean
 
   match?: MatchmakingMatch
 }
 
 export function isMatchmakingLoading(state: Immutable<MatchmakingState>): boolean {
-  return state.isLaunching || state.isCountingDown || state.isStarting
+  return state.isLaunching || state.isCountingDown
 }
 
 const DEFAULT_STATE: Immutable<MatchmakingState> = {
@@ -39,7 +38,6 @@ const DEFAULT_STATE: Immutable<MatchmakingState> = {
   isLaunching: false,
   isCountingDown: false,
   countdownTimer: undefined,
-  isStarting: false,
   match: undefined,
 }
 
@@ -121,16 +119,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@matchmaking/matchReady'](state, action) {
-    const { matchmakingType, players, chosenMap } = action.payload
-
     state.isLaunching = true
-    state.match = {
-      type: matchmakingType,
-      acceptedPlayers: players.length,
-      numPlayers: players.length,
-      players,
-      chosenMap,
-    }
   },
 
   ['@matchmaking/countdownStarted'](state, action) {
@@ -141,11 +130,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@matchmaking/countdownTick'](state, action) {
     state.countdownTimer = action.payload
-  },
-
-  ['@matchmaking/gameStarting'](state, action) {
-    state.isStarting = true
-    state.isCountingDown = false
   },
 
   ['@matchmaking/gameStarted'](state, action) {
