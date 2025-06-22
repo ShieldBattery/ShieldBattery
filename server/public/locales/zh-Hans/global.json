@@ -486,7 +486,6 @@
             "gameFailedToLoad": "游戏加载失败。",
             "gameInProgress": "游戏正在进行中……",
             "gameLoading": "游戏正在启动……",
-            "gameStarting": "游戏正在开始……",
             "playerVsPlayer": "对"
         },
         "activity": {

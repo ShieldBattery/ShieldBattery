@@ -481,7 +481,6 @@
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
             "gameInProgress": "$🗡Game in progress…🗡!",
             "gameLoading": "$🗡Game launching…🗡!",
-            "gameStarting": "$🗡Game starting…🗡!",
             "playerVsPlayer": "$🗡vs🗡!"
         },
         "postMatchDialog": {

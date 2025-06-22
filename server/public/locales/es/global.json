@@ -474,7 +474,6 @@
             "gameFailedToLoad": "El juego no se ha podido cargar.",
             "gameInProgress": "Juego en progreso…",
             "gameLoading": "Lanzamiento del juego…",
-            "gameStarting": "Juego comenzando…",
             "playerVsPlayer": "contra"
         },
         "postMatchDialog": {

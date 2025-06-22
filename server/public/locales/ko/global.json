@@ -461,7 +461,6 @@
             "gameInProgress": "게임 진행 중…",
             "gameFailedToLoad": "게임 로딩에 실패했습니다.",
             "gameLoading": "게임 시작 중…",
-            "gameStarting": "게임이 곧 시작됩니다…",
             "playerVsPlayer": "대"
         },
         "disabledCard": {

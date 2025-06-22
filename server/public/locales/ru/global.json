@@ -454,7 +454,6 @@
             "gameFailedToLoad": "Не удалось загрузить игру.",
             "gameInProgress": "Идет игра…",
             "gameLoading": "Запуск игры…",
-            "gameStarting": "Игра начинается…",
             "playerVsPlayer": "против"
         },
         "postMatchDialog": {
