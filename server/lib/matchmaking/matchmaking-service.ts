@@ -195,7 +195,6 @@ interface QueueEntry {
 }
 
 interface Timers {
-  mapSelectionTimer?: Deferred<void>
   countdownTimer?: Deferred<void>
   cancelToken: CancelToken
 }
@@ -386,16 +385,10 @@ export class MatchmakingService {
             )
           }
 
-          let mapSelectionTimerId
           let countdownTimerId
           try {
-            const mapSelectionTimer = createDeferred<void>()
-            mapSelectionTimer.catch(swallowNonBuiltins)
             let timers = this.clientTimers.get(client.userId) ?? { cancelToken }
-            timers.mapSelectionTimer = mapSelectionTimer
             this.clientTimers.set(client.userId, timers)
-            mapSelectionTimerId = setTimeout(() => mapSelectionTimer.resolve(), 5000)
-            await mapSelectionTimer
             cancelToken.throwIfCancelling()
 
             published = this.publishToActiveClient(client.userId, { type: 'startCountdown' })
@@ -427,10 +420,6 @@ export class MatchmakingService {
               )
             }
           } finally {
-            if (mapSelectionTimerId) {
-              clearTimeout(mapSelectionTimerId)
-              mapSelectionTimerId = null
-            }
             if (countdownTimerId) {
               clearTimeout(countdownTimerId)
               countdownTimerId = null
@@ -981,12 +970,9 @@ export class MatchmakingService {
     for (const userId of toUnregister) {
       if (this.clientTimers.has(userId)) {
         // Means the client disconnected during the loading process
-        const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(userId)!
+        const { countdownTimer, cancelToken } = this.clientTimers.get(userId)!
         if (countdownTimer) {
           countdownTimer.reject(new Error('Countdown cancelled'))
-        }
-        if (mapSelectionTimer) {
-          mapSelectionTimer.reject(new Error('Map selection cancelled'))
         }
 
         cancelToken.cancel()
