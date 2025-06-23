@@ -1816,6 +1816,7 @@ dependencies = [
  "serde_repr",
  "smallvec",
  "tokio",
+ "tokio-debouncer",
  "tokio-stream",
  "tokio-tungstenite",
  "whack",
@@ -1986,6 +1987,16 @@ dependencies = [
  "socket2",
  "tokio-macros",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "tokio-debouncer"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "782293a35cec30b905eebe98b2c9235b6ff71ee2be5c7b6a95cf56019514bb4f"
+dependencies = [
+ "parking_lot",
+ "tokio",
 ]
 
 [[package]]
