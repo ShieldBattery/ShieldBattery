@@ -551,6 +551,10 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    pub fn render_screen(&mut self) -> Option<VirtualAddress> {
+        self.0.render_screen()
+    }
+
     pub fn main_palette(&mut self) -> Option<Operand<'e>> {
         self.0.main_palette()
     }
@@ -620,5 +624,17 @@ impl<'e> Analysis<'e> {
 
     pub fn pathing(&mut self) -> Option<Operand<'e>> {
         self.0.pathing()
+    }
+
+    pub fn lookup_sound_id(&mut self) -> Option<VirtualAddress> {
+        self.0.lookup_sound_id()
+    }
+
+    pub fn play_sound(&mut self) -> Option<VirtualAddress> {
+        self.0.play_sound()
+    }
+
+    pub fn print_text(&mut self) -> Option<VirtualAddress> {
+        self.0.print_text()
     }
 }

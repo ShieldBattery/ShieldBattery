@@ -64,10 +64,28 @@ unsafe extern "C" fn chat_box_event_handler(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
+        let bw = get_bw();
+
+        // keypress
+        if (*event).ty == 0xf {
+            if let Some(edit_box) = Control::new(ctrl).dialog().child_by_id(7) {
+                let key = (*event).param;
+                // Enter/return while the chat box was open
+                if !edit_box.is_hidden() && (key == 0xa || key == 0xd) {
+                    let text = edit_box.string();
+                    if bw.handle_chat_command(text) {
+                        // Clear the chat box text so no message gets sent
+                        edit_box.set_string(b"");
+                    }
+                }
+            } else {
+                debug!("Couldn't find edit box on chat box keypress event!");
+            }
+        }
+
         // This dialog checks if allies are enabled to allow/prevent ally chat;
         // as we disable allies to prevent changing them from what they originally
-        // were, restore alliance state temporarely to make ally chat work.
-        let bw = get_bw();
+        // were, restore alliance state temporarily to make ally chat work.
         let game_data = bw.game_data();
         let old = (*game_data).game_template.allies_enabled;
         (*game_data).game_template.allies_enabled =
@@ -108,7 +126,6 @@ unsafe extern "C" fn minimap_event_handler(
             return 0;
         }
         let ret = orig(ctrl, event);
-        let event = event as *mut bw::scr::ControlEvent;
         // Init event
         if (*event).ty == 0xe && (*event).ext_type == 0x0 {
             // Replay / obs UI won't have the alliance / chat buttons show above
@@ -125,7 +142,7 @@ unsafe extern "C" fn minimap_event_handler(
                             3 => &MINIMAP_BUTTON1_EVENT_HANDLER,
                             _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
                         };
-                        if let Some(handler) = (*(*child as *mut bw::scr::Control)).event_handler {
+                        if let Some(handler) = (*(*child)).event_handler {
                             let inited = handler_hook.init(prevent_button_hide);
                             inited.set_orig(handler as usize);
                             child.set_event_handler(inited);
@@ -160,7 +177,6 @@ unsafe extern "C" fn prevent_button_hide(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        let event = event as *mut bw::scr::ControlEvent;
         if (*event).ty == 0xe && (*event).ext_type == 0xe {
             // Hide
             let hide_skip_count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);

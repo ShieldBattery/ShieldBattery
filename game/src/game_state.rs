@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo,
-    LobbyPlayerId, LocalUser, MapForce, NetworkStallInfo, PlayerInfo, Route, ServerConfig,
-    Settings, SetupProgress, UmsLobbyRace,
+    LobbyPlayerId, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, SbUser, SbUserId,
+    ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -65,7 +65,7 @@ enum InitState {
 }
 
 struct IncompleteInit {
-    local_user: Option<LocalUser>,
+    local_user: Option<SbUser>,
     server_config: Option<ServerConfig>,
     settings_set: bool,
     routes_set: bool,
@@ -101,7 +101,7 @@ impl IncompleteInit {
 pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
-    SetLocalUser(LocalUser),
+    SetLocalUser(SbUser),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     StartWhenReady,
@@ -174,7 +174,7 @@ quick_error! {
 impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
-            forge::init(&settings.local);
+            forge::init(&settings.local, &settings.scr);
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
@@ -182,7 +182,7 @@ impl GameState {
         }
     }
 
-    fn set_local_user(&mut self, user: LocalUser) {
+    fn set_local_user(&mut self, user: SbUser) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             state.local_user = Some(user);
         } else {
@@ -342,12 +342,10 @@ impl GameState {
 
             debug!("In lobby, setting up slots");
             unsafe {
-                let ums_forces = info
-                    .map
-                    .map_data
-                    .as_ref()
-                    .map(|x| &x.ums_forces[..])
-                    .unwrap_or(&[]);
+                let ums_forces = match info.map {
+                    MapInfo::Replay(_) => &[],
+                    MapInfo::Game(ref game_map) => &game_map.map_data.ums_forces[..],
+                };
                 setup_slots(&info.slots, game_type, ums_forces);
             }
             send_messages_to_state
@@ -396,6 +394,7 @@ impl GameState {
                     }
                 }
             }
+
             debug!("All players have joined");
             if let Some(sbat_replay_data_promise) = sbat_replay_data {
                 // Assuming that the extra replay data isn't needed in the above lobby
@@ -505,7 +504,7 @@ impl GameState {
                 if let Some(slot) = setup_info
                     .slots
                     .iter()
-                    .find(|s| uid == &s.user_id.unwrap_or(0))
+                    .find(|s| uid == &s.user_id.unwrap_or(0.into()))
                 {
                     debug!("Triggering final network sends for {}", slot.name);
                     let (send, recv) = oneshot::channel();
@@ -775,7 +774,7 @@ async fn expect_quit(async_stop: &SharedCanceler) {
 async fn send_game_result(
     results: &GameResults,
     info: &GameSetupInfo,
-    local_user: &LocalUser,
+    local_user: &SbUser,
     server_config: &ServerConfig,
     ws_send: &app_socket::SendMessages,
 ) {
@@ -834,7 +833,7 @@ async fn send_game_result(
 
 struct InitInProgress {
     setup_info: Arc<GameSetupInfo>,
-    local_user: LocalUser,
+    local_user: SbUser,
     server_config: ServerConfig,
 
     all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
@@ -854,13 +853,13 @@ struct JoinedPlayer {
     name: String,
     storm_id: StormPlayerId,
     player_id: Option<BwPlayerId>,
-    sb_user_id: u32,
+    sb_user_id: SbUserId,
 }
 
 impl InitInProgress {
     fn new(
         setup_info: Arc<GameSetupInfo>,
-        local_user: LocalUser,
+        local_user: SbUser,
         server_config: ServerConfig,
     ) -> InitInProgress {
         let is_host = setup_info.host.name == local_user.name;
@@ -1143,14 +1142,11 @@ unsafe fn join_lobby(
     game_type: GameType,
 ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
     unsafe {
-        let map_data = match info.map.map_data {
-            Some(ref s) => s,
-            None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
+        let MapInfo::Game(ref game_map) = info.map else {
+            panic!("join_lobby called for a replay");
         };
-        let map_name = match info.map.name {
-            Some(ref s) => s,
-            None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
-        };
+        let map_data = &game_map.map_data;
+        let map_name = &game_map.name;
         let max_player_count = info.slots.len() as u8;
         let active_player_count = info
             .slots
@@ -1518,8 +1514,8 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
 fn determine_game_results(
     mut game_thread_results: GameThreadResults,
     joined_players: &[JoinedPlayer],
-    local_user: &LocalUser,
-) -> HashMap<u32, GamePlayerResult> {
+    local_user: &SbUser,
+) -> HashMap<SbUserId, GamePlayerResult> {
     let mut results = joined_players
         .iter()
         .filter_map(|player| {
@@ -1842,8 +1838,8 @@ mod tests {
         // 1 has victory_state victory
         // 0 has was_dropped false, has_quit false
         // 1 has was_dropped false, has_quit true
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -1856,7 +1852,7 @@ mod tests {
             name: "opponent".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(0)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
 
         let results = determine_game_results(
@@ -1912,7 +1908,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Protoss,
@@ -1930,8 +1926,8 @@ mod tests {
         // 1 has victory_state playing
         // 0 has was_dropped false, has_quit false
         // 1 has was_dropped false, has_quit false
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -1944,7 +1940,7 @@ mod tests {
             name: "opponent".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(0)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
 
         let results = determine_game_results(
@@ -1996,7 +1992,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2016,8 +2012,8 @@ mod tests {
         // 1 has was_dropped false, has_quit false
         // (note that has_quit can differ depending on order of players leaving, at least until
         // we calc/submit results when the dialog shows)
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2030,7 +2026,7 @@ mod tests {
             name: "opponent".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(0)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
 
         let results = determine_game_results(
@@ -2082,7 +2078,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Victory,
                         race: AssignedRace::Protoss,
@@ -2101,8 +2097,8 @@ mod tests {
         // 0 has was_dropped false, has_quit false
         // 1 has was_dropped true, has_quit true
         // lose type = TargetedDisconnect
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2115,7 +2111,7 @@ mod tests {
             name: "opponent".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(0)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
 
         let results = determine_game_results(
@@ -2172,7 +2168,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Protoss,
@@ -2186,8 +2182,8 @@ mod tests {
     #[test]
     fn results_2v2_victory_ally_left() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2200,19 +2196,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -2296,7 +2292,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Victory,
                         race: AssignedRace::Protoss,
@@ -2304,7 +2300,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Protoss,
@@ -2312,7 +2308,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Terran,
@@ -2326,8 +2322,8 @@ mod tests {
     #[test]
     fn results_2v2_left_with_ally_still_playing() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2340,19 +2336,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -2432,7 +2428,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2440,7 +2436,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2448,7 +2444,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Terran,
@@ -2462,8 +2458,8 @@ mod tests {
     #[test]
     fn results_2v2_loss() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2476,19 +2472,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -2572,7 +2568,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Protoss,
@@ -2580,7 +2576,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2588,7 +2584,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Terran,
@@ -2602,8 +2598,8 @@ mod tests {
     #[test]
     fn results_2v2_nonsymmetric_allies() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2616,19 +2612,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -2707,7 +2703,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2715,7 +2711,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2723,7 +2719,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Terran,
@@ -2740,8 +2736,8 @@ mod tests {
         // Ally: disconnected, was_dropped + has_quit
         // Enemies: disconnected, was_dropped + has quit
         // Me: victory, not dropped or quit
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2754,19 +2750,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -2858,7 +2854,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2866,7 +2862,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -2874,7 +2870,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Terran,
@@ -2891,8 +2887,8 @@ mod tests {
         // Ally (dropped): disconnected, was_dropped + has_quit
         // Enemies: playing, not dropped or quit
         // Me: playing, not dropped or quit
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -2905,19 +2901,19 @@ mod tests {
             name: "ally".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let opponent1 = JoinedPlayer {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(3),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         let results = determine_game_results(
@@ -3002,7 +2998,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Disconnected,
                         race: AssignedRace::Protoss,
@@ -3010,7 +3006,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -3018,7 +3014,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Terran,
@@ -3033,8 +3029,8 @@ mod tests {
     fn results_ums_game() {
         init_logs();
         // UMS should exactly reproduce whatever the game thread sent us
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -3047,13 +3043,13 @@ mod tests {
             name: "opponent".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(1)),
-            sb_user_id: 77,
+            sb_user_id: 77.into(),
         };
         let third = JoinedPlayer {
             name: "third".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
 
         let results = determine_game_results(
@@ -3123,7 +3119,7 @@ mod tests {
                     }
                 ),
                 (
-                    77,
+                    77.into(),
                     GamePlayerResult {
                         result: VictoryState::Defeat,
                         race: AssignedRace::Protoss,
@@ -3131,7 +3127,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Playing,
                         race: AssignedRace::Protoss,
@@ -3145,8 +3141,8 @@ mod tests {
     #[test]
     fn results_with_allied_computers() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {
@@ -3159,13 +3155,13 @@ mod tests {
             name: "opponent1".to_string(),
             storm_id: StormPlayerId(1),
             player_id: Some(BwPlayerId(2)),
-            sb_user_id: 78,
+            sb_user_id: 78.into(),
         };
         let opponent2 = JoinedPlayer {
             name: "opponent2".to_string(),
             storm_id: StormPlayerId(2),
             player_id: Some(BwPlayerId(3)),
-            sb_user_id: 79,
+            sb_user_id: 79.into(),
         };
 
         // BW ID 1 + 4 are computers, allied with each other and players 2 + 3
@@ -3269,7 +3265,7 @@ mod tests {
                     }
                 ),
                 (
-                    78,
+                    78.into(),
                     GamePlayerResult {
                         result: VictoryState::Victory,
                         race: AssignedRace::Protoss,
@@ -3277,7 +3273,7 @@ mod tests {
                     }
                 ),
                 (
-                    79,
+                    79.into(),
                     GamePlayerResult {
                         result: VictoryState::Victory,
                         race: AssignedRace::Terran,
@@ -3291,8 +3287,8 @@ mod tests {
     #[test]
     fn results_with_unallied_computers() {
         init_logs();
-        let local_user = LocalUser {
-            id: 1,
+        let local_user = SbUser {
+            id: 1.into(),
             name: "local".to_string(),
         };
         let local = JoinedPlayer {

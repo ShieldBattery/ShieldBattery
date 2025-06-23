@@ -3,6 +3,7 @@
 mod pathing;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -17,13 +18,14 @@ use libc::c_void;
 use once_cell::sync::OnceCell;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::{GameSetupInfo, StartingFog};
+use crate::app_messages::{GameSetupInfo, MapInfo, SbUserId, StartingFog};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
 };
 use crate::bw::{Bw, GameType, get_bw};
 use crate::bw_scr::BwScr;
+use crate::forge::TRACK_WINDOW_POS;
 use crate::replay;
 use crate::snp;
 use crate::{bw, forge};
@@ -36,7 +38,7 @@ lazy_static! {
 }
 
 /// Global for accessing game type/slots/etc from hooks.
-static SETUP_INFO: OnceCell<Arc<GameSetupInfo>> = OnceCell::new();
+static SETUP_INFO: OnceCell<GameSetupInfo> = OnceCell::new();
 /// Global for shieldbattery-specific replay data.
 /// Will not be initialized outside replays. (Or if the replay doesn't have that data)
 static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
@@ -49,7 +51,7 @@ static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
 pub struct PlayerIdMapping {
     /// None at least for observers
     pub game_id: Option<BwPlayerId>,
-    pub sb_user_id: u32,
+    pub sb_user_id: SbUserId,
 }
 
 pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
@@ -139,21 +141,25 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         match request {
             Initialize => init_bw(),
             RunWndProc => forge::run_wnd_proc(),
+            SetupInfo(info) => {
+                if SETUP_INFO.set(Arc::unwrap_or_clone(info)).is_err() {
+                    warn!("Received second SetupInfo");
+                }
+            }
             StartGame => {
+                let bw = get_bw();
+                bw.play_sound("SND_LAST_FRIGATE_PISSED");
+                bw.set_game_started();
                 forge::game_started();
-                get_bw().run_game_loop();
+                bw.run_game_loop();
                 debug!("Game loop ended");
+                TRACK_WINDOW_POS.store(false, Ordering::Release);
                 send_game_results();
                 forge::hide_window();
             }
             // Saves registry settings etc.
             ExitCleanup => {
                 get_bw().clean_up_for_exit();
-            }
-            SetupInfo(info) => {
-                if SETUP_INFO.set(info).is_err() {
-                    warn!("Received second SetupInfo");
-                }
             }
         }
     }
@@ -263,13 +269,19 @@ unsafe fn game_results() -> GameThreadResults {
     }
 }
 
+pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
+
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
 unsafe fn init_bw() {
     unsafe {
         let bw = get_bw();
+        // Trigger a redraw here just to ensure things are as up-to-date as possible before a
+        // somewhat long blocking operation
+        bw.force_redraw_during_init();
         bw.init_sprites();
         (*bw.game()).is_bw = 1;
+        HAS_INIT_BW.store(true, Ordering::Release);
         debug!("Process initialized");
     }
 }
@@ -305,7 +317,10 @@ pub unsafe fn after_init_game_data() {
         let game_data = bw.game_data();
         let had_allies_enabled = (*game_data).game_template.allies_enabled != 0;
         bw::set_had_allies_enabled(had_allies_enabled);
-        if setup_info().disable_alliance_changes.unwrap_or(false) {
+        if setup_info()
+            .and_then(|s| s.disable_alliance_changes)
+            .unwrap_or(false)
+        {
             (*game_data).game_template.allies_enabled = 0;
         }
 
@@ -338,14 +353,11 @@ pub fn is_team_game() -> bool {
 }
 
 pub fn is_replay() -> bool {
-    SETUP_INFO
-        .get()
-        .and_then(|x| x.map.is_replay)
-        .unwrap_or(false)
+    SETUP_INFO.get().map(|x| x.is_replay()).unwrap_or(false)
 }
 
-pub fn setup_info() -> &'static GameSetupInfo {
-    SETUP_INFO.get().unwrap()
+pub fn setup_info() -> Option<&'static GameSetupInfo> {
+    SETUP_INFO.get()
 }
 
 /// Returns map name (Title, or something else the uploader has renamed it to in SB),
@@ -354,7 +366,10 @@ pub fn setup_info() -> &'static GameSetupInfo {
 pub fn map_name_for_filename() -> String {
     let mut name: String = SETUP_INFO
         .get()
-        .and_then(|x| x.map.name.as_deref())
+        .and_then(|x| match &x.map {
+            MapInfo::Game(map) => Some(map.name.as_str()),
+            MapInfo::Replay(_) => None,
+        })
         .unwrap_or("(Unknown map name)")
         .into();
     name.retain(|c| match c {

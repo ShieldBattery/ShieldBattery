@@ -116,5 +116,5 @@ export interface GameRoute {
   /** The ID of the route, used to identify it to the rally-point server. */
   routeId: string
   /** The ID of the local player, used to identify themselves to the rally-point server. */
-  playerId: string
+  playerId: number
 }

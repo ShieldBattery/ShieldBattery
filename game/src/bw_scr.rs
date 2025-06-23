@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
+use hashbrown::HashMap;
 use libc::c_void;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
@@ -28,6 +29,7 @@ use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
+use crate::bw_scr::scr::SafeBwString;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
@@ -177,6 +179,10 @@ pub struct BwScr {
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
+    render_screen: unsafe extern "C" fn(*mut c_void, usize),
+    lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
+    play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
+    print_text: unsafe extern "C" fn(*const u8, u32, u32),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -240,12 +246,15 @@ pub struct BwScr {
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// Whether the game has been started (e.g. we're done loading in)
+    game_started: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
     game_results_sent: AtomicBool,
     /// Used to have step_game_logic_hook do things once at start of the game, after initial
     /// units are spawned and game logic is ready to run normally.
     /// Will be reset on replay rewinds.
     first_game_logic_frame_done: AtomicBool,
+    sound_id_cache: Mutex<HashMap<String, u32>>,
 }
 
 /// State mutated during renderer draw call
@@ -827,8 +836,12 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let select_units = analysis.select_units().ok_or("select_units")?;
+        let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
+        let play_sound = analysis.play_sound().ok_or("play_sound")?;
+        let print_text = analysis.print_text().ok_or("print_text")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -967,6 +980,10 @@ impl BwScr {
             move_unit: Thiscall::foreign(move_unit.0 as usize),
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
+            render_screen: unsafe { mem::transmute(render_screen.0) },
+            lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
+            play_sound: unsafe { mem::transmute(play_sound.0) },
+            print_text: unsafe { mem::transmute(print_text.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1020,8 +1037,10 @@ impl BwScr {
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            game_started: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
+            sound_id_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -1449,7 +1468,7 @@ impl BwScr {
                     // This value is originally set to how many human player starting locations
                     // there are, but set it to match what we set for join side in
                     // game_state::join_lobby. Makes sure everybody can join if there are observers.
-                    (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
+                    (*info).max_player_count = game_thread::setup_info().unwrap().slots.len() as u8;
                     orig(info, name, password, map_path, a5, a6, a7, a8)
                 },
                 address,
@@ -1475,7 +1494,7 @@ impl BwScr {
                 move |orig| {
                     if let Some(render_state) = self.render_state.lock() {
                         if let Some(val) = render_state.overlay.decide_cursor_type() {
-                            return val;
+                            return val as u32;
                         }
                     }
                     orig()
@@ -1648,6 +1667,8 @@ impl BwScr {
                         return;
                     }
                     let game = bw_dat::Game::from_ptr(game);
+                    let has_init_bw = game_thread::HAS_INIT_BW.load(Ordering::Acquire);
+                    let game_started = self.game_started.load(Ordering::Acquire);
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
@@ -1696,9 +1717,12 @@ impl BwScr {
                                 first_dialog,
                                 graphic_layers,
                                 is_hd,
+                                has_init_bw,
+                                game_started,
                             },
                             apm,
                             size,
+                            game_thread::setup_info(),
                         );
                         if cfg!(debug_assertions) {
                             self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -1841,6 +1865,18 @@ impl BwScr {
         }
     }
 
+    /// Forces a redraw of the graphic layers. This should only be used during game initialization,
+    /// as we don't provide the necessary extra functions to properly render an ingame UI.
+    pub unsafe fn force_redraw_during_init(&self) {
+        unsafe {
+            (self.render_screen)(std::ptr::null_mut(), 0);
+        }
+    }
+
+    pub fn set_game_started(&self) {
+        self.game_started.store(true, Ordering::Release);
+    }
+
     unsafe fn handle_debug_ui_actions(
         &self,
         overlay_out: &draw_overlay::StepOutput,
@@ -1853,7 +1889,7 @@ impl BwScr {
                     // (It tries to check if mouse x/y is on control, but
                     // to do that it'll access parent rect, which won't exist
                     // for dialogs)
-                    (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
+                    (*(*ctrl)).flags |= 0x2;
                 } else {
                     ctrl.show();
                 }
@@ -2162,7 +2198,7 @@ impl BwScr {
                     handle,
                     self,
                     self.exe_build,
-                    game_thread::setup_info(),
+                    game_thread::setup_info().unwrap(),
                     game_thread::player_id_mapping(),
                 ) {
                     error!("Unable to write extended replay data: {e}");
@@ -2301,6 +2337,115 @@ impl BwScr {
     pub fn pathing(&self) -> *mut bw::Pathing {
         unsafe { self.pathing.resolve() }
     }
+
+    /// Look up the idea for a given sound. Note that unknown IDs will cause a crash.
+    fn lookup_sound(&self, id: impl Into<String>) -> u32 {
+        let id = id.into();
+        let mut cache = self.sound_id_cache.lock();
+        if let Some(sound_id) = cache.get(&id).copied() {
+            return sound_id;
+        }
+
+        let result = unsafe {
+            let mut id: SafeBwString = (&id).into();
+            (self.lookup_sound_id)(id.borrow().as_ptr())
+        };
+        // NOTE(tec27): We could use this more as an LRU cache, but there's such a small number of
+        // possible sounds that it doesn't really seem worth it to me.
+        cache.insert(id, result);
+        result
+    }
+
+    /// Plays the specified sound. These IDs can be easily found in rez/sfx.json in the game files.
+    /// Unknown sound IDs will cause a crash.
+    pub fn play_sound(&self, id: impl Into<String>) {
+        unsafe {
+            (self.play_sound)(
+                self.lookup_sound(id),
+                100.0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+        }
+    }
+
+    /// Prints text as a chat message from no one.
+    #[allow(dead_code)]
+    pub fn print_text(&self, text: &CStr) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, 16, 0);
+        }
+    }
+
+    /// Prints text as a chat message from the specified user (slot ID).
+    #[allow(dead_code)]
+    pub fn print_text_from_user(&self, text: &CStr, user: u32) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, user, 0);
+        }
+    }
+
+    /// Prints centered text. This does not make a transmission sound like the other versions of
+    /// print_text.
+    #[allow(dead_code)]
+    pub fn print_centered_text(&self, text: &CStr) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, u32::MAX, 0);
+        }
+    }
+
+    /// Call with a chat message to possibly handle it if it contains a command. Returns whether it
+    /// was handled (and if so, the message should be cleared and not sent).
+    pub fn handle_chat_command(&self, text: &str) -> bool {
+        if !text.starts_with("/") {
+            return false;
+        }
+
+        match text {
+            "/version" => {
+                let msg = CString::new(format!(
+                    "\x04ShieldBattery \x07{}, \x04SC:R \x07{}",
+                    env!("SHIELDBATTERY_VERSION"),
+                    get_exe_build()
+                ))
+                .unwrap();
+                self.print_text(&msg);
+            }
+            _ => {
+                let command = text.split(' ').next().unwrap();
+                let msg = CString::new(format!("\x06Unknown command: \x04{command}")).unwrap();
+                self.print_centered_text(&msg);
+            }
+        }
+
+        true
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Copy, Clone)]
+#[repr(u32)]
+pub enum BwCursorType {
+    Arrow = 0,
+    Illegal = 1,
+    TargetYellow = 2,
+    TargetRed = 3,
+    TargetGreen = 4,
+    TargetNeutral = 5,
+    SelectableGreen = 6,
+    SelectableRed = 7,
+    SelectableYellow = 8,
+    Drag = 9,
+    Time = 10,
+    ScrollUp = 11,
+    ScrollUpRight = 12,
+    ScrollRight = 13,
+    ScrollDownRight = 14,
+    ScrollDown = 15,
+    ScrollDownLeft = 16,
+    ScrollLeft = 17,
+    ScrollUpLeft = 18,
 }
 
 impl bw::Bw for BwScr {
@@ -2356,6 +2501,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn run_game_loop(&self) {
+        debug!("Game loop running");
         unsafe {
             loop {
                 self.reset_state_for_game_init();
@@ -2470,9 +2616,9 @@ impl bw::Bw for BwScr {
             }
 
             if options.game_type.is_ums() {
-                let is_eud = match map_info.map_data {
-                    Some(ref s) => s.is_eud,
-                    None => false,
+                let is_eud = match map_info {
+                    MapInfo::Replay(_) => false,
+                    MapInfo::Game(game_map) => game_map.map_data.is_eud,
                 };
                 if is_eud {
                     game_input.old_limits = 1;
@@ -2875,7 +3021,7 @@ impl bw::Bw for BwScr {
     }
 
     fn starting_fog(&self) -> StartingFog {
-        self.starting_fog.load(Ordering::Relaxed)
+        self.starting_fog.load(Ordering::Acquire)
     }
 }
 
@@ -3199,11 +3345,11 @@ static PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON: AtomicU32 = AtomicU32::new(0);
 
 pub fn start_precise_system_time_hook() {
     let thread_id = unsafe { GetCurrentThreadId() };
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Relaxed);
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Release);
 }
 
 fn stop_precise_system_time_hook() {
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Relaxed);
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Release);
 }
 
 fn get_system_time_precise_as_file_time_hook(
@@ -3213,8 +3359,8 @@ fn get_system_time_precise_as_file_time_hook(
     unsafe {
         orig(time);
 
-        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Relaxed)
-            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Relaxed) == GetCurrentThreadId()
+        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Acquire)
+            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Acquire) == GetCurrentThreadId()
         {
             // Making StarCraft feel young again makes it initialize a bit faster
             (*time).dwHighDateTime = 0x01BF53B7;
@@ -3441,7 +3587,7 @@ unsafe fn read_fs_gs(offset: usize) -> usize {
 
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer
-/// if value doens't fit inline.
+/// if value doesn't fit inline.
 unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
     unsafe {
         if value.len() < 16 {

@@ -6,16 +6,17 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use libc::c_void;
+use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
-use winapi::shared::windef::{HMENU, HWND};
-use winapi::um::wingdi::DEVMODEW;
+use winapi::shared::windef::{HMENU, HWND, RECT};
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
 use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
-    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
+
+    use super::{ATOM, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
 
     system_hooks!(
         !0 => CreateWindowExW(
@@ -23,23 +24,19 @@ mod scr_hooks {
         ) -> HWND;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => ShowWindow(HWND, i32) -> u32;
-        !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
-        !0 => SetWindowPos(HWND, HWND, i32, i32, i32, i32, u32) -> u32;
-        !0 => SetCursorPos(i32, i32) -> i32;
-        !0 => SetWindowLongW(HWND, i32, u32) -> u32;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
     );
 }
 
-struct ChangeDisplaySettingsParams {
-    /// With terminating 0
-    device_name: Option<Vec<u16>>,
-    devmode: DEVMODEW,
-    flags: u32,
-}
-
 const FOREGROUND_HOTKEY_ID: i32 = 1337;
 const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
+
+const DRAW_TIMER_ID: usize = 1338;
+const DRAW_TIMEOUT_MILLIS: u32 = 1000 / 30;
+
+/// Controls whether the window position is tracked/saved when a move event occurs. We toggle this
+/// once we know that moves must be triggered by user action (instead of during init/quit).
+pub static TRACK_WINDOW_POS: AtomicBool = AtomicBool::new(false);
 
 // Currently no nicer way to prevent us from hooking winapi calls we ourselves make
 // with remastered :/
@@ -47,6 +44,7 @@ thread_local! {
     static DISABLE_SCR_HOOKS: Cell<i32> = const { Cell::new(0) };
 }
 
+#[expect(dead_code)]
 fn scr_hooks_disabled() -> bool {
     DISABLE_SCR_HOOKS.with(|x| x.get()) != 0
 }
@@ -75,42 +73,40 @@ unsafe extern "system" fn wnd_proc_scr(
         let ret = with_scr_hooks_disabled(|| {
             match msg {
                 WM_GAME_STARTED => {
+                    // Fake a minimize event to the SC:R wndproc to put it in a state where it will
+                    // properly ClipCursor
+                    if let Some(orig_wnd_proc) = with_forge(|f| f.orig_wnd_proc) {
+                        orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
+                    }
+
                     msg_game_started(window);
                     return Some(0);
                 }
-                WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
+                WM_HOTKEY | WM_TIMER => msg_timer(window, wparam),
                 WM_WINDOWPOSCHANGED => {
                     let new_pos = lparam as *const WINDOWPOS;
-                    debug!(
-                        "Window pos changed to {},{},{},{}, flags 0x{:x}",
-                        (*new_pos).x,
-                        (*new_pos).y,
-                        (*new_pos).cx,
-                        (*new_pos).cy,
-                        (*new_pos).flags,
-                    );
-
                     // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
                     // for some reason still does this? Anyway we ignore those when saving this state
-                    if (*new_pos).x != -32000 && (*new_pos).y != -32000 {
-                        with_forge(|forge| {
-                            // TODO(tec27): We should probably also ignore events if the game has
-                            // completed, as SC:R seems to send one during the quit process
-                            if forge.game_started {
-                                send_game_msg_to_async(GameThreadMessage::WindowMove(
-                                    (*new_pos).x,
-                                    (*new_pos).y,
-                                    (*new_pos).cx,
-                                    (*new_pos).cy,
-                                ));
-                            }
-                        });
+                    if IsIconic(window) == 0
+                        && IsZoomed(window) == 0
+                        && (*new_pos).x != -32000
+                        && (*new_pos).y != -32000
+                        && TRACK_WINDOW_POS.load(Ordering::Acquire)
+                    {
+                        send_game_msg_to_async(GameThreadMessage::WindowMove(
+                            (*new_pos).x,
+                            (*new_pos).y,
+                            (*new_pos).cx,
+                            (*new_pos).cy,
+                        ));
                     }
                 }
+
                 _ => (),
             }
             None
         });
+
         if let Some(ret) = ret {
             ret
         } else if let Some(ret) = get_bw().window_proc_hook(window, msg, wparam, lparam) {
@@ -129,39 +125,9 @@ unsafe extern "system" fn wnd_proc_scr(
 unsafe fn msg_game_started(window: HWND) {
     unsafe {
         debug!("Forge: Game started");
-        let mut display_change_request = None;
         with_forge(|forge| {
             forge.game_started = true;
-            // This request must be handled while forge is not being accessed,
-            // as ChangeDisplaySettingsExW will call WndProc before it returns.
-            display_change_request = forge.display_change_request.take();
         });
-
-        if let Some(ref mut params) = display_change_request {
-            debug!("Applying delayed display settings change");
-            let device_name = match params.device_name {
-                Some(ref x) => x.as_ptr(),
-                None => std::ptr::null(),
-            };
-            let result = ChangeDisplaySettingsExW(
-                device_name,
-                &mut params.devmode,
-                null_mut(),
-                params.flags,
-                null_mut(),
-            );
-            if result != DISP_CHANGE_SUCCESSFUL {
-                let os_string;
-                let device_name_string = match params.device_name {
-                    Some(ref x) => {
-                        os_string = crate::windows::os_string_from_winapi(x);
-                        os_string.to_string_lossy()
-                    }
-                    None => "(Default device)".into(),
-                };
-                error!("Changing display mode for {device_name_string} failed. Result {result:x}",);
-            }
-        }
 
         // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
         // but will allow you to do so if you're handling a global hotkey. So... we register
@@ -189,18 +155,18 @@ unsafe fn msg_game_started(window: HWND) {
     }
 }
 
-unsafe fn msg_timer(window: HWND, timer_id: i32) {
+unsafe fn msg_timer(window: HWND, timer_id: usize) {
     unsafe {
-        if timer_id == FOREGROUND_HOTKEY_ID {
+        if timer_id == DRAW_TIMER_ID {
+            get_bw().force_redraw_during_init();
+        } else if timer_id == FOREGROUND_HOTKEY_ID as usize {
             // remove hotkey and timer
             UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
             KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
 
-            // Show the window and bring it to the front
-            ShowWindow(window, SW_SHOWNORMAL);
+            debug!("Bringing window to foreground");
             SetForegroundWindow(window);
-
-            ShowCursor(1);
+            ShowWindow(window, SW_SHOWNORMAL);
         }
     }
 }
@@ -209,19 +175,16 @@ lazy_static! {
     static ref FORGE: Mutex<Option<Forge>> = Mutex::new(None);
 }
 
-// TODO(tec27): Utilize `settings` to init the window position, then remove this allow
-#[allow(dead_code)]
 struct Forge {
-    settings: Settings,
+    starting_settings: Settings,
     window: Option<Window>,
     orig_wnd_proc: Option<unsafe extern "system" fn(HWND, u32, usize, isize) -> isize>,
+    window_pos_restored: bool,
     game_started: bool,
 
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
     /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
     scr_window_class: Option<ATOM>,
-    // Delayed display change for SC:R fullscreen switching
-    display_change_request: Option<ChangeDisplaySettingsParams>,
 }
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
@@ -260,13 +223,23 @@ impl Forge {
     }
 }
 
-// TODO(tec27): Use these values to position the window initially and then remove this allow
-#[allow(dead_code)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Deserialize_repr)]
+#[repr(u8)]
+enum DisplayMode {
+    Windowed = 0,
+    #[default]
+    WindowedFullscreen = 1,
+    Fullscreen = 2,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Settings {
     window_x: Option<i32>,
     window_y: Option<i32>,
-    width: i32,
-    height: i32,
+    width: Option<i32>,
+    height: Option<i32>,
+
+    display_mode: DisplayMode,
 }
 
 struct Window {
@@ -275,135 +248,20 @@ struct Window {
 
 unsafe impl Send for Window {}
 
-fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
-    // Unlike 1161, SCR is aware of the desktop resolution,
-    // so we just have to block this if the game hasn't started yet.
-    if !scr_hooks_disabled() {
-        let game_started = with_forge(|forge| forge.game_started);
-        if !game_started {
-            return 1;
-        }
-    }
-    unsafe { orig(x, y) }
-}
-
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
-    // SCR May have reasons to hide/reshow window, so allow that once game has started.
-    // (Though it seems to be calling SetWindowPos always instead)
-    // Never allow 1161's ShowWindow calls to get through.
     unsafe {
-        let call_orig = if is_forge_window(window) && !scr_hooks_disabled() {
-            with_forge(|forge| forge.game_started) &&
-                // SC:R tells the window to minimize if in Fullscreen mode, but this is
-                // unnecessary in modern Windows versions and actually pretty harmful to UX
-                show != SW_MINIMIZE
-        } else {
-            true
-        };
-
-        if call_orig {
-            debug!("ShowWindow {window:p} {show}");
-            orig(window, show)
-        } else {
-            debug!("Skipping ShowWindow {window:p} {show}");
-            1
-        }
-    }
-}
-
-fn set_window_pos(
-    hwnd: HWND,
-    hwnd_after: HWND,
-    x: i32,
-    y: i32,
-    w: i32,
-    h: i32,
-    flags: u32,
-    orig: unsafe extern "C" fn(HWND, HWND, i32, i32, i32, i32, u32) -> u32,
-) -> u32 {
-    // Add SWP_NOACTIVATE | SWP_HIDEWINDOW when scr calls this during
-    // its window creation, which happens early enough in loading that
-    // we don't want to show the window yet.
-    unsafe {
-        debug!("SetWindowPos {hwnd:p} {x},{y} {w},{h} flags 0x{flags:x}");
-        let new_flags = if !scr_hooks_disabled() && is_forge_window(hwnd) {
-            with_forge(|forge| {
-                if forge.game_started {
-                    flags
-                } else {
-                    debug!("Adding SWP_NOACTIVATE | SWP_HIDEWINDOW as the game has not started");
-                    flags | SWP_NOACTIVATE | SWP_HIDEWINDOW
-                }
+        debug!("ShowWindow {window:p} {show}");
+        if show == SW_SHOW
+            && is_forge_window(window)
+            && !with_forge(|forge| {
+                let restored = forge.window_pos_restored;
+                forge.window_pos_restored = true;
+                restored
             })
-        } else {
-            flags
-        };
-
-        orig(hwnd, hwnd_after, x, y, w, h, new_flags)
-    }
-}
-
-fn change_display_settings_ex(
-    device_name: *const u16,
-    devmode: *mut DEVMODEW,
-    hwnd: HWND,
-    flags: u32,
-    param: *mut c_void,
-    orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
-) -> i32 {
-    unsafe {
-        // We want to block SC:R from switching to fullscreen before game has completely started,
-        // buffer the change request if it occurs while we're loading.
-        // (Note: Exclusive fullscreen only; windowed fullscreen calls this without setting
-        // devmode)
-        if !param.is_null() || !hwnd.is_null() {
-            // Unexpected parameters, let windows do whatever
-            warn!("Unexpected ChangeDisplaySettingsExW params");
-            return orig(device_name, devmode, hwnd, flags, param);
+        {
+            restore_saved_window_pos();
         }
-        if !devmode.is_null() && (*devmode).dmSize as usize > mem::size_of::<DEVMODEW>() {
-            // This probably never happens and if it does it could be handled,
-            // but just error for now.
-            error!(
-                "Received larger than expected devmode: {:x} bytes (expected at most {:x}",
-                (*devmode).dmSize,
-                mem::size_of::<DEVMODEW>(),
-            );
-            return orig(device_name, devmode, hwnd, flags, param);
-        }
-        if !scr_hooks_disabled() {
-            let game_started = with_forge(|forge| forge.game_started);
-            if game_started {
-                debug!("ChangeDisplaySettingsExW(devmode: {devmode:p})");
-                orig(device_name, devmode, hwnd, flags, param)
-            } else {
-                with_forge(|forge| {
-                    if devmode.is_null() {
-                        // Resetting to default settings (out of fullscreen),
-                        // so clear any buffered fullscreen request we may have.
-                        debug!("Clearing delayed ChangeDisplaySettingsExW");
-                        forge.display_change_request = None;
-                    } else {
-                        debug!("Delaying ChangeDisplaySettingsExW");
-                        let device_name = if device_name.is_null() {
-                            None
-                        } else {
-                            let len = (0..).find(|&i| *device_name.add(i) == 0).unwrap();
-                            let slice = std::slice::from_raw_parts(device_name, len + 1);
-                            Some(slice.into())
-                        };
-                        forge.display_change_request = Some(ChangeDisplaySettingsParams {
-                            device_name,
-                            devmode: devmode.read(),
-                            flags,
-                        });
-                    }
-                    DISP_CHANGE_SUCCESSFUL
-                })
-            }
-        } else {
-            orig(device_name, devmode, hwnd, flags, param)
-        }
+        orig(window, show)
     }
 }
 
@@ -506,33 +364,6 @@ fn create_window_w(
     }
 }
 
-fn set_window_long_w(
-    window: HWND,
-    index: i32,
-    new_long: u32,
-    orig: unsafe extern "C" fn(HWND, i32, u32) -> u32,
-) -> u32 {
-    // SC:R uses GetWindowLongW(GWL_STYLE) and stores the result. It may then update
-    // that Starcraft-side copy of the style and call SetWindowLongW() to update
-    // it at Windows side. However, GWL_STYLE also contains a flag that controls
-    // the windows's visibility, and we delay showing the window longer than
-    // SC:R expects, so it receives GWL_STYLE for which WS_VISIBLE is not set,
-    // later unintentionally passing it to SetWindowLongW which hides the window.
-    //
-    // This is relevant at least when the game is started up in windowed fullscreen
-    // and then switched to windowed mode afterwards.
-    // For some reason starting in windowed mode does not have the same issue.
-    let mut flags = new_long;
-    if is_forge_window(window) && index == GWL_STYLE {
-        if with_forge(|forge| forge.game_started) {
-            flags |= WS_VISIBLE;
-        } else {
-            flags &= !WS_VISIBLE;
-        }
-    }
-    unsafe { orig(window, index, flags) }
-}
-
 fn register_hot_key(
     window: HWND,
     id: i32,
@@ -560,8 +391,8 @@ fn register_hot_key(
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         use self::scr_hooks::*;
-        // 1161 init can hook just starcraft/storm import table, unfortunately
-        // that method won't work with SCR, we'll just GetProcAddress the
+        // 1161 init could hook just starcraft/storm import table, unfortunately
+        // that method doesn't work with SCR, we'll just GetProcAddress the
         // required functions and hook them instead.
         // May cause some unintended hooks if some another third-party DLL that
         // is part of this same process also calls these functions, but ideally
@@ -576,54 +407,54 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "ShowWindow", ShowWindow, show_window;
-            "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
-            "SetWindowPos", SetWindowPos, set_window_pos;
-            "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
-            "SetWindowLongW", SetWindowLongW, set_window_long_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
         );
     }
 }
 
-pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
-    let window_x = settings
+pub fn init(
+    local_settings: &serde_json::Map<String, serde_json::Value>,
+    scr_settings: &serde_json::Map<String, serde_json::Value>,
+) {
+    let window_x = local_settings
         .get("gameWinX")
         .and_then(|x| x.as_i64())
         .map(|x| x as i32);
-    let window_y = settings
+    let window_y = local_settings
         .get("gameWinY")
         .and_then(|x| x.as_i64())
         .map(|x| x as i32);
-    let width = settings
+    let width = local_settings
         .get("gameWinWidth")
         .and_then(|x| x.as_i64())
         .filter(|&x| x > 0 && x < 100_000)
-        .unwrap_or_else(|| {
-            warn!("Using default window width");
-            640
-        });
-    let height = settings
+        .map(|x| x as i32);
+    let height = local_settings
         .get("gameWinHeight")
         .and_then(|x| x.as_i64())
         .filter(|&x| x > 0 && x < 100_000)
-        .unwrap_or_else(|| {
-            warn!("Using default window height");
-            480
-        });
+        .map(|x| x as i32);
+
+    let display_mode = scr_settings
+        .get("displayMode")
+        .and_then(|v| serde_json::from_value::<DisplayMode>(v.clone()).ok())
+        .unwrap_or_default();
 
     let settings = Settings {
         window_x,
         window_y,
-        width: width as i32,
-        height: height as i32,
+        width,
+        height,
+
+        display_mode,
     };
     *FORGE.lock().unwrap() = Some(Forge {
-        settings,
+        starting_settings: settings,
         window: None,
         orig_wnd_proc: None,
         game_started: false,
+        window_pos_restored: false,
         scr_window_class: None,
-        display_change_request: None,
     });
     FORGE_INITED.store(true, Ordering::Release);
 }
@@ -637,17 +468,22 @@ const WM_GAME_STARTED: u32 = WM_USER + 7;
 ///
 /// Returns once `end_wnd_proc` is called.
 pub unsafe fn run_wnd_proc() {
+    debug!("Forge: run_wnd_proc called");
     unsafe {
-        // Note: Currently done even if forge itself is disabled and we use SCR's
-        // own window. Having run/end_wnd_proc go through the Bw trait
-        // and be separate for 1.16.1 and SCR would maybe be cleaner.
+        if let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle)) {
+            // Set up a timer to trigger redraws at a set interval during initialization
+            debug!("Forge: starting draw timer");
+            SetTimer(handle, DRAW_TIMER_ID, DRAW_TIMEOUT_MILLIS, None);
+            get_bw().force_redraw_during_init();
+        }
+
         let mut msg: MSG = mem::zeroed();
-        while GetMessageA(&mut msg, null_mut(), 0, 0) != 0 {
+        while GetMessageW(&mut msg, null_mut(), 0, 0) != 0 {
             if msg.message == WM_END_WND_PROC_WORKER {
                 return;
             }
             TranslateMessage(&msg);
-            DispatchMessageA(&msg);
+            DispatchMessageW(&msg);
         }
         // Going to close everything since the window got closed / error happened.
         // TODO Ask async thread exit instead
@@ -661,7 +497,8 @@ pub fn end_wnd_proc() {
         None => panic!("Cannot stop running window procedure without a window"),
     });
     unsafe {
-        PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
+        KillTimer(handle, DRAW_TIMER_ID);
+        PostMessageW(handle, WM_END_WND_PROC_WORKER, 0, 0);
     }
 }
 
@@ -669,7 +506,7 @@ pub fn game_started() {
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
-            PostMessageA(handle, WM_GAME_STARTED, 0, 0);
+            PostMessageW(handle, WM_GAME_STARTED, 0, 0);
         }
     }
 }
@@ -681,6 +518,134 @@ pub fn hide_window() {
             with_scr_hooks_disabled(|| {
                 ShowWindow(handle, SW_HIDE);
             });
+        }
+    }
+}
+
+pub fn restore_saved_window_pos() {
+    let (settings, handle) = with_forge(|forge| {
+        (
+            forge.starting_settings,
+            forge.window.as_ref().map(|s| s.handle),
+        )
+    });
+    let Some(handle) = handle else {
+        error!("Tried to restore window position without a window");
+        return;
+    };
+    let display_mode = settings.display_mode;
+    if display_mode != DisplayMode::Windowed {
+        // TODO(tec27): Make this work for fullscreen modes too. With this implementation, it moves
+        // the window over but then it gets snapped back to the primary monitor, leaving a bugged
+        // taskbar entry on the target monitor.
+        debug!("Not restoring window position for {display_mode:?} display mode");
+        return;
+    };
+
+    // Only restore the position if all the values are set
+    if let (Some(x), Some(y), Some(width), Some(height)) = (
+        settings.window_x,
+        settings.window_y,
+        settings.width,
+        settings.height,
+    ) {
+        unsafe {
+            debug!("Restoring window position to ({x},{y}) {width}x{height} [{display_mode:?}]");
+            let WindowBounds {
+                x,
+                y,
+                width,
+                height,
+            } = ensure_window_is_visible(x, y, width, height, display_mode);
+            debug!("After ensuring window is visible: ({x},{y}) {width}x{height}");
+
+            with_scr_hooks_disabled(|| {
+                SetWindowPos(
+                    handle,
+                    null_mut(),
+                    x,
+                    y,
+                    width,
+                    height,
+                    SWP_NOZORDER | SWP_NOACTIVATE,
+                );
+            });
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct WindowBounds {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+fn ensure_window_is_visible(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    display_mode: DisplayMode,
+) -> WindowBounds {
+    match display_mode {
+        DisplayMode::Windowed => {
+            // Ensure the window is within the bounds of all monitors (if the user has a
+            // non-rectangular arrangement of monitors this could still result in the window
+            // being partially off any screen, but this should only really adjust stuff when
+            // the window would have been off the virtual screen anyway)
+            let (vleft, vtop, vwidth, vheight) = unsafe {
+                (
+                    GetSystemMetrics(SM_XVIRTUALSCREEN),
+                    GetSystemMetrics(SM_YVIRTUALSCREEN),
+                    GetSystemMetrics(SM_CXVIRTUALSCREEN),
+                    GetSystemMetrics(SM_CYVIRTUALSCREEN),
+                )
+            };
+            let width = width.min(vwidth);
+            let height = height.min(vheight);
+            let x = x.max(vleft).min(vleft + vwidth - width);
+            let y = y.max(vtop).min(vtop + vheight - height);
+            WindowBounds {
+                x,
+                y,
+                width,
+                height,
+            }
+        }
+        DisplayMode::WindowedFullscreen | DisplayMode::Fullscreen => {
+            // Identify the monitor the x,y position is on, then give that monitor's bounds as the
+            // bounds for the window.
+            let monitor = unsafe {
+                MonitorFromRect(
+                    &RECT {
+                        left: x,
+                        top: y,
+                        right: x + width,
+                        bottom: y + height,
+                    },
+                    MONITOR_DEFAULTTONEAREST,
+                )
+            };
+            let (x, y, width, height) = unsafe {
+                let mut monitor_info = std::mem::zeroed::<MONITORINFO>();
+                monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+                GetMonitorInfoA(monitor, &mut monitor_info);
+                (
+                    monitor_info.rcMonitor.left,
+                    monitor_info.rcMonitor.top,
+                    monitor_info.rcMonitor.right - monitor_info.rcMonitor.left,
+                    monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top,
+                )
+            };
+
+            WindowBounds {
+                x,
+                y,
+                width,
+                height,
+            }
         }
     }
 }

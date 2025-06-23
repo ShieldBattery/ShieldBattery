@@ -16,13 +16,17 @@ use egui::{
 };
 use winapi::shared::windef::{HWND, POINT};
 
+use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
+use crate::bw_scr::BwCursorType;
 use crate::game_thread::{self, GameThreadMessage};
 use crate::network_manager;
 
 use self::production::ProductionState;
 
+mod colors;
+mod loading_screen;
 mod production;
 
 pub struct OverlayState {
@@ -134,6 +138,8 @@ pub struct BwVars {
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
+    pub has_init_bw: bool,
+    pub game_started: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -204,9 +210,27 @@ impl UiExt for egui::Ui {
     }
 }
 
+const fn get_normal_draw_layer() -> u16 {
+    // - 26 is the first layer that is drawn above minimap
+    // (Or maybe a tie with later draw taking prioriry)
+    // - 22 is first above F10 menu
+    // - 20 is first above the console UI
+    // Since egui doesn't really have a way (for now?) to tell some
+    // of the output to be drawn on different layer from others
+    // (Other than managing multiple `egui::Context`s and drawing output
+    // from different context on different layer),
+    // going to set the layer higher on debug builds so that the debug
+    // window is nicer to use.
+    // Layer 19 as default could be fine too, but probably better to
+    // go bit over BW console UI if our UI ever ends up being that big.
+    if cfg!(debug_assertions) { 26 } else { 21 }
+}
+
 impl OverlayState {
     pub fn new() -> OverlayState {
         let ctx = egui::Context::default();
+
+        egui_extras::install_image_loaders(&ctx);
 
         // Add our custom fonts
         let mut fonts = FontDefinitions::default();
@@ -282,19 +306,7 @@ impl OverlayState {
             },
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
-            // - 26 is the first layer that is drawn above minimap
-            // (Or maybe a tie with later draw taking prioriry)
-            // - 22 is first above F10 menu
-            // - 20 is first above the console UI
-            // Since egui doesn't really have a way (for now?) to tell some
-            // of the output to be drawn on different layer from others
-            // (Other than managing multiple `egui::Context`s and drawing output
-            // from different context on different layer),
-            // going to set the layer higher on debug builds so that the debug
-            // window is nicer to use.
-            // Layer 19 as default could be fine too, but probably better to
-            // go bit over BW console UI if our UI ever ends up being that big.
-            draw_layer: if cfg!(debug_assertions) { 26 } else { 21 },
+            draw_layer: get_normal_draw_layer(),
             network_debug_state: network_manager::DebugState::new(),
             network_debug_info: NetworkDebugInfo::new(),
             dialog_debug_inspect_children: false,
@@ -306,6 +318,7 @@ impl OverlayState {
         bw: &BwVars,
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
+        setup_info: Option<&GameSetupInfo>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -409,12 +422,20 @@ impl OverlayState {
         self.replay_panels.hotkeys_active =
             bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
-            if bw.is_replay_or_obs {
-                self.add_replay_ui(bw, apm, ctx);
-            }
-            let debug = cfg!(debug_assertions);
-            if debug {
-                self.add_debug_ui(bw, ctx);
+            if bw.game_started {
+                self.draw_layer = get_normal_draw_layer();
+
+                if bw.is_replay_or_obs {
+                    self.add_replay_ui(bw, apm, ctx);
+                }
+                let debug = cfg!(debug_assertions);
+                if debug {
+                    self.add_debug_ui(bw, ctx);
+                }
+            } else {
+                // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
+                self.draw_layer = 26;
+                self.add_loading_screen_ui(bw, setup_info, ctx);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -865,20 +886,20 @@ impl OverlayState {
     /// Returns cursor type if cursor is on the overlays.
     /// Specifically prevents the cursor from changing due to units being behind the overlay.
     /// Only thing we do return for now is 0 for regular mouse pointer.
-    pub fn decide_cursor_type(&self) -> Option<u32> {
+    pub fn decide_cursor_type(&self) -> Option<BwCursorType> {
         if self.mouse_down != [false, false] && self.captured_mouse_down == [false, false] {
             // Mouse is down but not captured by us, don't modify cursor even
             // if it would be on top of overlay.
             // (Not really sure how the conditional should be with the two separate mouse buttons)
             return None;
         }
-        // Otherwise if the cursor is on the overlays, return 0 for regular pointer.
+        // Otherwise if the cursor is on the overlays, return regular arrow.
         let mouse_on_ui = self
             .ui_rects
             .iter()
             .any(|rect| rect.area.contains(self.last_mouse_pos.1));
         if mouse_on_ui {
-            return Some(0);
+            return Some(BwCursorType::Arrow);
         }
         None
     }

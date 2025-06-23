@@ -23,13 +23,18 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::app_messages::ReplaySaved;
+use crate::app_messages::WindowMove;
+use crate::forge::TRACK_WINDOW_POS;
 use lazy_static::lazy_static;
 use libc::c_void;
 use parking_lot::Mutex;
+use tokio_debouncer::DebounceMode;
+use tokio_debouncer::Debouncer;
 use winapi::um::processthreadsapi::{GetCurrentProcess, GetCurrentProcessId, TerminateProcess};
 use winapi::um::winnt::EXCEPTION_POINTERS;
 
@@ -332,7 +337,8 @@ fn wait_async_exit() -> ! {
 // after its entry point. From here on we init the remaining parts ourselves and wait
 // for commands from the client.
 fn process_init_hook() -> ! {
-    PROCESS_INIT_HOOK_REACHED.store(true, Ordering::Relaxed);
+    PROCESS_INIT_HOOK_REACHED.store(true, Ordering::Release);
+    TRACK_WINDOW_POS.store(true, Ordering::Release);
     game_thread::run_event_loop()
 }
 
@@ -342,31 +348,58 @@ async fn handle_messages_from_game_thread(
     ws_send: app_socket::SendMessages,
     game_send: game_state::SendMessages,
 ) {
-    use crate::app_messages::WindowMove;
-
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
-    while let Some(message) = recv.recv().await {
-        match message {
-            GameThreadMessage::WindowMove(x, y, w, h) => {
-                let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y, w, h });
-                if let Some(msg) = msg {
-                    let _ = ws_send.send(msg).await;
-                }
-            }
-            GameThreadMessage::ReplaySaved(path) => {
-                if let Ok(path) = path.into_os_string().into_string() {
-                    let msg = app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+
+    let debouncer = Debouncer::new(Duration::from_secs(1), DebounceMode::Trailing);
+    let latest_window_move = Arc::new(Mutex::new(None::<WindowMove>));
+
+    loop {
+        tokio::select! {
+            biased;
+            pos = async {
+                let _ = debouncer.ready().await;
+                let mut lock = latest_window_move.lock();
+                lock.take()
+            } => {
+                if let Some(pos) = pos {
+                    let msg = app_socket::encode_message("/game/windowMove", pos);
                     if let Some(msg) = msg {
                         let _ = ws_send.send(msg).await;
                     }
                 }
             }
-            other => {
-                let _ = game_send.send(GameStateMessage::GameThread(other)).await;
+            msg = recv.recv() => {
+                let Some(msg) = msg else {
+                    break;
+                };
+
+                match msg {
+                    GameThreadMessage::WindowMove(x, y, w, h) => {
+                        let mut lock = latest_window_move.lock();
+                        *lock = Some(WindowMove { x, y, w, h });
+                        debouncer.trigger();
+                    }
+                    GameThreadMessage::ReplaySaved(path) => {
+                        let Ok(path) = path.into_os_string().into_string() else {
+                            warn!("Replay path was not valid UTF-8");
+                            continue;
+                        };
+
+                        let msg =
+                            app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    other => {
+                        let _ = game_send.send(GameStateMessage::GameThread(other)).await;
+                    }
+                }
             }
         }
     }
+
     // This should never be reached, this task should get combined to a future
     // which eventually is cancelled (by game state task) to stop everything.
     debug!("Stopping `game thread -> async` task");
