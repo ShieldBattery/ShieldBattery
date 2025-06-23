@@ -551,6 +551,10 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    pub fn render_screen(&mut self) -> Option<VirtualAddress> {
+        self.0.render_screen()
+    }
+
     pub fn main_palette(&mut self) -> Option<Operand<'e>> {
         self.0.main_palette()
     }
