@@ -174,7 +174,7 @@ quick_error! {
 impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
-            forge::init(&settings.local);
+            forge::init(&settings.local, &settings.scr);
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
@@ -396,6 +396,10 @@ impl GameState {
                     }
                 }
             }
+
+            // FIXME delete
+            tokio::time::sleep(Duration::from_millis(10000)).await;
+
             debug!("All players have joined");
             if let Some(sbat_replay_data_promise) = sbat_replay_data {
                 // Assuming that the extra replay data isn't needed in the above lobby

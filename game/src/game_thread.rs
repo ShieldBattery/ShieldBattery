@@ -3,6 +3,7 @@
 mod pathing;
 
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -24,6 +25,7 @@ use crate::bw::players::{
 };
 use crate::bw::{Bw, GameType, get_bw};
 use crate::bw_scr::BwScr;
+use crate::forge::TRACK_WINDOW_POS;
 use crate::replay;
 use crate::snp;
 use crate::{bw, forge};
@@ -143,6 +145,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 forge::game_started();
                 get_bw().run_game_loop();
                 debug!("Game loop ended");
+                TRACK_WINDOW_POS.store(false, Ordering::Release);
                 send_game_results();
                 forge::hide_window();
             }

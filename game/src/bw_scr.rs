@@ -177,6 +177,7 @@ pub struct BwScr {
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
+    draw_graphic_layers: unsafe extern "C" fn(*mut c_void, usize, u32),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -201,7 +202,7 @@ pub struct BwScr {
     step_game_logic: VirtualAddress,
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
-    draw_graphic_layers: VirtualAddress,
+    draw_graphic_layers_addr: VirtualAddress,
     decide_cursor_type: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
@@ -935,7 +936,8 @@ impl BwScr {
             original_status_screen_update,
             net_format_turn_rate,
             init_obs_ui,
-            draw_graphic_layers,
+            draw_graphic_layers: unsafe { mem::transmute(draw_graphic_layers.0) },
+            draw_graphic_layers_addr: draw_graphic_layers,
             decide_cursor_type,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -1602,7 +1604,7 @@ impl BwScr {
             let draw = (*renderer_vtable).draw;
             let create_shader = (*renderer_vtable).create_shader;
 
-            let address = self.draw_graphic_layers.0 as usize - base;
+            let address = self.draw_graphic_layers_addr.0 as usize - base;
             // draw_graphic_layers is the main BW draw command queuing function.
             // Usually called once per render to queue DrawCommands for all sprites of the game
             // as well as UI, but when the user is in middle of switching between
@@ -1831,6 +1833,14 @@ impl BwScr {
                     exe.replace_val(relative, patch);
                 }
             }
+        }
+    }
+
+    /// Forces a redraw of the graphic layers. This should only be used during game initialization,
+    /// as we don't provide the necessary extra functions to properly render an ingame UI.
+    pub unsafe fn force_redraw_during_init(&self) {
+        unsafe {
+            (self.draw_graphic_layers)(std::ptr::null_mut(), 0, 0);
         }
     }
 
@@ -3192,11 +3202,11 @@ static PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON: AtomicU32 = AtomicU32::new(0);
 
 pub fn start_precise_system_time_hook() {
     let thread_id = unsafe { GetCurrentThreadId() };
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Relaxed);
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Release);
 }
 
 fn stop_precise_system_time_hook() {
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Relaxed);
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Release);
 }
 
 fn get_system_time_precise_as_file_time_hook(
@@ -3206,8 +3216,8 @@ fn get_system_time_precise_as_file_time_hook(
     unsafe {
         orig(time);
 
-        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Relaxed)
-            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Relaxed) == GetCurrentThreadId()
+        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Acquire)
+            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Acquire) == GetCurrentThreadId()
         {
             // Making StarCraft feel young again makes it initialize a bit faster
             (*time).dwHighDateTime = 0x01BF53B7;
