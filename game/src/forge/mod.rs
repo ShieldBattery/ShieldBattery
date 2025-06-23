@@ -8,14 +8,15 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
-use winapi::shared::windef::{HMENU, HWND, RECT};
+use winapi::shared::windef::{HCURSOR, HMENU, HWND, RECT};
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
 use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
-    use super::{ATOM, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
+
+    use super::{ATOM, HCURSOR, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
 
     system_hooks!(
         !0 => CreateWindowExW(
@@ -23,6 +24,7 @@ mod scr_hooks {
         ) -> HWND;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => ShowWindow(HWND, i32) -> u32;
+        !0 => SetCursor(HCURSOR) -> HCURSOR;
         !0 => SetCursorPos(i32, i32) -> i32;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
     );
@@ -92,6 +94,12 @@ unsafe extern "system" fn wnd_proc_scr(
                             (*new_pos).cx,
                             (*new_pos).cy,
                         ));
+                    }
+                }
+                WM_SETCURSOR => {
+                    let game_started = with_forge(|forge| forge.game_started);
+                    if !game_started {
+                        SetCursor(LoadCursorW(null_mut(), IDC_ARROW));
                     }
                 }
                 _ => (),
@@ -237,6 +245,20 @@ struct Window {
 }
 
 unsafe impl Send for Window {}
+
+fn set_cursor(cursor: HCURSOR, orig: unsafe extern "C" fn(HCURSOR) -> HCURSOR) -> HCURSOR {
+    // SCR hooks this to set the cursor to a custom one, but we don't need that
+    if !scr_hooks_disabled() {
+        let game_started = with_forge(|forge| forge.game_started);
+        if !game_started {
+            // Only let the game change the cursor once the game has started, otherwise it hides the
+            // cursor during our loading screen
+            // TODO(tec27): Might be nice to just show the default game cursor here instead?
+            return cursor;
+        }
+    }
+    unsafe { orig(cursor) }
+}
 
 fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
     // Unlike 1161, SCR is aware of the desktop resolution, so we just block this if the game window
@@ -417,6 +439,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "ShowWindow", ShowWindow, show_window;
+            "SetCursor", SetCursor, set_cursor;
             "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
         );
@@ -480,6 +503,12 @@ const WM_GAME_STARTED: u32 = WM_USER + 7;
 pub unsafe fn run_wnd_proc() {
     debug!("Forge: run_wnd_proc called");
     unsafe {
+        loop {
+            // FIXME: remove probably?
+            if ShowCursor(1) >= 0 {
+                break;
+            }
+        }
         if let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle)) {
             // Set up a timer to trigger redraws at a set interval during initialization
             debug!("Forge: starting draw timer");

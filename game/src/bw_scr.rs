@@ -177,7 +177,7 @@ pub struct BwScr {
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
-    draw_graphic_layers: unsafe extern "C" fn(*mut c_void, usize, u32),
+    render_screen: unsafe extern "C" fn(*mut c_void, usize),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -203,7 +203,7 @@ pub struct BwScr {
     step_game_logic: VirtualAddress,
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
-    draw_graphic_layers_addr: VirtualAddress,
+    draw_graphic_layers: VirtualAddress,
     decide_cursor_type: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
@@ -828,6 +828,7 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let select_units = analysis.select_units().ok_or("select_units")?;
 
@@ -938,8 +939,7 @@ impl BwScr {
             original_status_screen_update,
             net_format_turn_rate,
             init_obs_ui,
-            draw_graphic_layers: unsafe { mem::transmute(draw_graphic_layers.0) },
-            draw_graphic_layers_addr: draw_graphic_layers,
+            draw_graphic_layers,
             decide_cursor_type,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -969,6 +969,7 @@ impl BwScr {
             move_unit: Thiscall::foreign(move_unit.0 as usize),
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
+            render_screen: unsafe { mem::transmute(render_screen.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1611,7 +1612,7 @@ impl BwScr {
             let draw = (*renderer_vtable).draw;
             let create_shader = (*renderer_vtable).create_shader;
 
-            let address = self.draw_graphic_layers_addr.0 as usize - base;
+            let address = self.draw_graphic_layers.0 as usize - base;
             // draw_graphic_layers is the main BW draw command queuing function.
             // Usually called once per render to queue DrawCommands for all sprites of the game
             // as well as UI, but when the user is in middle of switching between
@@ -1847,7 +1848,7 @@ impl BwScr {
     /// as we don't provide the necessary extra functions to properly render an ingame UI.
     pub unsafe fn force_redraw_during_init(&self) {
         unsafe {
-            (self.draw_graphic_layers)(std::ptr::null_mut(), 0, 0);
+            (self.render_screen)(std::ptr::null_mut(), 0);
         }
     }
 
