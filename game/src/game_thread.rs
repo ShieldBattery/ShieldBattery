@@ -143,6 +143,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             RunWndProc => forge::run_wnd_proc(),
             StartGame => {
                 get_bw().play_sound("SND_LAST_FRIGATE_PISSED");
+                get_bw().set_game_started();
                 forge::game_started();
                 get_bw().run_game_loop();
                 debug!("Game loop ended");
@@ -272,6 +273,9 @@ unsafe fn game_results() -> GameThreadResults {
 unsafe fn init_bw() {
     unsafe {
         let bw = get_bw();
+        // Trigger a redraw here just to ensure things are as up-to-date as possible before a
+        // somewhat long blocking operation
+        bw.force_redraw_during_init();
         bw.init_sprites();
         (*bw.game()).is_bw = 1;
         debug!("Process initialized");

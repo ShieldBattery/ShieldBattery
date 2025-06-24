@@ -134,6 +134,7 @@ pub struct BwVars {
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
+    pub game_started: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -409,12 +410,14 @@ impl OverlayState {
         self.replay_panels.hotkeys_active =
             bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
-            if bw.is_replay_or_obs {
-                self.add_replay_ui(bw, apm, ctx);
-            }
-            let debug = cfg!(debug_assertions);
-            if debug {
-                self.add_debug_ui(bw, ctx);
+            if bw.game_started {
+                if bw.is_replay_or_obs {
+                    self.add_replay_ui(bw, apm, ctx);
+                }
+                let debug = cfg!(debug_assertions);
+                if debug {
+                    self.add_debug_ui(bw, ctx);
+                }
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);

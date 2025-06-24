@@ -338,7 +338,6 @@ fn wait_async_exit() -> ! {
 // for commands from the client.
 fn process_init_hook() -> ! {
     PROCESS_INIT_HOOK_REACHED.store(true, Ordering::Release);
-    forge::restore_saved_window_pos();
     TRACK_WINDOW_POS.store(true, Ordering::Release);
     game_thread::run_event_loop()
 }

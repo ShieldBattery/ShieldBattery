@@ -245,6 +245,8 @@ pub struct BwScr {
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// Whether the game has been started (e.g. we're done loading in)
+    game_started: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
     game_results_sent: AtomicBool,
     /// Used to have step_game_logic_hook do things once at start of the game, after initial
@@ -1032,6 +1034,7 @@ impl BwScr {
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            game_started: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
@@ -1661,6 +1664,7 @@ impl BwScr {
                         return;
                     }
                     let game = bw_dat::Game::from_ptr(game);
+                    let game_started = self.game_started.load(Ordering::Acquire);
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
@@ -1709,6 +1713,7 @@ impl BwScr {
                                 first_dialog,
                                 graphic_layers,
                                 is_hd,
+                                game_started,
                             },
                             apm,
                             size,
@@ -1860,6 +1865,10 @@ impl BwScr {
         unsafe {
             (self.render_screen)(std::ptr::null_mut(), 0);
         }
+    }
+
+    pub fn set_game_started(&self) {
+        self.game_started.store(true, Ordering::Release);
     }
 
     unsafe fn handle_debug_ui_actions(
