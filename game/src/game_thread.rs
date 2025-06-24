@@ -142,6 +142,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             Initialize => init_bw(),
             RunWndProc => forge::run_wnd_proc(),
             StartGame => {
+                get_bw().play_sound("SND_LAST_FRIGATE_PISSED");
                 forge::game_started();
                 get_bw().run_game_loop();
                 debug!("Game loop ended");

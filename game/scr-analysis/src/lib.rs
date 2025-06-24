@@ -625,4 +625,12 @@ impl<'e> Analysis<'e> {
     pub fn pathing(&mut self) -> Option<Operand<'e>> {
         self.0.pathing()
     }
+
+    pub fn lookup_sound_id(&mut self) -> Option<VirtualAddress> {
+        self.0.lookup_sound_id()
+    }
+
+    pub fn play_sound(&mut self) -> Option<VirtualAddress> {
+        self.0.play_sound()
+    }
 }

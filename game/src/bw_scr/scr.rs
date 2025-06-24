@@ -95,8 +95,8 @@ impl BwString {
             // New value doesn't fit, reallocate
             if !self.is_using_inline_buffer() {
                 unsafe {
-                    bw_free(self.pointer);
-                    self.pointer = std::ptr::null_mut();
+                    let pointer = std::mem::replace(&mut self.pointer, std::ptr::null_mut());
+                    bw_free(pointer);
                 }
             }
 
@@ -113,6 +113,102 @@ impl BwString {
             text_slice[..replace_with.len()].copy_from_slice(replace_with.as_bytes());
             text_slice[replace_with.len()] = 0;
             self.length = replace_with.len();
+        }
+    }
+}
+
+/// A safe wrapper around [BwString]. Uses BW's malloc/free functions to manage memory so its
+/// inner pointer can be safely passed to BW functions that expect to free the [BwString].
+pub struct SafeBwString(*mut BwString);
+
+#[allow(dead_code)]
+impl SafeBwString {
+    pub fn new() -> Self {
+        unsafe {
+            let s = bw_malloc(std::mem::size_of::<BwString>()) as *mut BwString;
+            (*s).pointer = (*s).inline_buffer.as_mut_ptr();
+            (*s).capacity = 0x15 | (isize::MIN as usize); // Use inline buffer
+            (*s).length = 0;
+            (*s).inline_buffer[0] = 0;
+            Self(s)
+        }
+    }
+
+    /// Returns a new, empty [SafeBwString] with at least the specified capacity. Note that the
+    /// capacity may be larger.
+    pub fn with_capacity(capacity: usize) -> Self {
+        if capacity <= 15 {
+            Self::new()
+        } else {
+            unsafe {
+                let s = bw_malloc(std::mem::size_of::<BwString>()) as *mut BwString;
+                (*s).pointer = bw_malloc(capacity + 1);
+                (*(*s).pointer) = 0;
+                (*s).capacity = capacity;
+                (*s).length = 0;
+                (*s).inline_buffer[0] = 0;
+                Self(s)
+            }
+        }
+    }
+
+    /// Returns the inner [BwString] pointer. This should only be used in cases where you are
+    /// passing the [BwString] to a BW function that does not expect to free it.
+    pub unsafe fn get(&mut self) -> *mut BwString {
+        self.0
+    }
+
+    /// Consumes the [SafeBwString], returning the wrapped [BwString] pointer.
+    pub fn into_inner(mut self) -> *mut BwString {
+        std::mem::replace(&mut self.0, std::ptr::null_mut())
+    }
+
+    pub fn len(&self) -> usize {
+        unsafe { (*self.0).length }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn capacity(&self) -> usize {
+        unsafe { (*self.0).get_capacity() }
+    }
+
+    /// Replaces the entire contents of the string.
+    pub fn replace_all(&mut self, replace_with: &str) {
+        unsafe {
+            (*self.0).replace_all(replace_with);
+        }
+    }
+}
+
+impl From<&str> for SafeBwString {
+    fn from(value: &str) -> Self {
+        let mut s = SafeBwString::with_capacity(value.len());
+        s.replace_all(value);
+        s
+    }
+}
+
+impl From<&String> for SafeBwString {
+    fn from(value: &String) -> Self {
+        let mut s = SafeBwString::with_capacity(value.len());
+        s.replace_all(value);
+        s
+    }
+}
+
+impl Drop for SafeBwString {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                if !(*self.0).is_using_inline_buffer() {
+                    let pointer = std::mem::replace(&mut (*self.0).pointer, std::ptr::null_mut());
+                    bw_free(pointer);
+                }
+                bw_free(self.0 as *mut u8);
+            }
         }
     }
 }
