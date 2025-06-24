@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
+use hashbrown::HashMap;
 use libc::c_void;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
@@ -28,6 +29,7 @@ use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
+use crate::bw_scr::scr::SafeBwString;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
@@ -178,6 +180,8 @@ pub struct BwScr {
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
     render_screen: unsafe extern "C" fn(*mut c_void, usize),
+    lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
+    play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -246,6 +250,7 @@ pub struct BwScr {
     /// units are spawned and game logic is ready to run normally.
     /// Will be reset on replay rewinds.
     first_game_logic_frame_done: AtomicBool,
+    sound_id_cache: Mutex<HashMap<String, u32>>,
 }
 
 /// State mutated during renderer draw call
@@ -830,6 +835,8 @@ impl BwScr {
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let select_units = analysis.select_units().ok_or("select_units")?;
+        let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
+        let play_sound = analysis.play_sound().ok_or("play_sound")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -968,6 +975,8 @@ impl BwScr {
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
             render_screen: unsafe { mem::transmute(render_screen.0) },
+            lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
+            play_sound: unsafe { mem::transmute(play_sound.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1022,6 +1031,7 @@ impl BwScr {
             console_hidden_state: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
+            sound_id_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -2305,6 +2315,38 @@ impl BwScr {
     pub fn pathing(&self) -> *mut bw::Pathing {
         unsafe { self.pathing.resolve() }
     }
+
+    /// Look up the idea for a given sound. Note that unknown IDs will cause a crash.
+    fn lookup_sound(&self, id: impl Into<String>) -> u32 {
+        let id = id.into();
+        let mut cache = self.sound_id_cache.lock();
+        if let Some(sound_id) = cache.get(&id).copied() {
+            return sound_id;
+        }
+
+        let result = unsafe {
+            let mut id: SafeBwString = (&id).into();
+            (self.lookup_sound_id)(id.get())
+        };
+        // NOTE(tec27): We could use this more as an LRU cache, but there's such a small number of
+        // possible sounds that it doesn't really seem worth it to me.
+        cache.insert(id, result);
+        result
+    }
+
+    /// Plays the specified sound. These IDs can be easily found in rez/sfx.json in the game files.
+    /// Unknown sound IDs will cause a crash.
+    pub fn play_sound(&self, id: impl Into<String>) {
+        unsafe {
+            (self.play_sound)(
+                self.lookup_sound(id),
+                100.0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+        }
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -2879,7 +2921,7 @@ impl bw::Bw for BwScr {
     }
 
     fn starting_fog(&self) -> StartingFog {
-        self.starting_fog.load(Ordering::Relaxed)
+        self.starting_fog.load(Ordering::Acquire)
     }
 }
 
@@ -3445,7 +3487,7 @@ unsafe fn read_fs_gs(offset: usize) -> usize {
 
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer
-/// if value doens't fit inline.
+/// if value doesn't fit inline.
 unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
     unsafe {
         if value.len() < 16 {
