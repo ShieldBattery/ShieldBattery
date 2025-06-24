@@ -178,6 +178,7 @@ struct Forge {
     starting_settings: Settings,
     window: Option<Window>,
     orig_wnd_proc: Option<unsafe extern "system" fn(HWND, u32, usize, isize) -> isize>,
+    window_pos_restored: bool,
     game_started: bool,
 
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
@@ -289,6 +290,15 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
 
         if call_orig {
             debug!("ShowWindow {window:p} {show}");
+            if show == SW_SHOW
+                && !with_forge(|forge| {
+                    let restored = forge.window_pos_restored;
+                    forge.window_pos_restored = true;
+                    restored
+                })
+            {
+                restore_saved_window_pos();
+            }
             orig(window, show)
         } else {
             debug!("Skipping ShowWindow {window:p} {show}");
@@ -487,6 +497,7 @@ pub fn init(
         window: None,
         orig_wnd_proc: None,
         game_started: false,
+        window_pos_restored: false,
         scr_window_class: None,
     });
     FORGE_INITED.store(true, Ordering::Release);
@@ -503,16 +514,11 @@ const WM_GAME_STARTED: u32 = WM_USER + 7;
 pub unsafe fn run_wnd_proc() {
     debug!("Forge: run_wnd_proc called");
     unsafe {
-        loop {
-            // FIXME: remove probably?
-            if ShowCursor(1) >= 0 {
-                break;
-            }
-        }
         if let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle)) {
             // Set up a timer to trigger redraws at a set interval during initialization
             debug!("Forge: starting draw timer");
             SetTimer(handle, DRAW_TIMER_ID, DRAW_TIMEOUT_MILLIS, None);
+            get_bw().force_redraw_during_init();
         }
 
         let mut msg: MSG = mem::zeroed();
@@ -560,7 +566,7 @@ pub fn hide_window() {
     }
 }
 
-pub fn restore_saved_window_pos() {
+fn restore_saved_window_pos() {
     let (settings, handle) = with_forge(|forge| {
         (
             forge.starting_settings,

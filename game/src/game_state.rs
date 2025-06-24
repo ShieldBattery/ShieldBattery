@@ -398,7 +398,7 @@ impl GameState {
             }
 
             // FIXME delete
-            // tokio::time::sleep(Duration::from_millis(10000)).await;
+            tokio::time::sleep(Duration::from_millis(10000)).await;
 
             debug!("All players have joined");
             if let Some(sbat_replay_data_promise) = sbat_replay_data {
