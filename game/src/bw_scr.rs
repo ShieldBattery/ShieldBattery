@@ -1879,7 +1879,7 @@ impl BwScr {
                     // (It tries to check if mouse x/y is on control, but
                     // to do that it'll access parent rect, which won't exist
                     // for dialogs)
-                    (*(*ctrl as *mut bw::scr::Control)).flags |= 0x2;
+                    (*(*ctrl)).flags |= 0x2;
                 } else {
                     ctrl.show();
                 }
