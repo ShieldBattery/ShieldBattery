@@ -126,7 +126,6 @@ unsafe extern "C" fn minimap_event_handler(
             return 0;
         }
         let ret = orig(ctrl, event);
-        let event = event as *mut bw::scr::ControlEvent;
         // Init event
         if (*event).ty == 0xe && (*event).ext_type == 0x0 {
             // Replay / obs UI won't have the alliance / chat buttons show above
@@ -143,7 +142,7 @@ unsafe extern "C" fn minimap_event_handler(
                             3 => &MINIMAP_BUTTON1_EVENT_HANDLER,
                             _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
                         };
-                        if let Some(handler) = (*(*child as *mut bw::scr::Control)).event_handler {
+                        if let Some(handler) = (*(*child)).event_handler {
                             let inited = handler_hook.init(prevent_button_hide);
                             inited.set_orig(handler as usize);
                             child.set_event_handler(inited);
@@ -178,7 +177,6 @@ unsafe extern "C" fn prevent_button_hide(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        let event = event as *mut bw::scr::ControlEvent;
         if (*event).ty == 0xe && (*event).ext_type == 0xe {
             // Hide
             let hide_skip_count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);
