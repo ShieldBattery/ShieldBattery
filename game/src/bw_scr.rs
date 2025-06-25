@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -182,6 +182,7 @@ pub struct BwScr {
     render_screen: unsafe extern "C" fn(*mut c_void, usize),
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
+    print_text: unsafe extern "C" fn(*const u8, u32, u32),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -840,6 +841,7 @@ impl BwScr {
         let select_units = analysis.select_units().ok_or("select_units")?;
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
+        let print_text = analysis.print_text().ok_or("print_text")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -981,6 +983,7 @@ impl BwScr {
             render_screen: unsafe { mem::transmute(render_screen.0) },
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
+            print_text: unsafe { mem::transmute(print_text.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -2362,6 +2365,58 @@ impl BwScr {
                 std::ptr::null_mut(),
             );
         }
+    }
+
+    /// Prints text as a chat message from no one.
+    #[allow(dead_code)]
+    pub fn print_text(&self, text: &CStr) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, 16, 0);
+        }
+    }
+
+    /// Prints text as a chat message from the specified user (slot ID).
+    #[allow(dead_code)]
+    pub fn print_text_from_user(&self, text: &CStr, user: u32) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, user, 0);
+        }
+    }
+
+    /// Prints centered text. This does not make a transmission sound like the other versions of
+    /// print_text.
+    #[allow(dead_code)]
+    pub fn print_centered_text(&self, text: &CStr) {
+        unsafe {
+            (self.print_text)(text.as_ptr() as *const u8, u32::MAX, 0);
+        }
+    }
+
+    /// Call with a chat message to possibly handle it if it contains a command. Returns whether it
+    /// was handled (and if so, the message should be cleared and not sent).
+    pub fn handle_chat_command(&self, text: &str) -> bool {
+        if !text.starts_with("/") {
+            return false;
+        }
+
+        match text {
+            "/version" => {
+                let msg = CString::new(format!(
+                    "\x04ShieldBattery \x07{}, \x04SC:R \x07{}",
+                    env!("SHIELDBATTERY_VERSION"),
+                    get_exe_build()
+                ))
+                .unwrap();
+                self.print_text(&msg);
+            }
+            _ => {
+                let command = text.split(' ').next().unwrap();
+                let msg = CString::new(format!("\x06Unknown command: \x04{command}")).unwrap();
+                self.print_centered_text(&msg);
+            }
+        }
+
+        true
     }
 }
 

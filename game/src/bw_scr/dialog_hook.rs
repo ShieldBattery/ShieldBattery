@@ -64,10 +64,28 @@ unsafe extern "C" fn chat_box_event_handler(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
+        let bw = get_bw();
+
+        // keypress
+        if (*event).ty == 0xf {
+            if let Some(edit_box) = Control::new(ctrl).dialog().child_by_id(7) {
+                let key = (*event).param;
+                // Enter/return while the chat box was open
+                if !edit_box.is_hidden() && (key == 0xa || key == 0xd) {
+                    let text = edit_box.string();
+                    if bw.handle_chat_command(text) {
+                        // Clear the chat box text so no message gets sent
+                        edit_box.set_string(b"");
+                    }
+                }
+            } else {
+                debug!("Couldn't find edit box on chat box keypress event!");
+            }
+        }
+
         // This dialog checks if allies are enabled to allow/prevent ally chat;
         // as we disable allies to prevent changing them from what they originally
-        // were, restore alliance state temporarely to make ally chat work.
-        let bw = get_bw();
+        // were, restore alliance state temporarily to make ally chat work.
         let game_data = bw.game_data();
         let old = (*game_data).game_template.allies_enabled;
         (*game_data).game_template.allies_enabled =

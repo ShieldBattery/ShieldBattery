@@ -566,7 +566,7 @@ pub fn hide_window() {
     }
 }
 
-fn restore_saved_window_pos() {
+pub fn restore_saved_window_pos() {
     let (settings, handle) = with_forge(|forge| {
         (
             forge.starting_settings,

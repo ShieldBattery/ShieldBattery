@@ -633,4 +633,8 @@ impl<'e> Analysis<'e> {
     pub fn play_sound(&mut self) -> Option<VirtualAddress> {
         self.0.play_sound()
     }
+
+    pub fn print_text(&mut self) -> Option<VirtualAddress> {
+        self.0.print_text()
+    }
 }
