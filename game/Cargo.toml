@@ -103,6 +103,7 @@ rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
 rev = "257f4dc1dbff1719f80c96db81fe026e1144b680"
+features = ["scr-only"]
 
 [build-dependencies]
 anyhow = "1.0"
