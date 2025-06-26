@@ -2345,7 +2345,7 @@ impl BwScr {
 
         let result = unsafe {
             let mut id: SafeBwString = (&id).into();
-            (self.lookup_sound_id)(id.get())
+            (self.lookup_sound_id)(id.borrow().as_ptr())
         };
         // NOTE(tec27): We could use this more as an LRU cache, but there's such a small number of
         // possible sounds that it doesn't really seem worth it to me.
