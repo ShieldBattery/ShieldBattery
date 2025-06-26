@@ -18,7 +18,7 @@ use libc::c_void;
 use once_cell::sync::OnceCell;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::{GameSetupInfo, StartingFog};
+use crate::app_messages::{GameSetupInfo, MapInfo, StartingFog};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
@@ -346,10 +346,7 @@ pub fn is_team_game() -> bool {
 }
 
 pub fn is_replay() -> bool {
-    SETUP_INFO
-        .get()
-        .and_then(|x| x.map.is_replay)
-        .unwrap_or(false)
+    SETUP_INFO.get().map(|x| x.is_replay()).unwrap_or(false)
 }
 
 pub fn setup_info() -> &'static GameSetupInfo {
@@ -362,7 +359,10 @@ pub fn setup_info() -> &'static GameSetupInfo {
 pub fn map_name_for_filename() -> String {
     let mut name: String = SETUP_INFO
         .get()
-        .and_then(|x| x.map.name.as_deref())
+        .and_then(|x| match &x.map {
+            MapInfo::Game(map) => Some(map.name.as_str()),
+            MapInfo::Replay(_) => None,
+        })
         .unwrap_or("(Unknown map name)")
         .into();
     name.retain(|c| match c {

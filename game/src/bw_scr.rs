@@ -2587,9 +2587,9 @@ impl bw::Bw for BwScr {
             }
 
             if options.game_type.is_ums() {
-                let is_eud = match map_info.map_data {
-                    Some(ref s) => s.is_eud,
-                    None => false,
+                let is_eud = match map_info {
+                    MapInfo::Replay(_) => false,
+                    MapInfo::Game(game_map) => game_map.map_data.is_eud,
                 };
                 if is_eud {
                     game_input.old_limits = 1;

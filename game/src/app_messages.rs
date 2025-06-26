@@ -117,7 +117,7 @@ pub struct GameSetupInfo {
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub ratings: Option<Vec<(u32, f32)>>,
     pub disable_alliance_changes: Option<bool>,
     pub use_legacy_limits: Option<bool>,
@@ -136,7 +136,10 @@ pub struct ServerConfig {
 
 impl GameSetupInfo {
     pub fn is_replay(&self) -> bool {
-        self.map.is_replay == Some(true)
+        match self.map {
+            MapInfo::Replay(_) => true,
+            MapInfo::Game(_) => false,
+        }
     }
 
     pub fn game_type(&self) -> Option<GameType> {
@@ -167,15 +170,36 @@ impl From<&GameSetupInfo> for LobbyOptions {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+#[allow(dead_code)]
+pub enum MapInfo {
+    Replay(ReplayMapInfo),
+    Game(GameMapInfo),
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
-pub struct MapInfo {
-    // This object is literally completely different between playing a game and watching a replay
-    pub is_replay: Option<bool>,
-    pub hash: Option<String>,
-    pub map_data: Option<MapData>,
-    pub name: Option<String>,
-    pub path: Option<String>,
+pub struct ReplayMapInfo {
+    pub is_replay: bool,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct GameMapInfo {
+    pub id: String,
+    pub hash: String,
+    pub name: String,
+    pub description: String,
+    pub map_data: MapData,
+    pub map_url: Option<String>,
+    pub image256_url: Option<String>,
+    pub image512_url: Option<String>,
+    pub image1024_url: Option<String>,
+    pub image2048_url: Option<String>,
+    pub image_version: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

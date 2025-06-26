@@ -17,7 +17,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo,
-    LobbyPlayerId, LocalUser, MapForce, NetworkStallInfo, PlayerInfo, Route, ServerConfig,
+    LobbyPlayerId, LocalUser, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, ServerConfig,
     Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
@@ -342,12 +342,10 @@ impl GameState {
 
             debug!("In lobby, setting up slots");
             unsafe {
-                let ums_forces = info
-                    .map
-                    .map_data
-                    .as_ref()
-                    .map(|x| &x.ums_forces[..])
-                    .unwrap_or(&[]);
+                let ums_forces = match info.map {
+                    MapInfo::Replay(_) => &[],
+                    MapInfo::Game(ref game_map) => &game_map.map_data.ums_forces[..],
+                };
                 setup_slots(&info.slots, game_type, ums_forces);
             }
             send_messages_to_state
@@ -398,7 +396,7 @@ impl GameState {
             }
 
             // FIXME delete
-            // tokio::time::sleep(Duration::from_millis(10000)).await;
+            tokio::time::sleep(Duration::from_millis(10000)).await;
 
             debug!("All players have joined");
             if let Some(sbat_replay_data_promise) = sbat_replay_data {
@@ -1147,14 +1145,11 @@ unsafe fn join_lobby(
     game_type: GameType,
 ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
     unsafe {
-        let map_data = match info.map.map_data {
-            Some(ref s) => s,
-            None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
+        let MapInfo::Game(ref game_map) = info.map else {
+            panic!("join_lobby called for a replay");
         };
-        let map_name = match info.map.name {
-            Some(ref s) => s,
-            None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
-        };
+        let map_data = &game_map.map_data;
+        let map_name = &game_map.name;
         let max_player_count = info.slots.len() as u8;
         let active_player_count = info
             .slots
