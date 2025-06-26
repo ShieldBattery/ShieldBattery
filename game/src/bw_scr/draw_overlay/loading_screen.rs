@@ -17,6 +17,14 @@ impl OverlayState {
                             .size(24.0)
                             .color(colors::GREY99),
                     );
+
+                    let map_image = egui::Image::from_uri("http://localhost:5555/files/map_images/15/29/1529e7d69cdee8ce125fed1b2688b2e6a21183fc9a8e6b2ce5adf363ce32b419-2048.jpg?v=1")
+                        .max_width(640.0)
+                        .max_height(480.0);
+                    ui.add_sized(
+                        [640.0, 480.0],
+                        map_image,
+                    );
                 });
             });
     }
