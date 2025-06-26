@@ -11,7 +11,7 @@ pub unsafe fn bw_vector_push<T>(vec: *mut scr::BwVector, value: T) {
     unsafe {
         let length = (*vec).length;
         if length >= (*vec).capacity {
-            bw_vector_reserve::<T>(vec, (*vec).capacity * 2);
+            bw_vector_reserve::<T>(vec, ((*vec).capacity * 2).max(2));
         }
         ((*vec).data as *mut T).add(length).write(value);
         (*vec).length = length + 1;
@@ -22,6 +22,11 @@ pub unsafe fn bw_vector_push<T>(vec: *mut scr::BwVector, value: T) {
 #[cold]
 pub unsafe fn bw_vector_reserve<T>(vec: *mut scr::BwVector, new_capacity: usize) {
     unsafe {
+        assert!(
+            new_capacity > 0,
+            "Tried to reserve a capacity of 0 for a BW vector"
+        );
+
         if (*vec).capacity >= new_capacity {
             return;
         }
