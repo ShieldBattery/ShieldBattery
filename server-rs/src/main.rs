@@ -65,14 +65,14 @@ async fn main() -> eyre::Result<()> {
 
     let redis_host = format!("redis://{}:{}", settings.redis.host, settings.redis.port);
     let redis_client = redis::Client::open(redis_host.clone())
-        .wrap_err_with(|| format!("Failed to open Redis server at {}", redis_host))?;
+        .wrap_err_with(|| format!("Failed to open Redis server at {redis_host}"))?;
     let redis_manager = RedisConnectionManager::new(redis_client);
     let redis_pool = RedisPool::new(mobc::Pool::builder().build(redis_manager));
 
     let addr_string = format!("{}:{}", settings.app_host, settings.app_port);
     let addr = addr_string
         .parse::<SocketAddr>()
-        .wrap_err_with(|| format!("Failed to parse address: {}", addr_string))?;
+        .wrap_err_with(|| format!("Failed to parse address: {addr_string}"))?;
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     tracing::info!("listening on http://{}", listener.local_addr().unwrap());

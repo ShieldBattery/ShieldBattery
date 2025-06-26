@@ -38,9 +38,9 @@ impl Extension for ErrorLoggerExtension {
                 let source = match &err.source {
                     Some(source) => {
                         if let Some(report) = source.downcast_ref::<color_eyre::Report>() {
-                            format!("{:?}", report)
+                            format!("{report:?}")
                         } else {
-                            format!("{:?}", source)
+                            format!("{source:?}")
                         }
                     }
                     None => "None".to_string(),
@@ -54,10 +54,10 @@ impl Extension for ErrorLoggerExtension {
                         }
                         match s {
                             PathSegment::Index(idx) => {
-                                let _ = write!(&mut path, "{}", idx);
+                                let _ = write!(&mut path, "{idx}");
                             }
                             PathSegment::Field(name) => {
-                                let _ = write!(&mut path, "{}", name);
+                                let _ = write!(&mut path, "{name}");
                             }
                         }
                     }

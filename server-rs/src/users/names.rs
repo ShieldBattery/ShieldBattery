@@ -318,6 +318,6 @@ impl NameChecker {
 }
 
 pub fn create_case_insensitive_regex(pattern: &str) -> Result<Regex, regex::Error> {
-    let pattern = format!("(?i){}", pattern);
+    let pattern = format!("(?i){pattern}");
     Regex::new(&pattern)
 }

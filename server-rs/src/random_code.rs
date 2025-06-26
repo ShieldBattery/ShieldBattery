@@ -53,8 +53,7 @@ mod tests {
         let re = Regex::new(r"^[BCDFGHJKLMNPQRTWXY3469]{5}-[BCDFGHJKLMNPQRTWXY3469]{5}$").unwrap();
         assert!(
             re.is_match(&code),
-            "code '{}' did not match expected format",
-            code
+            "code '{code}' did not match expected format",
         );
     }
 
@@ -75,17 +74,13 @@ mod tests {
             for c in first.chars() {
                 assert!(
                     RANDOM_EMAIL_CODE_CHARACTERS.contains(&(c as u8)),
-                    "code '{}' contains invalid character '{}'",
-                    code,
-                    c
+                    "code '{code}' contains invalid character '{c}'",
                 );
             }
             for c in second.chars().skip(1) {
                 assert!(
                     RANDOM_EMAIL_CODE_CHARACTERS.contains(&(c as u8)),
-                    "code '{}' contains invalid character '{}'",
-                    code,
-                    c
+                    "code '{code}' contains invalid character '{c}'",
                 );
             }
         }
