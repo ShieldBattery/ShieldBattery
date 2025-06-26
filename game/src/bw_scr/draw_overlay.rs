@@ -23,6 +23,8 @@ use crate::network_manager;
 
 use self::production::ProductionState;
 
+mod colors;
+mod loading_screen;
 mod production;
 
 pub struct OverlayState {
@@ -418,6 +420,8 @@ impl OverlayState {
                 if debug {
                     self.add_debug_ui(bw, ctx);
                 }
+            } else {
+                self.add_loading_screen_ui(bw, ctx);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
