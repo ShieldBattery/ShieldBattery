@@ -211,6 +211,8 @@ impl OverlayState {
     pub fn new() -> OverlayState {
         let ctx = egui::Context::default();
 
+        egui_extras::install_image_loaders(&ctx);
+
         // Add our custom fonts
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
