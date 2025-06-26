@@ -3446,9 +3446,10 @@ unsafe fn read_fs_gs(offset: usize) -> usize {
 unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
     unsafe {
         if value.len() < 16 {
-            (*out).inline_buffer[..value.len()].copy_from_slice(value);
-            (*out).inline_buffer[value.len()] = 0;
-            (*out).pointer = (*out).inline_buffer.as_mut_ptr();
+            let inline_buffer: *mut [u8; 16] = &raw mut (*out).inline_buffer;
+            (&mut *inline_buffer)[..value.len()].copy_from_slice(value);
+            (&mut *inline_buffer)[value.len()] = 0;
+            (*out).pointer = inline_buffer.cast();
             (*out).length = value.len();
             (*out).capacity = 15 | (isize::MIN as usize);
         } else {

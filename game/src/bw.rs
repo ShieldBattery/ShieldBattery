@@ -548,12 +548,12 @@ impl Iterator for FowSpriteIterator {
 
 pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
     unsafe {
-        let name_length = (*player)
-            .name
+        let name = &(*player).name;
+        let name_length = name
             .iter()
             .position(|&x| x == 0)
-            .unwrap_or((*player).name.len());
-        let name = &(*player).name[..name_length];
+            .unwrap_or(name.len());
+        let name = &name[..name_length];
         String::from_utf8_lossy(name)
     }
 }

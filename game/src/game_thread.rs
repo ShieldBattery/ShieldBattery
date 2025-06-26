@@ -219,7 +219,7 @@ unsafe fn game_results() -> GameThreadResults {
                     warn!("Failed to convert race for player {id:?}: {e:?}");
                     AssignedRace::Zerg
                 });
-            let alliances = (*game).alliances[id.0 as usize][0..8]
+            let alliances = (&(*game).alliances)[id.0 as usize][0..8]
                 .iter()
                 .map(|&x| {
                     x.try_into().unwrap_or_else(|e| {
