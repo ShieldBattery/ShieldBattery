@@ -117,6 +117,14 @@ impl BwString {
     }
 }
 
+pub struct BorrowedBwString<'a>(&'a mut *mut BwString);
+
+impl<'a> BorrowedBwString<'a> {
+    pub unsafe fn as_ptr(&self) -> *mut BwString {
+        *self.0
+    }
+}
+
 /// A safe wrapper around [BwString]. Uses BW's malloc/free functions to manage memory so its
 /// inner pointer can be safely passed to BW functions that expect to free the [BwString].
 pub struct SafeBwString(*mut BwString);
@@ -152,14 +160,14 @@ impl SafeBwString {
         }
     }
 
-    /// Returns the inner [BwString] pointer. This should only be used in cases where you are
-    /// passing the [BwString] to a BW function that does not expect to free it.
-    pub unsafe fn get(&mut self) -> *mut BwString {
-        self.0
+    /// Borrows the inner [BwString], allowing you to use the inner pointer directly. This is useful
+    /// if you need to pass the string to a BW function that does not take ownership over it.
+    pub unsafe fn borrow(&mut self) -> BorrowedBwString {
+        BorrowedBwString(&mut self.0)
     }
 
     /// Consumes the [SafeBwString], returning the wrapped [BwString] pointer.
-    pub fn into_inner(mut self) -> *mut BwString {
+    pub unsafe fn into_inner(mut self) -> *mut BwString {
         std::mem::replace(&mut self.0, std::ptr::null_mut())
     }
 
