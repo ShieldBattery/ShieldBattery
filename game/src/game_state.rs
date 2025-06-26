@@ -329,11 +329,11 @@ impl GameState {
                     1 => UserLatency::High,
                     2 => UserLatency::ExtraHigh,
                     val => {
-                        warn!("Invalid user latency value: {}", val);
+                        warn!("Invalid user latency value: {val}");
                         UserLatency::Low
                     }
                 };
-                debug!("Setting initial user latency: {:?}", latency);
+                debug!("Setting initial user latency: {latency:?}");
                 let bw = get_bw();
                 unsafe {
                     bw.set_user_latency(latency);
@@ -377,8 +377,7 @@ impl GameState {
                         // that they failed to join. We may be able to recover from
                         // this by just letting them try joining again.
                         warn!(
-                            "A player that was joined has left. Before: {:x?} After: {:x?}",
-                            flags_before, flags_after,
+                            "A player that was joined has left. Before: {flags_before:x?} After: {flags_after:x?}",
                         );
                     }
 
@@ -411,7 +410,7 @@ impl GameState {
                         // Going to assume that most of the time if we fail to read the
                         // extra replay data, it won't be fatal, so just log the error
                         // and continue.
-                        error!("Failed to read shieldbattery replay data: {}", e);
+                        error!("Failed to read shieldbattery replay data: {e}");
                     }
                 }
             }
@@ -516,7 +515,7 @@ impl GameState {
                             send,
                         ))
                         .await
-                        .map_err(|e| debug!("Send error {}", e));
+                        .map_err(|e| debug!("Send error {e}"));
 
                     deliver_final_network.push(recv);
                 }
@@ -573,8 +572,8 @@ impl GameState {
                 let game_ready = self.init_game(*info);
                 let task = async move {
                     if let Err(e) = game_ready.await {
-                        let msg = format!("Failed to init game: {}", e);
-                        error!("{}", msg);
+                        let msg = format!("Failed to init game: {e}");
+                        error!("{msg}");
 
                         let message = SetupProgress {
                             status: crate::app_messages::SetupProgressInfo {
@@ -606,7 +605,7 @@ impl GameState {
                 let async_stop = self.async_stop.clone();
                 let task = async move {
                     if let Err(e) = game_done.await {
-                        error!("Error on running game: {}", e);
+                        error!("Error on running game: {e}");
                     }
                     debug!("Game play task ended");
                     expect_quit(&async_stop).await;
@@ -731,15 +730,12 @@ impl GameState {
                 Payload::ClientReady(_) => {
                     if let InitState::Started(ref mut state) = self.init_state {
                         if state.unready_players.remove(player_id) {
-                            debug!("{:?} is now ready", player_id)
+                            debug!("{player_id:?} is now ready")
                         }
 
                         state.check_unready_players();
                     } else {
-                        error!(
-                            "Got ClientReady for {:?} before init had started",
-                            player_id
-                        );
+                        error!("Got ClientReady for {player_id:?} before init had started");
                     }
                 }
                 Payload::ClientAckRequest(_) => {
@@ -755,7 +751,7 @@ impl GameState {
                                 )),
                             ))
                             .await
-                            .map_err(|e| error!("Send error {}", e));
+                            .map_err(|e| error!("Send error {e}"));
                     });
                 }
                 _ => {}
@@ -830,7 +826,7 @@ async fn send_game_result(
                 break;
             }
             Err(err) => {
-                error!("Error sending game results: {}", err);
+                error!("Error sending game results: {err}");
             }
         };
     }
@@ -1079,7 +1075,7 @@ impl InitInProgress {
         if waiting_for.is_empty() {
             true
         } else {
-            debug!("Waiting for players {:?}", waiting_for);
+            debug!("Waiting for players {waiting_for:?}");
             false
         }
     }
@@ -1205,7 +1201,7 @@ unsafe fn join_lobby(
                 repeat_interval.tick().await;
                 match try_join_lobby_once(game_info, is_eud, options, &map_path).await {
                     Ok(()) => break,
-                    Err(e) => debug!("Storm join error: {:08x}", e),
+                    Err(e) => debug!("Storm join error: {e:08x}"),
                 }
             }
             let bw = get_bw();
@@ -1218,7 +1214,7 @@ unsafe fn join_lobby(
                 }
             }
             let player_names = storm_player_names(bw);
-            debug!("Storm player names at join: {:?}", player_names);
+            debug!("Storm player names at join: {player_names:?}");
             Ok(())
         }
         .boxed()
@@ -1365,8 +1361,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
                     .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
                 {
                     panic!(
-                        "Computer team {} has both random and non-random slots, which is not allowed",
-                        i
+                        "Computer team {i} has both random and non-random slots, which is not allowed"
                     );
                 }
             }

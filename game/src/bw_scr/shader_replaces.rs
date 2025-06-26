@@ -61,7 +61,7 @@ impl ShaderReplaces {
         let shaders = PATCHED_SHADERS
             .iter()
             .map(|&(id, default_source, name)| {
-                let path = shaders_root.join(format!("{}.hlsl", name));
+                let path = shaders_root.join(format!("{name}.hlsl"));
                 if let Some((shader, timestamp)) = compile_shader_retry_on_err(&path) {
                     (id, shader, Some((path, timestamp)))
                 } else {

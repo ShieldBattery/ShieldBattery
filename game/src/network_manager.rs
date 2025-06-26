@@ -428,11 +428,11 @@ impl State {
                                 let send =
                                     rally_point.forward(&route_id, player_id, packet, &address);
                                 let task =
-                                    pin!(send.map_err(|e| error!("Send error {}", e)).map(|_| ()));
+                                    pin!(send.map_err(|e| error!("Send error {e}")).map(|_| ()));
                                 let _ = cancel_token.bind(task).await;
                             });
                         } else {
-                            error!("Tried to send packet without a route: {}", target);
+                            error!("Tried to send packet without a route: {target}");
                         }
                     } else {
                         warn!("Storm tried to send data without ready network");
@@ -507,8 +507,7 @@ impl State {
                                                             .or_insert(from_id);
                                                         need_id = false;
                                                         debug!(
-                                                            "{:?} found to have Storm ID: {}",
-                                                            ip, from_id
+                                                            "{ip:?} found to have Storm ID: {from_id}"
                                                         );
                                                     }
                                                 }
@@ -534,7 +533,7 @@ impl State {
                                                 let task = pin!(async move {
                                                     game_state_send
                                                         .send(message)
-                                                        .map_err(|e| error!("Send error {}", e))
+                                                        .map_err(|e| error!("Send error {e}"))
                                                         .map(|_| ())
                                                         .await
                                                 });
@@ -547,11 +546,11 @@ impl State {
                                 }
                             }
                             _ => {
-                                error!("Received a badly formed packet from {}", ip);
+                                error!("Received a badly formed packet from {ip}");
                             }
                         }
                     } else {
-                        error!("Received a packet without an associated route: {}", ip)
+                        error!("Received a packet without an associated route: {ip}")
                     }
                 } else {
                     error!("Received a packet before network was ready");
@@ -582,11 +581,11 @@ impl State {
                                 let send =
                                     rally_point.forward(&route_id, player_id, packet, &address);
                                 let task =
-                                    pin!(send.map_err(|e| error!("Send error {}", e)).map(|_| ()));
+                                    pin!(send.map_err(|e| error!("Send error {e}")).map(|_| ()));
                                 let _ = cancel_token.bind(task).await;
                             });
                         } else {
-                            error!("Tried to send packet without a route: {:?}", target);
+                            error!("Tried to send packet without a route: {target:?}");
                         }
                     } else {
                         warn!("Game state tried to send a payload before network was ready");
@@ -627,7 +626,7 @@ impl State {
                                                 &route.address,
                                             )
                                             .await
-                                            .map_err(|e| error!("Send error {}", e));
+                                            .map_err(|e| error!("Send error {e}"));
 
                                         attempts += 1;
                                         if attempts < 50 {
@@ -644,7 +643,7 @@ impl State {
 
                             tokio::spawn(cancelable);
                         } else {
-                            error!("Tried to send packet without a route: {:?}", target);
+                            error!("Tried to send packet without a route: {target:?}");
                         }
                     } else {
                         warn!("Game state tried to send a payload before network was ready");
@@ -784,8 +783,7 @@ impl State {
 
                                 if let Err(e) = result {
                                     error!(
-                                        "Received error while trying to receive packet for ip {:?}: {}",
-                                        ip, e,
+                                        "Received error while trying to receive packet for ip {ip:?}: {e}",
                                     );
                                 }
                             }
@@ -793,7 +791,7 @@ impl State {
                                 // I don't think there's much sense to kill network
                                 // for this error, should never happen and if it does
                                 // then try to keep going.
-                                error!("Rally-point receive stream error for ip {:?}: {}", ip, e);
+                                error!("Rally-point receive stream error for ip {ip:?}: {e}");
                             }
                         }
                     }
@@ -924,7 +922,7 @@ fn ping_server(
                         ping,
                     })
                     .map_err(|e| {
-                        error!("Rally-point error {}", e);
+                        error!("Rally-point error {e}");
                         NetworkError::ServerUnreachable
                     })
                     .await

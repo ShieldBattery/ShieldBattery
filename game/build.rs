@@ -24,7 +24,7 @@ fn main() {
     }
 
     for &path in PROTOS {
-        println!("cargo:rerun-if-changed={}", path);
+        println!("cargo:rerun-if-changed={path}");
     }
     let mut prost_build = prost_build::Config::new();
     // Use Bytes for bytes fields instead of a Vec<u8>
@@ -49,7 +49,7 @@ fn main() {
             ShaderType::Pixel,
             ShaderModel::Sm5,
         )
-        .unwrap_or_else(|e| panic!("Failed to compile {}: {:?}", out_name, e));
+        .unwrap_or_else(|e| panic!("Failed to compile {out_name}: {e:?}"));
 
         let bin_path = out_path.join(format!("{out_name}.sm4.bin"));
         let asm_path = out_path.join(format!("{out_name}.sm4.asm"));
@@ -62,7 +62,7 @@ fn main() {
             ShaderType::Pixel,
             ShaderModel::Sm4,
         )
-        .unwrap_or_else(|e| panic!("Failed to compile {}: {:?}", out_name, e));
+        .unwrap_or_else(|e| panic!("Failed to compile {out_name}: {e:?}"));
     }
     println!(
         "cargo:rustc-env=SHIELDBATTERY_VERSION={}",
@@ -71,7 +71,7 @@ fn main() {
 }
 
 fn package_json_version(path: &str) -> String {
-    println!("cargo:rerun-if-changed={}", path);
+    println!("cargo:rerun-if-changed={path}");
     let mut file = fs::File::open(path).unwrap();
     let json: serde_json::Value = serde_json::from_reader(&mut file).unwrap();
     json.as_object()
@@ -96,7 +96,7 @@ fn compile_prism_shader(
         .with_context(|| format!("Failed to read {}", source_path.display()))?;
     let result = compile_shaders::compile(&text_bytes, defines, include_root, shader_type, model)?;
     for path in result.include_files {
-        println!("cargo:rerun-if-changed={}", path);
+        println!("cargo:rerun-if-changed={path}");
     }
     let shader_bytes = result.shader;
     let wrapped = compile_shaders::wrap_prism_shader(&shader_bytes);

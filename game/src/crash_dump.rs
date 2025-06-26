@@ -77,7 +77,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         let place = (*(*exception).ContextRecord).Rip;
         let exception_record = (*exception).ExceptionRecord;
         let exception_code = (*exception_record).ExceptionCode;
-        let mut message = format!("Crash @ {:08x}\nException {:08x}", place, exception_code);
+        let mut message = format!("Crash @ {place:08x}\nException {exception_code:08x}");
         if exception_code == 0xe06d7363 {
             // Execute C++ exception message() function.
             // If this crashes then it's unfortunate though..
@@ -99,10 +99,10 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         }
 
         if let Err(e) = write_minidump_to_default_path(exception) {
-            message = format!("{}\nCouldn't write dump: {}", message, e);
+            message = format!("{message}\nCouldn't write dump: {e}");
         }
 
-        error!("{}", message);
+        error!("{message}");
         windows::message_box("Shieldbattery crash :(", &message);
         TerminateProcess(GetCurrentProcess(), exception_code);
         #[allow(clippy::empty_loop)]

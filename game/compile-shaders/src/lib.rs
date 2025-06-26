@@ -76,8 +76,8 @@ pub fn compile(
         // Hold define strings for the compilation
         let mut strings = vec![];
         for &(name, val) in in_defines {
-            let name = format!("{}\0", name);
-            let val = format!("{}\0", val);
+            let name = format!("{name}\0");
+            let val = format!("{val}\0");
             defines.push(D3D_SHADER_MACRO {
                 Name: name.as_ptr() as *const i8,
                 Definition: val.as_ptr() as *const i8,

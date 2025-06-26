@@ -24,7 +24,7 @@ async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungst
 
     let args = crate::parse_args();
     let url = format!("ws://127.0.0.1:{}", args.server_port);
-    info!("Connecting to {} ...", url);
+    info!("Connecting to {url} ...");
     // Have tungstenite build base request for our url, which includes necessary headers
     // like sec-websocket-key, then add our own headers.
     let mut request = url
@@ -69,7 +69,7 @@ async fn app_websocket_connection(
                     WsMessage::Text(text) => match handle_app_message(text.to_string()) {
                         Ok(o) => o,
                         Err(e) => {
-                            error!("Error handling message: {}", e);
+                            error!("Error handling message: {e}");
                             continue 'handle_messages;
                         }
                     },
@@ -78,7 +78,7 @@ async fn app_websocket_connection(
                     _ => continue 'handle_messages,
                 },
                 Some(Err(e)) => {
-                    error!("Error reading websocket stream: {}", e);
+                    error!("Error reading websocket stream: {e}");
                     return ConnectionEndReason::SocketClosed;
                 }
                 None => return ConnectionEndReason::SocketClosed,
@@ -86,9 +86,9 @@ async fn app_websocket_connection(
         };
         match message {
             MessageResult::WebSocket(ws) => {
-                debug!("Sending message: {:?}", ws);
+                debug!("Sending message: {ws:?}");
                 if let Err(e) = ws_sink.send(ws).await {
-                    error!("Error sending to websocket sink: {}", e);
+                    error!("Error sending to websocket sink: {e}");
                     return ConnectionEndReason::SocketClosed;
                 }
             }
@@ -122,7 +122,7 @@ pub async fn websocket_connection_future(
         let (client, _response) = match connect_to_app().await {
             Ok(o) => o,
             Err(e) => {
-                error!("Couldn't connect to Shieldbattery: {}", e);
+                error!("Couldn't connect to Shieldbattery: {e}");
                 tokio::time::sleep(Duration::from_millis(1000)).await;
                 retries -= 1;
                 if retries == 0 {
@@ -217,7 +217,7 @@ pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<WsMessage>
     match inner(command, data) {
         Ok(o) => Some(o),
         Err(e) => {
-            error!("JSON encode error: {}", e);
+            error!("JSON encode error: {e}");
             None
         }
     }

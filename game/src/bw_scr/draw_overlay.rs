@@ -802,8 +802,8 @@ impl OverlayState {
                 .unwrap_or((0, 0));
             // Supply text is slightly more complex as part of it is colored red when
             // supply blocked.
-            let part1 = format!("{}", current);
-            let part2 = format!(" / {}", max);
+            let part1 = format!("{current}");
+            let part2 = format!(" / {max}");
             // Didn't see any nice function to apply all style font overrides,
             // but as long as those don't exist this should match other text.
             let font_id = egui::style::FontSelection::Default.resolve(ui.style());

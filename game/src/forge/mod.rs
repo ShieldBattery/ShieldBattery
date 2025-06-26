@@ -159,10 +159,7 @@ unsafe fn msg_game_started(window: HWND) {
                     }
                     None => "(Default device)".into(),
                 };
-                error!(
-                    "Changing display mode for {} failed. Result {:x}",
-                    device_name_string, result,
-                );
+                error!("Changing display mode for {device_name_string} failed. Result {result:x}",);
             }
         }
 
@@ -305,10 +302,10 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
         };
 
         if call_orig {
-            debug!("ShowWindow {:p} {}", window, show);
+            debug!("ShowWindow {window:p} {show}");
             orig(window, show)
         } else {
-            debug!("Skipping ShowWindow {:p} {}", window, show);
+            debug!("Skipping ShowWindow {window:p} {show}");
             1
         }
     }
@@ -328,10 +325,7 @@ fn set_window_pos(
     // its window creation, which happens early enough in loading that
     // we don't want to show the window yet.
     unsafe {
-        debug!(
-            "SetWindowPos {:p} {},{} {},{} flags 0x{:x}",
-            hwnd, x, y, w, h, flags
-        );
+        debug!("SetWindowPos {hwnd:p} {x},{y} {w},{h} flags 0x{flags:x}");
         let new_flags = if !scr_hooks_disabled() && is_forge_window(hwnd) {
             with_forge(|forge| {
                 if forge.game_started {
@@ -429,7 +423,7 @@ fn register_class_w(
                 Some(os_string.to_string_lossy())
             }
         };
-        debug!("RegisterClassExW with name {:?}", name);
+        debug!("RegisterClassExW with name {name:?}");
         let is_bw_class = match name {
             None => false,
             Some(s) => s == "OsWindow",
@@ -501,7 +495,7 @@ fn create_window_w(
             with_forge(|forge| {
                 if let Some(bw_class) = forge.scr_window_class {
                     if class_name as usize == bw_class as usize {
-                        debug!("Created main window {:p}", window);
+                        debug!("Created main window {window:p}");
 
                         forge.set_window(Window { handle: window });
                     }

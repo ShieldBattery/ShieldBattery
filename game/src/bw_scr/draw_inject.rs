@@ -495,8 +495,7 @@ unsafe fn allocate_vertices(
         let start_offset = (*vertex_buf).allocated_size_bytes;
         assert!(
             start_offset & 3 == 0,
-            "Bad vertex alignment {:x}",
-            start_offset
+            "Bad vertex alignment {start_offset:x}"
         );
         let end_offset = start_offset + float_count * 4;
         while end_offset > vertex_buf_capacity_bytes(vertex_buf) {
@@ -524,8 +523,7 @@ unsafe fn allocate_indices(
         let start_offset = (*vertex_buf).index_buffer_allocated_bytes;
         assert!(
             start_offset & 1 == 0,
-            "Bad index alignment {:x}",
-            start_offset
+            "Bad index alignment {start_offset:x}"
         );
         let end_offset = start_offset + count as usize * 2;
         while end_offset > index_buf_capacity_bytes(vertex_buf) {

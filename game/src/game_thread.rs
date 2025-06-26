@@ -607,7 +607,7 @@ pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit
                         let buf_len = buffer.len();
                         let mut out = &mut buffer[..];
                         // TODO: Could use translations in other SC:R languages :)
-                        let _ = write!(&mut out, "Stacked ({})", count);
+                        let _ = write!(&mut out, "Stacked ({count})");
                         let len = buf_len - out.len();
                         rank_status.set_string(&buffer[..len]);
                         rank_status.show();

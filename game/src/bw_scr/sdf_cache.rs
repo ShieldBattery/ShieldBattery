@@ -49,7 +49,7 @@ pub fn apply_sdf_cache_hooks(scr: &BwScr, exe: &mut whack::ModulePatcher<'_>, ba
                     async_handle.spawn(async move {
                         let cache = cache_locked.as_mut().unwrap();
                         if let Err(e) = cache.write_to_disk().await {
-                            warn!("Writing SDF cache failed: {}", e);
+                            warn!("Writing SDF cache failed: {e}");
                         }
                     });
                 }
@@ -101,7 +101,7 @@ unsafe fn render_sdf(
         let font_id = match font_id_from_ptr(fonts, font) {
             Some(s) => s,
             None => {
-                warn!("Unknown font {:p}", font);
+                warn!("Unknown font {font:p}");
                 return std::ptr::null_mut();
             }
         };
@@ -316,7 +316,7 @@ impl SdfCache {
         match SdfCache::open(&path, exe_hash).await {
             Ok(o) => o,
             Err(e) => {
-                warn!("Couldn't open SDF cache: {}", e);
+                warn!("Couldn't open SDF cache: {e}");
                 if e.kind() == io::ErrorKind::PermissionDenied {
                     // Cache may be being written by another process, so prefer just
                     // having this process not write cache at all over starting a
@@ -353,8 +353,7 @@ impl SdfCache {
 
         if exe_hash != cache_hash {
             info!(
-                "Exe hash has changed, invalidating SDF cache ({:08x} vs {:08x})",
-                exe_hash, cache_hash,
+                "Exe hash has changed, invalidating SDF cache ({exe_hash:08x} vs {cache_hash:08x})",
             );
             return Ok(SdfCache::empty(path.into(), exe_hash));
         }

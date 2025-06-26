@@ -39,7 +39,7 @@ pub unsafe fn has_replay_magic_bytes(file: *mut c_void) -> bool {
         match has_replay_magic_bytes_res(file) {
             Ok(o) => o,
             Err(e) => {
-                error!("Unable to check file for replay magic: {}", e);
+                error!("Unable to check file for replay magic: {e}");
                 false
             }
         }

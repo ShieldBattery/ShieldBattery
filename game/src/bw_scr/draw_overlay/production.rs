@@ -316,7 +316,7 @@ impl OverlayState {
                 // Show only number for units since for research it is always 1 anyway
                 if matches!(production, Production::Unit(..)) {
                     let galley =
-                        painter.layout_no_wrap(format!("{}", amount), font.clone(), Color32::WHITE);
+                        painter.layout_no_wrap(format!("{amount}"), font.clone(), Color32::WHITE);
                     let rounding = egui::CornerRadius::same(1);
                     let text_pos = rect.left_bottom() - Vec2::from((0.0, galley.rect.height()));
                     let text_rect = Rect::from_min_size(text_pos, galley.rect.size());

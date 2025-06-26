@@ -291,7 +291,7 @@ impl State {
                 if let Some(active_route) = self.active_routes.get_mut(&key) {
                     active_route.on_data.push(listen);
                 } else {
-                    error!("Attempted to listen on route {:?} which is not active", key);
+                    error!("Attempted to listen on route {key:?} which is not active");
                 }
                 future::ready(()).boxed()
             }
@@ -363,10 +363,7 @@ impl State {
                     let send_ack = send_bytes_future(&self.send_bytes, ack, addr);
                     send_ack.boxed()
                 } else {
-                    debug!(
-                        "Route ready received for route {:?} which wasn't active",
-                        key
-                    );
+                    debug!("Route ready received for route {key:?} which wasn't active");
                     future::ready(()).boxed()
                 }
             }
@@ -394,12 +391,12 @@ impl State {
                         }
                     }
                     for &i in closed_indices.iter().rev() {
-                        debug!("Removing listener {}", i);
+                        debug!("Removing listener {i}");
                         route.on_data.swap_remove(i);
                     }
                     future::join_all(send_futures).map(|_| ()).boxed()
                 } else {
-                    debug!("Data received for route {:?} which wasn't active", key);
+                    debug!("Data received for route {key:?} which wasn't active");
                     future::ready(()).boxed()
                 }
             }
@@ -451,7 +448,7 @@ async fn udp_send_task(
         match udp_send.send((bytes, addr.into())).await {
             Ok(()) => (),
             Err(e) => {
-                error!("UDP send error: {}", e);
+                error!("UDP send error: {e}");
                 if let Some(report) = report_error {
                     let _ = report.send(RallyPointError::Send(e, addr.into()));
                 }
@@ -465,7 +462,7 @@ async fn udp_recv_task(mut udp_recv: UdpRecv, send_requests: mpsc::Sender<Reques
         let (bytes, addr) = match result {
             Ok(o) => o,
             Err(e) => {
-                error!("UDP recv error: {}", e);
+                error!("UDP recv error: {e}");
                 // TODO(tec27): Might be some errors worth quitting over? At least some of these are
                 // definitely things we can continue with though (e.g. packet too large for buffer)
                 continue;
@@ -490,7 +487,7 @@ pub fn init() -> RallyPoint {
     // future. Acks sent to server can/should have it as None.
     let args = crate::parse_args();
     let addr = format!("[::]:{}", args.rally_point_port).parse().unwrap();
-    debug!("Binding rally-point to {}", addr);
+    debug!("Binding rally-point to {addr}");
 
     let (send_requests, mut recv_requests) = mpsc::channel(16);
     // Separate channel for internal communication, so that dropping RallyPoint
@@ -715,17 +712,14 @@ fn decode_message(bytes: &Bytes) -> Option<ServerMessage> {
         // Should this be handled?
         MSG_KEEP_ALIVE => return None,
         _ => {
-            warn!("Received an unknown rally-point message: {:x?}", bytes);
+            warn!("Received an unknown rally-point message: {bytes:x?}");
             return None;
         }
     };
     if read.is_empty() {
         Some(message)
     } else {
-        warn!(
-            "Rally-point message {:?} contained additional data, ignoring",
-            message
-        );
+        warn!("Rally-point message {message:?} contained additional data, ignoring");
         None
     }
 }

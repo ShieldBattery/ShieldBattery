@@ -496,14 +496,14 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
                     ArithOpType::Rsh => left.wrapping_shr(right as u32),
                     ArithOpType::Equal => (left == right) as usize,
                     ArithOpType::GreaterThan => (left > right) as usize,
-                    _ => panic!("Unimplemented resolve: {}", op),
+                    _ => panic!("Unimplemented resolve: {op}"),
                 }
             }
             OperandType::Custom(id) => custom
                 .get(id as usize)
                 .copied()
-                .unwrap_or_else(|| panic!("Resolve needs custom id {}", id)),
-            _ => panic!("Unimplemented resolve: {}", op),
+                .unwrap_or_else(|| panic!("Resolve needs custom id {id}")),
+            _ => panic!("Unimplemented resolve: {op}"),
         }
     }
 }
@@ -1135,9 +1135,8 @@ impl BwScr {
                                     Ordering::Relaxed,
                                 );
                                 info!(
-                                    "Didn't see sync command for game player {} net {}, {:02x?}, \
+                                    "Didn't see sync command for game player {command_user} net {storm_user}, {slice:02x?}, \
                                 they will be dropped",
-                                    command_user, storm_user, slice,
                                 );
                             }
                         }
@@ -1246,7 +1245,7 @@ impl BwScr {
                     let user_delay = 2 /* proto_latency */ + cur_user_latency;
                     let effective_latency =
                         ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
-                    let value = format!("Lat: {:.0}ms", effective_latency);
+                    let value = format!("Lat: {effective_latency:.0}ms");
                     (*result).text.replace_all(value.as_str());
                     result
                 },
@@ -1438,14 +1437,7 @@ impl BwScr {
                     let eud = (a7 >> 24) & 0xff;
                     let dynamic_turn_rate = a8;
                     info!(
-                        "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
-                        unk0,
-                        turn_rate,
-                        is_bnet_matchmaking,
-                        unk9,
-                        old_game_limits,
-                        eud,
-                        dynamic_turn_rate,
+                        "Called create_game_multiplayer, game params {unk0} {turn_rate} {is_bnet_matchmaking} {unk9} {old_game_limits} {eud} {dynamic_turn_rate}",
                     );
                     // This value is originally set to how many human player starting locations
                     // there are, but set it to match what we set for join side in
@@ -2092,7 +2084,7 @@ impl BwScr {
             let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
             let y_tile = self.sprite_y(in_sprite) / 32;
             if y_tile >= 0x100 {
-                error!("Sprite y tile was invalid: 0x{:x}", y_tile);
+                error!("Sprite y tile was invalid: 0x{y_tile:x}");
                 return None;
             }
             let sprite_list = bw::list::LinkedList {
@@ -2166,7 +2158,7 @@ impl BwScr {
                     game_thread::setup_info(),
                     game_thread::player_id_mapping(),
                 ) {
-                    error!("Unable to write extended replay data: {}", e);
+                    error!("Unable to write extended replay data: {e}");
                 }
             }
         }
@@ -2639,7 +2631,7 @@ impl bw::Bw for BwScr {
             );
             if ok == 0 {
                 let error = self.storm_last_error();
-                error!("init_map_from_path failed: {:08x}", error);
+                error!("init_map_from_path failed: {error:08x}");
                 return Err(error);
             }
             self.init_team_game_playable_slots();
@@ -3026,7 +3018,7 @@ fn create_file_hook(
                     if replacement.is_empty() {
                         error!("Replacement settings file path not set")
                     } else {
-                        debug!("Mapping CSettings.json CreateFile call to {}", replacement);
+                        debug!("Mapping CSettings.json CreateFile call to {replacement}");
                         return orig(
                             windows::winapi_str(&*replacement).as_ptr(),
                             access,
@@ -3137,7 +3129,7 @@ fn copy_file_hook(
         }
 
         let mut i = 2;
-        let mut filename = format!("{}.rep", filename_base);
+        let mut filename = format!("{filename_base}.rep");
         // Add (2) (3) etc if filename already exists.
         // Since the filename contains a timestamp, this should only happen on super-rare cases
         // if two games are being ran at a same time in SB development, but losing one of
@@ -3158,7 +3150,7 @@ fn copy_file_hook(
                 // Return success anyway.
                 return 1;
             }
-            filename = format!("{} ({}).rep", filename_base, i);
+            filename = format!("{filename_base} ({i}).rep");
             i += 1;
         }
 

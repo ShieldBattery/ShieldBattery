@@ -97,7 +97,7 @@ fn log_file() -> File {
     let mut options = std::fs::OpenOptions::new();
     let options = options.read(true).write(true).create(true).share_mode(1); // FILE_SHARE_READ
     for i in 0..20 {
-        let filename = dir.join(format!("shieldbattery.{}.log", i));
+        let filename = dir.join(format!("shieldbattery.{i}.log"));
         if let Ok(mut file) = options.open(filename) {
             let result = remove_lines(&mut file, 10000, 5000);
             // Add blank lines to make start of the session a bit clearer.
@@ -106,7 +106,7 @@ fn log_file() -> File {
                 "\n--------------------------------------------\n"
             );
             if let Err(e) = result {
-                let _ = writeln!(&mut file, "Couldn't truncate lines: {}", e);
+                let _ = writeln!(&mut file, "Couldn't truncate lines: {e}");
             }
             return file;
         }
@@ -147,7 +147,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
         Some(s) => format!("{}:{}", s.file(), s.line()),
         None => "unknown location".to_string(),
     };
-    writeln!(msg, "Panic at {}", location).unwrap();
+    writeln!(msg, "Panic at {location}").unwrap();
     let payload = info.payload();
     let panic_msg = match payload.downcast_ref::<&str>() {
         Some(s) => s,
@@ -156,13 +156,13 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
             None => "(???)",
         },
     };
-    writeln!(msg, "{}", panic_msg).unwrap();
+    writeln!(msg, "{panic_msg}").unwrap();
     // Backtrace will crash in RtlVirtualUnwind if trying to get it too early in process
     // initialization? Or maybe something is just broken with 64-bit backtraces in general..
     if cfg!(debug_assertions) && PROCESS_INIT_HOOK_REACHED.load(Ordering::Relaxed) {
         write!(msg, "Backtrace:\n{}", backtrace()).unwrap();
     }
-    error!("{}", msg);
+    error!("{msg}");
     if !already_panicking {
         // Write minidump in a separate thread so that this thread's stack will be accurate.
         let result = std::thread::spawn(move || unsafe {
@@ -172,7 +172,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
         match result {
             Ok(Ok(())) => (),
             Ok(Err(e)) => {
-                error!("Unable to write minidump: {}", e);
+                error!("Unable to write minidump: {e}");
             }
             Err(_) => {
                 // This should be unreachable, as this dll is being compiled to abort on panics
@@ -183,7 +183,7 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
     // TODO Probs tell how to report, where to get log file etc
     windows::message_box(
         "Shieldbattery crash :(",
-        &format!("{}\n{}", location, panic_msg),
+        &format!("{location}\n{panic_msg}"),
     );
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
@@ -244,10 +244,10 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     let bw = match bw_scr::BwScr::new() {
         Ok(o) => Box::leak(Box::new(o)),
         Err(bw_scr::BwInitError::AnalysisFail(e)) => {
-            panic!("StarCraft version not supported: Couldn't find '{}'", e);
+            panic!("StarCraft version not supported: Couldn't find '{e}'");
         }
         Err(bw_scr::BwInitError::UnsupportedVersion(build)) => {
-            panic!("StarCraft build {} is not supported.", build);
+            panic!("StarCraft build {build} is not supported.");
         }
     };
     unsafe {
@@ -493,7 +493,7 @@ struct Args {
 fn parse_args() -> Args {
     try_parse_args().unwrap_or_else(|| {
         let args = std::env::args_os().collect::<Vec<_>>();
-        panic!("Couldn't parse the following args {:?}", args);
+        panic!("Couldn't parse the following args {args:?}");
     })
 }
 
