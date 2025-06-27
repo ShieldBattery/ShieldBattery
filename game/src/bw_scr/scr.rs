@@ -280,6 +280,7 @@ pub struct Function {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FileHandle1 {
     pub destroy: Thiscall<unsafe extern "C" fn(*mut FileHandle, u32)>,
     pub read: Thiscall<unsafe extern "C" fn(*mut FileHandle, *mut u8, u32) -> u32>,
@@ -288,6 +289,7 @@ pub struct V_FileHandle1 {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FileHandle2 {
     pub unk0: [usize; 1],
     pub peek: Thiscall<unsafe extern "C" fn(*mut c_void, *mut u8, u32) -> u32>,
@@ -295,6 +297,7 @@ pub struct V_FileHandle2 {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FileHandle3 {
     pub unk0: [usize; 1],
     pub tell: Thiscall<unsafe extern "C" fn(*mut c_void) -> u32>,
@@ -304,6 +307,7 @@ pub struct V_FileHandle3 {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FileMetadata {
     pub unk0: [usize; 1],
     pub tell: Thiscall<unsafe extern "C" fn(*mut FileMetadata) -> u32>,
@@ -313,6 +317,7 @@ pub struct V_FileMetadata {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FileRead {
     pub destroy: usize,
     pub read: Thiscall<unsafe extern "C" fn(*mut FileRead, *mut u8, u32) -> u32>,
@@ -321,6 +326,7 @@ pub struct V_FileRead {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_FilePeek {
     pub destroy: usize,
     pub peek: Thiscall<unsafe extern "C" fn(*mut FilePeek, *mut u8, u32) -> u32>,
@@ -328,6 +334,7 @@ pub struct V_FilePeek {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_Function {
     pub destroy_inner: Thiscall<unsafe extern "C" fn(*mut Function, u32)>,
     pub invoke: Thiscall<unsafe extern "C" fn(*mut Function)>,
@@ -540,6 +547,7 @@ pub struct Renderer {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_Renderer {
     pub clone: usize,
     pub init_sub: usize,
@@ -675,6 +683,7 @@ pub struct UiConsole {
 }
 
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct V_UiConsole {
     pub delete: usize,
     pub unk1: usize,

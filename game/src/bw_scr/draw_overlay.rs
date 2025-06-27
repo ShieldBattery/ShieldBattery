@@ -16,6 +16,7 @@ use egui::{
 };
 use winapi::shared::windef::{HWND, POINT};
 
+use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::game_thread::{self, GameThreadMessage};
@@ -311,6 +312,7 @@ impl OverlayState {
         bw: &BwVars,
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
+        setup_info: Option<&GameSetupInfo>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -423,7 +425,7 @@ impl OverlayState {
                     self.add_debug_ui(bw, ctx);
                 }
             } else {
-                self.add_loading_screen_ui(bw, ctx);
+                self.add_loading_screen_ui(bw, setup_info, ctx);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);

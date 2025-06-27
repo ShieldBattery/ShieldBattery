@@ -38,7 +38,7 @@ lazy_static! {
 }
 
 /// Global for accessing game type/slots/etc from hooks.
-static SETUP_INFO: OnceCell<Arc<GameSetupInfo>> = OnceCell::new();
+static SETUP_INFO: OnceCell<GameSetupInfo> = OnceCell::new();
 /// Global for shieldbattery-specific replay data.
 /// Will not be initialized outside replays. (Or if the replay doesn't have that data)
 static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
@@ -141,6 +141,11 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         match request {
             Initialize => init_bw(),
             RunWndProc => forge::run_wnd_proc(),
+            SetupInfo(info) => {
+                if SETUP_INFO.set(Arc::unwrap_or_clone(info)).is_err() {
+                    warn!("Received second SetupInfo");
+                }
+            }
             StartGame => {
                 get_bw().play_sound("SND_LAST_FRIGATE_PISSED");
                 get_bw().set_game_started();
@@ -154,11 +159,6 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             // Saves registry settings etc.
             ExitCleanup => {
                 get_bw().clean_up_for_exit();
-            }
-            SetupInfo(info) => {
-                if SETUP_INFO.set(info).is_err() {
-                    warn!("Received second SetupInfo");
-                }
             }
         }
     }
@@ -313,7 +313,10 @@ pub unsafe fn after_init_game_data() {
         let game_data = bw.game_data();
         let had_allies_enabled = (*game_data).game_template.allies_enabled != 0;
         bw::set_had_allies_enabled(had_allies_enabled);
-        if setup_info().disable_alliance_changes.unwrap_or(false) {
+        if setup_info()
+            .and_then(|s| s.disable_alliance_changes)
+            .unwrap_or(false)
+        {
             (*game_data).game_template.allies_enabled = 0;
         }
 
@@ -349,8 +352,8 @@ pub fn is_replay() -> bool {
     SETUP_INFO.get().map(|x| x.is_replay()).unwrap_or(false)
 }
 
-pub fn setup_info() -> &'static GameSetupInfo {
-    SETUP_INFO.get().unwrap()
+pub fn setup_info() -> Option<&'static GameSetupInfo> {
+    SETUP_INFO.get()
 }
 
 /// Returns map name (Title, or something else the uploader has renamed it to in SB),
