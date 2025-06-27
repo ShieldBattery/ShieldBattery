@@ -137,6 +137,7 @@ pub struct BwVars {
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
+    pub has_init_bw: bool,
     pub game_started: bool,
 }
 

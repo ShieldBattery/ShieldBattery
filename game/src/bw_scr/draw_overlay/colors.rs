@@ -60,3 +60,12 @@ pub const GREY80: Color32 = Color32::from_rgb(211, 218, 228);
 pub const GREY90: Color32 = Color32::from_rgb(224, 231, 240);
 pub const GREY95: Color32 = Color32::from_rgb(235, 241, 250);
 pub const GREY99: Color32 = Color32::from_rgb(237, 247, 254);
+
+pub const CONTAINER_LOWEST: Color32 = Color32::from_rgb(20, 29, 42);
+pub const CONTAINER_LOW: Color32 = Color32::from_rgb(24, 34, 55);
+pub const CONTAINER: Color32 = Color32::from_rgb(24, 39, 62);
+pub const CONTAINER_HIGH: Color32 = Color32::from_rgb(28, 43, 70);
+pub const CONTAINER_HIGHEST: Color32 = Color32::from_rgb(28, 48, 79);
+pub const CONTAINER_HIGHEST_PLUS_1: Color32 = Color32::from_rgb(31, 51, 85);
+pub const CONTAINER_HIGHEST_PLUS_2: Color32 = Color32::from_rgb(32, 55, 92);
+pub const CONTAINER_HIGHEST_PLUS_3: Color32 = Color32::from_rgb(33, 57, 97);
