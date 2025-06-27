@@ -1461,7 +1461,7 @@ impl BwScr {
                     // This value is originally set to how many human player starting locations
                     // there are, but set it to match what we set for join side in
                     // game_state::join_lobby. Makes sure everybody can join if there are observers.
-                    (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
+                    (*info).max_player_count = game_thread::setup_info().unwrap().slots.len() as u8;
                     orig(info, name, password, map_path, a5, a6, a7, a8)
                 },
                 address,
@@ -1713,6 +1713,7 @@ impl BwScr {
                             },
                             apm,
                             size,
+                            game_thread::setup_info(),
                         );
                         if cfg!(debug_assertions) {
                             self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -2188,7 +2189,7 @@ impl BwScr {
                     handle,
                     self,
                     self.exe_build,
-                    game_thread::setup_info(),
+                    game_thread::setup_info().unwrap(),
                     game_thread::player_id_mapping(),
                 ) {
                     error!("Unable to write extended replay data: {e}");

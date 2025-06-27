@@ -1,9 +1,26 @@
-use egui::{Align, Frame, Layout, Margin, RichText};
+use egui::{Align, Color32, Frame, Layout, Margin, RichText};
 
-use crate::bw_scr::draw_overlay::{BwVars, OverlayState, colors};
+use crate::{
+    app_messages::GameSetupInfo,
+    bw_scr::draw_overlay::{BwVars, OverlayState, colors},
+};
 
 impl OverlayState {
-    pub fn add_loading_screen_ui(&mut self, _bw: &BwVars, ctx: &egui::Context) {
+    pub fn add_loading_screen_ui(
+        &mut self,
+        _bw: &BwVars,
+        setup_info: Option<&GameSetupInfo>,
+        ctx: &egui::Context,
+    ) {
+        if setup_info.is_none() || setup_info.unwrap().is_replay() {
+            // If we don't have the game information yet or if it's a replay, we don't show a
+            // loading screen. Render a black screen to hide the FPS counter during this time.
+            egui::CentralPanel::default()
+                .frame(Frame::default().fill(Color32::BLACK))
+                .show(ctx, |_ui| {});
+            return;
+        }
+
         egui::CentralPanel::default()
             .frame(
                 Frame::default()
