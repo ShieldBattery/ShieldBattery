@@ -1667,6 +1667,7 @@ impl BwScr {
                         return;
                     }
                     let game = bw_dat::Game::from_ptr(game);
+                    let has_init_bw = game_thread::HAS_INIT_BW.load(Ordering::Acquire);
                     let game_started = self.game_started.load(Ordering::Acquire);
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
@@ -1716,6 +1717,7 @@ impl BwScr {
                                 first_dialog,
                                 graphic_layers,
                                 is_hd,
+                                has_init_bw,
                                 game_started,
                             },
                             apm,

@@ -27,6 +27,7 @@ bytes = "1.10"
 chrono = "0.4"
 egui = { version = "0.31", features = ["bytemuck"] }
 egui_extras = { version = "0.31", features = ["file", "http", "image", "svg"] }
+egui_flex = "0.3"
 fern = "0.7"
 futures = "0.3"
 fxhash = "0.2"

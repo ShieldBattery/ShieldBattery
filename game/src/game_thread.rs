@@ -3,7 +3,7 @@
 mod pathing;
 
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -268,6 +268,8 @@ unsafe fn game_results() -> GameThreadResults {
     }
 }
 
+pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
+
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
 unsafe fn init_bw() {
@@ -278,6 +280,7 @@ unsafe fn init_bw() {
         bw.force_redraw_during_init();
         bw.init_sprites();
         (*bw.game()).is_bw = 1;
+        HAS_INIT_BW.store(true, Ordering::Release);
         debug!("Process initialized");
     }
 }
