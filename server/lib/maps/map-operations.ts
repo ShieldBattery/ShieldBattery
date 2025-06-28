@@ -1,10 +1,9 @@
 import { writeFile as fsWriteFile } from 'fs/promises'
 import { withFile as withTmpFile } from 'tmp-promise'
 import { MapInfo } from '../../../common/maps'
-import { SbUserId } from '../../../common/users/sb-user-id'
 import { readFile } from '../files'
 import { MapParseResult, parseMap } from '../maps/store'
-import { getMapInfo, updateParseData } from './map-models'
+import { getMapInfos, updateParseData } from './map-models'
 import { MapParseData } from './parse-data'
 import { MAP_PARSER_VERSION } from './parser-version'
 import { mapPath } from './paths'
@@ -36,10 +35,7 @@ const parseInProgress = new Map<string, Promise<unknown>>()
  * map parser, returning a new array with the most up-to-date parsing info. If all the maps are
  * up-to-date, the return array will contain the same objects as the input array.
  */
-export async function reparseMapsAsNeeded(
-  maps: ReadonlyArray<MapInfo>,
-  favoritedBy?: SbUserId,
-): Promise<MapInfo[]> {
+export async function reparseMapsAsNeeded(maps: ReadonlyArray<MapInfo>): Promise<MapInfo[]> {
   const needToParse = maps.filter(map => map.mapData.parserVersion < MAP_PARSER_VERSION)
   if (!needToParse.length) {
     return maps.slice()
@@ -73,8 +69,5 @@ export async function reparseMapsAsNeeded(
     }
   })
 
-  return getMapInfo(
-    maps.map(map => map.id),
-    favoritedBy,
-  )
+  return getMapInfos(maps.map(map => map.id))
 }

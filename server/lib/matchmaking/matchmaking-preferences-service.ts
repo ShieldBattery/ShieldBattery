@@ -9,7 +9,7 @@ import {
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
@@ -47,7 +47,7 @@ export default class MatchmakingPreferencesService {
                 preferences.mapPoolId !== currentMapPool.id
               const mapInfos = currentMapPool
                 ? (
-                    await getMapInfo(mapSelections.filter(m => currentMapPool.maps.includes(m)))
+                    await getMapInfos(mapSelections.filter(m => currentMapPool.maps.includes(m)))
                   ).map(m => toMapInfoJson(m))
                 : []
 

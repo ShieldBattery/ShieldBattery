@@ -1,6 +1,6 @@
 import { List, Record } from 'immutable'
 import { GameType } from '../../common/games/game-type'
-import { MapInfoJson } from '../../common/maps'
+import { MapInfoJson, SbMapId } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import {
   LOBBY_PREFERENCES_GET,
@@ -13,8 +13,8 @@ export class LobbyPreferences extends Record({
   name: '',
   gameType: GameType.Melee,
   gameSubType: 0,
-  recentMaps: List<string>(),
-  selectedMap: undefined as string | undefined,
+  recentMaps: List<SbMapId>(),
+  selectedMap: undefined as SbMapId | undefined,
   turnRate: undefined as BwTurnRate | 0 | undefined,
   useLegacyLimits: undefined as boolean | undefined,
 
