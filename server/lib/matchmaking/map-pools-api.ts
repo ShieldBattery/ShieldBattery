@@ -9,7 +9,7 @@ import {
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import {
   addMapPool,
@@ -62,12 +62,7 @@ export class MatchmakingMapPoolsApi {
       mapPools.map(async m => ({
         ...m,
         startDate: Number(m.startDate),
-        maps: (
-          await reparseMapsAsNeeded(
-            await getMapInfo(m.maps, ctx.session!.user!.id),
-            ctx.session!.user!.id,
-          )
-        ).map(m => toMapInfoJson(m)),
+        maps: (await reparseMapsAsNeeded(await getMapInfos(m.maps))).map(m => toMapInfoJson(m)),
       })),
     )
 
@@ -91,7 +86,7 @@ export class MatchmakingMapPoolsApi {
       throw new httpErrors.NotFound('no matchmaking map pool for this type')
     }
 
-    const maps = await getMapInfo(pool.maps, ctx.session!.user!.id)
+    const maps = await getMapInfos(pool.maps)
 
     return {
       pool: {
@@ -124,7 +119,7 @@ export class MatchmakingMapPoolsApi {
     return {
       ...mapPool,
       startDate: Number(mapPool.startDate),
-      maps: (await getMapInfo(mapPool.maps, ctx.session!.user!.id)).map(m => toMapInfoJson(m)),
+      maps: (await getMapInfos(mapPool.maps)).map(m => toMapInfoJson(m)),
     }
   }
 
