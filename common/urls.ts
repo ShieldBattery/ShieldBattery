@@ -27,8 +27,16 @@ export function apiUrl(strings: TemplateStringsArray, ...values: unknown[]) {
 export function urlPath(strings: TemplateStringsArray, ...values: unknown[]) {
   return strings
     .map((str, i) => {
-      const value = values[i] === undefined ? '' : encodeURIComponent(String(values[i]))
-      return str + value
+      if (values[i] instanceof URLSearchParams) {
+        const params = Array.from(values[i].entries())
+          .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+          .join('&')
+
+        return str + params
+      } else {
+        const value = values[i] === undefined ? '' : encodeURIComponent(String(values[i]))
+        return str + value
+      }
     })
     .join('')
 }

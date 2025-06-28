@@ -21,7 +21,6 @@ interface QueuedSnackbar {
   options?: SnackbarOptions
 }
 
-// test
 const SnackbarControllerContext = React.createContext<SnackbarController>({
   showSnackbar: () => {},
 })

@@ -451,7 +451,7 @@ function SummaryPage({
   const { t } = useTranslation()
 
   const mapId = game?.mapId
-  const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
+  const map = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
   const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
 
   const [configAndResults, teamLabels] = useMemo((): [

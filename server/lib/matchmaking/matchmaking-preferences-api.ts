@@ -9,7 +9,7 @@ import {
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
@@ -65,7 +65,7 @@ export class MatchmakingPreferencesApi {
       data: body.data,
     })
 
-    const mapInfos = (await getMapInfo(preferences.mapSelections)).map(m => toMapInfoJson(m))
+    const mapInfos = (await getMapInfos(preferences.mapSelections)).map(m => toMapInfoJson(m))
 
     return {
       preferences,

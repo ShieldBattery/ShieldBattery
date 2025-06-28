@@ -10,13 +10,13 @@ import { GameRoute, GameSetup, PlayerInfo } from '../../../common/games/game-lau
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameRouteDebugInfo } from '../../../common/games/games'
 import { Slot } from '../../../common/lobbies/slot'
-import { MapInfo, toMapInfoJson } from '../../../common/maps'
+import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -152,7 +152,7 @@ export interface GameLoadRequest {
   /**
    * The ID of the map that the game will be played on.
    */
-  mapId: string
+  mapId: SbMapId
   /**
    * Configuration info for the game.
    */
@@ -400,7 +400,7 @@ export class GameLoader {
     ratings,
   }: {
     gameId: string
-    mapId: string
+    mapId: SbMapId
     gameConfig: GameConfig
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
@@ -410,7 +410,7 @@ export class GameLoader {
       throw new Error(`tried to load a game that doesn't exist: ${gameId}`)
     }
 
-    const mapPromise = getMapInfo([mapId])
+    const mapPromise = getMapInfos([mapId])
 
     const activeClients = Array.from(resultCodes.keys(), userId => {
       const client = this.activityRegistry.getClientForUser(userId)

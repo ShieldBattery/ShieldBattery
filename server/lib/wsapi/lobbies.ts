@@ -22,6 +22,7 @@ import {
 import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
+import { SbMapId } from '../../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -30,7 +31,7 @@ import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -158,7 +159,7 @@ export class LobbyApi {
     const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits } =
       data.get('body') as {
         name: string
-        map: string
+        map: SbMapId
         gameType: GameType
         gameSubType?: number
         allowObservers?: boolean
@@ -176,7 +177,7 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    let mapInfo = (await getMapInfo([map]))[0]
+    let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
     }
@@ -274,7 +275,7 @@ export class LobbyApi {
     }
 
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
-    const mapInfo = (await getMapInfo([lobby.map!.id], lobby.host.userId))[0]
+    const mapInfo = (await getMapInfos([lobby.map!.id]))[0]
     updated = updated.set('map', mapInfo)
 
     this.lobbies = this.lobbies.set(name, updated)
