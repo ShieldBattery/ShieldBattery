@@ -102,27 +102,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@maps/getMaps'](state, action) {
-    if (!action.error) {
-      updateUsers(state, action.payload.users)
-    }
-  },
-
-  ['@maps/getMapDetails'](state, action) {
-    if (!action.error) {
-      updateUsers(state, action.payload.users)
-    }
+    updateUsers(state, action.payload.users)
   },
 
   ['@maps/updateMap'](state, action) {
-    if (!action.error) {
-      updateUsers(state, action.payload.users)
-    }
+    updateUsers(state, action.payload.users)
   },
 
   ['@maps/uploadLocalMap'](state, action) {
-    if (!action.error) {
-      updateUsers(state, action.payload.users)
-    }
+    updateUsers(state, action.payload.users)
   },
 
   ['@users/adminBanUser'](state, action) {

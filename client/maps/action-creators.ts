@@ -1,14 +1,11 @@
-import { Immutable } from 'immer'
 import prettyBytes from 'pretty-bytes'
-import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
 import {
   GetBatchMapInfoResponse,
-  GetMapDetailsResponse,
   GetMapsResponse,
-  MapInfoJson,
   MAX_MAP_FILE_SIZE_BYTES,
+  SbMapId,
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
@@ -19,11 +16,11 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { ClearMaps, GetMapsListParams } from './actions'
+import { GetMapsListParams } from './actions'
 import { ClientSideUploadError, upload } from './upload'
 
 async function uploadMap(filePath: string) {
@@ -34,198 +31,148 @@ async function uploadMap(filePath: string) {
   }
 }
 
-export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => void): ThunkAction {
-  return dispatch => {
-    const promise = uploadMap(path)
+export function uploadLocalMap(
+  path: string,
+  spec: RequestHandlingSpec<UploadMapResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    try {
+      const result = await uploadMap(path)
 
-    promise.then(
-      ({ map }) => {
-        onMapSelect(map)
-      },
-      err => {
-        let message = i18n.t(
-          'maps.local.uploadMapError',
-          'An unknown error occurred while uploading the map. Please try again later.',
-        )
+      dispatch({
+        type: '@maps/uploadLocalMap',
+        payload: result,
+        meta: { path },
+      })
 
-        if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
-          if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
-            message = i18n.t('maps.local.mapFileSizeErrorMessage', {
-              defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
-              fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
-            })
-          }
+      return result
+    } catch (err) {
+      let message = i18n.t(
+        'maps.local.uploadMapError',
+        'An unknown error occurred while uploading the map. Please try again later.',
+      )
+
+      if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
+        if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
+          message = i18n.t('maps.local.mapFileSizeErrorMessage', {
+            defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
+            fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
+          })
         }
+      }
 
-        dispatch(
-          openSimpleDialog(
-            i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
-            message,
-            true,
-          ),
-        )
-      },
-    )
+      dispatch(
+        openSimpleDialog(
+          i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
+          message,
+          true,
+        ),
+      )
 
-    dispatch({
-      type: '@maps/uploadLocalMapBegin',
-      payload: { path },
-    })
-
-    dispatch({
-      type: '@maps/uploadLocalMap',
-      payload: promise,
-      meta: { path },
-    })
-  }
+      throw err
+    }
+  })
 }
 
-export function getMapsList(params: GetMapsListParams): ThunkAction {
-  return dispatch => {
-    const { visibility, limit, page, sort, numPlayers, tileset, searchQuery } = params
+export function getMaps(
+  params: GetMapsListParams,
+  spec: RequestHandlingSpec<GetMapsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const { visibility, sort, numPlayers, tileset, searchQuery, offset } = params
 
-    dispatch({
-      type: '@maps/getMapsBegin',
-      payload: params,
+    const queryParams = new URLSearchParams()
+    queryParams.set('visibility', visibility)
+    queryParams.set('sort', sort.toString())
+    for (const playerCount of numPlayers) {
+      queryParams.append('numPlayers', playerCount.toString())
+    }
+    for (const tileSet of tileset) {
+      queryParams.append('tileset', tileSet.toString())
+    }
+    queryParams.set('q', searchQuery)
+    queryParams.set('offset', offset.toString())
+
+    const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
+      signal: spec.signal,
     })
-
-    const reqUrl = apiUrl`maps?visibility=${visibility}&sort=${sort}&numPlayers=${JSON.stringify(
-      numPlayers,
-    )}&tileset=${JSON.stringify(tileset)}&q=${searchQuery}&limit=${limit}&page=${page}`
 
     dispatch({
       type: '@maps/getMaps',
-      payload: fetchJson<GetMapsResponse>(reqUrl),
+      payload: result,
       meta: params,
     })
-  }
+
+    return result
+  })
 }
 
-export function toggleFavoriteMap(map: ReadonlyDeep<MapInfoJson>): ThunkAction {
-  return dispatch => {
-    const params = { map }
+export function addToFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
 
     dispatch({
-      type: '@maps/toggleFavoriteBegin',
-      payload: params,
+      type: '@maps/addToFavorites',
+      payload: mapId,
     })
-
-    const reqPromise = fetchJson<void>(apiUrl`maps/${map.id}/favorite`, {
-      method: map.isFavorited ? 'DELETE' : 'POST',
-    })
-
-    reqPromise.then(
-      () => {
-        externalShowSnackbar(
-          map.isFavorited
-            ? i18n.t('maps.server.favorites.removed', 'Removed from favorites')
-            : i18n.t('maps.server.favorites.added', 'Added to favorites'),
-        )
-      },
-      () => {
-        externalShowSnackbar(
-          map.isFavorited
-            ? i18n.t(
-                'maps.server.favorites.removedError',
-                'An error occurred while removing from favorites',
-              )
-            : i18n.t(
-                'maps.server.favorites.addedError',
-                'An error occurred while adding to favorites',
-              ),
-        )
-      },
-    )
-
-    dispatch({
-      type: '@maps/toggleFavorite',
-      payload: reqPromise,
-      meta: params,
-    })
-  }
+  })
 }
 
-export function removeMap(map: Immutable<MapInfoJson>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: '@maps/removeMapBegin',
-      payload: { map },
+export function removeFromFavorites(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<void>(apiUrl`maps/${mapId}/favorite`, {
+      method: 'DELETE',
+      signal: spec.signal,
     })
 
     dispatch({
-      type: '@maps/removeMap',
-      payload: fetchJson<void>(apiUrl`maps/${map.id}`, { method: 'DELETE' }),
-      meta: { map },
+      type: '@maps/removeFromFavorites',
+      payload: mapId,
     })
-  }
+  })
 }
 
-export function regenMapImage(map: Immutable<MapInfoJson>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: '@maps/regenMapImageBegin',
-      payload: { map },
+export function removeMap(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    return fetchJson<void>(apiUrl`maps/${mapId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
     })
-
-    const reqPromise = fetchJson<void>(apiUrl`maps/${map.id}/regenerate`, { method: 'POST' })
-
-    reqPromise.then(
-      () => {
-        externalShowSnackbar(i18n.t('maps.server.regenerated', 'Images regenerated'))
-      },
-      () => {
-        externalShowSnackbar(
-          i18n.t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-        )
-      },
-    )
-
-    dispatch({
-      type: '@maps/regenMapImage',
-      payload: reqPromise,
-      meta: { map },
-    })
-  }
+  })
 }
 
-export function clearMapsList(): ClearMaps {
-  return {
-    type: '@maps/clearMaps',
-  }
+export function regenMapImage(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    return fetchJson<void>(apiUrl`maps/${mapId}/regenerate`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
 }
 
-export function getMapDetails(mapId: string): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: '@maps/getMapDetailsBegin',
-      payload: { mapId },
-    })
-    dispatch({
-      type: '@maps/getMapDetails',
-      payload: fetchJson<GetMapDetailsResponse>(apiUrl`maps/${mapId}`),
-      meta: { mapId },
-    })
-  }
-}
-
-export function updateMap(mapId: string, name: string, description: string): ThunkAction {
-  return dispatch => {
-    const params: UpdateMapServerRequest = { mapId, name, description }
-
-    dispatch({
-      type: '@maps/updateMapBegin',
-      payload: params,
+export function updateMap(
+  mapId: SbMapId,
+  params: UpdateMapServerRequest,
+  spec: RequestHandlingSpec<UpdateMapResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<UpdateMapResponse>(apiUrl`maps/${mapId}`, {
+      method: 'PATCH',
+      signal: spec.signal,
+      body: JSON.stringify(params),
     })
 
     dispatch({
       type: '@maps/updateMap',
-      payload: fetchJson<UpdateMapResponse>(apiUrl`maps/${mapId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(params),
-      }),
+      payload: result,
       meta: params,
     })
-  }
+
+    return result
+  })
 }
 
 const MAX_BATCH_MAP_REQUESTS = 50
@@ -251,10 +198,10 @@ const mapsBatchRequester = new MicrotaskBatchRequester<string>(
  * Queues a request to the server for map information, if necessary. This will batch multiple
  * requests that happen close together into one request to the server.
  */
-export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): ThunkAction {
+export function batchGetMapInfo(mapId: SbMapId, maxCacheAgeMillis = 60000): ThunkAction {
   return (dispatch, getState) => {
     const {
-      maps2: { byId, lastRetrieved },
+      maps: { byId, lastRetrieved },
     } = getState()
 
     if (
@@ -267,6 +214,6 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
   }
 }
 
-export function openMapPreviewDialog(mapId: string) {
+export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }

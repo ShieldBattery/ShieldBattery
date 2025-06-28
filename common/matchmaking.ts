@@ -4,7 +4,7 @@ import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './games/game-launch-config'
 import { Jsonify } from './json'
-import { MapInfoJson } from './maps'
+import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
 import { MatchmakingType } from './typeshare'
 import { SbUserId } from './users/sb-user-id'
@@ -580,7 +580,7 @@ export interface MatchmakingMapPool {
   id: number
   matchmakingType: MatchmakingType
   startDate: Date
-  maps: string[]
+  maps: SbMapId[]
   maxVetoCount: number
 }
 
@@ -628,7 +628,7 @@ interface BaseMatchmakingPreferences<T extends MatchmakingType, D> {
    * use this list as maps the user has vetoed, while in 3v3 it might be used as as a list of maps
    * that the user wants to queue on.
    */
-  mapSelections: string[]
+  mapSelections: SbMapId[]
   data: D
 }
 
@@ -699,7 +699,7 @@ export function defaultPreferences<M extends MatchmakingType>(
     matchmakingType: matchmakingType as any,
     race: 'r',
     mapPoolId,
-    mapSelections: [] as string[],
+    mapSelections: [],
     data: defaultPreferenceData<M>(matchmakingType),
   }
 }

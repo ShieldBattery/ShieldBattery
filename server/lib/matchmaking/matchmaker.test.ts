@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { makeSbMapId } from '../../../common/maps'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
@@ -252,10 +253,10 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
 
   test("1v1 fastest - shouldn't return any opponents if they don't have overlapping maps", () => {
     const player = createPlayer({
-      mapSelections: ['map1'],
+      mapSelections: [makeSbMapId('map1')],
     })
     const opponent = createPlayer({
-      mapSelections: ['map2'],
+      mapSelections: [makeSbMapId('map2')],
     })
 
     expect(DEFAULT_MATCH_CHOOSER(1, true, player, [opponent])).toEqual([])
@@ -263,10 +264,10 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
 
   test('1v1 fastest - should return opponent with matching rating and maps', () => {
     const player = createPlayer({
-      mapSelections: ['map1', 'map2'],
+      mapSelections: [makeSbMapId('map1'), makeSbMapId('map2')],
     })
     const opponent = createPlayer({
-      mapSelections: ['map2', 'map3'],
+      mapSelections: [makeSbMapId('map2'), makeSbMapId('map3')],
     })
 
     expect(DEFAULT_MATCH_CHOOSER(1, true, player, [opponent])).toEqual([[player], [opponent]])

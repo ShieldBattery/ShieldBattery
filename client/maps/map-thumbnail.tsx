@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { OverrideProperties, ReadonlyDeep } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
+import { MapInfoJson, MapVisibility, SbMapId } from '../../common/maps'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
@@ -177,13 +178,14 @@ export interface MapThumbnailProps {
   forceAspectRatio?: number
   size?: number
   showMapName?: boolean
-  isFavoriting?: boolean
+  isFavorited?: boolean
   isSelected?: boolean
   isFocused?: boolean
   selectedIcon?: React.ReactNode
   onClick?: (event: React.MouseEvent) => void
   onPreview?: () => void
-  onToggleFavorite?: () => void
+  onAddToFavorites?: () => void
+  onRemoveFromFavorites?: () => void
   onMapDetails?: () => void
   onRemove?: () => void
   onRegenMapImage?: () => void
@@ -196,13 +198,14 @@ export function MapThumbnail({
   forceAspectRatio,
   size,
   showMapName,
-  isFavoriting,
+  isFavorited,
   isSelected,
   isFocused,
   selectedIcon,
   onClick,
   onPreview,
-  onToggleFavorite,
+  onAddToFavorites,
+  onRemoveFromFavorites,
   onMapDetails,
   onRemove,
   onRegenMapImage,
@@ -262,16 +265,15 @@ export function MapThumbnail({
           onClick={onPreview}
         />
       ) : null}
-      {onToggleFavorite ? (
+      {onAddToFavorites && onRemoveFromFavorites ? (
         <FavoriteActionIcon
-          disabled={isFavoriting}
-          icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
+          icon={<MaterialIcon icon='star' filled={isFavorited} />}
           title={
-            map.isFavorited
+            isFavorited
               ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
               : t('maps.thumbnail.addToFavorites', 'Add to favorites')
           }
-          onClick={onToggleFavorite}
+          onClick={isFavorited ? onRemoveFromFavorites : onAddToFavorites}
         />
       ) : null}
       {showMapName ? (
@@ -303,16 +305,19 @@ export function MapThumbnail({
 }
 
 export function ConnectedMapThumbnail(
-  props: OverrideProperties<MapThumbnailProps, { map: string }>,
+  props: OverrideProperties<MapThumbnailProps, { map: SbMapId }>,
 ) {
   const dispatch = useAppDispatch()
-  const mapInfo = useAppSelector(s => s.maps2.byId.get(props.map))
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
+
+  const map = useAppSelector(s => s.maps.byId.get(props.map))
 
   useEffect(() => {
     dispatch(batchGetMapInfo(props.map))
   }, [dispatch, props.map])
 
-  if (!mapInfo) {
+  if (!map) {
     // TODO(tec27): Build a loading skeleton for this instead
     return (
       <Container className={props.className} style={props.style}>
@@ -321,5 +326,23 @@ export function ConnectedMapThumbnail(
     )
   }
 
-  return <MapThumbnail {...props} map={mapInfo} />
+  const canManageMaps = !!selfPermissions?.manageMaps
+  // We do a final check on whether the map can be removed here, so we don't have to pull in the map
+  // info from the store in each place that uses this compponent.
+  let canRemoveMap = false
+  if (selfUser) {
+    if (canManageMaps) {
+      canRemoveMap = true
+    } else if (map.visibility === MapVisibility.Private && map.uploadedBy === selfUser.id) {
+      canRemoveMap = true
+    }
+  }
+
+  return (
+    <MapThumbnail
+      {...props}
+      map={map}
+      onRemove={props.onRemove && canRemoveMap ? props.onRemove : undefined}
+    />
+  )
 }

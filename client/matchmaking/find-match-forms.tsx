@@ -3,7 +3,7 @@ import * as React from 'react'
 import { useCallback, useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MapInfoJson } from '../../common/maps'
+import { MapInfoJson, SbMapId } from '../../common/maps'
 import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -112,10 +112,10 @@ const VetoStatusValue = styled.span<{ $exhausted: boolean }>`
 `
 
 interface ConnectedSelectableMapProps {
-  mapId: string
+  mapId: SbMapId
   isSelected: boolean
   selectedIcon: React.ReactNode
-  onClick: (mapId: string) => void
+  onClick: (mapId: SbMapId) => void
   disabled?: boolean
 }
 
@@ -127,7 +127,7 @@ function ConnectedSelectableMap({
   selectedIcon,
 }: ConnectedSelectableMapProps) {
   const dispatch = useAppDispatch()
-  const map = useAppSelector(s => s.maps2.byId.get(mapId))
+  const map = useAppSelector(s => s.maps.byId.get(mapId))
   const handleClick = useCallback(() => {
     if (!disabled) {
       onClick(mapId)
@@ -158,8 +158,8 @@ function ConnectedSelectableMap({
 }
 
 export interface MapVetoesControlProps {
-  onChange: (vetoedMaps: string[]) => void
-  value: string[] | null
+  onChange: (vetoedMaps: SbMapId[]) => void
+  value: SbMapId[] | null
   mapPool: Immutable<MatchmakingMapPool>
   disabled: boolean
   className?: string
@@ -177,7 +177,7 @@ export function MapVetoesControl({
   const onChangeRef = useValueAsRef(onChange)
   const valueRef = useValueAsRef(value)
   const onClick = useCallback(
-    (id: string) => {
+    (id: SbMapId) => {
       const newValue = [...(valueRef.current ?? [])]
       for (let i = 0; i < newValue.length; i++) {
         if (newValue[i] === id) {
@@ -274,7 +274,7 @@ export function MapSelectionControl({
   const onChangeRef = useValueAsRef(onChange)
   const valueRef = useValueAsRef(value)
   const onClick = useCallback(
-    (id: string) => {
+    (id: SbMapId) => {
       const newValue = [...(valueRef.current ?? [])]
       for (let i = 0; i < newValue.length; i++) {
         if (newValue[i] === id) {

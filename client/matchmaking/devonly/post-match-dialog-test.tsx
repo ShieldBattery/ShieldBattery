@@ -9,6 +9,7 @@ import {
   LeagueJson,
   makeLeagueId,
 } from '../../../common/leagues/leagues'
+import { makeSbMapId } from '../../../common/maps'
 import {
   makeSeasonId,
   MatchmakingResult,
@@ -35,7 +36,7 @@ const OPPONENT_ID = makeSbUserId(2)
 const GAME: GameRecordJson = {
   id: GAME_ID,
   startTime: Number(new Date()),
-  mapId: 'asdf-1234',
+  mapId: makeSbMapId('asdf-1234'),
   config: {
     gameSource: GameSource.Matchmaking,
     gameSourceExtra: {

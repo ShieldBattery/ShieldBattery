@@ -6,10 +6,14 @@ import {
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
   GetBatchMapInfoResponse,
-  GetMapDetailsResponse,
   GetMapsResponse,
+  MAP_LIST_LIMIT,
+  MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
+  NumPlayers,
+  SbMapId,
+  Tileset,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
@@ -21,7 +25,7 @@ import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/ro
 import {
   addMapToFavorites,
   getFavoritedMaps,
-  getMapInfo,
+  getMapInfos,
   getMaps,
   removeMap,
   removeMapFromFavorites,
@@ -64,85 +68,83 @@ const mapRemoveThrottle = createThrottle('mapremove', {
   window: 60000,
 })
 
+function getValidatedMapId(ctx: RouterContext) {
+  const {
+    params: { mapId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ mapId: SbMapId }>({
+      mapId: Joi.string().required(),
+    }),
+  })
+
+  return mapId
+}
+
 @httpApi('/maps')
 export class MapsApi {
   @httpGet('/')
   @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async list(ctx: RouterContext): Promise<GetMapsResponse> {
-    // TODO(tec27): Use validateRequest for this stuff to remove the need for all the casts
-
-    const { q, visibility } = ctx.query
-    const { sort, numPlayers, tileset, limit, page } = ctx.query
-
-    const sortVal = parseInt(sort as string, 10)
-    if (sortVal && !ALL_MAP_SORT_TYPES.includes(sortVal)) {
-      throw new httpErrors.BadRequest('Invalid sort order option: ' + sort)
-    }
-
-    const numPlayersVal = numPlayers && JSON.parse(numPlayers as string)
-    if (
-      numPlayersVal &&
-      (!Array.isArray(numPlayersVal) || numPlayersVal.some(n => n < 2 || n > 8))
-    ) {
-      throw new httpErrors.BadRequest('Invalid filter for number of players: ' + numPlayers)
-    }
-
-    const tilesetVal = tileset && JSON.parse(tileset as string)
-    if (tilesetVal && (!Array.isArray(tilesetVal) || tilesetVal.some(n => n < 0 || n > 7))) {
-      throw new httpErrors.BadRequest('Invalid filter for tileset: ' + tileset)
-    }
-
-    let limitVal = Number(limit)
-    if (!limitVal || isNaN(limitVal) || limitVal < 0 || limitVal > 100) {
-      limitVal = 60
-    }
-
-    let pageVal = Number(page)
-    if (!pageVal || isNaN(pageVal) || pageVal < 0) {
-      pageVal = 0
-    }
-
-    if (!ALL_MAP_VISIBILITIES.includes(visibility as MapVisibility)) {
-      throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
-    }
+    const {
+      query: { visibility, sort, numPlayers, tileset, q: searchQuery, offset },
+    } = validateRequest(ctx, {
+      query: Joi.object<{
+        visibility: MapVisibility
+        sort: MapSortType
+        numPlayers?: NumPlayers[]
+        tileset?: Tileset[]
+        q?: string
+        offset: number
+      }>({
+        visibility: Joi.string()
+          .valid(...ALL_MAP_VISIBILITIES)
+          .required(),
+        sort: Joi.number()
+          .valid(...ALL_MAP_SORT_TYPES)
+          .required(),
+        numPlayers: Joi.array().items(Joi.number().min(2).max(8)),
+        tileset: Joi.array().items(Joi.number().min(0).max(7)),
+        q: Joi.string().allow(''),
+        offset: Joi.number().min(0).required(),
+      }),
+    })
 
     if (!ctx.session?.user && visibility === MapVisibility.Private) {
       throw new httpErrors.BadRequest('Private maps are only available to logged in users')
     }
 
     const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user!.id : undefined
-
-    const filters = { numPlayers: numPlayersVal, tileset: tilesetVal }
     const favoritedBy = ctx.session?.user.id
-    const [mapsResult, favoritedMaps] = await Promise.all([
-      getMaps(
-        visibility as MapVisibility,
-        sortVal,
-        filters,
-        limitVal,
-        pageVal,
-        favoritedBy,
-        uploadedBy,
-        q as string,
-      ),
-      favoritedBy
-        ? getFavoritedMaps(favoritedBy, sortVal, filters, q as string)
-        : Promise.resolve([]),
-    ])
-    const { total, maps } = mapsResult
 
-    const userIds = new Set(Array.from(maps, m => m.uploadedBy))
-    for (const map of favoritedMaps) {
+    const filters = { numPlayers, tileset }
+    const [mapsResult, favoritedMapsResult] = await Promise.all([
+      getMaps({
+        visibility,
+        sort,
+        filters,
+        uploadedBy,
+        searchStr: searchQuery,
+        limit: MAP_LIST_LIMIT,
+        offset,
+      }),
+      favoritedBy ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
+    ])
+
+    const userIds = new Set(Array.from(mapsResult).map(m => m.uploadedBy))
+    for (const map of favoritedMapsResult) {
       userIds.add(map.uploadedBy)
     }
-    const users = await findUsersById(Array.from(userIds))
+
+    const [maps, favoritedMaps, users] = await Promise.all([
+      reparseMapsAsNeeded(mapsResult),
+      reparseMapsAsNeeded(favoritedMapsResult),
+      findUsersById(Array.from(userIds)),
+    ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
-      favoritedMaps: favoritedMaps.map(m => toMapInfoJson(m)),
-      page: pageVal,
-      limit: limitVal,
-      total,
+      favoritedMaps: favoritedMaps.map(m => m.id),
+      hasMoreMaps: maps.length >= MAP_LIST_LIMIT,
       users,
     }
   }
@@ -151,22 +153,33 @@ export class MapsApi {
   @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoResponse> {
     const { query } = validateRequest(ctx, {
-      query: Joi.object<{ m: string[] }>({
+      query: Joi.object<{ m: SbMapId[] }>({
         m: Joi.array().items(Joi.string()).single().min(1).max(40),
       }),
     })
 
     const mapIds = query.m
+    const favoritedBy = ctx.session?.user.id
 
-    const mapsResult = await getMapInfo(mapIds, ctx.session?.user.id)
-    const userIds = new Set(Array.from(mapsResult, m => m.uploadedBy))
-    const [maps, users] = await Promise.all([
-      reparseMapsAsNeeded(mapsResult, ctx.session?.user.id),
+    const [mapsResult, favoritedMapsResult] = await Promise.all([
+      getMapInfos(mapIds),
+      favoritedBy ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
+    ])
+
+    const userIds = new Set(Array.from(mapsResult).map(m => m.uploadedBy))
+    for (const map of favoritedMapsResult) {
+      userIds.add(map.uploadedBy)
+    }
+
+    const [maps, favoritedMaps, users] = await Promise.all([
+      reparseMapsAsNeeded(mapsResult),
+      reparseMapsAsNeeded(favoritedMapsResult),
       findUsersById(Array.from(userIds)),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
+      favoritedMaps: favoritedMaps.map(m => m.id),
       users,
     }
   }
@@ -241,46 +254,28 @@ export class MapsApi {
     }
   }
 
-  @httpGet('/:mapId')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
-  async getDetails(ctx: RouterContext): Promise<GetMapDetailsResponse> {
-    const { mapId } = ctx.params
-
-    const mapResult = await getMapInfo([mapId], ctx.session?.user.id)
-    if (!mapResult.length) {
-      throw new httpErrors.NotFound('Map not found')
-    }
-
-    const [[map], user] = await Promise.all([
-      reparseMapsAsNeeded(mapResult, ctx.session?.user.id),
-      findUserById(mapResult[0].uploadedBy),
-    ])
-
-    return {
-      map: toMapInfoJson(map),
-      users: user ? [user] : [],
-    }
-  }
-
   @httpPatch('/:mapId')
   @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async update(ctx: RouterContext): Promise<UpdateMapResponse> {
-    const { mapId } = ctx.params
-    const { name, description } = ctx.request.body
+    const mapId = getValidatedMapId(ctx)
+    const {
+      body: { name, description },
+    } = validateRequest(ctx, {
+      body: Joi.object<{ name?: string; description?: string }>({
+        name: Joi.string(),
+        description: Joi.string(),
+      }),
+    })
 
-    if (!name) {
-      throw new httpErrors.BadRequest("Map name can't be empty")
-    }
-
-    let map = (await getMapInfo([mapId], ctx.session!.user!.id))[0]
+    let map = (await getMapInfos([mapId]))[0]
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
 
-    ;[map] = await reparseMapsAsNeeded([map], ctx.session!.user!.id)
+    ;[map] = await reparseMapsAsNeeded([map])
 
     // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
     // public
@@ -294,7 +289,10 @@ export class MapsApi {
       throw new httpErrors.Forbidden("Can't update maps of other users")
     }
 
-    map = await updateMap(mapId, ctx.session!.user!.id, name, description)
+    if (name !== undefined || description !== undefined) {
+      map = await updateMap(mapId, name, description)
+    }
+
     const user = await findUserById(map.uploadedBy)
     return {
       map: toMapInfoJson(map),
@@ -308,9 +306,9 @@ export class MapsApi {
     throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async remove(ctx: RouterContext): Promise<void> {
-    const { mapId } = ctx.params
+    const mapId = getValidatedMapId(ctx)
 
-    const map = (await getMapInfo([mapId]))[0]
+    const map = (await getMapInfos([mapId]))[0]
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
@@ -336,7 +334,9 @@ export class MapsApi {
     throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async addToFavorites(ctx: RouterContext): Promise<void> {
-    await addMapToFavorites(ctx.params.mapId, ctx.session!.user!.id)
+    const mapId = getValidatedMapId(ctx)
+
+    await addMapToFavorites(mapId, ctx.session!.user!.id)
     ctx.status = 204
   }
 
@@ -346,16 +346,18 @@ export class MapsApi {
     throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)),
   )
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
-    await removeMapFromFavorites(ctx.params.mapId, ctx.session!.user!.id)
+    const mapId = getValidatedMapId(ctx)
+
+    await removeMapFromFavorites(mapId, ctx.session!.user!.id)
     ctx.status = 204
   }
 
   @httpPost('/:mapId/regenerate')
   @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'))
   async regenMapImage(ctx: RouterContext): Promise<void> {
-    const { mapId } = ctx.params
+    const mapId = getValidatedMapId(ctx)
 
-    const map = (await getMapInfo([mapId]))[0]
+    const map = (await getMapInfos([mapId]))[0]
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }

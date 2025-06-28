@@ -14,7 +14,7 @@ import {
 import { toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder/ladder'
-import { toMapInfoJson } from '../../../common/maps'
+import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import {
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
@@ -66,7 +66,7 @@ import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorat
 import { joiLocale } from '../i18n/locale-validator'
 import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
   getMatchmakingFinalizedRanksForUser,
@@ -525,7 +525,7 @@ export class UserApi {
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
       const uniqueUsers = new Set<SbUserId>()
-      const uniqueMaps = new Set<string>()
+      const uniqueMaps = new Set<SbMapId>()
       for (const g of games) {
         uniqueMaps.add(g.mapId)
 
@@ -539,7 +539,7 @@ export class UserApi {
       }
       const [users, maps] = await Promise.all([
         findUsersById(Array.from(uniqueUsers.values())),
-        getMapInfo(Array.from(uniqueMaps.values())),
+        getMapInfos(Array.from(uniqueMaps.values())),
       ])
 
       return {
@@ -633,7 +633,7 @@ export class UserApi {
       offset,
     })
     const uniqueUsers = new Set<SbUserId>()
-    const uniqueMaps = new Set<string>()
+    const uniqueMaps = new Set<SbMapId>()
     for (const g of games) {
       uniqueMaps.add(g.mapId)
 
@@ -647,7 +647,7 @@ export class UserApi {
     }
     const [users, maps] = await Promise.all([
       findUsersById(Array.from(uniqueUsers.values())),
-      getMapInfo(Array.from(uniqueMaps.values())),
+      getMapInfos(Array.from(uniqueMaps.values())),
     ])
 
     return {

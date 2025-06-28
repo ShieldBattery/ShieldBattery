@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import { ReadonlyDeep, Simplify } from 'type-fest'
+import { SbMapId } from '../../../common/maps'
 import { PreferenceData } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -46,7 +47,7 @@ export interface MatchmakingPlayerData {
    * user has vetoed, while in 3v3 it might be used as as a list of maps that the user wants to
    * queue on.
    */
-  mapSelections: ReadonlyArray<string>
+  mapSelections: ReadonlyArray<SbMapId>
   /**
    * The `data` field from `MatchmakingPreferences` that this user queued with, so that it can be
    * used to configure their race, etc. in the game setup process.
@@ -77,7 +78,7 @@ export function matchmakingRatingToPlayerData({
 }: {
   mmr: MatchmakingRating
   race: RaceChar
-  mapSelections: ReadonlyArray<string>
+  mapSelections: ReadonlyArray<SbMapId>
   preferenceData: PreferenceData
   identifiers: ReadonlyArray<ClientIdentifierString>
 }): MatchmakingPlayerData {

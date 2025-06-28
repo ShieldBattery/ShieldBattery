@@ -1,6 +1,7 @@
 import { SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
+import { SbMapId } from '../../common/maps'
 import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 
@@ -77,13 +78,13 @@ type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueEx
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
-    mapId: string
+    mapId: SbMapId
   }
 >
 type MapPreviewDialogPayload = BaseDialogPayload<
   typeof DialogType.MapPreview,
   {
-    mapId: string
+    mapId: SbMapId
   }
 >
 type MarkdownDialogPayload = BaseDialogPayload<

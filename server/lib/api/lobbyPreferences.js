@@ -3,7 +3,7 @@ import { isValidLobbyName } from '../../../common/constants'
 import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -61,7 +61,7 @@ async function upsertPreferences(ctx, next) {
   })
   ctx.body = {
     ...preferences,
-    recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.user.id),
+    recentMaps: await getMapInfos(preferences.recentMaps),
   }
 }
 
@@ -73,7 +73,7 @@ async function getPreferences(ctx, next) {
   }
 
   const { selectedMap } = preferences
-  const recentMaps = await getMapInfo(preferences.recentMaps, ctx.session.user.id)
+  const recentMaps = await getMapInfos(preferences.recentMaps)
   ctx.body = {
     ...preferences,
     recentMaps,

@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { SbMapId } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
@@ -85,9 +86,9 @@ const BrowseText = styled.div`
 
 export interface MapSelectionValue {
   /** The currently selected map (if any). */
-  mapId?: string | null
+  mapId?: SbMapId | null
   /** A list of map IDs that have been selected recently, for easy choosing without browsing. */
-  recentMaps?: string[]
+  recentMaps?: SbMapId[]
 }
 
 export interface MapSelectProps {
@@ -110,10 +111,10 @@ export function MapSelect({
   const [isFocused, setIsFocused] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
-  const onMapSelect = useStableCallback((id: string) => {
-    if (!disabled && id !== value?.mapId) {
+  const onMapSelect = useStableCallback((mapId: SbMapId) => {
+    if (!disabled && mapId !== value?.mapId) {
       onChange({
-        mapId: id,
+        mapId,
         // NOTE(tec27): We don't need to update this, as we can only select things that are already
         // in the recent maps list and we don't want to move those around while the user is making
         // a selection. If the selection is confirmed (e.g. the lobby is created with this map),

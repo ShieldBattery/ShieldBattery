@@ -239,7 +239,7 @@ const MapNoImageIcon = styledWithAttrs(MaterialIcon, { icon: 'question_mark', si
 
 function MatchHistoryEntry({ forUserId, game }: { forUserId: SbUserId; game: GameRecordJson }) {
   const { t } = useTranslation()
-  const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
+  const map = useAppSelector(s => s.maps.byId.get(game.mapId))
 
   const onClick = useStableCallback(() => {
     navigateToGameResults(game.id)

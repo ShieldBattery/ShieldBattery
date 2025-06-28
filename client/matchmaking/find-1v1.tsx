@@ -2,6 +2,7 @@ import { Immutable } from 'immer'
 import { forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
+import { SbMapId } from '../../common/maps'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences1v1,
@@ -30,7 +31,7 @@ import {
 
 interface Model1v1 {
   race: RaceChar
-  mapSelections: string[]
+  mapSelections: SbMapId[]
   useAlternateRace: boolean
   alternateRace: AssignedRaceChar
 }
