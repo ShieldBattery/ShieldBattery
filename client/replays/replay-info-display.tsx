@@ -154,8 +154,10 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
   }>()
   const gameId = replayMetadata?.shieldBatteryData?.gameId
   const replayUserIds = replayMetadata?.shieldBatteryData?.userIds
-  const gameInfo = useAppSelector(s => s.games.byId.get(gameId ?? ''))
-  const mapInfo = useAppSelector(s => s.maps2.byId.get(gameInfo?.mapId ?? ''))
+  const gameInfo = useAppSelector(s => (gameId ? s.games.byId.get(gameId) : undefined))
+  const mapInfo = useAppSelector(s =>
+    gameInfo?.mapId ? s.maps.byId.get(gameInfo.mapId) : undefined,
+  )
   const usersById = useAppSelector(s => s.users.byId)
 
   const [mapNameRef, isMapNameOverflowing] = useOverflowingElement()

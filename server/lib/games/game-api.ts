@@ -18,7 +18,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { UpsertUserIp } from '../network/user-ips-type'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -149,7 +149,7 @@ export class GameApi {
       t.filter(p => !p.isComputer).map(p => p.id),
     )
     const [mapArray, users, mmrChanges] = await Promise.all([
-      getMapInfo([game.mapId], ctx.session?.user?.id),
+      getMapInfos([game.mapId]),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])

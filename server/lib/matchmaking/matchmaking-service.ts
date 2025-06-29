@@ -19,7 +19,7 @@ import {
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
-import { MapInfo } from '../../../common/maps'
+import { MapInfo, SbMapId } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   hasVetoes,
@@ -39,7 +39,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import { Matchmaker, MATCHMAKING_INTERVAL_MS, OnMatchFoundFunc } from '../matchmaking/matchmaker'
 import {
   getMatchmakingEntityId,
@@ -210,9 +210,9 @@ async function pickMap(
     // 2a) If any maps are remaining, select a random map from the remaining ones
     // 2b) If no maps are remaining, select a random map from the least vetoed maps
 
-    const vetoCount = new Map<string, number>()
+    const vetoCount = new Map<SbMapId, number>()
     for (const e of entities) {
-      let mapSelections: ReadonlyArray<string>
+      let mapSelections: ReadonlyArray<SbMapId>
       if (isMatchmakingParty(e)) {
         mapSelections = e.players.find(p => p.id === e.leaderId)!.mapSelections
       } else {
@@ -254,7 +254,7 @@ async function pickMap(
   }
 
   const chosenMapId = randomItem(Array.from(mapPool))
-  const mapInfo = await getMapInfo([chosenMapId])
+  const mapInfo = await getMapInfos([chosenMapId])
 
   if (!mapInfo.length) {
     throw new MatchmakingServiceError(

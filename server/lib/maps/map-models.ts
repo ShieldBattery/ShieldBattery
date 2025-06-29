@@ -5,11 +5,12 @@ import {
   MapInfo,
   MapSortType,
   MapVisibility,
+  SbMapId,
   Tileset,
 } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
-import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
+import { sql, sqlConcat, sqlRaw } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../files'
@@ -18,7 +19,7 @@ import { imagePath, mapPath } from './paths'
 
 // TODO(tec27): Make the MapInfo structure more closely align to what we store here?
 type DbMapInfo = Dbify<{
-  id: string
+  id: SbMapId
   mapHash: Buffer
   name: string
   description: string
@@ -40,7 +41,6 @@ type DbMapInfo = Dbify<{
   height: number
   parserVersion: number
   imageVersion: number
-  favorited?: boolean
 }>
 
 interface MapUrlProps {
@@ -74,7 +74,6 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       parserVersion: props.parser_version,
     },
     imageVersion: props.image_version,
-    isFavorited: !!props.favorited,
     ...urls,
   }
 }
@@ -292,45 +291,30 @@ export async function mapExists(hash: string) {
  * Retrieves information for the specified maps
  *
  * @param mapIds an array of map IDs to retrieve info for
- * @param favoritedBy A user to retrieve "favorite" map information relative to (optional, if not
- *   specified, favorited status will not be included)
  *
  * @returns a Promise for an array of `MapInfo`s, ordered in the way they were passed. If a
  *   specified map ID could not be found, it will not be included in the result
  */
-export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Promise<MapInfo[]> {
-  const favoritedJoin = favoritedBy
-    ? sql`
-      SELECT maps.*, fav.map_id AS favorited
-      FROM maps LEFT JOIN favorited_maps AS fav
-      ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy};
-    `
-    : sql`
-      SELECT maps.*
-      FROM maps;
-    `
+export async function getMapInfos(mapIds: SbMapId[]): Promise<MapInfo[]> {
   const query = sql`
-    WITH maps AS (
-      SELECT
-        um.*,
-        m.extension,
-        m.title AS original_name,
-        m.description AS original_description,
-        m.width,
-        m.height,
-        m.tileset,
-        m.players_melee,
-        m.players_ums,
-        m.is_eud,
-        m.parser_version,
-        m.image_version,
-        m.lobby_init_data
-      FROM uploaded_maps AS um
-      INNER JOIN maps AS m
-      ON um.map_hash = m.hash
-      WHERE um.id = ANY(${mapIds})
-    )
-    ${favoritedJoin}
+    SELECT
+      um.*,
+      m.extension,
+      m.title AS original_name,
+      m.description AS original_description,
+      m.width,
+      m.height,
+      m.tileset,
+      m.players_melee,
+      m.players_ums,
+      m.is_eud,
+      m.parser_version,
+      m.image_version,
+      m.lobby_init_data
+    FROM uploaded_maps AS um
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
+    WHERE um.id = ANY(${mapIds})
   `
 
   const { client, done } = await db()
@@ -340,7 +324,7 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
     if (result.rows.length < 1) return []
 
     const mapInfos = await Promise.all(result.rows.map(d => createMapInfo(d)))
-    const idToMapInfo = new Map<string, MapInfo>()
+    const idToMapInfo = new Map<SbMapId, MapInfo>()
     for (const mapInfo of mapInfos) {
       idToMapInfo.set(mapInfo.id, mapInfo)
     }
@@ -359,46 +343,23 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
   }
 }
 
-/** Returns the number of maps that match a particular condition. */
-async function getMapsCount(whereCondition: SqlTemplate): Promise<number> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<{ count: string }>(sql`
-      SELECT COUNT(*)
-      FROM uploaded_maps AS um
-      INNER JOIN maps AS m
-      ON um.map_hash = m.hash
-      ${whereCondition}
-    `)
-
-    return Number(result.rows[0].count)
-  } finally {
-    done()
-  }
-}
-
-function getOrderByStatement(sort: MapSortType): SqlTemplate {
-  const sortByArray = ['name']
-  if (sort === MapSortType.NumberOfPlayers) {
-    // TODO(tec27): Use players_melee if this is 0?
-    sortByArray.unshift('players_ums')
-  } else if (sort === MapSortType.Date) {
-    sortByArray.unshift('upload_date DESC')
-  }
-
-  return sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
-}
-
-export async function getMaps(
-  visibility: MapVisibility,
-  sort: MapSortType,
-  filters: Partial<MapFilters> = {},
-  limit: number,
-  pageNumber: number,
-  favoritedBy?: SbUserId,
-  uploadedBy?: SbUserId,
-  searchStr?: string,
-) {
+export async function getMaps({
+  visibility,
+  sort,
+  filters = {},
+  uploadedBy,
+  searchStr,
+  limit,
+  offset,
+}: {
+  visibility: MapVisibility
+  sort: MapSortType
+  filters?: Partial<MapFilters>
+  uploadedBy?: SbUserId
+  searchStr?: string
+  limit: number
+  offset: number
+}) {
   const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
   if (uploadedBy) {
     conditions.push(sql`uploaded_by = ${uploadedBy}`)
@@ -424,9 +385,16 @@ export async function getMaps(
 
   const whereCondition = sqlConcat(' AND ', conditions)
 
-  const totalPromise = getMapsCount(whereCondition)
+  const sortByArray = ['name']
+  if (sort === MapSortType.NumberOfPlayers) {
+    // TODO(tec27): Use players_melee if this is 0?
+    sortByArray.unshift('players_ums')
+  } else if (sort === MapSortType.Date) {
+    sortByArray.unshift('upload_date DESC')
+  }
 
-  const orderByStatement = getOrderByStatement(sort)
+  const orderByStatement = sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
+
   const query = sql`
     WITH maps AS (
       SELECT
@@ -448,63 +416,30 @@ export async function getMaps(
       ON um.map_hash = m.hash
       ${whereCondition}
     )
-    SELECT maps.*, ${favoritedBy ? sql`fav.map_id AS favorited` : sql`FALSE AS favorited`}
-    FROM maps ${
-      favoritedBy
-        ? sql`LEFT JOIN favorited_maps AS fav
-          ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy}
-         `
-        : sql``
-    }
+    SELECT maps.*
+    FROM maps
     ${orderByStatement}
     LIMIT ${limit}
-    OFFSET ${pageNumber * limit};
+    OFFSET ${offset};
   `
 
   const { client, done } = await db()
   try {
     const result = await client.query<DbMapInfo>(query)
-    const maps = await Promise.all(result.rows.map(info => createMapInfo(info)))
-    const total = await totalPromise
-    return { total, maps }
+    // NOTE(tec27): no need to await this because it doesn't utilize the client
+    return Promise.all(result.rows.map(info => createMapInfo(info)))
   } finally {
     done()
   }
 }
 
-// TODO(2Pac): If it becomes a problem, add paging to this
 /**
- * Retrieves the list of favorited maps for a user.
+ * Retrieves the list of favorited maps for a user. Favorited maps don't have filters applied to
+ * them and they're ordered by the time they were favorited. Also, favorited maps list include
+ * potentially "removed" maps, since it's possible to favorite maps of other users which they can
+ * subsequently remove for themselves.
  */
-export async function getFavoritedMaps(
-  favoritedBy: number,
-  sort: MapSortType,
-  filters: Partial<MapFilters> = {},
-  searchStr?: string,
-): Promise<MapInfo[]> {
-  const conditions = [sql`WHERE removed_at IS NULL AND favorited_by = ${favoritedBy}`]
-
-  if (filters.numPlayers) {
-    // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
-    // on, so we use players_melee in that case
-    conditions.push(sql`(
-      players_ums = ANY(${filters.numPlayers}) OR
-      players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
-    )`)
-  }
-
-  if (filters.tileset) {
-    conditions.push(sql`tileset = ANY(${filters.tileset})`)
-  }
-
-  if (searchStr) {
-    const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    conditions.push(sql`um.name ILIKE ${escapedStr}`)
-  }
-
-  const whereCondition = sqlConcat(' AND ', conditions)
-
-  const orderByStatement = getOrderByStatement(sort)
+export async function getFavoritedMaps(favoritedBy: SbUserId): Promise<MapInfo[]> {
   const query = sql`
     SELECT
       um.*,
@@ -519,15 +454,14 @@ export async function getFavoritedMaps(
       m.is_eud,
       m.parser_version,
       m.image_version,
-      m.lobby_init_data,
-      true AS favorited
+      m.lobby_init_data
     FROM favorited_maps AS fm
     INNER JOIN uploaded_maps AS um
     ON fm.map_id = um.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
-    ${whereCondition}
-    ${orderByStatement}
+    WHERE favorited_by = ${favoritedBy}
+    ORDER BY favorited_date ASC
   `
 
   const { client, done } = await db()
@@ -540,10 +474,12 @@ export async function getFavoritedMaps(
   }
 }
 
-/** Updates the name or description of an existing map. */
+/**
+ * Updates the name or description of an existing map. Throws an error if there are no updates, so
+ * make sure to only call this method when you update one of the map's fields.
+ */
 export async function updateMap(
-  mapId: string,
-  favoritedBy: SbUserId,
+  mapId: SbMapId,
   name?: string,
   description?: string,
 ): Promise<MapInfo> {
@@ -554,6 +490,10 @@ export async function updateMap(
   }
   if (description) {
     updates.push(sql`description = ${description}`)
+  }
+
+  if (!updates.length) {
+    throw new Error('No columns updated')
   }
 
   const query = sql`
@@ -577,13 +517,10 @@ export async function updateMap(
       m.is_eud,
       m.parser_version,
       m.image_version,
-      m.lobby_init_data,
-      fav.map_id AS favorited
+      m.lobby_init_data
     FROM update AS um
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
-    LEFT JOIN favorited_maps AS fav
-    ON fav.map_id = um.id AND fav.favorited_by = ${favoritedBy}
   `
 
   const { client, done } = await db()
@@ -595,7 +532,7 @@ export async function updateMap(
   }
 }
 
-export async function removeMap(mapId: string): Promise<void> {
+export async function removeMap(mapId: SbMapId): Promise<void> {
   const query = sql`
     UPDATE uploaded_maps
     SET removed_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
@@ -610,7 +547,7 @@ export async function removeMap(mapId: string): Promise<void> {
   }
 }
 
-export async function addMapToFavorites(mapId: string, userId: SbUserId): Promise<void> {
+export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
   const query = sql`
     INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
     VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
@@ -626,7 +563,7 @@ export async function addMapToFavorites(mapId: string, userId: SbUserId): Promis
   }
 }
 
-export async function removeMapFromFavorites(mapId: string, userId: SbUserId) {
+export async function removeMapFromFavorites(mapId: SbMapId, userId: SbUserId) {
   const query = sql`
     DELETE FROM favorited_maps
     WHERE map_id = ${mapId} AND favorited_by = ${userId};

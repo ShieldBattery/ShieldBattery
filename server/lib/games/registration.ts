@@ -1,4 +1,5 @@
 import { GameConfig } from '../../../common/games/configuration'
+import { SbMapId } from '../../../common/maps'
 import transact from '../db/transaction'
 import { createGameUserRecord } from '../models/games-users'
 import { createGameRecord } from './game-models'
@@ -17,7 +18,7 @@ import { genResultCode } from './gen-result-code'
  * @returns an object containing the generated `gameId` and a map of `resultCodes` indexed by
  *   player name
  */
-export async function registerGame(mapId: string, gameConfig: GameConfig, startTime = new Date()) {
+export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, startTime = new Date()) {
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
     const humans = team.filter(p => !p.isComputer)
     r.push(...humans)

@@ -3,7 +3,7 @@ import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues/leagues'
-import { MapInfoJson } from '../maps'
+import { MapInfoJson, SbMapId } from '../maps'
 import {
   MatchmakingSeasonJson,
   PublicMatchmakingRatingChangeJson,
@@ -17,7 +17,7 @@ import { ReconciledPlayerResult } from './results'
 export interface GameRecord {
   id: string
   startTime: Date
-  mapId: string
+  mapId: SbMapId
   config: GameConfig
   disputable: boolean
   disputeRequested: boolean
