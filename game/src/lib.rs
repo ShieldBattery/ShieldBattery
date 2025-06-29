@@ -338,10 +338,6 @@ fn wait_async_exit() -> ! {
 // for commands from the client.
 fn process_init_hook() -> ! {
     PROCESS_INIT_HOOK_REACHED.store(true, Ordering::Release);
-    // NOTE(tec27): This restores the window position a second time (the first time happens just
-    // before the window gets shown). This should look like a no-op to the user, but is necessary
-    // so that the game calls ClipCursor properly.
-    forge::restore_saved_window_pos();
     TRACK_WINDOW_POS.store(true, Ordering::Release);
     game_thread::run_event_loop()
 }

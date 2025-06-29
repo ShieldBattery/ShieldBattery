@@ -1494,7 +1494,7 @@ impl BwScr {
                 move |orig| {
                     if let Some(render_state) = self.render_state.lock() {
                         if let Some(val) = render_state.overlay.decide_cursor_type() {
-                            return val;
+                            return val as u32;
                         }
                     }
                     orig()
@@ -2423,6 +2423,31 @@ impl BwScr {
     }
 }
 
+#[allow(dead_code)]
+#[derive(Copy, Clone)]
+#[repr(u32)]
+pub enum BwCursorType {
+    Arrow = 0,
+    Illegal = 1,
+    TargetYellow = 2,
+    TargetRed = 3,
+    TargetGreen = 4,
+    TargetNeutral = 5,
+    SelectableGreen = 6,
+    SelectableRed = 7,
+    SelectableYellow = 8,
+    Drag = 9,
+    Time = 10,
+    ScrollUp = 11,
+    ScrollUpRight = 12,
+    ScrollRight = 13,
+    ScrollDownRight = 14,
+    ScrollDown = 15,
+    ScrollDownLeft = 16,
+    ScrollLeft = 17,
+    ScrollUpLeft = 18,
+}
+
 impl bw::Bw for BwScr {
     fn set_settings(&self, settings: &Settings) {
         let is_carbot = settings
@@ -2476,6 +2501,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn run_game_loop(&self) {
+        debug!("Game loop running");
         unsafe {
             loop {
                 self.reset_state_for_game_init();

@@ -147,10 +147,11 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 }
             }
             StartGame => {
-                get_bw().play_sound("SND_LAST_FRIGATE_PISSED");
-                get_bw().set_game_started();
+                let bw = get_bw();
+                bw.play_sound("SND_LAST_FRIGATE_PISSED");
+                bw.set_game_started();
                 forge::game_started();
-                get_bw().run_game_loop();
+                bw.run_game_loop();
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 send_game_results();
