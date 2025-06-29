@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
-use winapi::shared::windef::{HCURSOR, HMENU, HWND, RECT};
+use winapi::shared::windef::{HMENU, HWND, RECT};
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
@@ -16,7 +16,7 @@ use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
 
-    use super::{ATOM, HCURSOR, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
+    use super::{ATOM, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
 
     system_hooks!(
         !0 => CreateWindowExW(
@@ -24,8 +24,6 @@ mod scr_hooks {
         ) -> HWND;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => ShowWindow(HWND, i32) -> u32;
-        !0 => SetCursor(HCURSOR) -> HCURSOR;
-        !0 => SetCursorPos(i32, i32) -> i32;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
     );
 }
@@ -46,6 +44,7 @@ thread_local! {
     static DISABLE_SCR_HOOKS: Cell<i32> = const { Cell::new(0) };
 }
 
+#[expect(dead_code)]
 fn scr_hooks_disabled() -> bool {
     DISABLE_SCR_HOOKS.with(|x| x.get()) != 0
 }
@@ -74,6 +73,12 @@ unsafe extern "system" fn wnd_proc_scr(
         let ret = with_scr_hooks_disabled(|| {
             match msg {
                 WM_GAME_STARTED => {
+                    // Fake a minimize event to the SC:R wndproc to put it in a state where it will
+                    // properly ClipCursor
+                    if let Some(orig_wnd_proc) = with_forge(|f| f.orig_wnd_proc) {
+                        orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
+                    }
+
                     msg_game_started(window);
                     return Some(0);
                 }
@@ -96,16 +101,12 @@ unsafe extern "system" fn wnd_proc_scr(
                         ));
                     }
                 }
-                WM_SETCURSOR => {
-                    let game_started = with_forge(|forge| forge.game_started);
-                    if !game_started {
-                        SetCursor(LoadCursorW(null_mut(), IDC_ARROW));
-                    }
-                }
+
                 _ => (),
             }
             None
         });
+
         if let Some(ret) = ret {
             ret
         } else if let Some(ret) = get_bw().window_proc_hook(window, msg, wparam, lparam) {
@@ -163,9 +164,9 @@ unsafe fn msg_timer(window: HWND, timer_id: usize) {
             UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
             KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
 
-            // Show the window and bring it to the front
-            ShowWindow(window, SW_SHOWNORMAL);
+            debug!("Bringing window to foreground");
             SetForegroundWindow(window);
+            ShowWindow(window, SW_SHOWNORMAL);
         }
     }
 }
@@ -247,63 +248,20 @@ struct Window {
 
 unsafe impl Send for Window {}
 
-fn set_cursor(cursor: HCURSOR, orig: unsafe extern "C" fn(HCURSOR) -> HCURSOR) -> HCURSOR {
-    // SCR hooks this to set the cursor to a custom one, but we don't need that
-    if !scr_hooks_disabled() {
-        let game_started = with_forge(|forge| forge.game_started);
-        if !game_started {
-            // Only let the game change the cursor once the game has started, otherwise it hides the
-            // cursor during our loading screen
-            // TODO(tec27): Might be nice to just show the default game cursor here instead?
-            return cursor;
-        }
-    }
-    unsafe { orig(cursor) }
-}
-
-fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
-    // Unlike 1161, SCR is aware of the desktop resolution, so we just block this if the game window
-    // isn't focused during startup
-    if !scr_hooks_disabled() {
-        let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle)) else {
-            return 1;
-        };
-        let game_started = with_forge(|forge| forge.game_started);
-        unsafe {
-            if !game_started && GetForegroundWindow() != handle {
-                return 1;
-            }
-        }
-    }
-    unsafe { orig(x, y) }
-}
-
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     unsafe {
-        let call_orig = if is_forge_window(window) && !scr_hooks_disabled() {
-            // SC:R tells the window to minimize if in Fullscreen mode, but this is
-            // unnecessary in modern Windows versions and actually pretty harmful to UX
-            show != SW_MINIMIZE
-        } else {
-            true
-        };
-
-        if call_orig {
-            debug!("ShowWindow {window:p} {show}");
-            if show == SW_SHOW
-                && !with_forge(|forge| {
-                    let restored = forge.window_pos_restored;
-                    forge.window_pos_restored = true;
-                    restored
-                })
-            {
-                restore_saved_window_pos();
-            }
-            orig(window, show)
-        } else {
-            debug!("Skipping ShowWindow {window:p} {show}");
-            1
+        debug!("ShowWindow {window:p} {show}");
+        if show == SW_SHOW
+            && is_forge_window(window)
+            && !with_forge(|forge| {
+                let restored = forge.window_pos_restored;
+                forge.window_pos_restored = true;
+                restored
+            })
+        {
+            restore_saved_window_pos();
         }
+        orig(window, show)
     }
 }
 
@@ -449,8 +407,6 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "ShowWindow", ShowWindow, show_window;
-            "SetCursor", SetCursor, set_cursor;
-            "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
         );
     }
