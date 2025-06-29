@@ -194,6 +194,7 @@ pub struct BwScr {
     prism_renderer_vtable: VirtualAddress,
     console_vtables: Vec<VirtualAddress>,
     replay_minimap_patch: Option<scr_analysis::Patch>,
+    cursor_dimension_patch: Option<scr_analysis::Patch>,
     open_file: VirtualAddress,
     prepare_issue_order: VirtualAddress,
     create_game_multiplayer: VirtualAddress,
@@ -845,6 +846,7 @@ impl BwScr {
             .ok_or("open_file (Required due to SB_NO_HD)")?;
 
         let replay_minimap_patch = analysis.replay_minimap_unexplored_fog_patch();
+        let cursor_dimension_patch = analysis.cursor_dimension_patch();
 
         let status_screen_funcs = analysis.status_screen_funcs();
         let original_status_screen_update = if let Some(arr) = status_screen_funcs {
@@ -983,6 +985,7 @@ impl BwScr {
             prism_renderer_vtable,
             console_vtables,
             replay_minimap_patch,
+            cursor_dimension_patch,
             prepare_issue_order,
             create_game_multiplayer,
             spawn_dialog,
@@ -1375,6 +1378,10 @@ impl BwScr {
             );
 
             if let Some(ref patch) = self.replay_minimap_patch {
+                let address = patch.address.0 as usize - base;
+                exe.replace(address, &patch.data);
+            }
+            if let Some(ref patch) = self.cursor_dimension_patch {
                 let address = patch.address.0 as usize - base;
                 exe.replace(address, &patch.data);
             }

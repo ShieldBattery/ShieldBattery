@@ -575,6 +575,10 @@ impl<'e> Analysis<'e> {
         self.0.decide_cursor_type()
     }
 
+    pub fn cursor_dimension_patch(&mut self) -> Option<Patch> {
+        self.0.cursor_dimension_patch().map(|x| (*x).clone())
+    }
+
     pub fn select_units(&mut self) -> Option<VirtualAddress> {
         self.0.select_units()
     }
