@@ -33,7 +33,17 @@ futures = "0.3"
 fxhash = "0.2"
 hashbrown = { version = "0.15", features = ["serde"] }
 http = "1.3"
-image = { version = "0.25" }
+image = { version = "0.25", default-features = false, features = [
+  "rayon",
+  "bmp",
+  "dds",
+  "gif",
+  "hdr",
+  "ico",
+  "jpeg",
+  "png",
+  "webp",
+] }
 lazy_static = "1.3"
 libc = "0.2"
 log = "0.4"
