@@ -275,10 +275,10 @@ export default class LoadingScreen extends Component {
 
     const isReady = p => {
       if (p.type === 'computer' || p.name === user.name) return true
-      if (gameStatus.state === 'starting' || gameStatus.state === 'playing') return true
-      if (gameStatus.state !== 'awaitingPlayers') return false
+      if (gameStatus?.state === 'starting' || gameStatus?.state === 'playing') return true
+      if (gameStatus?.state !== 'awaitingPlayers') return false
 
-      return gameStatus.extra ? !gameStatus.extra.includes(p.name) : true
+      return gameStatus?.extra ? !gameStatus.extra.includes(p.name) : true
     }
 
     // TODO(2Pac): Group the players in two columns in Top vs Bottom game types, each column
