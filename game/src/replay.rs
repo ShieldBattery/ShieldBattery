@@ -109,8 +109,8 @@ pub unsafe fn add_shieldbattery_data(
             .iter()
             .find(|x| x.game_id == Some(BwPlayerId(i)))
             .map(|x| x.sb_user_id)
-            .unwrap_or_else(|| u32::MAX);
-        buffer.write_u32::<LE>(user_id)?;
+            .unwrap_or_else(|| 0.into());
+        buffer.write_u32::<LE>(user_id.into())?;
     }
     buffer.write_u16::<LE>(GAME_LOGIC_VERSION)?;
 

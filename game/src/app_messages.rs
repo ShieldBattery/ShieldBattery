@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use atomic_enum::atomic_enum;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
@@ -39,11 +41,43 @@ pub struct SetupProgressInfo {
     pub extra: Option<String>,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SbUserId(pub u32);
+
+impl From<u32> for SbUserId {
+    fn from(value: u32) -> Self {
+        SbUserId(value)
+    }
+}
+
+impl From<&u32> for SbUserId {
+    fn from(value: &u32) -> Self {
+        SbUserId(*value)
+    }
+}
+
+impl From<SbUserId> for u32 {
+    fn from(value: SbUserId) -> Self {
+        value.0
+    }
+}
+
+impl From<&SbUserId> for u32 {
+    fn from(value: &SbUserId) -> Self {
+        value.0
+    }
+}
+
+impl Display for SbUserId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
-pub struct LocalUser {
-    /// The local user's ShieldBattery user ID.
-    pub id: u32,
-    /// The local user's ShieldBattery username.
+pub struct SbUser {
+    pub id: SbUserId,
     pub name: String,
 }
 
@@ -89,17 +123,17 @@ pub struct NetworkStallInfo {
 pub struct GameResults {
     #[serde(rename = "time")]
     pub time_ms: u64,
-    pub results: HashMap<u32, GamePlayerResult>,
+    pub results: HashMap<SbUserId, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameResultsReport {
-    pub user_id: u32,
+    pub user_id: SbUserId,
     pub result_code: String,
     pub time: u64,
-    pub player_results: Vec<(u32, GamePlayerResult)>,
+    pub player_results: Vec<(SbUserId, GamePlayerResult)>,
 }
 
 #[derive(Serialize)]
@@ -118,7 +152,7 @@ pub struct GameSetupInfo {
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
     #[expect(dead_code)]
-    pub ratings: Option<Vec<(u32, f32)>>,
+    pub ratings: Option<Vec<(SbUserId, f32)>>,
     pub disable_alliance_changes: Option<bool>,
     pub use_legacy_limits: Option<bool>,
     pub turn_rate: Option<u32>,
@@ -238,7 +272,7 @@ pub struct PlayerInfo {
     pub id: LobbyPlayerId,
     pub name: String,
     pub race: Option<String>,
-    pub user_id: Option<u32>,
+    pub user_id: Option<SbUserId>,
     /// BW player slot index. Only set in UMS; for other game types the index is equal to
     /// GameSetupInfo.slots index.
     /// And either way this value becomes useless after BW randomizes the slots during
@@ -290,6 +324,8 @@ pub struct Route {
     pub for_player: LobbyPlayerId,
     pub server: RallyPointServer,
     pub route_id: String,
+    // NOTE(tec27): This is an id specific to rally-point, not the SbUserId or any of the IDs from
+    // BW
     pub player_id: u32,
 }
 

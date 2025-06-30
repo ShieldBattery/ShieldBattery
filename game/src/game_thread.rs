@@ -18,7 +18,7 @@ use libc::c_void;
 use once_cell::sync::OnceCell;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::{GameSetupInfo, MapInfo, StartingFog};
+use crate::app_messages::{GameSetupInfo, MapInfo, SbUserId, StartingFog};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
@@ -51,7 +51,7 @@ static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
 pub struct PlayerIdMapping {
     /// None at least for observers
     pub game_id: Option<BwPlayerId>,
-    pub sb_user_id: u32,
+    pub sb_user_id: SbUserId,
 }
 
 pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
