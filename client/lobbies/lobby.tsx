@@ -28,7 +28,7 @@ import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
-import ClosedSlot from './closed-slot'
+import { ClosedSlot } from './closed-slot'
 import {
   BanLobbyPlayerMessage,
   JoinLobbyMessage,

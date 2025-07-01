@@ -1,50 +1,45 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RaceChar } from '../../common/races'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { RacePicker } from './race-picker'
 import { SelectedRace } from './selected-race'
-import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRight } from './slot'
+import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
-export interface OpenSlotProps {
+export interface ClosedSlotProps {
   isHost?: boolean
   isObserver?: boolean
   canMakeObserver?: boolean
   canRemoveObserver?: boolean
-  controlledOpen?: boolean
+  controlledClosed?: boolean
   canSetRace?: boolean
   race?: RaceChar
   onSetRace?: (race: RaceChar) => void
   onAddComputer?: () => void
-  onSwitchClick: () => void
-  onCloseSlot: () => void
+  onOpenSlot: () => void
   onMakeObserver?: () => void
   onRemoveObserver?: () => void
 }
 
-export function OpenSlot({
+export function ClosedSlot({
   isHost,
   isObserver,
   canMakeObserver,
   canRemoveObserver,
-  controlledOpen,
+  controlledClosed,
   canSetRace,
   race = 'r',
   onSetRace,
   onAddComputer,
-  onSwitchClick,
-  onCloseSlot,
+  onOpenSlot,
   onMakeObserver,
   onRemoveObserver,
-}: OpenSlotProps) {
+}: ClosedSlotProps) {
   const { t } = useTranslation()
-  const [isHovered, setIsHovered] = useState(false)
 
   const slotActions: [string, () => void][] = []
   if (isHost) {
-    slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
-    if (!controlledOpen && !isObserver && onAddComputer) {
+    slotActions.push([t('lobbies.slots.openSlot', 'Open slot'), onOpenSlot])
+    if (!controlledClosed && !isObserver && onAddComputer) {
       slotActions.push([t('lobbies.slots.addComputer', 'Add computer'), onAddComputer])
     }
     if (canMakeObserver && onMakeObserver) {
@@ -58,20 +53,17 @@ export function OpenSlot({
   return (
     <Slot>
       <SlotLeft>
-        <SlotProfileOpen
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          onClick={onSwitchClick}>
-          <SlotEmptyAvatar>{isHovered ? <MaterialIcon icon='swap_vert' /> : null}</SlotEmptyAvatar>
-          <SlotEmptyName as='span'>{t('lobbies.slots.open', 'Open')}</SlotEmptyName>
-        </SlotProfileOpen>
+        <SlotProfile>
+          <SlotEmptyAvatar />
+          <SlotEmptyName as='span'>{t('lobbies.slots.name', 'Closed')}</SlotEmptyName>
+        </SlotProfile>
         {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
       </SlotLeft>
       <SlotRight>
         <Controls
-          race={race}
-          controlledOpen={controlledOpen}
+          controlledClosed={controlledClosed}
           canSetRace={canSetRace}
+          race={race}
           onSetRace={onSetRace}
         />
       </SlotRight>
@@ -80,17 +72,17 @@ export function OpenSlot({
 }
 
 function Controls({
-  race,
-  controlledOpen,
+  controlledClosed,
   canSetRace,
+  race,
   onSetRace,
 }: {
-  race: RaceChar
-  controlledOpen?: boolean
+  controlledClosed?: boolean
   canSetRace?: boolean
+  race: RaceChar
   onSetRace?: (race: RaceChar) => void
 }) {
-  if (controlledOpen) {
+  if (controlledClosed) {
     return canSetRace ? (
       <RacePicker race={race} onSetRace={onSetRace} />
     ) : (
