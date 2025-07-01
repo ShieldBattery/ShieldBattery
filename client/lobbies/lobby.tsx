@@ -324,6 +324,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 canSetRace={mySlot && controlledBy === mySlot.id}
                 isHost={isHost}
                 onOpenSlot={() => onOpenSlot(id)}
+                onSetRace={(race: RaceChar) => onSetRace(id, race)}
               />
             )
           default:
