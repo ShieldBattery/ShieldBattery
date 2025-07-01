@@ -43,7 +43,7 @@ import {
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
 import { LobbyLoadingState } from './lobby-reducer'
-import OpenSlot from './open-slot'
+import { OpenSlot } from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
 
