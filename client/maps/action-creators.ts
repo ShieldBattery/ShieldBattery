@@ -3,6 +3,7 @@ import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
 import {
   GetBatchMapInfoResponse,
+  GetFavoritesResponse,
   GetMapsResponse,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
@@ -101,6 +102,21 @@ export function getMaps(
       type: '@maps/getMaps',
       payload: result,
       meta: params,
+    })
+
+    return result
+  })
+}
+
+export function getFavorites(spec: RequestHandlingSpec<GetFavoritesResponse>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@maps/getFavoritedMaps',
+      payload: result,
     })
 
     return result

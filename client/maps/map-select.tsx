@@ -11,7 +11,7 @@ import { useStableCallback } from '../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelLarge } from '../styles/typography'
-import { ConnectedMapThumbnail } from './map-thumbnail'
+import { ReduxMapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
 const TAB = 'Tab'
@@ -185,9 +185,9 @@ export function MapSelect({
       {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
       <ImageList $columnCount={3} $padding={4}>
         {recentMaps.map((id, i) => (
-          <ConnectedMapThumbnail
+          <ReduxMapThumbnail
             key={id}
-            map={id}
+            mapId={id}
             forceAspectRatio={1}
             size={256}
             showMapName={true}

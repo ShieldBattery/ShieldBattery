@@ -1,5 +1,6 @@
 import {
   GetBatchMapInfoResponse,
+  GetFavoritesResponse,
   GetMapsResponse,
   MapSortType,
   MapVisibility,
@@ -15,6 +16,7 @@ import { BaseFetchFailure } from '../network/fetch-errors'
 export type MapsActions =
   | UploadLocalMap
   | GetMaps
+  | GetFavorites
   | GetBatchMapInfoSuccess
   | GetBatchMapInfoFailure
   | AddToFavorites
@@ -47,6 +49,14 @@ export interface GetMaps {
   type: '@maps/getMaps'
   payload: GetMapsResponse
   meta: GetMapsListParams
+}
+
+/**
+ * The server has returned the list of favorited maps for the current user.
+ */
+export interface GetFavorites {
+  type: '@maps/getFavoritedMaps'
+  payload: GetFavoritesResponse
 }
 
 /**

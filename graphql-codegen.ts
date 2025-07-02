@@ -27,6 +27,7 @@ export default {
           MapVisibility: 'Types.MapVisibility',
           MatchmakingType: 'Types.MatchmakingType',
           Race: 'Types.RaceChar',
+          SbMapId: 'Types.SbMapId',
           SbUserId: 'Types.SbUserId',
           UUID: 'string',
         },
