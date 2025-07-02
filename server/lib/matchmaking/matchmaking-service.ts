@@ -35,7 +35,7 @@ import {
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -707,7 +707,7 @@ export class MatchmakingService {
       }))
       teams = [
         slots.map(s => ({
-          id: s.userId,
+          id: s.userId ?? makeSbUserId(0),
           race: s.race,
           isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
         })),
@@ -734,7 +734,7 @@ export class MatchmakingService {
       )
       teams = slotsInTeams.map(t =>
         t.map(s => ({
-          id: s.userId,
+          id: s.userId ?? makeSbUserId(0),
           race: s.race,
           isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
         })),

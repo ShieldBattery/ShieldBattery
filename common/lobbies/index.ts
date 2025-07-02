@@ -3,6 +3,7 @@ import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { BwTurnRate } from '../network'
+import { SbUserId } from '../users/sb-user-id'
 import { Slot, SlotType } from './slot'
 
 /**
@@ -120,17 +121,13 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
     .toArray()
 }
 
-// TODO(tec27): Make this use user IDs, and also make the return types not dumb af lol
 /**
- * Finds the slot with the specified name in the lobby. Only works for `human` type slots (other
- * type of slots do not have unique names). Returns the [teamIndex, slotIndex, slot] tuple if the
+ * Finds the slot with the specified user ID in the lobby. Only works for `human` type slots (other
+ * type of slots do not have valid user IDs). Returns the [teamIndex, slotIndex, slot] tuple if the
  * player is found; otherwise returns an empty array.
  */
-export function findSlotByName(lobby: Lobby, name: string): SlotWithIndexes | [] {
-  const slot = getLobbySlotsWithIndexes(lobby).find(
-    ([, , slot]) =>
-      (slot.type === SlotType.Human || slot.type === SlotType.Observer) && slot.name === name,
-  )
+export function findSlotByUserId(lobby: Lobby, userId: SbUserId): SlotWithIndexes | [] {
+  const slot = getLobbySlotsWithIndexes(lobby).find(([, , slot]) => slot.userId === userId)
   return slot ? slot : []
 }
 

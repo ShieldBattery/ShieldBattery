@@ -16,7 +16,7 @@ export enum SlotType {
 
 export class Slot extends Record({
   type: SlotType.Open,
-  userId: 0 as SbUserId,
+  userId: undefined as SbUserId | undefined,
   name: '',
   race: 'r' as RaceChar,
   id: '',

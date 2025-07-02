@@ -121,7 +121,7 @@ type LoadingData = ReturnType<typeof createLoadingData>
 
 const LoadingDatas = {
   isAllFinished(loadingData: LoadingData) {
-    return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId))
+    return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId!))
   },
 }
 
@@ -365,7 +365,7 @@ export class GameLoader {
     return this.maybeCancelLoadingFromSystem(
       gameId,
       new GameLoaderError(GameLoadErrorType.PlayerFailed, `${loadingPlayer.name} failed to load`, {
-        data: { userId: loadingPlayer.userId },
+        data: { userId: loadingPlayer.userId! },
       }),
     )
   }
@@ -442,7 +442,7 @@ export class GameLoader {
         ? Promise.resolve()
         : Promise.all(
             players.map(p =>
-              rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId)!),
+              rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId!)!),
             ),
           )
 
@@ -500,8 +500,8 @@ export class GameLoader {
         userLatency: chosenUserLatency,
       })
       for (const player of players) {
-        const userId = player.userId
-        this.publisher.publish(gameUserPath(gameId, player.userId), {
+        const userId = player.userId!
+        this.publisher.publish(gameUserPath(gameId, userId), {
           type: 'setGameConfig',
           gameId,
           setup: {
@@ -541,7 +541,7 @@ export class GameLoader {
         })
 
       for (const [player, routes] of routesByPlayer.entries()) {
-        this.publisher.publish(gameUserPath(gameId, player.userId), {
+        this.publisher.publish(gameUserPath(gameId, player.userId!), {
           type: 'setRoutes',
           gameId,
           routes: routes.toArray(),

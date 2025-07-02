@@ -94,7 +94,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     map: toMapInfoJson(lobby.map!),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
-    host: { name: lobby.host.name, id: lobby.host.userId },
+    host: { name: lobby.host.name, id: lobby.host.userId! },
     openSlotCount: openSlotCount(lobby),
   }
 }

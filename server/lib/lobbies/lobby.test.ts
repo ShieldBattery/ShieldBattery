@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { GameType } from '../../../common/games/game-type'
 import {
   findSlotById,
-  findSlotByName,
+  findSlotByUserId,
   hasOpposingSides,
   humanSlotCount,
   Lobby,
@@ -25,6 +25,8 @@ import {
   setRace,
   toSummaryJson,
 } from './lobby'
+
+const BOXER_USER_ID = makeSbUserId(27)
 
 const BigGameHunters: MapInfo = {
   id: 'big-game-hunters',
@@ -58,7 +60,7 @@ const BOXER_LOBBY = createLobby({
   gameSubType: 0,
   numSlots: 4,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -70,7 +72,7 @@ const BOXER_LOBBY_WITH_OBSERVERS = createLobby({
   gameSubType: 0,
   numSlots: 6,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: true,
 })
@@ -196,7 +198,7 @@ describe('Lobbies - melee', () => {
 
   test('should support removing players', () => {
     const orig = BOXER_LOBBY
-    const [t1, s1, p1] = findSlotByName(orig, 'asdf')
+    const [t1, s1, p1] = findSlotByUserId(orig, makeSbUserId(666))
     let lobby = removePlayer(orig, t1!, s1!, p1!)!
     expect(lobby).toEqual(orig)
 
@@ -210,7 +212,7 @@ describe('Lobbies - melee', () => {
     expect(humanSlotCount(lobby)).toBe(1)
     expect(lobby.teams.get(t2!)!.slots.get(s2!)!.type).toBe('open')
 
-    const [t3, s3, host] = findSlotByName(lobby, lobby.host.name)
+    const [t3, s3, host] = findSlotByUserId(lobby, lobby.host.userId!)
     lobby = removePlayer(lobby, t3!, s3!, host!)!
     expect(lobby).toBeUndefined()
   })
@@ -225,18 +227,15 @@ describe('Lobbies - melee', () => {
     expect(lobby.teams.get(t1!)!.slots.get(s1!)!.race).toBe('z')
   })
 
-  test('should support finding players by name', () => {
+  test('should support finding players by user id', () => {
     const computer = createComputer('p')
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
     const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
-    const [, , p1] = findSlotByName(lobby, 'asdf')
+    const [, , p1] = findSlotByUserId(lobby, makeSbUserId(666))
     expect(p1).toBeUndefined()
 
-    const [, , p2] = findSlotByName(lobby, computer.name)
-    expect(p2).toBeUndefined()
-
-    const [, , p3] = findSlotByName(lobby, 'Slayers`Boxer')
+    const [, , p3] = findSlotByUserId(lobby, BOXER_USER_ID)
     expect(p3).toBeDefined()
     expect(p3!.type).toBe('human')
     expect(p3!.name).toBe('Slayers`Boxer')
@@ -422,7 +421,7 @@ const TEAM_LOBBY = createLobby({
   gameSubType: 2,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -520,7 +519,7 @@ const TEAM_MELEE_2 = createLobby({
   gameSubType: 2,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -531,7 +530,7 @@ const TEAM_MELEE_3 = createLobby({
   gameSubType: 3,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -542,7 +541,7 @@ const TEAM_MELEE_4 = createLobby({
   gameSubType: 4,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -1037,7 +1036,7 @@ const UMS_LOBBY_1 = createLobby({
   gameSubType: 0,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -1048,7 +1047,7 @@ const UMS_LOBBY_2 = createLobby({
   gameSubType: 0,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -1059,7 +1058,7 @@ const UMS_LOBBY_3 = createLobby({
   gameSubType: 0,
   numSlots: 4,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })
@@ -1070,7 +1069,7 @@ const UMS_LOBBY_4 = createLobby({
   gameSubType: 0,
   numSlots: 8,
   hostName: 'Slayers`Boxer',
-  hostUserId: makeSbUserId(27),
+  hostUserId: BOXER_USER_ID,
   hostRace: 'r',
   allowObservers: false,
 })

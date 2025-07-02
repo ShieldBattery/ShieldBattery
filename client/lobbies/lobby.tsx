@@ -9,7 +9,7 @@ import { gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import {
   canAddObservers,
   canRemoveObservers,
-  findSlotByName,
+  findSlotByUserId,
   hasOpposingSides,
   isUms,
   Lobby,
@@ -210,10 +210,10 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
       onRemoveObserver,
     } = this.props
 
-    const [, , mySlot] = findSlotByName(lobby as any, user.name)
+    const [, , mySlot] = findSlotByUserId(lobby, user.id)
     const isHost = mySlot && lobby.host.id === mySlot.id
-    const canAddObsSlots = canAddObservers(lobby as any)
-    const canRemoveObsSlots = canRemoveObservers(lobby as any)
+    const canAddObsSlots = canAddObservers(lobby)
+    const canRemoveObsSlots = canRemoveObservers(lobby)
 
     return team.slots
       .map((slot: Slot) => {
