@@ -1356,8 +1356,8 @@ unsafe fn setup_slots(
                 slot_id as u8,
                 id_to_name
                     .get(&slot.user_id.unwrap_or(SbUserId(0)))
-                    .as_deref()
-                    .unwrap_or(&"Unknown Player"),
+                    .copied()
+                    .unwrap_or("Unknown Player"),
             );
         }
         if game_type.is_ums() {
