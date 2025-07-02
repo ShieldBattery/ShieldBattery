@@ -6,6 +6,7 @@ import {
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
   GetBatchMapInfoResponse,
+  GetFavoritesResponse,
   GetMapsResponse,
   MAP_LIST_LIMIT,
   MapSortType,
@@ -114,37 +115,46 @@ export class MapsApi {
     }
 
     const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user!.id : undefined
-    const favoritedBy = ctx.session?.user.id
 
     const filters = { numPlayers, tileset }
-    const [mapsResult, favoritedMapsResult] = await Promise.all([
-      getMaps({
-        visibility,
-        sort,
-        filters,
-        uploadedBy,
-        searchStr: searchQuery,
-        limit: MAP_LIST_LIMIT,
-        offset,
-      }),
-      favoritedBy ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
-    ])
+    const mapsResult = await getMaps({
+      visibility,
+      sort,
+      filters,
+      uploadedBy,
+      searchStr: searchQuery,
+      limit: MAP_LIST_LIMIT,
+      offset,
+    })
 
-    const userIds = new Set(Array.from(mapsResult).map(m => m.uploadedBy))
-    for (const map of favoritedMapsResult) {
-      userIds.add(map.uploadedBy)
-    }
-
-    const [maps, favoritedMaps, users] = await Promise.all([
+    const [maps, users] = await Promise.all([
       reparseMapsAsNeeded(mapsResult),
-      reparseMapsAsNeeded(favoritedMapsResult),
-      findUsersById(Array.from(userIds)),
+      findUsersById(mapsResult.map(m => m.uploadedBy)),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
-      favoritedMaps: favoritedMaps.map(m => m.id),
       hasMoreMaps: maps.length >= MAP_LIST_LIMIT,
+      users,
+    }
+  }
+
+  @httpGet('/favorites')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
+  )
+  async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
+    const favoritedBy = ctx.session!.user.id
+    const mapResult = await getFavoritedMaps(favoritedBy)
+
+    const [maps, users] = await Promise.all([
+      reparseMapsAsNeeded(mapResult),
+      findUsersById(mapResult.map(m => m.uploadedBy)),
+    ])
+
+    return {
+      favoritedMaps: maps.map(m => toMapInfoJson(m)),
       users,
     }
   }
@@ -163,7 +173,7 @@ export class MapsApi {
 
     const [mapsResult, favoritedMapsResult] = await Promise.all([
       getMapInfos(mapIds),
-      favoritedBy ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
+      favoritedBy ? getFavoritedMaps(favoritedBy, mapIds) : Promise.resolve([]),
     ])
 
     const userIds = new Set(Array.from(mapsResult).map(m => m.uploadedBy))

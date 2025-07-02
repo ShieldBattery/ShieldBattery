@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{
     ComplexObject, SchemaBuilder, SimpleObject,
@@ -37,6 +39,43 @@ impl SchemaBuilderModule for MapsModule {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, sqlx::Type)]
+#[serde(transparent)]
+#[sqlx(transparent)]
+pub struct SbMapId(pub Uuid);
+
+scalar!(SbMapId, "SbMapId", "A map ID in the ShieldBattery system.");
+
+impl From<Uuid> for SbMapId {
+    fn from(value: Uuid) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&Uuid> for SbMapId {
+    fn from(value: &Uuid) -> Self {
+        Self(*value)
+    }
+}
+
+impl From<SbMapId> for Uuid {
+    fn from(value: SbMapId) -> Self {
+        value.0
+    }
+}
+
+impl From<&SbMapId> for Uuid {
+    fn from(value: &SbMapId) -> Self {
+        value.0
+    }
+}
+
+impl Display for SbMapId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[serde(transparent)]
 #[sqlx(transparent)]
@@ -45,7 +84,7 @@ pub struct MapHash(pub [u8; 32]);
 #[derive(Debug, Clone, SimpleObject)]
 #[graphql(complex)]
 pub struct UploadedMap {
-    pub id: Uuid,
+    pub id: SbMapId,
     #[graphql(skip)]
     pub map_hash: MapHash,
     pub name: String,
@@ -267,23 +306,23 @@ impl MapsLoader {
     }
 }
 
-impl Loader<Uuid> for MapsLoader {
+impl Loader<SbMapId> for MapsLoader {
     type Value = UploadedMap;
     type Error = async_graphql::Error;
 
     async fn load(
         &self,
-        keys: &[Uuid],
-    ) -> Result<std::collections::HashMap<Uuid, Self::Value>, Self::Error> {
+        keys: &[SbMapId],
+    ) -> Result<std::collections::HashMap<SbMapId, Self::Value>, Self::Error> {
         Ok(sqlx::query_as!(
             UploadedMap,
             r#"
-                SELECT id, map_hash as "map_hash: _", name, description,
+                SELECT id as "id: _", map_hash as "map_hash: _", name, description,
                     uploaded_by as "uploaded_by: _", upload_date, visibility as "visibility: _"
                 FROM uploaded_maps
                 WHERE id = ANY($1)
             "#,
-            keys
+            keys as _
         )
         .fetch(&self.db)
         .map_ok(|um| (um.id, um))

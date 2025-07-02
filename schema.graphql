@@ -307,6 +307,11 @@ enum RestrictedNameReason {
 	RESERVED
 }
 
+"""
+A map ID in the ShieldBattery system.
+"""
+scalar SbMapId
+
 type SbPermissions {
 	"""
 	The user ID these permissions are for. This is mainly so the client has a key for caching
@@ -384,7 +389,7 @@ input UpdateCurrentUserChanges {
 }
 
 type UploadedMap {
-	id: UUID!
+	id: SbMapId!
 	name: String!
 	description: String!
 	uploadDate: DateTime!
