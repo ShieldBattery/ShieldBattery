@@ -44,7 +44,7 @@ import {
 import { LobbyMessageType } from './lobby-message-records'
 import { LobbyLoadingState } from './lobby-reducer'
 import { OpenSlot } from './open-slot'
-import PlayerSlot from './player-slot'
+import { PlayerSlot } from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
 
 const StyledChat = styled(Chat)`
@@ -261,7 +261,6 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 canMakeObserver={canAddObsSlots && team.slots.size > 1}
                 isSelf={slot === mySlot}
                 onSetRace={(race: RaceChar) => onSetRace(id, race)}
-                onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
                 onKickPlayer={() => onKickPlayer(id)}
                 onBanPlayer={() => onBanPlayer(id)}
@@ -277,7 +276,6 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 isObserver={true}
                 canRemoveObserver={isObserver && canRemoveObsSlots}
                 isSelf={slot === mySlot}
-                onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
                 onKickPlayer={() => onKickPlayer(id)}
                 onBanPlayer={() => onBanPlayer(id)}
@@ -295,7 +293,6 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 isHost={isHost}
                 isSelf={false}
                 onSetRace={(race: RaceChar) => onSetRace(id, race)}
-                onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
                 onKickPlayer={() => onKickPlayer(id)}
               />
