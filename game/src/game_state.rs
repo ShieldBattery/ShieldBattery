@@ -291,7 +291,7 @@ impl GameState {
             // ready to start the game - remaining initialization is done from other threads.
             // Could possibly aim to keep all of BW initialization in the main thread, but this
             // system has worked fine so far.
-            let is_host = local_user.name == info.host.name;
+            let is_host = info.host.user_id.is_some_and(|host_id| host_id == local_user.id);
             let req = send_game_request(
                 &game_request_send,
                 GameThreadRequestType::SetupInfo(info.clone()),
@@ -346,7 +346,7 @@ impl GameState {
                     MapInfo::Replay(_) => &[],
                     MapInfo::Game(ref game_map) => &game_map.map_data.ums_forces[..],
                 };
-                setup_slots(&info.slots, game_type, ums_forces);
+                setup_slots(&info.slots, &info.users, game_type, ums_forces);
             }
             send_messages_to_state
                 .send(GameStateMessage::InLobby)
@@ -506,7 +506,7 @@ impl GameState {
                     .iter()
                     .find(|s| uid == &s.user_id.unwrap_or(0.into()))
                 {
-                    debug!("Triggering final network sends for {}", slot.name);
+                    debug!("Triggering final network sends for {:?}", slot.user_id);
                     let (send, recv) = oneshot::channel();
                     let _ = network_send
                         .send(GameStateToNetworkMessage::DeliverPayloadsInFlight(
@@ -862,14 +862,18 @@ impl InitInProgress {
         local_user: SbUser,
         server_config: ServerConfig,
     ) -> InitInProgress {
-        let is_host = setup_info.host.name == local_user.name;
+        let is_host = setup_info
+            .host
+            .user_id
+            .map(|host_id| host_id == local_user.id)
+            .unwrap_or_default();
         // Only the host tracks client readiness
         let unready_players = if is_host {
             setup_info
                 .slots
                 .iter()
                 .filter_map(|slot| {
-                    if !slot.is_human() || slot.name == local_user.name {
+                    if !slot.is_human() || slot.user_id.is_some_and(|id| id == local_user.id) {
                         None
                     } else {
                         Some(slot.id.clone())
@@ -1009,18 +1013,36 @@ impl InitInProgress {
                 }
                 retain
             });
+
+            let name_to_user_id = self
+                .setup_info
+                .users
+                .iter()
+                .map(|u| (&u.name, u.id))
+                .collect::<HashMap<_, _>>();
+
             for (storm_id, name) in storm_names.iter().enumerate() {
                 let storm_id = StormPlayerId(storm_id as u8);
-                let name = match name {
-                    Some(s) => &**s,
+                let (name, user_id) = match name {
+                    Some(s) => (&**s, name_to_user_id.get(s).copied()),
                     None => continue,
                 };
+                let Some(user_id) = user_id else {
+                    warn!("Player {name} has a storm ID but no user id, skipping");
+                    continue;
+                };
                 let joined_pos = self.joined_players.iter().position(|x| x.name == name);
+
                 if let Some(joined_pos) = joined_pos {
                     if self.joined_players[joined_pos].storm_id != storm_id {
                         return Err(GameInitError::StormIdChanged(name.to_string()));
                     }
-                } else if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
+                } else if let Some(slot) = self
+                    .setup_info
+                    .slots
+                    .iter()
+                    .find(|x| x.user_id.is_some_and(|id| id == user_id))
+                {
                     let player_id;
                     let bw_slot = (0..16).find(|&i| {
                         let player = players.add(i);
@@ -1067,9 +1089,9 @@ impl InitInProgress {
                 !self
                     .joined_players
                     .iter()
-                    .any(|player| s.name == player.name)
+                    .any(|player| s.user_id.is_some_and(|id| id == player.sb_user_id))
             })
-            .map(|s| &s.name)
+            .map(|s| s.user_id)
             .collect::<Vec<_>>();
         if waiting_for.is_empty() {
             true
@@ -1246,7 +1268,17 @@ async unsafe fn try_join_lobby_once(
     }
 }
 
-unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) {
+unsafe fn setup_slots(
+    slots: &[PlayerInfo],
+    users: &[SbUser],
+    game_type: GameType,
+    ums_forces: &[MapForce],
+) {
+    let id_to_name = users
+        .iter()
+        .map(|u| (u.id, u.name.as_str()))
+        .collect::<HashMap<_, _>>();
+
     unsafe {
         let bw = get_bw();
         let is_ums = game_type.is_ums();
@@ -1320,7 +1352,13 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
                 team,
                 name: [0; 25],
             };
-            bw.set_player_name(slot_id as u8, &slot.name);
+            bw.set_player_name(
+                slot_id as u8,
+                id_to_name
+                    .get(&slot.user_id.unwrap_or(SbUserId(0)))
+                    .as_deref()
+                    .unwrap_or(&"Unknown Player"),
+            );
         }
         if game_type.is_ums() {
             // BW would normally set UMS user selectable slots in replay header around the

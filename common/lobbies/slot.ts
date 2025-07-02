@@ -17,7 +17,6 @@ export enum SlotType {
 export class Slot extends Record({
   type: SlotType.Open,
   userId: undefined as SbUserId | undefined,
-  name: '',
   race: 'r' as RaceChar,
   id: '',
   joinedAt: 0,
@@ -32,7 +31,6 @@ export type SlotJson = ReturnType<Slot['toJSON']>
 export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
     type: SlotType.Open,
-    name: 'Open',
     race,
     id: nanoid(),
     // These last three fields are used in UMS
@@ -45,7 +43,6 @@ export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId
 export function createClosed(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
     type: SlotType.Closed,
-    name: 'Closed',
     race,
     id: nanoid(),
     // These last three fields are used in UMS
@@ -56,7 +53,6 @@ export function createClosed(race: RaceChar = 'r', hasForcedRace = false, player
 }
 
 export function createHuman(
-  name: string,
   userId: SbUserId,
   race: RaceChar = 'r',
   hasForcedRace = false,
@@ -65,7 +61,6 @@ export function createHuman(
   return new Slot({
     type: SlotType.Human,
     userId,
-    name,
     race,
     id: nanoid(),
     joinedAt: Date.now(),
@@ -79,7 +74,6 @@ export function createHuman(
 export function createComputer(race: RaceChar = 'r'): Slot {
   return new Slot({
     type: SlotType.Computer,
-    name: 'Computer',
     race,
     id: nanoid(),
   })
@@ -91,7 +85,6 @@ export function createComputer(race: RaceChar = 'r'): Slot {
 export function createControlledOpen(race: RaceChar, controllerId: string): Slot {
   return new Slot({
     type: SlotType.ControlledOpen,
-    name: 'Open',
     race,
     id: nanoid(),
     controlledBy: controllerId,
@@ -104,7 +97,6 @@ export function createControlledOpen(race: RaceChar, controllerId: string): Slot
 export function createControlledClosed(race: RaceChar, controllerId: string): Slot {
   return new Slot({
     type: SlotType.ControlledClosed,
-    name: 'Closed',
     race,
     id: nanoid(),
     controlledBy: controllerId,
@@ -117,7 +109,6 @@ export function createControlledClosed(race: RaceChar, controllerId: string): Sl
 export function createUmsComputer(race: RaceChar, playerId: number, typeId: number): Slot {
   return new Slot({
     type: SlotType.UmsComputer,
-    name: 'Computer',
     race,
     id: nanoid(),
     hasForcedRace: true,
@@ -128,11 +119,10 @@ export function createUmsComputer(race: RaceChar, playerId: number, typeId: numb
 
 // Creates an observer slot, which is a human in a lobby who is not playing, but rather watching
 // other people play.
-export function createObserver(name: string, userId: SbUserId) {
+export function createObserver(userId: SbUserId) {
   return new Slot({
     type: SlotType.Observer,
     userId,
-    name,
     id: nanoid(),
     joinedAt: Date.now(),
   })

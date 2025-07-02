@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { getBatchUserInfo } from '../users/action-creators'
 import PlaceholderIcon from './avatar-placeholder.svg'
 import { randomColorForString } from './colors'
 
@@ -73,7 +75,12 @@ export interface ConnectedAvatarProps {
 }
 
 export function ConnectedAvatar({ userId, className }: ConnectedAvatarProps) {
+  const dispatch = useAppDispatch()
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+
+  useEffect(() => {
+    dispatch(getBatchUserInfo(userId))
+  }, [dispatch, userId])
 
   if (!username) {
     return <LoadingAvatar className={className} />

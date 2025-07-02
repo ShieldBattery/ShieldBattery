@@ -1,23 +1,35 @@
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { RaceChar } from '../../common/races'
-import { Avatar } from '../avatars/avatar'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { ConnectedAvatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
+import { ConnectedUsername } from '../users/connected-username'
 import { RacePicker } from './race-picker'
 import { SelectedRace } from './selected-race'
 import { Slot, SlotLeft, SlotName, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
-const StyledAvatar = styled(Avatar)`
-  flex-grow: 0;
-  flex-shrink: 0;
+const avatarStyles = css`
   width: 24px;
   height: 24px;
+  margin-left: 1px; /* To align with bordered empty slot avatar area */
   margin-right: 16px;
+
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const StyledComputerAvatar = styled(ComputerAvatar)`
+  ${avatarStyles};
+`
+
+const StyledAvatar = styled(ConnectedAvatar)`
+  ${avatarStyles};
 `
 
 export interface PlayerSlotProps {
-  name: string
+  userId?: SbUserId
   isComputer?: boolean
   isHost?: boolean
   canMakeObserver?: boolean
@@ -35,7 +47,7 @@ export interface PlayerSlotProps {
 }
 
 export function PlayerSlot({
-  name,
+  userId,
   isComputer,
   isHost,
   canMakeObserver,
@@ -53,8 +65,12 @@ export function PlayerSlot({
 }: PlayerSlotProps) {
   const { t } = useTranslation()
 
-  const avatar = isComputer ? <StyledAvatar as={ComputerAvatar} /> : <StyledAvatar user={name} />
-  const displayName = isComputer ? t('game.playerName.computer', 'Computer') : name
+  const avatar = isComputer ? <StyledComputerAvatar /> : <StyledAvatar userId={userId!} />
+  const displayName = isComputer ? (
+    t('game.playerName.computer', 'Computer')
+  ) : (
+    <ConnectedUsername userId={userId!} />
+  )
 
   const slotActions: [string, (() => void) | undefined][] = []
   if (isHost) {

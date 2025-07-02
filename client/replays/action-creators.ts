@@ -4,7 +4,7 @@ import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
-import { SelfUser } from '../../common/users/sb-user'
+import { SbUser, SelfUser } from '../../common/users/sb-user'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -20,7 +20,6 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,
-    name: user?.name ?? 'ShieldBattery User',
     id: nanoid(),
     teamId: 0,
     userId: user?.id ?? makeSbUserId(0),
@@ -29,11 +28,13 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
 
   const header = (await ipcRenderer.invoke('replayParseMetadata', replay.path))?.headerData
 
+  const localUser: SbUser = {
+    id: user?.id ?? makeSbUserId(0),
+    name: user?.name ?? 'ShieldBattery User',
+  }
+
   return ipcRenderer.invoke('activeGameSetConfig', {
-    localUser: {
-      id: user?.id ?? makeSbUserId(0),
-      name: user?.name ?? 'ShieldBattery User',
-    },
+    localUser,
     serverConfig: {
       serverUrl: makeServerUrl(''),
     },
@@ -45,6 +46,7 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
       gameSubType: 0,
       slots,
       host: player,
+      users: [localUser],
       seed: header?.seed ?? 0,
     },
   })

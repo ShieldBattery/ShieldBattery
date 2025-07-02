@@ -1,6 +1,6 @@
 import { BasicChannelInfo } from '../chat'
 import { GameType } from '../games/game-type'
-import { MapExtension, MapInfoJson } from '../maps'
+import { MapInfoJson } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { SlotJson } from './slot'
@@ -23,18 +23,12 @@ export type LobbyEvent =
   | LobbyChatEvent
   | LobbyStatusEvent
 
-export interface LobbyUser {
-  id: SbUserId
-  name: string
-}
-
 export interface LobbySummaryJson {
   name: string
-  // TODO(tec27): Actually type this
   map: MapInfoJson
   gameType: GameType
   gameSubType: number
-  host: LobbyUser
+  host: { id: SbUserId }
   openSlotCount: number
 }
 
@@ -42,16 +36,10 @@ export interface LobbyInitEvent {
   type: 'init'
   // TODO(tec27): actually type this
   lobby: {
-    map: {
-      hash: string
-      mapData: {
-        format: MapExtension
-      }
-      mapUrl: string
-    }
+    map: MapInfoJson
   }
   /** An array of infos for all users that were in the lobby at this point. */
-  userInfos: LobbyUser[]
+  userInfos: SbUser[]
 }
 
 export interface LobbyDiffEvent {
@@ -64,8 +52,6 @@ export interface LobbySlotCreateEvent {
   teamIndex: number
   slotIndex: number
   slot: SlotJson
-  /** In case a human slot was created, this field will contain their properties, e.g. name. */
-  userInfo?: LobbyUser
 }
 
 export interface LobbyRaceChangeEvent {

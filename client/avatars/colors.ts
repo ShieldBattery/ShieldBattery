@@ -77,7 +77,7 @@ const COLORS = [
   '#a1887f',
 ].sort()
 
-function hashStr(str) {
+function hashStr(str: string): number {
   if (!str) return 0
   let result = 0
   for (let i = 0; i < str.length; i++) {
@@ -87,7 +87,7 @@ function hashStr(str) {
   return result
 }
 
-export function randomColorForString(str) {
+export function randomColorForString(str: string): string {
   const hashCode = hashStr(str)
   return COLORS[hashCode % COLORS.length]
 }

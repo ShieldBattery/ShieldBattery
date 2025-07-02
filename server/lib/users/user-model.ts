@@ -355,7 +355,7 @@ export async function findUserByName(name: string): Promise<SbUser | undefined> 
  * Returns the data for all users with the specified names. If a user cannot be found it will not
  * be included in the result. The order of the result is not guaranteed.
  */
-export async function findUsersByName(names: string[]): Promise<SbUser[]> {
+export async function findUsersByName(names: ReadonlyArray<string>): Promise<SbUser[]> {
   if (!names.length) {
     return []
   }
@@ -374,7 +374,9 @@ export async function findUsersByName(names: string[]): Promise<SbUser[]> {
  * won't be present in the resulting `Map`. If you don't need a `Map`, see `findUsersByName`
  * instead.
  */
-export async function findUsersByNameAsMap(names: string[]): Promise<Map<string, SbUser>> {
+export async function findUsersByNameAsMap(
+  names: ReadonlyArray<string>,
+): Promise<Map<string, SbUser>> {
   const result = await findUsersByName(names)
   return new Map<string, SbUser>(result.map(u => [u.name, u]))
 }
@@ -383,7 +385,7 @@ export async function findUsersByNameAsMap(names: string[]): Promise<Map<string,
  * Returns the data for all users with the specified IDs. If a user cannot be found it will not
  * be included in the result. The order of the result is not guaranteed.
  */
-export async function findUsersById(ids: SbUserId[]): Promise<SbUser[]> {
+export async function findUsersById(ids: ReadonlyArray<SbUserId>): Promise<SbUser[]> {
   if (!ids.length) {
     return []
   }

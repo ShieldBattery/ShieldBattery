@@ -432,7 +432,6 @@ export class MatchmakingService {
     const mmr = await this.retrieveMmr(userId, type, season, identifiers)
     const playerData = matchmakingRatingToPlayerData({
       mmr,
-      username: userSockets.name,
       race,
       mapSelections: mapSelections.slice(),
       preferenceData,
@@ -672,11 +671,7 @@ export class MatchmakingService {
         // play their main race.
         const randomPlayerIndex = randomInt(0, players.length)
         slots = players.map((p, i) =>
-          createHuman(
-            p.name,
-            p.id,
-            i === randomPlayerIndex ? p.preferenceData.alternateRace : p.race,
-          ),
+          createHuman(p.id, i === randomPlayerIndex ? p.preferenceData.alternateRace : p.race),
         )
       } else if (
         playersHaveSameRace &&
@@ -685,20 +680,18 @@ export class MatchmakingService {
         // All players have the same main race and one of them wants to use an alternate race
         slots = players.map(p =>
           createHuman(
-            p.name,
             p.id,
             p.preferenceData.useAlternateRace ? p.preferenceData.alternateRace : p.race,
           ),
         )
       } else {
         // No alternate race selection, so everyone gets their selected race
-        slots = players.map(p => createHuman(p.name, p.id, p.race))
+        slots = players.map(p => createHuman(p.id, p.race))
       }
 
       playerInfos = slots.map(s => ({
         id: s.id,
         userId: s.userId,
-        name: s.name,
         race: s.race,
         playerId: s.playerId,
         teamId: 0,
@@ -716,7 +709,7 @@ export class MatchmakingService {
       // Alternate race is not allowed for non-1v1 matchmaking types, so this is very simple!
       const slotsInTeams = match.teams.map(team =>
         team.flatMap(entity =>
-          Array.from(getPlayersFromEntity(entity), p => createHuman(p.name, p.id, p.race)),
+          Array.from(getPlayersFromEntity(entity), p => createHuman(p.id, p.race)),
         ),
       )
       slots = slotsInTeams.flat()
@@ -724,7 +717,6 @@ export class MatchmakingService {
         t.map(s => ({
           id: s.id,
           userId: s.userId,
-          name: s.name,
           race: s.race,
           playerId: s.playerId,
           teamId: i,

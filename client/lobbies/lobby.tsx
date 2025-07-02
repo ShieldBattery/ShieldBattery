@@ -217,7 +217,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
 
     return team.slots
       .map((slot: Slot) => {
-        const { type, name, race, id, controlledBy } = slot
+        const { type, userId, race, id, controlledBy } = slot
         switch (type) {
           case SlotType.Open:
             return (
@@ -254,7 +254,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
             return (
               <PlayerSlot
                 key={id}
-                name={name}
+                userId={userId}
                 race={race}
                 isHost={isHost}
                 canSetRace={slot === mySlot && !slot.hasForcedRace}
@@ -271,7 +271,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
             return (
               <PlayerSlot
                 key={id}
-                name={name}
+                userId={userId}
                 isHost={isHost}
                 isObserver={true}
                 canRemoveObserver={isObserver && canRemoveObsSlots}
@@ -286,7 +286,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
             return (
               <PlayerSlot
                 key={id}
-                name={name}
+                userId={userId}
                 race={race}
                 isComputer={true}
                 canSetRace={isHost}
@@ -298,7 +298,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               />
             )
           case SlotType.UmsComputer:
-            return <PlayerSlot key={id} name={name} race={race} isComputer={true} />
+            return <PlayerSlot key={id} userId={userId} race={race} isComputer={true} />
           case SlotType.ControlledOpen:
             return (
               <OpenSlot
@@ -410,7 +410,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
 
   renderStartButton() {
     const { lobby, user, onStartGame, loadingState, t } = this.props
-    if (!user || lobby.host.name !== user.name) {
+    if (!user || lobby.host.userId !== user.id) {
       return null
     }
 

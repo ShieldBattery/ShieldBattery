@@ -82,7 +82,7 @@ const eventToAction: EventToActionMap = {
   init: (name, event) => {
     clearCountdownTimer()
     const { hash, mapData, mapUrl } = event.lobby.map
-    ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl)?.catch(err => {
+    ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
       // TODO(tec27): Report this to the server so the loading is canceled immediately
 
       // This is already logged to our file by the map store, so we just log it to the console for

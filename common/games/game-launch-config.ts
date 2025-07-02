@@ -16,8 +16,6 @@ export interface PlayerInfo {
   id: string
   /** Shieldbattery user ID of the player. Only set for 'human' and 'observer' */
   userId?: SbUserId
-  /** The name of the player in this slot (e.g. their username). */
-  name: string
   /** The race set for this slot. */
   race?: RaceChar
   /** The BW player ID for this slot (a number between 0 and 7). */
@@ -65,6 +63,7 @@ export interface GameSetup {
   gameSubType: number
   slots: PlayerInfo[]
   host: PlayerInfo
+  users: SbUser[]
   /** For matchmaking, a list of entries of the rating for each player. */
   ratings?: Array<[id: SbUserId, rating: number]>
   /**

@@ -34,6 +34,7 @@ import { getMapInfo } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { findUsersById } from '../users/user-model'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
   ClientSocketsGroup,
@@ -204,7 +205,6 @@ export class LobbyApi {
       gameType,
       gameSubType: gameSubType ?? undefined,
       numSlots,
-      hostName: client.name,
       hostUserId: client.userId,
       hostRace: undefined,
       allowObservers: allowObservers ?? false,
@@ -254,17 +254,16 @@ export class LobbyApi {
     let player
     const [, observerTeam] = getObserverTeam(lobby)
     if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
-      player = Slots.createObserver(client.name, client.userId)
+      player = Slots.createObserver(client.userId)
     } else {
       player = isUms(lobby.gameType)
         ? Slots.createHuman(
-            client.name,
             client.userId,
             availableSlot.race,
             availableSlot.hasForcedRace,
             availableSlot.playerId,
           )
-        : Slots.createHuman(client.name, client.userId)
+        : Slots.createHuman(client.userId)
     }
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
@@ -288,18 +287,33 @@ export class LobbyApi {
     const lobbyName = lobby.name
     client.subscribe(
       LobbyApi._getPath(lobby),
-      () => {
+      async () => {
         const lobby = this.lobbies.get(lobbyName)
         if (!lobby) {
           return undefined
         }
-        return {
-          type: 'init',
-          lobby,
-          userInfos: getHumanSlots(lobby).map(s => ({
-            id: s.userId,
-            name: s.name,
-          })),
+
+        try {
+          const userInfos = await findUsersById(
+            getHumanSlots(lobby)
+              .map(s => s.userId!)
+              .toArray(),
+          )
+
+          return {
+            type: 'init',
+            lobby,
+            userInfos,
+          }
+        } catch (err) {
+          logger.error({ err }, 'error getting user infos for lobby init')
+          return {
+            type: 'init',
+            lobby,
+            // Generally this should be okay (the client can batch retrieve the user info later),
+            // just higher latency
+            userInfos: [],
+          }
         }
       },
       client => {
@@ -781,10 +795,12 @@ export class LobbyApi {
     }
 
     try {
+      logger.info('Awaiting countdown')
       await countdownTimer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       this.loadingLobbies = this.loadingLobbies.add(lobbyName)
 
+      logger.info('Countdown complete, calling game loader')
       await this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
         playerInfos: getPlayerInfos(lobby),
@@ -792,8 +808,10 @@ export class LobbyApi {
         gameConfig,
       })
 
+      logger.info('Game loading complete')
       this._onGameLoaded(lobby)
     } catch (err) {
+      logger.error({ err }, 'error during lobby start')
       // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
 
       // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents
@@ -1063,16 +1081,9 @@ export class LobbyApi {
         slot,
       }
 
-      if (slot.type === Slots.SlotType.Human || slot.type === Slots.SlotType.Observer) {
-        // At the moment, this seems unnecessary since this info already exists on the `slot` which
-        // we send to the client, but we might want to add additional data here in the future and
-        // also, this separation makes it a bit clearer that the purpose of this field is to just
-        // send user info.
-        slotCreatedEvent.userInfo = {
-          id: slot.userId!,
-          name: slot.name,
-        }
-      }
+      // TODO(tec27): Ideally we would communicate the SbUser struct for any new users, but it's a
+      // bit of a pain to retrieve here. Deal with this in a better way when this service has been
+      // restructured
 
       diffEvents.push(slotCreatedEvent)
     }

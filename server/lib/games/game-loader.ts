@@ -13,12 +13,14 @@ import { Slot } from '../../../common/lobbies/slot'
 import { MapInfo, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
+import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
+import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
@@ -174,6 +176,7 @@ function gameUserPath(gameId: string, userId: SbUserId) {
 function getGeneralGameSetup({
   gameConfig,
   playerInfos,
+  users,
   ratings,
   map,
   gameId,
@@ -183,6 +186,7 @@ function getGeneralGameSetup({
 }: {
   gameConfig: GameConfig
   playerInfos: PlayerInfo[]
+  users: SbUser[]
   ratings?: Array<[id: SbUserId, rating: number]>
   map: MapInfo
   gameId: string
@@ -209,6 +213,7 @@ function getGeneralGameSetup({
       gameSubType: gameConfig.gameSubType,
       slots: playerInfos,
       host,
+      users,
       seed,
       turnRate,
       userLatency,
@@ -223,8 +228,9 @@ function getGeneralGameSetup({
       gameSubType: gameConfig.gameSubType,
       slots: playerInfos,
       host: playerInfos[0],
-      disableAllianceChanges: true,
+      users,
       ratings,
+      disableAllianceChanges: true,
       seed,
       turnRate,
       userLatency,
@@ -364,8 +370,8 @@ export class GameLoader {
 
     return this.maybeCancelLoadingFromSystem(
       gameId,
-      new GameLoaderError(GameLoadErrorType.PlayerFailed, `${loadingPlayer.name} failed to load`, {
-        data: { userId: loadingPlayer.userId! },
+      new GameLoaderError(GameLoadErrorType.PlayerFailed, `User ${playerId} failed to load`, {
+        data: { userId: playerId },
       }),
     )
   }
@@ -412,7 +418,13 @@ export class GameLoader {
 
     const mapPromise = getMapInfo([mapId])
 
-    const activeClients = Array.from(resultCodes.keys(), userId => {
+    const loadingData = this.loadingGames.get(gameId)!
+    const { players, cancelToken } = loadingData
+    const allUserIds = players.map(p => p.userId!).toArray()
+
+    const usersPromise = findUsersById(allUserIds)
+
+    const activeClients = allUserIds.map(userId => {
       const client = this.activityRegistry.getClientForUser(userId)
       if (!client) {
         throw new GameLoaderError(GameLoadErrorType.PlayerFailed, `A player had no active client`, {
@@ -422,8 +434,10 @@ export class GameLoader {
       return client
     })
 
-    const loadingData = this.loadingGames.get(gameId)!
-    const { players, cancelToken } = loadingData
+    const users = await usersPromise
+    if (users.length !== players.size) {
+      throw new Error("Couldn't find all users in the game")
+    }
 
     for (const client of activeClients) {
       client.subscribe(gameUserPath(gameId, client.userId), undefined, () => {
@@ -489,9 +503,14 @@ export class GameLoader {
       }
 
       const [map] = await mapPromise
+      if (!map) {
+        throw new Error(`Couldn't find map with ID ${mapId}`)
+      }
+
       const generalSetup = getGeneralGameSetup({
         gameConfig,
         playerInfos,
+        users,
         map,
         gameId,
         ratings,

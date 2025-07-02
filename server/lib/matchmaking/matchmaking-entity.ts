@@ -36,10 +36,7 @@ export interface MatchmakingQueueData {
 }
 
 export interface MatchmakingPlayerData {
-  /** The user's ID number (from the `users` table). */
   id: SbUserId
-  /** The user's name. */
-  name: string
   /** The race the user wants to play. */
   race: RaceChar
   /**
@@ -86,20 +83,17 @@ export function isNewPlayer(entity: MatchmakingEntity) {
 
 export function matchmakingRatingToPlayerData({
   mmr,
-  username,
   race,
   mapSelections,
   preferenceData,
 }: {
   mmr: MatchmakingRating
-  username: string
   race: RaceChar
   mapSelections: ReadonlyArray<string>
   preferenceData: PreferenceData
 }): MatchmakingPlayerData {
   return {
     id: mmr.userId,
-    name: username,
     race,
     mapSelections,
     preferenceData,

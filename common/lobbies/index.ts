@@ -111,7 +111,6 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
     .map(([teamIndex, _slotIndex, slot]) => ({
       id: slot.id,
       userId: slot.userId,
-      name: slot.name,
       race: slot.race,
       playerId: slot.playerId,
       type: slot.type,

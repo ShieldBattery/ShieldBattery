@@ -94,7 +94,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     map: toMapInfoJson(lobby.map!),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
-    host: { name: lobby.host.name, id: lobby.host.userId! },
+    host: { id: lobby.host.userId! },
     openSlotCount: openSlotCount(lobby),
   }
 }
@@ -224,7 +224,6 @@ export function createLobby({
   gameType,
   gameSubType = 0,
   numSlots,
-  hostName,
   hostUserId,
   hostRace = 'r',
   allowObservers,
@@ -236,7 +235,6 @@ export function createLobby({
   gameType: GameType
   gameSubType?: number
   numSlots: number
-  hostName: string
   hostUserId: SbUserId
   hostRace?: RaceChar
   allowObservers: boolean
@@ -276,15 +274,9 @@ export function createLobby({
     .min()!
 
   if (!isUms(gameType)) {
-    host = createHuman(hostName, hostUserId, hostRace)
+    host = createHuman(hostUserId, hostRace)
   } else {
-    host = createHuman(
-      hostName,
-      hostUserId,
-      hostSlot.race,
-      hostSlot.hasForcedRace,
-      hostSlot.playerId,
-    )
+    host = createHuman(hostUserId, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host).set('host', host)
 }

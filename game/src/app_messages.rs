@@ -151,6 +151,7 @@ pub struct GameSetupInfo {
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
+    pub users: Vec<SbUser>,
     #[expect(dead_code)]
     pub ratings: Option<Vec<(SbUserId, f32)>>,
     pub disable_alliance_changes: Option<bool>,
@@ -270,7 +271,6 @@ pub struct LobbyPlayerId(String);
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
     pub id: LobbyPlayerId,
-    pub name: String,
     pub race: Option<String>,
     pub user_id: Option<SbUserId>,
     /// BW player slot index. Only set in UMS; for other game types the index is equal to
