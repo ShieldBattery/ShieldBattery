@@ -5,12 +5,14 @@ on:
     paths:
       - '.github/workflows/server-rs-ci.yml'
       - 'common/typeshare.ts'
+      - 'migrations/**'
       - 'schema.graphql'
       - 'server-rs/**'
   pull_request:
     paths:
       - '.github/workflows/server-rs-ci.yml'
       - 'common/typeshare.ts'
+      - 'migrations/**'
       - 'schema.graphql'
       - 'server-rs/**'
 
