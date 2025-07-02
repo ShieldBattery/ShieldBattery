@@ -11,25 +11,17 @@ import {
   SbMapId,
   Tileset,
 } from '../../common/maps'
-import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
 import { useRefreshToken } from '../network/refresh-token'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
-import {
-  addToFavorites,
-  getMaps,
-  openMapPreviewDialog,
-  regenMapImage,
-  removeFromFavorites,
-  removeMap,
-} from './action-creators'
+import { getFavorites as getFavoritedMaps, getMaps } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
-import { ConnectedMapThumbnail } from './map-thumbnail'
+import { ReduxMapThumbnail } from './map-thumbnail'
 import { MapThumbnailSize } from './thumbnail-size'
 
 const Container = styled.div`
@@ -128,7 +120,7 @@ function mapsSectionToTitle(section: MapsSection, t: TFunction): string {
     case MapsSection.Uploaded:
       return t('maps.server.uploadedMap', 'Uploaded map')
     case MapsSection.Favorited:
-      return t('maps.server.favoritedMaps', 'Favorited maps')
+      return t('maps.server.favoriteMaps', 'Favorite maps')
     case MapsSection.All:
       return t('maps.server.allMaps', 'All maps')
     default:
@@ -140,8 +132,7 @@ interface BrowseServerMapsProps {
   title: string
   uploadedMapId?: SbMapId
   onMapRemove?: (mapId: SbMapId) => void
-  onMapSelect?: (mapId: SbMapId) => void
-  onMapDetails?: (mapId: SbMapId) => void
+  onMapClick?: (mapId: SbMapId) => void
   onBrowseLocalMaps?: () => void
 }
 
@@ -149,16 +140,12 @@ export function BrowseServerMaps({
   title,
   uploadedMapId,
   onMapRemove,
-  onMapSelect,
-  onMapDetails,
+  onMapClick,
   onBrowseLocalMaps,
 }: BrowseServerMapsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const selfPermissions = useSelfPermissions()
-
-  const snackbarController = useSnackbarController()
 
   const [activeTab, setActiveTab] = useUserLocalStorageValue<MapTab>(
     'maps.browseServer.activeTab',
@@ -243,6 +230,17 @@ export function BrowseServerMaps({
     }
   }, [setActiveTab, uploadedMapId])
 
+  useEffect(() => {
+    if (selfUser) {
+      dispatch(
+        getFavoritedMaps({
+          onSuccess: () => {},
+          onError: () => {},
+        }),
+      )
+    }
+  }, [selfUser, dispatch])
+
   const onLoadMoreMaps = () => {
     setIsLoadingMoreMaps(true)
 
@@ -279,165 +277,35 @@ export function BrowseServerMaps({
     return () => abortControllerRef.current?.abort()
   }, [])
 
-  const onAddToFavorites = (mapId: SbMapId) => {
-    dispatch(
-      addToFavorites(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(t('maps.server.favorites.added', 'Added to favorites'))
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.favorites.addedError', 'An error occurred while adding to favorites'),
-          )
-        },
-      }),
-    )
-  }
-
-  const onRemoveFromFavorites = (mapId: SbMapId) => {
-    dispatch(
-      removeFromFavorites(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.favorites.removed', 'Removed from favorites'),
-          )
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t(
-              'maps.server.favorites.removedError',
-              'An error occurred while removing from favorites',
-            ),
-          )
-        },
-      }),
-    )
-  }
-
   const onRemoveMap = (mapId: SbMapId) => {
-    dispatch(
-      removeMap(mapId, {
-        onSuccess: () => {
-          setMapIds(mapIds?.filter(id => id !== mapId))
-          onMapRemove?.(mapId)
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.removeError', 'An error occurred while removing the map'),
-          )
-        },
-      }),
-    )
+    setMapIds(mapIds?.filter(id => id !== mapId))
+    onMapRemove?.(mapId)
   }
 
-  const onRegenMapImage = (mapId: SbMapId) => {
-    dispatch(
-      regenMapImage(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-          )
-        },
-      }),
-    )
-  }
-
-  const renderMaps = (section: MapsSection, mapIds: SbMapId[]) => {
-    const layout = thumbnailSizeToLayout(thumbnailSize)
-    return (
-      <>
-        <SectionHeader>{mapsSectionToTitle(section, t)}</SectionHeader>
-        <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
-          {mapIds.map(mapId => {
-            const isFavorited = favoritedMapIds.has(mapId)
-
-            const canManageMaps = !!selfPermissions?.manageMaps
-
-            // We don't show the remove button in the favorited maps section since that section
-            // includes maps that are potentially removed by their original uploader/admin.
-            const canRemoveMap = section !== MapsSection.Favorited
-            const canRegenMapImage = selfUser && canManageMaps
-
-            return (
-              <ConnectedMapThumbnail
-                key={mapId}
-                map={mapId}
-                forceAspectRatio={1}
-                size={layout.columnCount === 2 ? 512 : 256}
-                showMapName={true}
-                isFavorited={isFavorited}
-                onClick={onMapSelect ? () => onMapSelect(mapId) : undefined}
-                onPreview={() => dispatch(openMapPreviewDialog(mapId))}
-                onAddToFavorites={selfUser ? () => onAddToFavorites(mapId) : undefined}
-                onRemoveFromFavorites={selfUser ? () => onRemoveFromFavorites(mapId) : undefined}
-                onMapDetails={onMapDetails ? () => onMapDetails(mapId) : undefined}
-                onRemove={canRemoveMap ? () => onRemoveMap(mapId) : undefined}
-                onRegenMapImage={canRegenMapImage ? () => onRegenMapImage(mapId) : undefined}
-              />
-            )
-          })}
-        </ImageList>
-      </>
-    )
-  }
-
-  const renderUploadedMap = () => {
-    if (!uploadedMapId || activeTab !== MapTab.MyMaps) {
-      return null
-    }
-
-    return renderMaps(MapsSection.Uploaded, [uploadedMapId])
-  }
-
-  const renderFavoritedMaps = () => {
-    if (favoritedMapIds.size === 0) {
-      return null
-    }
-
-    return renderMaps(MapsSection.Favorited, Array.from(favoritedMapIds))
-  }
-
-  const renderAllMaps = () => {
-    if (!mapIds) {
-      return null
-    }
-
-    if (mapIds.length === 0) {
-      const hasFiltersApplied =
-        numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
-      let text
-      if (searchQuery || hasFiltersApplied) {
-        text = t('maps.server.noResults', 'No results.')
-      } else if (activeTab === MapTab.OfficialMaps) {
-        text = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
-      } else if (activeTab === MapTab.MyMaps) {
-        if (IS_ELECTRON) {
-          text = t(
-            'maps.server.noUploadedMaps',
-            "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
-              'below.',
-          )
-        } else {
-          text = t('maps.server.noUploadedMapsWeb', "You haven't uploaded any maps.")
-        }
-      } else if (activeTab === MapTab.CommunityMaps) {
-        text = t(
-          'maps.server.noCommunityMaps',
-          'No maps by the community have been made public yet.',
+  let noMapsText: string | undefined
+  if (!mapIds || mapIds.length === 0) {
+    const hasFiltersApplied =
+      numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
+    if (searchQuery || hasFiltersApplied) {
+      noMapsText = t('maps.server.noResults', 'No results.')
+    } else if (activeTab === MapTab.OfficialMaps) {
+      noMapsText = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
+    } else if (activeTab === MapTab.MyMaps) {
+      if (IS_ELECTRON) {
+        noMapsText = t(
+          'maps.server.noUploadedMaps',
+          "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
+            'below.',
         )
+      } else {
+        noMapsText = t('maps.server.noUploadedMapsWeb', "You haven't uploaded any maps.")
       }
-      return (
-        <>
-          <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
-          <BodyLarge>{text}</BodyLarge>
-        </>
+    } else if (activeTab === MapTab.CommunityMaps) {
+      noMapsText = t(
+        'maps.server.noCommunityMaps',
+        'No maps by the community have been made public yet.',
       )
     }
-
-    return renderMaps(MapsSection.All, mapIds)
   }
 
   // TODO(tec27): Add back button if needed
@@ -472,15 +340,46 @@ export function BrowseServerMaps({
             </ErrorText>
           ) : (
             <>
-              {renderUploadedMap()}
-              {renderFavoritedMaps()}
+              {uploadedMapId && activeTab === MapTab.MyMaps ? (
+                <MapSection
+                  section={MapsSection.Uploaded}
+                  mapIds={[uploadedMapId]}
+                  thumbnailSize={thumbnailSize}
+                  onMapClick={onMapClick}
+                  onMapRemove={onRemoveMap}
+                />
+              ) : null}
+
+              {favoritedMapIds.size > 0 ? (
+                <MapSection
+                  section={MapsSection.Favorited}
+                  mapIds={Array.from(favoritedMapIds)}
+                  thumbnailSize={thumbnailSize}
+                  onMapClick={onMapClick}
+                  onMapRemove={onRemoveMap}
+                />
+              ) : null}
+
               <InfiniteScrollList
                 nextLoadingEnabled={true}
                 isLoadingNext={isLoadingMoreMaps}
                 hasNextData={hasMoreMaps}
                 refreshToken={refreshToken}
                 onLoadNextData={onLoadMoreMaps}>
-                {renderAllMaps()}
+                {!mapIds || mapIds.length === 0 ? (
+                  <>
+                    <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
+                    <BodyLarge>{noMapsText}</BodyLarge>
+                  </>
+                ) : (
+                  <MapSection
+                    section={MapsSection.All}
+                    mapIds={mapIds}
+                    thumbnailSize={thumbnailSize}
+                    onMapClick={onMapClick}
+                    onMapRemove={onRemoveMap}
+                  />
+                )}
               </InfiniteScrollList>
             </>
           )}
@@ -509,5 +408,46 @@ export function BrowseServerMaps({
         onSearchChange={query => debouncedSearchRef.current(query)}
       />
     </Container>
+  )
+}
+
+interface MapSectionProps {
+  section: MapsSection
+  mapIds: ReadonlyArray<SbMapId>
+  thumbnailSize: MapThumbnailSize
+  onMapClick?: (mapId: SbMapId) => void
+  onMapRemove: (mapId: SbMapId) => void
+}
+function MapSection({ section, mapIds, thumbnailSize, onMapClick, onMapRemove }: MapSectionProps) {
+  const { t } = useTranslation()
+
+  const layout = thumbnailSizeToLayout(thumbnailSize)
+  return (
+    <>
+      <SectionHeader>{mapsSectionToTitle(section, t)}</SectionHeader>
+      <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
+        {mapIds.map(mapId => {
+          // We don't show the remove button in the favorited maps section since that section
+          // includes maps that are potentially removed by their original uploader/admin.
+          const canRemoveMap = section !== MapsSection.Favorited
+
+          return (
+            <ReduxMapThumbnail
+              key={mapId}
+              mapId={mapId}
+              forceAspectRatio={1}
+              size={layout.columnCount === 2 ? 512 : 256}
+              showMapName={true}
+              hasMapDetailsAction={true}
+              hasFavoriteAction={true}
+              hasMapPreviewAction={true}
+              hasRegenMapImageAction={true}
+              onClick={onMapClick ? () => onMapClick(mapId) : undefined}
+              onRemove={canRemoveMap ? () => onMapRemove(mapId) : undefined}
+            />
+          )
+        })}
+      </ImageList>
+    </>
   )
 }

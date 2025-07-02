@@ -621,6 +621,7 @@
       "browseLocal": "Browse local maps",
       "error": "There was an error retrieving the maps.",
       "favoritedMaps": "Favorited maps",
+      "favoriteMaps": "Favorite maps",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",

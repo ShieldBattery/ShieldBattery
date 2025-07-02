@@ -434,12 +434,23 @@ export async function getMaps({
 }
 
 /**
- * Retrieves the list of favorited maps for a user. Favorited maps don't have filters applied to
- * them and they're ordered by the time they were favorited. Also, favorited maps list include
- * potentially "removed" maps, since it's possible to favorite maps of other users which they can
- * subsequently remove for themselves.
+ * Retrieves the list of favorited maps for a user, optionally filtered for specific `mapIds`.
+ *
+ * Favorited maps don't have filters applied to them and they're ordered by the time they were
+ * favorited. Also, favorited maps list include potentially "removed" maps, since it's possible to
+ * favorite maps of other users which they can subsequently remove for themselves.
  */
-export async function getFavoritedMaps(favoritedBy: SbUserId): Promise<MapInfo[]> {
+export async function getFavoritedMaps(
+  favoritedBy: SbUserId,
+  mapIds?: SbMapId[],
+): Promise<MapInfo[]> {
+  const conditions = [sql`WHERE favorited_by = ${favoritedBy}`]
+  if (mapIds) {
+    conditions.push(sql`fm.map_id = ANY(${mapIds})`)
+  }
+
+  const whereCondition = sqlConcat(' AND ', conditions)
+
   const query = sql`
     SELECT
       um.*,
@@ -460,7 +471,7 @@ export async function getFavoritedMaps(favoritedBy: SbUserId): Promise<MapInfo[]
     ON fm.map_id = um.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
-    WHERE favorited_by = ${favoritedBy}
+    ${whereCondition}
     ORDER BY favorited_date ASC
   `
 

@@ -1,3 +1,4 @@
+import { SbMapId as _SbMapId } from '../common/maps'
 import { SbUserId as _SbUserId } from '../common/users/sb-user-id'
 
 // Add any types in here that you want to use for Typeshare generation (and then update the type
@@ -7,6 +8,7 @@ import { SbUserId as _SbUserId } from '../common/users/sb-user-id'
 declare global {
   /** @deprecated Only for use in typeshare generated types, don't use directly */
   namespace TypeshareTypes {
+    type SbMapId = _SbMapId
     type SbUserId = _SbUserId
   }
 }

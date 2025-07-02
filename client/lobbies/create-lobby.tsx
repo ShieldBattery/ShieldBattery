@@ -439,7 +439,7 @@ export function CreateLobby(props: CreateLobbyProps) {
       {browsingMaps === MapBrowseState.Server ? (
         <BrowseServerMaps
           title={t('lobbies.createLobby.selectMap', 'Select map')}
-          onMapSelect={mapId => {
+          onMapClick={mapId => {
             mapSelectCallbackRef.current?.(mapId)
             mapSelectCallbackRef.current = undefined
             setBrowsingMaps(MapBrowseState.None)

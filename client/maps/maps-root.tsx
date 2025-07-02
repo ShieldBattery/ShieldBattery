@@ -31,10 +31,6 @@ export function MapsRoot() {
     setUploadedMapId(mapId)
   })
 
-  const onMapDetails = useStableCallback((mapId: SbMapId) => {
-    dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId } }))
-  })
-
   const onMapRemove = useStableCallback((mapId: SbMapId) => {
     if (uploadedMapId === mapId) {
       setUploadedMapId(undefined)
@@ -51,8 +47,9 @@ export function MapsRoot() {
           title={t('maps.activity.title', 'Maps')}
           uploadedMapId={uploadedMapId}
           onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
-          onMapDetails={onMapDetails}
-          onMapSelect={onMapDetails}
+          onMapClick={(mapId: SbMapId) => {
+            dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId } }))
+          }}
           onMapRemove={onMapRemove}
         />
       )}

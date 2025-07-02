@@ -261,8 +261,12 @@ export interface UploadMapResponse {
 
 export interface GetMapsResponse {
   maps: MapInfoJson[]
-  favoritedMaps: SbMapId[]
   hasMoreMaps: boolean
+  users: SbUser[]
+}
+
+export interface GetFavoritesResponse {
+  favoritedMaps: MapInfoJson[]
   users: SbUser[]
 }
 
