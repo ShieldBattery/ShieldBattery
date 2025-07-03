@@ -28,11 +28,7 @@ export function urlPath(strings: TemplateStringsArray, ...values: unknown[]) {
   return strings
     .map((str, i) => {
       if (values[i] instanceof URLSearchParams) {
-        const params = Array.from(values[i].entries())
-          .map(([key, value]) => `${key}=${value}`)
-          .join('&')
-
-        return str + params
+        return str + String(values[i])
       } else {
         const value = values[i] === undefined ? '' : encodeURIComponent(String(values[i]))
         return str + value
