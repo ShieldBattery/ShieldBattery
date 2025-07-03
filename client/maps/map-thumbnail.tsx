@@ -346,10 +346,10 @@ export function ReduxMapThumbnail({
   | 'onPreview'
 > & {
   mapId: SbMapId
-  hasMapDetailsAction: boolean
-  hasFavoriteAction: boolean
-  hasMapPreviewAction: boolean
-  hasRegenMapImageAction: boolean
+  hasMapDetailsAction?: boolean
+  hasFavoriteAction?: boolean
+  hasMapPreviewAction?: boolean
+  hasRegenMapImageAction?: boolean
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
