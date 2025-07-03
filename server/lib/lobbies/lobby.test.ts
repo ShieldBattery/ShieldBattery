@@ -9,7 +9,7 @@ import {
   Team,
 } from '../../../common/lobbies'
 import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
-import { MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
+import { makeSbMapId, MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import {
@@ -29,7 +29,7 @@ import {
 const HOST_USER_ID = makeSbUserId(27)
 
 const BigGameHunters: MapInfo = {
-  id: 'big-game-hunters',
+  id: makeSbMapId('big-game-hunters'),
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
@@ -50,7 +50,6 @@ const BigGameHunters: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
-  isFavorited: false,
 }
 
 const BOXER_LOBBY = createLobby({
@@ -833,7 +832,7 @@ describe('Lobbies - Team melee', () => {
 })
 
 const UMS_MAP_1: MapInfo = {
-  id: 'sunken-defense',
+  id: makeSbMapId('sunken-defense'),
   hash: 'defe175e',
   name: 'Sunken Defense',
   description: '',
@@ -877,10 +876,9 @@ const UMS_MAP_1: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
-  isFavorited: false,
 }
 const UMS_MAP_2: MapInfo = {
-  id: 'tappavat',
+  id: makeSbMapId('tappavat'),
   hash: '12345',
   name: 'tappavat',
   description: '',
@@ -924,10 +922,9 @@ const UMS_MAP_2: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
-  isFavorited: false,
 }
 const UMS_MAP_3: MapInfo = {
-  id: 'accipiter',
+  id: makeSbMapId('accipiter'),
   hash: '987654321',
   name: 'Accipiter',
   description: '',
@@ -965,10 +962,9 @@ const UMS_MAP_3: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
-  isFavorited: false,
 }
 const UMS_MAP_4: MapInfo = {
-  id: 'team-micro',
+  id: makeSbMapId('team-micro'),
   hash: '13579',
   name: 'Team Micro',
   description: '',
@@ -1018,7 +1014,6 @@ const UMS_MAP_4: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
-  isFavorited: false,
 }
 const UMS_LOBBY_1 = createLobby({
   name: 'Sunken Defence',

@@ -37,6 +37,8 @@ export type Scalars = {
   MatchmakingType: { input: Types.MatchmakingType; output: Types.MatchmakingType }
   /** Any of the possible race choices that can be selected. */
   Race: { input: Types.RaceChar; output: Types.RaceChar }
+  /** A map ID in the ShieldBattery system. */
+  SbMapId: { input: Types.SbMapId; output: Types.SbMapId }
   /** A user ID in the ShieldBattery system. */
   SbUserId: { input: Types.SbUserId; output: Types.SbUserId }
   /**
@@ -428,7 +430,7 @@ export type UpdateCurrentUserChanges = {
 export type UploadedMap = {
   __typename?: 'UploadedMap'
   description: Scalars['String']['output']
-  id: Scalars['UUID']['output']
+  id: Scalars['SbMapId']['output']
   mapFile: MapFile
   name: Scalars['String']['output']
   uploadDate: Scalars['DateTime']['output']
@@ -583,7 +585,7 @@ export type LiveGames_HomeFeedEntryFragmentFragment = ({
   startTime: string
   map: {
     __typename?: 'UploadedMap'
-    id: string
+    id: Types.SbMapId
     name: string
     mapFile: {
       __typename?: 'MapFile'
@@ -637,7 +639,7 @@ export type LiveGames_HomeFeedEntryMapAndTypeFragmentFragment = {
   id: string
   map: {
     __typename?: 'UploadedMap'
-    id: string
+    id: Types.SbMapId
     name: string
     mapFile: {
       __typename?: 'MapFile'
