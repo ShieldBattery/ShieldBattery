@@ -328,24 +328,29 @@ export function MapThumbnail({
   )
 }
 
-export function ReduxMapThumbnail(
-  props: Omit<
-    MapThumbnailProps,
-    | 'map'
-    | 'isFavorited'
-    | 'onMapDetails'
-    | 'onAddToFavorites'
-    | 'onRemoveFromFavorites'
-    | 'onRegenMapImage'
-    | 'onPreview'
-  > & {
-    mapId: SbMapId
-    hasMapDetailsAction?: boolean
-    hasFavoriteAction?: boolean
-    hasMapPreviewAction?: boolean
-    hasRegenMapImageAction?: boolean
-  },
-) {
+export function ReduxMapThumbnail({
+  mapId,
+  hasMapDetailsAction = true,
+  hasFavoriteAction = true,
+  hasMapPreviewAction = true,
+  hasRegenMapImageAction = true,
+  ...props
+}: Omit<
+  MapThumbnailProps,
+  | 'map'
+  | 'isFavorited'
+  | 'onMapDetails'
+  | 'onAddToFavorites'
+  | 'onRemoveFromFavorites'
+  | 'onRegenMapImage'
+  | 'onPreview'
+> & {
+  mapId: SbMapId
+  hasMapDetailsAction: boolean
+  hasFavoriteAction: boolean
+  hasMapPreviewAction: boolean
+  hasRegenMapImageAction: boolean
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -353,77 +358,12 @@ export function ReduxMapThumbnail(
 
   const snackbarController = useSnackbarController()
 
-  const map = useAppSelector(s => s.maps.byId.get(props.mapId))
+  const map = useAppSelector(s => s.maps.byId.get(mapId))
   const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
 
   useEffect(() => {
-    dispatch(batchGetMapInfo(props.mapId))
-  }, [dispatch, props.mapId])
-
-  const onAddToFavorites = (mapId: SbMapId) => {
-    dispatch(
-      addToFavorites(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(t('maps.server.favorites.added', 'Added to favorites'))
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.favorites.addedError', 'An error occurred while adding to favorites'),
-          )
-        },
-      }),
-    )
-  }
-
-  const onRemoveFromFavorites = (mapId: SbMapId) => {
-    dispatch(
-      removeFromFavorites(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.favorites.removed', 'Removed from favorites'),
-          )
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t(
-              'maps.server.favorites.removedError',
-              'An error occurred while removing from favorites',
-            ),
-          )
-        },
-      }),
-    )
-  }
-
-  const onRemoveMap = (mapId: SbMapId) => {
-    dispatch(
-      removeMap(mapId, {
-        onSuccess: () => {
-          props.onRemove?.(mapId)
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.removeError', 'An error occurred while removing the map'),
-          )
-        },
-      }),
-    )
-  }
-
-  const onRegenMapImage = (mapId: SbMapId) => {
-    dispatch(
-      regenMapImage(mapId, {
-        onSuccess: () => {
-          snackbarController.showSnackbar(t('maps.server.regenerated', 'Images regenerated'))
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('maps.server.regenerateError', 'An error occurred while regenerating images'),
-          )
-        },
-      }),
-    )
-  }
+    dispatch(batchGetMapInfo(mapId))
+  }, [dispatch, mapId])
 
   if (!map) {
     // TODO(tec27): Build a loading skeleton for this instead
@@ -434,9 +374,9 @@ export function ReduxMapThumbnail(
     )
   }
   const isFavorited = favoritedMapIds.has(map.id)
-  const canOpenMapDetails = props.hasMapDetailsAction
-  const canFavorite = selfUser && props.hasFavoriteAction
-  const canPreviewMap = props.hasMapPreviewAction
+  const canOpenMapDetails = hasMapDetailsAction
+  const canFavorite = selfUser && hasFavoriteAction
+  const canPreviewMap = hasMapPreviewAction
   const canManageMaps = !!selfPermissions?.manageMaps
   let canRemoveMap = false
   if (selfUser) {
@@ -447,7 +387,7 @@ export function ReduxMapThumbnail(
     }
   }
   canRemoveMap = !!props.onRemove && canRemoveMap
-  const canRegenMapImage = selfUser && canManageMaps && props.hasRegenMapImageAction
+  const canRegenMapImage = selfUser && canManageMaps && hasRegenMapImageAction
 
   return (
     <MapThumbnail
@@ -459,11 +399,94 @@ export function ReduxMapThumbnail(
           ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
           : undefined
       }
-      onAddToFavorites={canFavorite ? onAddToFavorites : undefined}
-      onRemoveFromFavorites={canFavorite ? onRemoveFromFavorites : undefined}
+      onAddToFavorites={
+        canFavorite
+          ? mapId => {
+              dispatch(
+                addToFavorites(mapId, {
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.favorites.added', 'Added to favorites'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.favorites.addedError',
+                        'An error occurred while adding to favorites',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onRemoveFromFavorites={
+        canFavorite
+          ? mapId => {
+              dispatch(
+                removeFromFavorites(mapId, {
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.favorites.removed', 'Removed from favorites'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.favorites.removedError',
+                        'An error occurred while removing from favorites',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
       onPreview={canPreviewMap ? () => dispatch(openMapPreviewDialog(map.id)) : undefined}
-      onRemove={canRemoveMap ? onRemoveMap : undefined}
-      onRegenMapImage={canRegenMapImage ? onRegenMapImage : undefined}
+      onRemove={
+        canRemoveMap
+          ? mapId => {
+              dispatch(
+                removeMap(mapId, {
+                  onSuccess: () => {
+                    props.onRemove?.(mapId)
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.removeError', 'An error occurred while removing the map'),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onRegenMapImage={
+        canRegenMapImage
+          ? mapId => {
+              dispatch(
+                regenMapImage(mapId, {
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.regenerated', 'Images regenerated'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.regenerateError',
+                        'An error occurred while regenerating images',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
     />
   )
 }
