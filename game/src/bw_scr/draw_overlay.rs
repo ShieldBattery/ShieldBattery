@@ -20,12 +20,14 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
+use crate::bw_scr::draw_overlay::fonts::display_family;
 use crate::game_thread::{self, GameThreadMessage};
 use crate::network_manager;
 
 use self::production::ProductionState;
 
 mod colors;
+mod fonts;
 mod loading_screen;
 mod production;
 
@@ -240,11 +242,23 @@ impl OverlayState {
                 "../../files/fonts/Inter-Regular.ttf"
             ))),
         );
+        fonts.font_data.insert(
+            "Sofia Sans SemiBold".to_string(),
+            Arc::new(FontData::from_static(include_bytes!(
+                "../../files/fonts/SofiaSans-SemiBold.ttf"
+            ))),
+        );
+
         fonts
             .families
             .entry(egui::FontFamily::Proportional)
             .or_default()
             .insert(0, "inter".to_string());
+        fonts
+            .families
+            .entry(display_family())
+            .or_default()
+            .insert(0, "Sofia Sans SemiBold".to_string());
         ctx.set_fonts(fonts);
 
         let mut style_arc = ctx.style();

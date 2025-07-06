@@ -22,7 +22,7 @@ use crate::app_messages::{
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
-use crate::bw::{self, Bw, GameType, LobbyOptions, UserLatency, get_bw};
+use crate::bw::{self, Bw, BwGameType, LobbyOptions, UserLatency, get_bw};
 use crate::bw_scr::BwScr;
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
@@ -153,8 +153,8 @@ quick_error! {
         NetworkInit(e: NetworkError) {
             display("Network initialization error: {}", e)
         }
-        UnknownGameType(ty: String, sub: Option<u8>) {
-            display("Unknown game type '{}', {:?}", ty, sub)
+        UnknownGameType(ty: crate::app_messages::GameType, sub: Option<u8>) {
+            display("Unknown game type '{:?}', {:?}", ty, sub)
         }
         Bw(e: bw::LobbyCreateError) {
             display("BW error: {}", e)
@@ -237,7 +237,7 @@ impl GameState {
         &mut self,
         info: GameSetupInfo,
     ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
-        let game_type = match info.game_type() {
+        let game_type = match info.bw_game_type() {
             Some(s) => s,
             None => {
                 let err = GameInitError::UnknownGameType(info.game_type, info.game_sub_type);
@@ -1161,7 +1161,7 @@ unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
 
 unsafe fn join_lobby(
     info: &GameSetupInfo,
-    game_type: GameType,
+    game_type: BwGameType,
 ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
     unsafe {
         let MapInfo::Game(ref game_map) = info.map else {
@@ -1271,7 +1271,7 @@ async unsafe fn try_join_lobby_once(
 unsafe fn setup_slots(
     slots: &[PlayerInfo],
     users: &[SbUser],
-    game_type: GameType,
+    game_type: BwGameType,
     ums_forces: &[MapForce],
 ) {
     let id_to_name = users
@@ -1895,7 +1895,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::one_v_one(),
+                game_type: BwGameType::one_v_one(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(1),
@@ -1983,7 +1983,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(1),
@@ -2069,7 +2069,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(1),
@@ -2154,7 +2154,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::one_v_one(),
+                game_type: BwGameType::one_v_one(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(1),
@@ -2251,7 +2251,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::top_v_bottom(2),
+                game_type: BwGameType::top_v_bottom(2),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -2391,7 +2391,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -2527,7 +2527,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::top_v_bottom(2),
+                game_type: BwGameType::top_v_bottom(2),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -2667,7 +2667,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -2805,7 +2805,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::top_v_bottom(2),
+                game_type: BwGameType::top_v_bottom(2),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -2956,7 +2956,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -3092,7 +3092,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::ums(),
+                game_type: BwGameType::ums(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -3207,7 +3207,7 @@ mod tests {
         // should bring along 2 + 3 as victors
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),
@@ -3338,7 +3338,7 @@ mod tests {
 
         let results = determine_game_results(
             GameThreadResults {
-                game_type: GameType::melee(),
+                game_type: BwGameType::melee(),
                 player_results: HashMap::from([
                     (
                         BwPlayerId(0),

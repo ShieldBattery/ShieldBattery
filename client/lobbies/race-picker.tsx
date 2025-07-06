@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { useMemo } from 'react'
 import styled from 'styled-components'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
@@ -106,73 +105,68 @@ export interface RacePickerProps<AllowRandom extends boolean | undefined> {
   className?: string
 }
 
-export const RacePicker = React.forwardRef(
-  <AllowRandom extends boolean | undefined>(
-    {
-      race,
-      hiddenRaces,
-      size = RacePickerSize.Medium,
-      allowRandom = true,
-      onSetRace,
-      allowInteraction = true,
-      className,
-    }: RacePickerProps<AllowRandom>,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [onSetZ, onSetP, onSetT, onSetR] = useMemo(() => {
-      if (!onSetRace) {
-        return [undefined, undefined, undefined, undefined]
-      } else {
-        return [
-          () => onSetRace('z'),
-          () => onSetRace('p'),
-          () => onSetRace('t'),
-          () => onSetRace('r' as any),
-        ]
-      }
-    }, [onSetRace])
+export function RacePicker<AllowRandom extends boolean | undefined>({
+  race,
+  hiddenRaces,
+  size = RacePickerSize.Medium,
+  allowRandom = true,
+  onSetRace,
+  allowInteraction = true,
+  className,
+}: RacePickerProps<AllowRandom>) {
+  const [onSetZ, onSetP, onSetT, onSetR] = useMemo(() => {
+    if (!onSetRace) {
+      return [undefined, undefined, undefined, undefined]
+    } else {
+      return [
+        () => onSetRace('z'),
+        () => onSetRace('p'),
+        () => onSetRace('t'),
+        () => onSetRace('r' as any),
+      ]
+    }
+  }, [onSetRace])
 
-    const [zergButtonProps, zergRippleRef] = useButtonState({
-      disabled: !allowInteraction,
-      onClick: onSetZ,
-    })
-    const [protossButtonProps, protossRippleRef] = useButtonState({
-      disabled: !allowInteraction,
-      onClick: onSetP,
-    })
-    const [terranButtonProps, terranRippleRef] = useButtonState({
-      disabled: !allowInteraction,
-      onClick: onSetT,
-    })
-    const [randomButtonProps, randomRippleRef] = useButtonState({
-      disabled: !allowInteraction,
-      onClick: onSetR,
-    })
+  const [zergButtonProps, zergRippleRef] = useButtonState({
+    disabled: !allowInteraction,
+    onClick: onSetZ,
+  })
+  const [protossButtonProps, protossRippleRef] = useButtonState({
+    disabled: !allowInteraction,
+    onClick: onSetP,
+  })
+  const [terranButtonProps, terranRippleRef] = useButtonState({
+    disabled: !allowInteraction,
+    onClick: onSetT,
+  })
+  const [randomButtonProps, randomRippleRef] = useButtonState({
+    disabled: !allowInteraction,
+    onClick: onSetR,
+  })
 
-    const races: RaceChar[] = allowRandom ? ['z', 'p', 't', 'r'] : ['z', 'p', 't']
-    const buttonProps = [zergButtonProps, protossButtonProps, terranButtonProps, randomButtonProps]
-    const rippleRefs = [zergRippleRef, protossRippleRef, terranRippleRef, randomRippleRef]
+  const races: RaceChar[] = allowRandom ? ['z', 'p', 't', 'r'] : ['z', 'p', 't']
+  const buttonProps = [zergButtonProps, protossButtonProps, terranButtonProps, randomButtonProps]
+  const rippleRefs = [zergRippleRef, protossRippleRef, terranRippleRef, randomRippleRef]
 
-    return (
-      <div className={className}>
-        {races.map((r, i) =>
-          hiddenRaces?.includes(r) ? (
-            <HiddenRaceIcon key={r} />
-          ) : (
-            <RaceButton
-              key={r}
-              type='button'
-              $size={size}
-              $race={r}
-              $active={r === race}
-              $allowInteraction={allowInteraction}
-              {...buttonProps[i]}>
-              <StyledRaceIcon race={r} applyRaceColor={false} $size={size} />
-              <Ripple ref={rippleRefs[i]} disabled={!allowInteraction} />
-            </RaceButton>
-          ),
-        )}
-      </div>
-    )
-  },
-)
+  return (
+    <div className={className}>
+      {races.map((r, i) =>
+        hiddenRaces?.includes(r) ? (
+          <HiddenRaceIcon key={r} />
+        ) : (
+          <RaceButton
+            key={r}
+            type='button'
+            $size={size}
+            $race={r}
+            $active={r === race}
+            $allowInteraction={allowInteraction}
+            {...buttonProps[i]}>
+            <StyledRaceIcon race={r} applyRaceColor={false} $size={size} />
+            <Ripple ref={rippleRefs[i]} disabled={!allowInteraction} />
+          </RaceButton>
+        ),
+      )}
+    </div>
+  )
+}

@@ -23,7 +23,7 @@ use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
 };
-use crate::bw::{Bw, GameType, get_bw};
+use crate::bw::{Bw, BwGameType, get_bw};
 use crate::bw_scr::BwScr;
 use crate::forge::TRACK_WINDOW_POS;
 use crate::replay;
@@ -190,7 +190,7 @@ pub fn send_game_results() {
 
 #[derive(Debug)]
 pub struct GameThreadResults {
-    pub game_type: GameType,
+    pub game_type: BwGameType,
     pub player_results: HashMap<BwPlayerId, PlayerResult>,
     pub network_results: HashMap<StormPlayerId, FinalNetworkStatus>,
     /// The type of loss the local player received (if any)

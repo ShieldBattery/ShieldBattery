@@ -795,12 +795,10 @@ export class LobbyApi {
     }
 
     try {
-      logger.info('Awaiting countdown')
       await countdownTimer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       this.loadingLobbies = this.loadingLobbies.add(lobbyName)
 
-      logger.info('Countdown complete, calling game loader')
       await this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
         playerInfos: getPlayerInfos(lobby),
@@ -808,10 +806,8 @@ export class LobbyApi {
         gameConfig,
       })
 
-      logger.info('Game loading complete')
       this._onGameLoaded(lobby)
     } catch (err) {
-      logger.error({ err }, 'error during lobby start')
       // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
 
       // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bw;
 use crate::bw::players::{AssignedRace, VictoryState};
-use crate::bw::{GameType, LobbyOptions};
+use crate::bw::{BwGameType, LobbyOptions};
 
 // Structures of messages that are used to communicate with the electron app.
 
@@ -141,13 +141,25 @@ pub struct ReplaySaved {
     pub path: String,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum GameType {
+    Melee,
+    Ffa,
+    OneVOne,
+    Ums,
+    TeamMelee,
+    TeamFfa,
+    TopVBottom,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameSetupInfo {
     pub name: String,
     pub map: MapInfo,
     pub map_path: String,
-    pub game_type: String,
+    pub game_type: GameType,
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
@@ -177,16 +189,15 @@ impl GameSetupInfo {
         }
     }
 
-    pub fn game_type(&self) -> Option<GameType> {
-        match &*self.game_type {
-            "melee" => Some(GameType::melee()),
-            "ffa" => Some(GameType::ffa()),
-            "oneVOne" => Some(GameType::one_v_one()),
-            "ums" => Some(GameType::ums()),
-            "teamMelee" => Some(GameType::team_melee(self.game_sub_type?)),
-            "teamFfa" => Some(GameType::team_ffa(self.game_sub_type?)),
-            "topVBottom" => Some(GameType::top_v_bottom(self.game_sub_type?)),
-            _ => None,
+    pub fn bw_game_type(&self) -> Option<BwGameType> {
+        match self.game_type {
+            GameType::Melee => Some(BwGameType::melee()),
+            GameType::Ffa => Some(BwGameType::ffa()),
+            GameType::OneVOne => Some(BwGameType::one_v_one()),
+            GameType::Ums => Some(BwGameType::ums()),
+            GameType::TeamMelee => Some(BwGameType::team_melee(self.game_sub_type?)),
+            GameType::TeamFfa => Some(BwGameType::team_ffa(self.game_sub_type?)),
+            GameType::TopVBottom => Some(BwGameType::top_v_bottom(self.game_sub_type?)),
         }
     }
 }
@@ -194,7 +205,7 @@ impl GameSetupInfo {
 impl From<&GameSetupInfo> for LobbyOptions {
     fn from(value: &GameSetupInfo) -> Self {
         LobbyOptions {
-            game_type: value.game_type().unwrap_or(GameType {
+            game_type: value.bw_game_type().unwrap_or(BwGameType {
                 primary: 0x2,
                 subtype: 0x1,
             }),
@@ -267,6 +278,19 @@ pub struct MapForcePlayer {
 #[serde(transparent)]
 pub struct LobbyPlayerId(String);
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SbSlotType {
+    Human,
+    Observer,
+    Computer,
+    ControlledOpen,
+    ControlledClosed,
+    UmsComputer,
+    Open,
+    Closed,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
@@ -279,10 +303,10 @@ pub struct PlayerInfo {
     /// game initialization.
     pub player_id: Option<u8>,
     pub team_id: u8,
-    /// Player type can have shieldbattery-specific players (e.g. "observer"),
-    /// player type id is the id in BW structures.
+    /// This is the slot type used by ShieldBattery code.
     #[serde(rename = "type")]
-    pub player_type: String,
+    pub player_type: SbSlotType,
+    /// This is the slot type ID used in BW structures.
     #[serde(rename = "typeId")]
     pub player_type_id: u8,
 }
@@ -290,19 +314,21 @@ pub struct PlayerInfo {
 impl PlayerInfo {
     /// Returns true for non-observing human players
     pub fn is_human(&self) -> bool {
-        self.player_type == "human"
+        self.player_type == SbSlotType::Human
     }
 
     pub fn is_observer(&self) -> bool {
-        self.player_type == "observer"
+        self.player_type == SbSlotType::Observer
     }
 
     pub fn bw_player_type(&self) -> u8 {
-        match &*self.player_type {
-            "human" => bw::PLAYER_TYPE_HUMAN,
-            "observer" => bw::PLAYER_TYPE_HUMAN,
-            "computer" => bw::PLAYER_TYPE_LOBBY_COMPUTER,
-            "controlledOpen" | "controlledClosed" | "open" | "closed" => bw::PLAYER_TYPE_OPEN,
+        match self.player_type {
+            SbSlotType::Human | SbSlotType::Observer => bw::PLAYER_TYPE_HUMAN,
+            SbSlotType::Computer => bw::PLAYER_TYPE_LOBBY_COMPUTER,
+            SbSlotType::ControlledOpen
+            | SbSlotType::ControlledClosed
+            | SbSlotType::Open
+            | SbSlotType::Closed => bw::PLAYER_TYPE_OPEN,
             _ => bw::PLAYER_TYPE_NONE,
         }
     }

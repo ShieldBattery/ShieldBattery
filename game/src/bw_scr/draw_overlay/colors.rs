@@ -69,3 +69,8 @@ pub const CONTAINER_HIGHEST: Color32 = Color32::from_rgb(28, 48, 79);
 pub const CONTAINER_HIGHEST_PLUS_1: Color32 = Color32::from_rgb(31, 51, 85);
 pub const CONTAINER_HIGHEST_PLUS_2: Color32 = Color32::from_rgb(32, 55, 92);
 pub const CONTAINER_HIGHEST_PLUS_3: Color32 = Color32::from_rgb(33, 57, 97);
+
+pub const ZERG: Color32 = Color32::from_rgb(193, 163, 245);
+pub const PROTOSS: Color32 = Color32::from_rgb(234, 211, 109);
+pub const TERRAN: Color32 = Color32::from_rgb(83, 179, 252);
+pub const RANDOM: Color32 = Color32::from_rgb(243, 171, 96);

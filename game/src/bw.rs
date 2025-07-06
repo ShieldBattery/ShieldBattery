@@ -33,7 +33,7 @@ pub fn set_bw_impl(bw: &'static BwScr) {
 
 #[derive(Debug, Copy, Clone)]
 pub struct LobbyOptions {
-    pub game_type: GameType,
+    pub game_type: BwGameType,
     pub turn_rate: u32,
     pub use_legacy_limits: bool,
 }
@@ -41,7 +41,7 @@ pub struct LobbyOptions {
 impl Default for LobbyOptions {
     fn default() -> Self {
         Self {
-            game_type: GameType {
+            game_type: BwGameType {
                 primary: 0x2,
                 subtype: 0x1,
             },
@@ -154,12 +154,12 @@ pub struct ReplayVisions {
 pub const MAX_STORM_PLAYERS: usize = 12;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct GameType {
+pub struct BwGameType {
     pub primary: u8,
     pub subtype: u8,
 }
 
-impl GameType {
+impl BwGameType {
     pub const fn melee() -> Self {
         Self {
             primary: 0x2,
@@ -424,8 +424,8 @@ pub struct BwGameData {
 }
 
 impl BwGameData {
-    pub fn game_type(&self) -> GameType {
-        GameType {
+    pub fn game_type(&self) -> BwGameType {
+        BwGameType {
             primary: self.game_type as u8,
             subtype: self.game_subtype as u8,
         }
