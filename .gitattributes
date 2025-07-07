@@ -4,6 +4,7 @@
 *.ico binary
 *.png binary
 *.jpg binary
+*.webp binary
 *.ai binary
 *.scm binary
 *.scx binary

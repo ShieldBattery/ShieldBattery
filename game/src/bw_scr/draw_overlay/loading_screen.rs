@@ -1,4 +1,4 @@
-use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow};
+use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow, Vec2};
 use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
 
@@ -8,8 +8,12 @@ use crate::{
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
 };
 
-const MAP_IMAGE_WIDTH: f32 = 640.0;
-const MAP_IMAGE_HEIGHT: f32 = 640.0;
+const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
+const SMALL_MAP_IMAGE_SIZE: Vec2 = Vec2::new(480.0, 480.0);
+const MAP_BREAKPOINT: f32 = 1360.0;
+
+// TODO(tec27): This is probably retrievable from egui?
+const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
 
 impl OverlayState {
     pub fn add_loading_screen_ui(
@@ -58,6 +62,12 @@ impl OverlayState {
         };
         let (start_players, end_players) = get_player_halves(setup_info);
 
+        let map_size = if ctx.screen_rect().size().x < MAP_BREAKPOINT {
+            SMALL_MAP_IMAGE_SIZE
+        } else {
+            MAP_IMAGE_SIZE
+        };
+
         egui::CentralPanel::default()
             .frame(
                 Frame::default()
@@ -65,13 +75,24 @@ impl OverlayState {
                     .inner_margin(Margin::symmetric(24, 16)),
             )
             .show(ctx, |ui| {
+                // Do the equivalent of `object-fit: cover` for the background image
+                let screen_size = ctx.screen_rect().size();
+                let background_scale =
+                    (screen_size.x / BACKGROUND_SIZE.x).max(screen_size.y / BACKGROUND_SIZE.y);
+                let scaled_size = BACKGROUND_SIZE * background_scale;
+                let top_left = ctx.screen_rect().center() - scaled_size * 0.5;
+                let background_rect = egui::Rect::from_min_size(top_left, scaled_size);
+                egui::Image::new(egui::include_image!("images/loading-screen.webp"))
+                    .tint(Color32::from_white_alpha(170))
+                    .paint_at(ui, background_rect);
+
                 ui.style_mut().spacing.item_spacing = [40.0, 24.0].into();
                 ui.with_layout(
                     Layout::centered_and_justified(egui::Direction::TopDown),
                     |ui| {
                         StripBuilder::new(ui)
                             .size(egui_extras::Size::remainder().at_least(120.0))
-                            .size(egui_extras::Size::exact(MAP_IMAGE_WIDTH + 4.0 + 4.0))
+                            .size(egui_extras::Size::exact(map_size.x + 4.0 + 4.0))
                             .size(egui_extras::Size::remainder().at_least(120.0))
                             .horizontal(|mut strip| {
                                 strip.cell(|ui| {
@@ -126,13 +147,7 @@ impl OverlayState {
                                                         ui.add(
                                                             egui::Image::from_uri(url)
                                                                 .show_loading_spinner(false)
-                                                                .fit_to_exact_size(
-                                                                    [
-                                                                        MAP_IMAGE_WIDTH,
-                                                                        MAP_IMAGE_HEIGHT,
-                                                                    ]
-                                                                    .into(),
-                                                                )
+                                                                .fit_to_exact_size(map_size)
                                                                 .corner_radius(CornerRadius::same(
                                                                     8,
                                                                 )),
