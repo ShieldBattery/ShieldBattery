@@ -53,7 +53,6 @@ prost = "0.14"
 quick-error = "2.0"
 rand = "0.9"
 reqwest = { version = "0.12", features = [
-  "brotli",
   "deflate",
   "gzip",
   "json",
@@ -64,7 +63,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_repr = "0.1"
 smallvec = "1.15"
-tokio = { version = "1.45", features = [
+tokio = { version = "1.46", features = [
   "fs",
   "net",
   "rt-multi-thread",
