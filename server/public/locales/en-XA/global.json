@@ -478,10 +478,7 @@
             "lobbyDisabledText": "$🗡You can't use matchmaking while in a lobby.🗡!"
         },
         "match": {
-            "gameFailedToLoad": "$🗡The game has failed to load.🗡!",
-            "gameInProgress": "$🗡Game in progress…🗡!",
-            "gameLoading": "$🗡Game launching…🗡!",
-            "playerVsPlayer": "$🗡vs🗡!"
+            "gameFailedToLoad": "$🗡The game has failed to load.🗡!"
         },
         "postMatchDialog": {
             "leagues": "$🗡Leagues🗡!",
@@ -654,6 +651,9 @@
             "number": "$🗡Team {{teamNumber}}🗡!",
             "top": "$🗡Top🗡!",
             "bottom": "$🗡Bottom🗡!"
+        },
+        "launchingGameDialog": {
+            "title": "$🗡Launching game…🗡!"
         }
     },
     "gameDetails": {
@@ -1028,9 +1028,6 @@
             "action": "$🗡Join lobby🗡!",
             "matchmakingActiveDialogText": "$🗡You cannot join lobbies while a matchmaking search is active.🗡!",
             "matchmakingActiveDialogTitle": "$🗡Joining lobbies disabled🗡!"
-        },
-        "loading": {
-            "content": "$🗡<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>🗡!"
         },
         "lobby": {
             "gameType": "$🗡Game type🗡!",

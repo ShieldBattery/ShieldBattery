@@ -471,10 +471,7 @@
             "lobbyDisabledText": "No puedes usar emparejamiento mientras estés en un lobby."
         },
         "match": {
-            "gameFailedToLoad": "El juego no se ha podido cargar.",
-            "gameInProgress": "Juego en progreso…",
-            "gameLoading": "Lanzamiento del juego…",
-            "playerVsPlayer": "contra"
+            "gameFailedToLoad": "El juego no se ha podido cargar."
         },
         "postMatchDialog": {
             "leagues": "Ligas",
@@ -659,6 +656,9 @@
             "bottom": "Abajo",
             "number": "Equipo {{teamNumber}}",
             "top": "Arriba"
+        },
+        "launchingGameDialog": {
+            "title": "Iniciando el juego…"
         }
     },
     "gameDetails": {
@@ -1034,9 +1034,6 @@
             "action": "Unirse al lobby",
             "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
             "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado"
-        },
-        "loading": {
-            "content": "<0>{{gameType}}</0><1> en </1><2>{{mapName}}</2>"
         },
         "lobby": {
             "gameType": "Tipo de juego",

@@ -451,10 +451,7 @@
             "hours": "Часы"
         },
         "match": {
-            "gameFailedToLoad": "Не удалось загрузить игру.",
-            "gameInProgress": "Идет игра…",
-            "gameLoading": "Запуск игры…",
-            "playerVsPlayer": "против"
+            "gameFailedToLoad": "Не удалось загрузить игру."
         },
         "postMatchDialog": {
             "leagues": "Лиги",
@@ -578,9 +575,6 @@
             "matchmakingActiveDialogText": "Вы не можете присоединяться к лобби, пока активен поиск матчей.",
             "matchmakingActiveDialogTitle": "Присоединение к лобби отключено"
         },
-        "loading": {
-            "content": "<0>{{gameType}}</0><1> на </1><2>{{mapName}}</2>"
-        },
         "lobby": {
             "gameType": "Тип игры",
             "leaveLobby": "Выйти из лобби",
@@ -657,6 +651,9 @@
             "bottom": "Низ",
             "number": "Команда {{teamNumber}}",
             "top": "Верх"
+        },
+        "launchingGameDialog": {
+            "title": "Запуск игры…"
         }
     },
     "gameDetails": {

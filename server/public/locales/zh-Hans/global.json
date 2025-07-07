@@ -483,10 +483,7 @@
             "1v1fastest": "1v1 Fastest"
         },
         "match": {
-            "gameFailedToLoad": "游戏加载失败。",
-            "gameInProgress": "游戏正在进行中……",
-            "gameLoading": "游戏正在启动……",
-            "playerVsPlayer": "对"
+            "gameFailedToLoad": "游戏加载失败。"
         },
         "activity": {
             "title": "匹配"
@@ -537,6 +534,9 @@
         "gameSource": {
             "custom": "自定义游戏",
             "ranked": "{{matchmakingType}}排位"
+        },
+        "launchingGameDialog": {
+            "title": "正在启动游戏…"
         }
     },
     "chat": {
@@ -684,9 +684,6 @@
         "errors": {
             "alreadyInLobby": "您已经在另一个房间了。",
             "load": "加载该房间时遇到问题"
-        },
-        "loading": {
-            "content": "<0>{{gameType}}</0><1>于</1><2>{{mapName}}</2>"
         },
         "lobby": {
             "gameType": "游戏类型",
