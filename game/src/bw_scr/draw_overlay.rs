@@ -249,17 +249,22 @@ impl OverlayState {
                 "../../files/fonts/SofiaSans-SemiBold.ttf"
             ))),
         );
+        fonts.font_data.insert(
+            "Do Hyeon".to_string(),
+            Arc::new(FontData::from_static(include_bytes!(
+                "../../files/fonts/DoHyeon-Regular.ttf"
+            ))),
+        );
 
         fonts
             .families
             .entry(egui::FontFamily::Proportional)
             .or_default()
             .insert(0, "inter".to_string());
-        fonts
-            .families
-            .entry(display_family())
-            .or_default()
-            .insert(0, "Sofia Sans SemiBold".to_string());
+        let entry = fonts.families.entry(display_family()).or_default();
+        entry.insert(0, "Sofia Sans SemiBold".to_string());
+        // Fallback for Korean characters
+        entry.insert(1, "Do Hyeon".to_string());
         ctx.set_fonts(fonts);
 
         let mut style_arc = ctx.style();

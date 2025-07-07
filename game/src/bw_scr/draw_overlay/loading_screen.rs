@@ -192,7 +192,7 @@ impl OverlayState {
 
         if let Some(countdown_start) = bw.countdown_start {
             let elapsed = 5 - countdown_start.elapsed().as_secs().min(5);
-            let area_width = 72.0;
+            let area_width = 80.0;
             let x_center = ctx.screen_rect().center().x - area_width / 2.0;
             egui::Area::new("loading_screen_countdown".into())
                 .fixed_pos(egui::pos2(x_center, 24.0))
@@ -202,7 +202,7 @@ impl OverlayState {
                     Frame::default()
                         .fill(colors::BLUE50)
                         .multiply_with_opacity(0.5)
-                        .corner_radius(CornerRadius::same(36))
+                        .corner_radius(CornerRadius::same(40))
                         .show(ui, |ui| {
                             ui.with_layout(
                                 Layout::top_down(egui::Align::Center)

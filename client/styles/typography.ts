@@ -8,14 +8,17 @@ export const singleLine = css`
 
 export const inter = css`
   font-family: Inter, sans-serif;
+  font-synthesis: style small-caps;
 `
 
 export const sofiaSans = css`
   font-family: 'Sofia Sans', Inter, sans-serif;
+  font-synthesis: style small-caps;
 `
 
 export const sofiaSansCondensed = css`
   font-family: 'Sofia Sans Condensed', 'Sofia Sans', Inter, sans-serif;
+  font-synthesis: style small-caps;
 `
 
 export const bodySmall = css`
