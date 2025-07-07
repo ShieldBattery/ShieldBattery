@@ -545,9 +545,6 @@
       "openSlotCount_other": "{{count}} slots open",
       "title": "Join Lobby"
     },
-    "loading": {
-      "content": "<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>"
-    },
     "lobby": {
       "gameType": "Game type",
       "leaveLobby": "Leave lobby",
@@ -749,10 +746,7 @@
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "The game has failed to load.",
-      "gameInProgress": "Game in progress…",
-      "gameLoading": "Game launching…",
-      "playerVsPlayer": "vs"
+      "gameFailedToLoad": "The game has failed to load."
     },
     "postMatchDialog": {
       "leagues": "Leagues",
