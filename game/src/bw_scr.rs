@@ -169,6 +169,7 @@ pub struct BwScr {
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
     snet_send_packets: unsafe extern "C" fn(),
+    process_events: unsafe extern "C" fn(u32),
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     move_screen: unsafe extern "C" fn(u32, u32),
     get_render_target: unsafe extern "C" fn(u32) -> *mut scr::RenderTarget,
@@ -705,6 +706,7 @@ impl BwScr {
         let lobby_create_callback_offset = analysis
             .create_game_dialog_vtbl_on_multiplayer_create()
             .ok_or("Lobby create callback vtable offset")?;
+        let process_events = analysis.process_events().ok_or("process_events")?;
         let process_game_commands = analysis.process_commands().ok_or("process_game_commands")?;
         let game_command_lengths = analysis.command_lengths();
         let snet_recv_packets = analysis.snet_recv_packets().ok_or("snet_recv_packets")?;
@@ -975,6 +977,7 @@ impl BwScr {
             snet_recv_packets: unsafe { mem::transmute(snet_recv_packets.0) },
             snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
+            process_events: unsafe { mem::transmute(process_events.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             move_screen: unsafe { mem::transmute(move_screen.0) },
             get_render_target: unsafe { mem::transmute(get_render_target.0) },
@@ -1869,6 +1872,15 @@ impl BwScr {
         }
     }
 
+    /// Triggers the game to process any events (such as Windows messages, sound playback, etc.).
+    /// Typically the game will call this itself as part of stepping the game loop, but this may
+    /// need to be manually called during initialization/shutdown.
+    pub unsafe fn process_events(&self) {
+        unsafe {
+            (self.process_events)(3);
+        }
+    }
+
     /// Forces a redraw of the graphic layers. This should only be used during game initialization,
     /// as we don't provide the necessary extra functions to properly render an ingame UI.
     pub unsafe fn force_redraw_during_init(&self) {
@@ -2371,21 +2383,7 @@ impl BwScr {
         unsafe {
             (self.play_sound)(
                 self.lookup_sound(id),
-                1.0,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            );
-        }
-    }
-
-    /// Plays the specified sound with a volume multiplier. These IDs can found rez/sfx.json in the
-    /// game files. Unknown sound IDs will cause a crash. Volumes are in thhe range [0.0, 1.0].
-    pub fn play_sound_with_volume(&self, id: impl Into<String>, volume: f32) {
-        unsafe {
-            (self.play_sound)(
-                self.lookup_sound(id),
-                volume,
+                1.0, // volume
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),

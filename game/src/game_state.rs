@@ -1449,31 +1449,16 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
 
     unsafe {
         let bw = get_bw();
-        // TODO(tec27): Sync countdown across clients
-        debug!("Starting countdown");
 
-        // We play this first so that it will play first once the game starts, see the comment below
-        // for why this doesn't actually play before the countdown :)
-        bw.play_sound(SWISH_OUT);
-
-        // NOTE(tec27): play_sound() seems to pump the sound playback buffer, which otherwise isn't
-        // happening normally at this point since we're not in the game loop yet. This happens on
-        // a per-sound basis, so we need to play another beep to cause the initial one to play. To
-        // hackishly work around this, we can initially play 2 beeps, then at the very end we play
-        // one extra beep at 0 volume to push the final beep through. But that's not the only issue:
-        // whatever instantaneous playback this causes doesn't seem to clean up the queue properly,
-        // so it leaves the requests for beeping there to be played by the game loop later. This
-        // code seems to coalesce all the requests to whatever the first one was, so we play 1 more
-        // volume 0 beep at the very beginning to quiet that at game start (so 3 initial beeps
-        // total). Phew.
-        bw.play_sound_with_volume(COUNTDOWN_BEEP, 0.0);
-        bw.play_sound(COUNTDOWN_BEEP);
-        // It does have a minimum buffer time of 80ms though, so we need to wait at least 2 ticks to
-        // ensure our strategy will work
-        for _ in 0..2 {
+        // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
+        // playback speed due to rendering changes
+        for _ in 0..20 {
             bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
+
+        // TODO(tec27): Sync countdown across clients
+        debug!("Starting countdown");
 
         let mut beeps = 0;
         let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
@@ -1487,14 +1472,13 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
                         bw.set_countdown_start(countdown_start);
                     }
 
+                    bw.play_sound(COUNTDOWN_BEEP);
+                    beeps += 1;
+
                     if beeps == 6 {
-                        bw.play_sound_with_volume(COUNTDOWN_BEEP, 0.0);
                         debug!("Countdown complete, doing lobby game init");
                         break;
                     }
-
-                    bw.play_sound(COUNTDOWN_BEEP);
-                    beeps += 1;
                 }
                 _ = receive_interval.tick() => {
                     bw.maybe_receive_turns();
@@ -1519,6 +1503,8 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
             bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
+
+        bw.play_sound(SWISH_OUT);
     }
 }
 

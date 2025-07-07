@@ -201,6 +201,10 @@ impl<'e> Analysis<'e> {
         self.0.process_commands()
     }
 
+    pub fn process_events(&mut self) -> Option<VirtualAddress> {
+        self.0.process_events()
+    }
+
     pub fn command_lengths(&mut self) -> Vec<u32> {
         (*self.0.command_lengths()).clone()
     }

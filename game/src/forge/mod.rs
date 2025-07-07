@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
-use winapi::shared::minwindef::{ATOM, HINSTANCE};
+use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
 use winapi::shared::windef::{HMENU, HWND, RECT};
 use winapi::um::winuser::*;
 
@@ -477,13 +477,24 @@ pub unsafe fn run_wnd_proc() {
             get_bw().force_redraw_during_init();
         }
 
-        let mut msg: MSG = mem::zeroed();
-        while GetMessageW(&mut msg, null_mut(), 0, 0) != 0 {
-            if msg.message == WM_END_WND_PROC_WORKER {
+        // Wait for there to be messages in the queue, then tell SC:R to process events so it will
+        // dispatch them. We do this because we need to call `process_events` anyway (for things
+        // like sound playback), and it calls through to `PeekMessageW` anyway.
+        while MsgWaitForMultipleObjects(0, null_mut(), FALSE, u32::MAX, QS_ALLINPUT) != u32::MAX {
+            let mut msg: MSG = mem::zeroed();
+            let done = PeekMessageW(
+                &mut msg,
+                null_mut(),
+                WM_END_WND_PROC_WORKER,
+                WM_END_WND_PROC_WORKER,
+                PM_REMOVE,
+            ) != 0;
+
+            get_bw().process_events();
+
+            if done {
                 return;
             }
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
         }
         // Going to close everything since the window got closed / error happened.
         // TODO Ask async thread exit instead
