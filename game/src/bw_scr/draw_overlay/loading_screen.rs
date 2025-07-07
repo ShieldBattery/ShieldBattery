@@ -177,25 +177,34 @@ impl OverlayState {
 
         if let Some(countdown_start) = bw.countdown_start {
             let elapsed = 5 - countdown_start.elapsed().as_secs().min(5);
-            let area_width = 48.0;
+            let area_width = 72.0;
             let x_center = ctx.screen_rect().center().x - area_width / 2.0;
             egui::Area::new("loading_screen_countdown".into())
-                .fixed_pos(egui::pos2(x_center, 100.0))
+                .fixed_pos(egui::pos2(x_center, 24.0))
                 .show(ctx, |ui| {
                     ui.set_min_width(area_width);
                     ui.set_min_height(area_width);
                     Frame::default()
-                        .fill(colors::GREY_BLUE10)
+                        .fill(colors::BLUE50)
                         .multiply_with_opacity(0.5)
-                        .corner_radius(CornerRadius::same(8))
+                        .corner_radius(CornerRadius::same(36))
                         .show(ui, |ui| {
-                            let text = format!("{elapsed}");
-                            ui.label(
-                                RichText::new(text)
-                                    .size(36.0)
-                                    .color(colors::GREY99)
-                                    .family(display_family()),
-                            );
+                            ui.with_layout(
+                                Layout::top_down(egui::Align::Center)
+                                    .with_main_align(egui::Align::Center),
+                                |ui| {
+                                    let text = format!("{elapsed}");
+                                    ui.add_sized(
+                                        [area_width, area_width],
+                                        Label::new(
+                                            RichText::new(text)
+                                                .size(56.0)
+                                                .color(colors::GREY99)
+                                                .family(display_family()),
+                                        ),
+                                    );
+                                },
+                            )
                         });
                 });
         }

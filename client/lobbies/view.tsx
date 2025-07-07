@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
-import { RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
@@ -15,7 +14,7 @@ import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
-import { usePrevious, useStableCallback } from '../react/state-hooks'
+import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { BodyLarge } from '../styles/typography'
 import {
@@ -36,8 +35,6 @@ import {
   setRace,
   startCountdown,
 } from './action-creators'
-import ActiveLobby from './active-lobby'
-import LoadingScreen from './loading'
 import LobbyComponent from './lobby'
 
 const LoadingArea = styled.div`
@@ -77,7 +74,7 @@ export function LobbyView(props: LobbyViewProps) {
   useEffect(() => {
     // TODO(tec27): This check seems kind of bad because you could (theoretically) get kicked from
     // a lobby on the same render you launch an active game? Ideally this would check that this
-    // specific lobby is the active one (or we move the 'actiev game' stuff out of the lobby flow
+    // specific lobby is the active one (or we move the 'active game' stuff out of the lobby flow
     // entirely, which is probably better)
     if (isLeavingLobby && !isActiveGame) {
       push('/')
@@ -122,37 +119,11 @@ export function LobbyView(props: LobbyViewProps) {
 
   return (
     <Switch>
-      <Route path='/lobbies/:lobby/loading-game'>
-        <LobbyLoadingScreen />
-      </Route>
-      <Route path='/lobbies/:lobby/active-game'>
-        <ActiveLobbyGameScreen />
-      </Route>
       <Route path='/lobbies/:lobby'>
         <LobbyContent routeLobby={routeLobby} />
       </Route>
     </Switch>
   )
-}
-
-function LobbyLoadingScreen() {
-  const isLoading = useAppSelector(s => s.lobby.loadingState.isLoading)
-  const lobbyInfo = useAppSelector(s => s.lobby.info)
-  const gameClientStatus = useAppSelector(s => s.gameClient.status)
-  const user = useSelfUser()
-
-  return isLoading ? (
-    <LoadingScreen lobby={lobbyInfo} gameStatus={gameClientStatus} user={user} />
-  ) : null
-}
-
-function ActiveLobbyGameScreen() {
-  const hasActiveGame = useAppSelector(s => s.activeGame.isActive)
-  const activeGameLobby = useAppSelector(s =>
-    s.activeGame.info?.type === 'lobby' ? s.activeGame.info.extra.lobby.info : undefined,
-  )
-
-  return hasActiveGame && activeGameLobby ? <ActiveLobby lobby={activeGameLobby} /> : null
 }
 
 function LobbyContent({ routeLobby }: { routeLobby: string }) {
@@ -175,65 +146,51 @@ function ConnectedLobby() {
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const chat = useAppSelector(s => s.lobby.chat)
 
-  const onLeaveLobbyClick = useStableCallback(() => {
-    dispatch(leaveLobby())
-  })
-  const onAddComputer = useStableCallback((slotId: string) => {
-    dispatch(addComputer(slotId))
-  })
-  const onSwitchSlot = useStableCallback((slotId: string) => {
-    dispatch(changeSlot(slotId))
-  })
-  const onOpenSlot = useStableCallback((slotId: string) => {
-    dispatch(openSlot(slotId))
-  })
-  const onCloseSlot = useStableCallback((slotId: string) => {
-    dispatch(closeSlot(slotId))
-  })
-  const onKickPlayer = useStableCallback((slotId: string) => {
-    dispatch(kickPlayer(slotId))
-  })
-  const onBanPlayer = useStableCallback((slotId: string) => {
-    dispatch(banPlayer(slotId))
-  })
-  const onMakeObserver = useStableCallback((slotId: string) => {
-    dispatch(makeObserver(slotId))
-  })
-  const onRemoveObserver = useStableCallback((slotId: string) => {
-    dispatch(removeObserver(slotId))
-  })
-  const onSetRace = useStableCallback((slotId: string, race: RaceChar) => {
-    dispatch(setRace(slotId, race))
-  })
-  const onSendChatMessage = useStableCallback((message: string) => {
-    dispatch(sendChat(message))
-  })
-  const onStartGame = useStableCallback(() => {
-    dispatch(startCountdown())
-  })
-  const onMapPreview = useStableCallback(() => {
-    dispatch(openMapPreviewDialog((lobby.map as any).id))
-  })
-
   return (
     <LobbyComponent
       lobby={lobby}
       loadingState={loadingState}
       chat={chat}
       user={selfUser!}
-      onLeaveLobbyClick={onLeaveLobbyClick}
-      onAddComputer={onAddComputer}
-      onSetRace={onSetRace}
-      onSwitchSlot={onSwitchSlot}
-      onOpenSlot={onOpenSlot}
-      onCloseSlot={onCloseSlot}
-      onKickPlayer={onKickPlayer}
-      onBanPlayer={onBanPlayer}
-      onMakeObserver={onMakeObserver}
-      onRemoveObserver={onRemoveObserver}
-      onStartGame={onStartGame}
-      onSendChatMessage={onSendChatMessage}
-      onMapPreview={onMapPreview}
+      onLeaveLobbyClick={() => {
+        dispatch(leaveLobby())
+      }}
+      onAddComputer={slotId => {
+        dispatch(addComputer(slotId))
+      }}
+      onSetRace={(slotId, race) => {
+        dispatch(setRace(slotId, race))
+      }}
+      onSwitchSlot={slotId => {
+        dispatch(changeSlot(slotId))
+      }}
+      onOpenSlot={slotId => {
+        dispatch(openSlot(slotId))
+      }}
+      onCloseSlot={slotId => {
+        dispatch(closeSlot(slotId))
+      }}
+      onKickPlayer={slotId => {
+        dispatch(kickPlayer(slotId))
+      }}
+      onBanPlayer={slotId => {
+        dispatch(banPlayer(slotId))
+      }}
+      onMakeObserver={slotId => {
+        dispatch(makeObserver(slotId))
+      }}
+      onRemoveObserver={slotId => {
+        dispatch(removeObserver(slotId))
+      }}
+      onStartGame={() => {
+        dispatch(startCountdown())
+      }}
+      onSendChatMessage={message => {
+        dispatch(sendChat(message))
+      }}
+      onMapPreview={() => {
+        dispatch(openMapPreviewDialog(lobby.map!.id))
+      }}
     />
   )
 }

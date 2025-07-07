@@ -1452,6 +1452,10 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
         // TODO(tec27): Sync countdown across clients
         debug!("Starting countdown");
 
+        // We play this first so that it will play first once the game starts, see the comment below
+        // for why this doesn't actually play before the countdown :)
+        bw.play_sound(SWISH_OUT);
+
         // NOTE(tec27): play_sound() seems to pump the sound playback buffer, which otherwise isn't
         // happening normally at this point since we're not in the game loop yet. This happens on
         // a per-sound basis, so we need to play another beep to cause the initial one to play. To
@@ -1506,8 +1510,6 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
             bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
-
-        bw.play_sound(SWISH_OUT);
 
         loop {
             let done = bw.try_finish_lobby_game_init();

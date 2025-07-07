@@ -9,13 +9,12 @@ import {
   MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
-import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dispatchable, dispatch } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
-import { push, replace } from '../navigation/routing'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
 
@@ -32,14 +31,10 @@ interface TimerState {
   timer: ReturnType<typeof setInterval> | undefined
 }
 
-interface CountdownState extends TimerState {
-  sound: ReturnType<AudioManager['playFadeableSound']> | undefined
-  atmosphere: ReturnType<AudioManager['playFadeableSound']> | undefined
-}
-
 const acceptMatchState: TimerState = {
   timer: undefined,
 }
+
 function clearAcceptMatchTimer() {
   const { timer } = acceptMatchState
   if (timer) {
@@ -56,36 +51,6 @@ function clearRequeueTimer() {
   if (timer) {
     clearTimeout(timer)
     requeueState.timer = undefined
-  }
-}
-
-const countdownState: CountdownState = {
-  timer: undefined,
-  sound: undefined,
-  atmosphere: undefined,
-}
-function fadeAtmosphere(fast = true) {
-  const { atmosphere } = countdownState
-  if (atmosphere) {
-    const timing = fast ? 1.5 : 3
-    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
-    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
-    countdownState.atmosphere = undefined
-  }
-}
-function clearCountdownTimer(leaveAtmosphere = false) {
-  const { timer, sound, atmosphere } = countdownState
-  if (timer) {
-    clearInterval(timer)
-    countdownState.timer = undefined
-  }
-  if (sound) {
-    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
-    sound.source.stop(audioManager.currentTime + 0.6)
-    countdownState.sound = undefined
-  }
-  if (!leaveAtmosphere && atmosphere) {
-    fadeAtmosphere()
   }
 }
 
@@ -170,7 +135,7 @@ const eventToAction: EventToActionMap = {
       type: '@matchmaking/matchReady',
       payload: event,
     })
-    push('/matchmaking/countdown')
+    dispatch(openDialog({ type: DialogType.LaunchingGame }))
   },
 
   setRoutes: (matchmakingType, event) => () => {
@@ -179,37 +144,9 @@ const eventToAction: EventToActionMap = {
     ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
   },
 
-  // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
-  startCountdown: (matchmakingType, event) => () => {
-    clearCountdownTimer()
-    let tick = 5
-    dispatch({
-      type: '@matchmaking/countdownStarted',
-      payload: tick,
-    })
-
-    countdownState.sound = audioManager.playFadeableSound(AvailableSound.Countdown)
-    countdownState.atmosphere = audioManager.playFadeableSound(AvailableSound.Atmosphere)
-
-    countdownState.timer = setInterval(() => {
-      tick -= 1
-      dispatch({
-        type: '@matchmaking/countdownTick',
-        payload: tick,
-      })
-      if (!tick) {
-        clearCountdownTimer(true /* leaveAtmosphere */)
-      }
-    }, 1000)
-  },
-
   cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
-    clearCountdownTimer()
+    dispatch(closeDialog(DialogType.LaunchingGame))
 
-    const currentPath = location.pathname
-    if (currentPath === '/matchmaking/countdown' || currentPath === '/matchmaking/game-starting') {
-      replace('/')
-    }
     dispatch({
       type: '@active-game/launch',
       payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
@@ -221,8 +158,6 @@ const eventToAction: EventToActionMap = {
   },
 
   gameStarted: (matchmakingType, event) => (dispatch, getState) => {
-    fadeAtmosphere(false /* fast */)
-
     const {
       matchmaking: { match },
     } = getState()
@@ -232,10 +167,7 @@ const eventToAction: EventToActionMap = {
       return
     }
 
-    const currentPath = location.pathname
-    if (currentPath === '/matchmaking/game-starting') {
-      replace('/matchmaking/active-game')
-    }
+    dispatch(closeDialog(DialogType.LaunchingGame))
     // TODO(tec27): This event is kind of absurd: we're pulling state out of the reducer to pass it
     // back to the reducer again? Should think more deeply about what we're trying to signal here
     dispatch({

@@ -15,6 +15,7 @@ export enum DialogType {
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
+  LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
@@ -70,6 +71,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
     domain: string
   }
 >
+type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
@@ -139,6 +141,7 @@ export type DialogPayload =
   | DownloadDialogPayload
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
+  | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
   | MapPreviewDialogPayload

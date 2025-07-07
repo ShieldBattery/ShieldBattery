@@ -32,7 +32,6 @@ const AdminPanel = React.lazy(() => import('./admin/panel'))
 const LobbyView = React.lazy(async () => ({
   default: (await import('./lobbies/view')).LobbyView,
 }))
-const MatchmakingView = React.lazy(() => import('./matchmaking/view'))
 const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
 }))
@@ -71,7 +70,6 @@ export function AppRoutes({
         <Route path='/leagues/*?' component={LeagueRoot} />
         {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
         <Route path='/maps/*?' component={MapsRoot} />
-        {IS_ELECTRON ? <Route path='/matchmaking/*?' component={MatchmakingView} /> : <></>}
         <Route path='/play/*?' component={PlayRoot} />
         <Route path='/replays/*?' component={ReplaysRoot} />
         <Route path='/static-news/*?' component={StaticNewsRoute} />

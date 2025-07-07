@@ -27,6 +27,8 @@ import {
   LOBBY_UPDATE_STATUS,
 } from '../actions'
 import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
+import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { Dispatchable, dispatch } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
@@ -38,25 +40,15 @@ const ipcRenderer = new TypedIpcRenderer()
 interface CountdownState {
   timer: ReturnType<typeof setInterval> | undefined
   sound: ReturnType<AudioManager['playFadeableSound']> | undefined
-  atmosphere: ReturnType<AudioManager['playFadeableSound']> | undefined
 }
 
 const countdownState: CountdownState = {
   timer: undefined,
   sound: undefined,
-  atmosphere: undefined,
 }
-function fadeAtmosphere(fast = true) {
-  const { atmosphere } = countdownState
-  if (atmosphere) {
-    const timing = fast ? 1.5 : 3
-    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
-    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
-    countdownState.atmosphere = undefined
-  }
-}
-function clearCountdownTimer(leaveAtmosphere = false) {
-  const { timer, sound, atmosphere } = countdownState
+
+function clearCountdownTimer() {
+  const { timer, sound } = countdownState
   if (timer) {
     clearInterval(timer)
     countdownState.timer = undefined
@@ -65,9 +57,6 @@ function clearCountdownTimer(leaveAtmosphere = false) {
     sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
     sound.source.stop(audioManager.currentTime + 0.6)
     countdownState.sound = undefined
-  }
-  if (!leaveAtmosphere && atmosphere) {
-    fadeAtmosphere()
   }
 }
 
@@ -165,7 +154,7 @@ const eventToAction: EventToActionMap = {
 
     const user = auth.self!.user.id
     if (user === event.player.userId) {
-      // It was us who have been banned from a lobby (shame on us!)
+      // It was us who has been banned from a lobby (shame on us!)
       clearCountdownTimer()
       externalShowSnackbar(i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'))
       dispatch({
@@ -205,7 +194,6 @@ const eventToAction: EventToActionMap = {
       payload: tick,
     } as any)
     countdownState.sound = audioManager.playFadeableSound(AvailableSound.Countdown)
-    countdownState.atmosphere = audioManager.playFadeableSound(AvailableSound.Atmosphere)
 
     countdownState.timer = setInterval(() => {
       tick -= 1
@@ -214,15 +202,10 @@ const eventToAction: EventToActionMap = {
         payload: tick,
       } as any)
       if (!tick) {
-        clearCountdownTimer(true /* leaveAtmosphere */)
+        clearCountdownTimer()
         dispatch({ type: LOBBY_UPDATE_LOADING_START } as any)
 
-        const { lobby } = getState()
-
-        const currentPath = location.pathname
-        if (currentPath === urlPath`/lobbies/${lobby.info.name}`) {
-          replace(urlPath`/lobbies/${lobby.info.name}/loading-game`)
-        }
+        dispatch(openDialog({ type: DialogType.LaunchingGame }))
       }
     }, 1000)
   },
@@ -247,29 +230,21 @@ const eventToAction: EventToActionMap = {
       type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
     } as any)
 
-    fadeAtmosphere()
-
-    const { lobby } = getState()
-    const currentPath = location.pathname
-    if (currentPath === urlPath`/lobbies/${lobby.info.name}/loading-game`) {
-      replace(urlPath`/lobbies/${lobby.info.name}`)
-    }
-
     dispatch({
       type: '@active-game/launch',
       payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED } as any)
+    dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
   gameStarted: (name, event) => (dispatch, getState) => {
-    fadeAtmosphere(false /* fast */)
-
     const { lobby } = getState()
 
+    dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
-    if (currentPath === urlPath`/lobbies/${lobby.info.name}/loading-game`) {
-      replace(urlPath`/lobbies/${lobby.info.name}/active-game`)
+    if (currentPath === urlPath`/lobbies/${lobby.info.name}`) {
+      replace(urlPath`/`)
     }
     dispatch({
       type: LOBBY_UPDATE_GAME_STARTED,

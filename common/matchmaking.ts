@@ -747,10 +747,6 @@ export interface SetRoutesEvent {
   gameId: string
 }
 
-export interface StartCountdownEvent {
-  type: 'startCountdown'
-}
-
 export interface CancelLoadingEvent {
   type: 'cancelLoading'
   reason: string
@@ -777,7 +773,6 @@ export type MatchmakingEvent =
   | RequeueEvent
   | MatchReadyEvent
   | SetRoutesEvent
-  | StartCountdownEvent
   | CancelLoadingEvent
   | GameStartedEvent
   | QueueStatusEvent
