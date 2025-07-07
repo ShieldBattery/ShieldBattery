@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::time::Instant;
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
@@ -232,7 +233,7 @@ pub struct BwScr {
     in_network_stall: AtomicBool,
     /// If [`in_network_stall`] is true, this will be the first time the stall was observed, which
     /// can be used to calculate the stall length when it resolves.
-    network_stall_start: RwLock<Option<std::time::Instant>>,
+    network_stall_start: RwLock<Option<Instant>>,
     /// Avoid reporting the same player being dropped multiple times.
     /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
     dropped_players: AtomicU32,
@@ -255,6 +256,8 @@ pub struct BwScr {
     /// Will be reset on replay rewinds.
     first_game_logic_frame_done: AtomicBool,
     sound_id_cache: Mutex<HashMap<String, u32>>,
+    /// When the game countdown started (if it has started)
+    countdown_start: Mutex<Option<Instant>>,
 }
 
 /// State mutated during renderer draw call
@@ -1041,6 +1044,7 @@ impl BwScr {
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
+            countdown_start: Mutex::new(None),
         })
     }
 
@@ -1233,14 +1237,12 @@ impl BwScr {
                     let in_stall = !self.is_network_ready();
                     let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
                     if in_stall && !was_in_stall {
-                        let now = std::time::Instant::now();
+                        let now = Instant::now();
                         let mut stall_start = self.network_stall_start.write();
                         *stall_start = Some(now);
                     } else if !in_stall && was_in_stall {
                         let mut stall_start = self.network_stall_start.write();
-                        let stall_duration = stall_start
-                            .unwrap_or_else(std::time::Instant::now)
-                            .elapsed();
+                        let stall_duration = stall_start.unwrap_or_else(Instant::now).elapsed();
                         *stall_start = None;
 
                         send_game_msg_to_async(GameThreadMessage::NetworkStall(stall_duration));
@@ -1564,7 +1566,7 @@ impl BwScr {
                 self.check_replay_file_finish(handle);
                 orig(handle)
             };
-            let init_time = std::time::Instant::now();
+            let init_time = Instant::now();
             let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
             let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
                 // BW uses GetTickCount for a lot of things that should really have better than
@@ -1698,6 +1700,7 @@ impl BwScr {
                     let render_target =
                         draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
                     if let Some(mut render_state) = self.render_state.lock() {
+                        let countdown_start = *self.countdown_start.lock();
                         let apm_guard = self.apm_state.lock();
                         let apm = apm_guard.as_deref();
                         let size = ((*render_target.bw).width, (*render_target.bw).height);
@@ -1718,6 +1721,7 @@ impl BwScr {
                                 graphic_layers,
                                 is_hd,
                                 has_init_bw,
+                                countdown_start,
                                 game_started,
                             },
                             apm,
@@ -1871,6 +1875,11 @@ impl BwScr {
         unsafe {
             (self.render_screen)(std::ptr::null_mut(), 0);
         }
+    }
+
+    pub fn set_countdown_start(&self, time: Instant) {
+        let mut c = self.countdown_start.lock();
+        *c = Some(time);
     }
 
     pub fn set_game_started(&self) {
@@ -2356,13 +2365,27 @@ impl BwScr {
         result
     }
 
-    /// Plays the specified sound. These IDs can be easily found in rez/sfx.json in the game files.
+    /// Plays the specified sound. These IDs can be found in rez/sfx.json in the game files.
     /// Unknown sound IDs will cause a crash.
     pub fn play_sound(&self, id: impl Into<String>) {
         unsafe {
             (self.play_sound)(
                 self.lookup_sound(id),
-                100.0,
+                1.0,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+        }
+    }
+
+    /// Plays the specified sound with a volume multiplier. These IDs can found rez/sfx.json in the
+    /// game files. Unknown sound IDs will cause a crash. Volumes are in thhe range [0.0, 1.0].
+    pub fn play_sound_with_volume(&self, id: impl Into<String>, volume: f32) {
+        unsafe {
+            (self.play_sound)(
+                self.lookup_sound(id),
+                volume,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
@@ -3609,7 +3632,7 @@ unsafe fn init_bw_string(out: *mut scr::BwString, value: &[u8]) {
 }
 
 fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
-    let time = std::time::Instant::now();
+    let time = Instant::now();
     let ret = func();
     debug!("{} took {:?}", name, time.elapsed());
     ret

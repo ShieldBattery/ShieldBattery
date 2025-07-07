@@ -148,7 +148,6 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             }
             StartGame => {
                 let bw = get_bw();
-                bw.play_sound("SND_LAST_FRIGATE_PISSED");
                 bw.set_game_started();
                 forge::game_started();
                 bw.run_game_loop();

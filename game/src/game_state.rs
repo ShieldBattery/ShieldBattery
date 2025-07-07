@@ -5,7 +5,7 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::pin::{Pin, pin};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::prelude::*;
 use hashbrown::{HashMap, HashSet};
@@ -1425,15 +1425,96 @@ unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
 }
 
 async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
+    if info.is_replay() {
+        unsafe {
+            let bw = get_bw();
+            // TODO(tec27): When we support network replay watching, this will probably need to be
+            // more similar to regular game init
+            bw.do_lobby_game_init(info.seed);
+            loop {
+                bw.maybe_receive_turns();
+                let done = bw.try_finish_lobby_game_init();
+                if done {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(42)).await;
+            }
+
+            return;
+        }
+    }
+
+    const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
+    const SWISH_OUT: &str = "GLUSND_SWISH_OUT";
+
     unsafe {
         let bw = get_bw();
-        bw.do_lobby_game_init(info.seed);
-        loop {
+        // TODO(tec27): Sync countdown across clients
+        debug!("Starting countdown");
+
+        // NOTE(tec27): play_sound() seems to pump the sound playback buffer, which otherwise isn't
+        // happening normally at this point since we're not in the game loop yet. This happens on
+        // a per-sound basis, so we need to play another beep to cause the initial one to play. To
+        // hackishly work around this, we can initially play 2 beeps, then at the very end we play
+        // one extra beep at 0 volume to push the final beep through. But that's not the only issue:
+        // whatever instantaneous playback this causes doesn't seem to clean up the queue properly,
+        // so it leaves the requests for beeping there to be played by the game loop later. This
+        // code seems to coalesce all the requests to whatever the first one was, so we play 1 more
+        // volume 0 beep at the very beginning to quiet that at game start (so 3 initial beeps
+        // total). Phew.
+        bw.play_sound_with_volume(COUNTDOWN_BEEP, 0.0);
+        bw.play_sound(COUNTDOWN_BEEP);
+        // It does have a minimum buffer time of 80ms though, so we need to wait at least 2 ticks to
+        // ensure our strategy will work
+        for _ in 0..2 {
             bw.maybe_receive_turns();
+            tokio::time::sleep(Duration::from_millis(42)).await;
+        }
+
+        let mut beeps = 0;
+        let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
+        let mut receive_interval = tokio::time::interval(Duration::from_millis(42));
+
+        loop {
+            select! {
+                _ = countdown_interval.tick() => {
+                    if beeps == 0 {
+                        let countdown_start = Instant::now();
+                        bw.set_countdown_start(countdown_start);
+                    }
+
+                    if beeps == 6 {
+                        bw.play_sound_with_volume(COUNTDOWN_BEEP, 0.0);
+                        debug!("Countdown complete, doing lobby game init");
+                        break;
+                    }
+
+                    bw.play_sound(COUNTDOWN_BEEP);
+                    beeps += 1;
+                }
+                _ = receive_interval.tick() => {
+                    bw.maybe_receive_turns();
+                }
+            }
+        }
+
+        let init_started = Instant::now();
+
+        bw.do_lobby_game_init(info.seed);
+        // Wait a minimum amount of time before starting the game
+        while init_started.elapsed() < Duration::from_millis(500) {
+            bw.maybe_receive_turns();
+            tokio::time::sleep(Duration::from_millis(42)).await;
+        }
+
+        bw.play_sound(SWISH_OUT);
+
+        loop {
             let done = bw.try_finish_lobby_game_init();
             if done {
                 break;
             }
+            bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
     }

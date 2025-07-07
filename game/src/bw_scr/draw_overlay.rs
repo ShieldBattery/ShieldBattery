@@ -141,6 +141,7 @@ pub struct BwVars {
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
     pub has_init_bw: bool,
+    pub countdown_start: Option<Instant>,
     pub game_started: bool,
 }
 

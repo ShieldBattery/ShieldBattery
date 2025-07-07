@@ -32,7 +32,7 @@ const FOREGROUND_HOTKEY_ID: i32 = 1337;
 const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
 const DRAW_TIMER_ID: usize = 1338;
-const DRAW_TIMEOUT_MILLIS: u32 = 1000 / 30;
+const DRAW_TIMEOUT_MILLIS: u32 = 1000 / 60;
 
 /// Controls whether the window position is tracked/saved when a move event occurs. We toggle this
 /// once we know that moves must be triggered by user action (instead of during init/quit).

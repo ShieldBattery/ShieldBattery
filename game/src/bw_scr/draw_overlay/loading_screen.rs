@@ -174,6 +174,31 @@ impl OverlayState {
                     },
                 );
             });
+
+        if let Some(countdown_start) = bw.countdown_start {
+            let elapsed = 5 - countdown_start.elapsed().as_secs().min(5);
+            let area_width = 48.0;
+            let x_center = ctx.screen_rect().center().x - area_width / 2.0;
+            egui::Area::new("loading_screen_countdown".into())
+                .fixed_pos(egui::pos2(x_center, 100.0))
+                .show(ctx, |ui| {
+                    ui.set_min_width(area_width);
+                    ui.set_min_height(area_width);
+                    Frame::default()
+                        .fill(colors::GREY_BLUE10)
+                        .multiply_with_opacity(0.5)
+                        .corner_radius(CornerRadius::same(8))
+                        .show(ui, |ui| {
+                            let text = format!("{elapsed}");
+                            ui.label(
+                                RichText::new(text)
+                                    .size(36.0)
+                                    .color(colors::GREY99)
+                                    .family(display_family()),
+                            );
+                        });
+                });
+        }
     }
 
     fn add_loading_player(
