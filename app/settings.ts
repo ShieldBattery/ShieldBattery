@@ -10,7 +10,7 @@ import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 12
+const VERSION = 13
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -272,6 +272,17 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 12) {
       log.verbose('Found settings version 11, migrating to version 12')
       newSettings.startingFog = StartingFog.Transparent
+    }
+
+    if (!settings.version || settings.version < 13) {
+      log.verbose('Found settings version 12, migrating to version 13')
+      // NOTE(tec27): These settings still exist, but the tracking for them before this version
+      // was not good, and tracked fullscreen positions as well, so we clear them out now that the
+      // tracking is improved.
+      delete newSettings.gameWinX
+      delete newSettings.gameWinY
+      delete newSettings.gameWinWidth
+      delete newSettings.gameWinHeight
     }
 
     newSettings.version = VERSION

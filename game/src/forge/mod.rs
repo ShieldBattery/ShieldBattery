@@ -85,10 +85,19 @@ unsafe extern "system" fn wnd_proc_scr(
                 WM_HOTKEY | WM_TIMER => msg_timer(window, wparam),
                 WM_WINDOWPOSCHANGED => {
                     let new_pos = lparam as *const WINDOWPOS;
-                    // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
-                    // for some reason still does this? Anyway we ignore those when saving this state
+
+                    let window_style = GetWindowLongA(window, GWL_STYLE) as u32;
+                    let has_title_bar = (window_style & WS_CAPTION) != 0;
+
                     if IsIconic(window) == 0
+                        // This stops us from tracking position changes for the initial change to
+                        // fullscreen
                         && IsZoomed(window) == 0
+                        // This stops us from tracking changes for the later fullscreen events
+                        && has_title_bar
+                        // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or
+                        // so, and for some reason still does this? Anyway we ignore those when
+                        // saving this state
                         && (*new_pos).x != -32000
                         && (*new_pos).y != -32000
                         && TRACK_WINDOW_POS.load(Ordering::Acquire)
