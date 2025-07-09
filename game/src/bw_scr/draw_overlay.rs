@@ -61,6 +61,7 @@ pub struct OverlayState {
     network_debug_state: network_manager::DebugState,
     network_debug_info: NetworkDebugInfo,
     dialog_debug_inspect_children: bool,
+    was_loading: bool,
 }
 
 struct UiRect {
@@ -330,6 +331,7 @@ impl OverlayState {
             network_debug_state: network_manager::DebugState::new(),
             network_debug_info: NetworkDebugInfo::new(),
             dialog_debug_inspect_children: false,
+            was_loading: false,
         }
     }
 
@@ -443,7 +445,12 @@ impl OverlayState {
             bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
             if bw.game_started {
-                self.draw_layer = get_normal_draw_layer();
+                if self.was_loading {
+                    self.draw_layer = get_normal_draw_layer();
+                    self.was_loading = false;
+                    // Free up all the loading screen images since we'll never need them again
+                    ctx.forget_all_images();
+                }
 
                 if bw.is_replay_or_obs {
                     self.add_replay_ui(bw, apm, ctx);
@@ -455,6 +462,7 @@ impl OverlayState {
             } else {
                 // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
                 self.draw_layer = 26;
+                self.was_loading = true;
                 self.add_loading_screen_ui(bw, setup_info, ctx);
             }
         });
