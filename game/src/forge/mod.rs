@@ -9,6 +9,7 @@ use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
 use winapi::shared::windef::{HMENU, HWND, RECT};
+use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
@@ -16,9 +17,10 @@ use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
 
-    use super::{ATOM, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
+    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
 
     system_hooks!(
+        !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
         !0 => CreateWindowExW(
             u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
         ) -> HWND;
@@ -72,6 +74,10 @@ unsafe extern "system" fn wnd_proc_scr(
 
         let ret = with_scr_hooks_disabled(|| {
             match msg {
+                WM_END_WND_PROC_WORKER => {
+                    STOP_MESSAGE_PUMP.store(true, Ordering::Release);
+                    return Some(0);
+                }
                 WM_GAME_STARTED => {
                     // Fake a minimize event to the SC:R wndproc to put it in a state where it will
                     // properly ClipCursor
@@ -199,6 +205,9 @@ struct Forge {
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
 static FORGE_WINDOW: AtomicUsize = AtomicUsize::new(0);
 static FORGE_INITED: AtomicBool = AtomicBool::new(false);
+// This lets us handle a race condition where SC:R's message handling receives the
+// WM_END_WND_PROC_WORKER message before we see it.
+static STOP_MESSAGE_PUMP: AtomicBool = AtomicBool::new(false);
 
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
     let thread_id = unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize };
@@ -397,6 +406,44 @@ fn register_hot_key(
     1
 }
 
+/// Tracks whether the game has previously set a device mode (e.g. a non-null DEVMODEW pointer).
+static HAD_DEV_MODE_SET: AtomicBool = AtomicBool::new(false);
+
+fn change_display_settings_ex(
+    device_name: *const u16,
+    devmode: *mut DEVMODEW,
+    hwnd: HWND,
+    flags: u32,
+    param: *mut c_void,
+    orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
+) -> i32 {
+    unsafe {
+        if param.is_null()
+            && hwnd.is_null()
+            && let Some(window) = with_forge(|f| f.window.as_ref().map(|w| w.handle))
+        {
+            // This is the normal way that SC:R calls this function, but just to be safe we ensure
+            // these parameters are set this way
+
+            if !devmode.is_null() || HAD_DEV_MODE_SET.load(Ordering::Acquire) {
+                let res = orig(device_name, devmode, hwnd, flags, param);
+                if res == DISP_CHANGE_SUCCESSFUL {
+                    HAD_DEV_MODE_SET.store(!devmode.is_null(), Ordering::Release);
+                }
+                return res;
+            }
+
+            // If the game is trying to reset the display mode but we never had a display mode set,
+            // ignore it, as even resetting to the NULL mode causes the reset of a bunch of
+            // rendering state => frozen rendering for X time
+            debug!("ChangeDisplaySettingsExW: Null with no devmode set, ignoring call");
+            DISP_CHANGE_SUCCESSFUL
+        } else {
+            orig(device_name, devmode, hwnd, flags, param)
+        }
+    }
+}
+
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         use self::scr_hooks::*;
@@ -413,6 +460,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
 
         // TODO possibly port keyboard hooks as well.
         hook_winapi_exports!(patcher, "user32",
+            "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "ShowWindow", ShowWindow, show_window;
@@ -501,7 +549,11 @@ pub unsafe fn run_wnd_proc() {
 
             get_bw().process_events();
 
-            if done {
+            // NOTE(tec27): STOP_MESSAGE_PUMP may have been set by our wndproc hook since
+            // process_events calls PeekMessageW in a loop, and the event may have been dispatched
+            // to the window during that loop
+            if done || STOP_MESSAGE_PUMP.load(Ordering::Acquire) {
+                STOP_MESSAGE_PUMP.store(true, Ordering::Release);
                 return;
             }
         }
