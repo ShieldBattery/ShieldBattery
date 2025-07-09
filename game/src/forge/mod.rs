@@ -88,6 +88,21 @@ unsafe extern "system" fn wnd_proc_scr(
                     msg_game_started(window);
                     return Some(0);
                 }
+                WM_SYSCOMMAND => {
+                    // Ignore alt+f4 during loading, since we don't want the user to be able to
+                    // close the game during this time and it messes up the game state
+                    if wparam == SC_CLOSE && with_forge(|f| !f.game_started) {
+                        debug!("Forge: Ignoring SC_CLOSE during loading");
+                        return Some(0);
+                    }
+                }
+                WM_CLOSE => {
+                    // Same as above, but for other potential reasons a close event might be sent
+                    if with_forge(|f| !f.game_started) {
+                        debug!("Forge: Ignoring window close during loading");
+                        return Some(0);
+                    }
+                }
                 WM_HOTKEY | WM_TIMER => msg_timer(window, wparam),
                 WM_WINDOWPOSCHANGED => {
                     let new_pos = lparam as *const WINDOWPOS;
@@ -167,6 +182,11 @@ unsafe fn msg_game_started(window: HWND) {
                 None,
             );
         }
+
+        // Re-enable the close button
+        let menu = GetSystemMenu(window, FALSE);
+        EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_ENABLED);
+        DrawMenuBar(window);
     }
 }
 
@@ -278,6 +298,11 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
             })
         {
             restore_saved_window_pos();
+            // Disable the close button, since we don't want the user to be able to close the window
+            // during loading. We'll re-enable it once loading is complete.
+            let menu = GetSystemMenu(window, FALSE);
+            EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
+            DrawMenuBar(window);
         }
         orig(window, show)
     }
