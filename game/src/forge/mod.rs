@@ -418,10 +418,7 @@ fn change_display_settings_ex(
     orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
 ) -> i32 {
     unsafe {
-        if param.is_null()
-            && hwnd.is_null()
-            && let Some(window) = with_forge(|f| f.window.as_ref().map(|w| w.handle))
-        {
+        if param.is_null() && hwnd.is_null() {
             // This is the normal way that SC:R calls this function, but just to be safe we ensure
             // these parameters are set this way
 
