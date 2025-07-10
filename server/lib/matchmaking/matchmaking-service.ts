@@ -36,7 +36,7 @@ import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
-import { GameLoader, GameLoaderError } from '../games/game-loader'
+import { BaseGameLoaderError, GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
@@ -565,7 +565,7 @@ export class MatchmakingService {
       if (
         !isAbortError(err) &&
         !(err instanceof MatchmakingServiceError) &&
-        !(err instanceof GameLoaderError)
+        !(err instanceof BaseGameLoaderError)
       ) {
         logger.error({ err }, 'error while processing match')
       }

@@ -295,6 +295,18 @@ export default [
         },
       ],
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafePromises: [
+            {
+              from: 'package',
+              package: 'typescript-result',
+              name: 'AsyncResult',
+            },
+          ],
+        },
+      ],
       '@typescript-eslint/no-redeclare': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',

@@ -2,6 +2,7 @@ import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
 import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
+import { Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
@@ -26,7 +27,7 @@ import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/n
 import { urlPath } from '../../../common/urls'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
-import { GameLoader } from '../games/game-loader'
+import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import logger from '../logging/logger'
@@ -73,6 +74,8 @@ function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSl
     }
   }
 }
+
+class CountdownCanceledError extends Error {}
 
 const MOUNT_BASE = '/lobbies'
 
@@ -794,34 +797,61 @@ export class LobbyApi {
         .toArray(),
     }
 
+    let usersAtFault: SbUserId[] | undefined
     try {
       await countdownTimer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       this.loadingLobbies = this.loadingLobbies.add(lobbyName)
 
-      await this.gameLoader.loadGame({
-        players: getHumanSlots(lobby),
-        playerInfos: getPlayerInfos(lobby),
-        mapId: lobby.map!.id,
-        gameConfig,
-      })
+      const gameLoadResult = await Result.fromAsync(
+        this.gameLoader.loadGame({
+          players: getHumanSlots(lobby),
+          playerInfos: getPlayerInfos(lobby),
+          mapId: lobby.map!.id,
+          gameConfig,
+        }),
+      )
+
+      if (gameLoadResult.isError()) {
+        switch (gameLoadResult.error.code) {
+          case GameLoadErrorType.PlayerFailed:
+            usersAtFault = [gameLoadResult.error.data.userId]
+            break
+          case GameLoadErrorType.Timeout:
+            usersAtFault = gameLoadResult.error.data.unloaded
+            break
+          case GameLoadErrorType.Canceled:
+          case GameLoadErrorType.Internal:
+            break
+          default:
+            gameLoadResult.error satisfies never
+        }
+        // Just use the catch below to handle this error
+        throw gameLoadResult.error
+      }
 
       this._onGameLoaded(lobby)
     } catch (err) {
-      // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
+      if (err instanceof BaseGameLoaderError) {
+        if (err.code === GameLoadErrorType.Internal) {
+          logger.error({ err }, 'error loading game for lobby')
+        }
+      } else if (!(err instanceof CountdownCanceledError)) {
+        logger.error({ err }, 'unexpected error while loading game for lobby')
+      }
 
       // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents
       // once countdown/loading starts. I think a better implementation would be to add a stored
-      // CancelToken that we cancel if a lobby is closed, but that's a more involved change atm.
+      // AbortSignal that we abort if a lobby is closed, but that's a more involved change atm.
       if (this.lobbies.get(lobby.name) === lobby) {
         // This has been verified to be the same lobby, so sending cancel events is safe
-        this._maybeCancelCountdown(lobby)
-        this._maybeCancelLoading(lobby)
+        this._maybeCancelCountdown(lobby, false)
+        this._maybeCancelLoading(lobby, false, usersAtFault)
       }
     }
   }
 
-  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false) {
+  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]) {
     if (!this.loadingLobbies.has(lobby.name)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
@@ -831,6 +861,7 @@ export class LobbyApi {
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelLoading',
+      usersAtFault,
     })
     if (!isLobbyEmpty) {
       this._publishListChange('add', Lobbies.toSummaryJson(lobby))
@@ -866,7 +897,7 @@ export class LobbyApi {
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.name)
-    countdown?.timer?.reject(new Error('Countdown cancelled'))
+    countdown?.timer?.reject(new CountdownCanceledError('Countdown cancelled'))
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelCountdown',

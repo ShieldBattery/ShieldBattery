@@ -135,6 +135,7 @@
     "tokenthrottle-redis": "^1.2.0",
     "tsyringe": "^4.10.0",
     "typed-emitter": "^2.1.0",
+    "typescript-result": "^3.3.0",
     "uid-safe": "^2.1.5",
     "vary": "^1.1.2"
   },

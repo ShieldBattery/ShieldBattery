@@ -243,6 +243,9 @@ importers:
       typed-emitter:
         specifier: ^2.1.0
         version: 2.1.0
+      typescript-result:
+        specifier: ^3.3.0
+        version: 3.3.0
       uid-safe:
         specifier: ^2.1.5
         version: 2.1.5
@@ -10859,6 +10862,10 @@ packages:
 
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
+
+  typescript-result@3.3.0:
+    resolution: {integrity: sha512-bCR58dD3SaLORIydkhJvU4yyJth3Y4nQZoa1erTS189/3Of0KeHp8tk7Rr0yjdxoBfxgK8lCAnpVmczGxh2meQ==}
+    engines: {node: '>=18'}
 
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
@@ -23846,6 +23853,8 @@ snapshots:
       is-typedarray: 1.0.0
 
   typedarray@0.0.6: {}
+
+  typescript-result@3.3.0: {}
 
   typescript@5.8.3: {}
 

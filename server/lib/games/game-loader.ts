@@ -1,10 +1,10 @@
 import { Map as IMap, List, Record, Set } from 'immutable'
 import { Counter, Histogram, linearBuckets } from 'prom-client'
 import { container, singleton } from 'tsyringe'
+import { Result } from 'typescript-result'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
-import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameRoute, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
@@ -52,19 +52,37 @@ const MAX_LATENCIES_HIGH: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: numbe
   ])
 
 export enum GameLoadErrorType {
+  /** The game load request was canceled before it completed. */
+  Canceled = 'canceled',
+  /** An internal error occurred while trying to load the game. */
+  Internal = 'internal',
+  /** A specific player failed to load. */
   PlayerFailed = 'playerFailed',
+  /** Loading the game timed out before it finished. */
+  Timeout = 'timeout',
 }
 
-interface GameLoadErrorTypeToData {
+type GameLoadErrorTypeToData = {
   [GameLoadErrorType.PlayerFailed]: {
     userId: SbUserId
   }
+  [GameLoadErrorType.Timeout]: {
+    unloaded: SbUserId[]
+  }
+
+  [GameLoadErrorType.Canceled]: undefined
+  [GameLoadErrorType.Internal]: undefined
 }
 
-export class GameLoaderError<T extends GameLoadErrorType> extends CodedError<
-  T,
-  GameLoadErrorTypeToData[T]
-> {}
+export class BaseGameLoaderError<
+  T extends GameLoadErrorType = GameLoadErrorType,
+> extends CodedError<T, GameLoadErrorTypeToData[T]> {}
+
+export type GameLoaderError =
+  | BaseGameLoaderError<GameLoadErrorType.Canceled>
+  | BaseGameLoaderError<GameLoadErrorType.Internal>
+  | BaseGameLoaderError<GameLoadErrorType.PlayerFailed>
+  | BaseGameLoaderError<GameLoadErrorType.Timeout>
 
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
@@ -116,7 +134,7 @@ const createLoadingData = Record({
   players: Set<Slot>(),
   finishedPlayers: Set<SbUserId>(),
   cancelToken: null as unknown as CancelToken,
-  deferred: null as unknown as Deferred<void>,
+  deferred: null as unknown as Deferred<Result<void, GameLoaderError>>,
 })
 
 type LoadingData = ReturnType<typeof createLoadingData>
@@ -280,13 +298,20 @@ export class GameLoader {
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({ players, playerInfos, mapId, gameConfig, ratings, cancelToken }: GameLoadRequest) {
-    const gameLoaded = createDeferred<void>()
+  loadGame({
+    players,
+    playerInfos,
+    mapId,
+    gameConfig,
+    ratings,
+    cancelToken,
+  }: GameLoadRequest): Promise<Result<void, GameLoaderError>> {
+    const gameLoaded = createDeferred<Result<void, GameLoaderError>>()
 
     this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
 
-    registerGame(mapId, gameConfig)
-      .then(({ gameId, resultCodes }) => {
+    registerGame(mapId, gameConfig).then(
+      ({ gameId, resultCodes }) => {
         const loadingCancelToken = cancelToken
           ? new MultiCancelToken(cancelToken)
           : new CancelToken()
@@ -305,16 +330,45 @@ export class GameLoader {
           },
         )
 
-        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(err => {
-          this.maybeCancelLoadingFromSystem(gameId, err)
+        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
+          const loadingData = this.loadingGames.get(gameId)
+          if (!loadingData) {
+            // Something else must have already dealt with it
+            return
+          }
+
+          // TODO(tec27): This isn't really "correct", as if one or more of the players failed to
+          // connect to the host, all the players wouldn't be in "finishedPlayers", even though it
+          // is almost certainly the non-connectors' fault. We need to track the actual state of
+          // each player's game to determine this correctly
+          const unloaded = loadingData.players
+            .map(p => p.userId!)
+            .subtract(loadingData.finishedPlayers)
+            .toArray()
+          this.maybeCancelLoadingFromSystem(
+            gameId,
+            new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
+              data: {
+                unloaded,
+              },
+            }),
+          )
         })
-      })
-      .catch(err => {
+      },
+      err => {
         log.error({ err }, "couldn't register game with database")
         // NOTE(tec27): We haven't registered the game in `loadingGames` yet by this point so we
         // can't cancel it that way
-        gameLoaded.reject(new Error("Couldn't register game with database"))
-      })
+        gameLoaded.resolve(
+          Result.error(
+            new BaseGameLoaderError(
+              GameLoadErrorType.Internal,
+              "Couldn't register game with database",
+            ),
+          ),
+        )
+      },
+    )
 
     gameLoaded.catch(() => {
       this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
@@ -344,7 +398,7 @@ export class GameLoader {
 
     if (LoadingDatas.isAllFinished(loadingData)) {
       this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve()
+      loadingData.deferred.resolve(Result.ok())
     }
 
     this.gameLoadSuccessesTotalMetric.labels(loadingData.gameSource).inc()
@@ -370,13 +424,13 @@ export class GameLoader {
 
     return this.maybeCancelLoadingFromSystem(
       gameId,
-      new GameLoaderError(GameLoadErrorType.PlayerFailed, `User ${playerId} failed to load`, {
+      new BaseGameLoaderError(GameLoadErrorType.PlayerFailed, `User ${playerId} failed to load`, {
         data: { userId: playerId },
       }),
     )
   }
 
-  private maybeCancelLoadingFromSystem(gameId: string, reason: Error) {
+  private maybeCancelLoadingFromSystem(gameId: string, reason: GameLoaderError) {
     if (!this.loadingGames.has(gameId)) {
       return false
     }
@@ -384,7 +438,7 @@ export class GameLoader {
     const loadingData = this.loadingGames.get(gameId)!
     this.loadingGames = this.loadingGames.delete(gameId)
     loadingData.cancelToken.cancel()
-    loadingData.deferred.reject(reason)
+    loadingData.deferred.resolve(Result.error(reason))
 
     Promise.all([deleteRecordForGame(gameId), deleteUserRecordsForGame(gameId)]).catch(err => {
       log.error({ err }, 'error removing game records for cancelled game')
@@ -411,39 +465,63 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ratings?: Array<[id: SbUserId, rating: number]>
-  }) {
+  }): Promise<Result<void, GameLoaderError>> {
     if (!this.loadingGames.has(gameId)) {
-      throw new Error(`tried to load a game that doesn't exist: ${gameId}`)
+      return Result.error(
+        new BaseGameLoaderError(
+          GameLoadErrorType.Internal,
+          `tried to load a game that doesn't exist: ${gameId}`,
+        ),
+      )
     }
 
-    const mapPromise = getMapInfo([mapId])
+    const mapPromise = Result.try(() => getMapInfo([mapId]))
 
     const loadingData = this.loadingGames.get(gameId)!
     const { players, cancelToken } = loadingData
     const allUserIds = players.map(p => p.userId!).toArray()
 
-    const usersPromise = findUsersById(allUserIds)
+    const usersResult = Result.try(() => findUsersById(allUserIds))
 
-    const activeClients = allUserIds.map(userId => {
-      const client = this.activityRegistry.getClientForUser(userId)
-      if (!client) {
-        throw new GameLoaderError(GameLoadErrorType.PlayerFailed, `A player had no active client`, {
-          data: { userId },
-        })
-      }
-      return client
-    })
+    const [activeClients, activeClientsError] = Result.all(
+      ...allUserIds.map(userId => {
+        const client = this.activityRegistry.getClientForUser(userId)
+        if (!client) {
+          return Result.error(
+            new BaseGameLoaderError(
+              GameLoadErrorType.PlayerFailed,
+              'a player had no active client',
+              {
+                data: { userId },
+              },
+            ),
+          )
+        }
+        return Result.ok(client)
+      }),
+    ).toTuple()
 
-    const users = await usersPromise
-    if (users.length !== players.size) {
-      throw new Error("Couldn't find all users in the game")
+    if (activeClientsError) {
+      return Result.error(activeClientsError)
+    }
+
+    const [users, usersError] = await usersResult.toTuple()
+    if (usersError || users.length !== players.size) {
+      return Result.error(
+        new BaseGameLoaderError(GameLoadErrorType.Internal, "couldn't find all users in the game"),
+      )
     }
 
     for (const client of activeClients) {
       client.subscribe(gameUserPath(gameId, client.userId), undefined, () => {
-        // TODO(tec27): This should abort in a way that says this client was the one that
-        // disconnected/cancelled the load
-        cancelToken.cancel()
+        this.maybeCancelLoadingFromSystem(
+          gameId,
+          new BaseGameLoaderError(
+            GameLoadErrorType.PlayerFailed,
+            'a player disconnected while loading',
+            { data: { userId: client.userId } },
+          ),
+        )
       })
     }
 
@@ -453,18 +531,49 @@ export class GameLoader {
 
       const hasMultipleHumans = players.size > 1
       const pingPromise = !hasMultipleHumans
-        ? Promise.resolve()
-        : Promise.all(
-            players.map(p =>
-              rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId!)!),
+        ? Result.ok()
+        : Result.all(
+            ...players.map(p =>
+              Result.try(
+                () =>
+                  rallyPointService.waitForPingResult(
+                    activityRegistry.getClientForUser(p.userId!)!,
+                  ),
+                (error: unknown) =>
+                  new BaseGameLoaderError(
+                    GameLoadErrorType.PlayerFailed,
+                    'a player failed to connect to a rally-point server',
+                    { data: { userId: p.userId! }, cause: error },
+                  ),
+              ),
             ),
           )
 
-      await pingPromise
-      cancelToken.throwIfCancelling()
+      const pingResult = await pingPromise
+      if (pingResult.isError()) {
+        return Result.error(pingResult.error)
+      }
+      if (cancelToken.isCancelling) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
+        )
+      }
 
-      const routes = hasMultipleHumans ? await createRoutes(players) : []
-      cancelToken.throwIfCancelling()
+      const [routes, routesError] = await (
+        hasMultipleHumans ? Result.fromAsyncCatching(createRoutes(players)) : Result.ok([])
+      ).toTuple()
+      if (routesError) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Internal, 'error creating routes', {
+            cause: routesError,
+          }),
+        )
+      }
+      if (cancelToken.isCancelling) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
+        )
+      }
 
       let chosenTurnRate: BwTurnRate | 0 | undefined
       let chosenUserLatency: BwUserLatency | undefined
@@ -502,10 +611,24 @@ export class GameLoader {
         }
       }
 
-      const [map] = await mapPromise
-      if (!map) {
-        throw new Error(`Couldn't find map with ID ${mapId}`)
+      const [maps, mapError] = await mapPromise.toTuple()
+      if (mapError || !maps.length) {
+        return Result.error(
+          new BaseGameLoaderError(
+            GameLoadErrorType.Internal,
+            `Couldn't find map with ID ${mapId}`,
+            {
+              cause: mapError,
+            },
+          ),
+        )
       }
+      if (cancelToken.isCancelling) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
+        )
+      }
+      const [map] = maps
 
       const generalSetup = getGeneralGameSetup({
         gameConfig,
@@ -575,16 +698,11 @@ export class GameLoader {
         })
       }
 
-      cancelToken.throwIfCancelling()
-
-      // Delay a bit so that clients have an opportunity to see the loading screen for a small
-      // amount of time (to see the map, race selections, etc.)
-      // TODO(tec27): This would probably be better to just handle on clients (especially once we
-      // have an ingame loading screen)
-      const [timeout] = timeoutPromise(2000)
-      await timeout
-
-      cancelToken.throwIfCancelling()
+      if (cancelToken.isCancelling) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
+        )
+      }
 
       for (const client of activeClients) {
         this.publisher.publish(gameUserPath(gameId, client.userId), {
@@ -600,5 +718,7 @@ export class GameLoader {
         client.unsubscribe(urlPath`/gameLoader/${gameId}`)
       }
     }
+
+    return Result.ok()
   }
 }

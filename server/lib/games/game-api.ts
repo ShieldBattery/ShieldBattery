@@ -195,22 +195,33 @@ export class GameApi {
   @httpPut('/:gameId/status')
   @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
   async updateGameStatus(ctx: RouterContext): Promise<void> {
-    const { gameId } = ctx.params
-    const { status } = ctx.request.body
+    const {
+      params: { gameId },
+      body: { status },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<{ status: GameStatus }>({
+        status: Joi.number().min(GameStatus.Launching).max(GameStatus.Error).required(),
+      }),
+    })
     const user = ctx.session!.user!
 
-    if (status < GameStatus.Playing || status > GameStatus.Error) {
+    if (status > GameStatus.Finished && status !== GameStatus.Error) {
       throw new httpErrors.BadRequest('invalid game status')
     }
 
     if (
-      (status === GameStatus.Playing || status === GameStatus.Error) &&
+      ((status >= GameStatus.Launching && status <= GameStatus.Playing) ||
+        status === GameStatus.Error) &&
       !this.gameLoader.isLoading(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
     }
 
-    if (status === GameStatus.Playing) {
+    if (status < GameStatus.Playing) {
+      // TODO(tec27): Tell the game loader about this so it can better assign fault for failing to
+      // load
+    } else if (status === GameStatus.Playing) {
       if (!this.gameLoader.registerGameAsLoaded(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
@@ -218,8 +229,6 @@ export class GameApi {
       if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
-    } else {
-      throw new httpErrors.BadRequest('invalid game status')
     }
 
     ctx.status = 204

@@ -4,15 +4,25 @@ import Koa from 'koa'
  * A generic Error type that includes a `code` to identify what type of error it is.
  */
 export class CodedError<CodeType extends string, DataType = any> extends Error {
-  readonly data?: DataType
+  readonly data: DataType
 
   constructor(
     readonly code: CodeType,
     message: string,
-    options?: { data?: DataType; cause?: unknown },
+    // NOTE(tec27): This complexity is to allow the options parameter to be optional, but only if
+    // the data type for the code is undefined
+    ...rest: undefined extends DataType
+      ? [options?: { data?: DataType; cause?: unknown }]
+      : [
+          options: {
+            data: DataType
+            cause?: unknown
+          },
+        ]
   ) {
+    const options = rest[0]
     super(message, options?.cause ? { cause: options?.cause } : undefined)
-    this.data = options?.data
+    this.data = options?.data as DataType
   }
 }
 
