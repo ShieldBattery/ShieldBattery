@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as React from 'react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import styled, { css, RuleSet } from 'styled-components'
@@ -85,13 +85,13 @@ const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
-const tooltipVariants = {
+const tooltipVariants: Variants = {
   entering: { opacity: 0, scaleX: 0.5, scaleY: 0.667 },
   visible: { opacity: 1, scaleX: 1, scaleY: 1 },
   exiting: { opacity: 0, scaleX: 0.175, scaleY: 0.333 },
 }
 
-const tooltipTransition = {
+const tooltipTransition: Transition = {
   default: { type: 'spring', duration: 0.4, bounce: 0 },
   opacity: { type: 'spring', duration: 0.3, bounce: 0 },
 }

@@ -286,7 +286,7 @@ function PlayButtonDisplay({
               animate: {
                 scale: [null, 0.7, 1],
                 transition: {
-                  type: 'easeInOut',
+                  ease: 'easeInOut',
                   duration: 21,
                   repeat: Infinity,
                   repeatType: 'reverse',
@@ -315,7 +315,7 @@ function PlayButtonDisplay({
               animate: {
                 scale: [null, 1, 0.7],
                 transition: {
-                  type: 'easeInOut',
+                  ease: 'easeInOut',
                   duration: 28,
                   repeat: Infinity,
                   repeatType: 'reverse',

@@ -1,4 +1,4 @@
-import { Variants } from 'motion/react'
+import { Transition, Variants } from 'motion/react'
 import * as React from 'react'
 import { useCallback, useId, useState } from 'react'
 import styled, { css } from 'styled-components'
@@ -176,7 +176,7 @@ const menuVariants: Variants = {
   exiting: { opacity: 0, scaleY: 0 },
 }
 
-const menuTransition = {
+const menuTransition: Transition = {
   opacity: { type: 'spring', duration: 0.3, bounce: 0 },
   scaleY: { type: 'spring', duration: 0.4 },
 }
