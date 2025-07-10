@@ -1,8 +1,10 @@
+import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app } from 'electron'
-import { promises as fsPromises } from 'fs'
 import { Set } from 'immutable'
-import path from 'path'
+import { promises as fsPromises } from 'node:fs'
+import path from 'node:path'
 import { singleton } from 'tsyringe'
+import { getErrorStack } from '../../common/errors'
 import {
   GameLaunchConfig,
   GameRoute,
@@ -390,8 +392,6 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
 const injectPath32 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
 const injectPath64 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery_64.dll')
 
-const initialCompatLayer = process.env.__COMPAT_LAYER
-
 async function doLaunch(
   gameId: string,
   serverPort: number,
@@ -419,10 +419,19 @@ async function doLaunch(
   await scrSettings.writeGameSettingsFile()
 
   const userDataPath = app.getPath('userData')
-  const appPath = settings.launch64Bit
-    ? path.join(starcraftPath, 'x86_64', 'starcraft.exe')
-    : path.join(starcraftPath, 'x86', 'starcraft.exe')
-  log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
+  let appPath = settings.launch64Bit
+    ? path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
+    : path.join(starcraftPath, 'x86', 'StarCraft.exe')
+  try {
+    // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
+    // compat settings registry key
+    appPath = await fsPromises.realpath(appPath)
+  } catch (err) {
+    log.warn(`Failed to resolve real path for StarCraft executable: ${getErrorStack(err)}`)
+    // If we can't resolve the real path, we just use the original path we had
+  }
+
+  log.debug(`Attempting to launch "${appPath}" with StarCraft path: "${starcraftPath}"`)
 
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
@@ -431,20 +440,70 @@ async function doLaunch(
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module
   const { launchProcess } = await import('./native/process/index')
+
   // People sometimes turn on compatibility settings for the game process for misguided reasons,
-  // which then cause issues that they blame on us. So, we turn off what we can (which seems to be
-  // just the Run As Admin setting) to avoid those problems
-  log.debug('Setting __COMPAT_LAYER to remove Run As Admin setting')
-  process.env.__COMPAT_LAYER = 'RunAsInvoker'
-  const proc = await launchProcess({
-    appPath,
-    args: args as any,
-    currentDir: starcraftPath,
-    dllPath: injectPath,
-    dllFunc: 'OnInject',
-    logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
-  })
-  process.env.__COMPAT_LAYER = initialCompatLayer
-  log.verbose('Process launched')
-  return proc
+  // which then cause issues that they blame on us. So, we turn them off by overwriting the registry
+  // key with a blank string, launch the game, and then restore whatever value they had set. This is
+  // best effort, if it fails we just continue trying to launch
+  const registry = new WindowsRegistry()
+  let compatValue: string | undefined
+  try {
+    compatValue = (await registry.read(
+      HKCU,
+      'Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
+      appPath,
+    )) as string | undefined
+    if (compatValue !== undefined && typeof compatValue !== 'string') {
+      throw new Error(
+        'Got unexpected type for compatibility settings: ' + JSON.stringify(compatValue),
+      )
+    }
+  } catch (err) {
+    log.warn(`Failed to read compatibility settings from registry: ${getErrorStack(err)}`)
+    compatValue = undefined
+  }
+
+  try {
+    if (compatValue) {
+      log.debug(`Found compatibility settings for StarCraft: "${compatValue}"`)
+      log.debug(`Overriding compatibility settings before launch...`)
+      try {
+        await registry.write(
+          HKCU,
+          'Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
+          appPath,
+          REG_SZ,
+          '',
+        )
+      } catch (err) {
+        log.warn(`Failed to write blank compatibility settings to registry: ${getErrorStack(err)}`)
+      }
+    }
+
+    const proc = await launchProcess({
+      appPath,
+      args: args as any,
+      currentDir: starcraftPath,
+      dllPath: injectPath,
+      dllFunc: 'OnInject',
+      logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
+    })
+    log.verbose('Process launched')
+    return proc
+  } finally {
+    if (compatValue) {
+      log.debug(`Restoring compatibility settings after launch...`)
+      try {
+        await registry.write(
+          HKCU,
+          'Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
+          appPath,
+          REG_SZ,
+          compatValue,
+        )
+      } catch (err) {
+        log.warn(`Failed to restore compatibility settings to registry: ${getErrorStack(err)}`)
+      }
+    }
+  }
 }
