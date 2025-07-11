@@ -200,8 +200,9 @@ export class GameApi {
       body: { status },
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
-      body: Joi.object<{ status: GameStatus }>({
+      body: Joi.object<{ status: GameStatus; extra: any }>({
         status: Joi.number().min(GameStatus.Launching).max(GameStatus.Error).required(),
+        extra: Joi.any().optional(), // unused currently
       }),
     })
     const user = ctx.session!.user!

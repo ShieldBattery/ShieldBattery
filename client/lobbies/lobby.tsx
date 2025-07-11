@@ -157,7 +157,9 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.LobbyCountdownCanceled:
       return <LobbyCountdownCanceledMessage key={msg.id} time={msg.time} />
     case LobbyMessageType.LobbyLoadingCanceled:
-      return <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} />
+      return (
+        <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} usersAtFault={msg.usersAtFault} />
+      )
     default:
       msg satisfies never
       return null

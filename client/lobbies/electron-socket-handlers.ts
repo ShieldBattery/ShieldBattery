@@ -223,18 +223,15 @@ const eventToAction: EventToActionMap = {
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
     // the loading screen anyway, even after it's been canceled.
     clearCountdownTimer()
-    dispatch({
-      // TODO(2Pac): This should probably be a different action than the countdown canceled one? As
-      // it is currently, this displays the same chat message twice in the lobby if someone leaves
-      // during countdown.
-      type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
-    } as any)
 
     dispatch({
       type: '@active-game/launch',
       payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
     })
-    dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED } as any)
+    dispatch({
+      type: LOBBY_UPDATE_LOADING_CANCELED,
+      payload: { usersAtFault: event.usersAtFault },
+    } as any)
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 

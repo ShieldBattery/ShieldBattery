@@ -1,5 +1,6 @@
 import { memo, useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
 import { ChatContext } from '../messaging/chat-context'
@@ -160,18 +161,63 @@ export const LobbyCountdownCanceledMessage = memo<{ time: number }>(props => {
   )
 })
 
-export const LobbyLoadingCanceledMessage = memo<{ time: number }>(props => {
-  // TODO(tec27): We really need to pass a reason back here
-  const { time } = props
+const UserList = styled.ul<{ i18nIsDynamicList?: boolean }>`
+  margin: 0;
+  padding-left: 24px;
+
+  & > li {
+    text-indent: initial;
+  }
+`
+
+export function LobbyLoadingCanceledMessage({
+  time,
+  usersAtFault,
+}: {
+  time: number
+  usersAtFault?: ReadonlyArray<SbUserId>
+}) {
   const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
+  const { UserMenu } = useContext(ChatContext)
+
+  let text: React.ReactNode
+  if (!usersAtFault?.length) {
+    text = t(
+      'lobbies.messageLayout.gameInitializationCanceled',
+      'Game initialization has been canceled',
+    )
+  } else if (usersAtFault.length === 1) {
+    const user = usersAtFault[0]
+    text = (
+      <Trans t={t} i18nKey={'lobbies.messageLayout.gameInitializationCanceledSingle'}>
+        Game initialization has been canceled because{' '}
+        <SystemImportant>
+          <ConnectedUsername userId={user} filterClick={filterClick} UserMenu={UserMenu} />
+        </SystemImportant>{' '}
+        failed to load.
+      </Trans>
+    )
+  } else {
+    text = (
+      <Trans t={t} i18nKey={'lobbies.messageLayout.gameInitializationCanceledMultiple'}>
+        Game initialization has been canceled because the following players failed to load:
+        <UserList i18nIsDynamicList={true}>
+          {usersAtFault.map(user => (
+            <li key={user}>
+              <SystemImportant>
+                <ConnectedUsername userId={user} filterClick={filterClick} UserMenu={UserMenu} />
+              </SystemImportant>
+            </li>
+          ))}
+        </UserList>
+      </Trans>
+    )
+  }
+
   return (
     <SystemMessage time={time}>
-      <span>
-        {t(
-          'lobbies.messageLayout.gameInitializationCanceled',
-          'Game initialization has been canceled',
-        )}
-      </span>
+      <span>{text}</span>
     </SystemMessage>
   )
-})
+}

@@ -169,7 +169,7 @@ const loadingReducer = keyedReducer(new LobbyLoadingState(), {
   },
 
   [LOBBY_UPDATE_LOADING_CANCELED](state, action) {
-    return state.set('isLoading', false)
+    return state.set('isLoading', false).set('isCountingDown', false).set('countdownTimer', -1)
   },
 
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
@@ -308,6 +308,7 @@ const chatHandlers = {
       new LobbyLoadingCanceledMessageRecord({
         id: nanoid(),
         time: Date.now(),
+        usersAtFault: action.payload.usersAtFault,
       }),
     )
   },

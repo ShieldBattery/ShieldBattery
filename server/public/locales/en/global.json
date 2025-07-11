@@ -561,6 +561,8 @@
       "countdownCanceled": "The game countdown has been canceled",
       "countdownStarted": "The game countdown has begun",
       "gameInitializationCanceled": "Game initialization has been canceled",
+      "gameInitializationCanceledMultiple": "Game initialization has been canceled because the following players failed to load:<1></1>",
+      "gameInitializationCanceledSingle": "Game initialization has been canceled because <2><0></0></2> failed to load.",
       "hostChange": "<0><0></0></0> is now the host",
       "joinLobby": "<0><0></0></0> has joined the lobby",
       "kickPlayer": "<0><0></0></0> has been kicked from the lobby",

@@ -337,19 +337,18 @@ export class GameLoader {
             return
           }
 
-          // TODO(tec27): This isn't really "correct", as if one or more of the players failed to
-          // connect to the host, all the players wouldn't be in "finishedPlayers", even though it
-          // is almost certainly the non-connectors' fault. We need to track the actual state of
-          // each player's game to determine this correctly
-          const unloaded = loadingData.players
-            .map(p => p.userId!)
-            .subtract(loadingData.finishedPlayers)
-            .toArray()
           this.maybeCancelLoadingFromSystem(
             gameId,
             new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
               data: {
-                unloaded,
+                // TODO(tec27): Determine who is at fault here. Currently we don't get enough
+                // information from clients about their loading state (just that their game is
+                // started or errored) so timeouts tend to always result in all players being seen
+                // as at fault. We should send all the intermediate statuses from the game
+                // (configuring, setting up, etc.) so that we can see who is behind the rest and
+                // put the blame on them. (There we still likely be a lot of cases where no one
+                // in particular is to blame, though)
+                unloaded: [],
               },
             }),
           )
