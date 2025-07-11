@@ -128,7 +128,6 @@ export default [
       'prettier/prettier': 'error',
 
       'react/display-name': 'off',
-      'react/jsx-boolean-value': ['error', 'always'],
       'react/jsx-no-target-blank': [
         'error',
         {

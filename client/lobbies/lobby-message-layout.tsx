@@ -202,7 +202,7 @@ export function LobbyLoadingCanceledMessage({
     text = (
       <Trans t={t} i18nKey={'lobbies.messageLayout.gameInitializationCanceledMultiple'}>
         Game initialization has been canceled because the following players failed to load:
-        <UserList i18nIsDynamicList={true}>
+        <UserList i18nIsDynamicList>
           {usersAtFault.map(user => (
             <li key={user}>
               <SystemImportant>
