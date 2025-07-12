@@ -44,10 +44,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       system: { monotonicTime },
     } = action
 
-    state.favoritedMapIds = new Set(favoritedMaps.map(m => m.id))
-
     for (const map of favoritedMaps) {
       state.byId.set(map.id, map)
+      state.favoritedMapIds.add(map.id)
       state.lastRetrieved.set(map.id, monotonicTime)
     }
   },
@@ -58,17 +57,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     const {
-      payload: { maps, favoritedMaps },
+      payload: { maps, favoritedMapIds },
       system: { monotonicTime },
     } = action
-
-    for (const mapId of favoritedMaps) {
-      state.favoritedMapIds.add(mapId)
-    }
 
     for (const map of maps) {
       state.byId.set(map.id, map)
       state.lastRetrieved.set(map.id, monotonicTime)
+    }
+
+    for (const mapId of favoritedMapIds) {
+      state.favoritedMapIds.add(mapId)
     }
   },
 

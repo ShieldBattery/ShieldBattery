@@ -1,12 +1,10 @@
 import {
   GetBatchMapInfoResponse,
+  GetFavoritedMapsQueryParams,
   GetFavoritesResponse,
+  GetMapsQueryParams,
   GetMapsResponse,
-  MapSortType,
-  MapVisibility,
-  NumPlayers,
   SbMapId,
-  Tileset,
   UpdateMapResponse,
   UpdateMapServerRequest,
   UploadMapResponse,
@@ -33,22 +31,13 @@ export interface UploadLocalMap {
   }
 }
 
-export interface GetMapsListParams {
-  visibility: MapVisibility
-  sort: MapSortType
-  numPlayers: NumPlayers[]
-  tileset: Tileset[]
-  searchQuery: string
-  offset: number
-}
-
 /**
  * The server has returned the list of maps with a particular visibility and other filters applied.
  */
 export interface GetMaps {
   type: '@maps/getMaps'
   payload: GetMapsResponse
-  meta: GetMapsListParams
+  meta: GetMapsQueryParams
 }
 
 /**
@@ -57,6 +46,7 @@ export interface GetMaps {
 export interface GetFavorites {
   type: '@maps/getFavoritedMaps'
   payload: GetFavoritesResponse
+  meta: GetFavoritedMapsQueryParams
 }
 
 /**

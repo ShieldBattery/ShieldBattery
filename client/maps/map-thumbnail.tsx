@@ -337,13 +337,7 @@ export function ReduxMapThumbnail({
   ...props
 }: Omit<
   MapThumbnailProps,
-  | 'map'
-  | 'isFavorited'
-  | 'onMapDetails'
-  | 'onAddToFavorites'
-  | 'onRemoveFromFavorites'
-  | 'onRegenMapImage'
-  | 'onPreview'
+  'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview'
 > & {
   mapId: SbMapId
   hasMapDetailsAction?: boolean
@@ -405,6 +399,7 @@ export function ReduxMapThumbnail({
               dispatch(
                 addToFavorites(mapId, {
                   onSuccess: () => {
+                    props.onAddToFavorites?.(mapId)
                     snackbarController.showSnackbar(
                       t('maps.server.favorites.added', 'Added to favorites'),
                     )
@@ -428,6 +423,7 @@ export function ReduxMapThumbnail({
               dispatch(
                 removeFromFavorites(mapId, {
                   onSuccess: () => {
+                    props.onRemoveFromFavorites?.(mapId)
                     snackbarController.showSnackbar(
                       t('maps.server.favorites.removed', 'Removed from favorites'),
                     )

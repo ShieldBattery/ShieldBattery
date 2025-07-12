@@ -1,16 +1,16 @@
 import {
   MapExtension,
-  MapFilters,
   MapForce,
   MapInfo,
   MapSortType,
   MapVisibility,
+  NumPlayers,
   SbMapId,
   Tileset,
 } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
-import { sql, sqlConcat, sqlRaw } from '../db/sql'
+import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../files'
@@ -343,48 +343,30 @@ export async function getMapInfos(mapIds: SbMapId[]): Promise<MapInfo[]> {
   }
 }
 
-export async function getMaps({
-  visibility,
-  sort,
-  filters = {},
-  uploadedBy,
-  searchStr,
-  limit,
-  offset,
-}: {
-  visibility: MapVisibility
-  sort: MapSortType
-  filters?: Partial<MapFilters>
-  uploadedBy?: SbUserId
-  searchStr?: string
-  limit: number
-  offset: number
-}) {
-  const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
-  if (uploadedBy) {
-    conditions.push(sql`uploaded_by = ${uploadedBy}`)
-  }
+function getWhereCondition(
+  conditions: SqlTemplate[],
+  numPlayers: NumPlayers[],
+  tilesets: Tileset[],
+  searchStr: string,
+): SqlTemplate {
+  // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
+  // on, so we use players_melee in that case
+  conditions.push(sql`(
+    players_ums = ANY(${numPlayers}) OR
+    players_ums = 0 AND players_melee = ANY(${numPlayers})
+  )`)
 
-  if (filters.numPlayers) {
-    // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
-    // on, so we use players_melee in that case
-    conditions.push(sql`(
-      players_ums = ANY(${filters.numPlayers}) OR
-      players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
-    )`)
-  }
-
-  if (filters.tileset) {
-    conditions.push(sql`tileset = ANY(${filters.tileset})`)
-  }
+  conditions.push(sql`tileset = ANY(${tilesets})`)
 
   if (searchStr) {
     const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
     conditions.push(sql`um.name ILIKE ${escapedStr}`)
   }
 
-  const whereCondition = sqlConcat(' AND ', conditions)
+  return sqlConcat(' AND ', conditions)
+}
 
+function getOrderByStatement(sort: MapSortType): SqlTemplate {
   const sortByArray = ['name']
   if (sort === MapSortType.NumberOfPlayers) {
     // TODO(tec27): Use players_melee if this is 0?
@@ -393,7 +375,35 @@ export async function getMaps({
     sortByArray.unshift('upload_date DESC')
   }
 
-  const orderByStatement = sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
+  return sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
+}
+
+export async function getMaps({
+  visibility,
+  sort,
+  numPlayers,
+  tilesets,
+  uploadedBy,
+  searchStr,
+  limit,
+  offset,
+}: {
+  visibility: MapVisibility
+  sort: MapSortType
+  numPlayers: NumPlayers[]
+  tilesets: Tileset[]
+  uploadedBy?: SbUserId
+  searchStr: string
+  limit: number
+  offset: number
+}) {
+  const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
+  if (uploadedBy) {
+    conditions.push(sql`uploaded_by = ${uploadedBy}`)
+  }
+
+  const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
+  const orderByStatement = getOrderByStatement(sort)
 
   const query = sql`
     WITH maps AS (
@@ -434,22 +444,28 @@ export async function getMaps({
 }
 
 /**
- * Retrieves the list of favorited maps for a user, optionally filtered for specific `mapIds`.
+ * Retrieves the list of favorited maps for a user.
  *
- * Favorited maps don't have filters applied to them and they're ordered by the time they were
- * favorited. Also, favorited maps list include potentially "removed" maps, since it's possible to
- * favorite maps of other users which they can subsequently remove for themselves.
+ * Favorited maps potentially include "removed" maps as well, since it's possible to favorite maps
+ * of other users which they can subsequently remove for themselves.
  */
-export async function getFavoritedMaps(
-  favoritedBy: SbUserId,
-  mapIds?: SbMapId[],
-): Promise<MapInfo[]> {
+export async function getFavoritedMaps({
+  favoritedBy,
+  sort,
+  numPlayers,
+  tilesets,
+  searchStr,
+}: {
+  favoritedBy: SbUserId
+  sort: MapSortType
+  numPlayers: NumPlayers[]
+  tilesets: Tileset[]
+  searchStr: string
+}): Promise<MapInfo[]> {
   const conditions = [sql`WHERE favorited_by = ${favoritedBy}`]
-  if (mapIds) {
-    conditions.push(sql`fm.map_id = ANY(${mapIds})`)
-  }
 
-  const whereCondition = sqlConcat(' AND ', conditions)
+  const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
+  const orderByStatement = getOrderByStatement(sort)
 
   const query = sql`
     SELECT
@@ -472,7 +488,7 @@ export async function getFavoritedMaps(
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
     ${whereCondition}
-    ORDER BY favorited_date ASC
+    ${orderByStatement}
   `
 
   const { client, done } = await db()
@@ -480,6 +496,28 @@ export async function getFavoritedMaps(
     const result = await client.query<DbMapInfo>(query)
     // NOTE(tec27): no need to await this because it doesn't utilize the client
     return Promise.all(result.rows.map(info => createMapInfo(info)))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Takes in a list of map IDs and returns only those that are favorited by a particular user.
+ */
+export async function getFavoritedFromMapIds(
+  favoritedBy: SbUserId,
+  mapIds: SbMapId[],
+): Promise<SbMapId[]> {
+  const query = sql`
+    SELECT map_id
+    FROM favorited_maps
+    WHERE favorited_by = ${favoritedBy} AND map_id = ANY(${mapIds})
+  `
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ map_id: SbMapId }>(query)
+    return result.rows.map(row => row.map_id)
   } finally {
     done()
   }

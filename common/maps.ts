@@ -99,11 +99,6 @@ export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(Map
 
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
 
-export interface MapFilters {
-  numPlayers: NumPlayers[]
-  tileset: Tileset[]
-}
-
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
@@ -254,6 +249,17 @@ export function filterColorCodes(str: string): string {
     .join('')
 }
 
+export interface GetMapsQueryParams {
+  visibility: MapVisibility
+  sort: MapSortType
+  numPlayers: NumPlayers[]
+  tilesets: Tileset[]
+  q: string
+  offset: number
+}
+
+export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
+
 export interface UploadMapResponse {
   map: MapInfoJson
   users: SbUser[]
@@ -272,7 +278,7 @@ export interface GetFavoritesResponse {
 
 export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
-  favoritedMaps: SbMapId[]
+  favoritedMapIds: SbMapId[]
   users: SbUser[]
 }
 
