@@ -666,7 +666,9 @@
             "countdownStarted": "游戏倒计时已经开始",
             "gameInitializationCanceled": "游戏初始化已取消",
             "hostChange": "<0><0></0></0>已成为主机",
-            "joinLobby": "<0><0></0></0>已加入房间"
+            "joinLobby": "<0><0></0></0>已加入房间",
+            "gameInitializationCanceledMultiple": "游戏初始化已取消，因为以下玩家未能装载：<1></1>",
+            "gameInitializationCanceledSingle": "游戏初始化已取消，因为<2><0></0></2>未能装载。"
         },
         "slots": {
             "addComputer": "添加电脑玩家",

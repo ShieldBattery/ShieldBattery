@@ -567,7 +567,9 @@
             "countdownStarted": "게임 카운트다운이 시작되었습니다",
             "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다",
             "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다",
-            "selfJoin": "<1>{{lobby}}</1>에 참가하셨습니다. 호스트는 <4><0></0></4>입니다."
+            "selfJoin": "<1>{{lobby}}</1>에 참가하셨습니다. 호스트는 <4><0></0></4>입니다.",
+            "gameInitializationCanceledMultiple": "게임 초기화가 취소되었습니다. 다음 플레이어가 들이기를 실패했습니다:<1></1>",
+            "gameInitializationCanceledSingle": "게임 초기화가 취소되었습니다. <2><0></0></2>가 들이기를 실패했습니다."
         },
         "joinLobby": {
             "openSlotCount_other": "{{count}} 슬롯 열림",

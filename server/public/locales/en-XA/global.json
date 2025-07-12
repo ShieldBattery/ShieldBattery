@@ -1049,7 +1049,9 @@
             "joinLobby": "$🗡<0><0></0></0> has joined the lobby🗡!",
             "kickPlayer": "$🗡<0><0></0></0> has been kicked from the lobby🗡!",
             "leaveLobby": "$🗡<0><0></0></0> has left the lobby🗡!",
-            "selfJoin": "$🗡You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>.🗡!"
+            "selfJoin": "$🗡You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>.🗡!",
+            "gameInitializationCanceledMultiple": "$🗡Game initialization has been canceled because the following players failed to load:<1></1>🗡!",
+            "gameInitializationCanceledSingle": "$🗡Game initialization has been canceled because <2><0></0></2> failed to load.🗡!"
         },
         "slots": {
             "addComputer": "$🗡Add computer🗡!",

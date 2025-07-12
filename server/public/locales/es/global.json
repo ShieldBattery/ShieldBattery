@@ -1055,7 +1055,9 @@
             "joinLobby": "<0><0></0></0> se ha unido al lobby",
             "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
             "leaveLobby": "<0><0></0></0> ha salido del lobby",
-            "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+            "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>.",
+            "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
+            "gameInitializationCanceledSingle": "La inicialización del juego ha sido cancelada porque <2><0></0></2> no pudo cargar."
         },
         "slots": {
             "closeSlot": "Cerrar ranura",
