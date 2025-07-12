@@ -6,15 +6,14 @@ import {
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
   GetBatchMapInfoResponse,
+  GetFavoritedMapsQueryParams,
   GetFavoritesResponse,
+  GetMapsQueryParams,
   GetMapsResponse,
   MAP_LIST_LIMIT,
-  MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
-  NumPlayers,
   SbMapId,
-  Tileset,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
@@ -25,6 +24,7 @@ import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
   addMapToFavorites,
+  getFavoritedFromMapIds,
   getFavoritedMaps,
   getMapInfos,
   getMaps,
@@ -87,25 +87,18 @@ export class MapsApi {
   @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async list(ctx: RouterContext): Promise<GetMapsResponse> {
     const {
-      query: { visibility, sort, numPlayers, tileset, q: searchQuery, offset },
+      query: { visibility, sort, numPlayers, tilesets, q: searchQuery, offset },
     } = validateRequest(ctx, {
-      query: Joi.object<{
-        visibility: MapVisibility
-        sort: MapSortType
-        numPlayers?: NumPlayers[]
-        tileset?: Tileset[]
-        q?: string
-        offset: number
-      }>({
+      query: Joi.object<GetMapsQueryParams>({
         visibility: Joi.string()
           .valid(...ALL_MAP_VISIBILITIES)
           .required(),
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .required(),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)),
-        tileset: Joi.array().items(Joi.number().min(0).max(7)),
-        q: Joi.string().allow(''),
+        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).required(),
+        tilesets: Joi.array().items(Joi.number().min(0).max(7)).required(),
+        q: Joi.string().allow('').required(),
         offset: Joi.number().min(0).required(),
       }),
     })
@@ -116,11 +109,11 @@ export class MapsApi {
 
     const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user!.id : undefined
 
-    const filters = { numPlayers, tileset }
     const mapsResult = await getMaps({
       visibility,
       sort,
-      filters,
+      numPlayers,
+      tilesets,
       uploadedBy,
       searchStr: searchQuery,
       limit: MAP_LIST_LIMIT,
@@ -145,8 +138,27 @@ export class MapsApi {
     throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
   )
   async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
+    const {
+      query: { sort, numPlayers, tilesets, q: searchQuery },
+    } = validateRequest(ctx, {
+      query: Joi.object<GetFavoritedMapsQueryParams>({
+        sort: Joi.number()
+          .valid(...ALL_MAP_SORT_TYPES)
+          .required(),
+        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).required(),
+        tilesets: Joi.array().items(Joi.number().min(0).max(7)).required(),
+        q: Joi.string().allow('').required(),
+      }),
+    })
+
     const favoritedBy = ctx.session!.user.id
-    const mapResult = await getFavoritedMaps(favoritedBy)
+    const mapResult = await getFavoritedMaps({
+      sort,
+      numPlayers,
+      tilesets,
+      searchStr: searchQuery,
+      favoritedBy,
+    })
 
     const [maps, users] = await Promise.all([
       reparseMapsAsNeeded(mapResult),
@@ -171,25 +183,19 @@ export class MapsApi {
     const mapIds = query.m
     const favoritedBy = ctx.session?.user.id
 
-    const [mapsResult, favoritedMapsResult] = await Promise.all([
+    const [mapsResult, favoritedMapIds] = await Promise.all([
       getMapInfos(mapIds),
-      favoritedBy ? getFavoritedMaps(favoritedBy, mapIds) : Promise.resolve([]),
+      favoritedBy ? getFavoritedFromMapIds(favoritedBy, mapIds) : Promise.resolve([]),
     ])
 
-    const userIds = new Set(Array.from(mapsResult).map(m => m.uploadedBy))
-    for (const map of favoritedMapsResult) {
-      userIds.add(map.uploadedBy)
-    }
-
-    const [maps, favoritedMaps, users] = await Promise.all([
+    const [maps, users] = await Promise.all([
       reparseMapsAsNeeded(mapsResult),
-      reparseMapsAsNeeded(favoritedMapsResult),
-      findUsersById(Array.from(userIds)),
+      findUsersById(mapsResult.map(m => m.uploadedBy)),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
-      favoritedMaps: favoritedMaps.map(m => m.id),
+      favoritedMapIds,
       users,
     }
   }

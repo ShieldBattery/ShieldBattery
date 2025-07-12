@@ -3,7 +3,9 @@ import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
 import {
   GetBatchMapInfoResponse,
+  GetFavoritedMapsQueryParams,
   GetFavoritesResponse,
+  GetMapsQueryParams,
   GetMapsResponse,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
@@ -21,7 +23,6 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { GetMapsListParams } from './actions'
 import { ClientSideUploadError, upload } from './upload'
 
 async function uploadMap(filePath: string) {
@@ -76,11 +77,11 @@ export function uploadLocalMap(
 }
 
 export function getMaps(
-  params: GetMapsListParams,
+  params: GetMapsQueryParams,
   spec: RequestHandlingSpec<GetMapsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const { visibility, sort, numPlayers, tileset, searchQuery, offset } = params
+    const { visibility, sort, numPlayers, tilesets, q, offset } = params
 
     const queryParams = new URLSearchParams()
     queryParams.set('visibility', visibility)
@@ -88,10 +89,10 @@ export function getMaps(
     for (const playerCount of numPlayers) {
       queryParams.append('numPlayers', playerCount.toString())
     }
-    for (const tileSet of tileset) {
-      queryParams.append('tileset', tileSet.toString())
+    for (const tileset of tilesets) {
+      queryParams.append('tilesets', tileset.toString())
     }
-    queryParams.set('q', searchQuery)
+    queryParams.set('q', q)
     queryParams.set('offset', offset.toString())
 
     const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
@@ -108,15 +109,31 @@ export function getMaps(
   })
 }
 
-export function getFavorites(spec: RequestHandlingSpec<GetFavoritesResponse>): ThunkAction {
+export function getFavorites(
+  params: GetFavoritedMapsQueryParams,
+  spec: RequestHandlingSpec<GetFavoritesResponse>,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites`, {
+    const { sort, numPlayers, tilesets, q } = params
+
+    const queryParams = new URLSearchParams()
+    queryParams.set('sort', sort.toString())
+    for (const playerCount of numPlayers) {
+      queryParams.append('numPlayers', playerCount.toString())
+    }
+    for (const tileset of tilesets) {
+      queryParams.append('tilesets', tileset.toString())
+    }
+    queryParams.set('q', q)
+
+    const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites?${queryParams}`, {
       signal: spec.signal,
     })
 
     dispatch({
       type: '@maps/getFavoritedMaps',
       payload: result,
+      meta: params,
     })
 
     return result

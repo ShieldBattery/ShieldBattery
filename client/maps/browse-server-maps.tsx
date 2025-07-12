@@ -17,7 +17,7 @@ import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
 import { useRefreshToken } from '../network/refresh-token'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
 import { getFavorites as getFavoritedMaps, getMaps } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
@@ -188,13 +188,16 @@ export function BrowseServerMaps({
   )
 
   const [mapIds, setMapIds] = useState<SbMapId[]>()
-  const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
+  const [favoritedMapIds, setFavoritedMapIds] = useState<SbMapId[]>([])
 
   const [hasMoreMaps, setHasMoreMaps] = useState(true)
   const [isLoadingMoreMaps, setIsLoadingMoreMaps] = useState(false)
-  const [searchError, setSearchError] = useState<Error>()
+  const [getMapsError, setGetMapsError] = useState<Error>()
+  const [getFavoritedMapsError, setGetFavoritedMapsError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useState('')
-  const abortControllerRef = useRef<AbortController>(undefined)
+
+  const getMapsAbortControllerRef = useRef<AbortController>(new AbortController())
+  const getFavoritedMapsAbortControllerRef = useRef<AbortController>(new AbortController())
 
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
@@ -205,22 +208,31 @@ export function BrowseServerMaps({
   //
   // Even though the first approach is more declarative in nature and the second approach more
   // imperative, I went with the second approach for now because it seems more straightforward.
-  const reset = (query?: string) => {
+  const reset = ({
+    query,
+    clearFavorites = true,
+  }: { query?: string; clearFavorites?: boolean } = {}) => {
     // Just need to clear the search results here and let the infinite scroll list initiate the
     // network request.
     setSearchQuery(query ?? '')
     // TODO(2Pac): Make the infinite scroll list in charge of the loading state, so we don't have
     // to do this here, which is pretty unintuitive.
     setIsLoadingMoreMaps(false)
-    setSearchError(undefined)
+    setGetMapsError(undefined)
+    setGetFavoritedMapsError(undefined)
     setMapIds(undefined)
+    // Since favorited maps are shared across tabs, we don't need to clear them when switching tabs,
+    // but we do need to clear them when the user changes the search query or other filters.
+    if (clearFavorites) {
+      setFavoritedMapIds([])
+    }
     setHasMoreMaps(true)
     triggerRefresh()
   }
 
   const debouncedSearchRef = useRef(
     debounce((query: string) => {
-      reset(query)
+      reset({ query })
     }, 100),
   )
 
@@ -231,21 +243,39 @@ export function BrowseServerMaps({
   }, [setActiveTab, uploadedMapId])
 
   useEffect(() => {
-    if (selfUser) {
-      dispatch(
-        getFavoritedMaps({
-          onSuccess: () => {},
-          onError: () => {},
-        }),
-      )
+    if (!selfUser) {
+      return
     }
-  }, [selfUser, dispatch])
+
+    getFavoritedMapsAbortControllerRef.current?.abort()
+    getFavoritedMapsAbortControllerRef.current = new AbortController()
+
+    dispatch(
+      getFavoritedMaps(
+        {
+          sort: sortOption,
+          numPlayers: numPlayersFilter,
+          tilesets: tilesetFilter,
+          q: searchQuery,
+        },
+        {
+          signal: getFavoritedMapsAbortControllerRef.current.signal,
+          onSuccess: data => {
+            setFavoritedMapIds(data.favoritedMaps.map(m => m.id))
+          },
+          onError: err => {
+            setGetFavoritedMapsError(err)
+          },
+        },
+      ),
+    )
+  }, [selfUser, dispatch, sortOption, numPlayersFilter, tilesetFilter, searchQuery])
 
   const onLoadMoreMaps = () => {
     setIsLoadingMoreMaps(true)
 
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
+    getMapsAbortControllerRef.current?.abort()
+    getMapsAbortControllerRef.current = new AbortController()
 
     dispatch(
       getMaps(
@@ -253,12 +283,12 @@ export function BrowseServerMaps({
           visibility: tabToVisibility(activeTab),
           sort: sortOption,
           numPlayers: numPlayersFilter,
-          tileset: tilesetFilter,
-          searchQuery,
+          tilesets: tilesetFilter,
+          q: searchQuery,
           offset: mapIds?.length ?? 0,
         },
         {
-          signal: abortControllerRef.current.signal,
+          signal: getMapsAbortControllerRef.current.signal,
           onSuccess: data => {
             setIsLoadingMoreMaps(false)
             setMapIds((mapIds ?? []).concat(data.maps.map(m => m.id)))
@@ -266,7 +296,7 @@ export function BrowseServerMaps({
           },
           onError: err => {
             setIsLoadingMoreMaps(false)
-            setSearchError(err)
+            setGetMapsError(err)
           },
         },
       ),
@@ -274,7 +304,10 @@ export function BrowseServerMaps({
   }
 
   useEffect(() => {
-    return () => abortControllerRef.current?.abort()
+    return () => {
+      getMapsAbortControllerRef.current?.abort()
+      getFavoritedMapsAbortControllerRef.current?.abort()
+    }
   }, [])
 
   const onRemoveMap = (mapId: SbMapId) => {
@@ -282,8 +315,19 @@ export function BrowseServerMaps({
     onMapRemove?.(mapId)
   }
 
+  const onAddToFavorites = (mapId: SbMapId) => {
+    // We always add the newly favorited map to the end of the favorite maps list, even though that
+    // might not obey our current sort filter (or even our filters). That seems preferable to me
+    // than always having to sort and filter the maps on the client side as well.
+    setFavoritedMapIds([...favoritedMapIds, mapId])
+  }
+
+  const onRemoveFromFavorites = (mapId: SbMapId) => {
+    setFavoritedMapIds(favoritedMapIds.filter(id => id !== mapId))
+  }
+
   let noMapsText: string | undefined
-  if (!mapIds || mapIds.length === 0) {
+  if (mapIds && mapIds.length === 0) {
     const hasFiltersApplied =
       numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
     if (searchQuery || hasFiltersApplied) {
@@ -319,7 +363,7 @@ export function BrowseServerMaps({
           activeTab={activeTab}
           onChange={(value: MapTab) => {
             setActiveTab(value)
-            reset()
+            reset({ clearFavorites: false })
           }}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
           {selfUser ? (
@@ -334,55 +378,66 @@ export function BrowseServerMaps({
       <ScrollDivider $position='top' />
       <Contents>
         <ContentsBody>
-          {searchError ? (
-            <ErrorText>
-              {t('maps.server.error', 'There was an error retrieving the maps.')}
-            </ErrorText>
-          ) : (
-            <>
-              {uploadedMapId && activeTab === MapTab.MyMaps ? (
-                <MapSection
-                  section={MapsSection.Uploaded}
-                  mapIds={[uploadedMapId]}
-                  thumbnailSize={thumbnailSize}
-                  onMapClick={onMapClick}
-                  onMapRemove={onRemoveMap}
-                />
-              ) : null}
+          {uploadedMapId && activeTab === MapTab.MyMaps ? (
+            <MapSection
+              section={MapsSection.Uploaded}
+              mapIds={[uploadedMapId]}
+              thumbnailSize={thumbnailSize}
+              onMapClick={onMapClick}
+              onMapRemove={onRemoveMap}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
+            />
+          ) : null}
 
-              {favoritedMapIds.size > 0 ? (
-                <MapSection
-                  section={MapsSection.Favorited}
-                  mapIds={Array.from(favoritedMapIds)}
-                  thumbnailSize={thumbnailSize}
-                  onMapClick={onMapClick}
-                  onMapRemove={onRemoveMap}
-                />
-              ) : null}
+          {favoritedMapIds.length > 0 ? (
+            <MapSection
+              section={MapsSection.Favorited}
+              mapIds={favoritedMapIds}
+              thumbnailSize={thumbnailSize}
+              errorText={
+                getFavoritedMapsError
+                  ? t(
+                      'maps.server.favorites.error',
+                      'There was an error retrieving your favorite maps.',
+                    )
+                  : undefined
+              }
+              onMapClick={onMapClick}
+              onMapRemove={onRemoveMap}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
+            />
+          ) : null}
 
-              <InfiniteScrollList
-                nextLoadingEnabled={true}
-                isLoadingNext={isLoadingMoreMaps}
-                hasNextData={hasMoreMaps}
-                refreshToken={refreshToken}
-                onLoadNextData={onLoadMoreMaps}>
-                {!mapIds || mapIds.length === 0 ? (
-                  <>
-                    <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
-                    <BodyLarge>{noMapsText}</BodyLarge>
-                  </>
-                ) : (
-                  <MapSection
-                    section={MapsSection.All}
-                    mapIds={mapIds}
-                    thumbnailSize={thumbnailSize}
-                    onMapClick={onMapClick}
-                    onMapRemove={onRemoveMap}
-                  />
-                )}
-              </InfiniteScrollList>
-            </>
-          )}
+          <InfiniteScrollList
+            nextLoadingEnabled={true}
+            isLoadingNext={isLoadingMoreMaps}
+            hasNextData={hasMoreMaps}
+            refreshToken={refreshToken}
+            onLoadNextData={onLoadMoreMaps}>
+            {!mapIds || mapIds.length === 0 ? (
+              <>
+                <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
+                <BodyLarge>{noMapsText}</BodyLarge>
+              </>
+            ) : (
+              <MapSection
+                section={MapsSection.All}
+                mapIds={mapIds}
+                thumbnailSize={thumbnailSize}
+                errorText={
+                  getMapsError
+                    ? t('maps.server.error', 'There was an error retrieving the maps.')
+                    : undefined
+                }
+                onMapClick={onMapClick}
+                onMapRemove={onRemoveMap}
+                onAddToFavorites={onAddToFavorites}
+                onRemoveFromFavorites={onRemoveFromFavorites}
+              />
+            )}
+          </InfiniteScrollList>
         </ContentsBody>
       </Contents>
       <ScrollDivider $position='bottom' />
@@ -415,16 +470,29 @@ interface MapSectionProps {
   section: MapsSection
   mapIds: ReadonlyArray<SbMapId>
   thumbnailSize: MapThumbnailSize
+  errorText?: string
   onMapClick?: (mapId: SbMapId) => void
   onMapRemove: (mapId: SbMapId) => void
+  onAddToFavorites: (mapId: SbMapId) => void
+  onRemoveFromFavorites: (mapId: SbMapId) => void
 }
-function MapSection({ section, mapIds, thumbnailSize, onMapClick, onMapRemove }: MapSectionProps) {
+function MapSection({
+  section,
+  mapIds,
+  thumbnailSize,
+  errorText,
+  onMapClick,
+  onMapRemove,
+  onAddToFavorites,
+  onRemoveFromFavorites,
+}: MapSectionProps) {
   const { t } = useTranslation()
 
   const layout = thumbnailSizeToLayout(thumbnailSize)
   return (
     <>
       <SectionHeader>{mapsSectionToTitle(section, t)}</SectionHeader>
+      {errorText ? <ErrorText>{errorText}</ErrorText> : null}
       <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
         {mapIds.map(mapId => {
           // We don't show the remove button in the favorited maps section since that section
@@ -443,6 +511,8 @@ function MapSection({ section, mapIds, thumbnailSize, onMapClick, onMapRemove }:
               hasMapPreviewAction={true}
               hasRegenMapImageAction={true}
               onClick={onMapClick ? () => onMapClick(mapId) : undefined}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
               onRemove={canRemoveMap ? () => onMapRemove(mapId) : undefined}
             />
           )
