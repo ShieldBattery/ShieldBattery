@@ -1,9 +1,10 @@
 import httpErrors from 'http-errors'
 import { isValidLobbyName } from '../../../common/constants'
 import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
+import { toMapInfoJson } from '../../../common/maps'
 import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
-import { getMapInfo } from '../maps/map-models'
+import { getMapInfos } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -59,9 +60,10 @@ async function upsertPreferences(ctx, next) {
     turnRate,
     useLegacyLimits,
   })
+  const recentMapInfos = await getMapInfos(preferences.recentMaps)
   ctx.body = {
     ...preferences,
-    recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.user.id),
+    recentMaps: recentMapInfos.map(m => toMapInfoJson(m)),
   }
 }
 
@@ -73,10 +75,10 @@ async function getPreferences(ctx, next) {
   }
 
   const { selectedMap } = preferences
-  const recentMaps = await getMapInfo(preferences.recentMaps, ctx.session.user.id)
+  const recentMapInfos = await getMapInfos(preferences.recentMaps)
   ctx.body = {
     ...preferences,
-    recentMaps,
-    selectedMap: recentMaps.map(m => m.id).includes(selectedMap) ? selectedMap : null,
+    recentMaps: recentMapInfos.map(m => toMapInfoJson(m)),
+    selectedMap: recentMapInfos.map(m => m.id).includes(selectedMap) ? selectedMap : null,
   }
 }

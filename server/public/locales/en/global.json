@@ -246,6 +246,7 @@
     "actions": {
       "accept": "Accept",
       "apply": "Apply",
+      "back": "Back",
       "block": "Block",
       "cancel": "Cancel",
       "clear": "Clear",
@@ -600,7 +601,6 @@
       "mapName": "Map name",
       "mapNameRequired": "Enter a map name",
       "players": "Players: {{playerSize}}",
-      "retrieveError": "Something went wrong while trying to retrieve the details of this map. The error message was:",
       "size": "Size: {{width}}x{{height}}",
       "tileset": "Tileset: {{tilesetName}}",
       "title": "Map details"
@@ -619,11 +619,12 @@
     "server": {
       "allMaps": "All maps",
       "browseLocal": "Browse local maps",
-      "error": "Something went wrong: {{errorMessage}}",
-      "favoritedMaps": "Favorited maps",
+      "error": "There was an error retrieving the maps.",
+      "favoriteMaps": "Favorite maps",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
+        "error": "There was an error retrieving your favorite maps.",
         "removed": "Removed from favorites",
         "removedError": "An error occurred while removing from favorites"
       },
@@ -642,6 +643,7 @@
       "noUploadedMapsWeb": "You haven't uploaded any maps.",
       "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
+      "removeError": "An error occurred while removing the map",
       "sortMaps": {
         "option": {
           "dateUploaded": "Date uploaded",

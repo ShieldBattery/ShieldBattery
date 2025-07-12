@@ -1,9 +1,12 @@
 import * as React from 'react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { OverrideProperties, ReadonlyDeep } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
+import { ReadonlyDeep } from 'type-fest'
+import { MapInfoJson, MapVisibility, SbMapId } from '../../common/maps'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
@@ -11,9 +14,17 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { singleLine, titleMedium } from '../styles/typography'
-import { batchGetMapInfo } from './action-creators'
+import {
+  addToFavorites,
+  batchGetMapInfo,
+  openMapPreviewDialog,
+  regenMapImage,
+  removeFromFavorites,
+  removeMap,
+} from './action-creators'
 import { MapInfoImage } from './map-image'
 
 const Container = styled.div`
@@ -177,16 +188,17 @@ export interface MapThumbnailProps {
   forceAspectRatio?: number
   size?: number
   showMapName?: boolean
-  isFavoriting?: boolean
+  isFavorited?: boolean
   isSelected?: boolean
   isFocused?: boolean
   selectedIcon?: React.ReactNode
   onClick?: (event: React.MouseEvent) => void
   onPreview?: () => void
-  onToggleFavorite?: () => void
-  onMapDetails?: () => void
-  onRemove?: () => void
-  onRegenMapImage?: () => void
+  onAddToFavorites?: (mapId: SbMapId) => void
+  onRemoveFromFavorites?: (mapId: SbMapId) => void
+  onMapDetails?: (mapId: SbMapId) => void
+  onRemove?: (mapId: SbMapId) => void
+  onRegenMapImage?: (mapId: SbMapId) => void
 }
 
 export function MapThumbnail({
@@ -196,13 +208,14 @@ export function MapThumbnail({
   forceAspectRatio,
   size,
   showMapName,
-  isFavoriting,
+  isFavorited,
   isSelected,
   isFocused,
   selectedIcon,
   onClick,
   onPreview,
-  onToggleFavorite,
+  onAddToFavorites,
+  onRemoveFromFavorites,
   onMapDetails,
   onRemove,
   onRegenMapImage,
@@ -219,22 +232,34 @@ export function MapThumbnail({
     [closeMenu],
   )
 
-  const actions = useMemo(() => {
-    const mapActions: Array<[text: string, handler: () => void]> = []
-    if (onMapDetails) {
-      mapActions.push([t('maps.thumbnail.viewMapDetails', 'View map details'), onMapDetails])
-    }
-    if (onRegenMapImage) {
-      mapActions.push([t('maps.thumbnail.regenerateImage', 'Regenerate image'), onRegenMapImage])
-    }
-    if (onRemove) {
-      mapActions.push([t('common.actions.remove', 'Remove'), onRemove])
-    }
+  const mapActions: Array<[text: string, handler: () => void]> = []
+  if (onMapDetails) {
+    mapActions.push([
+      t('maps.thumbnail.viewMapDetails', 'View map details'),
+      () => onMapDetails(map.id),
+    ])
+  }
+  if (onAddToFavorites && onRemoveFromFavorites) {
+    mapActions.push([
+      isFavorited
+        ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
+        : t('maps.thumbnail.addToFavorites', 'Add to favorites'),
+      () => (isFavorited ? onRemoveFromFavorites(map.id) : onAddToFavorites(map.id)),
+    ])
+  }
+  if (onRegenMapImage) {
+    mapActions.push([
+      t('maps.thumbnail.regenerateImage', 'Regenerate image'),
+      () => onRegenMapImage(map.id),
+    ])
+  }
+  if (onRemove) {
+    mapActions.push([t('common.actions.remove', 'Remove'), () => onRemove(map.id)])
+  }
 
-    return mapActions.map(([text, handler], i) => (
-      <MenuItem key={i} text={text} onClick={() => onActionClick(handler)} />
-    ))
-  }, [onMapDetails, onRegenMapImage, onRemove, t, onActionClick])
+  const actions = mapActions.map(([text, handler], i) => (
+    <MenuItem key={i} text={text} onClick={() => onActionClick(handler)} />
+  ))
 
   return (
     <Container className={className} style={style}>
@@ -262,16 +287,17 @@ export function MapThumbnail({
           onClick={onPreview}
         />
       ) : null}
-      {onToggleFavorite ? (
+      {onAddToFavorites && onRemoveFromFavorites ? (
         <FavoriteActionIcon
-          disabled={isFavoriting}
-          icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
+          icon={<MaterialIcon icon='star' filled={isFavorited} />}
           title={
-            map.isFavorited
+            isFavorited
               ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
               : t('maps.thumbnail.addToFavorites', 'Add to favorites')
           }
-          onClick={onToggleFavorite}
+          onClick={
+            isFavorited ? () => onRemoveFromFavorites(map.id) : () => onAddToFavorites(map.id)
+          }
         />
       ) : null}
       {showMapName ? (
@@ -302,17 +328,38 @@ export function MapThumbnail({
   )
 }
 
-export function ConnectedMapThumbnail(
-  props: OverrideProperties<MapThumbnailProps, { map: string }>,
-) {
+export function ReduxMapThumbnail({
+  mapId,
+  hasMapDetailsAction = true,
+  hasFavoriteAction = true,
+  hasMapPreviewAction = true,
+  hasRegenMapImageAction = true,
+  ...props
+}: Omit<
+  MapThumbnailProps,
+  'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview'
+> & {
+  mapId: SbMapId
+  hasMapDetailsAction?: boolean
+  hasFavoriteAction?: boolean
+  hasMapPreviewAction?: boolean
+  hasRegenMapImageAction?: boolean
+}) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const mapInfo = useAppSelector(s => s.maps2.byId.get(props.map))
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
+
+  const snackbarController = useSnackbarController()
+
+  const map = useAppSelector(s => s.maps.byId.get(mapId))
+  const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
 
   useEffect(() => {
-    dispatch(batchGetMapInfo(props.map))
-  }, [dispatch, props.map])
+    dispatch(batchGetMapInfo(mapId))
+  }, [dispatch, mapId])
 
-  if (!mapInfo) {
+  if (!map) {
     // TODO(tec27): Build a loading skeleton for this instead
     return (
       <Container className={props.className} style={props.style}>
@@ -320,6 +367,122 @@ export function ConnectedMapThumbnail(
       </Container>
     )
   }
+  const isFavorited = favoritedMapIds.has(map.id)
+  const canOpenMapDetails = hasMapDetailsAction
+  const canFavorite = selfUser && hasFavoriteAction
+  const canPreviewMap = hasMapPreviewAction
+  const canManageMaps = !!selfPermissions?.manageMaps
+  let canRemoveMap = false
+  if (selfUser) {
+    if (canManageMaps) {
+      canRemoveMap = true
+    } else if (map.visibility === MapVisibility.Private && map.uploadedBy === selfUser.id) {
+      canRemoveMap = true
+    }
+  }
+  canRemoveMap = !!props.onRemove && canRemoveMap
+  const canRegenMapImage = selfUser && canManageMaps && hasRegenMapImageAction
 
-  return <MapThumbnail {...props} map={mapInfo} />
+  return (
+    <MapThumbnail
+      {...props}
+      map={map}
+      isFavorited={isFavorited}
+      onMapDetails={
+        canOpenMapDetails
+          ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+          : undefined
+      }
+      onAddToFavorites={
+        canFavorite
+          ? mapId => {
+              dispatch(
+                addToFavorites(mapId, {
+                  onSuccess: () => {
+                    props.onAddToFavorites?.(mapId)
+                    snackbarController.showSnackbar(
+                      t('maps.server.favorites.added', 'Added to favorites'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.favorites.addedError',
+                        'An error occurred while adding to favorites',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onRemoveFromFavorites={
+        canFavorite
+          ? mapId => {
+              dispatch(
+                removeFromFavorites(mapId, {
+                  onSuccess: () => {
+                    props.onRemoveFromFavorites?.(mapId)
+                    snackbarController.showSnackbar(
+                      t('maps.server.favorites.removed', 'Removed from favorites'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.favorites.removedError',
+                        'An error occurred while removing from favorites',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onPreview={canPreviewMap ? () => dispatch(openMapPreviewDialog(map.id)) : undefined}
+      onRemove={
+        canRemoveMap
+          ? mapId => {
+              dispatch(
+                removeMap(mapId, {
+                  onSuccess: () => {
+                    props.onRemove?.(mapId)
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.removeError', 'An error occurred while removing the map'),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onRegenMapImage={
+        canRegenMapImage
+          ? mapId => {
+              dispatch(
+                regenMapImage(mapId, {
+                  onSuccess: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.regenerated', 'Images regenerated'),
+                    )
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'maps.server.regenerateError',
+                        'An error occurred while regenerating images',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+    />
+  )
 }

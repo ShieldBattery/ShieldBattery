@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import styled from 'styled-components'
+import { SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -27,12 +28,12 @@ const StyledMapImage = styled(MapInfoImage)`
 `
 
 export interface MapPreviewDialogProps extends CommonDialogProps {
-  mapId: string
+  mapId: SbMapId
 }
 
 export function MapPreviewDialog({ mapId, onCancel }: MapPreviewDialogProps) {
   const dispatch = useAppDispatch()
-  const map = useAppSelector(s => s.maps2.byId.get(mapId))
+  const map = useAppSelector(s => s.maps.byId.get(mapId))
   useEffect(() => {
     dispatch(batchGetMapInfo(mapId))
   }, [dispatch, mapId])

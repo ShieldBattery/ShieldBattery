@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
+import { Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/game-type'
 import { Jsonify } from './json'
@@ -9,6 +10,19 @@ import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
 export const MAX_MAP_FILE_SIZE_BYTES = 100 * 1024 * 1024 // 100MB
+
+export const MAP_LIST_LIMIT = 40
+
+export type SbMapId = Tagged<string, 'SbMapId'>
+
+/**
+ * Converts a map ID string into a properly typed version. Alternative methods of retrieving an
+ * SbMapId should be preferred, such as using a value retrieved from the database, or getting one
+ * via the common Joi validator.
+ */
+export function makeSbMapId(id: string): SbMapId {
+  return id as SbMapId
+}
 
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
@@ -85,11 +99,6 @@ export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(Map
 
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
 
-export interface MapFilters {
-  numPlayers: NumPlayers[]
-  tileset: Tileset[]
-}
-
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
@@ -124,7 +133,7 @@ export interface MapData {
 }
 
 export interface MapInfo {
-  id: string
+  id: SbMapId
   hash: string
   name: string
   description: string
@@ -138,10 +147,6 @@ export interface MapInfo {
   image1024Url?: string
   image2048Url?: string
   imageVersion: number
-
-  // TODO(tec27): Remove this from this structure, as it makes query responses user-specific in a
-  // bad way
-  isFavorited: boolean
 }
 
 export type MapInfoJson = Jsonify<MapInfo>
@@ -244,6 +249,17 @@ export function filterColorCodes(str: string): string {
     .join('')
 }
 
+export interface GetMapsQueryParams {
+  visibility: MapVisibility
+  sort: MapSortType
+  numPlayers: NumPlayers[]
+  tilesets: Tileset[]
+  q: string
+  offset: number
+}
+
+export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
+
 export interface UploadMapResponse {
   map: MapInfoJson
   users: SbUser[]
@@ -251,27 +267,24 @@ export interface UploadMapResponse {
 
 export interface GetMapsResponse {
   maps: MapInfoJson[]
-  favoritedMaps: MapInfoJson[]
-  limit: number
-  page: number
-  total: number
+  hasMoreMaps: boolean
   users: SbUser[]
 }
 
-export interface GetMapDetailsResponse {
-  map: MapInfoJson
+export interface GetFavoritesResponse {
+  favoritedMaps: MapInfoJson[]
   users: SbUser[]
 }
 
 export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
+  favoritedMapIds: SbMapId[]
   users: SbUser[]
 }
 
 export interface UpdateMapServerRequest {
-  mapId: string
-  name: string
-  description: string
+  name?: string
+  description?: string
 }
 
 export interface UpdateMapResponse {
