@@ -624,6 +624,7 @@
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
+        "error": "There was an error retrieving your favorite maps.",
         "removed": "Removed from favorites",
         "removedError": "An error occurred while removing from favorites"
       },
