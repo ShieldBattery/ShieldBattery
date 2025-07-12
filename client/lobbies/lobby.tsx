@@ -29,6 +29,7 @@ import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
 import { ClosedSlot } from './closed-slot'
+import { LobbyUserMenu } from './lobby-menu-items'
 import {
   BanLobbyPlayerMessage,
   JoinLobbyMessage,
@@ -366,6 +367,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           <StyledChat
             listProps={{ messages: this.props.chat, MessageComponent: LobbyChatMessage }}
             inputProps={{ onSendChatMessage }}
+            UserMenu={LobbyUserMenu}
           />
         </Left>
         <Info>
