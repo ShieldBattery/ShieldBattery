@@ -36,6 +36,7 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
+import { LobbyContext } from './lobby-context'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -147,51 +148,53 @@ function ConnectedLobby() {
   const chat = useAppSelector(s => s.lobby.chat)
 
   return (
-    <LobbyComponent
-      lobby={lobby}
-      loadingState={loadingState}
-      chat={chat}
-      user={selfUser!}
-      onLeaveLobbyClick={() => {
-        dispatch(leaveLobby())
-      }}
-      onAddComputer={slotId => {
-        dispatch(addComputer(slotId))
-      }}
-      onSetRace={(slotId, race) => {
-        dispatch(setRace(slotId, race))
-      }}
-      onSwitchSlot={slotId => {
-        dispatch(changeSlot(slotId))
-      }}
-      onOpenSlot={slotId => {
-        dispatch(openSlot(slotId))
-      }}
-      onCloseSlot={slotId => {
-        dispatch(closeSlot(slotId))
-      }}
-      onKickPlayer={slotId => {
-        dispatch(kickPlayer(slotId))
-      }}
-      onBanPlayer={slotId => {
-        dispatch(banPlayer(slotId))
-      }}
-      onMakeObserver={slotId => {
-        dispatch(makeObserver(slotId))
-      }}
-      onRemoveObserver={slotId => {
-        dispatch(removeObserver(slotId))
-      }}
-      onStartGame={() => {
-        dispatch(startCountdown())
-      }}
-      onSendChatMessage={message => {
-        dispatch(sendChat(message))
-      }}
-      onMapPreview={() => {
-        dispatch(openMapPreviewDialog(lobby.map!.id))
-      }}
-    />
+    <LobbyContext.Provider value={{ lobby }}>
+      <LobbyComponent
+        lobby={lobby}
+        loadingState={loadingState}
+        chat={chat}
+        user={selfUser!}
+        onLeaveLobbyClick={() => {
+          dispatch(leaveLobby())
+        }}
+        onAddComputer={slotId => {
+          dispatch(addComputer(slotId))
+        }}
+        onSetRace={(slotId, race) => {
+          dispatch(setRace(slotId, race))
+        }}
+        onSwitchSlot={slotId => {
+          dispatch(changeSlot(slotId))
+        }}
+        onOpenSlot={slotId => {
+          dispatch(openSlot(slotId))
+        }}
+        onCloseSlot={slotId => {
+          dispatch(closeSlot(slotId))
+        }}
+        onKickPlayer={slotId => {
+          dispatch(kickPlayer(slotId))
+        }}
+        onBanPlayer={slotId => {
+          dispatch(banPlayer(slotId))
+        }}
+        onMakeObserver={slotId => {
+          dispatch(makeObserver(slotId))
+        }}
+        onRemoveObserver={slotId => {
+          dispatch(removeObserver(slotId))
+        }}
+        onStartGame={() => {
+          dispatch(startCountdown())
+        }}
+        onSendChatMessage={message => {
+          dispatch(sendChat(message))
+        }}
+        onMapPreview={() => {
+          dispatch(openMapPreviewDialog(lobby.map!.id))
+        }}
+      />
+    </LobbyContext.Provider>
   )
 }
 
