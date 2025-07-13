@@ -1,4 +1,4 @@
-import { atom, useAtom } from 'jotai'
+import { atom, useAtom, useAtomValue } from 'jotai'
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
 import React, { useEffect, useRef, useState } from 'react'
@@ -11,6 +11,7 @@ import { urlPath } from '../../common/urls'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { cancelFindMatch } from '../matchmaking/action-creators'
+import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
 import { OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
@@ -48,6 +49,7 @@ const PositioningArea = styled.div`
 export function GameplayActivityWidget() {
   const inLobby = useAppSelector(s => s.lobby.inLobby)
   const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)
+  const inDraft = useAtomValue(isInDraftAtom)
 
   const [onLobbyRoute] = useRoute('/lobbies/:lobby/*?')
 
@@ -98,7 +100,7 @@ export function GameplayActivityWidget() {
   let widget: React.ReactNode | undefined
   if (inLobby && !onLobbyRoute) {
     widget = <LobbyWidget key='lobby' ref={widgetRef} onDragStart={onDragStart} />
-  } else if (matchmakingSearchInfo) {
+  } else if (matchmakingSearchInfo && !inDraft) {
     widget = <MatchmakingWidget key='matchmaking' ref={widgetRef} onDragStart={onDragStart} />
   }
 

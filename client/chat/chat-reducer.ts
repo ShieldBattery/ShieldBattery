@@ -543,6 +543,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateChannelInfos(state, action.payload.channelMentions)
   },
 
+  ['@messaging/loadMentions'](state, action) {
+    const { channelMentions } = action.payload
+    updateChannelInfos(state, channelMentions)
+  },
+
   ['@network/connect']() {
     return DEFAULT_CHAT_STATE
   },

@@ -1,12 +1,13 @@
 import { TFunction } from 'i18next'
-import { SetRequired, Simplify, Tagged } from 'type-fest'
+import { IntRange, SetRequired, Simplify, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
+import { BasicChannelInfo } from './chat'
 import { binarySearch } from './data-structures/arrays'
-import { GameRoute } from './games/game-launch-config'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
 import { MatchmakingType } from './typeshare'
+import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
 /**
@@ -506,6 +507,62 @@ export function wasPlayerInactive(lastPlayedDate: Date, gameDate: Date): boolean
 /** How long users have to accept a match, in milliseconds. */
 export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 30000
 
+/** Time allowed for each draft pick in milliseconds. */
+export const DRAFT_PICK_TIME_MS = 15000
+
+export type DraftPlayer = { userId: SbUserId; provisionalRace: RaceChar } & (
+  | { hasLocked: false }
+  | { hasLocked: true; finalRace: RaceChar }
+)
+
+export interface DraftTeam {
+  players: DraftPlayer[]
+}
+
+export interface AnonymizedDraftTeam {
+  players: AnonymizedDraftPlayer[]
+}
+
+export const NUM_ANONYMIZED_NAMES = 6
+
+export type AnonymizedNameIndex = IntRange<0, typeof NUM_ANONYMIZED_NAMES>
+
+/**
+ * Retrieve an anonymized name for use when a player's name cannot be known yet (e.g. during the
+ * draft). Values should be from [0, NUM_ANONYMIZED_NAMES].
+ */
+export function getAnonymizedName(nameIndex: AnonymizedNameIndex, t: TFunction): string {
+  switch (nameIndex) {
+    case 0:
+      return t('matchmaking.draftScreen.anonymizedName0', 'Rusty Rhynadon')
+    case 1:
+      return t('matchmaking.draftScreen.anonymizedName1', 'Bold Bengalaas')
+    case 2:
+      return t('matchmaking.draftScreen.anonymizedName2', 'Sneaky Scantid')
+    case 3:
+      return t('matchmaking.draftScreen.anonymizedName3', 'Keen Kakaru')
+    case 4:
+      return t('matchmaking.draftScreen.anonymizedName4', 'Ruthless Ragnasaur')
+    default:
+      return t('matchmaking.draftScreen.anonymizedName5', 'Unstable Ursadon')
+  }
+}
+
+export type AnonymizedDraftPlayer = { index: number; nameIndex: AnonymizedNameIndex } & (
+  | { hasLocked: false }
+  | { hasLocked: true; finalRace: RaceChar }
+)
+
+export interface ClientDraftState {
+  mapId: SbMapId
+  currentPicker?: { team: number; slot: number }
+  myTeamIndex: number
+  ownTeam: DraftTeam
+  opponentTeam: AnonymizedDraftTeam
+  pickOrder: Array<[team: number, slot: number]>
+  isCompleted: boolean
+}
+
 /**
  * Describes a player in the matchmaking. This only includes information that are relevant and safe
  * to send to other players in the matchmaking.
@@ -741,12 +798,6 @@ export interface MatchReadyEvent {
   type: 'matchReady'
 }
 
-export interface SetRoutesEvent {
-  type: 'setRoutes'
-  routes: GameRoute[]
-  gameId: string
-}
-
 export interface CancelLoadingEvent {
   type: 'cancelLoading'
   reason: string
@@ -765,6 +816,62 @@ export interface QueueStatusEvent {
   matchmaking?: { type: MatchmakingType }
 }
 
+export interface DraftStartedEvent {
+  type: 'draftStarted'
+  draftState: ClientDraftState
+  mapInfo: MapInfoJson
+}
+
+export interface DraftPickStartedEvent {
+  type: 'draftPickStarted'
+  teamId: number
+  index: number
+}
+
+export interface DraftProvisionalPickEvent {
+  type: 'draftProvisionalPick'
+  teamId: number
+  index: number
+  race: RaceChar
+}
+
+export interface DraftPickLockedEvent {
+  type: 'draftPickLocked'
+  teamId: number
+  index: number
+  race: RaceChar
+}
+
+export interface DraftCompletedEvent {
+  type: 'draftCompleted'
+}
+
+export interface DraftCancelEvent {
+  type: 'draftCancel'
+}
+
+export enum DraftMessageType {
+  // TODO(tec27): Unify with the base message types when we move everything to immer
+  TextMessage = 'message',
+}
+
+export interface DraftChatTextMessage {
+  id: string
+  type: typeof DraftMessageType.TextMessage
+  time: number
+  from: SbUserId
+  text: string
+}
+
+export type DraftChatMessage = DraftChatTextMessage
+
+export interface DraftChatMessageEvent {
+  type: 'draftChatMessage'
+  message: DraftChatMessage
+  mentions: SbUser[]
+  channelMentions: BasicChannelInfo[]
+}
+
 export type MatchmakingEvent =
   | StartSearchEvent
   | MatchFoundEvent
@@ -772,10 +879,16 @@ export type MatchmakingEvent =
   | AcceptTimeoutEvent
   | RequeueEvent
   | MatchReadyEvent
-  | SetRoutesEvent
   | CancelLoadingEvent
   | GameStartedEvent
   | QueueStatusEvent
+  | DraftStartedEvent
+  | DraftPickStartedEvent
+  | DraftProvisionalPickEvent
+  | DraftPickLockedEvent
+  | DraftCompletedEvent
+  | DraftCancelEvent
+  | DraftChatMessageEvent
 
 /**
  * Describes the current status (enabled/disabled) of a particular MatchmakingType on the server.
@@ -867,12 +980,26 @@ export enum MatchmakingServiceErrorCode {
   TooManyPlayers = 'tooManyPlayers',
   UserBanned = 'userBanned',
   UserOffline = 'userOffline',
+  NoActiveDraft = 'noActiveDraft',
+  InvalidDraftPick = 'invalidDraftPick',
 }
 
 export interface FindMatchRequest {
   clientId: string
   preferences: MatchmakingPreferences
   identifiers: [type: number, hashStr: string][]
+}
+
+export interface DraftProvisionalPickRequest {
+  race: RaceChar
+}
+
+export interface DraftLockPickRequest {
+  race: RaceChar
+}
+
+export interface DraftChatMessageRequest {
+  message: string
 }
 
 export interface GetMatchmakingBanStatusResponse {

@@ -19,6 +19,8 @@ import { jotaiStore } from './jotai-store'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
+import { DraftScreenOverlay } from './matchmaking/draft-screen-overlay'
+import { NavigationTrapProvider } from './navigation/navigation-trap'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteSocketManager } from './network/site-socket-manager'
@@ -171,13 +173,15 @@ function InnerApp() {
                 nonce={(window as any).SB_CSP_NONCE}
                 transition={DEFAULT_MOTION_CONFIG}>
                 <RootErrorBoundary>
-                  <FileDropZoneProvider>
-                    <SnackbarOverlay>
-                      <React.Suspense fallback={<LoadingDotsArea />}>
-                        <AppContent />
-                      </React.Suspense>
-                    </SnackbarOverlay>
-                  </FileDropZoneProvider>
+                  <NavigationTrapProvider>
+                    <FileDropZoneProvider>
+                      <SnackbarOverlay>
+                        <React.Suspense fallback={<LoadingDotsArea />}>
+                          <AppContent />
+                        </React.Suspense>
+                      </SnackbarOverlay>
+                    </FileDropZoneProvider>
+                  </NavigationTrapProvider>
                 </RootErrorBoundary>
                 <UpdateOverlay />
               </MotionConfig>
@@ -208,6 +212,7 @@ const AppContent = React.memo(() => {
       <React.Suspense fallback={<LoadingDotsArea />}>
         <ConnectedSettings />
       </React.Suspense>
+      <DraftScreenOverlay />
       <ConnectedDialogOverlay />
     </>
   )

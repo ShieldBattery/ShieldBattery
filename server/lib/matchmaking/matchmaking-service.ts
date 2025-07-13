@@ -5,7 +5,6 @@ import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
-import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
@@ -34,7 +33,6 @@ import {
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
-import { urlPath } from '../../../common/urls'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -68,9 +66,15 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { DraftState } from './draft-state'
 import { MatchmakingBanService } from './matchmaking-ban-service'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
+import {
+  getMatchmakingClientPath,
+  getMatchmakingUserPath,
+  getMatchPath,
+} from './matchmaking-socket-paths'
 import { adjustMatchmakingRatingForInactivity } from './rating'
 
 interface MatchmakerCallbacks {
@@ -86,11 +90,13 @@ class Match {
   private toKick = new Set<SbUserId>()
   private toBan = new Set<SbUserId>()
   private abortController = new AbortController()
+  private draftState?: DraftState
 
   constructor(
     readonly id: string,
     readonly type: MatchmakingType,
     readonly teams: Immutable<MatchmakingEntity[][]>,
+    private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
   ) {
     for (const entities of teams) {
       for (const entity of entities) {
@@ -153,9 +159,12 @@ class Match {
   }
 
   registerDecline(userId: SbUserId) {
-    this.toKick.add(this.userIdToRegisteredId.get(userId)!)
-    this.abortController.abort()
+    this.markForBan(userId)
     this.clearAcceptTimeout()
+
+    // If draft state exists, then we need to abort that too
+    this.draftState?.handleClientLeave()
+    this.abortController.abort()
   }
 
   markForBan(userId: SbUserId) {
@@ -176,6 +185,36 @@ class Match {
     )
     return [new Set(this.toKick), new Set(this.toBan), toRequeue]
   }
+
+  /**
+   * Runs a race draft for team modes, will return a resolved promise for modes without a draft.
+   */
+  runDraft(activeClients: Map<SbUserId, ClientSocketsGroup>, map: MapInfo): Promise<void> {
+    if (this.type === MatchmakingType.Match1v1 || this.type === MatchmakingType.Match1v1Fastest) {
+      return Promise.resolve()
+    }
+
+    if (this.draftState) {
+      throw new Error('Draft state already initialized')
+    }
+
+    this.draftState = new DraftState(
+      this.id,
+      this.teams,
+      map,
+      this.abortController,
+      this.publisher,
+      activeClients,
+    )
+    return raceAbort(this.abortController.signal, this.draftState.completedPromise)
+  }
+
+  /**
+   * Returns the draft state if this match has one.
+   */
+  getDraftState(): DraftState | undefined {
+    return this.draftState
+  }
 }
 
 interface QueueEntry {
@@ -185,11 +224,6 @@ interface QueueEntry {
   type: MatchmakingType
   partyId?: string
   matchId?: string
-}
-
-interface Timers {
-  countdownTimer?: Deferred<void>
-  cancelToken: CancelToken
 }
 
 // Extra time that is added to the matchmaking accept time to account for latency in getting
@@ -276,7 +310,7 @@ export class MatchmakingService {
     onMatchFound: (teamA, teamB) => {
       const playerEntry = this.queueEntries.get(getMatchmakingEntityId(teamA[0]))!
 
-      const matchInfo = new Match(nanoid(), playerEntry.type, [teamA, teamB])
+      const matchInfo = new Match(nanoid(), playerEntry.type, [teamA, teamB], this.publisher)
       this.matches.set(matchInfo.id, matchInfo)
 
       for (const entities of [teamA, teamB]) {
@@ -322,12 +356,9 @@ export class MatchmakingService {
   }
 
   private matchmakers: Map<MatchmakingType, Matchmaker>
-  // Maps user ID -> QueueEntry
   private queueEntries = new Map<SbUserId, QueueEntry>()
   // Maps match ID -> Match
   private matches = new Map<string, Match>()
-  // Maps user ID -> Timers
-  private clientTimers = new Map<SbUserId, Timers>()
 
   private matchesRequestedMetric = new Counter({
     name: 'shieldbattery_matchmaker_matches_requested_total',
@@ -495,6 +526,90 @@ export class MatchmakingService {
     this.matches.get(queueEntry.matchId)?.registerAccept(userId)
   }
 
+  async updateProvisionalRace(userId: SbUserId, race: RaceChar): Promise<void> {
+    const queueEntry = this.queueEntries.get(userId)
+    if (!queueEntry?.matchId) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'No active match found',
+      )
+    }
+
+    const match = this.matches.get(queueEntry.matchId)
+    if (!match) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'Match no longer exists',
+      )
+    }
+
+    const draftState = match.getDraftState()
+    if (!draftState) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveDraft,
+        'No active draft found',
+      )
+    }
+
+    draftState.updateProvisionalRace(userId, race)
+  }
+
+  async lockInPick(userId: SbUserId, race: RaceChar): Promise<void> {
+    const queueEntry = this.queueEntries.get(userId)
+    if (!queueEntry?.matchId) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'No active match found',
+      )
+    }
+
+    const match = this.matches.get(queueEntry.matchId)
+    if (!match) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'Match no longer exists',
+      )
+    }
+
+    const draftState = match.getDraftState()
+    if (!draftState) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveDraft,
+        'No active draft found',
+      )
+    }
+
+    draftState.lockInPick(userId, race)
+  }
+
+  async sendDraftChatMessage(userId: SbUserId, message: string): Promise<void> {
+    const queueEntry = this.queueEntries.get(userId)
+    if (!queueEntry?.matchId) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'No active match found',
+      )
+    }
+
+    const match = this.matches.get(queueEntry.matchId)
+    if (!match) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'Match no longer exists',
+      )
+    }
+
+    const draftState = match.getDraftState()
+    if (!draftState) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveDraft,
+        'No active draft found',
+      )
+    }
+
+    await draftState.sendChatMessage(userId, message)
+  }
+
   /**
    * Register that a player left a party. If that party is currently queued, we treat this like a
    * disconnect.
@@ -527,17 +642,14 @@ export class MatchmakingService {
     matchmakingType: MatchmakingType,
     race: RaceChar,
   ): void {
-    userSockets.subscribe<MatchmakingEvent>(
-      MatchmakingService.getUserPath(userSockets.userId),
-      () => {
-        return {
-          type: 'queueStatus',
-          matchmaking: { type: matchmakingType },
-        }
-      },
-    )
+    userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
+      return {
+        type: 'queueStatus',
+        matchmaking: { type: matchmakingType },
+      }
+    })
     clientSockets.subscribe<MatchmakingEvent>(
-      MatchmakingService.getClientPath(clientSockets),
+      getMatchmakingClientPath(clientSockets),
       () => ({
         type: 'startSearch',
         matchmakingType,
@@ -549,9 +661,25 @@ export class MatchmakingService {
 
   private async runMatch(matchId: string) {
     const match = this.matches.get(matchId)!
-    let phase: 'accepting' | 'loading' = 'accepting'
+    let phase: 'accepting' | 'drafting' | 'loading' = 'accepting'
+
+    const activeClients = new Map<SbUserId, ClientSocketsGroup>()
 
     try {
+      for (const p of match.players()) {
+        const client = this.activityRegistry.getClientForUser(p.id)
+        if (!client) {
+          // Client disconnected before we got here
+          // NOTE(tec27): `match.acceptStateChanged` will immediately throw below after this
+          match.registerDecline(p.id)
+          continue
+        }
+        activeClients.set(p.id, client)
+        client.subscribe<MatchmakingEvent>(getMatchPath(match.id))
+      }
+
+      const mapPromise = pickMap(match.type, match.teams.flat())
+
       while (match.numAccepted < match.totalPlayers) {
         await match.acceptStateChanged
 
@@ -562,6 +690,10 @@ export class MatchmakingService {
           })
         }
       }
+
+      const mapInfo = await mapPromise
+      phase = 'drafting'
+      await match.runDraft(activeClients, mapInfo)
 
       phase = 'loading'
       await this.doGameLoad(match)
@@ -582,6 +714,10 @@ export class MatchmakingService {
             this.publishToActiveClient(p.id, {
               type: 'acceptTimeout',
             })
+          } else if (phase === 'drafting') {
+            this.publishToActiveClient(p.id, {
+              type: 'draftCancel',
+            })
           } else if (phase === 'loading') {
             this.publishToActiveClient(p.id, {
               type: 'cancelLoading',
@@ -596,6 +732,10 @@ export class MatchmakingService {
       // NOTE(tec27): Unlike toKick/toRequeue, these are just raw user IDs and don't correspond to
       // an entity, we can use them directly
       for (const id of toBan) {
+        // Just make extra certain we've removed the queue entry for this player
+        this.queueEntries.delete(id)
+        this.unregisterActivity(id)
+
         const player = matchPlayers.find(p => p.id === id)
         if (!player) {
           logger.error(
@@ -629,7 +769,11 @@ export class MatchmakingService {
 
           queueEntry.matchId = undefined
 
-          if (phase === 'loading') {
+          if (phase === 'drafting') {
+            this.publishToActiveClient(p.id, {
+              type: 'draftCancel',
+            })
+          } else if (phase === 'loading') {
             this.publishToActiveClient(p.id, {
               type: 'cancelLoading',
               reason: 'loading failed',
@@ -651,6 +795,9 @@ export class MatchmakingService {
         }
       }
     } finally {
+      for (const client of activeClients.values()) {
+        client.unsubscribe(getMatchPath(match.id))
+      }
       this.matches.delete(match.id)
     }
   }
@@ -725,10 +872,15 @@ export class MatchmakingService {
         })),
       ]
     } else {
-      // Alternate race is not allowed for non-1v1 matchmaking types, so this is very simple!
+      // For team modes, use draft results if available, otherwise use original race selections
+      const draftState = match.getDraftState()
+      const finalRaces = draftState?.getFinalRaces()
+
       const slotsInTeams = match.teams.map(team =>
         team.flatMap(entity =>
-          Array.from(getPlayersFromEntity(entity), p => createHuman(p.id, p.race)),
+          Array.from(getPlayersFromEntity(entity), p =>
+            createHuman(p.id, finalRaces?.get(p.id) ?? p.race),
+          ),
         ),
       )
       slots = slotsInTeams.flat()
@@ -854,16 +1006,17 @@ export class MatchmakingService {
     })
 
     const userSockets = this.userSocketsManager.getById(userId)
-    userSockets?.unsubscribe(MatchmakingService.getUserPath(userId))
-    activeClient?.unsubscribe(MatchmakingService.getClientPath(activeClient))
+    userSockets?.unsubscribe(getMatchmakingUserPath(userId))
+    activeClient?.unsubscribe(getMatchmakingClientPath(activeClient))
   }
 
   private removeClientFromMatchmaking(client: ClientSocketsGroup, isDisconnect = true) {
-    // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
-    // loading process, or even during the game process.
+    // NOTE(2Pac): Client can leave, i.e. disconnect, while searching, accepting, drafting, or
+    // while loading
     const entry = this.queueEntries.get(client.userId)
     const toUnregister = [client.userId]
-    // Means the client disconnected during the queueing process
+    // If we didn't find an entry, this client wasn't actually in matchmaking (probably already
+    // got removed just before this)
     if (entry) {
       this.queueEntries.delete(client.userId)
 
@@ -903,18 +1056,6 @@ export class MatchmakingService {
     }
 
     for (const userId of toUnregister) {
-      if (this.clientTimers.has(userId)) {
-        // Means the client disconnected during the loading process
-        const { countdownTimer, cancelToken } = this.clientTimers.get(userId)!
-        if (countdownTimer) {
-          countdownTimer.reject(new Error('Countdown cancelled'))
-        }
-
-        cancelToken.cancel()
-
-        this.clientTimers.delete(userId)
-      }
-
       this.unregisterActivity(userId)
     }
   }
@@ -944,24 +1085,16 @@ export class MatchmakingService {
   }
 
   private publishToUser(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>) {
-    this.publisher.publish(MatchmakingService.getUserPath(userId), data)
+    this.publisher.publish(getMatchmakingUserPath(userId), data)
   }
 
   private publishToActiveClient(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
     const client = this.activityRegistry.getClientForUser(userId)
     if (client) {
-      this.publisher.publish(MatchmakingService.getClientPath(client), data)
+      this.publisher.publish(getMatchmakingClientPath(client), data)
       return true
     } else {
       return false
     }
-  }
-
-  static getUserPath(userId: SbUserId) {
-    return urlPath`/matchmaking/${userId}`
-  }
-
-  static getClientPath(client: ClientSocketsGroup) {
-    return urlPath`/matchmaking/${client.userId}/${client.clientId}`
   }
 }

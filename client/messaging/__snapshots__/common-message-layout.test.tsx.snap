@@ -9,7 +9,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -31,7 +31,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -64,7 +65,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -86,7 +87,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -126,7 +128,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -148,7 +150,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -176,7 +179,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -200,7 +204,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -222,7 +226,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -243,7 +248,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       hey
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -264,7 +270,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -288,7 +295,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -310,7 +317,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -331,7 +339,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       hey
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -355,7 +364,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -377,7 +386,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -396,7 +406,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       class="sc-iyBeIh dmNyfY"
     >
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -428,7 +439,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -450,7 +461,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -478,7 +490,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
        go here
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span
@@ -510,7 +523,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-hwHXyi jJoIa-d sc-gWaSiO gfmMgj"
+      class="sc-lcItFd kpvjGC sc-gWaSiO gfmMgj"
       tabindex="0"
     >
       <span
@@ -532,7 +545,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-zOxLx emeSoL sc-ecJghI gFYOmb"
+      class="sc-zOxLx ityikf sc-ecJghI gFYOmb"
+      tabindex="0"
     >
       <span
         aria-label="Username loading…"
@@ -553,7 +567,8 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       Hey
        
       <span
-        class="sc-zOxLx emeSoL sc-xKhEK dwEdca"
+        class="sc-zOxLx ityikf sc-xKhEK dwEdca"
+        tabindex="0"
       >
         @
         <span

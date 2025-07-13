@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { Link, Route, Switch } from 'wouter'
+import { DraftTest } from './draft-tester'
 import { PostMatchDialogTest } from './post-match-dialog-test'
 import { RankIconsTest } from './rank-icons-test'
 
@@ -9,6 +10,9 @@ class DevMatchmakingDashboard extends Component {
   render() {
     return (
       <ul>
+        <li>
+          <Link href={`${BASE_URL}/draft`}>Draft</Link>
+        </li>
         <li>
           <Link href={`${BASE_URL}/post-match-dialog`}>Post-match dialog</Link>
         </li>
@@ -23,6 +27,7 @@ class DevMatchmakingDashboard extends Component {
 export default () => {
   return (
     <Switch>
+      <Route path={`${BASE_URL}/draft`} component={DraftTest} />
       <Route path={`${BASE_URL}/post-match-dialog`} component={PostMatchDialogTest} />
       <Route path={`${BASE_URL}/icons`} component={RankIconsTest} />
       <Route>

@@ -14,6 +14,9 @@ const options = {
       return token ? `Bearer ${token}` : ''
     },
   },
+  // Makes disconnecting more reliable (less dependent on heartbeats). If we ever do unload
+  // confirmation, we will probably need to implement this ourselves instead.
+  closeOnBeforeunload: true,
 } satisfies Partial<NydusClientOptions>
 
 const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`, options)

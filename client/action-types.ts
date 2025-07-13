@@ -7,6 +7,7 @@ import { LadderActions } from './ladder/actions'
 import { LeaguesActions } from './leagues/actions'
 import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
+import { MessagingActions } from './messaging/actions'
 import { NetworkActions } from './network/actions'
 import { NotificationActions } from './notifications/actions'
 import { SettingsActions } from './settings/actions'
@@ -24,6 +25,7 @@ type AllActions =
   | LeaguesActions
   | MapsActions
   | MatchmakingActions
+  | MessagingActions
   | NetworkActions
   | NotificationActions
   | SettingsActions

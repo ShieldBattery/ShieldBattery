@@ -1,7 +1,7 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import { ChatEvent, ChatUserEvent, SbChannelId, makeSbChannelId } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { AvailableSound, audioManager } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'

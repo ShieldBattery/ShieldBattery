@@ -27,17 +27,15 @@ export interface RaceIconProps {
   applyRaceColor?: boolean
 }
 
-export const RaceIcon = React.memo(
-  ({ race, className, ariaLabel, applyRaceColor = true }: RaceIconProps) => {
-    const icon = ICONS[race]
-    return (
-      <StyledIcon
-        className={className}
-        as={icon}
-        $race={race}
-        $applyRaceColor={applyRaceColor}
-        aria-label={ariaLabel}
-      />
-    )
-  },
-)
+export function RaceIcon({ race, className, ariaLabel, applyRaceColor = true }: RaceIconProps) {
+  const icon = ICONS[race]
+  return (
+    <StyledIcon
+      className={className}
+      as={icon}
+      $race={race}
+      $applyRaceColor={applyRaceColor}
+      aria-label={ariaLabel}
+    />
+  )
+}

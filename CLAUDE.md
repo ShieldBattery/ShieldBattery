@@ -93,7 +93,9 @@ pnpm run dist                  # Build Electron app (production distribution)
 ### State Management
 
 - **Client**: Redux for global state/caches, Jotai for state that only concerns individual features
-- **React**: Version 19 with modern hooks and concurrent features, using react-compiler
+- **React**: Version 19 with modern hooks and concurrent features, using react-compiler.
+  useMemo/useCallback/useStableCallback are generally unnecessary now because of react-compiler, but
+  you may still see them in the codebase in older code.
 - **Styling**: styled-components with CSS-in-JS patterns
 
 ### Code Organization
@@ -109,6 +111,10 @@ pnpm run dist                  # Build Electron app (production distribution)
 - Docker Compose provides PostgreSQL and Redis for local development
 - Concurrent servers during development (use `local-dev` command)
 - Automatic code generation for GraphQL schemas and type definitions
+- Many client folders have `devonly` folders inside of them that contain pages purely for testing
+  out components/flows during development. You can feel free to develop your own, just add the page
+  to the routes inside that folder. These are linked inside `client/dev.tsx`. You can access that
+  page at `/dev` on the local server.
 
 ### Build System
 
@@ -129,10 +135,16 @@ pnpm run dist                  # Build Electron app (production distribution)
 ### General
 
 - Text-based files should use unix style line endings (LF only)
-- Include comments only for code that needs further explanation or is particularly tricky. Avoid
-  comments like `Define foo` before variable declarations.
+- NEVER include comments in code that doesn't add any understanding over what the code already says.
+  ONLY include comments when code needs further explanation or is particularly tricky. Doc comments
+  over methods are helpful if they are not self-explanatory, but you can elide them otherwise.
 - DO NOT remove TODO comments unless the TODO has been completed. Leave them unmodified, including
   any thing inside `TODO()` e.g. `TODO(tec27):` or `TODO(#1337):`.
+- `NOTE` and `TODO` comments should have context in parentheses, usually either the name
+  of the user who had the context when it was written (e.g. `TODO(tec27)`) or a relevant issue
+  number (e.g. `NOTE(#1337):`)
+- When writing code to replace older code, never leave the older code around. Delete files that
+  become unused as the result of refactoring.
 
 ### TypeScript
 
@@ -157,11 +169,16 @@ pnpm run dist                  # Build Electron app (production distribution)
 ### Styling
 
 - Use styled-components exclusively for CSS-in-JS
+- Avoid inline styles for normal CSS properties. If you need to change some value based on JS state,
+  use styled-components props if it has only a few possible values, or if it has many possible
+  values, set CSS custom properties with inline styles and adjust the styled CSS based on those.
 - Group CSS properties: layout → display → appearance → misc
 - Follow property ordering convention in CSS rules
 - Use react-i18next for all user-facing text translations
 - Use the motion library or basic CSS transitions for animations
 - Use UI component library under `client/material` as basis for most UIs
+- The `client/styles` directory has common styling we use everywhere, such as typography and colors.
+  We use a theming system based on CSS custom properties, which you can see in `client/styles/colors.ts`
 
 ### Rust
 
@@ -190,3 +207,7 @@ pnpm run dist                  # Build Electron app (production distribution)
 - Component isolation is critical - maintain strict boundaries between major directories
 - Use existing translation strings when possible for internationalization, provided they are for
   similar context
+- You can feel free to add files to the `.claude-scratch/` directory in the root of this repository
+  if you need to remember things. This is your personal directory and the files in it are your own.
+  For instance if you come up with a plan of action, you could write it down in
+  `.claude-scratch/TODOS.md` to remember it for later.

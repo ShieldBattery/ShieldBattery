@@ -1,7 +1,7 @@
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
-import audioManager from '../audio/audio-manager'
+import { audioManager } from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'

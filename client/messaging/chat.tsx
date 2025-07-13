@@ -54,6 +54,8 @@ export interface ChatProps {
   UserMenu?: UserMenuComponent
   /** An optional component type that will be used to render message context menu items. */
   MessageMenu?: MessageMenuComponent
+  /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
+  disallowMentionInteraction?: boolean
 }
 
 /**
@@ -71,6 +73,7 @@ export function Chat({
   extraContent,
   UserMenu,
   MessageMenu = DefaultMessageMenu,
+  disallowMentionInteraction: disallowUserInteraction,
 }: ChatProps) {
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
@@ -114,6 +117,7 @@ export function Chat({
           mentionUser,
           UserMenu,
           MessageMenu,
+          disallowMentionInteraction: disallowUserInteraction,
         }}>
         <MessagesAndInput className={className}>
           {header}

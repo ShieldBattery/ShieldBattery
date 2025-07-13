@@ -5,7 +5,7 @@ import { useResizeObserver } from './dimension-hooks'
  * overflowing its bounding box.
  *
  * This is mainly useful for things like measuring if the text is oveflowing (e.g. is it showing
- * elipsis) and then showing the full text in a tooltip or something.
+ * ellipsis) and then showing the full text in a tooltip or something.
  */
 export function useOverflowingElement<T extends HTMLElement>(): [
   ref: React.RefCallback<T>,

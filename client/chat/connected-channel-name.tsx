@@ -1,17 +1,27 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 
-const ChannelName = styled.span`
-  &:hover {
-    cursor: pointer;
-    text-decoration: underline;
-  }
+const ChannelName = styled.span<{ $interactive?: boolean }>`
+  ${props =>
+    props.$interactive
+      ? css`
+          &:hover {
+            cursor: pointer;
+            text-decoration: underline;
+          }
+
+          &:focus-visible {
+            outline: none;
+            text-decoration: underline;
+          }
+        `
+      : css``}
 `
 
 const LoadingChannelName = styled.span`
@@ -23,13 +33,19 @@ export interface ConnectedChannelNameProps {
   className?: string
   /** The channel to show the corresponding name for. */
   channelId: SbChannelId
+  /** Whether the channel name can be interacted with (clicked, focused, etc.). Defaults to true. */
+  interactive?: boolean
 }
 
 /**
  * A component which, given a channel ID, displays a clickable channel name, which displays channel
  * info when clicked.
  */
-export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
+export function ConnectedChannelName({
+  className,
+  channelId,
+  interactive = true,
+}: ConnectedChannelNameProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
@@ -52,20 +68,27 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
 
   return (
     <>
-      <Popover
-        open={channelInfoCardOpen}
-        onDismiss={closeChannelInfoCard}
-        anchorX={(anchorX ?? 0) + 4}
-        anchorY={(anchorY ?? 0) + 4}
-        originX={'left'}
-        originY={'top'}>
-        {basicChannelInfo ? (
-          <ConnectedChannelInfoCard channelId={channelId} channelName={basicChannelInfo.name} />
-        ) : null}
-      </Popover>
+      {interactive ? (
+        <Popover
+          open={channelInfoCardOpen}
+          onDismiss={closeChannelInfoCard}
+          anchorX={(anchorX ?? 0) + 4}
+          anchorY={(anchorY ?? 0) + 4}
+          originX={'left'}
+          originY={'top'}>
+          {basicChannelInfo ? (
+            <ConnectedChannelInfoCard channelId={channelId} channelName={basicChannelInfo.name} />
+          ) : null}
+        </Popover>
+      ) : undefined}
 
       {basicChannelInfo ? (
-        <ChannelName className={className} ref={anchor} onClick={openChannelInfoCard}>
+        <ChannelName
+          className={className}
+          ref={anchor}
+          onClick={interactive ? openChannelInfoCard : undefined}
+          tabIndex={interactive ? 0 : undefined}
+          $interactive={interactive}>
           #{basicChannelInfo.name}
         </ChannelName>
       ) : (

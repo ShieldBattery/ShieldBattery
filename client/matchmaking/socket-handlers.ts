@@ -1,5 +1,4 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
@@ -9,14 +8,25 @@ import {
   MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
+import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
+import {
+  addDraftChatMessage,
+  completeDraft,
+  draftStateAtom,
+  resetDraftState,
+  updateCurrentPickerAtom,
+  updateLockedPickAtom,
+  updateProvisionalPickAtom,
+} from './draft-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -24,7 +34,7 @@ type EventToActionMap = {
   [E in MatchmakingEvent['type']]: (
     matchmakingType: MatchmakingType,
     event: Extract<MatchmakingEvent, { type: E }>,
-  ) => Dispatchable
+  ) => Dispatchable | undefined | void
 }
 
 interface TimerState {
@@ -88,6 +98,78 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  draftStarted: (matchmakingType, event) => (dispatch, getState) => {
+    clearAcceptMatchTimer()
+    dispatch(closeDialog(DialogType.AcceptMatch))
+
+    dispatch({
+      type: '@maps/loadMapInfo',
+      payload: event.mapInfo,
+    })
+
+    resetDraftState(jotaiStore)
+    jotaiStore.set(draftStateAtom, event.draftState)
+  },
+
+  draftPickStarted: (matchmakingType, event) => {
+    jotaiStore.set(updateCurrentPickerAtom, {
+      team: event.teamId,
+      slot: event.index,
+    })
+  },
+
+  draftProvisionalPick: (matchmakingType, event) => {
+    jotaiStore.set(updateProvisionalPickAtom, {
+      teamId: event.teamId,
+      index: event.index,
+      race: event.race,
+    })
+  },
+
+  draftPickLocked: (matchmakingType, event) => {
+    jotaiStore.set(updateLockedPickAtom, {
+      teamId: event.teamId,
+      index: event.index,
+      race: event.race,
+    })
+  },
+
+  draftCompleted: (matchmakingType, event) => {
+    completeDraft(jotaiStore)
+  },
+
+  draftCancel: (matchmakingType, event) => {
+    resetDraftState(jotaiStore)
+  },
+
+  draftChatMessage: (matchmakingType, event) => (dispatch, getState) => {
+    const {
+      auth,
+      relationships: { blocks },
+    } = getState()
+
+    const isBlocked = blocks.has(event.message.from)
+    if (!isBlocked) {
+      ipcRenderer.send('chatNewMessage', {
+        urgent: event.mentions.some(m => m.id === auth.self!.user.id),
+      })
+    }
+
+    dispatch({
+      type: '@messaging/loadMentions',
+      payload: {
+        mentions: event.mentions,
+        channelMentions: event.channelMentions,
+      },
+    })
+
+    addDraftChatMessage(jotaiStore, event.message)
+
+    if (!isBlocked && !windowFocus.isFocused()) {
+      audioManager.playSound(AvailableSound.MessageAlert)
+    }
+  },
+
   playerAccepted: (matchmakingType, event) => {
     return {
       type: '@matchmaking/playerAccepted',
@@ -129,6 +211,7 @@ const eventToAction: EventToActionMap = {
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
     dispatch(closeDialog(DialogType.AcceptMatch))
     clearAcceptMatchTimer()
+    resetDraftState(jotaiStore)
 
     // All players are ready; feel free to move to the loading screen and start the game
     dispatch({
@@ -138,13 +221,8 @@ const eventToAction: EventToActionMap = {
     dispatch(openDialog({ type: DialogType.LaunchingGame }))
   },
 
-  setRoutes: (matchmakingType, event) => () => {
-    const { routes, gameId } = event
-
-    ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
-  },
-
   cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
+    resetDraftState(jotaiStore)
     dispatch(closeDialog(DialogType.LaunchingGame))
 
     dispatch({
@@ -196,8 +274,12 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     )
     if (action) dispatch(action)
   }
-  siteSocket.registerRoute('/matchmaking/:userName', matchmakingHandler)
+  siteSocket.registerRoute('/matchmaking/:userId', matchmakingHandler)
   siteSocket.registerRoute('/matchmaking/:userId/:clientId', matchmakingHandler)
+
+  // After a match has been found
+  siteSocket.registerRoute('/matchmaking/matches/:matchId', matchmakingHandler)
+  siteSocket.registerRoute('/matchmaking/matches/:matchId/teams/:teamId', matchmakingHandler)
 
   siteSocket.registerRoute(
     '/matchmakingStatus',

@@ -119,17 +119,20 @@ function getMessageAtIndex(
 
 interface PureMessageListProps {
   messages: List<SbMessage> | ReadonlyArray<SbMessage>
+  showEmptyState: boolean
   MessageComponent?: MessageComponentType
 }
 
-function PureMessageList({ messages, MessageComponent }: PureMessageListProps) {
+function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
 
   const messagesLength = getMessagesLength(messages)
   if (messagesLength < 1) {
-    return <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
+    return showEmptyState ? (
+      <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
+    ) : undefined
   }
 
   return (
@@ -180,6 +183,8 @@ export type MessageComponentType = React.ComponentType<MessageComponentProps>
 
 export interface MessageListProps {
   messages: List<SbMessage> | ReadonlyArray<SbMessage>
+  /** Whether to show empty state text when they are no messages. Defaults to true. */
+  showEmptyState?: boolean
   /**
    * Component type which will be used to render each message that is not a common message type. If
    * not provided, only common messages will be rendered.
@@ -285,6 +290,7 @@ export class MessageList extends React.Component<MessageListProps> {
       refreshToken,
       MessageComponent,
       onLoadMoreMessages,
+      showEmptyState = true,
     } = this.props
 
     return (
@@ -298,7 +304,11 @@ export class MessageList extends React.Component<MessageListProps> {
           hasPrevData={hasMoreHistory}
           refreshToken={refreshToken}
           onLoadPrevData={onLoadMoreMessages}>
-          <PureMessageList messages={messages} MessageComponent={MessageComponent} />
+          <PureMessageList
+            showEmptyState={showEmptyState}
+            messages={messages}
+            MessageComponent={MessageComponent}
+          />
         </InfiniteScrollList>
       </Scrollable>
     )

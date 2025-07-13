@@ -725,6 +725,23 @@
       "silver": "Silver {{level}}",
       "unrated": "Unrated"
     },
+    "draftScreen": {
+      "anonymizedName0": "Rusty Rhynadon",
+      "anonymizedName1": "Bold Bengalaas",
+      "anonymizedName2": "Sneaky Scantid",
+      "anonymizedName3": "Keen Kakaru",
+      "anonymizedName4": "Ruthless Ragnasaur",
+      "anonymizedName5": "Unstable Ursadon",
+      "chatMessageError": "Couldn't send chat message",
+      "lockInError": "Couldn't lock in race",
+      "lockInRaceButton": "Lock in",
+      "pickerText": {
+        "myTurn": "You are picking…",
+        "opponentTurn": "{{name}} is picking…",
+        "teammateTurn": "<0></0> is picking…"
+      },
+      "pickSubtext": "Pick {{num}}"
+    },
     "findMatch": {
       "action": "Find match",
       "alternateRace": "Alternate race",

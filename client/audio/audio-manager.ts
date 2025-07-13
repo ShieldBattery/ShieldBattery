@@ -4,8 +4,10 @@ import { fetchRaw } from '../network/fetch'
 export enum AvailableSound {
   Atmosphere = 'atmosphere.opus',
   Countdown = 'countdown.opus',
+  DraftStart = 'draft-start.opus',
   EnteredQueue = 'entered-queue.opus',
   JoinAlert = 'join-alert.opus',
+  LockIn = 'lock-in.opus',
   MatchFound = 'match-found.opus',
   MessageAlert = 'message-alert.opus',
   PartyInvite = 'party-invite.opus',
@@ -13,6 +15,14 @@ export enum AvailableSound {
   PointReveal = 'point-reveal.opus',
   RankUp = 'rank-up.opus',
   ScoreCount = 'score-count.opus',
+
+  Tick1 = 'tick-01.opus',
+  Tick2 = 'tick-02.opus',
+  Tick3 = 'tick-03.opus',
+  Tick4 = 'tick-04.opus',
+  Tick5 = 'tick-05.opus',
+  Tick6 = 'tick-06.opus',
+  Tick7 = 'tick-07.opus',
 }
 
 const ALL_SOUNDS: ReadonlyArray<AvailableSound> = Object.values(AvailableSound)
@@ -116,12 +126,7 @@ export class AudioManager {
   /**
    * Plays a sound that can be faded in/out using a GainNode.
    */
-  playFadeableSound(soundId: AvailableSound):
-    | {
-        source: AudioBufferSourceNode
-        gainNode: GainNode
-      }
-    | undefined {
+  playFadeableSound(soundId: AvailableSound): FadeableSound | undefined {
     if (!IS_ELECTRON) {
       return undefined
     }
@@ -132,9 +137,21 @@ export class AudioManager {
     source.connect(gainNode)
     gainNode.connect(this.nodes.masterGain)
     source.start()
-    return { source, gainNode }
+    return new FadeableSound(source, gainNode)
+  }
+}
+
+export class FadeableSound {
+  constructor(
+    readonly source: AudioBufferSourceNode,
+    readonly gainNode: GainNode,
+  ) {}
+
+  /** Fade the sound out over the specified duration (in seconds). */
+  fadeOut(duration = 0.3) {
+    this.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + duration)
+    this.source.stop(audioManager.currentTime + duration + 0.1)
   }
 }
 
 export const audioManager = new AudioManager()
-export default audioManager

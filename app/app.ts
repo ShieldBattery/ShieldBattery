@@ -736,7 +736,7 @@ async function createWindow() {
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
     minWidth: 1024,
-    minHeight: 600,
+    minHeight: 640,
 
     acceptFirstMouse: true,
     backgroundColor: '#10151e', // NOTE(tec27): This should always match the background in root CSS

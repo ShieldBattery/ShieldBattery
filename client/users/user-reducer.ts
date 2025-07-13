@@ -175,4 +175,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
     updateUsers(state, action.payload.mentions)
   },
+
+  ['@messaging/loadMentions'](state, action) {
+    const { mentions } = action.payload
+    updateUsers(state, mentions)
+  },
 })

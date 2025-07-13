@@ -12,15 +12,28 @@ export const SiteSocketManager = memo(() => {
   const userId = user?.id
 
   useEffect(() => {
-    if (userId) {
-      siteSocket.connect()
+    if (!userId) {
+      // Logged out users can't use websockets
+      return () => {}
+    }
 
-      return () => {
+    // We wait a bit of time after mounting to connect, as StrictMode unmount/remount can cause
+    // a bunch of extra socket connections to happen that don't go away on the server until they
+    // time out. This shouldn't really be an issue in production, but it's nicer to have the code
+    // be the same in both places
+    let connected = false
+    const timeout = setTimeout(() => {
+      siteSocket.connect()
+      connected = true
+    }, 50)
+
+    return () => {
+      clearTimeout(timeout)
+
+      if (connected) {
         logger.verbose('SiteSocketManager effect cleanup, disconnecting siteSocket')
         siteSocket.disconnect()
       }
-    } else {
-      return () => {}
     }
   }, [userId])
 

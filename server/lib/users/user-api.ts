@@ -480,8 +480,7 @@ export class UserApi {
 
   @httpGet('/batch-info')
   @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
   )
   async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
     const { query } = validateRequest(ctx, {

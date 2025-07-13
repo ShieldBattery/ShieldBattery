@@ -95,7 +95,7 @@ export type RacePickerOnSetFunc<AllowRandom extends boolean | undefined> = Allow
 
 export interface RacePickerProps<AllowRandom extends boolean | undefined> {
   /** The currently selected race. */
-  race: RaceChar
+  race: AllowRandom extends false ? AssignedRaceChar : RaceChar
   /** Races to hide in the picker (and make un-selectable). */
   hiddenRaces?: RaceChar[]
   size?: RacePickerSize

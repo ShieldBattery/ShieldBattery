@@ -9,4 +9,6 @@ if (__WEBPACK_ENV.NODE_ENV !== 'production' && !DevTools) {
   console.log('jotai-devtools not found!!!')
 }
 
+export type JotaiStore = ReturnType<typeof createStore>
+
 export const jotaiStore = createStore()

@@ -71,7 +71,7 @@ export interface TextMessageProps {
 
 export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
-  const { UserMenu, MessageMenu } = useContext(ChatContext)
+  const { UserMenu, MessageMenu, disallowMentionInteraction } = useContext(ChatContext)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
@@ -108,6 +108,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
           prefix={'@'}
           filterClick={filterClick}
           UserMenu={UserMenu}
+          interactive={!disallowMentionInteraction}
         />,
       )
     } else if (match.type === 'channelMentionMarkup') {
@@ -115,7 +116,11 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
 
       parsedText.push(
         match.groups.prefix,
-        <MentionedChannelName key={match.index} channelId={channelId} />,
+        <MentionedChannelName
+          key={match.index}
+          channelId={channelId}
+          interactive={!disallowMentionInteraction}
+        />,
       )
     } else if (match.type === 'link') {
       parsedText.push(
@@ -145,7 +150,12 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
         testId={testId}>
-        <Username userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
+        <Username
+          userId={userId}
+          filterClick={filterClick}
+          UserMenu={UserMenu}
+          interactive={!disallowMentionInteraction}
+        />
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>

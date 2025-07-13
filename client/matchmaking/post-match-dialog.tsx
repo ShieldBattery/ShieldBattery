@@ -27,7 +27,7 @@ import {
   POINTS_FOR_RATING_TARGET_FACTOR,
   PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'

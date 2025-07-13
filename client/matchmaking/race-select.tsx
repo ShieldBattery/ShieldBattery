@@ -6,7 +6,7 @@ export type RaceSelectOnChangeFunc<AllowRandom extends boolean | undefined> =
 
 export interface RaceSelectProps<AllowRandom extends boolean | undefined>
   extends Omit<RacePickerProps<AllowRandom>, 'race' | 'onSetRace'> {
-  value: RaceChar | null
+  value: (AllowRandom extends false ? AssignedRaceChar : RaceChar) | null
   onChange: RaceSelectOnChangeFunc<AllowRandom>
 }
 

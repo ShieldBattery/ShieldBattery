@@ -3,6 +3,9 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
+  DraftChatMessageRequest,
+  DraftLockPickRequest,
+  DraftProvisionalPickRequest,
   FindMatchRequest,
   GetMatchmakingBanStatusResponse,
   GetMatchmakingMapPoolBody,
@@ -13,17 +16,20 @@ import {
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
+import { RaceChar } from '../../common/races'
 import { apiUrl } from '../../common/urls'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
-import { fetchJson } from '../network/fetch'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { UpdateLastQueuedMatchmakingType } from './actions'
+import { draftStateAtom, updateLockedPickAtom, updateProvisionalPickAtom } from './draft-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -254,5 +260,83 @@ export function getMatchmakingBanStatus(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     return await fetchJson<GetMatchmakingBanStatusResponse>(apiUrl`matchmaking/ban-status`)
+  })
+}
+
+export function changeDraftRace(
+  { race }: { race: RaceChar },
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    await fetchJson<void>(apiUrl`matchmaking/draft/provisional-pick`, {
+      method: 'POST',
+      body: encodeBodyAsParams<DraftProvisionalPickRequest>({
+        race,
+      }),
+    })
+
+    // The server should immediately send an update as well, but just so there is no delay (to
+    // avoid weirdness with optimistic updates), we immediately set it here as well
+    const draftState = jotaiStore.get(draftStateAtom)
+    if (!draftState) {
+      return
+    }
+
+    const { auth } = getState()
+
+    const index = draftState.ownTeam.players.findIndex(p => p.userId === auth.self?.user.id)
+    if (index !== -1) {
+      jotaiStore.set(updateProvisionalPickAtom, {
+        teamId: draftState.myTeamIndex,
+        index,
+        race,
+      })
+    }
+  })
+}
+
+export function lockInDraftRace(
+  { race }: { race: RaceChar },
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    await fetchJson<void>(apiUrl`matchmaking/draft/lock-pick`, {
+      method: 'POST',
+      body: encodeBodyAsParams<DraftLockPickRequest>({
+        race,
+      }),
+    })
+
+    // The server should immediately send an update as well, but just so there is no delay (to
+    // avoid weirdness with optimistic updates), we immediately set it here as well
+    const draftState = jotaiStore.get(draftStateAtom)
+    if (!draftState) {
+      return
+    }
+
+    const { auth } = getState()
+
+    const index = draftState.ownTeam.players.findIndex(p => p.userId === auth.self?.user.id)
+    if (index !== -1) {
+      jotaiStore.set(updateLockedPickAtom, {
+        teamId: draftState.myTeamIndex,
+        index,
+        race,
+      })
+    }
+  })
+}
+
+export function sendDraftChatMessage(
+  { message }: { message: string },
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`matchmaking/draft/chat`, {
+      method: 'POST',
+      body: encodeBodyAsParams<DraftChatMessageRequest>({
+        message,
+      }),
+    })
   })
 }

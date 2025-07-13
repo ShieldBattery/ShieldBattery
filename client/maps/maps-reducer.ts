@@ -71,6 +71,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@maps/loadMapInfo'](state, { payload: map, system: { monotonicTime } }) {
+    state.byId.set(map.id, map)
+    state.lastRetrieved.set(map.id, monotonicTime)
+  },
+
   ['@maps/addToFavorites'](state, action) {
     state.favoritedMapIds.add(action.payload)
   },

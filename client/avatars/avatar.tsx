@@ -18,6 +18,7 @@ export const IconContainer = styled.div`
   position: relative;
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
 `
 
 export const IconAvatar = styled(PlaceholderIcon)<{ $glowing?: boolean; $color?: string }>`
@@ -61,7 +62,7 @@ export function Avatar({ image, user, color, glowing, className }: AvatarProps) 
 }
 
 const LoadingAvatar = styled.div`
-  width: 100%;
+  width: 40px;
   height: auto;
   aspect-ratio: 1 / 1;
 

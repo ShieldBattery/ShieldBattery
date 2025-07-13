@@ -47,6 +47,8 @@ export interface ChatContextValue {
   UserMenu?: UserMenuComponent
   /** Component that will display and customize context menu items for messages. */
   MessageMenu: MessageMenuComponent
+  /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
+  disallowMentionInteraction?: boolean
 }
 
 export const ChatContext = React.createContext<ChatContextValue>({

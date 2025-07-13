@@ -4,6 +4,9 @@ import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
+  DraftChatMessageRequest,
+  DraftLockPickRequest,
+  DraftProvisionalPickRequest,
   FindMatchRequest,
   GetMatchmakingBanStatusResponse,
   GetMatchmakingSeasonsResponse,
@@ -14,6 +17,7 @@ import {
   ServerAddMatchmakingSeasonRequest,
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
+import { ALL_RACE_CHARS } from '../../../common/races'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -39,6 +43,12 @@ const matchmakingThrottle = createThrottle('matchmaking', {
   window: 60000,
 })
 
+const draftActionThrottle = createThrottle('matchmaking/draftAction', {
+  rate: 30,
+  burst: 60,
+  window: 60000,
+})
+
 const seasonsRetrievalThrottle = createThrottle('seasonsRetrieval', {
   rate: 20,
   burst: 50,
@@ -58,11 +68,13 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.ClientDisconnected:
     case MatchmakingServiceErrorCode.InvalidClient:
     case MatchmakingServiceErrorCode.TooManyPlayers:
+    case MatchmakingServiceErrorCode.InvalidDraftPick:
       throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
     case MatchmakingServiceErrorCode.UserBanned:
       throw asHttpError(403, err)
     case MatchmakingServiceErrorCode.NotInQueue:
+    case MatchmakingServiceErrorCode.NoActiveDraft:
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
     case MatchmakingServiceErrorCode.MatchAlreadyStarting:
@@ -103,7 +115,7 @@ export class MatchmakingApi {
   @httpPost('/find')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async findMatch(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
@@ -152,7 +164,7 @@ export class MatchmakingApi {
   @httpDelete('/find')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async cancelSearch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.cancel(ctx.session!.user!.id)
@@ -161,16 +173,65 @@ export class MatchmakingApi {
   @httpPost('/accept')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.user!.id)
   }
 
+  @httpPost('/draft/provisional-pick')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
+  )
+  async updateProvisionalRace(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<DraftProvisionalPickRequest>({
+        race: Joi.string()
+          .valid(...ALL_RACE_CHARS)
+          .required(),
+      }),
+    })
+
+    await this.matchmakingService.updateProvisionalRace(ctx.session!.user!.id, body.race)
+  }
+
+  @httpPost('/draft/lock-pick')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
+  )
+  async lockInPick(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<DraftLockPickRequest>({
+        race: Joi.string()
+          .valid(...ALL_RACE_CHARS)
+          .required(),
+      }),
+    })
+
+    await this.matchmakingService.lockInPick(ctx.session!.user.id, body.race)
+  }
+
+  @httpPost('/draft/chat')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
+  )
+  async sendDraftChatMessage(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<DraftChatMessageRequest>({
+        message: Joi.string().min(1).required(),
+      }),
+    })
+
+    await this.matchmakingService.sendDraftChatMessage(ctx.session!.user.id, body.message)
+  }
+
   @httpGet('/ban-status')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async getBanStatus(ctx: RouterContext): Promise<GetMatchmakingBanStatusResponse> {
     const ban = await this.matchmakingBanService.checkUser(ctx.session!.user.id)

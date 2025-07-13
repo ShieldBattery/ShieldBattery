@@ -1,5 +1,6 @@
 import { Record } from 'immutable'
 import { ChatMessage } from '../../common/chat'
+import { DraftChatMessage } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { BaseMessage } from './base-message-record'
@@ -38,4 +39,4 @@ export class NewDayMessageRecord
   implements BaseMessage {}
 
 export type CommonMessage = TextMessageRecord | NewDayMessageRecord
-export type SbMessage = CommonMessage | ChatMessage | LobbyMessage
+export type SbMessage = CommonMessage | ChatMessage | LobbyMessage | DraftChatMessage

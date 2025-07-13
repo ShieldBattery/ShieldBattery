@@ -1,7 +1,7 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent } from '../../common/whispers'
-import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 

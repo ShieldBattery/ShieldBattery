@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
+import { ReadonlyDeep, Simplify } from 'type-fest'
 import { MapInfoJson, MapVisibility, SbMapId } from '../../common/maps'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
@@ -335,16 +335,18 @@ export function ReduxMapThumbnail({
   hasMapPreviewAction = true,
   hasRegenMapImageAction = true,
   ...props
-}: Omit<
-  MapThumbnailProps,
-  'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview'
-> & {
-  mapId: SbMapId
-  hasMapDetailsAction?: boolean
-  hasFavoriteAction?: boolean
-  hasMapPreviewAction?: boolean
-  hasRegenMapImageAction?: boolean
-}) {
+}: Simplify<
+  Omit<
+    MapThumbnailProps,
+    'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview'
+  > & {
+    mapId: SbMapId
+    hasMapDetailsAction?: boolean
+    hasFavoriteAction?: boolean
+    hasMapPreviewAction?: boolean
+    hasRegenMapImageAction?: boolean
+  }
+>) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()

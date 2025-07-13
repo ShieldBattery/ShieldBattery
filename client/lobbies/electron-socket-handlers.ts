@@ -26,10 +26,10 @@ import {
   LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
-import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
+import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
@@ -39,7 +39,7 @@ const ipcRenderer = new TypedIpcRenderer()
 
 interface CountdownState {
   timer: ReturnType<typeof setInterval> | undefined
-  sound: ReturnType<AudioManager['playFadeableSound']> | undefined
+  sound: FadeableSound | undefined
 }
 
 const countdownState: CountdownState = {
@@ -54,8 +54,7 @@ function clearCountdownTimer() {
     countdownState.timer = undefined
   }
   if (sound) {
-    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
-    sound.source.stop(audioManager.currentTime + 0.6)
+    sound.fadeOut(0.5)
     countdownState.sound = undefined
   }
 }

@@ -6,6 +6,7 @@ import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
 import games from '../games/socket-handlers'
+import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/socket-handlers'
 import logger from '../logging/logger'
 import news from '../news/socket-handlers'
@@ -14,6 +15,7 @@ import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
 import { clientId } from './client-id'
 import { fetchJson } from './fetch'
+import { isConnectedAtom } from './network-atoms'
 import siteSocket from './site-socket'
 
 function networkStatusHandler({
@@ -28,6 +30,7 @@ function networkStatusHandler({
     .on('connect', () => {
       logger.verbose('site socket connected')
       dispatch({ type: '@network/connect' })
+      jotaiStore.set(isConnectedAtom, true)
       if (ipcRenderer) {
         ipcRenderer.send('networkSiteConnected')
       }
@@ -35,6 +38,7 @@ function networkStatusHandler({
     .on('disconnect', () => {
       logger.verbose('site socket disconnected')
       dispatch({ type: '@network/disconnect' })
+      jotaiStore.set(isConnectedAtom, false)
     })
 }
 
