@@ -1,0 +1,178 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+ShieldBattery is a modern platform for playing StarCraft: Brood War/Remastered. It's a complex multi-language project consisting of:
+
+- **client/**: React web application (TypeScript, Redux, Styled Components)
+- **server/**: Node.js backend server (Koa.js, PostgreSQL, Redis, WebSockets)
+- **app/**: Electron desktop application (TypeScript, native OS integration)
+- **common/**: Shared TypeScript code and types used across components
+- **server-rs/**: Rust GraphQL server (Axum, async-graphql, SQLx)
+- **game/**: Rust DLL for StarCraft integration, injected into StarCraft (Windows API, egui)
+
+**Architecture Rule**: `client/`, `server/`, and `app/` directories must not depend on each other. All can depend on `common/`.
+
+## Common Development Commands
+
+### Development Servers
+
+```bash
+# Run all development services together (recommended)
+pnpm run local-dev
+
+# Individual components
+pnpm run start-server     # Node.js backend server
+pnpm run dev             # Webpack dev server for client
+pnpm run app             # Electron desktop app
+
+# Build Rust game DLL
+game\build.bat                # Debug 32-bit build
+game\built.bat x86_64         # Debug 64-bit build
+game\build.bat release        # Release 32-bit build
+game\build.bat x86_64 release # Release 64-bit build
+```
+
+### Testing
+
+```bash
+pnpm run test            # Unit tests (Vitest)
+pnpm run test --watch    # Watch mode for tests
+pnpm run test-ui         # Test UI with coverage
+pnpm run test:integration # Integration tests (Playwright)
+
+# Quality checks
+pnpm run lint            # ESLint
+pnpm run typecheck       # TypeScript type checking
+```
+
+### Code Generation
+
+```bash
+pnpm run gen-graphql     # Generate GraphQL types from schema
+pnpm run gen-emails      # Generate email templates
+pnpm run gen-translations # Generate translation files
+pnpm run gen-typeshare   # Generate Rust->TypeScript types
+```
+
+### Database
+
+```bash
+pnpm run migrate:run     # Run database migrations
+pnpm run migrate:create  # Create new migration
+pnpm run sqlx-prepare    # Update SQLx query metadata for Rust
+```
+
+### Building & Distribution
+
+```bash
+pnpm run build-app-client      # Build Electron app client code
+pnpm run build-web-client      # Build web client code
+pnpm run pack                  # Build Electron app (dev distribution)
+pnpm run dist                  # Build Electron app (production distribution)
+```
+
+## Architecture & Development Patterns
+
+### Multi-Language Structure
+
+- **TypeScript**: Client, server, app, and common code
+- **Rust**: Game integration DLL and GraphQL server
+- **PostgreSQL**: Primary database with Redis for caching/sessions
+- **Electron**: Desktop app wrapper with IPC communication
+
+### Real-time Communication
+
+- WebSocket connections via Nydus library between client and Node.js server
+- IPC between Electron main and renderer processes
+- Custom networking protocols for game coordination via rally point system
+
+### State Management
+
+- **Client**: Redux for global state/caches, Jotai for state that only concerns individual features
+- **React**: Version 19 with modern hooks and concurrent features, using react-compiler
+- **Styling**: styled-components with CSS-in-JS patterns
+
+### Code Organization
+
+- Component boundaries strictly enforced between major directories
+- Shared business logic lives in `common/`
+- Generated code marked clearly (don't edit generated files directly)
+- Type safety maintained across TypeScript and Rust boundaries via typeshare
+
+### Development Workflow
+
+- Hot reloading for client development via Webpack dev server
+- Docker Compose provides PostgreSQL and Redis for local development
+- Concurrent servers during development (use `local-dev` command)
+- Automatic code generation for GraphQL schemas and type definitions
+
+### Build System
+
+- **Client**: Webpack with React Refresh for development
+- **Server**: Direct TypeScript compilation
+- **Game**: Cargo build system for Rust DLL (targets 32-bit Windows)
+- **Desktop**: Electron Builder for packaging and distribution
+
+### Database Patterns
+
+- SQLx for type-safe database queries in Rust server
+- Traditional SQL migrations for schema changes
+- PostgreSQL 17 features available (use TIMESTAMPTZ over TIMESTAMP)
+- Redis for session storage and real-time features, communication between server-rs and server (PUBSUB)
+
+## Key Development Guidelines
+
+### General
+
+- Text-based files should use unix style line endings (LF only)
+- Include comments only for code that needs further explanation or is particularly tricky. Avoid
+  comments like `Define foo` before variable declarations.
+- DO NOT remove TODO comments unless the TODO has been completed. Leave them unmodified, including
+  any thing inside `TODO()` e.g. `TODO(tec27):` or `TODO(#1337):`.
+
+### TypeScript
+
+- Use specific types, avoid `any`
+- Prefer `const` for immutable variables
+- Use type-fest types where appropriate, like ReadonlyDeep for objects that don't need to be modifiable
+- Use `useAppDispatch` and `useAppSelector` for Redux (not base hooks)
+- Single quotes for strings, backticks for template literals
+- Group CSS properties: layout → display → appearance → misc
+
+### Styling
+
+- Use styled-components exclusively for CSS-in-JS
+- Follow property ordering convention in CSS rules
+- Use react-i18next for all user-facing text translations
+- Use the motion library or basic CSS transitions for animations
+
+### Rust
+
+- Avoid unsafe code when possible
+- Target 32-bit Windows for game DLL (i686-pc-windows-msvc)
+- Use SQLx for database interactions with compile-time query validation
+
+### SQL
+
+- Use PostgreSQL 17 syntax and features
+- Always use `TIMESTAMPTZ` over `TIMESTAMP`
+- Prefer `kind` over `type` for column names (avoid SQL keywords)
+
+### Testing
+
+- Unit tests with Vitest alongside implementation files (.test.ts)
+- Integration tests with Playwright in `integration/tests/`
+- Mock service dependencies in unit tests when appropriate (e.g. if using the real dependency is too
+  complex in tests)
+- Use isolated test data in integration tests (separate users/channels)
+
+## Important Notes
+
+- Many directories contain generated code - check README files before editing
+- The game DLL must target 32-bit architecture for StarCraft compatibility
+- Component isolation is critical - maintain strict boundaries between major directories
+- Use existing translation strings when possible for internationalization, provided they are for
+  similar context
