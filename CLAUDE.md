@@ -46,6 +46,7 @@ pnpm run test:integration # Integration tests (Playwright)
 # Quality checks
 pnpm run lint            # ESLint
 pnpm run typecheck       # TypeScript type checking
+pnpm run lint --fix      # ESLint autofix (can fix formatting with prettier)
 ```
 
 ### Code Generation
