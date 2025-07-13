@@ -84,6 +84,10 @@ export type GameLoaderError =
   | BaseGameLoaderError<GameLoadErrorType.PlayerFailed>
   | BaseGameLoaderError<GameLoadErrorType.Timeout>
 
+export function isGameLoaderError(err: unknown): err is GameLoaderError {
+  return err instanceof BaseGameLoaderError
+}
+
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
   // played, so we match BW's random seed method (time()) here

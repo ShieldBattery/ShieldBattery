@@ -20,6 +20,7 @@ function createPlayer(data: Partial<MatchmakingPlayer> = {}): QueuedMatchmakingE
       alternateRace: 'z',
     },
     mapSelections: [],
+    identifiers: [[1, 'beefcafe']],
 
     ...data,
 

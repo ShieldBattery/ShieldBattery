@@ -15,7 +15,6 @@ import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
-  isMatchmakingParty,
   isNewPlayer,
   MatchmakingEntity,
   MatchmakingInterval,
@@ -125,7 +124,7 @@ export function calcEffectiveRating(team: ReadonlyArray<Readonly<MatchmakingEnti
 }
 
 function getRatingFromEntity(entity: QueuedMatchmakingEntity): number {
-  return isMatchmakingParty(entity) ? calcEffectiveRating([entity]) : entity.rating
+  return entity.rating
 }
 
 type MatchedTeams = [
@@ -151,14 +150,9 @@ function findOptimalTeams(
     throw new Error('selections must not be empty')
   }
 
-  if (isMatchmakingParty(entity) || selections.length < teamSize) {
-    if (selections.some(s => !isMatchmakingParty(s))) {
-      // This should never happen for 2v2, just a sanity check
-      throw new Error('selections less than team size but contain a non-party')
-    }
-
-    // Teams can't differ, so just return them as is
-    return [[entity], selections]
+  if (selections.length < teamSize) {
+    // This should never happen for 2v2, just a sanity check
+    throw new Error('selections less than team size but contain a non-party')
   }
 
   // Find all the different permutations of teams, select the one that minimizes the difference
@@ -250,16 +244,12 @@ export const DEFAULT_MATCH_CHOOSER: MatchChooser = (
     p => p.interval.low <= entityRating && entityRating <= p.interval.high,
   )
 
-  // If overlapping maps are required, filter out any players/parties that don't have overlapping
+  // If overlapping maps are required, filter out any players that don't have overlapping
   // maps.
   if (requireOverlappingMaps) {
-    const entityMaps = isMatchmakingParty(entity)
-      ? new Set(entity.players.find(p => p.id === entity.leaderId)!.mapSelections)
-      : new Set(entity.mapSelections)
+    const entityMaps = new Set(entity.mapSelections)
     filtered = potentials.filter(p => {
-      const pMaps = isMatchmakingParty(p)
-        ? new Set(p.players.find(e => e.id === p.leaderId)!.mapSelections)
-        : new Set(p.mapSelections)
+      const pMaps = new Set(p.mapSelections)
       return intersection(entityMaps, pMaps).size > 0
     })
   }
@@ -298,51 +288,16 @@ export const DEFAULT_MATCH_CHOOSER: MatchChooser = (
       // to be careful to get the right size of entities. This is already pretty terrible for 2v2,
       // for 3v3 it seems like it needs a full rethink
       const shuffled = multipleRandomItems(filtered.length, filtered)
-      if (isMatchmakingParty(entity)) {
-        while (shuffled.length) {
-          if (isMatchmakingParty(shuffled[0])) {
-            return [[entity], [shuffled[0]]]
-          } else {
-            for (let i = 1; i < shuffled.length; i++) {
-              // Find the first other solo player and group them
-              if (!isMatchmakingParty(shuffled[i])) {
-                return [[entity], [shuffled[0], shuffled[i]]]
-              }
-            }
-          }
+      const partner = shuffled.shift()!
 
-          // Couldn't find a matching solo player, just get rid of this one and try again :(
-          shuffled.shift()
-        }
-      } else {
-        let partner: QueuedMatchmakingEntity | undefined
-        for (let i = 0; i < shuffled.length; i++) {
-          if (!isMatchmakingParty(shuffled[i])) {
-            partner = shuffled[i]
-            shuffled.splice(i, 1)
-            break
-          }
-        }
-        if (!partner) {
-          // No other solo players to be our partner
-          return []
+      while (shuffled.length) {
+        for (let i = 1; i < shuffled.length; i++) {
+          // Find the first other solo player and group them
+          return findOptimalTeams(teamSize, entity, [partner, shuffled[0], shuffled[i]])
         }
 
-        while (shuffled.length) {
-          if (isMatchmakingParty(shuffled[0])) {
-            return [[entity, partner], [shuffled[0]]]
-          } else {
-            for (let i = 1; i < shuffled.length; i++) {
-              // Find the first other solo player and group them
-              if (!isMatchmakingParty(shuffled[i])) {
-                return findOptimalTeams(teamSize, entity, [partner, shuffled[0], shuffled[i]])
-              }
-            }
-          }
-
-          // Couldn't find a matching solo player, just get rid of this one and try again :(
-          shuffled.shift()
-        }
+        // Couldn't find a matching solo player, just get rid of this one and try again :(
+        shuffled.shift()
       }
 
       return []

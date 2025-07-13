@@ -17,6 +17,7 @@ import { LeagueExplainerDialog } from '../leagues/league-explainer'
 import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
+import { MatchmakingBannedDialog } from '../matchmaking/matchmaking-banned-dialog'
 import { PostMatchDialog } from '../matchmaking/post-match-dialog'
 import { DialogContext } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
@@ -91,6 +92,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MapPreviewDialog }
     case DialogType.Markdown:
       return { component: MarkdownDialog }
+    case DialogType.MatchmakingBanned:
+      return { component: MatchmakingBannedDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:

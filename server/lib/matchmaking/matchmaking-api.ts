@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
   FindMatchRequest,
+  GetMatchmakingBanStatusResponse,
   GetMatchmakingSeasonsResponse,
   hasVetoes,
   MatchmakingSeasonsServiceErrorCode,
@@ -26,6 +27,7 @@ import { joiClientIdentifiers } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
 import { filterMapSelections } from './map-selections'
+import { MatchmakingBanService } from './matchmaking-ban-service'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -58,12 +60,16 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.TooManyPlayers:
       throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
+    case MatchmakingServiceErrorCode.UserBanned:
       throw asHttpError(403, err)
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
     case MatchmakingServiceErrorCode.MatchAlreadyStarting:
       throw asHttpError(409, err)
+    case MatchmakingServiceErrorCode.LoadFailed:
+      // This one shouldn't be thrown up to us
+      throw asHttpError(500, err)
     default:
       assertUnreachable(err.code)
   }
@@ -91,6 +97,7 @@ export class MatchmakingApi {
     private matchmakingService: MatchmakingService,
     private userIdManager: UserIdentifierManager,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
+    private matchmakingBanService: MatchmakingBanService,
   ) {}
 
   @httpPost('/find')
@@ -119,10 +126,16 @@ export class MatchmakingApi {
       )
     }
 
-    await this.userIdManager.upsert(ctx.session!.user!.id, identifiers)
+    await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
-    if (await this.userIdManager.banUserIfNeeded(ctx.session!.user!.id)) {
+    if (await this.userIdManager.banUserIfNeeded(ctx.session!.user.id)) {
       throw new httpErrors.Unauthorized('This account is banned')
+    }
+    if (await this.matchmakingBanService.checkUser(ctx.session!.user.id)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UserBanned,
+        'This account is currently banned from matchmaking',
+      )
     }
 
     const mapSelections = filterMapSelections(currentMapPool, preferences.mapSelections)
@@ -130,7 +143,7 @@ export class MatchmakingApi {
       throw new MatchmakingServiceError(MatchmakingServiceErrorCode.InvalidMaps, 'No maps selected')
     }
 
-    await this.matchmakingService.find(ctx.session!.user!.id, clientId, identifiers, {
+    await this.matchmakingService.find(ctx.session!.user.id, clientId, identifiers, {
       ...preferences,
       mapSelections,
     })
@@ -152,6 +165,18 @@ export class MatchmakingApi {
   )
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.user!.id)
+  }
+
+  @httpGet('/ban-status')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user!.id)),
+  )
+  async getBanStatus(ctx: RouterContext): Promise<GetMatchmakingBanStatusResponse> {
+    const ban = await this.matchmakingBanService.checkUser(ctx.session!.user.id)
+    return {
+      bannedUntil: ban ? Number(ban.expiresAt) : undefined,
+    }
   }
 
   @httpGet('/seasons')

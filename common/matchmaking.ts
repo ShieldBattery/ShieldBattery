@@ -856,6 +856,7 @@ export interface MatchmakingCompletion {
 export enum MatchmakingServiceErrorCode {
   ClientDisconnected = 'clientDisconnected',
   GameplayConflict = 'gameplayConflict',
+  LoadFailed = 'loadFailed',
   InvalidClient = 'invalidClient',
   InvalidMapPool = 'invalidMapPool',
   InvalidMaps = 'invalidMaps',
@@ -864,6 +865,7 @@ export enum MatchmakingServiceErrorCode {
   NotInQueue = 'notInQueue',
   NoActiveMatch = 'noActiveMatch',
   TooManyPlayers = 'tooManyPlayers',
+  UserBanned = 'userBanned',
   UserOffline = 'userOffline',
 }
 
@@ -871,6 +873,10 @@ export interface FindMatchRequest {
   clientId: string
   preferences: MatchmakingPreferences
   identifiers: [type: number, hashStr: string][]
+}
+
+export interface GetMatchmakingBanStatusResponse {
+  bannedUntil?: number
 }
 
 export enum MatchmakingSeasonsServiceErrorCode {

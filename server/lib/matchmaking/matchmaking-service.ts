@@ -9,7 +9,7 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
-import { intersection, subtract } from '../../../common/data-structures/sets'
+import { intersection, subtract, union } from '../../../common/data-structures/sets'
 import {
   GameConfig,
   GameConfigPlayer,
@@ -36,7 +36,7 @@ import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
-import { BaseGameLoaderError, GameLoader } from '../games/game-loader'
+import { GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
@@ -45,7 +45,6 @@ import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
-  isMatchmakingParty,
   MatchmakingEntity,
   MatchmakingPlayer,
   MatchmakingPlayerData,
@@ -69,6 +68,7 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { MatchmakingBanService } from './matchmaking-ban-service'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import { adjustMatchmakingRatingForInactivity } from './rating'
@@ -84,6 +84,7 @@ class Match {
   private userIdToRegisteredId = new Map<SbUserId, SbUserId>()
 
   private toKick = new Set<SbUserId>()
+  private toBan = new Set<SbUserId>()
   private abortController = new AbortController()
 
   constructor(
@@ -109,7 +110,7 @@ class Match {
       .then(() => {
         if (this.acceptPromises.size) {
           for (const id of this.acceptPromises.keys()) {
-            this.toKick.add(this.userIdToRegisteredId.get(id)!)
+            this.markForBan(id)
           }
           this.abortController.abort()
         }
@@ -157,13 +158,23 @@ class Match {
     this.clearAcceptTimeout()
   }
 
-  getKicksAndRequeues(): [toKick: Set<SbUserId>, toRequeue: Set<SbUserId>] {
+  markForBan(userId: SbUserId) {
+    this.toBan.add(userId)
+    // In case this user was in a party, mark their party for kick
+    this.toKick.add(this.userIdToRegisteredId.get(userId)!)
+  }
+
+  getKicksBansAndRequeues(): [
+    toKick: Set<SbUserId>,
+    toBan: Set<SbUserId>,
+    toRequeue: Set<SbUserId>,
+  ] {
     // Requeue any party leaders and solo players that don't appear in toKick
     const toRequeue = subtract(
       new Set(this.teams.flatMap(team => team.map(entity => getMatchmakingEntityId(entity)))),
-      this.toKick,
+      union(this.toKick, this.toBan),
     )
-    return [new Set(this.toKick), toRequeue]
+    return [new Set(this.toKick), new Set(this.toBan), toRequeue]
   }
 }
 
@@ -212,12 +223,7 @@ async function pickMap(
 
     const vetoCount = new Map<string, number>()
     for (const e of entities) {
-      let mapSelections: ReadonlyArray<string>
-      if (isMatchmakingParty(e)) {
-        mapSelections = e.players.find(p => p.id === e.leaderId)!.mapSelections
-      } else {
-        mapSelections = e.mapSelections
-      }
+      const mapSelections = e.mapSelections
       mapPool = subtract(mapPool, mapSelections)
       for (const map of mapSelections) {
         vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
@@ -244,11 +250,7 @@ async function pickMap(
     // For a positive map selection system, we just intersect all players' map selections to find
     // the pool
     for (const e of entities) {
-      const mapSelections = new Set(
-        isMatchmakingParty(e)
-          ? e.players.find(p => p.id === e.leaderId)!.mapSelections
-          : e.mapSelections,
-      )
+      const mapSelections = new Set(e.mapSelections)
       mapPool = intersection(mapPool, mapSelections)
     }
   }
@@ -361,6 +363,7 @@ export class MatchmakingService {
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private clock: Clock,
     private userIdentifierManager: UserIdentifierManager,
+    private matchmakingBanService: MatchmakingBanService,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -435,6 +438,7 @@ export class MatchmakingService {
       race,
       mapSelections: mapSelections.slice(),
       preferenceData,
+      identifiers,
     })
 
     // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
@@ -562,18 +566,11 @@ export class MatchmakingService {
       phase = 'loading'
       await this.doGameLoad(match)
     } catch (err: any) {
-      if (
-        !isAbortError(err) &&
-        !(err instanceof MatchmakingServiceError) &&
-        !(err instanceof BaseGameLoaderError)
-      ) {
+      if (!isAbortError(err) && !(err instanceof MatchmakingServiceError)) {
         logger.error({ err }, 'error while processing match')
       }
 
-      // TODO(tec27): GameLoaderError can tell us what player failed to load now, we should add that
-      // player (or their party) to the kick list
-
-      const [toKick, toRequeue] = match.getKicksAndRequeues()
+      const [toKick, toBan, toRequeue] = match.getKicksBansAndRequeues()
 
       const entities = match.teams.flat()
 
@@ -581,11 +578,41 @@ export class MatchmakingService {
         const entity = entities.find(entity => getMatchmakingEntityId(entity) === id)!
         for (const p of getPlayersFromEntity(entity)) {
           this.queueEntries.delete(p.id)
-          this.publishToActiveClient(p.id, {
-            type: 'acceptTimeout',
-          })
+          if (phase === 'accepting') {
+            this.publishToActiveClient(p.id, {
+              type: 'acceptTimeout',
+            })
+          } else if (phase === 'loading') {
+            this.publishToActiveClient(p.id, {
+              type: 'cancelLoading',
+              reason: 'loading failed',
+            })
+          }
           this.unregisterActivity(p.id)
         }
+      }
+
+      const matchPlayers = Array.from(match.players())
+      // NOTE(tec27): Unlike toKick/toRequeue, these are just raw user IDs and don't correspond to
+      // an entity, we can use them directly
+      for (const id of toBan) {
+        const player = matchPlayers.find(p => p.id === id)
+        if (!player) {
+          logger.error(
+            { err: new Error(`Tried to ban user ${id} but they were not in the match`) },
+            'error processing matchmaking bans',
+          )
+          continue
+        }
+        // NOTE(tec27): We only ban the current identifiers and not all connected identifiers, to
+        // reduce the potential risk of a user on a shared machine getting a ton of people banned
+        // at once. We store the user ID alongside these anyway so at the very least this account
+        // should always be hit by the ban.
+        this.matchmakingBanService.banUser(player.id, player.identifiers).catch(err => {
+          logger.error({ err }, 'error while issuing matchmaking ban to user')
+        })
+        // We expect that the ban service will notify them of the ban so we don't need to tell them
+        // more here
       }
 
       for (const id of toRequeue) {
@@ -603,8 +630,6 @@ export class MatchmakingService {
           queueEntry.matchId = undefined
 
           if (phase === 'loading') {
-            // TODO(tec27): Give a better reason here, and ideally derive who to kick from the load
-            // failures
             this.publishToActiveClient(p.id, {
               type: 'cancelLoading',
               reason: 'loading failed',
@@ -618,15 +643,9 @@ export class MatchmakingService {
 
         if (!playerMissing) {
           // Generate a writable version of the MatchmakingEntity
-          const newQueueEntry =
-            'players' in entity
-              ? {
-                  ...entity,
-                  players: entity.players.map(p => ({ ...p })),
-                }
-              : {
-                  ...entity,
-                }
+          const newQueueEntry = {
+            ...entity,
+          }
 
           this.matchmakers.get(match.type)!.addToQueue(newQueueEntry)
         }
@@ -792,13 +811,29 @@ export class MatchmakingService {
       this.publishToActiveClient(client.userId, { type: 'matchReady' })
     }
 
-    await this.gameLoader.loadGame({
+    const loadResult = await this.gameLoader.loadGame({
       players: slots,
       playerInfos,
       mapId: chosenMap.id,
       gameConfig,
       ratings,
     })
+
+    if (loadResult.isError()) {
+      if (loadResult.error.code === GameLoadErrorType.Timeout) {
+        for (const user of loadResult.error.data.unloaded) {
+          match.markForBan(user)
+        }
+      } else if (loadResult.error.code === GameLoadErrorType.PlayerFailed) {
+        match.markForBan(loadResult.error.data.userId)
+      }
+
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.LoadFailed,
+        'Game load failed',
+        { cause: loadResult.error },
+      )
+    }
 
     for (const player of match.players()) {
       this.queueEntries.delete(player.id)

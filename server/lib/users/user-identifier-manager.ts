@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { injectable } from 'tsyringe'
+import { ReadonlyDeep } from 'type-fest'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
@@ -21,8 +22,8 @@ import { findUserById } from './user-model'
 const MIN_BAN_LENGTH_HOURS = 1
 const MAX_BAN_LENGTH_HOURS = 100 * 365 * 24 // 100 years
 
-function convertStringIds(
-  identifiers: ReadonlyArray<ClientIdentifierString>,
+export function convertStringIds(
+  identifiers: ReadonlyDeep<ClientIdentifierString[]>,
 ): ClientIdentifierBuffer[] {
   return identifiers.map<[type: number, hash: Buffer]>(([type, hashStr]) => {
     if (type === 0) {

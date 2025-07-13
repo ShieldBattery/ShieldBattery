@@ -1,8 +1,9 @@
 import { Immutable } from 'immer'
-import { Simplify } from 'type-fest'
+import { ReadonlyDeep, Simplify } from 'type-fest'
 import { PreferenceData } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { ClientIdentifierString } from '../users/client-ids'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating } from './models'
 
@@ -55,30 +56,16 @@ export interface MatchmakingPlayerData {
   numGamesPlayed: number
   /** The user's current MMR. */
   rating: number
+  /** The user's client identifiers (used for smurf detection and matchmaking bans). */
+  identifiers: ReadonlyDeep<ClientIdentifierString[]>
 }
 
 export type MatchmakingPlayer = Simplify<MatchmakingPlayerData & MatchmakingQueueData>
 
-export interface MatchmakingParty extends MatchmakingQueueData {
-  players: MatchmakingPlayerData[]
-  leaderId: SbUserId
-  partyId: string
-}
-
-export type MatchmakingEntity = MatchmakingPlayer | MatchmakingParty
+export type MatchmakingEntity = MatchmakingPlayer
 
 export function isNewPlayer(entity: MatchmakingEntity) {
-  if (isMatchmakingParty(entity)) {
-    for (const player of getPlayersFromEntity(entity)) {
-      if (player.numGamesPlayed >= NEW_PLAYER_GAME_COUNT) {
-        return false
-      }
-    }
-    // Only count them as a new player if the whole party is new
-    return true
-  } else {
-    return entity.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
-  }
+  return entity.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
 }
 
 export function matchmakingRatingToPlayerData({
@@ -86,11 +73,13 @@ export function matchmakingRatingToPlayerData({
   race,
   mapSelections,
   preferenceData,
+  identifiers,
 }: {
   mmr: MatchmakingRating
   race: RaceChar
   mapSelections: ReadonlyArray<string>
   preferenceData: PreferenceData
+  identifiers: ReadonlyArray<ClientIdentifierString>
 }): MatchmakingPlayerData {
   return {
     id: mmr.userId,
@@ -99,27 +88,18 @@ export function matchmakingRatingToPlayerData({
     preferenceData,
     numGamesPlayed: mmr.numGamesPlayed,
     rating: mmr.rating,
+    identifiers,
   }
-}
-
-export function isMatchmakingParty(
-  entity: Immutable<MatchmakingEntity>,
-): entity is Immutable<MatchmakingParty> {
-  return 'players' in entity
 }
 
 export function* getPlayersFromEntity(entity: Immutable<MatchmakingEntity>) {
-  if ('players' in entity) {
-    yield* entity.players
-  } else {
-    yield entity
-  }
+  yield entity
 }
 
 export function getNumPlayersInEntity(entity: MatchmakingEntity): number {
-  return isMatchmakingParty(entity) ? entity.players.length : 1
+  return 1
 }
 
 export function getMatchmakingEntityId(entity: Immutable<MatchmakingEntity>): SbUserId {
-  return 'players' in entity ? entity.leaderId : entity.id
+  return entity.id
 }

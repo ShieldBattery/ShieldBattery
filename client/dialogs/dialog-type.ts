@@ -20,6 +20,7 @@ export enum DialogType {
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
+  MatchmakingBanned = 'matchmakingBanned',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   ReplayInfo = 'replayInfo',
@@ -93,6 +94,7 @@ type MarkdownDialogPayload = BaseDialogPayload<
     hasButton?: boolean
   }
 >
+type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -146,6 +148,7 @@ export type DialogPayload =
   | MapDetailsDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
+  | MatchmakingBannedDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | ReplayInfoDialogPayload

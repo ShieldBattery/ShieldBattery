@@ -4,6 +4,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
   FindMatchRequest,
+  GetMatchmakingBanStatusResponse,
   GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
@@ -13,7 +14,8 @@ import {
   PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
-import { openSimpleDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
@@ -73,6 +75,9 @@ export function findMatch<M extends MatchmakingType>(
 
       if (isFetchError(err) && err.code) {
         switch (err.code) {
+          case MatchmakingServiceErrorCode.UserBanned:
+            dispatch(openDialog({ type: DialogType.MatchmakingBanned }))
+            return
           case MatchmakingServiceErrorCode.MatchmakingDisabled:
             message = i18n.t(
               'matchmaking.findMatch.errors.matchmakingDisabled',
@@ -241,5 +246,13 @@ export function getMatchmakingSeasons(
     })
 
     return result
+  })
+}
+
+export function getMatchmakingBanStatus(
+  spec: RequestHandlingSpec<GetMatchmakingBanStatusResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    return await fetchJson<GetMatchmakingBanStatusResponse>(apiUrl`matchmaking/ban-status`)
   })
 }

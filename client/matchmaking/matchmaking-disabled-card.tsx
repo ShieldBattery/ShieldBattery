@@ -112,7 +112,7 @@ export function ConnectedMatchmakingDisabledCard({
     calculate()
     const timer = setInterval(calculate, 1000)
     return () => {
-      clearTimeout(timer)
+      clearInterval(timer)
     }
   }, [nextStartDate])
 

@@ -697,6 +697,11 @@
     "activity": {
       "title": "Matchmaking"
     },
+    "bannedDialog": {
+      "bannedFor": "You are banned for:",
+      "description": "You have been temporarily banned from matchmaking for failing to ready up, or failing to join matches.",
+      "title": "Banned from matchmaking"
+    },
     "disabledCard": {
       "days": "Days",
       "description": "Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:",

@@ -110,7 +110,7 @@ export class JobScheduler {
         this.runtimeMetric.labels(jobId).observe((completionTime - startTime) / 1000)
       },
       err => {
-        logger.error(`Error while running ${jobId}: ${err.message}\n${err.stack ?? err}`)
+        logger.error({ err }, `Error while running ${jobId}`)
       },
     )
   }
