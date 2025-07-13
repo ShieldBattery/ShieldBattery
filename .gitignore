@@ -15,4 +15,6 @@ yarn-error.log
 stats.json
 electron-builder.env
 *.afdesign~lock~
+
 CLAUDE.local.md
+.claude/

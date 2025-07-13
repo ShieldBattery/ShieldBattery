@@ -140,14 +140,27 @@ pnpm run dist                  # Build Electron app (production distribution)
 - Use type-fest types where appropriate, like ReadonlyDeep for objects that don't need to be modifiable
 - Use `useAppDispatch` and `useAppSelector` for Redux (not base hooks)
 - Single quotes for strings, backticks for template literals
-- Group CSS properties: layout → display → appearance → misc
+- Prefer `for..of` to `forEach()
+- Our HTTP APIs are defined via a custom decorator-based system, so HTTP methods, route- or
+  service-specific middleware, etc. are defined via decorators, e.g. `@httpGet`. Our setup allows
+  us to declare return object types, so that we can have type safety on these routes. Request and
+  response types are usually put in `common` files to share between client and server.
+- Websocket broadcasting is done via a subscription system, usually either for all of the sockets
+  from a particular client or from a particular user. See `ClientSocketsManager` and
+  `UserSocketsManager`. The server decides which specific paths each client gets subscribed to, and
+  in the client code, we register routes by pattern to match against the messages we receive.
+- The NodeJS server uses tsyringe to do dependency injection
+- When constructing URLs or paths for URLs, use the `urlPath` tagged template to automatically
+  encode any variables you place within it. If it's going to our API server, you can use `apiUrl`.
 
 ### Styling
 
 - Use styled-components exclusively for CSS-in-JS
+- Group CSS properties: layout → display → appearance → misc
 - Follow property ordering convention in CSS rules
 - Use react-i18next for all user-facing text translations
 - Use the motion library or basic CSS transitions for animations
+- Use UI component library under `client/material` as basis for most UIs
 
 ### Rust
 
