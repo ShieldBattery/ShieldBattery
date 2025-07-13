@@ -487,6 +487,11 @@
         },
         "activity": {
             "title": "匹配"
+        },
+        "bannedDialog": {
+            "bannedFor": "您已被禁赛，原因如下：",
+            "description": "您因未准备好或未能加入比赛而被暂时禁止匹配。",
+            "title": "已被禁止匹配"
         }
     },
     "game": {

@@ -484,6 +484,11 @@
         },
         "activity": {
             "title": "Emparejamiento"
+        },
+        "bannedDialog": {
+            "bannedFor": "Estás baneado por:",
+            "description": "Has sido baneado temporalmente del emparejamiento por no estar listo o por no unirte a las partidas.",
+            "title": "Baneado del emparejamiento"
         }
     },
     "clientUpdate": {

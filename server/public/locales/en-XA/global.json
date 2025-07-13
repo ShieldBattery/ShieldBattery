@@ -491,6 +491,11 @@
         },
         "activity": {
             "title": "$🗡Matchmaking🗡!"
+        },
+        "bannedDialog": {
+            "bannedFor": "$🗡You are banned for:🗡!",
+            "description": "$🗡You have been temporarily banned from matchmaking for failing to ready up, or failing to join matches.🗡!",
+            "title": "$🗡Banned from matchmaking🗡!"
         }
     },
     "chat": {
