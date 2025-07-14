@@ -736,7 +736,6 @@
     },
     "maps": {
         "details": {
-            "retrieveError": "查询该地图的详细信息时遇到问题。错误信息：",
             "tileset": "地形类型：{{tilesetName}}",
             "title": "地图详情",
             "editDescription": "编辑地图描述",
@@ -803,7 +802,6 @@
                 },
                 "title": "缩略图尺寸"
             },
-            "favoritedMaps": "收藏的地图",
             "regenerated": "图像已重新生成",
             "uploadedMap": "已上传地图",
             "noUploadedMapsWeb": "您还没有上传任何地图。"

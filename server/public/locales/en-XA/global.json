@@ -753,7 +753,6 @@
             "mapName": "$🗡Map name🗡!",
             "mapNameRequired": "$🗡Enter a map name🗡!",
             "players": "$🗡Players: {{playerSize}}🗡!",
-            "retrieveError": "$🗡Something went wrong while trying to retrieve the details of this map. The error message was:🗡!",
             "size": "$🗡Size: {{width}}x{{height}}🗡!",
             "tileset": "$🗡Tileset: {{tilesetName}}🗡!",
             "title": "$🗡Map details🗡!"
@@ -811,7 +810,6 @@
                 "title": "$🗡Thumbnail size🗡!"
             },
             "uploadedMap": "$🗡Uploaded map🗡!",
-            "favoritedMaps": "$🗡Favorited maps🗡!",
             "regenerated": "$🗡Images regenerated🗡!",
             "noUploadedMapsWeb": "$🗡You haven't uploaded any maps.🗡!"
         },

@@ -757,7 +757,6 @@
             "mapName": "Nombre del mapa",
             "mapNameRequired": "Introduce un nombre de mapa",
             "players": "Jugadores: {{playerSize}}",
-            "retrieveError": "Algo salió mal al intentar recuperar los detalles de este mapa. El mensaje de error fue:",
             "size": "Tamaño: {{width}}x{{height}}",
             "tileset": "Tileset: {{tilesetName}}",
             "title": "Detalles del mapa",
@@ -815,7 +814,6 @@
                 "title": "Opciones de filtro",
                 "numberOfPlayers": "{{numPlayers}} jugadores"
             },
-            "favoritedMaps": "Mapas favoritos",
             "regenerated": "Imágenes regeneradas",
             "uploadedMap": "Mapa subido",
             "noUploadedMapsWeb": "No has subido ningún mapa."
