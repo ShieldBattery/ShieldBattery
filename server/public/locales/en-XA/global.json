@@ -35,7 +35,8 @@
             "submit": "$🗡Submit🗡!",
             "close": "$🗡Close🗡!",
             "read": "$🗡Read🗡!",
-            "download": "$🗡Download🗡!"
+            "download": "$🗡Download🗡!",
+            "back": "$🗡Back🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -771,7 +772,8 @@
                 "added": "$🗡Added to favorites🗡!",
                 "addedError": "$🗡An error occurred while adding to favorites🗡!",
                 "removed": "$🗡Removed from favorites🗡!",
-                "removedError": "$🗡An error occurred while removing from favorites🗡!"
+                "removedError": "$🗡An error occurred while removing from favorites🗡!",
+                "error": "$🗡There was an error retrieving your favorite maps.🗡!"
             },
             "noCommunityMaps": "$🗡No maps by the community have been made public yet.🗡!",
             "noOfficialMaps": "$🗡No official maps have been uploaded yet.🗡!",
@@ -784,7 +786,7 @@
                 "official": "$🗡Official🗡!"
             },
             "allMaps": "$🗡All maps🗡!",
-            "error": "$🗡Something went wrong: {{errorMessage}}🗡!",
+            "error": "$🗡There was an error retrieving the maps.🗡!",
             "filterOptions": {
                 "section": {
                     "numberOfPlayers": "$🗡Number of players🗡!",
@@ -811,7 +813,9 @@
             },
             "uploadedMap": "$🗡Uploaded map🗡!",
             "regenerated": "$🗡Images regenerated🗡!",
-            "noUploadedMapsWeb": "$🗡You haven't uploaded any maps.🗡!"
+            "noUploadedMapsWeb": "$🗡You haven't uploaded any maps.🗡!",
+            "favoriteMaps": "$🗡Favorite maps🗡!",
+            "removeError": "$🗡An error occurred while removing the map🗡!"
         },
         "thumbnail": {
             "addToFavorites": "$🗡Add to favorites🗡!",

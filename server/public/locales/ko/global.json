@@ -33,7 +33,8 @@
             "submit": "제출해",
             "close": "닫기",
             "read": "읽기",
-            "download": "다운로드"
+            "download": "다운로드",
+            "back": "뒤로"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -810,7 +811,8 @@
                 "added": "즐겨찾기에 추가됨",
                 "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다",
                 "removed": "즐겨찾기에서 제거됨",
-                "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다"
+                "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다",
+                "error": "즐겨찾기 맵을 가져오는 중 오류가 발생했습니다."
             },
             "filterOptions": {
                 "section": {
@@ -824,7 +826,9 @@
             "noResults": "결과가 없습니다.",
             "uploadedMap": "맵이 업로드되었습니다",
             "regenerated": "이미지가 다시 생성되었습니다",
-            "noUploadedMapsWeb": "업로드한 맵이 없습니다."
+            "noUploadedMapsWeb": "업로드한 맵이 없습니다.",
+            "favoriteMaps": "즐겨찾기 맵",
+            "removeError": "맵을 제거하는 중 오류가 발생했습니다."
         },
         "thumbnail": {
             "addToFavorites": "즐겨찾기에 추가",

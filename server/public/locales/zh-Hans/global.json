@@ -33,7 +33,8 @@
             "submit": "提交",
             "close": "关闭",
             "read": "阅读",
-            "download": "下载"
+            "download": "下载",
+            "back": "返回"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -766,7 +767,8 @@
                 "added": "已添加至收藏夹",
                 "addedError": "添加到收藏夹时遇到错误",
                 "removed": "已从收藏夹中删除",
-                "removedError": "从收藏夹中删除地图时遇到错误"
+                "removedError": "从收藏夹中删除地图时遇到错误",
+                "error": "获取收藏的地图时出错。"
             },
             "filterOptions": {
                 "section": {
@@ -804,7 +806,9 @@
             },
             "regenerated": "图像已重新生成",
             "uploadedMap": "已上传地图",
-            "noUploadedMapsWeb": "您还没有上传任何地图。"
+            "noUploadedMapsWeb": "您还没有上传任何地图。",
+            "favoriteMaps": "收藏的地图",
+            "removeError": "移除地图时发生错误。"
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",

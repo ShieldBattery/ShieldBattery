@@ -37,7 +37,8 @@
             "submit": "Enviar",
             "close": "Cerca",
             "read": "Leer",
-            "download": "Descargar"
+            "download": "Descargar",
+            "back": "Atrás"
         },
         "lists": {
             "empty": "Nada que ver aquí"
@@ -776,7 +777,8 @@
                 "added": "Añadido a favoritos",
                 "addedError": "Ocurrió un error al agregar a favoritos",
                 "removed": "Eliminado de favoritos",
-                "removedError": "Ocurrió un error al eliminar de favoritos"
+                "removedError": "Ocurrió un error al eliminar de favoritos",
+                "error": "Hubo un error al recuperar tus mapas favoritos."
             },
             "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
             "noOfficialMaps": "Aún no se han subido mapas oficiales.",
@@ -816,7 +818,9 @@
             },
             "regenerated": "Imágenes regeneradas",
             "uploadedMap": "Mapa subido",
-            "noUploadedMapsWeb": "No has subido ningún mapa."
+            "noUploadedMapsWeb": "No has subido ningún mapa.",
+            "favoriteMaps": "Mapas favoritos",
+            "removeError": "Ocurrió un error al eliminar el mapa."
         },
         "thumbnail": {
             "addToFavorites": "Agregar a los favoritos",
