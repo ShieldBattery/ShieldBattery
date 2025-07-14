@@ -79,18 +79,18 @@ export function PlayerSlot({
   if (isHost) {
     if (!isSelf) {
       slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
-      if (!isComputer) {
+      if (user && !isComputer) {
         slotActions.push([
           t('lobbies.slots.kickPlayer', {
             defaultValue: 'Kick {{user}}',
-            user: user!.name,
+            user: user.name,
           }),
           onKickPlayer,
         ])
         slotActions.push([
           t('lobbies.slots.banPlayer', {
             defaultValue: 'Ban {{user}}',
-            user: user!.name,
+            user: user.name,
           }),
           onBanPlayer,
         ])
