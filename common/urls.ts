@@ -27,8 +27,12 @@ export function apiUrl(strings: TemplateStringsArray, ...values: unknown[]) {
 export function urlPath(strings: TemplateStringsArray, ...values: unknown[]) {
   return strings
     .map((str, i) => {
-      const value = values[i] === undefined ? '' : encodeURIComponent(String(values[i]))
-      return str + value
+      if (values[i] instanceof URLSearchParams) {
+        return str + String(values[i])
+      } else {
+        const value = values[i] === undefined ? '' : encodeURIComponent(String(values[i]))
+        return str + value
+      }
     })
     .join('')
 }

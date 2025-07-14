@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MapVisibility, tilesetToName } from '../../common/maps'
+import { MapVisibility, SbMapId, tilesetToName } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
@@ -15,7 +15,7 @@ import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, bodyMedium, headlineMedium, singleLine } from '../styles/typography'
-import { getMapDetails, updateMap } from './action-creators'
+import { batchGetMapInfo, updateMap } from './action-creators'
 import { MapThumbnail } from './map-thumbnail'
 
 const ESCAPE = 'Escape'
@@ -29,11 +29,6 @@ const LoadingArea = styled.div`
   display: flex;
   justify-content: center;
   margin-top: 24px;
-`
-
-const ErrorText = styled.div`
-  ${bodyLarge};
-  color: var(--theme-error);
 `
 
 const MapInfo = styled.div`
@@ -217,22 +212,21 @@ function DescriptionForm({ initialDescription, onSubmit, onCancel }: Description
 }
 
 interface MapDetailsProps extends CommonDialogProps {
-  mapId: string
+  mapId: SbMapId
 }
 
 export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const mapDetails = useAppSelector(s => s.mapDetails)
+  const map = useAppSelector(s => s.maps.byId.get(mapId))
   const auth = useAppSelector(s => s.auth)
+
   const [isEditingName, setIsEditingName] = useState(false)
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   useEffect(() => {
-    dispatch(getMapDetails(mapId))
+    dispatch(batchGetMapInfo(mapId))
   }, [dispatch, mapId])
-
-  const map = mapDetails.map
 
   let canEdit = false
   if (map) {
@@ -244,29 +238,12 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
   }
 
   function renderContents() {
-    if (mapDetails.isRequesting) {
+    if (!map) {
       return (
         <LoadingArea>
           <LoadingIndicator />
         </LoadingArea>
       )
-    }
-    if (mapDetails.lastError) {
-      return (
-        <>
-          <p>
-            {t(
-              'maps.details.retrieveError',
-              'Something went wrong while trying to retrieve the details of this map.' +
-                ' The error message was:',
-            )}
-          </p>
-          <ErrorText as='p'>{mapDetails.lastError.message}</ErrorText>
-        </>
-      )
-    }
-    if (!map) {
-      return null
     }
 
     return (
@@ -276,7 +253,16 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
             <NameForm
               initialName={map.name}
               onSubmit={({ name }) => {
-                dispatch(updateMap(mapId, name, map.description))
+                dispatch(
+                  updateMap(
+                    mapId,
+                    { name },
+                    {
+                      onSuccess: () => {},
+                      onError: () => {},
+                    },
+                  ),
+                )
                 setIsEditingName(false)
               }}
               onCancel={() => setIsEditingName(false)}
@@ -298,7 +284,16 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
             <DescriptionForm
               initialDescription={map.description}
               onSubmit={({ description }) => {
-                dispatch(updateMap(mapId, map.name, description))
+                dispatch(
+                  updateMap(
+                    mapId,
+                    { description },
+                    {
+                      onSuccess: () => {},
+                      onError: () => {},
+                    },
+                  ),
+                )
                 setIsEditingDescription(false)
               }}
               onCancel={() => setIsEditingDescription(false)}

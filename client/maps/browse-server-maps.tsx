@@ -1,38 +1,28 @@
+import { TFunction } from 'i18next'
 import { debounce } from 'lodash-es'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_TILESETS,
-  MapInfoJson,
   MapSortType,
   MapVisibility,
   NumPlayers,
+  SbMapId,
   Tileset,
 } from '../../common/maps'
-import { SbUserId } from '../../common/users/sb-user-id'
-import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
 import { useRefreshToken } from '../network/refresh-token'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
-import {
-  clearMapsList,
-  getMapsList,
-  openMapPreviewDialog,
-  regenMapImage,
-  removeMap,
-  toggleFavoriteMap,
-} from './action-creators'
+import { getFavorites as getFavoritedMaps, getMaps } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
-import { MapThumbnail } from './map-thumbnail'
+import { ReduxMapThumbnail } from './map-thumbnail'
 import { MapThumbnailSize } from './thumbnail-size'
-
-const MAPS_LIMIT = 30
 
 const Container = styled.div`
   display: flex;
@@ -67,6 +57,8 @@ const SectionHeader = styled.div`
 const ErrorText = styled.div`
   ${bodyLarge};
   color: var(--theme-error);
+
+  margin-top: 16px;
 `
 
 const TabArea = styled.div`
@@ -117,85 +109,43 @@ function thumbnailSizeToLayout(thumbnailSize: MapThumbnailSize): {
   }
 }
 
-interface MapListProps {
-  maps: ReadonlyDeep<MapInfoJson[]>
-  userId?: SbUserId
-  canManageMaps: boolean
-  thumbnailSize: MapThumbnailSize
-  favoriteStatusRequests: ReadonlySet<string>
-  onMapSelect?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onMapPreview?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onToggleFavoriteMap?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onMapDetails?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onRemoveMap?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onRegenMapImage?: (map: ReadonlyDeep<MapInfoJson>) => void
+enum MapsSection {
+  Uploaded = 'Uploaded',
+  Favorited = 'Favorited',
+  All = 'All',
 }
 
-function MapList({
-  maps,
-  userId,
-  canManageMaps,
-  thumbnailSize,
-  favoriteStatusRequests,
-  onMapSelect,
-  onMapPreview,
-  onToggleFavoriteMap,
-  onMapDetails,
-  onRemoveMap,
-  onRegenMapImage,
-}: MapListProps) {
-  return (
-    <>
-      {maps.map(map => {
-        const canRemoveMap =
-          onRemoveMap &&
-          ((map.visibility !== MapVisibility.Private && canManageMaps) ||
-            (map.visibility === MapVisibility.Private && map.uploadedBy === userId))
-        const canRegenMapImage = onRegenMapImage && canManageMaps
-
-        const layout = thumbnailSizeToLayout(thumbnailSize)
-
-        return (
-          <MapThumbnail
-            key={map.id}
-            map={map}
-            forceAspectRatio={1}
-            size={layout.columnCount === 2 ? 512 : 256}
-            showMapName={true}
-            isFavoriting={favoriteStatusRequests.has(map.id)}
-            onClick={onMapSelect ? () => onMapSelect(map) : undefined}
-            onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
-            onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
-            onMapDetails={onMapDetails ? () => onMapDetails(map) : undefined}
-            onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
-            onRegenMapImage={canRegenMapImage ? () => onRegenMapImage(map) : undefined}
-          />
-        )
-      })}
-    </>
-  )
+function mapsSectionToTitle(section: MapsSection, t: TFunction): string {
+  switch (section) {
+    case MapsSection.Uploaded:
+      return t('maps.server.uploadedMap', 'Uploaded map')
+    case MapsSection.Favorited:
+      return t('maps.server.favoriteMaps', 'Favorite maps')
+    case MapsSection.All:
+      return t('maps.server.allMaps', 'All maps')
+    default:
+      return section satisfies never
+  }
 }
 
 interface BrowseServerMapsProps {
   title: string
-  uploadedMap?: ReadonlyDeep<MapInfoJson>
-  onMapSelect?: (map: ReadonlyDeep<MapInfoJson>) => void
-  onMapDetails?: (map: ReadonlyDeep<MapInfoJson>) => void
+  uploadedMapId?: SbMapId
+  onMapRemove?: (mapId: SbMapId) => void
+  onMapClick?: (mapId: SbMapId) => void
   onBrowseLocalMaps?: () => void
 }
 
 export function BrowseServerMaps({
   title,
-  uploadedMap,
-  onMapSelect,
-  onMapDetails,
+  uploadedMapId,
+  onMapRemove,
+  onMapClick,
   onBrowseLocalMaps,
 }: BrowseServerMapsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const selfPermissions = useSelfPermissions()
-  const mapsState = useAppSelector(s => s.maps)
 
   const [activeTab, setActiveTab] = useUserLocalStorageValue<MapTab>(
     'maps.browseServer.activeTab',
@@ -237,118 +187,170 @@ export function BrowseServerMaps({
         : undefined,
   )
 
-  const [currentPage, setCurrentPage] = useState(0)
+  const [mapIds, setMapIds] = useState<SbMapId[]>()
+  const [favoritedMapIds, setFavoritedMapIds] = useState<SbMapId[]>([])
+
+  const [hasMoreMaps, setHasMoreMaps] = useState(true)
+  const [isLoadingMoreMaps, setIsLoadingMoreMaps] = useState(false)
+  const [getMapsError, setGetMapsError] = useState<Error>()
+  const [getFavoritedMapsError, setGetFavoritedMapsError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useState('')
+
+  const getMapsAbortControllerRef = useRef<AbortController>(new AbortController())
+  const getFavoritedMapsAbortControllerRef = useRef<AbortController>(new AbortController())
+
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const debouncedSetSearchQuery = useMemo(
-    () =>
-      debounce((query: string) => {
-        setSearchQuery(query)
-        dispatch(clearMapsList())
-        setCurrentPage(0)
-      }, 100),
-    [dispatch],
-  )
-  const reset = () => {
-    debouncedSetSearchQuery.cancel()
-    dispatch(clearMapsList())
-    setCurrentPage(0)
+  // NOTE(2Pac): There are basically 2 ways we can reset the state when tab/filters/search changes:
+  //  1. We can keep the state in a separate "list" component that gets recreated when each of those
+  //     things changes (by concocting a `key` with a combo of all their values).
+  //  2. We can do what we did here, which is manually reset the state when needed.
+  //
+  // Even though the first approach is more declarative in nature and the second approach more
+  // imperative, I went with the second approach for now because it seems more straightforward.
+  const reset = ({
+    query,
+    clearFavorites = true,
+  }: { query?: string; clearFavorites?: boolean } = {}) => {
+    // Just need to clear the search results here and let the infinite scroll list initiate the
+    // network request.
+    setSearchQuery(query ?? '')
+    // TODO(2Pac): Make the infinite scroll list in charge of the loading state, so we don't have
+    // to do this here, which is pretty unintuitive.
+    setIsLoadingMoreMaps(false)
+    setGetMapsError(undefined)
+    setGetFavoritedMapsError(undefined)
+    setMapIds(undefined)
+    // Since favorited maps are shared across tabs, we don't need to clear them when switching tabs,
+    // but we do need to clear them when the user changes the search query or other filters.
+    if (clearFavorites) {
+      setFavoritedMapIds([])
+    }
+    setHasMoreMaps(true)
     triggerRefresh()
+  }
+
+  const debouncedSearchRef = useRef(
+    debounce((query: string) => {
+      reset({ query })
+    }, 100),
+  )
+
+  useEffect(() => {
+    if (uploadedMapId) {
+      setActiveTab(MapTab.MyMaps)
+    }
+  }, [setActiveTab, uploadedMapId])
+
+  useEffect(() => {
+    if (!selfUser) {
+      return
+    }
+
+    getFavoritedMapsAbortControllerRef.current?.abort()
+    getFavoritedMapsAbortControllerRef.current = new AbortController()
+
+    dispatch(
+      getFavoritedMaps(
+        {
+          sort: sortOption,
+          numPlayers: numPlayersFilter,
+          tilesets: tilesetFilter,
+          q: searchQuery,
+        },
+        {
+          signal: getFavoritedMapsAbortControllerRef.current.signal,
+          onSuccess: data => {
+            setFavoritedMapIds(data.favoritedMaps.map(m => m.id))
+          },
+          onError: err => {
+            setGetFavoritedMapsError(err)
+          },
+        },
+      ),
+    )
+  }, [selfUser, dispatch, sortOption, numPlayersFilter, tilesetFilter, searchQuery])
+
+  const onLoadMoreMaps = () => {
+    setIsLoadingMoreMaps(true)
+
+    getMapsAbortControllerRef.current?.abort()
+    getMapsAbortControllerRef.current = new AbortController()
+
+    dispatch(
+      getMaps(
+        {
+          visibility: tabToVisibility(activeTab),
+          sort: sortOption,
+          numPlayers: numPlayersFilter,
+          tilesets: tilesetFilter,
+          q: searchQuery,
+          offset: mapIds?.length ?? 0,
+        },
+        {
+          signal: getMapsAbortControllerRef.current.signal,
+          onSuccess: data => {
+            setIsLoadingMoreMaps(false)
+            setMapIds((mapIds ?? []).concat(data.maps.map(m => m.id)))
+            setHasMoreMaps(data.hasMoreMaps)
+          },
+          onError: err => {
+            setIsLoadingMoreMaps(false)
+            setGetMapsError(err)
+          },
+        },
+      ),
+    )
   }
 
   useEffect(() => {
     return () => {
-      dispatch(clearMapsList())
-      debouncedSetSearchQuery.cancel()
+      getMapsAbortControllerRef.current?.abort()
+      getFavoritedMapsAbortControllerRef.current?.abort()
     }
-  }, [debouncedSetSearchQuery, dispatch])
+  }, [])
 
-  useEffect(() => {
-    if (uploadedMap) {
-      setActiveTab(MapTab.MyMaps)
-    }
-  }, [setActiveTab, uploadedMap])
-
-  const renderMaps = (header: string, maps: ReadonlyDeep<MapInfoJson[]>) => {
-    const layout = thumbnailSizeToLayout(thumbnailSize)
-    return (
-      <>
-        <SectionHeader>{header}</SectionHeader>
-        <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
-          <MapList
-            maps={maps}
-            userId={selfUser?.id}
-            canManageMaps={!!selfPermissions?.manageMaps}
-            thumbnailSize={thumbnailSize}
-            favoriteStatusRequests={mapsState.favoriteStatusRequests}
-            onMapSelect={onMapSelect}
-            onMapPreview={map => dispatch(openMapPreviewDialog(map.id))}
-            onToggleFavoriteMap={selfUser ? map => dispatch(toggleFavoriteMap(map)) : undefined}
-            onMapDetails={onMapDetails}
-            onRemoveMap={selfUser ? map => dispatch(removeMap(map)) : undefined}
-            onRegenMapImage={selfUser ? map => dispatch(regenMapImage(map)) : undefined}
-          />
-        </ImageList>
-      </>
-    )
+  const onRemoveMap = (mapId: SbMapId) => {
+    setMapIds(mapIds?.filter(id => id !== mapId))
+    onMapRemove?.(mapId)
   }
 
-  const renderUploadedMap = () => {
-    if (!uploadedMap || activeTab !== MapTab.MyMaps) {
-      return null
-    }
-
-    return renderMaps(t('maps.server.uploadedMap', 'Uploaded map'), [uploadedMap])
+  const onAddToFavorites = (mapId: SbMapId) => {
+    // We always add the newly favorited map to the end of the favorite maps list, even though that
+    // might not obey our current sort filter (or even our filters). That seems preferable to me
+    // than always having to sort and filter the maps on the client side as well.
+    setFavoritedMapIds([...favoritedMapIds, mapId])
   }
 
-  const renderFavoritedMaps = () => {
-    if (mapsState.favoritedById.size < 1) return null
-
-    return renderMaps(
-      t('maps.server.favoritedMaps', 'Favorited maps'),
-      Array.from(mapsState.favoritedById.values()),
-    )
+  const onRemoveFromFavorites = (mapId: SbMapId) => {
+    setFavoritedMapIds(favoritedMapIds.filter(id => id !== mapId))
   }
 
-  const renderAllMaps = () => {
-    if (mapsState.total === -1) return null
-    if (mapsState.total === 0) {
-      const hasFiltersApplied =
-        numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
-      let text
-      if (searchQuery || hasFiltersApplied) {
-        text = t('maps.server.noResults', 'No results.')
-      } else if (activeTab === MapTab.OfficialMaps) {
-        text = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
-      } else if (activeTab === MapTab.MyMaps) {
-        if (IS_ELECTRON) {
-          text = t(
-            'maps.server.noUploadedMaps',
-            "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
-              'below.',
-          )
-        } else {
-          text = t('maps.server.noUploadedMapsWeb', "You haven't uploaded any maps.")
-        }
-      } else if (activeTab === MapTab.CommunityMaps) {
-        text = t(
-          'maps.server.noCommunityMaps',
-          'No maps by the community have been made public yet.',
+  let noMapsText: string | undefined
+  if (mapIds && mapIds.length === 0) {
+    const hasFiltersApplied =
+      numPlayersFilter.length < 7 || tilesetFilter.length < ALL_TILESETS.length
+    if (searchQuery || hasFiltersApplied) {
+      noMapsText = t('maps.server.noResults', 'No results.')
+    } else if (activeTab === MapTab.OfficialMaps) {
+      noMapsText = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
+    } else if (activeTab === MapTab.MyMaps) {
+      if (IS_ELECTRON) {
+        noMapsText = t(
+          'maps.server.noUploadedMaps',
+          "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
+            'below.',
         )
+      } else {
+        noMapsText = t('maps.server.noUploadedMapsWeb', "You haven't uploaded any maps.")
       }
-      return (
-        <>
-          <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
-          <BodyLarge>{text}</BodyLarge>
-        </>
+    } else if (activeTab === MapTab.CommunityMaps) {
+      noMapsText = t(
+        'maps.server.noCommunityMaps',
+        'No maps by the community have been made public yet.',
       )
     }
-
-    return renderMaps(t('maps.server.allMaps', 'All maps'), Array.from(mapsState.byId.values()))
   }
-
-  const hasMoreMaps = mapsState.total === -1 || mapsState.total > mapsState.byId.size
 
   // TODO(tec27): Add back button if needed
   return (
@@ -361,7 +363,7 @@ export function BrowseServerMaps({
           activeTab={activeTab}
           onChange={(value: MapTab) => {
             setActiveTab(value)
-            reset()
+            reset({ clearFavorites: false })
           }}>
           <TabItem text={t('maps.server.tab.official', 'Official')} value={MapTab.OfficialMaps} />
           {selfUser ? (
@@ -376,40 +378,66 @@ export function BrowseServerMaps({
       <ScrollDivider $position='top' />
       <Contents>
         <ContentsBody>
-          {mapsState.lastError ? (
-            <ErrorText>
-              {t('maps.server.error', {
-                defaultValue: 'Something went wrong: {{errorMessage}}',
-                errorMessage: mapsState.lastError.message,
-              })}
-            </ErrorText>
-          ) : (
-            <>
-              {renderUploadedMap()}
-              {renderFavoritedMaps()}
-              <InfiniteScrollList
-                nextLoadingEnabled={true}
-                isLoadingNext={mapsState.isRequesting}
-                hasNextData={hasMoreMaps}
-                refreshToken={refreshToken}
-                onLoadNextData={() => {
-                  dispatch(
-                    getMapsList({
-                      visibility: tabToVisibility(activeTab),
-                      limit: MAPS_LIMIT,
-                      page: currentPage,
-                      sort: sortOption,
-                      numPlayers: numPlayersFilter,
-                      tileset: tilesetFilter,
-                      searchQuery,
-                    }),
-                  )
-                  setCurrentPage(p => p + 1)
-                }}>
-                {renderAllMaps()}
-              </InfiniteScrollList>
-            </>
-          )}
+          {uploadedMapId && activeTab === MapTab.MyMaps ? (
+            <MapSection
+              section={MapsSection.Uploaded}
+              mapIds={[uploadedMapId]}
+              thumbnailSize={thumbnailSize}
+              onMapClick={onMapClick}
+              onMapRemove={onRemoveMap}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
+            />
+          ) : null}
+
+          {favoritedMapIds.length > 0 ? (
+            <MapSection
+              section={MapsSection.Favorited}
+              mapIds={favoritedMapIds}
+              thumbnailSize={thumbnailSize}
+              errorText={
+                getFavoritedMapsError
+                  ? t(
+                      'maps.server.favorites.error',
+                      'There was an error retrieving your favorite maps.',
+                    )
+                  : undefined
+              }
+              onMapClick={onMapClick}
+              onMapRemove={onRemoveMap}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
+            />
+          ) : null}
+
+          <InfiniteScrollList
+            nextLoadingEnabled={true}
+            isLoadingNext={isLoadingMoreMaps}
+            hasNextData={hasMoreMaps}
+            refreshToken={refreshToken}
+            onLoadNextData={onLoadMoreMaps}>
+            {!mapIds || mapIds.length === 0 ? (
+              <>
+                <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
+                <BodyLarge>{noMapsText}</BodyLarge>
+              </>
+            ) : (
+              <MapSection
+                section={MapsSection.All}
+                mapIds={mapIds}
+                thumbnailSize={thumbnailSize}
+                errorText={
+                  getMapsError
+                    ? t('maps.server.error', 'There was an error retrieving the maps.')
+                    : undefined
+                }
+                onMapClick={onMapClick}
+                onMapRemove={onRemoveMap}
+                onAddToFavorites={onAddToFavorites}
+                onRemoveFromFavorites={onRemoveFromFavorites}
+              />
+            )}
+          </InfiniteScrollList>
         </ContentsBody>
       </Contents>
       <ScrollDivider $position='bottom' />
@@ -432,8 +460,64 @@ export function BrowseServerMaps({
           }
         }}
         searchQuery={searchQuery}
-        onSearchChange={debouncedSetSearchQuery}
+        onSearchChange={query => debouncedSearchRef.current(query)}
       />
     </Container>
+  )
+}
+
+interface MapSectionProps {
+  section: MapsSection
+  mapIds: ReadonlyArray<SbMapId>
+  thumbnailSize: MapThumbnailSize
+  errorText?: string
+  onMapClick?: (mapId: SbMapId) => void
+  onMapRemove: (mapId: SbMapId) => void
+  onAddToFavorites: (mapId: SbMapId) => void
+  onRemoveFromFavorites: (mapId: SbMapId) => void
+}
+function MapSection({
+  section,
+  mapIds,
+  thumbnailSize,
+  errorText,
+  onMapClick,
+  onMapRemove,
+  onAddToFavorites,
+  onRemoveFromFavorites,
+}: MapSectionProps) {
+  const { t } = useTranslation()
+
+  const layout = thumbnailSizeToLayout(thumbnailSize)
+  return (
+    <>
+      <SectionHeader>{mapsSectionToTitle(section, t)}</SectionHeader>
+      {errorText ? <ErrorText>{errorText}</ErrorText> : null}
+      <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
+        {mapIds.map(mapId => {
+          // We don't show the remove button in the favorited maps section since that section
+          // includes maps that are potentially removed by their original uploader/admin.
+          const canRemoveMap = section !== MapsSection.Favorited
+
+          return (
+            <ReduxMapThumbnail
+              key={mapId}
+              mapId={mapId}
+              forceAspectRatio={1}
+              size={layout.columnCount === 2 ? 512 : 256}
+              showMapName={true}
+              hasMapDetailsAction={true}
+              hasFavoriteAction={true}
+              hasMapPreviewAction={true}
+              hasRegenMapImageAction={true}
+              onClick={onMapClick ? () => onMapClick(mapId) : undefined}
+              onAddToFavorites={onAddToFavorites}
+              onRemoveFromFavorites={onRemoveFromFavorites}
+              onRemove={canRemoveMap ? () => onMapRemove(mapId) : undefined}
+            />
+          )
+        })}
+      </ImageList>
+    </>
   )
 }

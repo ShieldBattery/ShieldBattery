@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     graphql::{errors::graphql_error, schema_builder::SchemaBuilderModule},
-    maps::{MapsLoader, UploadedMap},
+    maps::{MapsLoader, SbMapId, UploadedMap},
     matchmaking::MatchmakingType,
     users::{SbUser, SbUserId, UsersLoader},
 };
@@ -61,7 +61,7 @@ pub struct Game {
     pub id: Uuid,
     pub start_time: DateTime<Utc>,
     #[graphql(skip)]
-    pub map_id: Uuid,
+    pub map_id: SbMapId,
     pub config: GameConfig,
     pub disputable: bool,
     pub dispute_requested: bool,
@@ -90,7 +90,7 @@ pub struct ReconciledPlayerResultEntry {
 pub struct DbGame {
     pub id: Uuid,
     pub start_time: DateTime<Utc>,
-    pub map_id: Uuid,
+    pub map_id: SbMapId,
     pub config: sqlx::types::Json<GameConfig>,
     pub disputable: bool,
     pub dispute_requested: bool,
@@ -319,7 +319,7 @@ impl GamesRepo {
         sqlx::query_as!(
             DbGame,
             r#"
-            SELECT id, start_time, map_id, config as "config: _",
+            SELECT id, start_time, map_id as "map_id: _", config as "config: _",
                 disputable, dispute_requested, dispute_reviewed,
                 game_length, results as "results: _", routes as "routes: _"
             FROM games WHERE id = $1
@@ -335,7 +335,7 @@ impl GamesRepo {
         sqlx::query_as!(
             DbGame,
             r#"
-            SELECT id, start_time, map_id, config as "config: _",
+            SELECT id, start_time, map_id as "map_id: _", config as "config: _",
                 disputable, dispute_requested, dispute_reviewed,
                 game_length, results as "results: _", routes as "routes: _"
             FROM games

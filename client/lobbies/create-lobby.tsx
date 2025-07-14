@@ -6,6 +6,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { SbMapId } from '../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
 import { useTrackPageView } from '../analytics/analytics'
@@ -131,16 +132,16 @@ interface CreateLobbyFormProps {
   model: CreateLobbyModel
   onSubmit: (model: ReadonlyDeep<CreateLobbyModel>) => void
   onValidatedChange: (model: ReadonlyDeep<CreateLobbyModel>) => void
-  onMapBrowse: (onMapSelect: (mapId: string) => void) => void
+  onMapBrowse: (onMapSelect: (mapId: SbMapId) => void) => void
   ref?: React.Ref<CreateLobbyFormHandle>
 }
 
 /** Updates the list of recent maps given that `selectedId` is a newly selected map. */
 function updateRecentMaps(
-  selectedId: string,
+  selectedId: SbMapId,
   numRecentMaps: number,
-  recentMaps: ReadonlyArray<string> = [],
-): string[] {
+  recentMaps: ReadonlyArray<SbMapId> = [],
+): SbMapId[] {
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, numRecentMaps - 1)]
 }
 
@@ -171,7 +172,7 @@ function CreateLobbyForm(props: CreateLobbyFormProps) {
   const selectedMap = mapSelection.mapId
   const gameType = getInputValue('gameType')
 
-  const selectedMapInfo = useAppSelector(s => selectedMap && s.maps2.byId.get(selectedMap))
+  const selectedMapInfo = useAppSelector(s => selectedMap && s.maps.byId.get(selectedMap))
 
   const onBrowseClick = useStableCallback(() => {
     onMapBrowse(mapId => {
@@ -389,7 +390,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   const [browsingMaps, setBrowsingMaps] = useState(MapBrowseState.None)
-  const mapSelectCallbackRef = useRef<(mapId: string) => void>(undefined)
+  const mapSelectCallbackRef = useRef<(mapId: SbMapId) => void>(undefined)
   const debouncedSavePreferencesRef = useRef(
     debounce((model: ReadonlyDeep<CreateLobbyModel>) => {
       dispatch(
@@ -416,9 +417,17 @@ export function CreateLobby(props: CreateLobbyProps) {
     <Container>
       <TitleBar>
         <TextButton
-          label={t('lobbies.createLobby.backToList', 'Back to list')}
+          label={
+            browsingMaps === MapBrowseState.None
+              ? t('lobbies.createLobby.backToList', 'Back to list')
+              : t('common.actions.back', 'Back')
+          }
           iconStart={<MaterialIcon icon='arrow_back' />}
-          onClick={props.onNavigateToList}
+          onClick={
+            browsingMaps === MapBrowseState.None
+              ? props.onNavigateToList
+              : () => setBrowsingMaps(MapBrowseState.None)
+          }
         />
         {browsingMaps === MapBrowseState.None ? (
           <>
@@ -430,8 +439,8 @@ export function CreateLobby(props: CreateLobbyProps) {
       {browsingMaps === MapBrowseState.Server ? (
         <BrowseServerMaps
           title={t('lobbies.createLobby.selectMap', 'Select map')}
-          onMapSelect={map => {
-            mapSelectCallbackRef.current?.(map.id)
+          onMapClick={mapId => {
+            mapSelectCallbackRef.current?.(mapId)
             mapSelectCallbackRef.current = undefined
             setBrowsingMaps(MapBrowseState.None)
           }}
@@ -442,8 +451,8 @@ export function CreateLobby(props: CreateLobbyProps) {
       ) : undefined}
       {browsingMaps === MapBrowseState.Local ? (
         <BrowseLocalMaps
-          onMapSelect={map => {
-            mapSelectCallbackRef.current?.(map.id)
+          onMapUpload={mapId => {
+            mapSelectCallbackRef.current?.(mapId)
             mapSelectCallbackRef.current = undefined
             setBrowsingMaps(MapBrowseState.None)
           }}

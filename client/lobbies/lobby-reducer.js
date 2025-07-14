@@ -123,16 +123,6 @@ const infoReducer = keyedReducer(new Lobby(), {
   ['@network/connect'](state, action) {
     return new Lobby()
   },
-
-  ['@maps/toggleFavorite'](state, action) {
-    const { map } = action.meta
-
-    if (state.map && state.map.id === map.id) {
-      return state.setIn(['map', 'isFavorited'], !map.isFavorited)
-    }
-
-    return state
-  },
 })
 
 const loadingReducer = keyedReducer(new LobbyLoadingState(), {

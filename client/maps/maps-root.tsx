@@ -1,7 +1,6 @@
 import { lazy, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ReadonlyDeep } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
+import { SbMapId } from '../../common/maps'
 import { useTrackPageView } from '../analytics/analytics'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -18,34 +17,40 @@ export function MapsRoot() {
   useTrackPageView('/maps')
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+
   const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
-  const [uploadedMap, setUploadedMap] = useState<ReadonlyDeep<MapInfoJson>>()
+  const [uploadedMapId, setUploadedMapId] = useState<SbMapId>()
 
   const onBrowseLocalMaps = useStableCallback(() => {
     setBrowsingLocalMaps(true)
-    setUploadedMap(undefined)
+    setUploadedMapId(undefined)
   })
 
-  const onMapUpload = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
+  const onMapUpload = useStableCallback((mapId: SbMapId) => {
     setBrowsingLocalMaps(false)
-    setUploadedMap(map)
+    setUploadedMapId(mapId)
   })
-  const onMapDetails = useStableCallback((map: ReadonlyDeep<MapInfoJson>) => {
-    dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+
+  const onMapRemove = useStableCallback((mapId: SbMapId) => {
+    if (uploadedMapId === mapId) {
+      setUploadedMapId(undefined)
+    }
   })
 
   return (
     <CenteredContentContainer>
       {IS_ELECTRON && browsingLocalMaps ? (
-        <LoadableLocalMaps onMapSelect={onMapUpload} />
+        <LoadableLocalMaps onMapUpload={onMapUpload} />
       ) : (
         <BrowseServerMaps
-          key={uploadedMap?.id ?? '-'}
+          key={uploadedMapId ?? '-'}
           title={t('maps.activity.title', 'Maps')}
-          uploadedMap={uploadedMap}
+          uploadedMapId={uploadedMapId}
           onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
-          onMapDetails={onMapDetails}
-          onMapSelect={onMapDetails}
+          onMapClick={(mapId: SbMapId) => {
+            dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId } }))
+          }}
+          onMapRemove={onMapRemove}
         />
       )}
     </CenteredContentContainer>

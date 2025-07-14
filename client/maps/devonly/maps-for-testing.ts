@@ -1,9 +1,15 @@
-import { MapForcePlayer, MapInfoJson, MapVisibility, Tileset } from '../../../common/maps'
+import {
+  makeSbMapId,
+  MapForcePlayer,
+  MapInfoJson,
+  MapVisibility,
+  Tileset,
+} from '../../../common/maps'
 import { range } from '../../../common/range'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 
 export const FightingSpirit: MapInfoJson = {
-  id: 'fighting-spirit',
+  id: makeSbMapId('fighting-spirit'),
   hash: '0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c',
   name: 'Fighting Spirit',
   description: 'Something something fighting spirit',
@@ -37,7 +43,6 @@ export const FightingSpirit: MapInfoJson = {
     isEud: false,
     parserVersion: 1,
   },
-  isFavorited: false,
   mapUrl: 'https://example.org/map.scx',
   imageVersion: 1,
   image256Url:

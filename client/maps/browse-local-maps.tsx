@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { MapInfoJson } from '../../common/maps'
+import { SbMapId } from '../../common/maps'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   FileBrowserFileEntry,
-  FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
@@ -31,49 +29,19 @@ async function getDocumentsMapsPath() {
   return [await ipcRenderer.invoke('pathsGetDocumentsPath'), 'Starcraft', 'maps'].join('\\')
 }
 
-export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfoJson>) => void }) {
+export function BrowseLocalMaps({ onMapUpload }: { onMapUpload: (mapId: SbMapId) => void }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isUploading = useAppSelector(s => s.localMaps.isUploading)
   const localStarcraftPath = useAppSelector(s => s.settings.local.starcraftPath)
+
   const [documentsPath, setDocumentsPath] = useState<string>('')
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     getDocumentsMapsPath()
       .then(path => setDocumentsPath(path))
       .catch(swallowNonBuiltins)
   }, [])
-
-  const onMapSelect = useCallback(
-    (map: FileBrowserFileEntry) => {
-      dispatch(uploadLocalMap(map.path, props.onMapSelect))
-    },
-    [dispatch, props.onMapSelect],
-  )
-
-  const fileEntryConfig: FileBrowserFileEntryConfig = useMemo(
-    () => ({
-      icon: <MaterialIcon icon='map' />,
-      allowedExtensions: ['scm', 'scx'],
-      onSelect: onMapSelect,
-    }),
-    [onMapSelect],
-  )
-  const rootFolders = useMemo(
-    () => ({
-      default: {
-        id: FileBrowserRootFolderId.Default,
-        name: t('maps.local.programFolder', 'Program folder'),
-        path: [localStarcraftPath, 'Maps'].join('\\'),
-      },
-      documents: {
-        id: FileBrowserRootFolderId.Documents,
-        name: t('maps.local.documentsFolder', 'Documents folder'),
-        path: documentsPath,
-      },
-    }),
-    [documentsPath, localStarcraftPath, t],
-  )
 
   if (!localStarcraftPath || !documentsPath) {
     return null
@@ -92,8 +60,36 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: ReadonlyDeep<MapInfo
     <FileBrowser
       browserType={FileBrowserType.Maps}
       title={t('maps.local.title', 'Local Maps')}
-      rootFolders={rootFolders}
-      fileEntryConfig={fileEntryConfig}
+      rootFolders={{
+        default: {
+          id: FileBrowserRootFolderId.Default,
+          name: t('maps.local.programFolder', 'Program folder'),
+          path: [localStarcraftPath, 'Maps'].join('\\'),
+        },
+        documents: {
+          id: FileBrowserRootFolderId.Documents,
+          name: t('maps.local.documentsFolder', 'Documents folder'),
+          path: documentsPath,
+        },
+      }}
+      fileEntryConfig={{
+        icon: <MaterialIcon icon='map' />,
+        allowedExtensions: ['scm', 'scx'],
+        onSelect: (map: FileBrowserFileEntry) => {
+          setIsUploading(true)
+          dispatch(
+            uploadLocalMap(map.path, {
+              onSuccess: ({ map }) => {
+                setIsUploading(false)
+                onMapUpload(map.id)
+              },
+              onError: () => {
+                setIsUploading(false)
+              },
+            }),
+          )
+        },
+      }}
     />
   )
 }
