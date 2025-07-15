@@ -110,11 +110,23 @@ jobs:
         with:
           version: latest
 
-      - name: Building Docker containers
-        run: cd ./integration && docker compose build
-        env:
-          DOCKER_BUILDKIT: 1
-          COMPOSE_DOCKER_CLI_BUILD: 1
+      - name: Build app-server container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: app_server:latest
+          cache-from: type=gha,scope=app-server
+          cache-to: type=gha,mode=max,scope=app-server
+
+      - name: Build server-rs container
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server-rs
+          load: true
+          tags: integration-server-rs:latest
+          cache-from: type=gha,scope=server-rs
+          cache-to: type=gha,mode=max,scope=server-rs
 
       - name: Running Docker containers
         run: cd ./integration && docker compose up -V -d
