@@ -35,7 +35,7 @@ jobs:
           target: sqlx-runtime
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/base:sqlx-tools
-            ghcr.io/${{ github.repository }}/base:sqlx-tools-${{ github.run_number }}
+            ghcr.io/${{ github.repository | lower }}/base:sqlx-tools
+            ghcr.io/${{ github.repository | lower }}/base:sqlx-tools-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
