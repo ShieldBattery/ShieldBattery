@@ -1062,7 +1062,7 @@
         },
         "slots": {
             "addComputer": "$🗡Add computer🗡!",
-            "banPlayer": "$🗡Ban player🗡!",
+            "banPlayer": "$🗡Ban {{user}}🗡!",
             "closeSlot": "$🗡Close slot🗡!",
             "kickPlayer": "$🗡Kick player🗡!",
             "makeObserver": "$🗡Make observer🗡!",
@@ -1071,7 +1071,9 @@
             "open": "$🗡Open🗡!",
             "openSlot": "$🗡Open slot🗡!",
             "removeComputer": "$🗡Remove computer🗡!",
-            "slotActions": "$🗡Slot actions🗡!"
+            "slotActions": "$🗡Slot actions🗡!",
+            "banUnnamedPlayer": "$🗡Ban player🗡!",
+            "kickUnnamedPlayer": "$🗡Kick player🗡!"
         },
         "state": {
             "exists": "$🗡You're not currently in this lobby. Would you like to join it?🗡!",
