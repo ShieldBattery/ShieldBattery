@@ -22,7 +22,7 @@ const GOOGLE_FONTS_URL = constructURL({
 
 // NOTE(tec27): We need a separate url just for the icon font, as we can't set a separate
 // font-display setting otherwise
-// TODO(tec27): Move to constructURL API once
+// TODO(tec27): Move to constructURL API now that
 // https://github.com/datalogix/google-fonts-helper/issues/72 is fixed
 const ICON_FONT_URL =
   'https://fonts.googleapis.com/css2' +
