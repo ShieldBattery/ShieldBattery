@@ -75,7 +75,7 @@ USER node
 WORKDIR /home/node/shieldbattery
 
 # Copy sqlx binary for migrations
-COPY --chown=node:node --from=rust-tools /bin/sqlx tools/sqlx
+COPY --chown=node:node --from=rust-tools /usr/local/bin/sqlx tools/sqlx
 
 # Copy the installed dependencies from the external-tools stage
 COPY --chown=node:node --from=external-tools /wait-for-it/wait-for-it.sh tools/wait-for-it.sh
