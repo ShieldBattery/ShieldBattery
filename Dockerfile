@@ -1,10 +1,5 @@
 # Get sqlx-cli so we can run migrations (Linux version needs to match what we run on below)
-FROM rust:alpine AS rust-tools
-RUN apk add --no-cache musl-dev
-# Cache the sqlx installation with mount cache to speed up builds
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    cargo install sqlx-cli --no-default-features --features postgres --root ./
+FROM ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools AS rust-tools
 
 # Clone external tools in a separate stage for better caching
 FROM node:22-alpine AS external-tools
