@@ -597,7 +597,9 @@
             "removeComputer": "컴퓨터 제거",
             "slotActions": "슬롯 설정",
             "addComputer": "컴퓨터 추가",
-            "banPlayer": "로비에서 추방"
+            "banPlayer": "로비에서 추방",
+            "banUnnamedPlayer": "플레이어 차단",
+            "kickUnnamedPlayer": "플레이어 추방"
         },
         "state": {
             "exists": "현재 이 로비에 참여 중이 아닙니다. 참가하시겠어요?",

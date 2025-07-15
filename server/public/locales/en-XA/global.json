@@ -1064,7 +1064,7 @@
             "addComputer": "$🗡Add computer🗡!",
             "banPlayer": "$🗡Ban {{user}}🗡!",
             "closeSlot": "$🗡Close slot🗡!",
-            "kickPlayer": "$🗡Kick player🗡!",
+            "kickPlayer": "$🗡Kick {{user}}🗡!",
             "makeObserver": "$🗡Make observer🗡!",
             "makePlayer": "$🗡Make player🗡!",
             "name": "$🗡Closed🗡!",

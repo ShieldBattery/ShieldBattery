@@ -542,7 +542,9 @@
             "slotActions": "Действия со слотом",
             "addComputer": "Добавить компьютер",
             "banPlayer": "Забанить игрока",
-            "closeSlot": "Закрыть слот"
+            "closeSlot": "Закрыть слот",
+            "banUnnamedPlayer": "Забанить игрока",
+            "kickUnnamedPlayer": "Выгнать игрока"
         },
         "createLobby": {
             "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
