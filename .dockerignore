@@ -1,7 +1,14 @@
+# Version control and IDE files
 .git/
+.gitignore
 */.idea/
-.react-email/
 */.vscode/
+.react-email/
+.claude/
+.claude-scratch/
+CLAUDE.local.md
+
+# Build artifacts and dependencies
 app/
 assets/
 dist/
@@ -9,18 +16,43 @@ docs/
 game/
 integration/
 node_modules/
+*/node_modules/
+*/target/
+test-state/
+tools/
+
+# Server runtime files
 server/.env
 server/config.js
 server/database.json
 server/logs/
-server/node_modules/
 server/uploaded_files/
 server/yarn-error.log
 server-rs/
-*/target/
-test-state/
-tools/
+
+# Environment and config files
+electron-builder.env
 .env
+.env.*
 yarn-error.log
+
+# Docker files (to avoid recursive copying)
 */.dockerignore
 */Dockerfile
+*/docker-compose.yml
+
+# Test files and coverage
+coverage/
+test-results/
+playwright-report/
+.nyc_output/
+
+# Cache directories
+.cache/
+.npm/
+.pnpm-store/
+.yarn/
+
+# OS generated files
+.DS_Store
+Thumbs.db

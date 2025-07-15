@@ -9,7 +9,12 @@ services:
   # app_server and migration
   _app-server-build:
     image: app_server
-    build: '../'
+    build: 
+      context: '../'
+      cache_from:
+        - type=gha
+      cache_to:
+        - type=gha,mode=max
     command: ['echo', 'built']
 
   app-server:
@@ -55,7 +60,12 @@ services:
       - redis
 
   server-rs:
-    build: '../server-rs/'
+    build: 
+      context: '../server-rs/'
+      cache_from:
+        - type=gha
+      cache_to:
+        - type=gha,mode=max
     restart: unless-stopped
     init: true
     ports:

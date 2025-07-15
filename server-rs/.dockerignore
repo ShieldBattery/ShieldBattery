@@ -1,7 +1,25 @@
+# Version control and IDE files
 .git/
+.gitignore
 .idea/
 .vscode/
+
+# Build artifacts
 target/
+
+# Docker files (to avoid recursive copying)  
 .dockerignore
 Dockerfile
+
+# Development scripts
 run-dev-server.bat
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test files and coverage
+coverage/
+
+# Cache directories
+.cache/

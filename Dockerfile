@@ -1,44 +1,44 @@
 # Get sqlx-cli so we can run migrations (Linux version needs to match what we run on below)
-FROM rust:alpine AS rust
+FROM rust:alpine AS rust-tools
 RUN apk add --no-cache musl-dev
-RUN cargo install sqlx-cli --no-default-features --features postgres --root ./
+# Cache the sqlx installation with mount cache to speed up builds
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo install sqlx-cli --no-default-features --features postgres --root ./
 
-
-# Build the server scripts (Linux version needs to match what we run on below)
-FROM node:22-alpine AS builder
-
-RUN corepack enable
-
-# By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
-# multistage build to install the necessary tools, and build the dependencies which will then be
-# copied over to the next stage (this stage will be discarded, along with the installed tools, to
-# make the image lighter).
-RUN apk add --no-cache python3 make g++ git
-
-# Set the working directory to where we want to install the dependencies; this directory doesn't
-# really matter as it will not be present in the final image, but keeping the path short makes
-# copying from it easier in the next stage.
-WORKDIR /shieldbattery
-
-# Ensure that we don't spend time installing dependencies that are only needed for the client
-# application.
-ENV SB_SERVER_ONLY=1
-
+# Clone external tools in a separate stage for better caching
+FROM node:22-alpine AS external-tools
+RUN apk add --no-cache git
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
 RUN git clone --depth 1 https://github.com/vishnubob/wait-for-it.git
-
 # Clone the `s3cmd` repository which contains a script we'll copy over to our final image, and use
 # it to sync our public assets to the cloud
 RUN git clone --depth 1 https://github.com/s3tools/s3cmd.git
 
+# Install dependencies in a separate stage for better caching
+FROM node:22-alpine AS deps
+RUN corepack enable
+# By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
+# multistage build to install the necessary tools, and build the dependencies which will then be
+# copied over to the next stage (this stage will be discarded, along with the installed tools, to
+# make the image lighter).
+RUN apk add --no-cache python3 make g++ git cmake
+
+WORKDIR /shieldbattery
+# Ensure that we don't spend time installing dependencies that are only needed for the client
+# application.
+ENV SB_SERVER_ONLY=1
+
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Build the server scripts (Linux version needs to match what we run on below)
+FROM deps AS builder
 # Copy the whole repository to the image, *except* the stuff marked in the `.dockerignore` file
 COPY . .
-
-# Install only the root folder's dependencies (`app` dependencies should be built into the
-# Electron app). Note that we specifically install non-production dependencies here so that we can
-# use them to build the client code. They will be pruned out in a later step.
-RUN pnpm install --frozen-lockfile
 
 # Prebuild the web client assets so we can simply copy them over
 ENV NODE_ENV=production
@@ -80,12 +80,12 @@ USER node
 WORKDIR /home/node/shieldbattery
 
 # Copy sqlx binary for migrations
-COPY --chown=node:node --from=rust /bin/sqlx tools/sqlx
+COPY --chown=node:node --from=rust-tools /bin/sqlx tools/sqlx
 
-# Copy the installed dependencies from the builder
-COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
-COPY --chown=node:node --from=builder /shieldbattery/s3cmd/s3cmd tools/s3cmd/s3cmd
-COPY --chown=node:node --from=builder /shieldbattery/s3cmd/S3 tools/s3cmd/S3
+# Copy the installed dependencies from the external-tools stage
+COPY --chown=node:node --from=external-tools /wait-for-it/wait-for-it.sh tools/wait-for-it.sh
+COPY --chown=node:node --from=external-tools /s3cmd/s3cmd tools/s3cmd/s3cmd
+COPY --chown=node:node --from=external-tools /s3cmd/S3 tools/s3cmd/S3
 
 # Copy just the sources the server needs
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules

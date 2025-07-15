@@ -100,8 +100,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Building Docker containers
         run: cd ./integration && docker compose build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
 
       - name: Running Docker containers
         run: cd ./integration && docker compose up -V -d

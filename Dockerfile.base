@@ -1,0 +1,16 @@
+# Base image with sqlx-cli pre-installed
+# This can be built and pushed to GitHub Container Registry for use in CI
+FROM rust:alpine AS sqlx-base
+
+RUN apk add --no-cache musl-dev
+
+# Install sqlx-cli with specific version for reproducibility
+RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres --root ./
+
+# Create a minimal runtime image with sqlx-cli
+FROM alpine:latest AS sqlx-runtime
+RUN apk add --no-cache ca-certificates
+COPY --from=sqlx-base /bin/sqlx /usr/local/bin/sqlx
+
+# Verify installation
+RUN sqlx --version
