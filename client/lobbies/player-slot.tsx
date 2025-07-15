@@ -81,17 +81,21 @@ export function PlayerSlot({
       slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
       if (!isComputer) {
         slotActions.push([
-          t('lobbies.slots.kickPlayer', {
-            defaultValue: 'Kick {{user}}',
-            user: user?.name ?? '',
-          }),
+          user
+            ? t('lobbies.slots.kickPlayer', {
+                defaultValue: 'Kick {{user}}',
+                user: user.name,
+              })
+            : t('lobbies.slots.kickUnnamedPlayer', 'Kick player'),
           onKickPlayer,
         ])
         slotActions.push([
-          t('lobbies.slots.banPlayer', {
-            defaultValue: 'Ban {{user}}',
-            user: user?.name ?? '',
-          }),
+          user
+            ? t('lobbies.slots.banPlayer', {
+                defaultValue: 'Ban {{user}}',
+                user: user.name,
+              })
+            : t('lobbies.slots.banUnnamedPlayer', 'Ban player'),
           onBanPlayer,
         ])
       } else {
