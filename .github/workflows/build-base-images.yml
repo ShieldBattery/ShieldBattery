@@ -27,6 +27,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set lowercase repository name
+        id: lowercase
+        run: |
+          echo "repo=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+
       - name: Build and push sqlx-cli base image
         uses: docker/build-push-action@v6
         with:
@@ -35,7 +40,7 @@ jobs:
           target: sqlx-runtime
           push: true
           tags: |
-            ghcr.io/${{ github.repository | lower }}/base:sqlx-tools
-            ghcr.io/${{ github.repository | lower }}/base:sqlx-tools-${{ github.run_number }}
+            ghcr.io/${{ steps.lowercase.outputs.repo }}/base:sqlx-tools
+            ghcr.io/${{ steps.lowercase.outputs.repo }}/base:sqlx-tools-${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
