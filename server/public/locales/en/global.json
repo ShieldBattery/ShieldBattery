@@ -572,9 +572,11 @@
     },
     "slots": {
       "addComputer": "Add computer",
-      "banPlayer": "Ban player",
+      "banPlayer": "Ban {{user}}",
+      "banUnnamedPlayer": "Ban player",
       "closeSlot": "Close slot",
-      "kickPlayer": "Kick player",
+      "kickPlayer": "Kick {{user}}",
+      "kickUnnamedPlayer": "Kick player",
       "makeObserver": "Make observer",
       "makePlayer": "Make player",
       "name": "Closed",

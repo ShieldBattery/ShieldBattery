@@ -4,7 +4,9 @@ import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
+import { useAppSelector } from '../redux-hooks'
 import { ConnectedUsername } from '../users/connected-username'
+import { LobbyUserMenu } from './lobby-menu-items'
 import { RacePicker } from './race-picker'
 import { SelectedRace } from './selected-race'
 import { Slot, SlotLeft, SlotName, SlotProfile, SlotRight } from './slot'
@@ -64,12 +66,13 @@ export function PlayerSlot({
   onRemoveObserver,
 }: PlayerSlotProps) {
   const { t } = useTranslation()
+  const user = useAppSelector(s => userId && s.users.byId.get(userId))
 
   const avatar = isComputer ? <StyledComputerAvatar /> : <StyledAvatar userId={userId!} />
   const displayName = isComputer ? (
     t('game.playerName.computer', 'Computer')
   ) : (
-    <ConnectedUsername userId={userId!} />
+    <ConnectedUsername userId={userId!} UserMenu={LobbyUserMenu} />
   )
 
   const slotActions: [string, (() => void) | undefined][] = []
@@ -77,8 +80,24 @@ export function PlayerSlot({
     if (!isSelf) {
       slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
       if (!isComputer) {
-        slotActions.push([t('lobbies.slots.kickPlayer', 'Kick player'), onKickPlayer])
-        slotActions.push([t('lobbies.slots.banPlayer', 'Ban player'), onBanPlayer])
+        slotActions.push([
+          user
+            ? t('lobbies.slots.kickPlayer', {
+                defaultValue: 'Kick {{user}}',
+                user: user.name,
+              })
+            : t('lobbies.slots.kickUnnamedPlayer', 'Kick player'),
+          onKickPlayer,
+        ])
+        slotActions.push([
+          user
+            ? t('lobbies.slots.banPlayer', {
+                defaultValue: 'Ban {{user}}',
+                user: user.name,
+              })
+            : t('lobbies.slots.banUnnamedPlayer', 'Ban player'),
+          onBanPlayer,
+        ])
       } else {
         slotActions.push([t('lobbies.slots.removeComputer', 'Remove computer'), onKickPlayer])
       }
