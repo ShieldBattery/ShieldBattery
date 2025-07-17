@@ -52,7 +52,7 @@
     "pack": "pnpm run clean && pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c prod.yml",
     "packstaging": "pnpm run clean && SB_SERVER=https://staging.shieldbattery.net pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c staging.yml",
     "sqlx-prepare": "[ \"${NODE_ENV:-}\" != \"production\" ] && (cd ./server-rs && cargo sqlx prepare --workspace -- --all-targets --all-features) || echo \"In production, not sqlx-preparing\"",
-    "start-server": "node --trace-warnings ./server/index.js | pino-pretty -c -t",
+    "start-server": "node --trace-warnings ./server/index.js | pino-pretty -c -t -i pid,hostname,req.headers,res.headers,req.remoteAddress,req.remotePort",
     "test": "vitest",
     "test-ui": "pnpm test --ui --coverage.enabled=true",
     "test:integration": "NODE_ENV=production playwright test",
