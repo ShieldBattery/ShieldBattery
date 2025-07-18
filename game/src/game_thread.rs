@@ -183,7 +183,6 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                     // processing events and re-rendering reasonably during this time)
                     let sleep_time =
                         (42 - (last_receive_turns.elapsed().as_millis().min(42) as u64)).min(16);
-                    debug!("sleeping for {sleep_time}ms");
                     if sleep_time > 0 {
                         thread::sleep(Duration::from_millis(sleep_time));
                     }
