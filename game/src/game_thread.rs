@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use bw_dat::dialog::Dialog;
 use bw_dat::{Unit, UnitId};
@@ -97,6 +98,7 @@ pub enum GameThreadMessage {
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.
     PlayersRandomized([Option<BwPlayerId>; bw::MAX_STORM_PLAYERS]),
+    GameStarting,
     Results(GameThreadResults),
     NetworkStall(Duration),
     ReplaySaved(PathBuf),
@@ -147,9 +149,50 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 }
             }
             StartGame => {
-                let bw = get_bw();
-                bw.set_game_started();
                 forge::game_started();
+
+                let bw = get_bw();
+
+                // Do the last little bit of initialization (we do it here so that we're not
+                // jockeying between threads right as the game is starting)
+
+                // Set the penultimate lobby init state
+                bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
+                let mut last_receive_turns = Instant::now();
+                // Check for turns to see if we are ready for the final lobby init state
+                bw.maybe_receive_turns();
+
+                loop {
+                    // Only check for turns every 42ms (same as BW's fastest game speed)
+                    if last_receive_turns.elapsed() >= Duration::from_millis(42) {
+                        last_receive_turns = Instant::now();
+                        bw.maybe_receive_turns();
+                    }
+
+                    // Check again to see if we're ready for the final lobby init state
+                    if bw.try_finish_lobby_game_init() {
+                        break;
+                    }
+
+                    // Redraw and handle Windows events
+                    bw.force_redraw_during_init();
+                    bw.process_events();
+
+                    // If we still haven't seen the turn with the init message, we need to wait.
+                    // Sleep until the next turn receiving time, but at most 16ms (so we're still
+                    // processing events and re-rendering reasonably during this time)
+                    let sleep_time =
+                        (42 - (last_receive_turns.elapsed().as_millis().min(42) as u64)).min(16);
+                    debug!("sleeping for {sleep_time}ms");
+                    if sleep_time > 0 {
+                        thread::sleep(Duration::from_millis(sleep_time));
+                    }
+                }
+
+                send_game_msg_to_async(GameThreadMessage::GameStarting);
+
+                bw.play_sound("GLUSND_SWISH_OUT");
+                bw.set_game_started();
                 bw.run_game_loop();
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);

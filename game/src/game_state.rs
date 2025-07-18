@@ -446,9 +446,12 @@ impl GameState {
                 debug!("All players are ready to start");
             }
 
-            unsafe {
-                do_lobby_game_init(&info).await;
+            if !info.is_replay() {
+                unsafe {
+                    do_countdown().await;
+                }
             }
+
             send_messages_to_state
                 .send(GameStateMessage::GameSetupDone)
                 .await
@@ -478,10 +481,6 @@ impl GameState {
             forge::end_wnd_proc();
             let start_game_request = GameThreadRequestType::StartGame;
             let game_done = send_game_request(&game_request_send, start_game_request);
-
-            app_socket::send_message(&ws_send, "/game/start", ())
-                .await
-                .map_err(|_| GameInitError::Closed)?;
 
             // NOTE(tec27): We await the game results before game_done since we get results as soon
             // as the Victory/Defeat dialog is shown, which is before the game loop exits
@@ -682,6 +681,11 @@ impl GameState {
                 } else {
                     warn!("Player randomization received too early");
                 }
+            }
+            GameStarting => {
+                return app_socket::send_message(&self.ws_send, "/game/start", ())
+                    .map(|_| ())
+                    .boxed();
             }
             Results(results) => {
                 if let InitState::Started(ref mut state) = self.init_state {
@@ -1424,28 +1428,8 @@ unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
     }
 }
 
-async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
-    if info.is_replay() {
-        unsafe {
-            let bw = get_bw();
-            // TODO(tec27): When we support network replay watching, this will probably need to be
-            // more similar to regular game init
-            bw.do_lobby_game_init(info.seed);
-            loop {
-                bw.maybe_receive_turns();
-                let done = bw.try_finish_lobby_game_init();
-                if done {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(42)).await;
-            }
-
-            return;
-        }
-    }
-
+async unsafe fn do_countdown() {
     const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
-    const SWISH_OUT: &str = "GLUSND_SWISH_OUT";
 
     unsafe {
         let bw = get_bw();
@@ -1486,25 +1470,11 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
             }
         }
 
-        let init_started = Instant::now();
-
-        bw.do_lobby_game_init(info.seed);
         // Wait a minimum amount of time before starting the game
-        while init_started.elapsed() < Duration::from_millis(500) {
+        for _ in 0..10 {
             bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
-
-        loop {
-            let done = bw.try_finish_lobby_game_init();
-            if done {
-                break;
-            }
-            bw.maybe_receive_turns();
-            tokio::time::sleep(Duration::from_millis(42)).await;
-        }
-
-        bw.play_sound(SWISH_OUT);
     }
 }
 
