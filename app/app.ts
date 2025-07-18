@@ -30,8 +30,6 @@ import { MapStore } from './game/map-store'
 import logger from './logger'
 import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
-import './security/client'
-import { collect } from './security/client'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
@@ -41,6 +39,11 @@ import { getUserDataPath } from './user-data-path'
 if (!(global as any).__WEBPACK_ENV) {
   ;(global as any).__WEBPACK_ENV = {}
 }
+
+const collectPromise = import('./security/client').then(m => m.collect)
+const collect2Promise = (__WEBPACK_ENV as any).SB_SECURITY_IMPL
+  ? import((__WEBPACK_ENV as any).SB_SECURITY_IMPL).then(m => m.collect)
+  : undefined
 
 process
   .on('uncaughtException', function (err) {
@@ -160,6 +163,7 @@ let cachedIdPath: string | undefined
 
 async function cacheIdsIfNeeded(newPath?: string, force?: boolean) {
   if (force || newPath !== cachedIdPath) {
+    const collect: Awaited<typeof collectPromise> = await (collect2Promise ?? collectPromise)
     cachedIds = await collect(msg => logger.error(msg), modelId, newPath)
     cachedIdPath = newPath
   }

@@ -99,8 +99,6 @@ const electronWeb = makeConfig({
   },
 })
 
-const clientImpl = process.env.SB_BUILD_SECURITY_CLIENTS_IMPL
-
 // Configuration for the main process scripts of Electron (the app/ scripts)
 const mainWebpackOpts = {
   target: 'electron-main',
@@ -113,14 +111,7 @@ const mainWebpackOpts = {
     path: path.join(__dirname, 'app', 'dist'),
     libraryTarget: 'commonjs2',
   },
-  plugins: !clientImpl
-    ? []
-    : [
-        new webpack.NormalModuleReplacementPlugin(
-          /[\\/]app[\\/]security[\\/]client.ts/,
-          path.resolve(__dirname, clientImpl),
-        ),
-      ],
+  plugins: [],
 }
 
 // Configuration for the Electron preload script. Note that this uses the same
@@ -172,6 +163,9 @@ const electronMain = makeConfig({
       ? JSON.stringify(process.env.SB_ANALYTICS_ID)
       : undefined,
     SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
+    SB_SECURITY_IMPL: process.env.SB_BUILD_SECURITY_CLIENTS_IMPL
+      ? JSON.stringify(path.resolve(__dirname, process.env.SB_BUILD_SECURITY_CLIENTS_IMPL))
+      : undefined,
   },
   extraRules: [
     {

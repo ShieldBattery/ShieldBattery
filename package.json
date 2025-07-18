@@ -26,7 +26,7 @@
     "app": "SB_HOT=1 electron app",
     "build-app-client": "NODE_ENV=production webpack",
     "build-app-client-stats": "NODE_ENV=production webpack --profile --json > stats.json",
-    "build-game": "game\\build.bat release",
+    "build-game": "cmd /c \"game\\build.bat release\" && cmd /c \"game\\build.bat release x86_64\"",
     "build-web-client": "NODE_ENV=production webpack --config ./server/webpack.config.js",
     "build-web-client-stats": "NODE_ENV=production webpack --profile --json --config ./server/webpack.config.js > stats.json",
     "check-circular": "madge --circular --extensions ts,tsx,js,jsx ./app ./client ./server",

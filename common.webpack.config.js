@@ -118,6 +118,7 @@ export default function ({
 
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],
+      ...webpackOpts.resolve,
     },
   }
 
