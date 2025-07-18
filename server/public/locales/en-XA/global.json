@@ -497,6 +497,23 @@
             "bannedFor": "$🗡You are banned for:🗡!",
             "description": "$🗡You have been temporarily banned from matchmaking for failing to ready up, or failing to join matches.🗡!",
             "title": "$🗡Banned from matchmaking🗡!"
+        },
+        "draftScreen": {
+            "anonymizedName0": "$🗡Rusty Rhynadon🗡!",
+            "anonymizedName1": "$🗡Bold Bengalaas🗡!",
+            "pickerText": {
+                "myTurn": "$🗡You are picking…🗡!",
+                "opponentTurn": "$🗡{{name}} is picking…🗡!",
+                "teammateTurn": "$🗡<0></0> is picking…🗡!"
+            },
+            "pickSubtext": "$🗡Pick {{num}}🗡!",
+            "anonymizedName2": "$🗡Sneaky Scantid🗡!",
+            "anonymizedName3": "$🗡Keen Kakaru🗡!",
+            "anonymizedName4": "$🗡Ruthless Ragnasaur🗡!",
+            "lockInRaceButton": "$🗡Lock in🗡!",
+            "anonymizedName5": "$🗡Unstable Ursadon🗡!",
+            "chatMessageError": "$🗡Couldn't send chat message🗡!",
+            "lockInError": "$🗡Couldn't lock in race🗡!"
         }
     },
     "chat": {

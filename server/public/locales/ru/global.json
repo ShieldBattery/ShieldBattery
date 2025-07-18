@@ -476,6 +476,23 @@
             "bannedFor": "Вы забанены на:",
             "description": "Вы временно забанены в матчмейкинге за то, что не готовы к игре или не присоединились к матчам.",
             "title": "Забанен в матчмейкинге"
+        },
+        "draftScreen": {
+            "anonymizedName0": "Ржавый Ринадон",
+            "anonymizedName1": "Смелый Бенгалаас",
+            "anonymizedName2": "Хитрый Скантид",
+            "anonymizedName3": "Проницательный Какуру",
+            "anonymizedName4": "Безжалостный Рагназавр",
+            "anonymizedName5": "Нестабильный Урсадон",
+            "chatMessageError": "Не удалось отправить сообщение в чат",
+            "lockInError": "Не удалось зафиксировать расу",
+            "lockInRaceButton": "Зафиксировать",
+            "pickerText": {
+                "myTurn": "Вы выбираете…",
+                "opponentTurn": "{{name}} выбирает…",
+                "teammateTurn": "<0></0> выбирает…"
+            },
+            "pickSubtext": "Выберите {{num}}"
         }
     },
     "clientDownload": {

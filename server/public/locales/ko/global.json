@@ -493,6 +493,23 @@
             "bannedFor": "당신은 다음 이유로 차단되었습니다:",
             "description": "준비를 하지 않거나 매치에 참여하지 않아 매치메이킹에서 일시적으로 차단되었습니다.",
             "title": "매치메이킹에서 차단됨"
+        },
+        "draftScreen": {
+            "anonymizedName0": "녹슨 라이나돈",
+            "anonymizedName1": "대담한 벤갈라스",
+            "anonymizedName2": "교활한 스캔티드",
+            "anonymizedName3": "날카로운 카카루",
+            "anonymizedName4": "무자비한 라그나사우르",
+            "anonymizedName5": "불안정한 우르사돈",
+            "chatMessageError": "채팅 메시지를 보낼 수 없습니다",
+            "lockInError": "종족을 잠글 수 없습니다",
+            "lockInRaceButton": "잠그기",
+            "pickerText": {
+                "myTurn": "당신이 선택하고 있습니다…",
+                "opponentTurn": "{{name}}이 선택하고 있습니다…",
+                "teammateTurn": "<0></0>이 선택하고 있습니다…"
+            },
+            "pickSubtext": "{{num}} 선택하기"
         }
     },
     "game": {

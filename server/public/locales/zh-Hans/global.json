@@ -493,6 +493,23 @@
             "bannedFor": "您已被禁赛，原因如下：",
             "description": "您因未准备好或未能加入比赛而被暂时禁止匹配。",
             "title": "已被禁止匹配"
+        },
+        "draftScreen": {
+            "anonymizedName0": "生锈的犀角兽",
+            "anonymizedName1": "大胆的孟加豹",
+            "anonymizedName2": "狡猾的斯坎迪蝎",
+            "anonymizedName3": "敏锐的彩蛇鸟",
+            "anonymizedName4": "无情的岩龙",
+            "anonymizedName5": "不稳定的熊齿兽",
+            "chatMessageError": "无法发送聊天消息",
+            "lockInError": "无法锁定种族",
+            "lockInRaceButton": "锁定",
+            "pickerText": {
+                "myTurn": "你正在选择…",
+                "opponentTurn": "{{name}} 正在选择…",
+                "teammateTurn": "<0></0> 正在选择…"
+            },
+            "pickSubtext": "选择 {{num}}"
         }
     },
     "game": {
@@ -687,7 +704,9 @@
             "banPlayer": "封禁玩家",
             "closeSlot": "关闭空位",
             "kickPlayer": "踢出玩家",
-            "name": "关闭"
+            "name": "关闭",
+            "banUnnamedPlayer": "禁止玩家",
+            "kickUnnamedPlayer": "踢出玩家"
         },
         "errors": {
             "alreadyInLobby": "您已经在另一个房间了。",

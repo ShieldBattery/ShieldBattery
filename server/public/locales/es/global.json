@@ -490,6 +490,23 @@
             "bannedFor": "Estás baneado por:",
             "description": "Has sido baneado temporalmente del emparejamiento por no estar listo o por no unirte a las partidas.",
             "title": "Baneado del emparejamiento"
+        },
+        "draftScreen": {
+            "anonymizedName0": "Rhynadonte oxidado",
+            "anonymizedName1": "Bengalaas audaz",
+            "anonymizedName2": "Escántido sigiloso",
+            "anonymizedName3": "Kakaru perspicaz",
+            "anonymizedName4": "Ragnasaurio despiadado",
+            "anonymizedName5": "Ursadón inestable",
+            "chatMessageError": "No se pudo enviar el mensaje de chat",
+            "lockInError": "No se pudo bloquear la raza",
+            "lockInRaceButton": "Bloquear",
+            "pickerText": {
+                "myTurn": "Estás eligiendo…",
+                "opponentTurn": "{{name}} está eligiendo…",
+                "teammateTurn": "<0></0> está eligiendo…"
+            },
+            "pickSubtext": "Elige {{num}}"
         }
     },
     "clientUpdate": {
@@ -1077,7 +1094,9 @@
             "removeComputer": "Quitar computadora",
             "slotActions": "Acciones de tragamonedas",
             "addComputer": "Agregar computadora",
-            "banPlayer": "Prohibir jugador"
+            "banPlayer": "Prohibir jugador",
+            "banUnnamedPlayer": "Banear jugador",
+            "kickUnnamedPlayer": "Expulsar jugador"
         },
         "state": {
             "exists": "Actualmente no estás en este lobby. ¿Únete?",
