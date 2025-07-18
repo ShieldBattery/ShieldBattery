@@ -31,14 +31,14 @@
             "block": "Bloquear",
             "unblock": "Desbloquear",
             "stop": "Para",
-            "test": "Prueba",
+            "test": "Probar",
             "edit": "Editar",
             "reveal": "Revelar",
             "submit": "Enviar",
             "close": "Cerca",
             "read": "Leer",
             "download": "Descargar",
-            "back": "Atrás"
+            "back": "Volver"
         },
         "lists": {
             "empty": "Nada que ver aquí"
@@ -488,7 +488,7 @@
         },
         "bannedDialog": {
             "bannedFor": "Estás baneado por:",
-            "description": "Has sido baneado temporalmente del emparejamiento por no estar listo o por no unirte a las partidas.",
+            "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
             "title": "Baneado del emparejamiento"
         },
         "draftScreen": {
@@ -499,8 +499,8 @@
             "anonymizedName4": "Ragnasaurio despiadado",
             "anonymizedName5": "Ursadón inestable",
             "chatMessageError": "No se pudo enviar el mensaje de chat",
-            "lockInError": "No se pudo bloquear la raza",
-            "lockInRaceButton": "Bloquear",
+            "lockInError": "No se pudo segurar la raza",
+            "lockInRaceButton": "Segurar",
             "pickerText": {
                 "myTurn": "Estás eligiendo…",
                 "opponentTurn": "{{name}} está eligiendo…",
@@ -544,10 +544,10 @@
             "browseChannels": "Explorar canales"
         },
         "channelMenu": {
-            "kickingError": "Error al patear {{user.name}}",
+            "kickingError": "Error al expulsar {{user.name}}",
             "userKicked": "{{user}} fue expulsado",
-            "banAction": "Prohíbe {{user}}",
-            "kickAction": "Patada {{user}}"
+            "banAction": "Banear {{user}}",
+            "kickAction": "Expulsar {{user}}"
         },
         "channelName": {
             "deletedChannel": "canal-borrado"
@@ -668,11 +668,11 @@
             "zerg": "Zerg"
         },
         "results": {
-            "draw": "Dibuja",
+            "draw": "Empate",
             "loss": "Derrota",
             "unknown": "Desconocido",
             "win": "Victoria",
-            "lossShort": "L",
+            "lossShort": "D",
             "winShort": "V"
         },
         "teamName": {
@@ -792,10 +792,10 @@
             "browseLocal": "Explorar mapas locales",
             "favorites": {
                 "added": "Añadido a favoritos",
-                "addedError": "Ocurrió un error al agregar a favoritos",
+                "addedError": "Ocurrió un error al añadir a favoritos",
                 "removed": "Eliminado de favoritos",
                 "removedError": "Ocurrió un error al eliminar de favoritos",
-                "error": "Hubo un error al recuperar tus mapas favoritos."
+                "error": "Se produjo un error al recuperar tus mapas favoritos."
             },
             "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
             "noOfficialMaps": "Aún no se han subido mapas oficiales.",
@@ -808,7 +808,7 @@
             },
             "noResults": "No hay resultados.",
             "allMaps": "Todos los mapas",
-            "error": "Algo salió mal: {{errorMessage}}",
+            "error": "Se produjo un error al recuperar los mapas.",
             "sortMaps": {
                 "title": "Ordenar mapas",
                 "option": {
@@ -837,10 +837,10 @@
             "uploadedMap": "Mapa subido",
             "noUploadedMapsWeb": "No has subido ningún mapa.",
             "favoriteMaps": "Mapas favoritos",
-            "removeError": "Ocurrió un error al eliminar el mapa."
+            "removeError": "Ocurrió un error al eliminar el mapa"
         },
         "thumbnail": {
-            "addToFavorites": "Agregar a los favoritos",
+            "addToFavorites": "Añadir a favoritos",
             "mapActions": "Acciones de mapa",
             "regenerateImage": "Regenerar imagen",
             "removeFromFavorites": "Quitar de favoritos",
@@ -944,7 +944,7 @@
             "usernameRequired": "Introduzca un nombre de usuario"
         },
         "errors": {
-            "cantWhisperYourself": "No puedes susurrar contigo mismo.",
+            "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
             "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
             "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
             "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
@@ -959,7 +959,7 @@
     },
     "users": {
         "contextMenu": {
-            "addFriend": "Añadir amigo",
+            "addFriend": "Agregar amigo",
             "friendRemoved": "Amigo eliminado",
             "friendRequestAccepted": "Solicitud de amistad aceptada",
             "friendRequestRemoved": "Solicitud de amistad eliminada",
@@ -1081,11 +1081,11 @@
             "leaveLobby": "<0><0></0></0> ha salido del lobby",
             "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>.",
             "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
-            "gameInitializationCanceledSingle": "La inicialización del juego ha sido cancelada porque <2><0></0></2> no pudo cargar."
+            "gameInitializationCanceledSingle": "La inicialización del juego se ha cancelado porque <2><0></0></2> no pudo cargar."
         },
         "slots": {
             "closeSlot": "Cerrar ranura",
-            "kickPlayer": "Patear al jugador",
+            "kickPlayer": "Expulsar {{user}}",
             "makeObserver": "Hacer observador",
             "makePlayer": "Hacer jugador",
             "name": "Cerrado",
@@ -1094,7 +1094,7 @@
             "removeComputer": "Quitar computadora",
             "slotActions": "Acciones de tragamonedas",
             "addComputer": "Agregar computadora",
-            "banPlayer": "Prohibir jugador",
+            "banPlayer": "Banear {{user}}",
             "banUnnamedPlayer": "Banear jugador",
             "kickUnnamedPlayer": "Expulsar jugador"
         },
@@ -1245,7 +1245,7 @@
         },
         "matchmaking": {
             "searching": "Buscando un partido…",
-            "matchFound": "Partido encontrado"
+            "matchFound": "¡Partido encontrado!"
         }
     }
 }
