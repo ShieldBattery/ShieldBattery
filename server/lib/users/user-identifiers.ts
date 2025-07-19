@@ -240,8 +240,6 @@ export async function banAllIdentifiers(
       `)
     }
 
-    // This will have the effect of permanently banning any users if they evade a ban (since that
-    // ban is permanent). But that seems fine/desirable for now, maybe not in the far future.
     query = query.append(sql`
       ON CONFLICT (identifier_type, identifier_hash)
       DO UPDATE SET banned_until = GREATEST(uib.banned_until, EXCLUDED.banned_until)
@@ -272,6 +270,24 @@ export async function cleanupUnbannedIdentifiers(
         WHERE uib.identifier_hash = ui.identifier_hash
         AND uib.identifier_type = ui.identifier_type
       )
+    `)
+
+    return result.rowCount ?? 0
+  } finally {
+    done()
+  }
+}
+
+/** Cleans up any identifier bans that expired before `olderThan`. */
+export async function cleanupOldBannedIdentifiers(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM user_identifier_bans
+      WHERE banned_until < ${olderThan}
     `)
 
     return result.rowCount ?? 0
