@@ -22,6 +22,7 @@ import { DbClient } from '../db'
 import { ImageService } from '../images/image-service'
 import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
+import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
@@ -83,6 +84,10 @@ vi.mock('../db/transaction', () => ({
 
 vi.mock('../models/permissions')
 vi.mock('../users/user-identifiers')
+
+const mockRestrictionService = {
+  isRestricted: vi.fn().mockResolvedValue(false),
+} as any as RestrictionService
 
 const { user1, user2 } = vi.hoisted(() => ({
   user1: { id: 1 as SbUserId, name: 'USER_NAME_1' } as SbUser,
@@ -406,7 +411,12 @@ describe('chat/chat-service', () => {
     const publisher = new TypedPublisher(nydus)
     const imageService = new ImageService()
 
-    chatService = new ChatService(publisher, userSocketsManager, imageService)
+    chatService = new ChatService(
+      publisher,
+      userSocketsManager,
+      imageService,
+      mockRestrictionService,
+    )
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
@@ -765,6 +775,19 @@ describe('chat/chat-service', () => {
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
       })
+    })
+
+    test('should throw if user is chat restricted when creating new channel', async () => {
+      // Set up for creating a new channel (channel doesn't exist)
+      asMockedFunction(findChannelByName).mockResolvedValue(undefined)
+      asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+      await expect(
+        chatService.joinChannel('new-channel', user1.id),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
+
+      // Should not attempt to create the channel
+      expect(createChannelMock).not.toHaveBeenCalled()
     })
   })
 
@@ -1533,6 +1556,22 @@ describe('chat/chat-service', () => {
 
         expectItWorks(processedText, userMentions, channelMentions)
       })
+    })
+
+    test('should throw if user is chat restricted', async () => {
+      // First join the user to the channel so they pass the channel membership check
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+      await expect(
+        chatService.sendChatMessage(testChannel.id, user1.id, 'Hello World!'),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
     })
   })
 

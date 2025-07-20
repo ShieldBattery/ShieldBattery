@@ -3,10 +3,13 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
+  AdminApplyRestrictionRequest,
+  AdminApplyRestrictionResponse,
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
   AdminGetPermissionsResponse,
+  AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
@@ -198,6 +201,53 @@ export function adminGetUserIps(
       signal: spec.signal,
     })
     dispatch({ type: '@users/adminGetUserIps', payload: res })
+
+    return res
+  })
+}
+
+export function adminGetUserRestrictions(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<AdminGetRestrictionsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminGetRestrictionsResponse>(
+      apiUrl`admin/users/${userId}/restrictions`,
+      {
+        signal: spec.signal,
+      },
+    )
+    dispatch({ type: '@users/loadUsers', payload: res.users })
+
+    return res
+  })
+}
+
+export function adminApplyRestriction(
+  {
+    userId,
+    kind,
+    endTime,
+    reason,
+    adminNotes,
+  }: { userId: SbUserId } & AdminApplyRestrictionRequest,
+  spec: RequestHandlingSpec<AdminApplyRestrictionResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminApplyRestrictionResponse>(
+      apiUrl`admin/users/${userId}/restrictions`,
+      {
+        method: 'POST',
+        body: encodeBodyAsParams<AdminApplyRestrictionRequest>({
+          kind,
+          endTime,
+          reason,
+          adminNotes,
+        }),
+        signal: spec.signal,
+      },
+    )
+    dispatch({ type: '@users/loadUsers', payload: res.users })
 
     return res
   })

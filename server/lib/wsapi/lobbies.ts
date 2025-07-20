@@ -26,6 +26,7 @@ import { Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
 import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
@@ -36,6 +37,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
@@ -84,6 +86,7 @@ const MOUNT_BASE = '/lobbies'
 export class LobbyApi {
   readonly activityRegistry = container.resolve(GameplayActivityRegistry)
   readonly gameLoader = container.resolve(GameLoader)
+  readonly restrictionService = container.resolve(RestrictionService)
 
   lobbies = Map<string, Lobby>()
   lobbyClients = Map<ClientSocketsGroup, string>()
@@ -348,6 +351,14 @@ export class LobbyApi {
     const lobby = this.getLobbyForClient(client)
     const time = Date.now()
     let { text } = data.get('body')
+
+    const isChatRestricted = await this.restrictionService.isRestricted(
+      client.userId,
+      RestrictionKind.Chat,
+    )
+    if (isChatRestricted) {
+      throw new errors.Forbidden('You are currently restricted from sending chat messages')
+    }
 
     text = filterChatMessage(text)
     const [processedText, userMentions, channelMentions] = await processMessageContents(text)

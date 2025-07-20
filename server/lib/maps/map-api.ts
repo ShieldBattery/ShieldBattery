@@ -107,7 +107,7 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Private maps are only available to logged in users')
     }
 
-    const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user!.id : undefined
+    const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user.id : undefined
 
     const mapsResult = await getMaps({
       visibility,
@@ -226,8 +226,8 @@ export class MapsApi {
     }
 
     const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user!.id, MapVisibility.Official),
-      findUserById(ctx.session!.user!.id),
+      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Official),
+      findUserById(ctx.session!.user.id),
     ])
     return {
       map: toMapInfoJson(map),
@@ -238,7 +238,7 @@ export class MapsApi {
   @httpPost('/')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user.id)),
     handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
   async upload(ctx: RouterContext): Promise<UploadMapResponse> {
@@ -261,8 +261,8 @@ export class MapsApi {
     }
 
     const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user!.id, MapVisibility.Private),
-      findUserById(ctx.session!.user!.id),
+      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Private),
+      findUserById(ctx.session!.user.id),
     ])
     return {
       map: toMapInfoJson(map),
@@ -273,7 +273,7 @@ export class MapsApi {
   @httpPatch('/:mapId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.user.id)),
   )
   async update(ctx: RouterContext): Promise<UpdateMapResponse> {
     const mapId = getValidatedMapId(ctx)
@@ -301,7 +301,7 @@ export class MapsApi {
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user!.id) {
+    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user.id) {
       throw new httpErrors.Forbidden("Can't update maps of other users")
     }
 
@@ -319,7 +319,7 @@ export class MapsApi {
   @httpDelete('/:mapId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.user.id)),
   )
   async remove(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
@@ -336,7 +336,7 @@ export class MapsApi {
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user!.id) {
+    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user.id) {
       throw new httpErrors.Forbidden("Can't remove maps of other users")
     }
 
@@ -347,24 +347,24 @@ export class MapsApi {
   @httpPost('/:mapId/favorite')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user.id)),
   )
   async addToFavorites(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
 
-    await addMapToFavorites(mapId, ctx.session!.user!.id)
+    await addMapToFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
   }
 
   @httpDelete('/:mapId/favorite')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user.id)),
   )
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
 
-    await removeMapFromFavorites(mapId, ctx.session!.user!.id)
+    await removeMapFromFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
   }
 

@@ -1,5 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
+import { ClientRestrictionInfo, RestrictionKind } from '../../common/users/restrictions'
 import { SelfUser } from '../../common/users/sb-user'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -7,6 +8,7 @@ export interface AuthState {
   self?: {
     user: SelfUser
     permissions: SbPermissions
+    restrictions: Map<RestrictionKind, ClientRestrictionInfo>
   }
 }
 
@@ -22,6 +24,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.self = {
       user: { ...user },
       permissions: { ...permissions },
+      // NOTE(tec27): This is currently safe because we can guarantee we won't have a websocket
+      // connection (where we receive restrictions from) until after we load a session. If that
+      // stops being the case, this will need to change to sometimes not clear this
+      restrictions: new Map<RestrictionKind, ClientRestrictionInfo>(),
     }
   },
   ['@auth/emailChanged'](state, { payload: { email } }) {
@@ -42,5 +48,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
   ['@auth/sessionUnauthorized']() {
     return DEFAULT_STATE
+  },
+  ['@auth/restrictionsChanged'](state, { payload: { restrictions } }) {
+    state.self!.restrictions.clear()
+    for (const restriction of restrictions) {
+      state.self!.restrictions.set(restriction.kind, restriction)
+    }
+  },
+  ['@auth/clearRestriction'](state, { payload: { restriction } }) {
+    const existing = state.self?.restrictions.get(restriction.kind)
+    if (existing?.endTime === restriction.endTime) {
+      state.self!.restrictions.delete(restriction.kind)
+    }
   },
 })

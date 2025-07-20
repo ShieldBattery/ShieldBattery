@@ -33,6 +33,7 @@ import {
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -58,6 +59,7 @@ import {
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
+import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import {
   ClientSocketsGroup,
@@ -395,6 +397,7 @@ export class MatchmakingService {
     private clock: Clock,
     private userIdentifierManager: UserIdentifierManager,
     private matchmakingBanService: MatchmakingBanService,
+    private restrictionService: RestrictionService,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -604,6 +607,17 @@ export class MatchmakingService {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.NoActiveDraft,
         'No active draft found',
+      )
+    }
+
+    const isChatRestricted = await this.restrictionService.isRestricted(
+      userId,
+      RestrictionKind.Chat,
+    )
+    if (isChatRestricted) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UserChatRestricted,
+        'User is chat restricted',
       )
     }
 

@@ -11,6 +11,7 @@ import {
   ClientIdentifierString,
   MIN_IDENTIFIER_MATCHES,
 } from './client-ids'
+import { RestrictionService } from './restriction-service'
 import {
   countBannedIdentifiers,
   countBannedUserIdentifiers,
@@ -40,6 +41,7 @@ export class UserIdentifierManager {
   constructor(
     private banEnacter: BanEnacter,
     private discordNotifier: DiscordWebhookNotifier,
+    private restrictionService: RestrictionService,
   ) {}
 
   async upsert(
@@ -48,7 +50,14 @@ export class UserIdentifierManager {
     withClient?: DbClient,
   ): Promise<void> {
     const convertedIds = convertStringIds(identifiers)
-    return upsertUserIdentifiers(userId, convertedIds, withClient)
+    const { newIdentifiers } = await upsertUserIdentifiers(userId, convertedIds, withClient)
+    if (!newIdentifiers.length) {
+      return
+    }
+
+    // Apply any current restrictions for this user to the new IDs, and any ID restrictions to the
+    // user
+    await this.restrictionService.handleNewIdentifiers(userId, newIdentifiers)
   }
 
   /**

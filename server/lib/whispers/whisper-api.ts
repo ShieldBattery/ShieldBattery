@@ -62,6 +62,7 @@ const convertWhisperServiceErrors = makeErrorConverterMiddleware(err => {
     case WhisperServiceErrorCode.InvalidGetSessionHistoryAction:
       throw asHttpError(400, err)
     case WhisperServiceErrorCode.NoSelfMessaging:
+    case WhisperServiceErrorCode.UserChatRestricted:
       throw asHttpError(403, err)
     default:
       assertUnreachable(err.code)
@@ -76,13 +77,13 @@ export class WhisperApi {
   }
 
   @httpGet('/sessions')
-  @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, ctx => String(ctx.session!.user.id)))
   async getWhisperSessions(ctx: RouterContext): Promise<GetWhisperSessionsResponse> {
-    return await this.whisperService.getWhisperSessions(ctx.session!.user!.id)
+    return await this.whisperService.getWhisperSessions(ctx.session!.user.id)
   }
 
   @httpPost('/by-name/:targetName')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user.id)))
   async startWhisperSessionByName(ctx: RouterContext): Promise<{ userId: SbUserId }> {
     const {
       params: { targetName },
@@ -98,13 +99,13 @@ export class WhisperApi {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'user not found')
     }
 
-    await this.whisperService.startWhisperSession(ctx.session!.user!.id, targetUser.id)
+    await this.whisperService.startWhisperSession(ctx.session!.user.id, targetUser.id)
 
     return { userId: targetUser.id }
   }
 
   @httpPost('/:targetId')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user.id)))
   async startWhisperSessionById(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -114,13 +115,13 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.startWhisperSession(ctx.session!.user!.id, targetId)
+    await this.whisperService.startWhisperSession(ctx.session!.user.id, targetId)
 
     ctx.status = 204
   }
 
   @httpDelete('/:targetId')
-  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.user.id)))
   async closeWhisperSession(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -130,13 +131,13 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.closeWhisperSession(ctx.session!.user!.id, targetId)
+    await this.whisperService.closeWhisperSession(ctx.session!.user.id, targetId)
 
     ctx.status = 204
   }
 
   @httpPost('/:targetId/messages')
-  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.user.id)))
   async sendWhisperMessage(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -150,7 +151,7 @@ export class WhisperApi {
       }),
     })
 
-    await this.whisperService.sendWhisperMessage(ctx.session!.user!.id, targetId, message)
+    await this.whisperService.sendWhisperMessage(ctx.session!.user.id, targetId, message)
 
     ctx.status = 204
   }
@@ -159,7 +160,7 @@ export class WhisperApi {
   // for old clients.
   // Last used: 8.0.2 (November 2021)
   @httpGet('/:targetName/messages')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user.id)))
   getSessionHistoryOld(
     ctx: RouterContext,
   ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
@@ -170,7 +171,7 @@ export class WhisperApi {
   }
 
   @httpGet('/:targetId/messages2')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user.id)))
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },
@@ -186,7 +187,7 @@ export class WhisperApi {
     })
 
     return await this.whisperService.getSessionHistory(
-      ctx.session!.user!.id,
+      ctx.session!.user.id,
       targetId,
       limit,
       beforeTime,

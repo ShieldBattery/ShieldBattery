@@ -2,9 +2,11 @@ import { singleton } from 'tsyringe'
 import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
 import { Clock } from '../time/clock'
-import { cleanupOldBannedIdentifiers, cleanupUnbannedIdentifiers } from './user-identifiers'
+import { cleanupOldRestrictedIdentifiers } from './restriction-models'
+import { cleanupOldBannedIdentifiers, cleanupUnpunishedIdentifiers } from './user-identifiers'
 
 const OLD_BAN_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 // 6 months
+const OLD_RESTRICTION_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 3 months
 const OLD_IDENTIFIER_TIME_MILLIS = 1000 * 60 * 60 * 24 * 30 * 3 // 3 months
 const JOB_RUN_INTERVAL_MILLIS = 3 * 60 * 60 * 1000 // 3 hours
 
@@ -27,9 +29,14 @@ export class UserIdentifierCleanupJob {
         if (banCount > 0) {
           logger.info(`Cleaned up ${banCount} old user identifier bans`)
         }
+        const removeRestrictionsBefore = new Date(this.clock.now() - OLD_RESTRICTION_TIME_MILLIS)
+        const restrictionCount = await cleanupOldRestrictedIdentifiers(removeRestrictionsBefore)
+        if (restrictionCount > 0) {
+          logger.info(`Cleaned up ${restrictionCount} old user identifier restrictions`)
+        }
 
         const removeBefore = new Date(this.clock.now() - OLD_IDENTIFIER_TIME_MILLIS)
-        const count = await cleanupUnbannedIdentifiers(removeBefore)
+        const count = await cleanupUnpunishedIdentifiers(removeBefore)
         if (count > 0) {
           logger.info(`Cleaned up ${count} old user identifiers`)
         }

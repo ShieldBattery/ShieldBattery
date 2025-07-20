@@ -69,6 +69,11 @@
       "resetCode": "Enter your password reset code",
       "resetCodePattern": "Invalid code. It should look like {{example}}."
     },
+    "restriction": {
+      "chat": {
+        "notification": "<0>Your account has been restricted from sending chat messages for the following reason:</0><1>{{reasonLabel}}</1><2>This restriction will end on:</2><3>{{endText}}</3>"
+      }
+    },
     "signup": {
       "ageConfirmation": "I certify that I am 13 years of age or older",
       "alreadyHaveAccount": "Already have an account? <1>Log in</1>",
@@ -805,7 +810,8 @@
     "blockedMessage": "Blocked message",
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
-    "sendMessage": "Send a message"
+    "sendMessage": "Send a message",
+    "sendMessageChatRestricted": "Restricted from sending messages until {{ date }}"
   },
   "navigation": {
     "bar": {
@@ -1211,6 +1217,16 @@
       "rightClick": "Right-click user for more actions",
       "viewProfile": "View profile"
     },
+    "restrictions": {
+      "reason": {
+        "disruptive_behavior": "Disruptive behavior",
+        "harassment": "Harassment",
+        "hate_speech": "Hate speech",
+        "other": "Other",
+        "spam": "Spam",
+        "toxicity": "Toxicity"
+      }
+    },
     "titles": {
       "novice": "Novice"
     }
@@ -1231,6 +1247,7 @@
       "openSession": "Error opening whisper to user: {{errorMessage}}",
       "sendingMessage": "Error sending message: {{errorMessage}}",
       "unknownError": "Unknown error",
+      "userChatRestricted": "You are currently restricted from sending chat messages",
       "userNotFound": "User not found"
     },
     "navEntry": {

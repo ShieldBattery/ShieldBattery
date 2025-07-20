@@ -102,7 +102,7 @@ export class LeagueApi {
       getPastLeagues(now),
       getCurrentLeagues(now),
       getFutureLeagues(now),
-      isLoggedIn ? getAllLeaguesForUser(ctx.session!.user!.id) : [],
+      isLoggedIn ? getAllLeaguesForUser(ctx.session!.user.id) : [],
     ])
     return {
       past: past.map(l => toLeagueJson(l)),
@@ -174,10 +174,10 @@ export class LeagueApi {
 
     let selfLeagueUser: LeagueUser | undefined
     try {
-      selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.user!.id)
+      selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.user.id)
     } catch (err: any) {
       if (err.code === UNIQUE_VIOLATION) {
-        selfLeagueUser = await getLeagueUser(leagueId, ctx.session!.user!.id)
+        selfLeagueUser = await getLeagueUser(leagueId, ctx.session!.user.id)
       }
     }
 

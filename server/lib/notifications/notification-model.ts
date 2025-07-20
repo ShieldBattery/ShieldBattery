@@ -1,5 +1,6 @@
 import { SetRequired } from 'type-fest'
 import { NotificationType } from '../../../common/notifications'
+import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db/index'
 import { sql, sqlConcat, sqlRaw } from '../db/sql'
@@ -13,6 +14,12 @@ type MakeSearchable<T extends BaseNotificationData> = SetRequired<
   Partial<T>,
   keyof BaseNotificationData
 >
+
+export type NotificationData =
+  | PartyInviteNotificationData
+  | FriendRequestNotificationData
+  | FriendStartNotificationData
+  | UserRestrictedNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -28,11 +35,6 @@ export interface FriendStartNotificationData extends BaseNotificationData {
 
 type FriendStartSearchNotificationData = MakeSearchable<FriendStartNotificationData>
 
-export type NotificationData =
-  | PartyInviteNotificationData
-  | FriendRequestNotificationData
-  | FriendStartNotificationData
-
 export interface PartyInviteNotificationData extends BaseNotificationData {
   type: NotificationType.PartyInvite
   from: SbUserId
@@ -41,6 +43,15 @@ export interface PartyInviteNotificationData extends BaseNotificationData {
 
 type PartyInviteSearchNotificationData = MakeSearchable<PartyInviteNotificationData>
 
+export interface UserRestrictedNotificationData extends BaseNotificationData {
+  type: NotificationType.UserRestricted
+  kind: RestrictionKind
+  endTime: number
+  reason: RestrictionReason
+}
+
+type UserRestrictedSearchNotificationData = MakeSearchable<UserRestrictedNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -48,6 +59,7 @@ export type SearchNotificationData =
   | FriendRequestSearchNotificationData
   | FriendStartSearchNotificationData
   | PartyInviteSearchNotificationData
+  | UserRestrictedSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

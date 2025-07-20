@@ -30,15 +30,19 @@ import {
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
+import { ALL_RESTRICTION_KINDS, ALL_RESTRICTION_REASONS } from '../../../common/users/restrictions'
 import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
+  AdminApplyRestrictionRequest,
+  AdminApplyRestrictionResponse,
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
+  AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
   AuthEvent,
   ChangeLanguageRequest,
@@ -54,6 +58,7 @@ import {
   SearchMatchHistoryResponse,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
+  toUserRestrictionHistoryJson,
   UserErrorCode,
   UsernameAvailableResponse,
 } from '../../../common/users/user-network'
@@ -92,6 +97,7 @@ import { addEmailVerificationCode, getEmailVerificationsCount } from './email-ve
 import { PasswordResetCleanupJob } from './password-reset-cleanup'
 import { addPasswordResetCode, usePasswordResetCode } from './password-reset-model'
 import { genRandomCode } from './random-code'
+import { RestrictionService } from './restriction-service'
 import {
   convertUserApiErrors,
   convertUserRelationshipServiceErrors,
@@ -301,7 +307,6 @@ export class UserApi {
         completeCreationFn: (userId, client, transactionCompleted) => {
           return Promise.all([
             this.chatService.joinInitialChannel(userId, client, transactionCompleted),
-            this.userIdManager.upsert(userId, clientIds),
           ]).then(() => {})
         },
       })
@@ -325,6 +330,7 @@ export class UserApi {
       createdUser.permissions.editPermissions = true
     }
 
+    await this.userIdManager.upsert(createdUser.user.id, clientIds)
     await ctx.beginSession(createdUser.user.id, false)
 
     // No need to wait for this, if it fails they can just re-send the email later
@@ -718,7 +724,7 @@ export class UserApi {
   @httpPost('/:id/policies')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user.id)),
   )
   async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesResponse> {
     const { params, body } = validateRequest(ctx, {
@@ -737,7 +743,7 @@ export class UserApi {
       }),
     })
 
-    if (params.id !== ctx.session!.user!.id) {
+    if (params.id !== ctx.session!.user.id) {
       throw new httpErrors.Unauthorized("Can't change another user's account")
     }
 
@@ -767,7 +773,7 @@ export class UserApi {
   @httpPost('/:id/language')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user.id)),
   )
   async changeLanguage(ctx: RouterContext): Promise<ChangeLanguagesResponse> {
     const { params, body } = validateRequest(ctx, {
@@ -779,7 +785,7 @@ export class UserApi {
       }),
     })
 
-    if (params.id !== ctx.session!.user!.id) {
+    if (params.id !== ctx.session!.user.id) {
       throw new httpErrors.Unauthorized("Can't change another user's language")
     }
 
@@ -795,12 +801,12 @@ export class UserApi {
   @httpPost('/:id/email-verification/send')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.user.id)),
   )
   async resendVerificationEmail(ctx: RouterContext): Promise<void> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.user!.id).required(),
+        id: joiUserId().valid(ctx.session!.user.id).required(),
       }),
     })
 
@@ -870,12 +876,12 @@ export class UserApi {
   @httpGet('/:id/relationships')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user.id)),
   )
   async getRelationships(ctx: RouterContext): Promise<GetRelationshipsResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: joiUserId().valid(ctx.session!.user!.id).required(),
+        id: joiUserId().valid(ctx.session!.user.id).required(),
       }),
     })
 
@@ -895,7 +901,7 @@ export class UserApi {
   @httpPost('/:id/relationships/friend-requests')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async sendFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const { params } = validateRequest(ctx, {
@@ -910,7 +916,7 @@ export class UserApi {
     }
 
     const relationship = await this.userRelationshipService.sendFriendRequest(
-      ctx.session!.user!.id,
+      ctx.session!.user.id,
       user.id,
     )
 
@@ -920,7 +926,7 @@ export class UserApi {
   @httpDelete('/:toId/relationships/friend-requests/:fromId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async removeFriendRequest(ctx: RouterContext): Promise<void> {
     const {
@@ -932,10 +938,10 @@ export class UserApi {
       }),
     })
 
-    if (toId !== ctx.session!.user!.id && fromId !== ctx.session!.user!.id) {
+    if (toId !== ctx.session!.user.id && fromId !== ctx.session!.user.id) {
       throw new httpErrors.BadRequest('Can only manage your own friend requests')
     }
-    const otherUser = toId === ctx.session!.user!.id ? fromId : toId
+    const otherUser = toId === ctx.session!.user.id ? fromId : toId
 
     const user = await findUserById(otherUser)
     if (!user) {
@@ -950,14 +956,14 @@ export class UserApi {
   @httpPost('/:toId/relationships/friends/:fromId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async acceptFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { toId, fromId },
     } = validateRequest(ctx, {
       params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
-        toId: joiUserId().valid(ctx.session!.user!.id).required(),
+        toId: joiUserId().valid(ctx.session!.user.id).required(),
         fromId: joiUserId().required(),
       }),
     })
@@ -975,14 +981,14 @@ export class UserApi {
   @httpDelete('/:removerId/relationships/friends/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async removeFriend(ctx: RouterContext): Promise<void> {
     const {
       params: { removerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ removerId: SbUserId; targetId: SbUserId }>({
-        removerId: joiUserId().valid(ctx.session!.user!.id).required(),
+        removerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -1000,14 +1006,14 @@ export class UserApi {
   @httpPost('/:blockerId/relationships/blocks/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async blockUser(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { blockerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ blockerId: SbUserId; targetId: SbUserId }>({
-        blockerId: joiUserId().valid(ctx.session!.user!.id).required(),
+        blockerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -1025,14 +1031,14 @@ export class UserApi {
   @httpDelete('/:unblockerId/relationships/blocks/:targetId')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user!.id)),
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
   )
   async unblockUser(ctx: RouterContext): Promise<void> {
     const {
       params: { unblockerId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ unblockerId: SbUserId; targetId: SbUserId }>({
-        unblockerId: joiUserId().valid(ctx.session!.user!.id).required(),
+        unblockerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
       }),
     })
@@ -1053,7 +1059,7 @@ export class UserApi {
 export class AdminUserApi {
   constructor(
     private banEnacter: BanEnacter,
-    private userService: UserService,
+    private restrictionService: RestrictionService,
   ) {}
 
   @httpGet('/:id/bans')
@@ -1078,7 +1084,7 @@ export class AdminUserApi {
       new Set(banHistory.map(b => b.bannedBy).filter((i): i is SbUserId => i !== undefined)),
     )
 
-    const banningUsers = banHistory.length ? await findUsersById(banningUserIds) : []
+    const banningUsers = banningUserIds.length ? await findUsersById(banningUserIds) : []
 
     return {
       forUser: params.id,
@@ -1100,7 +1106,7 @@ export class AdminUserApi {
       }).required(),
     })
 
-    if (params.id === ctx.session!.user!.id) {
+    if (params.id === ctx.session!.user.id) {
       throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't ban yourself")
     }
 
@@ -1112,11 +1118,11 @@ export class AdminUserApi {
     const [ban, bannedBy] = await Promise.all([
       this.banEnacter.enactBan({
         targetId: user.id,
-        bannedBy: ctx.session!.user!.id,
+        bannedBy: ctx.session!.user.id,
         banLengthHours: body.banLengthHours,
         reason: body.reason,
       }),
-      await findUserById(ctx.session!.user!.id),
+      await findUserById(ctx.session!.user.id),
     ])
 
     // This would be a really weird occurrence! So we just make sure we do the actual banning before
@@ -1128,6 +1134,85 @@ export class AdminUserApi {
     return {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
+    }
+  }
+
+  @httpGet('/:id/restrictions')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async getRestrictions(ctx: RouterContext): Promise<AdminGetRestrictionsResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const [user, restrictionHistory] = await Promise.all([
+      findUserById(params.id),
+      this.restrictionService.getUserRestrictionHistory({ userId: params.id }),
+    ])
+
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const restrictingUserIds = Array.from(
+      new Set(
+        restrictionHistory.map(r => r.restrictedBy).filter((i): i is SbUserId => i !== undefined),
+      ),
+    )
+
+    const restrictingUsers = restrictingUserIds.length
+      ? await findUsersById(restrictingUserIds)
+      : []
+
+    return {
+      forUser: params.id,
+      restrictions: restrictionHistory.map(r => toUserRestrictionHistoryJson(r)),
+      users: restrictingUsers.concat(user),
+    }
+  }
+
+  @httpPost('/:id/restrictions')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async applyRestriction(ctx: RouterContext): Promise<AdminApplyRestrictionResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminApplyRestrictionRequest>({
+        kind: Joi.string()
+          .valid(...ALL_RESTRICTION_KINDS)
+          .required(),
+        endTime: Joi.date().timestamp().min(Date.now()).required(),
+        reason: Joi.string()
+          .valid(...ALL_RESTRICTION_REASONS)
+          .required(),
+        adminNotes: Joi.string().max(500),
+      }).required(),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const restriction = await this.restrictionService.applyRestriction({
+      targetId: user.id,
+      kind: body.kind,
+      endTime: new Date(body.endTime),
+      reason: body.reason,
+      restrictedBy: ctx.session!.user.id,
+      adminNotes: body.adminNotes,
+    })
+
+    const restrictingUser = await findUserById(ctx.session!.user.id)
+    if (!restrictingUser) {
+      throw new Error("couldn't find current user")
+    }
+
+    return {
+      restriction: toUserRestrictionHistoryJson(restriction),
+      users: [user, restrictingUser],
     }
   }
 

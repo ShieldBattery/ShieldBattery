@@ -1,5 +1,6 @@
 import React from 'react'
 import { NotificationType, SbNotification } from '../../common/notifications'
+import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
 import { logger } from '../logging/logger'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
 import {
@@ -17,6 +18,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.PolicyUpdated:
     case NotificationType.FriendRequest:
     case NotificationType.FriendStart:
+    case NotificationType.UserRestricted:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -67,6 +69,17 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           showDivider={showDivider}
           read={notification.read}
           otherUser={notification.with}
+        />
+      )
+    case NotificationType.UserRestricted:
+      return (
+        <UserRestrictedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          kind={notification.kind}
+          endTime={notification.endTime}
+          reason={notification.reason}
         />
       )
     default:

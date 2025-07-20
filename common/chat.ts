@@ -42,6 +42,7 @@ export enum ChatServiceErrorCode {
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
   UserBanned = 'UserBanned',
+  UserChatRestricted = 'UserChatRestricted',
   UserNotFound = 'UserNotFound',
   UserOffline = 'UserOffline',
 }

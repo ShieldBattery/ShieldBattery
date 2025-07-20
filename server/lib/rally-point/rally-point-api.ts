@@ -36,7 +36,7 @@ export class RallyPointPingApi {
   async updateClientPingBatch(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<UpdateClientPingBatchParams>({
-        userId: Joi.allow(ctx.session!.user!.id).required(),
+        userId: Joi.allow(ctx.session!.user.id).required(),
         clientId: Joi.string().required(),
       }),
 

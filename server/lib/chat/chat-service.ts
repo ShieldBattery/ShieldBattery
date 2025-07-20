@@ -35,6 +35,7 @@ import {
 import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
 import { Patch } from '../../../common/patch'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
@@ -49,6 +50,7 @@ import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
+import { RestrictionService } from '../users/restriction-service'
 import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
@@ -95,6 +97,7 @@ enum JoinChannelExitCode {
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   UserBanned = 'UserBanned',
+  UserChatRestricted = 'UserChatRestricted',
 }
 
 export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
@@ -124,6 +127,7 @@ export default class ChatService {
     private publisher: TypedPublisher<ChatEvent | ChatUserEvent>,
     private userSocketsManager: UserSocketsManager,
     private imageService: ImageService,
+    private restrictionService: RestrictionService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
@@ -338,6 +342,17 @@ export default class ChatService {
               }
             }
           } else {
+            // We prevent chat restricted users from creating new channels because they seem much
+            // more likely to use it to be disruptive
+            const isChatRestricted = await this.restrictionService.isRestricted(
+              userId,
+              RestrictionKind.Chat,
+            )
+            if (isChatRestricted) {
+              exitCode = JoinChannelExitCode.UserChatRestricted
+              return
+            }
+
             try {
               channel = await createChannel(userId, channelName, client)
               if (!channel) {
@@ -390,6 +405,9 @@ export default class ChatService {
     }
     if (exitCode === JoinChannelExitCode.UserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
+    }
+    if (exitCode === JoinChannelExitCode.UserChatRestricted) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserChatRestricted, 'User is chat restricted')
     }
     if (exitCode !== undefined) {
       assertUnreachable(exitCode)
@@ -678,6 +696,14 @@ export default class ChatService {
         ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to send a message to it',
       )
+    }
+
+    const isChatRestricted = await this.restrictionService.isRestricted(
+      userId,
+      RestrictionKind.Chat,
+    )
+    if (isChatRestricted) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserChatRestricted, 'User is chat restricted')
     }
 
     const text = filterChatMessage(message)

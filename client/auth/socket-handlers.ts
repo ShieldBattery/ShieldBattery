@@ -1,4 +1,5 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
+import { RestrictionEvent } from '../../common/users/restrictions'
 import { AuthEvent } from '../../common/users/user-network'
 import { Dispatchable, dispatch } from '../dispatch-registry'
 
@@ -37,5 +38,16 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
 
     const action = eventToAction[event.action](event as any)
     if (action) dispatch(action)
+  })
+
+  siteSocket.registerRoute('/restrictions/:userId', (route: RouteInfo, event: RestrictionEvent) => {
+    if (event.type === 'restrictionsChanged') {
+      dispatch({
+        type: '@auth/restrictionsChanged',
+        payload: {
+          restrictions: event.restrictions,
+        },
+      })
+    }
   })
 }

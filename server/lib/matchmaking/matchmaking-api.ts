@@ -72,6 +72,7 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
     case MatchmakingServiceErrorCode.UserBanned:
+    case MatchmakingServiceErrorCode.UserChatRestricted:
       throw asHttpError(403, err)
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveDraft:
@@ -122,7 +123,7 @@ export class MatchmakingApi {
       body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
         preferences: matchmakingPreferencesValidator(
-          ctx.session!.user!.id,
+          ctx.session!.user.id,
           false /* allowPartial */,
         ).required(),
         identifiers: joiClientIdentifiers().required(),
@@ -167,7 +168,7 @@ export class MatchmakingApi {
     throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async cancelSearch(ctx: RouterContext): Promise<void> {
-    await this.matchmakingService.cancel(ctx.session!.user!.id)
+    await this.matchmakingService.cancel(ctx.session!.user.id)
   }
 
   @httpPost('/accept')
@@ -176,7 +177,7 @@ export class MatchmakingApi {
     throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async acceptMatch(ctx: RouterContext): Promise<void> {
-    await this.matchmakingService.accept(ctx.session!.user!.id)
+    await this.matchmakingService.accept(ctx.session!.user.id)
   }
 
   @httpPost('/draft/provisional-pick')
@@ -193,7 +194,7 @@ export class MatchmakingApi {
       }),
     })
 
-    await this.matchmakingService.updateProvisionalRace(ctx.session!.user!.id, body.race)
+    await this.matchmakingService.updateProvisionalRace(ctx.session!.user.id, body.race)
   }
 
   @httpPost('/draft/lock-pick')

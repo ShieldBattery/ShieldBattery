@@ -6,6 +6,7 @@ import { MapInfoJson } from '../maps'
 import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
 import { SbPermissions } from '../typeshare'
+import { RestrictionKind, RestrictionReason } from './restrictions'
 import { SbUser, SelfUser } from './sb-user'
 import { SbUserId } from './sb-user-id'
 import { UserStats } from './user-stats'
@@ -47,7 +48,6 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
   }
 }
 
-// TODO(tec27): Finish adding codes from remaining user APIs
 export enum UserErrorCode {
   NotFound = 'notFound',
   NotAllowedOnSelf = 'notAllowedOnSelf',
@@ -152,6 +152,52 @@ export interface AdminBanUserRequest {
 
 export interface AdminBanUserResponse {
   ban: BanHistoryEntryJson
+  users: SbUser[]
+}
+
+export interface UserRestrictionHistoryEntry {
+  id: string
+  userId: SbUserId
+  kind: RestrictionKind
+  restrictedBy?: SbUserId
+  startTime: Date
+  endTime: Date
+  reason: RestrictionReason
+  adminNotes?: string
+}
+
+export type UserRestrictionHistoryJson = Jsonify<UserRestrictionHistoryEntry>
+
+export function toUserRestrictionHistoryJson(
+  entry: UserRestrictionHistoryEntry,
+): UserRestrictionHistoryJson {
+  return {
+    id: entry.id,
+    userId: entry.userId,
+    kind: entry.kind,
+    restrictedBy: entry.restrictedBy,
+    startTime: Number(entry.startTime),
+    endTime: Number(entry.endTime),
+    reason: entry.reason,
+    adminNotes: entry.adminNotes,
+  }
+}
+
+export interface AdminGetRestrictionsResponse {
+  forUser: SbUserId
+  restrictions: UserRestrictionHistoryJson[]
+  users: SbUser[]
+}
+
+export interface AdminApplyRestrictionRequest {
+  kind: RestrictionKind
+  endTime: number
+  reason: RestrictionReason
+  adminNotes?: string
+}
+
+export interface AdminApplyRestrictionResponse {
+  restriction: UserRestrictionHistoryJson
   users: SbUser[]
 }
 

@@ -1,4 +1,5 @@
 import { SbPermissions } from '../../common/users/permissions'
+import { ClientRestrictionInfo } from '../../common/users/restrictions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import {
@@ -15,7 +16,9 @@ export type AuthActions =
   | AcceptPolicies
   | ChangeLanguage
   | PermissionsChanged
+  | RestrictionsChanged
   | SessionUnauthorized
+  | ClearRestriction
 
 export interface LogOut {
   type: '@auth/logOut'
@@ -73,5 +76,21 @@ export interface PermissionsChanged {
 export interface SessionUnauthorized {
   type: '@auth/sessionUnauthorized'
   payload?: void
+  error?: false
+}
+
+export interface RestrictionsChanged {
+  type: '@auth/restrictionsChanged'
+  payload: {
+    restrictions: ReadonlyArray<ClientRestrictionInfo>
+  }
+  error?: false
+}
+
+export interface ClearRestriction {
+  type: '@auth/clearRestriction'
+  payload: {
+    restriction: ClientRestrictionInfo
+  }
   error?: false
 }

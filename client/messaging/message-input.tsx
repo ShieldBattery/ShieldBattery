@@ -14,15 +14,18 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { matchUserMentions } from '../../common/text/user-mentions'
+import { RestrictionKind } from '../../common/users/restrictions'
 import { SbUser } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
+import { useAppSelector } from '../redux-hooks'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -129,6 +132,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   ) => {
     const { t } = useTranslation()
     const user = useSelfUser()
+    const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
     const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -282,17 +286,28 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       }),
     })
 
+    let label = t('messaging.sendMessage', 'Send a message')
+    if (chatRestriction) {
+      // TODO(tec27): Once RelativeDuration has been out longer than a few months, use that instead
+      const date = longTimestamp.format(chatRestriction.endTime)
+      label = t('messaging.sendMessageChatRestricted', {
+        defaultValue: 'Restricted from sending messages until {{ date }}',
+        date,
+      })
+    }
+
     return (
       <>
         <StyledTextField
           ref={inputRef}
           containerRef={containerRef}
           className={className}
-          label={t('messaging.sendMessage', 'Send a message')}
+          label={label}
           value={message}
           floatingLabel={false}
           allowErrors={false}
           showDivider={showDivider}
+          disabled={!!chatRestriction}
           inputProps={{
             autoComplete: 'off',
             onClick: event => {

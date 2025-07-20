@@ -28,7 +28,7 @@ export class MatchmakingPreferencesApi {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
       }).required(),
-      body: matchmakingPreferencesValidator(ctx.session!.user!.id).required(),
+      body: matchmakingPreferencesValidator(ctx.session!.user.id).required(),
     })
 
     if (params.matchmakingType !== body.matchmakingType) {
@@ -55,7 +55,7 @@ export class MatchmakingPreferencesApi {
     }
 
     const preferences = await this.matchmakingPreferencesService.upsertPreferences({
-      userId: ctx.session!.user!.id,
+      userId: ctx.session!.user.id,
       matchmakingType: body.matchmakingType as any,
       race: body.race,
       mapPoolId: currentMapPool.id,

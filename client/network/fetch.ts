@@ -169,5 +169,9 @@ type ValidSearchParams<T> = {
 export function encodeBodyAsParams<BodyType extends ValidSearchParams<BodyType>>(
   body: BodyType,
 ): URLSearchParams {
-  return new URLSearchParams(body as unknown as Record<string, string>)
+  const params = Object.entries(body)
+  return new URLSearchParams(
+    // Remove any undefined/null values since they get converted to strings
+    params.filter(([, value]) => value !== undefined && value !== null) as string[][],
+  )
 }

@@ -1,4 +1,5 @@
 import { SbPolicyType } from './policies/policy-type'
+import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
 
 export enum NotificationType {
@@ -14,6 +15,8 @@ export enum NotificationType {
   PartyInvite = 'partyInvite',
   /** An updated legal policy is available for viewing. */
   PolicyUpdated = 'policyUpdated',
+  /** A restriction has been applied to this user. */
+  UserRestricted = 'userRestricted',
 }
 
 export type SbNotification =
@@ -21,6 +24,7 @@ export type SbNotification =
   | FriendStartNotification
   | PartyInviteNotification
   | PolicyUpdatedNotification
+  | UserRestrictedNotification
 
 export interface BaseNotification {
   /**
@@ -60,6 +64,13 @@ export interface PartyInviteNotification extends BaseNotification {
   type: NotificationType.PartyInvite
   from: SbUserId
   partyId: string
+}
+
+export interface UserRestrictedNotification extends BaseNotification {
+  type: NotificationType.UserRestricted
+  kind: RestrictionKind
+  endTime: number
+  reason: RestrictionReason
 }
 
 export type NotificationEvent =

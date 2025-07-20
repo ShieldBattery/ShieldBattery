@@ -4,6 +4,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { urlPath } from '../../../common/urls'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
@@ -19,6 +20,7 @@ import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { RestrictionService } from '../users/restriction-service'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -54,6 +56,7 @@ export default class WhisperService {
   constructor(
     private publisher: TypedPublisher<WhisperEvent>,
     private userSocketsManager: UserSocketsManager,
+    private restrictionService: RestrictionService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
@@ -122,6 +125,17 @@ export default class WhisperService {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
         "Can't whisper with yourself",
+      )
+    }
+
+    const isChatRestricted = await this.restrictionService.isRestricted(
+      userId,
+      RestrictionKind.Chat,
+    )
+    if (isChatRestricted) {
+      throw new WhisperServiceError(
+        WhisperServiceErrorCode.UserChatRestricted,
+        'User is chat restricted',
       )
     }
 

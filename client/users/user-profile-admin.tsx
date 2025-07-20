@@ -1,9 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useMutation, useQuery } from 'urql'
+import {
+  ALL_RESTRICTION_KINDS,
+  ALL_RESTRICTION_REASONS,
+  RestrictionKind,
+  RestrictionReason,
+} from '../../common/users/restrictions'
 import { SbUser, SelfUser } from '../../common/users/sb-user'
-import { BanHistoryEntryJson, UserIpInfoJson } from '../../common/users/user-network'
+import {
+  BanHistoryEntryJson,
+  UserIpInfoJson,
+  UserRestrictionHistoryJson,
+} from '../../common/users/user-network'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql, useFragment } from '../gql'
@@ -17,7 +27,13 @@ import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, labelMedium } from '../styles/typography'
-import { adminBanUser, adminGetUserBanHistory, adminGetUserIps } from './action-creators'
+import {
+  adminApplyRestriction,
+  adminBanUser,
+  adminGetUserBanHistory,
+  adminGetUserIps,
+  adminGetUserRestrictions,
+} from './action-creators'
 import { ConnectedUsername } from './connected-username'
 
 const AdminUserPageRoot = styled.div`
@@ -77,6 +93,7 @@ export function AdminUserPage({ user }: { user: SbUser }) {
         <PermissionsEditor fragment={userPermissionsFragment} isSelf={selfUser.id === user.id} />
       ) : null}
       {selfPermissions?.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
+      {selfPermissions?.banUsers ? <RestrictionHistory user={user} selfUser={selfUser} /> : null}
       {selfPermissions?.banUsers ? <UserIpHistory user={user} /> : null}
     </AdminUserPageRoot>
   )
@@ -250,7 +267,6 @@ const BAN_FORM_DEFAULTS: BanFormModel = {
   banLengthHours: 3,
   reason: undefined,
 }
-
 function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
   const dispatch = useAppDispatch()
   const [banHistory, setBanHistory] = useState<ReadonlyDeep<BanHistoryEntryJson[]>>()
@@ -319,6 +335,8 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
 }
 
 const BanTable = styled.table`
+  width: 100%;
+
   text-align: left;
   margin: 16px 0 32px;
 
@@ -335,7 +353,7 @@ const BanTable = styled.table`
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: top;
-    white-space: no-wrap;
+    white-space: nowrap;
   }
 
   th {
@@ -348,7 +366,7 @@ const BanRow = styled.tr<{ $expired?: boolean }>`
   color: ${props =>
     !props.$expired
       ? 'var(--theme-on-surface)'
-      : 'rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity)'};
+      : 'rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity))'};
 `
 
 const EmptyState = styled.td`
@@ -447,6 +465,91 @@ function BanUserForm({
   )
 }
 
+const RESTRICTION_FORM_DEFAULTS: RestrictionFormModel = {
+  kind: RestrictionKind.Chat,
+  endTime: '',
+  reason: RestrictionReason.Spam,
+  adminNotes: undefined,
+}
+
+function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
+  const dispatch = useAppDispatch()
+  const [restrictionHistory, setRestrictionHistory] =
+    useState<ReadonlyDeep<UserRestrictionHistoryJson[]>>()
+
+  const [requestError, setRequestError] = useState<Error>()
+  const cancelLoadRef = useRef(new AbortController())
+
+  const userId = user.id
+  const isSelf = userId === selfUser.id
+
+  useEffect(() => {
+    cancelLoadRef.current.abort()
+    const abortController = new AbortController()
+    cancelLoadRef.current = abortController
+
+    setRestrictionHistory(undefined)
+    dispatch(
+      adminGetUserRestrictions(userId, {
+        signal: abortController.signal,
+        onSuccess: response => {
+          setRequestError(undefined)
+          setRestrictionHistory(response.restrictions)
+        },
+        onError: err => setRequestError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [userId, dispatch])
+
+  return (
+    <AdminSection $gridColumn='1 / -1' data-test='restriction-history-section'>
+      <TitleLarge>Restriction history</TitleLarge>
+      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
+      {restrictionHistory === undefined ? (
+        <LoadingDotsArea />
+      ) : (
+        <RestrictionHistoryList restrictionHistory={restrictionHistory} />
+      )}
+      {!isSelf ? (
+        <RestrictUserForm
+          key={`restriction-form-${userId}`}
+          model={RESTRICTION_FORM_DEFAULTS}
+          onSubmit={model => {
+            dispatch(
+              adminApplyRestriction(
+                {
+                  userId,
+                  kind: model.kind,
+                  endTime: Date.parse(model.endTime),
+                  reason: model.reason,
+                  adminNotes: model.adminNotes?.slice(0, 500),
+                },
+                {
+                  onSuccess: response => {
+                    setRestrictionHistory(history => {
+                      if (!history?.some(r => r.id === response.restriction.id)) {
+                        return [response.restriction].concat(history || [])
+                      }
+
+                      return history
+                    })
+                    setRequestError(undefined)
+                  },
+                  onError: err => setRequestError(err),
+                },
+              ),
+            )
+          }}
+        />
+      ) : null}
+    </AdminSection>
+  )
+}
+
 function UserIpHistory({ user }: { user: SbUser }) {
   const dispatch = useAppDispatch()
   const [ips, setIps] = useState<ReadonlyDeep<UserIpInfoJson[]>>()
@@ -535,6 +638,24 @@ const RelatedUsers = styled.div`
   gap: 16px;
 `
 
+const FieldLabel = styled.label`
+  ${bodyMedium};
+  display: block;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const DateInput = styled.input`
+  color: rgba(0, 0, 0, 0.87);
+  padding: 4px 0;
+  margin: 8px 0;
+`
+
+const DateError = styled.div`
+  ${bodyMedium};
+  color: var(--theme-error);
+`
+
 function IpList({
   ips,
   relatedUsers,
@@ -570,5 +691,119 @@ function IpList({
         )
       })}
     </IpListRoot>
+  )
+}
+
+function RestrictionHistoryList({
+  restrictionHistory,
+}: {
+  restrictionHistory: ReadonlyDeep<UserRestrictionHistoryJson[]>
+}) {
+  return (
+    <BanTable>
+      <thead>
+        <tr>
+          <th>Kind</th>
+          <th>Start time</th>
+          <th>End time</th>
+          <th>Restricted by</th>
+          <th>Reason</th>
+          <th>Admin notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {restrictionHistory.length ? (
+          restrictionHistory.map((r, i) => (
+            <BanRow key={i} $expired={r.startTime <= Date.now() && r.endTime <= Date.now()}>
+              <td>{r.kind}</td>
+              <td>{banDateFormat.format(r.startTime)}</td>
+              <td>{banDateFormat.format(r.endTime)}</td>
+              <td>
+                {r.restrictedBy !== undefined ? (
+                  <ConnectedUsername userId={r.restrictedBy} />
+                ) : (
+                  <span>- system -</span>
+                )}
+              </td>
+              <td>{r.reason.replaceAll('_', ' ')}</td>
+              <td>{r.adminNotes ?? ''}</td>
+            </BanRow>
+          ))
+        ) : (
+          <BanRow>
+            <EmptyState colSpan={6}>No restrictions found</EmptyState>
+          </BanRow>
+        )}
+      </tbody>
+    </BanTable>
+  )
+}
+
+interface RestrictionFormModel {
+  kind: RestrictionKind
+  endTime: string
+  reason: RestrictionReason
+  adminNotes?: string
+}
+
+function RestrictUserForm({
+  model,
+  onSubmit,
+}: {
+  model: RestrictionFormModel
+  onSubmit: (model: ReadonlyDeep<RestrictionFormModel>) => void
+}) {
+  const { submit, bindInput, bindCustom, form } = useForm<RestrictionFormModel>(model, {
+    endTime: value => {
+      if (!value || Date.parse(value) <= Date.now()) {
+        return 'End time must be in the future'
+      }
+      return undefined
+    },
+  })
+
+  useFormCallbacks(form, {
+    onSubmit,
+  })
+
+  const baseId = useId()
+
+  return (
+    <form noValidate={true} onSubmit={submit}>
+      <TitleLarge>Restrict user</TitleLarge>
+      <Select {...bindCustom('kind')} label='Restriction type' tabIndex={0}>
+        {ALL_RESTRICTION_KINDS.map(kind => (
+          <SelectOption key={kind} value={kind} text={kind} />
+        ))}
+      </Select>
+      <FieldLabel htmlFor={`${baseId}-endTime`}>End time</FieldLabel>
+      <DateInput
+        {...bindInput('endTime')}
+        id={`${baseId}-endTime`}
+        type='datetime-local'
+        tabIndex={0}
+      />
+      {bindInput('endTime').errorText ? (
+        <DateError>{bindInput('endTime').errorText}</DateError>
+      ) : null}
+      <Select {...bindCustom('reason')} label='Reason' tabIndex={0}>
+        {ALL_RESTRICTION_REASONS.map(reason => (
+          <SelectOption key={reason} value={reason} text={reason.replace('_', ' ')} />
+        ))}
+      </Select>
+      <TextField
+        {...bindInput('adminNotes')}
+        label='Admin notes (optional)'
+        floatingLabel={true}
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}
+      />
+      <FilledButton label='Apply restriction' tabIndex={0} onClick={submit} />
+    </form>
   )
 }

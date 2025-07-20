@@ -163,7 +163,7 @@ export class GameApi {
   }
 
   @httpPost('/:gameId/subscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
   async subscribeToGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -173,12 +173,12 @@ export class GameApi {
       query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
     })
 
-    await this.gameResultService.subscribeToGame(ctx.session!.user!.id, clientId, gameId)
+    await this.gameResultService.subscribeToGame(ctx.session!.user.id, clientId, gameId)
     ctx.status = 204
   }
 
   @httpPost('/:gameId/unsubscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
   async unsubscribeFromGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -188,12 +188,12 @@ export class GameApi {
       query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
     })
 
-    await this.gameResultService.unsubscribeFromGame(ctx.session!.user!.id, clientId, gameId)
+    await this.gameResultService.unsubscribeFromGame(ctx.session!.user.id, clientId, gameId)
     ctx.status = 204
   }
 
   @httpPut('/:gameId/status')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user!.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
   async updateGameStatus(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -205,7 +205,7 @@ export class GameApi {
         extra: Joi.any().optional(), // unused currently
       }),
     })
-    const user = ctx.session!.user!
+    const user = ctx.session!.user
 
     if (status > GameStatus.Finished && status !== GameStatus.Error) {
       throw new httpErrors.BadRequest('invalid game status')

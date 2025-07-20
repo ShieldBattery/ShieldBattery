@@ -16,18 +16,26 @@ interface UserIdentifier {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type DbUserIdentifier = Dbify<UserIdentifier>
 
+/**
+ * Upserts identifiers for a user, returning the identifiers that were newly registered for that
+ * user.
+ */
 export async function upsertUserIdentifiers(
   userId: SbUserId,
-  identifiers: ReadonlyArray<[type: number, hash: Buffer]>,
+  identifiers: ReadonlyArray<ClientIdentifierBuffer>,
   withClient?: DbClient,
-): Promise<void> {
+): Promise<{ newIdentifiers: ClientIdentifierBuffer[] }> {
   if (!identifiers.length) {
-    return
+    return { newIdentifiers: [] }
   }
 
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
+    const result = await client.query<{
+      identifier_type: number
+      identifier_hash: Buffer
+      times_seen: number
+    }>(sql`
       INSERT INTO user_identifiers AS ui
       (user_id, identifier_type, identifier_hash, first_used, last_used, times_seen)
       VALUES
@@ -40,10 +48,15 @@ export async function upsertUserIdentifiers(
       ON CONFLICT (user_id, identifier_type, identifier_hash)
       DO UPDATE
       SET last_used = NOW(),
-      times_seen = ui.times_seen + 1
-    `
+        times_seen = ui.times_seen + 1
+      RETURNING identifier_type, identifier_hash, times_seen
+    `)
 
-    await client.query(query)
+    return {
+      newIdentifiers: result.rows
+        .filter(r => r.times_seen === 1)
+        .map(r => [r.identifier_type, r.identifier_hash]),
+    }
   } finally {
     done()
   }
@@ -253,9 +266,9 @@ export async function banAllIdentifiers(
 
 /**
  * Cleans up any identifiers that haven't been used since `olderThan`, provided they have not been
- * the subject of a ban for any user. Returns the number of identifiers cleaned up.
+ * the subject of a punishment for any user. Returns the number of identifiers cleaned up.
  */
-export async function cleanupUnbannedIdentifiers(
+export async function cleanupUnpunishedIdentifiers(
   olderThan: Date,
   withClient?: DbClient,
 ): Promise<number> {
@@ -269,6 +282,11 @@ export async function cleanupUnbannedIdentifiers(
         FROM user_identifier_bans uib
         WHERE uib.identifier_hash = ui.identifier_hash
         AND uib.identifier_type = ui.identifier_type
+      ) AND NOT EXISTS (
+        SELECT
+        FROM user_identifier_restrictions uir
+        WHERE uir.identifier_hash = ui.identifier_hash
+        AND uir.identifier_type = ui.identifier_type
       )
     `)
 

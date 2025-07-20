@@ -982,6 +982,7 @@ export enum MatchmakingServiceErrorCode {
   UserOffline = 'userOffline',
   NoActiveDraft = 'noActiveDraft',
   InvalidDraftPick = 'invalidDraftPick',
+  UserChatRestricted = 'userChatRestricted',
 }
 
 export interface FindMatchRequest {

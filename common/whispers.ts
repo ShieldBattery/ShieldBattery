@@ -75,6 +75,7 @@ export enum WhisperServiceErrorCode {
   UserNotFound = 'userNotFound',
   NoSelfMessaging = 'noSelfMessaging',
   InvalidGetSessionHistoryAction = 'invalidGetSessionHistoryAction',
+  UserChatRestricted = 'userChatRestricted',
 }
 
 const ALL_WHISPER_SERVICE_ERROR_CODES: ReadonlyArray<WhisperServiceErrorCode> =
@@ -98,6 +99,11 @@ export function whisperServiceErrorToString(
         return t(
           'whispers.errors.invalidAction',
           'Must have an active whisper session with a user to retrieve message history',
+        )
+      case WhisperServiceErrorCode.UserChatRestricted:
+        return t(
+          'whispers.errors.userChatRestricted',
+          'You are currently restricted from sending chat messages',
         )
       default:
         return assertUnreachable(code)

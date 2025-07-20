@@ -216,7 +216,7 @@ export class BugsApi {
     await resolveBugReport({
       reportId,
       resolvedAt: new Date(this.clock.now()),
-      resolverId: ctx.session!.user!.id,
+      resolverId: ctx.session!.user.id,
     })
 
     ctx.status = 204

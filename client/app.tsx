@@ -10,6 +10,7 @@ import { Route, Router, Switch } from 'wouter'
 import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
 import { useSelfUser } from './auth/auth-utils'
+import { RestrictionClearer } from './auth/restriction-clearer'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import './dom/window-focus'
 import { UpdateOverlay } from './download/update-overlay'
@@ -200,6 +201,7 @@ const AppContent = React.memo(() => {
       <LoadableSystemBar />
       <RedirectOnUnauthorized />
       <SiteSocketManager />
+      <RestrictionClearer />
       <React.Suspense fallback={<LoadingDotsArea />}>
         <Switch>
           {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}
