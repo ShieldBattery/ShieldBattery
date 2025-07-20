@@ -109,6 +109,8 @@ const eventToAction: EventToActionMap = {
 
     resetDraftState(jotaiStore)
     jotaiStore.set(draftStateAtom, event.draftState)
+
+    ipcRenderer.send('userAttentionRequired')
   },
 
   draftPickStarted: (matchmakingType, event) => {
