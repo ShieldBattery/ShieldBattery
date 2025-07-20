@@ -735,7 +735,7 @@ async function createWindow() {
   const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
 
   mainWindow = new BrowserWindow({
-    width: winWidth && winWidth > 0 ? winWidth : 1024,
+    width: winWidth && winWidth > 0 ? winWidth : 1280,
     height: winHeight && winHeight > 0 ? winHeight : 800,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
