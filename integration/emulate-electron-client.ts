@@ -16,10 +16,18 @@ export async function emulateElectronClient(page: Page): Promise<void> {
   await page.route(/(\/api\/)|(\/gql\/?$)/, async route => {
     const [response, headers] = await emulateElectronClientForRoute(route, page.url())
 
-    await route.fulfill({
-      response,
-      headers,
-    })
+    try {
+      await route.fulfill({
+        response,
+        headers,
+      })
+    } catch (err: any) {
+      if (err instanceof Error && err.message.includes('Route is already handled!')) {
+        // This can happen if the route was aborted
+      } else {
+        throw err
+      }
+    }
   })
 }
 
