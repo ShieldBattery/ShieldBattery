@@ -562,8 +562,8 @@ export class GameLoader {
         )
       }
 
-      const [routes, routesError] = await (
-        hasMultipleHumans ? Result.fromAsyncCatching(createRoutes(players)) : Result.ok([])
+      const [routes, routesError] = (
+        await (hasMultipleHumans ? Result.fromAsyncCatching(createRoutes(players)) : Result.ok([]))
       ).toTuple()
       if (routesError) {
         return Result.error(
