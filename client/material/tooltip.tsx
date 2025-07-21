@@ -59,7 +59,7 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   align-items: center;
   justify-content: center;
 
-  border: 1px solid rgba(255, 255, 255, 0.36);
+  border: 1px solid var(--theme-inverse-outline-variant);
   border-radius: 4px;
   background-color: var(--theme-inverse-surface);
   color: var(--theme-inverse-on-surface);

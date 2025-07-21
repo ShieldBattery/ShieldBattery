@@ -39,11 +39,11 @@ const button = css`
   -webkit-app-region: no-drag;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: var(--theme-container-high);
   }
 
   &:active {
-    background-color: rgba(255, 255, 255, 0.16);
+    background-color: var(--theme-container-highest);
   }
 `
 
@@ -51,11 +51,11 @@ const CloseButton = styled.button`
   ${button};
 
   &:hover {
-    background-color: rgba(244, 67, 54, 0.8); /* red 500 */
+    background-color: rgb(from var(--theme-negative) r g b / 0.8);
   }
 
   &:active {
-    background-color: rgba(244, 67, 54, 0.88); /* red 500 */
+    background-color: rgb(from var(--theme-negative) r g b / 0.88);
   }
 `
 

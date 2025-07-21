@@ -188,7 +188,7 @@ const ProgressBar = styled.div`
   position: relative;
   width: 100%;
   height: 12px;
-  background-color: rgba(255, 255, 255, 0.16);
+  background-color: var(--theme-container-highest);
 `
 
 const FilledProgressBar = styled.div<{ $filledScale: number }>`

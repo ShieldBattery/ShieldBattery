@@ -52,7 +52,7 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
 
   padding: 0 16px;
 
-  background-color: ${props => (props.$isActiveTab ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
+  background-color: ${props => (props.$isActiveTab ? 'var(--theme-container-low)' : 'transparent')};
   border: 2px solid
     ${props => (props.$isActiveTab ? 'var(--theme-amber)' : 'var(--theme-outline-variant)')};
   border-radius: 6px;

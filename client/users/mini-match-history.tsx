@@ -85,7 +85,7 @@ const GameListEntryRoot = styled.button<{ $active: boolean }>`
   border-radius: 4px;
   text-align: left;
 
-  background-color: ${props => (props.$active ? 'rgba(255, 255, 255, 0.04)' : 'transparent')};
+  background-color: ${props => (props.$active ? 'var(--theme-container-low)' : 'transparent')};
 
   & + & {
     margin-top: 8px;

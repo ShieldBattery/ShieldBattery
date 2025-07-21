@@ -6,7 +6,7 @@ const Container = styled.div<{ $read: boolean }>`
   position: relative;
   padding: 16px 0;
 
-  background-color: ${props => (props.$read ? 'transparent' : 'rgba(255, 255, 255, 0.04)')};
+  background-color: ${props => (props.$read ? 'transparent' : 'var(--theme-container-low)')};
 `
 
 const IconTextContainer = styled.div`

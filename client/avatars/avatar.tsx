@@ -50,7 +50,7 @@ export function Avatar({ image, user, color, glowing, className }: AvatarProps) 
   } else if (user) {
     avatarColor = randomColorForString(user)
   } else {
-    avatarColor = 'rgba(255, 255, 255, 0.5)'
+    avatarColor = 'var(--theme-on-surface-variant)'
   }
 
   return (

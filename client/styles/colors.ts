@@ -182,6 +182,8 @@ export const THEME_CSS = css`
 
   --theme-outline: var(--color-grey-blue60);
   --theme-outline-variant: var(--color-grey-blue50);
+  --theme-inverse-outline: var(--color-grey-blue50);
+  --theme-inverse-outline-variant: var(--color-grey-blue90);
 
   --theme-container-lowest: ${colorContainerLowest};
   --theme-container-low: ${colorContainerLow};
@@ -250,70 +252,115 @@ export function containerStyles(level: ContainerLevel) {
       return css`
         background-color: var(--theme-container-lowest);
         --sb-color-background: var(--theme-container-lowest);
+
+        --_tc0-lowest: var(--theme-container-low);
+        --_tc0-low: var(--theme-container);
+        --_tc0-normal: var(--theme-container-high);
+        --_tc0-high: var(--theme-container-highest);
+        --_tc0-highest: var(--_theme-container-highest-plus1);
+        --_tc0-highest-plus1: var(--_theme-container-highest-plus2);
+        --_tc0-highest-plus2: var(--_theme-container-highest-plus3);
+
         & > * {
-          --theme-container-lowest: var(--theme-container-low);
-          --theme-container-low: var(--theme-container);
-          --theme-container: var(--theme-container-high);
-          --theme-container-high: var(--theme-container-highest);
-          --theme-container-highest: var(--_theme-container-highest-plus1);
-          --theme-container-highest-plus1: var(--_theme-container-highest-plus2);
-          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+          --theme-container-lowest: var(--_tc0-lowest);
+          --theme-container-low: var(--_tc0-low);
+          --theme-container: var(--_tc0-normal);
+          --theme-container-high: var(--_tc0-high);
+          --theme-container-highest: var(--_tc0-highest);
+          --theme-container-highest-plus1: var(--_tc0-highest-plus1);
+          --theme-container-highest-plus2: var(--_tc0-highest-plus2);
         }
       `
     case ContainerLevel.Low:
       return css`
         background-color: var(--theme-container-low);
         --sb-color-background: var(--theme-container-low);
+
+        --_tc1-lowest: var(--theme-container);
+        --_tc1-low: var(--theme-container-high);
+        --_tc1-normal: var(--theme-container-highest);
+        --_tc1-high: var(--_theme-container-highest-plus1);
+        --_tc1-highest: var(--_theme-container-highest-plus2);
+        --_tc1-highest-plus1: var(--_theme-container-highest-plus3);
+        --_tc1-highest-plus2: var(--_theme-container-highest-plus3);
+
         & > * {
-          --theme-container-lowest: var(--theme-container);
-          --theme-container-low: var(--theme-container-high);
-          --theme-container: var(--theme-container-highest);
-          --theme-container-high: var(--theme-container-highest-plus1);
-          --theme-container-highest: var(--_theme-container-highest-plus2);
-          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+          --theme-container-lowest: var(--_tc1-lowest);
+          --theme-container-low: var(--_tc1-low);
+          --theme-container: var(--_tc1-normal);
+          --theme-container-high: var(--_tc1-high);
+          --theme-container-highest: var(--_tc1-highest);
+          --theme-container-highest-plus1: var(--_tc1-highest-plus1);
+          --theme-container-highest-plus2: var(--_tc1-highest-plus2);
         }
       `
     case ContainerLevel.Normal:
       return css`
         background-color: var(--theme-container);
         --sb-color-background: var(--theme-container);
+
+        --_tc2-lowest: var(--theme-container-high);
+        --_tc2-low: var(--theme-container-highest);
+        --_tc2-normal: var(--_theme-container-highest-plus1);
+        --_tc2-high: var(--_theme-container-highest-plus2);
+        --_tc2-highest: var(--_theme-container-highest-plus3);
+        --_tc2-highest-plus1: var(--_theme-container-highest-plus3);
+        --_tc2-highest-plus2: var(--_theme-container-highest-plus3);
+
         & > * {
-          --theme-container-lowest: var(--theme-container-high);
-          --theme-container-low: var(--theme-container-highest);
-          --theme-container: var(--theme-container-highest-plus1);
-          --theme-container-high: var(--theme-container-highest-plus2);
-          --theme-container-highest: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+          --theme-container-lowest: var(--_tc2-lowest);
+          --theme-container-low: var(--_tc2-low);
+          --theme-container: var(--_tc2-normal);
+          --theme-container-high: var(--_tc2-high);
+          --theme-container-highest: var(--_tc2-highest);
+          --theme-container-highest-plus1: var(--_tc2-highest-plus1);
+          --theme-container-highest-plus2: var(--_tc2-highest-plus2);
         }
       `
     case ContainerLevel.High:
       return css`
         background-color: var(--theme-container-high);
         --sb-color-background: var(--theme-container-high);
+
+        --_tc3-lowest: var(--theme-container-highest);
+        --_tc3-low: var(--_theme-container-highest-plus1);
+        --_tc3-normal: var(--_theme-container-highest-plus2);
+        --_tc3-high: var(--_theme-container-highest-plus3);
+        --_tc3-highest: var(--_theme-container-highest-plus3);
+        --_tc3-highest-plus1: var(--_theme-container-highest-plus3);
+        --_tc3-highest-plus2: var(--_theme-container-highest-plus3);
+
         & > * {
-          --theme-container-lowest: var(--theme-container-highest);
-          --theme-container-low: var(--theme-container-highest-plus1);
-          --theme-container: var(--theme-container-highest-plus2);
-          --theme-container-high: var(--_theme-container-highest-plus3);
-          --theme-container-highest: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+          --theme-container-lowest: var(--_tc3-lowest);
+          --theme-container-low: var(--_tc3-low);
+          --theme-container: var(--_tc3-normal);
+          --theme-container-high: var(--_tc3-high);
+          --theme-container-highest: var(--_tc3-highest);
+          --theme-container-highest-plus1: var(--_tc3-highest-plus1);
+          --theme-container-highest-plus2: var(--_tc3-highest-plus2);
         }
       `
     case ContainerLevel.Highest:
       return css`
         background-color: var(--theme-container-highest);
         --sb-color-background: var(--theme-container-highest);
+
+        --_tc4-lowest: var(--_theme-container-highest-plus1);
+        --_tc4-low: var(--_theme-container-highest-plus2);
+        --_tc4-normal: var(--_theme-container-highest-plus3);
+        --_tc4-high: var(--_theme-container-highest-plus3);
+        --_tc4-highest: var(--_theme-container-highest-plus3);
+        --_tc4-highest-plus1: var(--_theme-container-highest-plus3);
+        --_tc4-highest-plus2: var(--_theme-container-highest-plus3);
+
         & > * {
-          --theme-container-lowest: var(--theme-container-highest-plus1);
-          --theme-container-low: var(--theme-container-highest-plus2);
-          --theme-container: var(--_theme-container-highest-plus3);
-          --theme-container-high: var(--_theme-container-highest-plus3);
-          --theme-container-highest: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus1: var(--_theme-container-highest-plus3);
-          --theme-container-highest-plus2: var(--_theme-container-highest-plus3);
+          --theme-container-lowest: var(--_tc4-lowest);
+          --theme-container-low: var(--_tc4-low);
+          --theme-container: var(--_tc4-normal);
+          --theme-container-high: var(--_tc4-high);
+          --theme-container-highest: var(--_tc4-highest);
+          --theme-container-highest-plus1: var(--_tc4-highest-plus1);
+          --theme-container-highest-plus2: var(--_tc4-highest-plus2);
         }
       `
     default:
