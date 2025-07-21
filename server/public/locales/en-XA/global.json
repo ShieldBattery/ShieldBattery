@@ -326,6 +326,11 @@
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",
             "changeErrorMessage": "$🗡Something went wrong when changing the language🗡!"
+        },
+        "restriction": {
+            "chat": {
+                "notification": "$🗡<0>Your account has been restricted from sending chat messages for the following reason:</0><1>{{reasonLabel}}</1><2>This restriction will end on:</2><3>{{endText}}</3>🗡!"
+            }
         }
     },
     "landing": {
@@ -707,7 +712,8 @@
         "blockedMessage": "$🗡Blocked message🗡!",
         "mention": "$🗡Mention🗡!",
         "newDayMessage": "$🗡Day changed to <2>{{day}}</2>🗡!",
-        "sendMessage": "$🗡Send a message🗡!"
+        "sendMessage": "$🗡Send a message🗡!",
+        "sendMessageChatRestricted": "$🗡Restricted from sending messages until {{ date }}🗡!"
     },
     "policy": {
         "acceptableUse": "$🗡Acceptable use🗡!",
@@ -946,7 +952,8 @@
             "unknownError": "$🗡Unknown error🗡!",
             "userNotFound": "$🗡User not found🗡!",
             "invalidAction": "$🗡Must have an active whisper session with a user to retrieve message history🗡!",
-            "openSession": "$🗡Error opening whisper to user: {{errorMessage}}🗡!"
+            "openSession": "$🗡Error opening whisper to user: {{errorMessage}}🗡!",
+            "userChatRestricted": "$🗡You are currently restricted from sending chat messages🗡!"
         },
         "navEntry": {
             "closeWhisper": "$🗡Close whisper🗡!"
@@ -1014,6 +1021,16 @@
         },
         "titles": {
             "novice": "$🗡Novice🗡!"
+        },
+        "restrictions": {
+            "reason": {
+                "disruptive_behavior": "$🗡Disruptive behavior🗡!",
+                "harassment": "$🗡Harassment🗡!",
+                "toxicity": "$🗡Toxicity🗡!",
+                "hate_speech": "$🗡Hate speech🗡!",
+                "other": "$🗡Other🗡!",
+                "spam": "$🗡Spam🗡!"
+            }
         }
     },
     "lobbies": {

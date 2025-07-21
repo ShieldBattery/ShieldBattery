@@ -328,6 +328,11 @@
         "language": {
             "changeErrorHeader": "Error al cambiar el idioma",
             "changeErrorMessage": "Algo salió mal al cambiar el idioma"
+        },
+        "restriction": {
+            "chat": {
+                "notification": "<0>Tu cuenta ha sido restringida de enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción terminará el:</2><3>{{endText}}</3>"
+            }
         }
     },
     "landing": {
@@ -712,7 +717,8 @@
         "blockedMessage": "Mensaje bloqueado",
         "mention": "Mención",
         "newDayMessage": "Día cambiado a <2>{{day}}</2>",
-        "sendMessage": "Enviar un mensaje"
+        "sendMessage": "Enviar un mensaje",
+        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{ date }}"
     },
     "policy": {
         "acceptableUse": "Uso aceptable",
@@ -951,7 +957,8 @@
             "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
             "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
             "unknownError": "Error desconocido",
-            "userNotFound": "Usuario no encontrado"
+            "userNotFound": "Usuario no encontrado",
+            "userChatRestricted": "Actualmente estás restringido de enviar mensajes de chat"
         },
         "navEntry": {
             "closeWhisper": "Cerrar susurro"
@@ -1019,6 +1026,16 @@
         },
         "titles": {
             "novice": "Principiante"
+        },
+        "restrictions": {
+            "reason": {
+                "disruptive_behavior": "Comportamiento disruptivo",
+                "harassment": "Acoso",
+                "hate_speech": "Discurso de odio",
+                "other": "Otro",
+                "spam": "Spam",
+                "toxicity": "Toxicidad"
+            }
         }
     },
     "lobbies": {

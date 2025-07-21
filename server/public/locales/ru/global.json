@@ -361,6 +361,11 @@
         "language": {
             "changeErrorHeader": "Ошибка при смене языка",
             "changeErrorMessage": "Что-то пошло не так при смене языка"
+        },
+        "restriction": {
+            "chat": {
+                "notification": "<0>Ваш аккаунт ограничен в отправке сообщений в чате по следующей причине:</0><1>{{reasonLabel}}</1><2>Это ограничение закончится:</2><3>{{endText}}</3>"
+            }
         }
     },
     "ladder": {
@@ -536,7 +541,8 @@
             "userNotFound": "Пользователь не найден",
             "cantWhisperYourself": "Вы не можете отправить личное сообщение самому себе.",
             "invalidAction": "Для получения истории сообщений необходимо активное личное сообщение с пользователем",
-            "loadingHistory": "Ошибка при загрузке истории сообщений: {{errorMessage}}"
+            "loadingHistory": "Ошибка при загрузке истории сообщений: {{errorMessage}}",
+            "userChatRestricted": "В настоящее время вы ограничены в отправке сообщений в чате"
         },
         "navEntry": {
             "closeWhisper": "Закрыть личное сообщение"
@@ -1064,6 +1070,16 @@
         },
         "titles": {
             "novice": "Новичок"
+        },
+        "restrictions": {
+            "reason": {
+                "disruptive_behavior": "Разрушительное поведение",
+                "harassment": "Домогательства",
+                "hate_speech": "Речь ненависти",
+                "other": "Другое",
+                "spam": "Спам",
+                "toxicity": "Токсичность"
+            }
         }
     },
     "leagues": {
@@ -1151,7 +1167,8 @@
         "mention": "Упомянуть",
         "blockedMessage": "Заблокированное сообщение",
         "newDayMessage": "День изменен на <2>{{day}}</2>",
-        "sendMessage": "Отправить сообщение"
+        "sendMessage": "Отправить сообщение",
+        "sendMessageChatRestricted": "Ограничен в отправке сообщений до {{ date }}"
     },
     "material": {
         "dialog": {

@@ -357,6 +357,11 @@
             "required": "输入用户名",
             "notAvailable": "此用户名不可用",
             "error": "检查用户名可用性时出现问题"
+        },
+        "restriction": {
+            "chat": {
+                "notification": "<0>您的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>此限制将于：</2><3>{{endText}}</3>"
+            }
         }
     },
     "clientDownload": {
@@ -1052,6 +1057,16 @@
         },
         "titles": {
             "novice": "新手"
+        },
+        "restrictions": {
+            "reason": {
+                "disruptive_behavior": "破坏性行为",
+                "harassment": "骚扰",
+                "hate_speech": "仇恨言论",
+                "other": "其他",
+                "spam": "垃圾信息",
+                "toxicity": "有毒行为"
+            }
         }
     },
     "whispers": {
@@ -1070,7 +1085,8 @@
             "openSession": "私聊用户时遇到错误：{{errorMessage}}",
             "sendingMessage": "发送信息时遇到错误：{{errorMessage}}",
             "unknownError": "未知错误",
-            "userNotFound": "未找到用户"
+            "userNotFound": "未找到用户",
+            "userChatRestricted": "您目前被限制发送聊天消息"
         },
         "navEntry": {
             "closeWhisper": "关闭私聊"
@@ -1089,7 +1105,8 @@
         "blockedMessage": "消息被屏蔽",
         "mention": "提到",
         "newDayMessage": "日期已变为<2>{{day}}</2>",
-        "sendMessage": "发送消息"
+        "sendMessage": "发送消息",
+        "sendMessageChatRestricted": "限制发送消息直到 {{ date }}"
     },
     "windowControls": {
         "close": "关闭",
