@@ -50,8 +50,11 @@ export function useRelationshipsLoader() {
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const userId = useAppSelector(s => s.auth.self?.user.id)
+  const isConnected = useAppSelector(s => s.network.isConnected)
 
   useEffect(() => {
+    if (!isConnected) return () => {}
+
     const controller = new AbortController()
     dispatch(
       getRelationshipsIfNeeded({
@@ -68,7 +71,7 @@ export function useRelationshipsLoader() {
     return () => {
       controller.abort()
     }
-  }, [dispatch, snackbarController, t, userId])
+  }, [dispatch, isConnected, snackbarController, t, userId])
 }
 
 enum FriendsListTab {
