@@ -7,7 +7,6 @@ import {
   translationLanguageToLabel,
 } from '../../../common/i18n'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { changeUserLanguage } from '../../i18n/action-creators'
 import { RadioButton, RadioGroup } from '../../material/radio'
 import { useAppDispatch } from '../../redux-hooks'
@@ -47,7 +46,6 @@ export function UserLanguageSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <RadioGroup

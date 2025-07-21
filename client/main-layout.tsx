@@ -6,6 +6,7 @@ import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { getErrorStack } from '../common/errors'
 import { SbUser } from '../common/users/sb-user'
+import { audioManager, AvailableSound } from './audio/audio-manager'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
 import { ConnectedAvatar } from './avatars/avatar'
@@ -284,7 +285,11 @@ function AppBarMenuItem({
 
   return (
     <Link href={href} asChild={true}>
-      <MenuItemRoot ref={combinedRef} $isActive={isActive} draggable={false}>
+      <MenuItemRoot
+        ref={combinedRef}
+        $isActive={isActive}
+        draggable={false}
+        onMouseDown={() => audioManager.playSound(AvailableSound.Click)}>
         <MenuItemLeftEdge viewBox='0 0 20 64'>
           <polygon
             points={!flipped ? '0,0 20,0 20,64' : '0, 64, 20,64, 20,0'}

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
+import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { useWindowFocus } from '../dom/window-focus'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -269,6 +270,9 @@ function PlayButtonDisplay({
             gradientX2.set(fromCenterX + 0.4 * halfWidth)
             gradientY2.set(-yValue + fromCenterY)
           })
+        }}
+        onMouseDown={() => {
+          audioManager.playSound(AvailableSound.PlayButton)
         }}>
         <PlayButtonBackground>
           <PlayButtonBackgroundFill />

@@ -15,7 +15,6 @@ import {
   StartingFog,
 } from '../../../common/settings/local-settings'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
@@ -129,7 +128,6 @@ export function GameplaySettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <Select

@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
@@ -33,7 +32,7 @@ export function AppSystemSettings() {
   )
 
   useFormCallbacks(form, {
-    onSubmit: model => {
+    onValidatedChange: model => {
       dispatch(
         mergeLocalSettings(
           {
@@ -52,7 +51,6 @@ export function AppSystemSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <SectionOverline>{t('settings.app.system.filesOverline', 'Files')}</SectionOverline>

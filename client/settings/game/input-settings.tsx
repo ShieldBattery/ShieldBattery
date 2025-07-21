@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
@@ -49,7 +48,6 @@ export function GameInputSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <Slider

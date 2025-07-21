@@ -3,6 +3,7 @@ import { fetchRaw } from '../network/fetch'
 
 export enum AvailableSound {
   Atmosphere = 'atmosphere.opus',
+  Click = 'click.opus',
   Countdown = 'countdown.opus',
   DraftStart = 'draft-start.opus',
   EnteredQueue = 'entered-queue.opus',
@@ -10,8 +11,9 @@ export enum AvailableSound {
   LockIn = 'lock-in.opus',
   MatchFound = 'match-found.opus',
   MessageAlert = 'message-alert.opus',
-  PartyInvite = 'party-invite.opus',
-  PartyQueue = 'party-queue.opus',
+  // PartyInvite = 'party-invite.opus',
+  // PartyQueue = 'party-queue.opus',
+  PlayButton = 'play-button.opus',
   PointReveal = 'point-reveal.opus',
   RankUp = 'rank-up.opus',
   ScoreCount = 'score-count.opus',

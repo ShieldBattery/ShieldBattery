@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../../common/flags'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { FilledButton } from '../../material/button'
@@ -152,7 +151,6 @@ export function StarcraftSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <Layout>
           <CurrentPath>

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { audioManager, AvailableSound } from '../../audio/audio-manager'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import { Slider } from '../../material/slider'
@@ -61,7 +60,7 @@ export function AppSoundSettings() {
   )
 
   useFormCallbacks(form, {
-    onSubmit: model => {
+    onValidatedChange: model => {
       dispatch(
         mergeLocalSettings(
           { masterVolume: model.masterVolume },
@@ -78,7 +77,6 @@ export function AppSoundSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <VolumeSettings>

@@ -6,7 +6,6 @@ import {
   getDisplayModeName,
 } from '../../../common/settings/blizz-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
@@ -91,7 +90,6 @@ export function GameVideoSettings() {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
       <FormContainer>
         <div>
           <Select
