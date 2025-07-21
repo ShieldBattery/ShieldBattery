@@ -475,6 +475,7 @@ export function StaticNewsImage({ index, className }: { index: number; className
       aria-hidden={true}
       draggable={false}
       srcSet={`${smallImagePath} ${SMALL_IMAGE_WIDTH}w, ${imagePath} ${LARGE_IMAGE_WIDTH}w`}
+      loading='lazy'
     />
   )
 }
