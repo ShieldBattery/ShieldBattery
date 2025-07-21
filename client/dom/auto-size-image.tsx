@@ -1,7 +1,15 @@
 import * as React from 'react'
+import styled from 'styled-components'
 import { Except, SetRequired, Simplify } from 'type-fest'
 import { useMultiplexRef } from '../react/refs'
 import { useObservedDimensions } from './dimension-hooks'
+
+const StyledImage = styled.img`
+  &:not([src]):not([srcSet]) {
+    /** Avoid flash of broken image before it's sized */
+    visibility: hidden;
+  }
+`
 
 type ImgProps = React.JSX.IntrinsicElements['img']
 
@@ -19,7 +27,7 @@ export function AutoSizeImage(props: Simplify<SetRequired<Except<ImgProps, 'size
   // to avoid the browser immediately loading the full-size image and loading the lower res version
   // right after
   return (
-    <img
+    <StyledImage
       {...rest}
       ref={multiRef}
       src={imageRect ? src : undefined}
