@@ -727,6 +727,53 @@ function registerHotkeys() {
   })
 }
 
+function calculateOptimalWindowSize() {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+  const targetAspectRatio = 16 / 9
+
+  const padding = 40
+  const maxWidth = screenWidth - padding
+  const maxHeight = screenHeight - padding
+
+  let optimalWidth: number
+  let optimalHeight: number
+
+  if (maxWidth >= 1920 && maxHeight >= 1080) {
+    optimalWidth = 1920
+    optimalHeight = 1080
+  } else if (maxWidth >= 1600 && maxHeight >= 900) {
+    optimalWidth = 1600
+    optimalHeight = 900
+  } else if (maxWidth >= 1280 && maxHeight >= 720) {
+    optimalWidth = 1280
+    optimalHeight = 720
+  } else {
+    // Smaller displays: calculate based on available space with 16:9 ratio
+    const widthBasedHeight = Math.round(maxWidth / targetAspectRatio)
+    const heightBasedWidth = Math.round(maxHeight * targetAspectRatio)
+
+    if (widthBasedHeight <= maxHeight) {
+      optimalWidth = maxWidth
+      optimalHeight = widthBasedHeight
+    } else {
+      optimalWidth = heightBasedWidth
+      optimalHeight = maxHeight
+    }
+  }
+
+  // Ensure the calculated size fits within the available space
+  optimalWidth = Math.min(optimalWidth, maxWidth)
+  optimalHeight = Math.min(optimalHeight, maxHeight)
+
+  // Ensure minimum size requirements are met
+  optimalWidth = Math.max(optimalWidth, 1024)
+  optimalHeight = Math.max(optimalHeight, 640)
+
+  return { width: optimalWidth, height: optimalHeight }
+}
+
 async function createWindow() {
   const localSettings = container.resolve(LocalSettingsManager)
   const curSession = currentSession()
@@ -734,9 +781,11 @@ async function createWindow() {
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
   const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
 
+  const optimalSize = calculateOptimalWindowSize()
+
   mainWindow = new BrowserWindow({
-    width: winWidth && winWidth > 0 ? winWidth : 1280,
-    height: winHeight && winHeight > 0 ? winHeight : 800,
+    width: winWidth && winWidth > 0 ? winWidth : optimalSize.width,
+    height: winHeight && winHeight > 0 ? winHeight : optimalSize.height,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
     minWidth: 1024,
