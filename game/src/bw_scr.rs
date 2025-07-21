@@ -1,10 +1,10 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicUsize, Ordering};
 use std::time::Instant;
 
 use bw_dat::UnitId;
@@ -24,13 +24,14 @@ use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 use winapi::um::processthreadsapi::GetCurrentThreadId;
 
-use crate::app_messages::{AtomicStartingFog, MapInfo, Settings, StartingFog};
+use crate::app_messages::{AtomicStartingFog, MapInfo, SbUserId, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::scr::SafeBwString;
+use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
@@ -41,6 +42,7 @@ pub mod scr;
 
 mod bw_hash_table;
 mod bw_vector;
+mod chat;
 mod console;
 mod dialog_hook;
 mod draw_inject;
@@ -214,6 +216,7 @@ pub struct BwScr {
     decide_cursor_type: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
+    print_text_addr: VirtualAddress,
 
     // State
     exe_build: u32,
@@ -259,6 +262,8 @@ pub struct BwScr {
     sound_id_cache: Mutex<HashMap<String, u32>>,
     /// When the game countdown started (if it has started)
     countdown_start: Mutex<Option<Instant>>,
+    print_text_hooks_disabled: AtomicI32,
+    chat_manager: Mutex<chat::ChatManager>,
 }
 
 /// State mutated during renderer draw call
@@ -846,7 +851,7 @@ impl BwScr {
         let select_units = analysis.select_units().ok_or("select_units")?;
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
-        let print_text = analysis.print_text().ok_or("print_text")?;
+        let print_text_addr = analysis.print_text().ok_or("print_text")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -989,7 +994,7 @@ impl BwScr {
             render_screen: unsafe { mem::transmute(render_screen.0) },
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
-            print_text: unsafe { mem::transmute(print_text.0) },
+            print_text: unsafe { mem::transmute(print_text_addr.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1013,6 +1018,7 @@ impl BwScr {
             create_game_multiplayer,
             spawn_dialog,
             step_game_logic,
+            print_text_addr,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1048,6 +1054,8 @@ impl BwScr {
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
             countdown_start: Mutex::new(None),
+            print_text_hooks_disabled: AtomicI32::new(0),
+            chat_manager: Mutex::new(chat::ChatManager::new()),
         })
     }
 
@@ -1503,6 +1511,24 @@ impl BwScr {
                         }
                     }
                     orig()
+                },
+                address,
+            );
+
+            let address = self.print_text_addr.0 as usize - base;
+            exe.hook_closure_address(
+                PrintText,
+                move |text, player, unused, orig| {
+                    if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0 {
+                        if let Ok(text) = CStr::from_ptr(text).to_str() {
+                            let handled = self.chat_manager.lock().handle_message(text, player);
+                            if handled {
+                                return;
+                            }
+                        }
+                    }
+
+                    orig(text, player, unused);
                 },
                 address,
             );
@@ -2391,56 +2417,54 @@ impl BwScr {
         }
     }
 
+    fn with_print_text_hooks_disabled(&self, f: impl FnOnce()) {
+        self.print_text_hooks_disabled
+            .fetch_add(1, Ordering::SeqCst);
+        f();
+        self.print_text_hooks_disabled
+            .fetch_sub(1, Ordering::SeqCst);
+    }
+
     /// Prints text as a chat message from no one.
     #[allow(dead_code)]
     pub fn print_text(&self, text: &CStr) {
-        unsafe {
+        self.with_print_text_hooks_disabled(|| unsafe {
             (self.print_text)(text.as_ptr() as *const u8, 16, 0);
-        }
+        });
     }
 
     /// Prints text as a chat message from the specified user (slot ID).
     #[allow(dead_code)]
     pub fn print_text_from_user(&self, text: &CStr, user: u32) {
-        unsafe {
+        self.with_print_text_hooks_disabled(|| unsafe {
             (self.print_text)(text.as_ptr() as *const u8, user, 0);
-        }
+        });
     }
 
     /// Prints centered text. This does not make a transmission sound like the other versions of
     /// print_text.
     #[allow(dead_code)]
     pub fn print_centered_text(&self, text: &CStr) {
-        unsafe {
+        self.with_print_text_hooks_disabled(|| unsafe {
             (self.print_text)(text.as_ptr() as *const u8, u32::MAX, 0);
-        }
+        });
     }
 
     /// Call with a chat message to possibly handle it if it contains a command. Returns whether it
     /// was handled (and if so, the message should be cleared and not sent).
     pub fn handle_chat_command(&self, text: &str) -> bool {
-        if !text.starts_with("/") {
-            return false;
-        }
+        self.chat_manager.lock().handle_send_chat(text)
+    }
 
-        match text {
-            "/version" => {
-                let msg = CString::new(format!(
-                    "\x04ShieldBattery \x07{}, \x04SC:R \x07{}",
-                    env!("SHIELDBATTERY_VERSION"),
-                    get_exe_build()
-                ))
-                .unwrap();
-                self.print_text(&msg);
-            }
-            _ => {
-                let command = text.split(' ').next().unwrap();
-                let msg = CString::new(format!("\x06Unknown command: \x04{command}")).unwrap();
-                self.print_centered_text(&msg);
-            }
-        }
-
-        true
+    pub fn init_chat_manager(
+        &self,
+        players: &[JoinedPlayer],
+        local_user_id: SbUserId,
+        is_chat_restricted: bool,
+    ) {
+        let mut chat_manager = self.chat_manager.lock();
+        chat_manager.set_players(players);
+        chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
     }
 }
 
@@ -3537,6 +3561,7 @@ mod hooks {
         !0 => UpdateGameScreenSize(f32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
+        !0 => PrintText(*const i8, u32, u32);
     );
 
     system_hooks!(

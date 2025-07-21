@@ -13,6 +13,7 @@ import { Slot } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
@@ -20,6 +21,7 @@ import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
+import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
@@ -294,6 +296,7 @@ export class GameLoader {
   constructor(
     private publisher: TypedPublisher<GameLoaderEvent>,
     private activityRegistry: GameplayActivityRegistry,
+    private restrictionService: RestrictionService,
   ) {}
 
   /**
@@ -485,6 +488,9 @@ export class GameLoader {
     const allUserIds = players.map(p => p.userId!).toArray()
 
     const usersResult = Result.try(() => findUsersById(allUserIds))
+    const chatRestrictedResult = Result.try(() =>
+      this.restrictionService.checkMultipleRestrictions(allUserIds, RestrictionKind.Chat),
+    )
 
     const [activeClients, activeClientsError] = Result.all(
       ...allUserIds.map(userId => {
@@ -633,6 +639,16 @@ export class GameLoader {
       }
       const [map] = maps
 
+      const [chatRestrictions, chatRestrictionsError] = await chatRestrictedResult.toTuple()
+      const restrictionsSet = new global.Set<SbUserId>()
+      if (chatRestrictionsError) {
+        log.error({ err: chatRestrictionsError }, 'error checking chat restrictions')
+      } else {
+        for (const u of chatRestrictions) {
+          restrictionsSet.add(u)
+        }
+      }
+
       const generalSetup = getGeneralGameSetup({
         gameConfig,
         playerInfos,
@@ -652,6 +668,7 @@ export class GameLoader {
           setup: {
             ...generalSetup,
             resultCode: resultCodes.get(userId)!,
+            isChatRestricted: restrictionsSet.has(userId),
           },
         })
       }

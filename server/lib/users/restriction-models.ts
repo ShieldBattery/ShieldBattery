@@ -325,6 +325,30 @@ export async function checkRestriction(
   }
 }
 
+/** Returns an array of the subset of user IDs that are currently restricted. */
+export async function checkMultipleRestrictions({
+  users,
+  kind,
+}: {
+  users: ReadonlyArray<SbUserId>
+  kind: RestrictionKind
+}): Promise<SbUserId[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      SELECT DISTINCT user_id
+      FROM user_restrictions
+      WHERE user_id = ANY(${users}) AND
+        kind = ${kind} AND
+        end_time > NOW() AND
+        start_time <= NOW()
+    `)
+    return result.rows.map(r => r.user_id)
+  } finally {
+    done()
+  }
+}
+
 export async function retrieveRestrictionHistory(
   { userId, limit }: { userId: SbUserId; limit?: number },
   withClient?: DbClient,

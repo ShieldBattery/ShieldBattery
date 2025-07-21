@@ -91,6 +91,8 @@ export interface GameSetup {
    * code may not be given, meaning no result is to be reported.
    */
   resultCode?: string
+  /** True if the local user is currently restricted from sending messages. */
+  isChatRestricted?: boolean
 }
 
 /** Configuration info for launching a local game client to play a specific game. */

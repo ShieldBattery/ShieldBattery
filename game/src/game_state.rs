@@ -669,6 +669,13 @@ impl GameState {
                             );
                         }
                     }
+
+                    get_bw().init_chat_manager(
+                        &state.joined_players,
+                        state.local_user.id,
+                        state.setup_info.is_chat_restricted.unwrap_or_default(),
+                    );
+
                     let mapping = state
                         .joined_players
                         .iter()
@@ -852,12 +859,12 @@ struct InitInProgress {
     stall_max: Duration,
 }
 
-#[derive(Debug)]
-struct JoinedPlayer {
-    name: String,
-    storm_id: StormPlayerId,
-    player_id: Option<BwPlayerId>,
-    sb_user_id: SbUserId,
+#[derive(Clone, Debug)]
+pub struct JoinedPlayer {
+    pub name: String,
+    pub storm_id: StormPlayerId,
+    pub player_id: Option<BwPlayerId>,
+    pub sb_user_id: SbUserId,
 }
 
 impl InitInProgress {

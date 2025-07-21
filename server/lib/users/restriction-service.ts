@@ -15,6 +15,7 @@ import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ClientIdentifierBuffer, MIN_IDENTIFIER_MATCHES } from './client-ids'
 import {
+  checkMultipleRestrictions,
   checkRestriction,
   countRestrictedUserIdentifiers,
   getActiveUserRestrictions,
@@ -56,6 +57,14 @@ export class RestrictionService {
   /** Returns true if the user currently has a restriction of the specified kind */
   async isRestricted(userId: SbUserId, kind: RestrictionKind): Promise<boolean> {
     return await checkRestriction({ userId, kind })
+  }
+
+  /** Returns the subset of `users` that currently have a restriction of `kind`. */
+  async checkMultipleRestrictions(
+    users: ReadonlyArray<SbUserId>,
+    kind: RestrictionKind,
+  ): Promise<SbUserId[]> {
+    return await checkMultipleRestrictions({ users, kind })
   }
 
   async applyRestriction({

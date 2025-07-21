@@ -173,6 +173,7 @@ pub struct GameSetupInfo {
     pub seed: u32,
     pub game_id: String,
     pub result_code: Option<String>,
+    pub is_chat_restricted: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
