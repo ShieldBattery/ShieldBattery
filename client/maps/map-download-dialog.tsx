@@ -72,7 +72,7 @@ export function MapDownloadDialog({ mapId, onCancel }: MapDownloadDialogProps) {
         <ErrorText>
           {t(
             'map.download.urlError',
-            'There was a problem retrieving the download url. Please try again later.',
+            'There was a problem retrieving the download link. Please try again later.',
           )}
         </ErrorText>
       ) : (

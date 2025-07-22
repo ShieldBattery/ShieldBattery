@@ -600,7 +600,7 @@
   "map": {
     "download": {
       "dialogTitle": "Downloading map…",
-      "urlError": "There was a problem retrieving the download url. Please try again later."
+      "urlError": "There was a problem retrieving the download link. Please try again later."
     }
   },
   "maps": {
@@ -819,7 +819,7 @@
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "sendMessage": "Send a message",
-    "sendMessageChatRestricted": "Restricted from sending messages until {{ date }}"
+    "sendMessageChatRestricted": "Restricted from sending messages until {{date}}"
   },
   "navigation": {
     "bar": {
