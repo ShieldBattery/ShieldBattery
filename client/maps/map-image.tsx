@@ -50,6 +50,7 @@ export function MapNoImage() {
 
 export interface MapInfoImageProps {
   map: ReadonlyDeep<MapInfoJson>
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
@@ -68,6 +69,7 @@ export function MapInfoImage({
     name,
     mapData: { width, height },
   },
+  scale,
   altText,
   noImageElem,
   forceAspectRatio,
@@ -84,6 +86,7 @@ export function MapInfoImage({
       name={name}
       width={width}
       height={height}
+      scale={scale}
       altText={altText}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
@@ -101,6 +104,7 @@ export function UploadedMapImage({
     mapFile: { image256Url, image512Url, image1024Url, image2048Url, width, height },
     name,
   },
+  scale,
   altText,
   noImageElem,
   forceAspectRatio,
@@ -119,6 +123,7 @@ export function UploadedMapImage({
     }
     name: string
   }
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
@@ -135,6 +140,7 @@ export function UploadedMapImage({
       name={name}
       width={width}
       height={height}
+      scale={scale}
       altText={altText}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
@@ -153,6 +159,7 @@ function MapImage({
   name,
   width,
   height,
+  scale,
   altText,
   noImageElem = <MapNoImage />,
   forceAspectRatio,
@@ -167,6 +174,7 @@ function MapImage({
   name: string
   width: number
   height: number
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
@@ -199,10 +207,12 @@ function MapImage({
             width={imgWidth}
             height={imgHeight}
             srcSet={srcSet}
+            scale={scale}
             src={image256Url}
             alt={altText ?? name}
             draggable={false}
-            decoding={'async'}
+            decoding='async'
+            loading='lazy'
             onMouseDown={onMouseDown}
           />
         </ImgContainer>

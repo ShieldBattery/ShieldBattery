@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbMapId } from '../../common/maps'
+import { ReadonlyDeep } from 'type-fest'
+import { MapInfoJson, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -77,16 +78,16 @@ const ZoomableMapImageContainer = styled.div`
   border-radius: 4px;
 `
 
-const StyledMapInfoImage = styled(MapInfoImage)<{ $zoom: number }>`
+const StyledMapInfoImage = styled(MapInfoImage)`
   ${fastOutSlowInShort};
 
-  transform: scale(${props => props.$zoom});
+  transform: scale(var(--sb-map-image-zoom));
   transform-origin: var(--sb-map-image-x-origin) var(--sb-map-image-y-origin);
 
-  cursor: ${props => (props.$zoom > 1 ? 'grab' : 'default')};
+  cursor: var(--sb-map-image-cursor);
 
   &:active {
-    cursor: ${props => (props.$zoom > 1 ? 'grabbing' : 'default')};
+    cursor: var(--sb-map-image-active-cursor);
   }
 `
 
@@ -116,7 +117,7 @@ const StyledSlider = styled(Slider)`
   width: 156px;
 `
 
-const ZoomableMapImage = ({ map }: { map: any }) => {
+const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
   const { t } = useTranslation()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -212,11 +213,14 @@ const ZoomableMapImage = ({ map }: { map: any }) => {
     <ZoomableMapImageContainer ref={containerRef}>
       <StyledMapInfoImage
         map={map}
-        $zoom={zoom}
+        scale={zoom}
         style={
           {
+            '--sb-map-image-zoom': zoom,
             '--sb-map-image-x-origin': x !== undefined ? `${x}px` : 'center',
             '--sb-map-image-y-origin': y !== undefined ? `${y}px` : 'center',
+            '--sb-map-image-cursor': zoom > 1 ? 'grab' : 'default',
+            '--sb-map-image-active-cursor': zoom > 1 ? 'grabbing' : 'default',
           } as React.CSSProperties
         }
         onMouseDown={onMouseDown}
