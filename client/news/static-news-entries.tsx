@@ -455,6 +455,180 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
       - **Fixed the replay UI rapidly changing size in certain configurations**
     `,
   },
+  {
+    // TODO(tec27): set a real date
+    date: 0,
+    title: 'Update 10.0.0',
+    summary: 'A big redesign, pre-match drafts, and more!',
+    contents: `
+      This update is one our largest yet, containing over 6 months of work from 6 different
+      contributors. We're excited to finally get this out there and hope you enjoy the new features
+      and changes!
+
+      Before we dive into what's new, I wanted to take a moment to mention how you can support
+      further development of ShieldBattery. If you're enjoying the app and want to see it succeed
+      and grow, please consider donating to the project if you're able. Our current monthly
+      donations don't even cover half of our hosting costs, and we would love to do more, but that's
+      tough without funding! So if you have some spare cash, we have a few different ways of
+      accepting support:
+
+      - [GitHub Sponsors](https://github.com/sponsors/ShieldBattery)
+      - [Patreon](https://patreon.com/tec27)
+      - [Ko-fi](https://ko-fi.com/tec27)
+
+      Now, onto the changes!
+
+      ## Brood War changes
+
+      These tend to be rare, but we noticed a couple of long-standing bugs in the game since our
+      last release that seemed worth fixing.
+
+      - **Fixed the mouse cursor being mis-sized when hovering over units with hardware cursor on.**
+
+        This has been around since SC:R was released and it can really throw off your clicks when
+        the mouse cursor is resizing all the time. So, now it'll stay the right size!
+
+      - **Fixed a rare issue that caused workers to get stuck inside gas buildings permanently.**
+
+        This was one we hadn't seen before, but relates to workers trying to mine gas while stacked.
+        Anyway, it won't happen on ShieldBattery any more, so I guess you'll never see it now.
+        Thanks to SgT.FaT for reporting this to us and sending us a replay!
+
+      ## General app
+
+      - **Revamped design.**
+
+        As you've probably noticed, the app looks way different now! We've spent a lot of time
+        reworking the design to better support the kinds of features we're looking to add in the
+        near future, and to make things work better on smaller screens. The app also allows you to
+        do more while logged out or offline now (more work to come on that!).
+
+      - **Greatly improved translations.**
+
+        We went through all of our existing translations to check them for accuracy and consistency,
+        and it turns out, a lot of them were neither accurate nor consistent! They should be a lot
+        better in this version, but if you'd like to help us improve them further, we're always
+        looking for more contributors!
+
+      - **Signups are now app-only.**
+
+        To help us better prevent abuse, signing up for an account will now require using the app.
+        After you've signed up, you're free to log in on the web version, but you can also just do
+        a lot more while logged out now!
+
+      - **Map downloads.**
+
+        There's now an option to download maps from the 3-dot menu on their thumbnails, so you can
+        stop rummaging around in our application cache.
+
+      - **News posts.**
+
+        You're reading one right now! We hope to expand on this feature in the near future so we can
+        keep you up-to-date with things going on. We've also added the ability to display urgent
+        messages on the homepage in case we need to make a quick announcement, like if the server
+        needs to restart for maintenance.
+
+      - **Live games and active leagues.**
+
+        We've added a list of games that are currently being played, as well as a list of active
+        and upcoming leagues, to the homepage. We hope to one day have easy 1-click spectating of
+        these games from here, but for now you'll just have to use your imagination.
+
+      ## Game integration
+      - **New loading screen.**
+
+        We've moved the loading screen completely ingame, and placed a
+        countdown at the very end of it to let you prepare to split your workers at blinding speed.
+        This should be a much smoother experience in general, but it also required a lot of changes
+        to the game launching code, so if you see any new problems, please let us know!
+
+      - **Window position memory.**
+
+        The game will now remember its last position and size in
+        windowed mode. If you're a fullscreen user that likes playing on your non-primary monitor,
+        stay tuned for a future update that will make the game remember that too!
+
+      - **Exclusive fullscreen fixed.**
+
+        Exclusive fullscreen should be once again… well, exclusive!
+
+      - **Added /mute command.**
+
+        You can now use \`/mute\` ingame to mute a player by name (and
+        \`/unmute\` to undo this). While muted, you won't see any of their messages in chat. This
+        will only apply for the duration of that game. If you decide you want to play in complete
+        silence, you can also use \`/muteall\` to mute all the players in the game at once (and
+        \`/unmuteall\` to undo this). We will be integrating blocks ingame in the near future if
+        you want to permanently ignore someone.
+
+      - **Better handling of Windows compatibility setting.**
+
+        We've adjusted how we handle the Windows compatibility settings for the game executable, to
+        better ensure the game doesn't launch with any weird settings. This should fix issues with
+        launching the game when it is set to require administrator privileges.
+
+      ## Matchmaking/Ranked
+
+      - **Party mode shelved.**
+
+        Womp womp. We know many people will be disappointed with this
+        change, but we've found that party mode was not necessarily doing what we wanted it to in
+        matchmaking. It was leading to a lot of unbalanced matches, and made the matchmaker very
+        complicated to maintain and expand on (which makes it harder to add new matchmaking types!).
+        We may add parties back in the future, but for now we want to try out a different approach…
+
+      - **Pre-match drafts.**
+
+        This is the different approach! For team modes, all players will enter
+        a short draft phase just before the match starts, allowing each player to select a race in
+        turn. You will be able to chat with your teammates during this phase, but not the enemy
+        team, and see what your teammate has selected before they lock in. You won't know exactly
+        who you're playing against, but you will know the map you're playing on. Our hope is that
+        this brings a lot of the benefits of playing in a custom lobby while still letting the
+        matchmaker find balanced games.
+
+      - **Punishments.**
+
+        A number of not-so-nice people have been abusing our goodwill lately and
+        dodging matches they don't want to play just before they start. Since this negatively
+        affects all the other players when it happens, we've added a feature to temporarily ban
+        players who do this from using matchmaking. The first dodge is a warning, and bans will ramp
+        up after that. If you behave for long enough, you'll reset back to the warning level.
+
+      - **Relive the glory.**
+
+        Ranks from past seasons will now be shown on user profiles, in case your lame friends didn't
+        believe you actually hit Diamond 2 once.
+
+      ## Lobby
+      - **Blame game.**
+
+        In the event the game fails to start, lobbies will now let you know who was to blame so you
+        know exactly who to direct your ire at.
+
+      ## Social
+      - **Mention auto-complete.**
+
+        After typing an \`@\` in chat, a smart popup will appear with a list of possible users to
+        mention, so you can stop struggling to type out IiIllLLiI1 by hand.
+
+      - **Collapsible sidebar.**
+
+        You can now unpin the chat sidebar if you'd prefer it to go away after you use it, or
+        collapse it to hide it entirely. If you're not a big talker, well, now you don't have to
+        waste the space on it.
+
+      - **You're no longer trapped in #ShieldBattery.**
+
+        As much as we like having you there, you're now free to leave.
+
+      - **More punishments.**
+
+        We've added chat restrictions for users that don't get along well with others. Chat
+        restrictions apply to all chat surfaces (channels, lobbies, drafts, and whispers) and
+        apply ingame.
+    `,
+  },
 ]
 
 export const newsDateFormatter = new Intl.DateTimeFormat(navigator.language, {
