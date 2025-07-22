@@ -248,6 +248,9 @@
     "subtitle": "Help fund ShieldBattery's development"
   },
   "common": {
+    "action": {
+      "close": "Close"
+    },
     "actions": {
       "accept": "Accept",
       "apply": "Apply",
@@ -278,7 +281,6 @@
       "unblock": "Unblock",
       "view": "View"
     },
-    "close": "Close",
     "lists": {
       "empty": "Nothing to see here"
     },
