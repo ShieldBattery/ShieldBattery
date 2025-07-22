@@ -223,6 +223,7 @@ const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
             '--sb-map-image-active-cursor': zoom > 1 ? 'grabbing' : 'default',
           } as React.CSSProperties
         }
+        decoding='sync'
         onMouseDown={onMouseDown}
       />
 

@@ -52,6 +52,8 @@ export interface MapInfoImageProps {
   map: ReadonlyDeep<MapInfoJson>
   scale?: number
   altText?: string
+  decoding?: 'async' | 'sync' | 'auto'
+  loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
@@ -71,6 +73,8 @@ export function MapInfoImage({
   },
   scale,
   altText,
+  decoding,
+  loading,
   noImageElem,
   forceAspectRatio,
   className,
@@ -88,6 +92,8 @@ export function MapInfoImage({
       height={height}
       scale={scale}
       altText={altText}
+      decoding={decoding}
+      loading={loading}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
@@ -106,6 +112,8 @@ export function UploadedMapImage({
   },
   scale,
   altText,
+  decoding,
+  loading,
   noImageElem,
   forceAspectRatio,
   className,
@@ -125,6 +133,8 @@ export function UploadedMapImage({
   }
   scale?: number
   altText?: string
+  decoding?: 'async' | 'sync' | 'auto'
+  loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
@@ -142,6 +152,8 @@ export function UploadedMapImage({
       height={height}
       scale={scale}
       altText={altText}
+      decoding={decoding}
+      loading={loading}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
@@ -161,6 +173,8 @@ function MapImage({
   height,
   scale,
   altText,
+  decoding = 'async',
+  loading = 'lazy',
   noImageElem = <MapNoImage />,
   forceAspectRatio,
   className,
@@ -176,6 +190,8 @@ function MapImage({
   height: number
   scale?: number
   altText?: string
+  decoding?: 'async' | 'sync' | 'auto'
+  loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
@@ -211,8 +227,8 @@ function MapImage({
             src={image256Url}
             alt={altText ?? name}
             draggable={false}
-            decoding='async'
-            loading='lazy'
+            decoding={decoding}
+            loading={loading}
             onMouseDown={onMouseDown}
           />
         </ImgContainer>
