@@ -371,6 +371,7 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
     background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     box-shadow: none;
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+    pointer-events: none;
   }
 
   &:focus-visible {
@@ -479,6 +480,7 @@ export const ElevatedButton = styled(FilledButton)`
 
   &:disabled {
     ${elevationZero};
+    pointer-events: none;
   }
 `
 
@@ -496,6 +498,7 @@ export const OutlinedButton = styled(FilledButton)`
   &:disabled {
     background-color: transparent;
     border-color: rgb(from var(--theme-on-surface) r g b / 0.12);
+    pointer-events: none;
   }
 `
 
@@ -520,6 +523,7 @@ const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+    pointer-events: none;
   }
 
   &:focus-visible {
@@ -621,6 +625,7 @@ const IconButtonRoot = styled.button`
 
   &:disabled {
     color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+    pointer-events: none;
   }
 
   &:focus-visible {
