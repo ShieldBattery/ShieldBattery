@@ -291,7 +291,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       // TODO(tec27): Once RelativeDuration has been out longer than a few months, use that instead
       const date = longTimestamp.format(chatRestriction.endTime)
       label = t('messaging.sendMessageChatRestricted', {
-        defaultValue: 'Restricted from sending messages until {{ date }}',
+        defaultValue: 'Restricted from sending messages until {{date}}',
         date,
       })
     }
