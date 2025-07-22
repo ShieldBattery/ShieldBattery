@@ -3,7 +3,7 @@ import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { useStableCallback } from '../react/state-hooks'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { standardEasing } from './curve-constants'
@@ -98,12 +98,20 @@ function Ticks({ show, value, min, max, step }: TicksProps) {
   )
 }
 
-const TrackRoot = styled.div<{ $disabled?: boolean }>`
+const TrackRoot = styled.div<{ $disabled?: boolean; $showBalloon?: boolean }>`
   position: absolute;
   width: 100%;
   height: 4px;
   left: 0px;
-  top: 54px;
+  ${props =>
+    props.$showBalloon
+      ? css`
+          top: 54px;
+        `
+      : css`
+          top: 50%;
+          transform: translateY(-50%);
+        `}
   border-radius: 4px;
   background-color: ${props =>
     props.$disabled
@@ -145,6 +153,7 @@ interface TrackProps {
   max: number
   step: number
   transitionDuration?: number
+  showBalloon?: boolean
 }
 
 function Track({
@@ -155,6 +164,7 @@ function Track({
   max,
   step,
   transitionDuration = 150,
+  showBalloon,
 }: TrackProps) {
   const scale = (value - min) / (max - min)
   const filledStyle = {
@@ -163,7 +173,7 @@ function Track({
   }
 
   return (
-    <TrackRoot $disabled={disabled}>
+    <TrackRoot $disabled={disabled} $showBalloon={showBalloon}>
       <FilledTrackWrapper>
         <FilledTrack $disabled={disabled} style={filledStyle} />
       </FilledTrackWrapper>
@@ -172,8 +182,8 @@ function Track({
   )
 }
 
-const Root = styled.div<{ $disabled?: boolean; $focused?: boolean }>`
-  height: 72px;
+const Root = styled.div<{ $disabled?: boolean; $focused?: boolean; $showBalloon?: boolean }>`
+  height: ${props => (props.$showBalloon ? '72px' : '32px')};
   position: relative;
   contain: layout style;
   opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
@@ -181,11 +191,19 @@ const Root = styled.div<{ $disabled?: boolean; $focused?: boolean }>`
   ${props => (props.$focused || props.$disabled ? 'outline: none;' : '')}
 `
 
-const SliderLabel = styled.div`
+const SliderLabel = styled.div<{ $showBalloon?: boolean }>`
   ${labelLarge};
-  position: absolute;
-  top: 8px;
-  left: 2px;
+  ${props =>
+    props.$showBalloon
+      ? css`
+          position: absolute;
+          top: 8px;
+          left: 2px;
+        `
+      : css`
+          display: inline-block;
+          margin-bottom: 8px;
+        `}
 
   color: var(--theme-on-surface-variant);
   pointer-events: none;
@@ -204,21 +222,37 @@ const OverflowClip = styled.div`
   pointer-events: none;
 `
 
-const ThumbContainer = styled.div`
+const ThumbContainer = styled.div<{ $showBalloon?: boolean }>`
   position: relative;
-  top: ${54 - THUMB_HEIGHT_PX / 2}px;
+  ${props =>
+    props.$showBalloon
+      ? css`
+          top: ${54 - THUMB_HEIGHT_PX / 2}px;
+        `
+      : css`
+          top: 50%;
+          transform: translateY(-50%);
+        `}
   width: 100%;
   pointer-events: none;
   will-change: transform;
   transition: transform 150ms ${standardEasing};
 `
 
-const Thumb = styled.div<{ $disabled?: boolean }>`
+const Thumb = styled.div<{ $disabled?: boolean; $showBalloon?: boolean }>`
   position: absolute;
   width: ${THUMB_WIDTH_PX}px;
   height: ${THUMB_HEIGHT_PX}px;
   left: ${THUMB_WIDTH_PX / -2}px;
-  top: 2px;
+  ${props =>
+    props.$showBalloon
+      ? css`
+          top: 2px;
+        `
+      : css`
+          top: 50%;
+          transform: translateY(-50%);
+        `}
 
   background-color: ${props =>
     props.$disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)'};
@@ -305,6 +339,7 @@ function clamp(value: number, min: number, max: number): number {
 interface SliderProps {
   step?: number
   showTicks?: boolean
+  showBalloon?: boolean
   tabIndex?: number
   min: number
   max: number
@@ -319,6 +354,7 @@ interface SliderProps {
 export function Slider({
   step = 1,
   showTicks = true,
+  showBalloon = true,
   tabIndex = 0,
   min,
   max,
@@ -484,7 +520,7 @@ export function Slider({
   const stepPercentage = (step / (max - min)) * 100
   const optionNum = ((value ?? min) - min) / step
   const thumbPosition = stepPercentage * optionNum
-  const showBalloon = isFocused || isClicked
+  const isBalloonVisible = showBalloon && (isFocused || isClicked)
 
   let transitionDuration: number
   if (isDragging) {
@@ -496,54 +532,64 @@ export function Slider({
   }
 
   return (
-    <Root
-      ref={ref}
-      id={id}
-      $focused={isFocused}
-      $disabled={disabled}
-      className={className}
-      tabIndex={disabled ? -1 : tabIndex}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}>
-      {label ? (
-        <SliderLabel as='label' htmlFor={id}>
+    <>
+      {label && !showBalloon ? (
+        <SliderLabel as='label' htmlFor={id} $showBalloon={showBalloon}>
           {label}
         </SliderLabel>
       ) : null}
-      <Track
-        min={min}
-        max={max}
-        step={step}
-        value={value ?? min}
-        disabled={disabled}
-        showTicks={showTicks && isClicked}
-        transitionDuration={transitionDuration}
-      />
-      <OverflowClip>
-        <ThumbContainer
-          style={{
-            transform: `translateX(${thumbPosition}%)`,
-            transitionDuration: `${transitionDuration}ms`,
-          }}>
-          <Thumb $disabled={disabled} />
-          <AnimatePresence>
-            {showBalloon && (
-              <Balloon
-                ref={balloonRef}
-                variants={balloonVariants}
-                initial='hidden'
-                animate='visible'
-                exit='hidden'
-                transition={balloonTransition}>
-                <BalloonText>{value}</BalloonText>
-              </Balloon>
-            )}
-          </AnimatePresence>
-        </ThumbContainer>
-      </OverflowClip>
-      <ClickableArea ref={trackAreaRef} $disabled={disabled} onMouseDown={onMouseDown} />
-    </Root>
+      <Root
+        ref={ref}
+        id={id}
+        $showBalloon={showBalloon}
+        $focused={isFocused}
+        $disabled={disabled}
+        className={className}
+        tabIndex={disabled ? -1 : tabIndex}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}>
+        {label && showBalloon ? (
+          <SliderLabel as='label' htmlFor={id} $showBalloon={showBalloon}>
+            {label}
+          </SliderLabel>
+        ) : null}
+        <Track
+          min={min}
+          max={max}
+          step={step}
+          value={value ?? min}
+          disabled={disabled}
+          showTicks={showTicks && isClicked}
+          showBalloon={showBalloon}
+          transitionDuration={transitionDuration}
+        />
+        <OverflowClip>
+          <ThumbContainer
+            $showBalloon={showBalloon}
+            style={{
+              transform: `translateX(${thumbPosition}%)`,
+              transitionDuration: `${transitionDuration}ms`,
+            }}>
+            <Thumb $disabled={disabled} $showBalloon={showBalloon} />
+            <AnimatePresence>
+              {isBalloonVisible && (
+                <Balloon
+                  ref={balloonRef}
+                  variants={balloonVariants}
+                  initial='hidden'
+                  animate='visible'
+                  exit='hidden'
+                  transition={balloonTransition}>
+                  <BalloonText>{value}</BalloonText>
+                </Balloon>
+              )}
+            </AnimatePresence>
+          </ThumbContainer>
+        </OverflowClip>
+        <ClickableArea ref={trackAreaRef} $disabled={disabled} onMouseDown={onMouseDown} />
+      </Root>
+    </>
   )
 }

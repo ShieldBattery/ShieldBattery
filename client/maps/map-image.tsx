@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
+import { AutoSizeImage } from '../dom/auto-size-image'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -13,7 +14,7 @@ const ImgContainer = styled.div`
   height: 100%;
 `
 
-const ImgElement = styled.img`
+const ImgElement = styled(AutoSizeImage)`
   display: block;
   aspect-ratio: var(--sb-map-image-aspect-ratio, 1);
   width: 100%;
@@ -49,11 +50,13 @@ export function MapNoImage() {
 
 export interface MapInfoImageProps {
   map: ReadonlyDeep<MapInfoJson>
-  size?: number
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
+  style?: React.CSSProperties
+  onMouseDown?: (e: React.MouseEvent) => void
 }
 
 /** Displays the map image for `MapInfo` data. */
@@ -66,11 +69,13 @@ export function MapInfoImage({
     name,
     mapData: { width, height },
   },
-  size,
+  scale,
   altText,
   noImageElem,
   forceAspectRatio,
   className,
+  style,
+  onMouseDown,
 }: MapInfoImageProps) {
   return (
     <MapImage
@@ -81,11 +86,13 @@ export function MapInfoImage({
       name={name}
       width={width}
       height={height}
-      size={size}
+      scale={scale}
       altText={altText}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
+      style={style}
+      onMouseDown={onMouseDown}
     />
   )
 }
@@ -97,11 +104,13 @@ export function UploadedMapImage({
     mapFile: { image256Url, image512Url, image1024Url, image2048Url, width, height },
     name,
   },
-  size,
+  scale,
   altText,
   noImageElem,
   forceAspectRatio,
   className,
+  style,
+  onMouseDown,
 }: {
   map: {
     mapFile: {
@@ -114,11 +123,13 @@ export function UploadedMapImage({
     }
     name: string
   }
-  size?: number
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
+  style?: React.CSSProperties
+  onMouseDown?: (e: React.MouseEvent) => void
 }) {
   return (
     <MapImage
@@ -129,11 +140,13 @@ export function UploadedMapImage({
       name={name}
       width={width}
       height={height}
-      size={size}
+      scale={scale}
       altText={altText}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
+      style={style}
+      onMouseDown={onMouseDown}
     />
   )
 }
@@ -146,11 +159,13 @@ function MapImage({
   name,
   width,
   height,
-  size = 256,
+  scale,
   altText,
   noImageElem = <MapNoImage />,
   forceAspectRatio,
   className,
+  style,
+  onMouseDown,
 }: {
   image256Url?: string
   image512Url?: string
@@ -159,11 +174,13 @@ function MapImage({
   name: string
   width: number
   height: number
-  size?: number
+  scale?: number
   altText?: string
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
+  style?: React.CSSProperties
+  onMouseDown?: (e: React.MouseEvent) => void
 }) {
   const srcSet = `
     ${image256Url} 256w,
@@ -173,27 +190,30 @@ function MapImage({
   `
 
   const aspectRatio = width / height
-  const imgWidth = size || width
+  const imgWidth = width
   const imgHeight = imgWidth / aspectRatio
 
-  const style = {
+  const imgStyle = {
     '--sb-map-image-aspect-ratio': forceAspectRatio !== undefined ? forceAspectRatio : aspectRatio,
+    ...style,
   } as React.CSSProperties
 
   // TODO(2Pac): handle 404s
   return (
     <>
       {image256Url ? (
-        <ImgContainer className={className} style={style}>
+        <ImgContainer className={className} style={imgStyle}>
           <ImgElement
             width={imgWidth}
             height={imgHeight}
             srcSet={srcSet}
-            sizes={`${size}px`}
+            scale={scale}
             src={image256Url}
             alt={altText ?? name}
             draggable={false}
-            decoding={'async'}
+            decoding='async'
+            loading='lazy'
+            onMouseDown={onMouseDown}
           />
         </ImgContainer>
       ) : (
