@@ -38,9 +38,6 @@
         },
         "lists": {
             "empty": "这里什么都没有"
-        },
-        "action": {
-            "close": "关闭"
         }
     },
     "settings": {

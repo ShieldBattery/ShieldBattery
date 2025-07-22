@@ -40,9 +40,6 @@
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
-        },
-        "action": {
-            "close": "$🗡Close🗡!"
         }
     },
     "settings": {

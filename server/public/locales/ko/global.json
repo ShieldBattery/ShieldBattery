@@ -38,9 +38,6 @@
         },
         "lists": {
             "empty": "볼 것이 없다"
-        },
-        "action": {
-            "close": "닫기"
         }
     },
     "settings": {
