@@ -18,7 +18,7 @@ import {
   UpdateMapResponse,
   UploadMapResponse,
 } from '../../../common/maps'
-import { deleteFiles } from '../files'
+import { deleteFiles, getSignedUrl } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
@@ -42,6 +42,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUserById, findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
+import { mapPath } from './paths'
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
@@ -135,7 +136,7 @@ export class MapsApi {
   @httpGet('/favorites')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
+    throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.user.id)),
   )
   async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
     const {
@@ -366,6 +367,24 @@ export class MapsApi {
 
     await removeMapFromFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
+  }
+
+  @httpPost('/:mapId/download-url')
+  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  async getDownloadUrl(ctx: RouterContext): Promise<{ url: string }> {
+    const mapId = getValidatedMapId(ctx)
+
+    const map = (await getMapInfos([mapId]))[0]
+    if (!map) {
+      throw new httpErrors.NotFound('Map not found')
+    }
+
+    const path = mapPath(map.hash, map.mapData.format)
+    const url = await getSignedUrl(path, {
+      contentDisposition: `attachment; filename="${map.name}.${map.mapData.format}"`,
+    })
+
+    return { url }
   }
 
   @httpPost('/:mapId/regenerate')

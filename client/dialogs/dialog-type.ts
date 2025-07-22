@@ -19,6 +19,7 @@ export enum DialogType {
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
+  MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
@@ -77,6 +78,12 @@ type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingG
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
+  {
+    mapId: SbMapId
+  }
+>
+type MapDownloadDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapDownload,
   {
     mapId: SbMapId
   }
@@ -147,6 +154,7 @@ export type DialogPayload =
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
+  | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload

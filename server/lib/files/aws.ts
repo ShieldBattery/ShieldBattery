@@ -1,17 +1,33 @@
-import { GetObjectCommand, S3, S3ClientConfig } from '@aws-sdk/client-s3'
+import {
+  DeleteObjectCommandInput,
+  GetObjectCommand,
+  GetObjectCommandInput,
+  PutObjectCommandInput,
+  S3,
+  S3ClientConfig,
+} from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import path from 'path'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { Except } from 'type-fest'
+import { FileStore, GetSignedUrlOptions } from './store'
 
 // How long browsers can cache resources for (in seconds). These resources should all be pretty
 // static, so this can be a long time
 export const FILE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
 
+interface OptionsOutputBase
+  extends GetObjectCommandInput,
+    PutObjectCommandInput,
+    DeleteObjectCommandInput {}
+
+type OptionsOutput = Except<OptionsOutputBase, 'Key' | 'Bucket'>
+
+// TODO(tec27): Split this function up so we can type the output more safely
 // Convert some of the more frequently used options to the AWS formatting
-function formatOptions(options: any = {}) {
-  const formatted = { ...options }
+function formatOptions(options: any): OptionsOutput {
+  const formatted: OptionsOutput = { ...options }
   if (options.cache) {
     formatted.CacheControl = options.cache
   }
@@ -23,6 +39,12 @@ function formatOptions(options: any = {}) {
   }
   if (options.acl) {
     formatted.ACL = options.acl
+  }
+  if (options.contentType) {
+    formatted.ResponseContentType = options.contentType
+  }
+  if (options.contentDisposition) {
+    formatted.ResponseContentDisposition = options.contentDisposition
   }
 
   return formatted
@@ -159,7 +181,7 @@ export default class Aws implements FileStore {
   // `getSignedUrlPromise` function. Besides those, we allow sending some of the more frequently
   // used options in a more friendlier format, e.g. `expires` can be sent instead of `Expires`
   // which defines how long the fetched URL will be accessible for (default is 15mins).
-  async signedUrl(filename: string, options: any = {}): Promise<string> {
+  async signedUrl(filename: string, options: GetSignedUrlOptions = {}): Promise<string> {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
     const url = await getSignedUrl(this.client, new GetObjectCommand(params), {

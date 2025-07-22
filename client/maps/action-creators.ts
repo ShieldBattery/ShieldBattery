@@ -250,3 +250,18 @@ export function batchGetMapInfo(mapId: SbMapId, maxCacheAgeMillis = 60000): Thun
 export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }
+
+export function openMapDownloadDialog(mapId: SbMapId) {
+  return openDialog({ type: DialogType.MapDownload, initData: { mapId } })
+}
+
+export function getMapDownloadUrl(mapId: SbMapId, spec: RequestHandlingSpec<string>): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const result = await fetchJson<{ url: string }>(apiUrl`maps/${mapId}/download-url`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+
+    return result.url
+  })
+}

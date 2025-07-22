@@ -6,7 +6,7 @@ import koaStatic from 'koa-static'
 import path from 'path'
 import { rimraf } from 'rimraf'
 import { Readable } from 'stream'
-import { FileStore } from './store'
+import { FileStore, GetSignedUrlOptions } from './store'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time
@@ -58,14 +58,53 @@ export default class LocalFsStore implements FileStore {
     return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}`
   }
 
-  async signedUrl(filename: string) {
+  async signedUrl(filename: string, options: GetSignedUrlOptions = {}): Promise<string> {
+    const params = new URLSearchParams()
     // NOTE(tec27): This just simulates the cache-busting properties of having a signed URL in
     // a dev environment, it provides no actual signature protection :)
-    const signature = `?${Date.now()}`
-    return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}${signature}`
+    params.set('signature', String(Date.now()))
+    if (options.expires) {
+      params.set('expires', String(options.expires))
+    }
+    if (options.contentType) {
+      params.set('response-content-type', options.contentType)
+    }
+    if (options.contentDisposition) {
+      params.set('response-content-disposition', options.contentDisposition)
+    }
+    return (
+      `${process.env.SB_CANONICAL_HOST}/files/` +
+      `${path.posix.normalize(filename)}?${params.toString()}`
+    )
   }
 
   addMiddleware(app: Koa) {
-    app.use(koaMount('/files', koaStatic(this.path, { maxage: FILE_MAX_AGE_MS })))
+    app.use(koaMount('/files', createFileMiddleware(this.path)))
+  }
+}
+
+function createFileMiddleware(path: string) {
+  const staticMiddleware = koaStatic(path, { maxage: FILE_MAX_AGE_MS })
+
+  return async (ctx: Koa.Context, next: Koa.Next) => {
+    const responseContentType =
+      typeof ctx.query['response-content-type'] === 'string'
+        ? ctx.query['response-content-type']
+        : undefined
+    const responseContentDisposition =
+      typeof ctx.query['response-content-disposition'] === 'string'
+        ? ctx.query['response-content-disposition']
+        : undefined
+
+    const result = await staticMiddleware(ctx, next)
+
+    if (responseContentType && /^[\w-]+\/[-+.\w]+$/.test(responseContentType)) {
+      ctx.set('Content-Type', responseContentType)
+    }
+    if (responseContentDisposition) {
+      ctx.set('Content-Disposition', responseContentDisposition)
+    }
+
+    return result
   }
 }

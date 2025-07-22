@@ -193,6 +193,7 @@ export interface MapThumbnailProps {
   isFocused?: boolean
   selectedIcon?: React.ReactNode
   onClick?: (event: React.MouseEvent) => void
+  onDownload?: (mapId: SbMapId) => void
   onPreview?: () => void
   onAddToFavorites?: (mapId: SbMapId) => void
   onRemoveFromFavorites?: (mapId: SbMapId) => void
@@ -213,6 +214,7 @@ export function MapThumbnail({
   isFocused,
   selectedIcon,
   onClick,
+  onDownload,
   onPreview,
   onAddToFavorites,
   onRemoveFromFavorites,
@@ -239,6 +241,10 @@ export function MapThumbnail({
       () => onMapDetails(map.id),
     ])
   }
+  if (onDownload) {
+    mapActions.push([t('maps.thumbnail.downloadMap', 'Download'), () => onDownload(map.id)])
+  }
+
   if (onAddToFavorites && onRemoveFromFavorites) {
     mapActions.push([
       isFavorited
@@ -331,6 +337,7 @@ export function MapThumbnail({
 export function ReduxMapThumbnail({
   mapId,
   hasMapDetailsAction = true,
+  hasDownloadAction = true,
   hasFavoriteAction = true,
   hasMapPreviewAction = true,
   hasRegenMapImageAction = true,
@@ -342,6 +349,7 @@ export function ReduxMapThumbnail({
   > & {
     mapId: SbMapId
     hasMapDetailsAction?: boolean
+    hasDownloadAction?: boolean
     hasFavoriteAction?: boolean
     hasMapPreviewAction?: boolean
     hasRegenMapImageAction?: boolean
@@ -393,6 +401,13 @@ export function ReduxMapThumbnail({
       onMapDetails={
         canOpenMapDetails
           ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+          : undefined
+      }
+      onDownload={
+        hasDownloadAction
+          ? mapId => {
+              dispatch(openDialog({ type: DialogType.MapDownload, initData: { mapId } }))
+            }
           : undefined
       }
       onAddToFavorites={

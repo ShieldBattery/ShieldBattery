@@ -278,6 +278,7 @@
       "unblock": "Unblock",
       "view": "View"
     },
+    "close": "Close",
     "lists": {
       "empty": "Nothing to see here"
     },
@@ -596,6 +597,12 @@
       "started": "This lobby has already started and cannot be joined."
     }
   },
+  "map": {
+    "download": {
+      "dialogTitle": "Downloading map…",
+      "urlError": "There was a problem retrieving the download url. Please try again later."
+    }
+  },
   "maps": {
     "activity": {
       "title": "Maps"
@@ -676,6 +683,7 @@
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",
+      "downloadMap": "Download",
       "mapActions": "Map actions",
       "noMapPreview": "Map preview not available",
       "regenerateImage": "Regenerate image",

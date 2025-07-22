@@ -15,6 +15,7 @@ import DownloadDialog from '../download/download-dialog'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { LeagueExplainerDialog } from '../leagues/league-explainer'
 import MapDetailsDialog from '../maps/map-details'
+import { MapDownloadDialog } from '../maps/map-download-dialog'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
 import { MatchmakingBannedDialog } from '../matchmaking/matchmaking-banned-dialog'
@@ -88,6 +89,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LeagueExplainerDialog }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog }
+    case DialogType.MapDownload:
+      return { component: MapDownloadDialog, modal: true }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog }
     case DialogType.Markdown:
