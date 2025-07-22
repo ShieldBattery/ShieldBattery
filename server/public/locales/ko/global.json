@@ -38,7 +38,8 @@
         },
         "lists": {
             "empty": "볼 것이 없다"
-        }
+        },
+        "close": "닫기"
     },
     "settings": {
         "close": "설정 닫기",
@@ -861,7 +862,8 @@
             "regenerateImage": "이미지 재생성",
             "removeFromFavorites": "즐겨찾기에서 제거하기",
             "showMapPreview": "맵 미리보기 표시",
-            "viewMapDetails": "맵 세부정보 보기"
+            "viewMapDetails": "맵 세부정보 보기",
+            "downloadMap": "다운로드"
         },
         "tileset": {
             "ashworld": "화산지",
@@ -1251,6 +1253,12 @@
         "matchmaking": {
             "searching": "경기를 찾는 중…",
             "matchFound": "일치 항목을 찾았습니다"
+        }
+    },
+    "map": {
+        "download": {
+            "dialogTitle": "맵 다운로드 중…",
+            "urlError": "다운로드 URL을 가져오는 데 문제가 발생했습니다. 나중에 다시 시도해 주세요."
         }
     }
 }

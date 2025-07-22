@@ -42,7 +42,8 @@
         },
         "lists": {
             "empty": "Nada que ver aquí"
-        }
+        },
+        "close": "Cerrar"
     },
     "settings": {
         "close": "Cerrar configuraciones",
@@ -852,7 +853,8 @@
             "removeFromFavorites": "Quitar de favoritos",
             "showMapPreview": "Mostrar vista previa del mapa",
             "viewMapDetails": "Ver detalles del mapa",
-            "noMapPreview": "Vista previa del mapa no disponible"
+            "noMapPreview": "Vista previa del mapa no disponible",
+            "downloadMap": "Descargar"
         },
         "activity": {
             "title": "Mapas"
@@ -1263,6 +1265,12 @@
         "matchmaking": {
             "searching": "Buscando un partido…",
             "matchFound": "¡Partido encontrado!"
+        }
+    },
+    "map": {
+        "download": {
+            "dialogTitle": "Descargando mapa…",
+            "urlError": "Hubo un problema al recuperar la URL de descarga. Por favor, inténtalo de nuevo más tarde."
         }
     }
 }

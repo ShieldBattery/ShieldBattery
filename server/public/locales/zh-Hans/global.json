@@ -38,7 +38,8 @@
         },
         "lists": {
             "empty": "这里什么都没有"
-        }
+        },
+        "close": "关闭"
     },
     "settings": {
         "close": "关闭设置",
@@ -841,7 +842,8 @@
             "regenerateImage": "重新生成图像",
             "removeFromFavorites": "从收藏夹中删除",
             "showMapPreview": "显示地图预览",
-            "viewMapDetails": "查看地图详情"
+            "viewMapDetails": "查看地图详情",
+            "downloadMap": "下载"
         },
         "tileset": {
             "ashworld": "灰烬",
@@ -1251,6 +1253,12 @@
         "matchmaking": {
             "searching": "正在寻找比赛…",
             "matchFound": "已找到对手"
+        }
+    },
+    "map": {
+        "download": {
+            "urlError": "获取下载链接时出现问题。请稍后再试。",
+            "dialogTitle": "正在下载地图…"
         }
     }
 }

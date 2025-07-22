@@ -40,7 +40,8 @@
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
-        }
+        },
+        "close": "$🗡Close🗡!"
     },
     "settings": {
         "game": {
@@ -847,7 +848,8 @@
             "removeFromFavorites": "$🗡Remove from favorites🗡!",
             "showMapPreview": "$🗡Show map preview🗡!",
             "viewMapDetails": "$🗡View map details🗡!",
-            "noMapPreview": "$🗡Map preview not available🗡!"
+            "noMapPreview": "$🗡Map preview not available🗡!",
+            "downloadMap": "$🗡Download🗡!"
         },
         "activity": {
             "title": "$🗡Maps🗡!"
@@ -1257,6 +1259,12 @@
         "matchmaking": {
             "matchFound": "$🗡Match found!🗡!",
             "searching": "$🗡Searching for a match…🗡!"
+        }
+    },
+    "map": {
+        "download": {
+            "dialogTitle": "$🗡Downloading map…🗡!",
+            "urlError": "$🗡There was a problem retrieving the download url. Please try again later.🗡!"
         }
     }
 }
