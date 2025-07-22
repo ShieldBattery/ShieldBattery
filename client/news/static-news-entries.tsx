@@ -480,7 +480,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
 
       ## Brood War changes
 
-      These tend to be rare, but we noticed a couple of long-standing bugs in the game since our
+      These tend to be rare, but we noticed a few things since our
       last release that seemed worth fixing.
 
       - **Fixed the mouse cursor being mis-sized when hovering over units with hardware cursor on.**
@@ -493,6 +493,13 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         This was one we hadn't seen before, but relates to workers trying to mine gas while stacked.
         Anyway, it won't happen on ShieldBattery any more, so I guess you'll never see it now.
         Thanks to SgT.FaT for reporting this to us and sending us a replay!
+
+      - **Increased the maximum FPS limit from 300 to 1000.**
+
+        If you're trying to eek out every last nanosecond of reduced latency (or just have a 360hz
+        monitor), SC:R's 300 FPS limit was a bit of a bummer. So, if you so desire, you can bump
+        that limit up higher now in ShieldBattery's Video settings.
+
 
       ## General app
 
@@ -598,7 +605,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
       - **Relive the glory.**
 
         Ranks from past seasons will now be shown on user profiles, in case your lame friends didn't
-        believe you actually hit Diamond 2 once.
+        believe you actually hit Diamond 2 once. Just click on the Seasons tab!
 
       ## Lobby
       - **Blame game.**
