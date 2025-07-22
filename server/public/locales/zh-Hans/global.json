@@ -835,7 +835,7 @@
             "uploadedMap": "已上传地图",
             "noUploadedMapsWeb": "您还没有上传任何地图。",
             "favoriteMaps": "收藏地图",
-            "removeError": "删除地图时发生错误。"
+            "removeError": "删除地图时发生错误"
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",
