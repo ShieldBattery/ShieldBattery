@@ -1264,7 +1264,7 @@
     "map": {
         "download": {
             "dialogTitle": "$🗡Downloading map…🗡!",
-            "urlError": "$🗡There was a problem retrieving the download url. Please try again later.🗡!"
+            "urlError": "$🗡There was a problem retrieving the download link. Please try again later.🗡!"
         }
     }
 }

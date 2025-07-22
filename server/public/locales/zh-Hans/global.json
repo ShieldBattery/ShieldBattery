@@ -361,7 +361,7 @@
         },
         "restriction": {
             "chat": {
-                "notification": "<0>您的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>此限制将于：</2><3>{{endText}}</3>"
+                "notification": "<0>你的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
             }
         }
     },
@@ -496,26 +496,26 @@
             "title": "匹配"
         },
         "bannedDialog": {
-            "bannedFor": "您已被禁赛，原因如下：",
-            "description": "您因未准备好或未能加入比赛而被暂时禁止匹配。",
-            "title": "已被禁止匹配"
+            "bannedFor": "你已被封禁，时长：",
+            "description": "由于未准备或未按时加入比赛，你已被暂时禁止匹配。",
+            "title": "匹配封禁"
         },
         "draftScreen": {
-            "anonymizedName0": "生锈的犀角兽",
-            "anonymizedName1": "大胆的孟加豹",
-            "anonymizedName2": "狡猾的斯坎迪蝎",
-            "anonymizedName3": "敏锐的彩蛇鸟",
-            "anonymizedName4": "无情的岩龙",
-            "anonymizedName5": "不稳定的熊齿兽",
+            "anonymizedName0": "憨犀犀角兽",
+            "anonymizedName1": "猛孟加豹",
+            "anonymizedName2": "潜行斯坎迪蝎",
+            "anonymizedName3": "机敏彩蛇鸟",
+            "anonymizedName4": "无情岩龙",
+            "anonymizedName5": "疯狂熊齿兽",
             "chatMessageError": "无法发送聊天消息",
             "lockInError": "无法锁定种族",
             "lockInRaceButton": "锁定",
             "pickerText": {
-                "myTurn": "你正在选择…",
+                "myTurn": "轮到你选择…",
                 "opponentTurn": "{{name}} 正在选择…",
                 "teammateTurn": "<0></0> 正在选择…"
             },
-            "pickSubtext": "选择 {{num}}"
+            "pickSubtext": "第 {{num}} 选"
         }
     },
     "game": {
@@ -696,8 +696,8 @@
             "gameInitializationCanceled": "游戏初始化已取消",
             "hostChange": "<0><0></0></0>已成为主机",
             "joinLobby": "<0><0></0></0>已加入房间",
-            "gameInitializationCanceledMultiple": "游戏初始化已取消，因为以下玩家未能装载：<1></1>",
-            "gameInitializationCanceledSingle": "游戏初始化已取消，因为<2><0></0></2>未能装载。"
+            "gameInitializationCanceledMultiple": "以下玩家加载失败，游戏初始化已被取消：<1></1>",
+            "gameInitializationCanceledSingle": "由于 <2><0></0></2> 加载失败，游戏初始化已被取消。"
         },
         "slots": {
             "addComputer": "添加电脑玩家",
@@ -707,11 +707,11 @@
             "removeComputer": "删除电脑玩家",
             "slotActions": "空位动作",
             "openSlot": "开放空位",
-            "banPlayer": "封禁玩家",
+            "banPlayer": "封禁 {{user}}",
             "closeSlot": "关闭空位",
-            "kickPlayer": "踢出玩家",
+            "kickPlayer": "踢出 {{user}}",
             "name": "关闭",
-            "banUnnamedPlayer": "禁止玩家",
+            "banUnnamedPlayer": "封禁玩家",
             "kickUnnamedPlayer": "踢出玩家"
         },
         "errors": {
@@ -787,13 +787,13 @@
         "server": {
             "allMaps": "所有地图",
             "browseLocal": "浏览本地地图",
-            "error": "出错了：{{errorMessage}}",
+            "error": "检索地图时出错。",
             "favorites": {
                 "added": "已添加至收藏夹",
                 "addedError": "添加到收藏夹时遇到错误",
                 "removed": "已从收藏夹中删除",
                 "removedError": "从收藏夹中删除地图时遇到错误",
-                "error": "获取收藏的地图时出错。"
+                "error": "获取你的收藏地图时出错。"
             },
             "filterOptions": {
                 "section": {
@@ -832,8 +832,8 @@
             "regenerated": "图像已重新生成",
             "uploadedMap": "已上传地图",
             "noUploadedMapsWeb": "您还没有上传任何地图。",
-            "favoriteMaps": "收藏的地图",
-            "removeError": "移除地图时发生错误。"
+            "favoriteMaps": "收藏地图",
+            "removeError": "删除地图时发生错误。"
         },
         "thumbnail": {
             "addToFavorites": "添加到收藏夹",
@@ -1062,12 +1062,12 @@
         },
         "restrictions": {
             "reason": {
-                "disruptive_behavior": "破坏性行为",
+                "disruptive_behavior": "扰乱行为",
                 "harassment": "骚扰",
                 "hate_speech": "仇恨言论",
                 "other": "其他",
                 "spam": "垃圾信息",
-                "toxicity": "有毒行为"
+                "toxicity": "有害言行"
             }
         }
     },
@@ -1088,7 +1088,7 @@
             "sendingMessage": "发送信息时遇到错误：{{errorMessage}}",
             "unknownError": "未知错误",
             "userNotFound": "未找到用户",
-            "userChatRestricted": "您目前被限制发送聊天消息"
+            "userChatRestricted": "你目前被限制发送聊天消息"
         },
         "navEntry": {
             "closeWhisper": "关闭私聊"
@@ -1108,7 +1108,7 @@
         "mention": "提到",
         "newDayMessage": "日期已变为<2>{{day}}</2>",
         "sendMessage": "发送消息",
-        "sendMessageChatRestricted": "限制发送消息直到 {{ date }}"
+        "sendMessageChatRestricted": "限制发送消息至 {{ date }}"
     },
     "windowControls": {
         "close": "关闭",
@@ -1247,17 +1247,17 @@
     "gameplayActivity": {
         "lobby": {
             "slotCount": "{{takenSlots}} / {{totalSlots}}",
-            "slotsLabel": "位置：",
+            "slotsLabel": "玩家槽位：",
             "viewLobby": "查看房间"
         },
         "matchmaking": {
             "searching": "正在寻找比赛…",
-            "matchFound": "已找到对手"
+            "matchFound": "匹配成功！"
         }
     },
     "map": {
         "download": {
-            "urlError": "获取下载链接时出现问题。请稍后再试。",
+            "urlError": "获取下载链接时出错。请稍后再试。",
             "dialogTitle": "正在下载地图…"
         }
     }
