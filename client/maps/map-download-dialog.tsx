@@ -65,7 +65,7 @@ export function MapDownloadDialog({ mapId, onCancel }: MapDownloadDialogProps) {
       title={t('map.download.dialogTitle', 'Downloading map…')}
       buttons={
         error
-          ? [<TextButton key='okay' onClick={close} label={t('common.action.close', 'Close')} />]
+          ? [<TextButton key='okay' onClick={close} label={t('common.actions.close', 'Close')} />]
           : undefined
       }>
       {error ? (
