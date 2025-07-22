@@ -500,6 +500,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         monitor), SC:R's 300 FPS limit was a bit of a bummer. So, if you so desire, you can bump
         that limit up higher now in ShieldBattery's Video settings.
 
+      ---
 
       ## General app
 
@@ -541,6 +542,8 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         and upcoming leagues, to the homepage. We hope to one day have easy 1-click spectating of
         these games from here, but for now you'll just have to use your imagination.
 
+      ---
+
       ## Game integration
       - **New loading screen.**
 
@@ -573,6 +576,8 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         We've adjusted how we handle the Windows compatibility settings for the game executable, to
         better ensure the game doesn't launch with any weird settings. This should fix issues with
         launching the game when it is set to require administrator privileges.
+
+      ---
 
       ## Matchmaking/Ranked
 
@@ -607,11 +612,15 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         Ranks from past seasons will now be shown on user profiles, in case your lame friends didn't
         believe you actually hit Diamond 2 once. Just click on the Seasons tab!
 
+      ---
+
       ## Lobby
       - **Blame game.**
 
         In the event the game fails to start, lobbies will now let you know who was to blame so you
         know exactly who to direct your ire at.
+
+      ---
 
       ## Social
       - **Mention auto-complete.**
@@ -634,6 +643,12 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         We've added chat restrictions for users that don't get along well with others. Chat
         restrictions apply to all chat surfaces (channels, lobbies, drafts, and whispers) and
         apply ingame.
+
+      ---
+
+      Thank you for reading, and we hope you enjoy the latest version of ShieldBattery!
+
+      — tec27 and the ShieldBattery team
     `,
   },
 ]
