@@ -561,7 +561,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         \`/unmuteall\` to undo this). We will be integrating blocks ingame in the near future if
         you want to permanently ignore someone.
 
-      - **Better handling of Windows compatibility setting.**
+      - **Better handling of Windows compatibility settings.**
 
         We've adjusted how we handle the Windows compatibility settings for the game executable, to
         better ensure the game doesn't launch with any weird settings. This should fix issues with
