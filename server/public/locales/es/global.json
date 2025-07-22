@@ -35,7 +35,7 @@
             "edit": "Editar",
             "reveal": "Revelar",
             "submit": "Enviar",
-            "close": "Cerca",
+            "close": "Cerrar",
             "read": "Leer",
             "download": "Descargar",
             "back": "Volver"
@@ -43,7 +43,9 @@
         "lists": {
             "empty": "Nada que ver aquí"
         },
-        "close": "Cerrar"
+        "action": {
+            "close": "Cerrar"
+        }
     },
     "settings": {
         "close": "Cerrar configuraciones",
@@ -332,7 +334,7 @@
         },
         "restriction": {
             "chat": {
-                "notification": "<0>Tu cuenta ha sido restringida de enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción terminará el:</2><3>{{endText}}</3>"
+                "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
             }
         }
     },
@@ -719,7 +721,7 @@
         "mention": "Mención",
         "newDayMessage": "Día cambiado a <2>{{day}}</2>",
         "sendMessage": "Enviar un mensaje",
-        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{ date }}"
+        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}"
     },
     "policy": {
         "acceptableUse": "Uso aceptable",
@@ -960,7 +962,7 @@
             "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
             "unknownError": "Error desconocido",
             "userNotFound": "Usuario no encontrado",
-            "userChatRestricted": "Actualmente estás restringido de enviar mensajes de chat"
+            "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat"
         },
         "navEntry": {
             "closeWhisper": "Cerrar susurro"
@@ -1031,10 +1033,10 @@
         },
         "restrictions": {
             "reason": {
-                "disruptive_behavior": "Comportamiento disruptivo",
+                "disruptive_behavior": "Conducta disruptiva",
                 "harassment": "Acoso",
                 "hate_speech": "Discurso de odio",
-                "other": "Otro",
+                "other": "Otros",
                 "spam": "Spam",
                 "toxicity": "Toxicidad"
             }
@@ -1270,7 +1272,7 @@
     "map": {
         "download": {
             "dialogTitle": "Descargando mapa…",
-            "urlError": "Hubo un problema al recuperar la URL de descarga. Por favor, inténtalo de nuevo más tarde."
+            "urlError": "Hubo un problema al obtener el enlace de descarga. Por favor, inténtalo de nuevo más tarde."
         }
     }
 }

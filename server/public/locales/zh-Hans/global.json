@@ -39,7 +39,9 @@
         "lists": {
             "empty": "这里什么都没有"
         },
-        "close": "关闭"
+        "action": {
+            "close": "关闭"
+        }
     },
     "settings": {
         "close": "关闭设置",
@@ -1108,7 +1110,7 @@
         "mention": "提到",
         "newDayMessage": "日期已变为<2>{{day}}</2>",
         "sendMessage": "发送消息",
-        "sendMessageChatRestricted": "限制发送消息至 {{ date }}"
+        "sendMessageChatRestricted": "限制发送消息至 {{date}}"
     },
     "windowControls": {
         "close": "关闭",

@@ -39,7 +39,9 @@
         "lists": {
             "empty": "볼 것이 없다"
         },
-        "close": "닫기"
+        "action": {
+            "close": "닫기"
+        }
     },
     "settings": {
         "close": "설정 닫기",
@@ -915,7 +917,7 @@
         "mention": "멘션",
         "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
         "sendMessage": "메시지를 입력하세요",
-        "sendMessageChatRestricted": "{{ date }}까지 메시지 전송이 제한됩니다"
+        "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다"
     },
     "navigation": {
         "copyLink": {
@@ -1258,7 +1260,7 @@
     "map": {
         "download": {
             "dialogTitle": "맵 다운로드 중…",
-            "urlError": "다운로드 URL을 가져오는 중 문제가 발생했습니다. 나중에 다시 시도해 주세요."
+            "urlError": "다운로드 링크를 가져오는 중 문제가 발생했습니다. 나중에 다시 시도해 주세요."
         }
     }
 }

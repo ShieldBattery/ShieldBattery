@@ -41,7 +41,9 @@
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
         },
-        "close": "$🗡Close🗡!"
+        "action": {
+            "close": "$🗡Close🗡!"
+        }
     },
     "settings": {
         "game": {
@@ -714,7 +716,7 @@
         "mention": "$🗡Mention🗡!",
         "newDayMessage": "$🗡Day changed to <2>{{day}}</2>🗡!",
         "sendMessage": "$🗡Send a message🗡!",
-        "sendMessageChatRestricted": "$🗡Restricted from sending messages until {{ date }}🗡!"
+        "sendMessageChatRestricted": "$🗡Restricted from sending messages until {{date}}🗡!"
     },
     "policy": {
         "acceptableUse": "$🗡Acceptable use🗡!",
