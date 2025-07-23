@@ -2,6 +2,7 @@
 
 mod pathing;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
@@ -16,7 +17,6 @@ use fxhash::FxHashSet;
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use libc::c_void;
-use once_cell::sync::OnceCell;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::app_messages::{GameSetupInfo, MapInfo, SbUserId, StartingFog};
@@ -39,15 +39,15 @@ lazy_static! {
 }
 
 /// Global for accessing game type/slots/etc from hooks.
-static SETUP_INFO: OnceCell<GameSetupInfo> = OnceCell::new();
+static SETUP_INFO: OnceLock<GameSetupInfo> = OnceLock::new();
 /// Global for shieldbattery-specific replay data.
 /// Will not be initialized outside replays. (Or if the replay doesn't have that data)
-static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
+static SBAT_REPLAY_DATA: OnceLock<replay::SbatReplayData> = OnceLock::new();
 /// Contains game id, shieldbattery user id pairs after the slots have been randomized,
 /// human player slots / obeservers only.
 /// Once this is set it is expected to be valid for the entire game.
 /// Could also be easily extended to have storm ids if mapping between them is needed.
-static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
+static PLAYER_ID_MAPPING: OnceLock<Vec<PlayerIdMapping>> = OnceLock::new();
 
 pub struct PlayerIdMapping {
     /// None at least for observers
@@ -137,6 +137,69 @@ pub fn run_event_loop() -> ! {
     crate::wait_async_exit();
 }
 
+#[derive(Debug)]
+struct LobbyInitCompleter {
+    last_receive_turns: Instant,
+    completed: bool,
+}
+
+impl LobbyInitCompleter {
+    fn new(last_receive_turns: Instant) -> Self {
+        LobbyInitCompleter {
+            last_receive_turns,
+            completed: false,
+        }
+    }
+
+    pub fn step(&mut self) -> bool {
+        if self.completed {
+            return true;
+        }
+
+        unsafe {
+            let bw = get_bw();
+            // Only check for turns every 42ms (same as BW's fastest game speed)
+            if self.last_receive_turns.elapsed() >= Duration::from_millis(42) {
+                self.last_receive_turns = Instant::now();
+                bw.maybe_receive_turns();
+            }
+
+            if bw.try_finish_lobby_game_init() {
+                self.completed = true;
+                return true;
+            }
+
+            bw.force_redraw_during_init();
+        }
+
+        false
+    }
+
+    /// Returns the time that a caller should wait until calling [LobbyInitCompleter::step] again.
+    pub fn until_next_step(&self) -> u64 {
+        if self.completed {
+            return 0;
+        }
+        // Sleep until the next turn receiving time, but at most 16ms (so we're still
+        // processing events and re-rendering reasonably during this time)
+        (42 - (self.last_receive_turns.elapsed().as_millis().min(42) as u64)).min(16)
+    }
+}
+
+thread_local! {
+    static LOBBY_INIT_COMPLETER: RefCell<Option<LobbyInitCompleter>> = const { RefCell::new(None) };
+}
+
+pub fn step_lobby_init_from_resize() -> bool {
+    LOBBY_INIT_COMPLETER.with_borrow_mut(|c| {
+        if let Some(completer) = c {
+            completer.step()
+        } else {
+            false
+        }
+    })
+}
+
 unsafe fn handle_game_request(request: GameThreadRequestType) {
     unsafe {
         use self::GameThreadRequestType::*;
@@ -149,44 +212,42 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 }
             }
             StartGame => {
+                debug!("Game thread received StartGame");
                 forge::bring_window_forward();
 
                 let bw = get_bw();
 
+                debug!("Finishing lobby init");
                 // Do the last little bit of initialization (we do it here so that we're not
                 // jockeying between threads right as the game is starting)
 
                 // Set the penultimate lobby init state
                 bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
-                let mut last_receive_turns = Instant::now();
+                let last_receive_turns = Instant::now();
                 // Check for turns to see if we are ready for the final lobby init state
                 bw.maybe_receive_turns();
 
-                loop {
-                    // Only check for turns every 42ms (same as BW's fastest game speed)
-                    if last_receive_turns.elapsed() >= Duration::from_millis(42) {
-                        last_receive_turns = Instant::now();
-                        bw.maybe_receive_turns();
-                    }
+                debug!("Creating LobbyInitCompleter");
+                LOBBY_INIT_COMPLETER
+                    .with_borrow_mut(|c| c.replace(LobbyInitCompleter::new(last_receive_turns)));
 
-                    // Check again to see if we're ready for the final lobby init state
-                    if bw.try_finish_lobby_game_init() {
+                loop {
+                    if LOBBY_INIT_COMPLETER.with_borrow_mut(|c| c.as_mut().unwrap().step()) {
                         break;
                     }
 
-                    // Redraw and handle Windows events
-                    bw.force_redraw_during_init();
+                    // If the user is resizing the window, this may not return until that completes
                     bw.process_events();
 
                     // If we still haven't seen the turn with the init message, we need to wait.
-                    // Sleep until the next turn receiving time, but at most 16ms (so we're still
-                    // processing events and re-rendering reasonably during this time)
                     let sleep_time =
-                        (42 - (last_receive_turns.elapsed().as_millis().min(42) as u64)).min(16);
+                        LOBBY_INIT_COMPLETER.with_borrow(|c| c.as_ref().unwrap().until_next_step());
                     if sleep_time > 0 {
                         thread::sleep(Duration::from_millis(sleep_time));
                     }
                 }
+
+                debug!("LobbyInitCompleter finished, proceeding to game loop");
 
                 send_game_msg_to_async(GameThreadMessage::GameStarting);
 

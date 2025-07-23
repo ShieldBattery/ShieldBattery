@@ -2451,7 +2451,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
- "once_cell",
  "parking_lot",
  "prost",
  "prost-build",

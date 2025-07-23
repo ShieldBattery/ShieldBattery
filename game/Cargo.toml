@@ -47,7 +47,6 @@ image = { version = "0.25", default-features = false, features = [
 lazy_static = "1.3"
 libc = "0.2"
 log = "0.4"
-once_cell = "1.21"
 parking_lot = { version = "0.12", features = ["send_guard"] }
 prost = "0.14"
 quick-error = "2.0"

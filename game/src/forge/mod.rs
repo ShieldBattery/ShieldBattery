@@ -8,12 +8,12 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
-use winapi::shared::windef::{HMENU, HWND, RECT};
+use winapi::shared::windef::{HMENU, HWND, POINT, RECT};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
-use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
+use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
 
@@ -35,6 +35,9 @@ const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
 const DRAW_TIMER_ID: usize = 1338;
 const DRAW_TIMEOUT_MILLIS: u32 = 1000 / 60;
+
+const STEP_LOBBY_COMPLETION_ID: usize = 1339;
+const STEP_LOBBY_COMPLETION_TIMEOUT: u32 = USER_TIMER_MINIMUM;
 
 /// Controls whether the window position is tracked/saved when a move event occurs. We toggle this
 /// once we know that moves must be triggered by user action (instead of during init/quit).
@@ -76,6 +79,9 @@ unsafe extern "system" fn wnd_proc_scr(
             match msg {
                 WM_END_WND_PROC_WORKER => {
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
+                    // Just try to ensure that the very beginning of StartGame handling will always
+                    // happen
+                    force_mouse_up();
                     return Some(0);
                 }
                 WM_BRING_WINDOW_FORWARD => {
@@ -93,6 +99,25 @@ unsafe extern "system" fn wnd_proc_scr(
                         orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
                     }
                     return Some(0);
+                }
+                WM_ENTERSIZEMOVE | WM_ENTERMENULOOP => {
+                    // These events signal that Windows is going to run its own event loop on our
+                    // main thread, so we start a timer to ensure we keep making game loading
+                    // progress
+                    if with_forge(|f| !f.game_started) {
+                        SetTimer(
+                            window,
+                            STEP_LOBBY_COMPLETION_ID,
+                            STEP_LOBBY_COMPLETION_TIMEOUT,
+                            None,
+                        );
+                    }
+                }
+                WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
+                    // Opposite of the above, we are now running our own window loop again
+                    if with_forge(|f| !f.game_started) {
+                        KillTimer(window, STEP_LOBBY_COMPLETION_ID);
+                    }
                 }
                 WM_NCRBUTTONDOWN => {
                     // Ignore right-clicks in the title bar. SC:R does this anyway, but we don't
@@ -214,6 +239,9 @@ unsafe fn msg_game_started(window: HWND) {
         let menu = GetSystemMenu(window, FALSE);
         EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_ENABLED);
         DrawMenuBar(window);
+
+        // Ensure any leftover lobby init timer is cleaned up
+        KillTimer(window, STEP_LOBBY_COMPLETION_ID);
     }
 }
 
@@ -229,6 +257,10 @@ unsafe fn msg_timer(window: HWND, timer_id: usize) {
             debug!("Bringing window to foreground");
             SetForegroundWindow(window);
             ShowWindow(window, SW_SHOWNORMAL);
+        } else if timer_id == STEP_LOBBY_COMPLETION_ID && game_thread::step_lobby_init_from_resize()
+        {
+            debug!("Lobby init completed during WM_TIMER");
+            force_mouse_up();
         }
     }
 }
@@ -631,6 +663,28 @@ pub fn bring_window_forward() {
     if let Some(handle) = handle {
         unsafe {
             PostMessageW(handle, WM_BRING_WINDOW_FORWARD, 0, 0);
+        }
+    }
+}
+
+/// Fakes a mouse up event to the game window, intended to stop resizing that may be occuring at
+/// the instant the game start (which could otherwise be used to maliciously stall game loading).
+pub fn force_mouse_up() {
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
+    if let Some(handle) = handle {
+        debug!("Forcing WM_LBUTTONUP");
+        unsafe {
+            let mut point: POINT = std::mem::zeroed();
+            let (x, y) = if GetCursorPos(&mut point) != 0 {
+                (point.x, point.y)
+            } else {
+                (0, 0)
+            };
+            let mut lparam = (y << 16) as u32 | (x as u32 & 0xFFFF);
+            if y < 0 {
+                lparam |= 0x80000000; // Set the high bit for negative y coordinates
+            }
+            PostMessageW(handle, WM_LBUTTONUP, 0, lparam as isize);
         }
     }
 }

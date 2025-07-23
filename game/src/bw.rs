@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 use std::ffi::CStr;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use bw_dat::UnitId;
 pub use bw_dat::structs::*;
 use libc::{c_void, sockaddr};
-use once_cell::sync::OnceCell;
 use players::StormPlayerId;
 use quick_error::quick_error;
 use winapi::shared::windef::HWND;
@@ -20,7 +20,7 @@ pub mod list;
 pub mod players;
 pub mod unit;
 
-static BW_IMPL: OnceCell<&'static BwScr> = OnceCell::new();
+static BW_IMPL: OnceLock<&'static BwScr> = OnceLock::new();
 
 /// Gets access to the object that is used for actually manipulating Broodwar state.
 pub fn get_bw() -> &'static BwScr {
