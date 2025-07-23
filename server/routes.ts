@@ -124,6 +124,7 @@ export default function applyRoutes(
     router.post('/locales/add/:lng/:ns', handleMissingTranslationKeys)
   }
 
+  const packageJson = require('../package.json')
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(
@@ -143,8 +144,9 @@ export default function applyRoutes(
           publicAssetsConfig.type !== FileStoreType.FileSystem
             ? publicAssetsConfig.origin
             : undefined,
-        fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css`,
-        iconsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/icons.css`,
+        // We add the version to these URLs to cache bust
+        fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css?${packageJson.version}`,
+        iconsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/icons.css?${packageJson.version}`,
       })
     },
   )
