@@ -406,7 +406,7 @@ async function doLaunch(
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
   }
 
-  const { starcraftPath } = settings
+  let { starcraftPath } = settings
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }
@@ -425,7 +425,10 @@ async function doLaunch(
   try {
     // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
     // compat settings registry key
-    appPath = await fsPromises.realpath(appPath)
+    ;[appPath, starcraftPath] = await Promise.all([
+      fsPromises.realpath(appPath),
+      fsPromises.realpath(starcraftPath),
+    ])
   } catch (err) {
     log.warn(`Failed to resolve real path for StarCraft executable: ${getErrorStack(err)}`)
     // If we can't resolve the real path, we just use the original path we had
