@@ -1519,6 +1519,9 @@ impl BwScr {
             exe.hook_closure_address(
                 PrintText,
                 move |text, player, unused, orig| {
+                    if text.is_null() {
+                        return;
+                    }
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0 {
                         if let Ok(text) = CStr::from_ptr(text).to_str() {
                             let handled = self.chat_manager.lock().handle_message(text, player);
