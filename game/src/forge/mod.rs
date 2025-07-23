@@ -77,6 +77,9 @@ unsafe extern "system" fn wnd_proc_scr(
 
         let ret = with_scr_hooks_disabled(|| {
             match msg {
+                0x2e0..=0x2e8 => {
+                    debug!("Saw DPI event {msg:#x}: {wparam}, {lparam}");
+                }
                 WM_END_WND_PROC_WORKER => {
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
                     // Just try to ensure that the very beginning of StartGame handling will always
@@ -362,6 +365,10 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
             let menu = GetSystemMenu(window, FALSE);
             EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
             DrawMenuBar(window);
+            // Try to force the game to init its graphics stuff properly, speculative fix for people
+            // that only see a black screen during countdown
+            fix_clip_cursor();
+            bring_window_forward();
         }
         orig(window, show)
     }
