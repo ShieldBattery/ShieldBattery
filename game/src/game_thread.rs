@@ -149,7 +149,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 }
             }
             StartGame => {
-                forge::game_started();
+                forge::bring_window_forward();
 
                 let bw = get_bw();
 
@@ -191,6 +191,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 send_game_msg_to_async(GameThreadMessage::GameStarting);
 
                 forge::fix_clip_cursor();
+                forge::game_started();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
                 bw.run_game_loop();

@@ -78,6 +78,10 @@ unsafe extern "system" fn wnd_proc_scr(
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
                     return Some(0);
                 }
+                WM_BRING_WINDOW_FORWARD => {
+                    msg_bring_window_forward(window);
+                    return Some(0);
+                }
                 WM_GAME_STARTED => {
                     msg_game_started(window);
                     return Some(0);
@@ -90,12 +94,28 @@ unsafe extern "system" fn wnd_proc_scr(
                     }
                     return Some(0);
                 }
+                WM_NCRBUTTONDOWN => {
+                    // Ignore right-clicks in the title bar. SC:R does this anyway, but we don't
+                    // want to allow them during loading because Windows will lock us out of our
+                    // main thread as long as the context menu is open
+                    return Some(0);
+                }
                 WM_SYSCOMMAND => {
-                    // Ignore alt+f4 during loading, since we don't want the user to be able to
-                    // close the game during this time and it messes up the game state
-                    if wparam == SC_CLOSE && with_forge(|f| !f.game_started) {
-                        debug!("Forge: Ignoring SC_CLOSE during loading");
-                        return Some(0);
+                    if with_forge(|f| !f.game_started) {
+                        let message = wparam & 0xFFF0;
+                        if message == SC_CLOSE {
+                            // Ignore alt+f4 during loading, since we don't want the user to be able
+                            // to close the game during this time and it messes up the game state
+                            debug!("Forge: Ignoring SC_CLOSE during loading");
+                            return Some(0);
+                        } else if message == SC_MOUSEMENU || message == SC_KEYMENU {
+                            // Ignore the mouse menu and key menu messages, which are sent when
+                            // the user tries to open the window menu with the mouse or keyboard
+                            // (e.g. by clicking on the program icon). If this menu gets opened,
+                            // Windows will lock us out of our main thread until it is closed.
+                            debug!("Forge: Ignoring window menu during loading");
+                            return Some(0);
+                        }
                     }
                 }
                 WM_CLOSE => {
@@ -154,13 +174,9 @@ unsafe extern "system" fn wnd_proc_scr(
     }
 }
 
-unsafe fn msg_game_started(window: HWND) {
+unsafe fn msg_bring_window_forward(window: HWND) {
     unsafe {
-        debug!("Forge: Game started");
-        with_forge(|forge| {
-            forge.game_started = true;
-        });
-
+        debug!("Forge: Bringing window to foreground");
         // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
         // but will allow you to do so if you're handling a global hotkey. So... we register
         // a global hotkey and then press it ourselves, then bring ourselves into the
@@ -184,6 +200,15 @@ unsafe fn msg_game_started(window: HWND) {
                 None,
             );
         }
+    }
+}
+
+unsafe fn msg_game_started(window: HWND) {
+    unsafe {
+        debug!("Forge: Game started");
+        with_forge(|forge| {
+            forge.game_started = true;
+        });
 
         // Re-enable the close button
         let menu = GetSystemMenu(window, FALSE);
@@ -542,8 +567,9 @@ pub fn init(
 
 const WM_FIRST_CUSTOM: u32 = WM_USER + 27;
 const WM_END_WND_PROC_WORKER: u32 = WM_FIRST_CUSTOM + 0;
-const WM_GAME_STARTED: u32 = WM_FIRST_CUSTOM + 1;
-const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 2;
+const WM_BRING_WINDOW_FORWARD: u32 = WM_FIRST_CUSTOM + 1;
+const WM_GAME_STARTED: u32 = WM_FIRST_CUSTOM + 2;
+const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 3;
 
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
@@ -597,6 +623,15 @@ pub fn end_wnd_proc() {
     unsafe {
         KillTimer(handle, DRAW_TIMER_ID);
         PostMessageW(handle, WM_END_WND_PROC_WORKER, 0, 0);
+    }
+}
+
+pub fn bring_window_forward() {
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
+    if let Some(handle) = handle {
+        unsafe {
+            PostMessageW(handle, WM_BRING_WINDOW_FORWARD, 0, 0);
+        }
     }
 }
 
