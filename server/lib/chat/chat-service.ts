@@ -1187,7 +1187,7 @@ export default class ChatService {
     // update
     userSockets.subscribe(`${userSockets.getPath()}/chat`, async () => {
       return {
-        action: 'chatReady',
+        type: 'chatReady',
         channels: [],
       }
     })
