@@ -120,7 +120,7 @@ services:
       - update_server
 
   nginx_proxy:
-    image: nginx:stable-alpine
+    image: nginx:mainline
     container_name: nginx_proxy
     restart: unless-stopped
     ports:
