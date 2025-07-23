@@ -57,6 +57,11 @@ const StyledMenuList = styled(MenuList)`
   max-height: none;
 `
 
+const StyledAvatar = styled(ConnectedAvatar)`
+  width: 24px;
+  height: 24px;
+`
+
 /** A Map to store the message input contents for each chat instance. */
 const messageInputMap = new Map<string, string>()
 
@@ -337,7 +342,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               <MenuItem
                 key={user.id}
                 text={user.name}
-                icon={<ConnectedAvatar userId={user.id} />}
+                icon={<StyledAvatar userId={user.id} />}
                 onClick={() => {
                   closeUserMentions()
 
