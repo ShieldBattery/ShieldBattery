@@ -541,10 +541,6 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
         and upcoming leagues, to the homepage. We hope to one day have easy 1-click spectating of
         these games from here, but for now you'll just have to use your imagination.
 
-      - **Adding zoom/pan to map previews.**
-
-        No need to pull out the bifocals to figure out where to place your wall-in.
-
       ---
 
       ## Game integration
