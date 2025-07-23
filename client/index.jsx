@@ -1,4 +1,4 @@
-import { enableMapSet, setAutoFreeze } from 'immer'
+import { enableMapSet } from 'immer'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
@@ -24,7 +24,6 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 window.__webpack_nonce__ = window.SB_CSP_NONCE
 
 enableMapSet()
-setAutoFreeze(isDev)
 
 window.addEventListener('error', event => {
   const messageText = event.error?.message ?? event.message
