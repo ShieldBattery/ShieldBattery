@@ -147,7 +147,7 @@ impl LobbyInitCompleter {
     fn new(last_receive_turns: Instant) -> Self {
         LobbyInitCompleter {
             last_receive_turns,
-            completed: false,
+            completed: unsafe { get_bw().try_finish_lobby_game_init() },
         }
     }
 
@@ -158,6 +158,12 @@ impl LobbyInitCompleter {
 
         unsafe {
             let bw = get_bw();
+
+            if bw.try_finish_lobby_game_init() {
+                self.completed = true;
+                return true;
+            }
+
             // Only check for turns every 42ms (same as BW's fastest game speed)
             if self.last_receive_turns.elapsed() >= Duration::from_millis(42) {
                 self.last_receive_turns = Instant::now();
