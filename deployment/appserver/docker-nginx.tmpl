@@ -154,12 +154,13 @@ server {
 {{ if (and (exists "/etc/nginx/certs/default.crt") (exists "/etc/nginx/certs/default.key")) }}
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
-	listen {{ $external_https_port }} ssl http2;
+	listen {{ $external_https_port }} ssl;
   listen {{ $external_https_port }} quic reuseport;
 	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2;
+	listen [::]:{{ $external_https_port }} ssl;
 	listen [::]:{{ $external_https_port }} quic reuseport;
 	{{ end }}
+	http2 on;
 	{{ $access_log }}
 	return 503;
 
@@ -169,7 +170,6 @@ server {
 	ssl_certificate_key /etc/nginx/certs/default.key;
   ssl_early_data on;
 
-  quic_bpf on;
   quic_gso on;
   quic_retry on;
 }
@@ -273,12 +273,13 @@ server {
 
 server {
 	server_name {{ $host }};
-	listen {{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen {{ $external_https_port }} ssl {{ $default_server }};
 	listen {{ $external_https_port }} quic reuseport {{ $default_server }};
 	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen [::]:{{ $external_https_port }} ssl {{ $default_server }};
 	listen [::]:{{ $external_https_port }} quic reuseport {{ $default_server }};
 	{{ end }}
+	http2 on;
 	{{ $access_log }}
 
 	{{ if eq $network_tag "internal" }}
@@ -293,7 +294,6 @@ server {
 	ssl_session_tickets off;
   ssl_early_data on;
 
-  quic_bpf on;
   quic_gso on;
   quic_retry on;
 
@@ -404,10 +404,11 @@ server {
 {{ if (and (not $is_https) (exists "/etc/nginx/certs/default.crt") (exists "/etc/nginx/certs/default.key")) }}
 server {
 	server_name {{ $host }};
-	listen {{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen {{ $external_https_port }} ssl {{ $default_server }};
 	{{ if $enable_ipv6 }}
-	listen [::]:{{ $external_https_port }} ssl http2 {{ $default_server }};
+	listen [::]:{{ $external_https_port }} ssl {{ $default_server }};
 	{{ end }}
+	http2 on;
 	{{ $access_log }}
 	return 500;
 
