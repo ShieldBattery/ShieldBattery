@@ -405,9 +405,10 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       }
 
       try {
-        this.blizzardSettings = JSON.parse(
-          await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' }),
-        )
+        const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
+        log.debug(`Got initial Blizzard settings file contents: \n${contents}`)
+        // If the file is empty
+        this.blizzardSettings = JSON.parse(contents)
         // We only attach the watcher if the above doesn't throw, which means the settings exist.
         // TODO(tec27): We should probably be watching the directory if we can't watch the file
         // itself (or create the file empty ourselves?) so that we can monitor any changes SC:R
@@ -432,6 +433,7 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     }
 
     super('SCR', filepath, initializeFunc)
+    log.debug(`Blizzard settings path: ${blizzardFilepath}`)
     this.blizzardFilepath = blizzardFilepath
   }
 
@@ -524,6 +526,7 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   private async readBlizzardFile() {
     await this.initialized
     const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
+    log.debug(`Got new Blizzard settings file contents: \n${contents}`)
     const newData = JSON.parse(contents)
     if (!deepEqual(newData, this.blizzardSettings)) {
       this.blizzardSettings = newData
@@ -538,8 +541,21 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   async writeGameSettingsFile() {
     log.debug('Writing ScrSettings to game settings file')
     await this.initialized
-    const merged = { ...this.blizzardSettings, ...fromSbToBlizzard(this.settings) }
-    await fsPromises.writeFile(this.gameFilepath, jsonify(merged), { encoding: 'utf8' })
+    const merged = {
+      ...this.blizzardSettings,
+      ...fromSbToBlizzard(this.settings),
+      /**
+       * NOTE(tec27): Blizzard uses this to signal they should force Carbot on immediately after
+       * purchasing. In cases where our settings file is corrupted in some way, the existence of
+       * this setting can make the game launch with Carbot even though it's turned off in SB
+       * settings. We add this back explicitly just in case (Carbot can still be enabled
+       * directly, it just won't pick it regardless of setting).
+       */
+      forcedCarbot: true,
+    }
+    const contents = jsonify(merged)
+    log.debug(`Writing game settings file contents: \n${contents}`)
+    await fsPromises.writeFile(this.gameFilepath, contents, { encoding: 'utf8' })
   }
 
   async syncWithGameSettingsFile() {
