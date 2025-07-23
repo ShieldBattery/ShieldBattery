@@ -469,7 +469,8 @@ const HeaderRowContainerElem = styled.div`
 // NOTE(tec27): This just strips the context prop off so styled-components doesn't give a warning
 // about it getting passed to the DOM
 function HeaderRowContainer(props: { context?: unknown }) {
-  return <HeaderRowContainerElem />
+  const { context: _context, ...rest } = props
+  return <HeaderRowContainerElem {...rest} />
 }
 
 const BaseCell = styled.div`

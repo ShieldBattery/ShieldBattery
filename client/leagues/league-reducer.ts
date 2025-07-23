@@ -11,8 +11,8 @@ export interface LeagueState {
 
   selfLeagues: Map<LeagueId, ClientLeagueUserJson>
 
-  // TODO(tec27): We need to evict old entries from these at some point, or navigating through a ton
-  // of leaderboards could leak memory
+  // TODO(tec27): Don't store these in reducer state probably, just use them locally in the
+  // component instead
   leaderboard: Map<LeagueId, SbUserId[]>
   leaderboardUsers: Map<LeagueId, Map<SbUserId, ClientLeagueUserJson>>
 }
@@ -69,7 +69,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.leaderboardUsers.set(league.id, new Map(leagueUsers.map(l => [l.userId, l])))
   },
 
-  ['@network/connect']() {
+  ['@auth/loadCurrentSession']() {
+    return DEFAULT_STATE
+  },
+
+  ['@auth/logOut']() {
     return DEFAULT_STATE
   },
 })

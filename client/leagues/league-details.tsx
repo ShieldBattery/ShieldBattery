@@ -441,11 +441,15 @@ export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
   )
 }
 
-const TableBody = React.forwardRef((props, ref: React.ForwardedRef<any>) => (
-  <div ref={ref} {...props} />
-))
+function TableBody(props: { context?: unknown }) {
+  const { context: _context, ...rest } = props
+  return <div {...rest} />
+}
 
-const TableRow = styled.div``
+function TableRow(props: { context?: unknown }) {
+  const { context: _context, ...rest } = props
+  return <div {...rest} />
+}
 
 const FillerRow = styled.div.attrs<{ height: number }>(props => ({
   style: { height: `${props.height}px` },
@@ -459,7 +463,7 @@ const LeaderboardRoot = styled.div`
   contain: content;
 `
 
-const LeaderboardHeaderRow = styled.div`
+const LeaderboardHeaderRowElem = styled.div`
   ${labelMedium};
   width: 100%;
   height: 48px;
@@ -479,6 +483,13 @@ const LeaderboardHeaderRow = styled.div`
     border-bottom: 1px solid var(--theme-outline-variant);
   }
 `
+
+// NOTE(tec27): This just strips the context prop off so styled-components doesn't give a warning
+// about it getting passed to the DOM
+function LeaderboardHeaderRow(props: { context?: unknown }) {
+  const { context: _context, ...rest } = props
+  return <LeaderboardHeaderRowElem {...rest} />
+}
 
 const LeaderboardRowRoot = styled.div`
   ${bodyLarge};
