@@ -171,6 +171,8 @@ export class LadderApi {
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
     let rankings = await getRankings(this.redis, params.matchmakingType, season.id)
+    const rankingsMap = new Map(rankings.map((u, r) => [u, r + 1]))
+
     const [ratings, unfilteredUsers] = await Promise.all([
       getManyMatchmakingRatings(rankings, params.matchmakingType, season.id, query.q),
       findUsersById(rankings),
@@ -187,8 +189,12 @@ export class LadderApi {
     let lastPoints = NaN
     for (let i = 0; i < rankings.length; i++) {
       const r = ratingsMap.get(rankings[i])!
+      // TODO(#1215): This isn't quite correct when a search query is set, since we've filtered
+      // the users we look at and the users we look at here may be tied with someone not in the
+      // result set. Ideally we could get Redis to give us the point values as well that it's
+      // using for rankings?
       if (r.points !== lastPoints) {
-        lastRank = i + 1
+        lastRank = rankingsMap.get(r.userId) ?? i + 1
         lastPoints = r.points
       }
       players.push({
