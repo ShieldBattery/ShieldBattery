@@ -456,8 +456,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
     `,
   },
   {
-    // TODO(tec27): set a real date
-    date: 0,
+    date: 1753243200776,
     title: 'Update 10.0.0',
     summary: 'A big redesign, pre-match drafts, and more!',
     contents: `
