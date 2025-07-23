@@ -1182,6 +1182,15 @@ export default class ChatService {
       })
       this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }
+
+    // NOTE(tec27): For legacy clients, don't remove this or they won't be able to get the latest
+    // update
+    userSockets.subscribe(`${userSockets.getPath()}/chat`, async () => {
+      return {
+        action: 'chatReady',
+        channels: [],
+      }
+    })
   }
 
   private handleUserQuit(userId: SbUserId) {

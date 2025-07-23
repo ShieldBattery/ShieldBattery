@@ -308,6 +308,13 @@ export default class WhisperService {
       this.sessionUsers = this.sessionUsers.update(id, ISet(), s => s.add(userSockets.userId))
       userSockets.subscribe(getSessionPath(userSockets.userId, id))
     }
+
+    // NOTE(tec27): For legacy clients, don't remove or they won't be able to download the latest
+    // updates
+    userSockets.subscribe(`${userSockets.getPath()}/whispers`, () => ({
+      type: 'whispersReady',
+      targetIds: [],
+    }))
   }
 
   private async handleUserQuit(userId: SbUserId) {
