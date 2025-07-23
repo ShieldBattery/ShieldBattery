@@ -190,9 +190,11 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 
                 send_game_msg_to_async(GameThreadMessage::GameStarting);
 
+                forge::fix_clip_cursor();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
                 bw.run_game_loop();
+
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 send_game_results();

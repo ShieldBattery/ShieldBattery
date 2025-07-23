@@ -79,13 +79,15 @@ unsafe extern "system" fn wnd_proc_scr(
                     return Some(0);
                 }
                 WM_GAME_STARTED => {
+                    msg_game_started(window);
+                    return Some(0);
+                }
+                WM_FIX_CLIP_CURSOR => {
                     // Fake a minimize event to the SC:R wndproc to put it in a state where it will
                     // properly ClipCursor
                     if let Some(orig_wnd_proc) = with_forge(|f| f.orig_wnd_proc) {
                         orig_wnd_proc(window, WM_SIZE, SIZE_MINIMIZED, 0);
                     }
-
-                    msg_game_started(window);
                     return Some(0);
                 }
                 WM_SYSCOMMAND => {
@@ -538,8 +540,10 @@ pub fn init(
     FORGE_INITED.store(true, Ordering::Release);
 }
 
-const WM_END_WND_PROC_WORKER: u32 = WM_USER + 27;
-const WM_GAME_STARTED: u32 = WM_USER + 7;
+const WM_FIRST_CUSTOM: u32 = WM_USER + 27;
+const WM_END_WND_PROC_WORKER: u32 = WM_FIRST_CUSTOM + 0;
+const WM_GAME_STARTED: u32 = WM_FIRST_CUSTOM + 1;
+const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 2;
 
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
@@ -601,6 +605,17 @@ pub fn game_started() {
     if let Some(handle) = handle {
         unsafe {
             PostMessageW(handle, WM_GAME_STARTED, 0, 0);
+        }
+    }
+}
+
+/// Hackishly resets the state of the window in SC:R's internals so that it re-applies ClipCursor
+/// as needed.
+pub fn fix_clip_cursor() {
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
+    if let Some(handle) = handle {
+        unsafe {
+            PostMessageW(handle, WM_FIX_CLIP_CURSOR, 0, 0);
         }
     }
 }
