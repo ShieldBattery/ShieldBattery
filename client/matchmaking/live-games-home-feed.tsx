@@ -321,7 +321,7 @@ function MapAndTypeDisplay({
 
   return (
     <MapAndTypeRoot>
-      <StyledMapImage map={game.map} />
+      <StyledMapImage map={game.map} size={256} />
       <GameType>{matchmakingTypeToLabel(game.config.gameSourceExtra.matchmakingType, t)}</GameType>
       <MapName>{game.map.name}</MapName>
     </MapAndTypeRoot>

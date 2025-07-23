@@ -15,12 +15,10 @@ type ImgProps = React.JSX.IntrinsicElements['img']
 
 /**
  * Returns an image that will set its `sizes` attribute to its current width automatically for use
- * with `srcSet`, optionally scaled by the value of the `scale` prop.
+ * with `srcSet`.
  */
-export function AutoSizeImage(
-  props: Simplify<SetRequired<Except<ImgProps, 'sizes'>, 'srcSet'> & { scale?: number }>,
-) {
-  const { ref, src, srcSet, scale, ...rest } = props
+export function AutoSizeImage(props: Simplify<SetRequired<Except<ImgProps, 'sizes'>, 'srcSet'>>) {
+  const { ref, src, srcSet, ...rest } = props
   const [imageRef, imageRect] = useObservedDimensions()
 
   const multiRef = useMultiplexRef(ref, imageRef)
@@ -34,7 +32,7 @@ export function AutoSizeImage(
       ref={multiRef}
       src={imageRect ? src : undefined}
       srcSet={imageRect ? srcSet : undefined}
-      sizes={imageRect ? `${Math.round(imageRect.width * (scale ?? 1))}px` : undefined}
+      sizes={imageRect ? `${Math.round(imageRect.width)}px` : undefined}
     />
   )
 }

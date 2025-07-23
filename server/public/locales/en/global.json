@@ -276,9 +276,7 @@
       "submit": "Submit",
       "test": "Test",
       "unblock": "Unblock",
-      "view": "View",
-      "zoomIn": "Zoom in",
-      "zoomOut": "Zoom out"
+      "view": "View"
     },
     "lists": {
       "empty": "Nothing to see here"

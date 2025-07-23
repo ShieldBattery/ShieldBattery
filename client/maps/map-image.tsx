@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
-import { AutoSizeImage } from '../dom/auto-size-image'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -14,7 +13,7 @@ const ImgContainer = styled.div`
   height: 100%;
 `
 
-const ImgElement = styled(AutoSizeImage)`
+const ImgElement = styled.img`
   display: block;
   aspect-ratio: var(--sb-map-image-aspect-ratio, 1);
   width: 100%;
@@ -50,15 +49,13 @@ export function MapNoImage() {
 
 export interface MapInfoImageProps {
   map: ReadonlyDeep<MapInfoJson>
-  scale?: number
+  size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
   loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
-  style?: React.CSSProperties
-  onMouseDown?: (e: React.MouseEvent) => void
 }
 
 /** Displays the map image for `MapInfo` data. */
@@ -71,15 +68,13 @@ export function MapInfoImage({
     name,
     mapData: { width, height },
   },
-  scale,
+  size,
   altText,
   decoding,
   loading,
   noImageElem,
   forceAspectRatio,
   className,
-  style,
-  onMouseDown,
 }: MapInfoImageProps) {
   return (
     <MapImage
@@ -90,15 +85,13 @@ export function MapInfoImage({
       name={name}
       width={width}
       height={height}
-      scale={scale}
+      size={size}
       altText={altText}
       decoding={decoding}
       loading={loading}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
-      style={style}
-      onMouseDown={onMouseDown}
     />
   )
 }
@@ -110,15 +103,13 @@ export function UploadedMapImage({
     mapFile: { image256Url, image512Url, image1024Url, image2048Url, width, height },
     name,
   },
-  scale,
+  size,
   altText,
   decoding,
   loading,
   noImageElem,
   forceAspectRatio,
   className,
-  style,
-  onMouseDown,
 }: {
   map: {
     mapFile: {
@@ -131,15 +122,13 @@ export function UploadedMapImage({
     }
     name: string
   }
-  scale?: number
+  size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
   loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
-  style?: React.CSSProperties
-  onMouseDown?: (e: React.MouseEvent) => void
 }) {
   return (
     <MapImage
@@ -150,15 +139,13 @@ export function UploadedMapImage({
       name={name}
       width={width}
       height={height}
-      scale={scale}
+      size={size}
       altText={altText}
       decoding={decoding}
       loading={loading}
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
-      style={style}
-      onMouseDown={onMouseDown}
     />
   )
 }
@@ -171,15 +158,13 @@ function MapImage({
   name,
   width,
   height,
-  scale,
+  size = 256,
   altText,
   decoding = 'async',
   loading = 'lazy',
   noImageElem = <MapNoImage />,
   forceAspectRatio,
   className,
-  style,
-  onMouseDown,
 }: {
   image256Url?: string
   image512Url?: string
@@ -188,15 +173,13 @@ function MapImage({
   name: string
   width: number
   height: number
-  scale?: number
+  size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
   loading?: 'eager' | 'lazy'
   noImageElem?: React.ReactNode
   forceAspectRatio?: number
   className?: string
-  style?: React.CSSProperties
-  onMouseDown?: (e: React.MouseEvent) => void
 }) {
   const srcSet = `
     ${image256Url} 256w,
@@ -206,30 +189,28 @@ function MapImage({
   `
 
   const aspectRatio = width / height
-  const imgWidth = width
+  const imgWidth = size || width
   const imgHeight = imgWidth / aspectRatio
 
-  const imgStyle = {
+  const style = {
     '--sb-map-image-aspect-ratio': forceAspectRatio !== undefined ? forceAspectRatio : aspectRatio,
-    ...style,
   } as React.CSSProperties
 
   // TODO(2Pac): handle 404s
   return (
     <>
       {image256Url ? (
-        <ImgContainer className={className} style={imgStyle}>
+        <ImgContainer className={className} style={style}>
           <ImgElement
             width={imgWidth}
             height={imgHeight}
             srcSet={srcSet}
-            scale={scale}
+            sizes={`${size}px`}
             src={image256Url}
             alt={altText ?? name}
             draggable={false}
             decoding={decoding}
             loading={loading}
-            onMouseDown={onMouseDown}
           />
         </ImgContainer>
       ) : (

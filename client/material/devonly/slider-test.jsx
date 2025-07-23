@@ -26,8 +26,6 @@ export default class SliderTest extends Component {
     value5: 0,
     value6: 2,
     value7: 2,
-    value8: 2,
-    value9: 2,
   }
 
   render() {
@@ -104,23 +102,6 @@ export default class SliderTest extends Component {
             value={this.state.value7}
             step={1}
             onChange={value => this.onChange('7', value)}
-          />
-          <Slider
-            min={0}
-            max={4}
-            value={this.state.value8}
-            step={1}
-            showBalloon={false}
-            onChange={value => this.onChange('8', value)}
-          />
-          <Slider
-            min={0}
-            max={4}
-            value={this.state.value9}
-            step={1}
-            label='Slide this'
-            showBalloon={false}
-            onChange={value => this.onChange('9', value)}
           />
         </StyledCard>
       </Container>

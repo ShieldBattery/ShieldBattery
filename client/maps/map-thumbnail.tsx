@@ -269,7 +269,12 @@ export function MapThumbnail({
 
   return (
     <Container className={className} style={style}>
-      <MapInfoImage map={map} noImageElem={<NoImage />} forceAspectRatio={forceAspectRatio} />
+      <MapInfoImage
+        map={map}
+        size={size}
+        noImageElem={<NoImage />}
+        forceAspectRatio={forceAspectRatio}
+      />
       {onClick ? (
         <Overlay
           $isSelected={isSelected}
