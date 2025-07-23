@@ -1443,7 +1443,7 @@ async unsafe fn do_countdown() {
 
         // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
         // playback speed due to rendering changes
-        for _ in 0..20 {
+        for _ in 0..50 {
             bw.maybe_receive_turns();
             tokio::time::sleep(Duration::from_millis(42)).await;
         }
