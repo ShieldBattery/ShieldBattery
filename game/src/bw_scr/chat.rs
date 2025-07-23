@@ -80,7 +80,6 @@ impl ChatManager {
 
     /// Returns true if the message was handled (e.g. the original function should not be called).
     pub fn handle_message(&mut self, _message: &str, player_id: u32) -> bool {
-        debug!("ChatManager handling message: '{_message}' from player {player_id}");
         if player_id >= 12 && !(125..=128).contains(&player_id) {
             // We don't deal with any non-player messages (0-11 is players, 125-128 is observers)
             return false;
