@@ -91,9 +91,7 @@ export interface PortalProps {
  * is useful for things like modal dialogs, popovers, etc. Contains functionality for being
  * dismissed when a click-away occurs (clicks always propagate as well, though).
  */
-export function Portal(props: PortalProps) {
-  const { onDismiss, open, children } = props
-
+export function Portal({ onDismiss, open, className, children }: PortalProps) {
   const isPresent = useIsPresent()
 
   const parentPortal = useContext(PortalContext)
@@ -102,7 +100,7 @@ export function Portal(props: PortalProps) {
   const [onCaptureClick, onBubbleClick] = useDismissalClickHandler(onDismiss)
   const [onCaptureContextMenu, onBubbleContextMenu] = useDismissalClickHandler(onDismiss)
 
-  portalRef.current.className = props.className ?? ''
+  portalRef.current.className = className ?? ''
 
   const descendantsRef = useRef<PortalContextValue[]>([])
   const containedEventsRef = useRef<WeakMap<MouseEvent, boolean>>(new WeakMap())

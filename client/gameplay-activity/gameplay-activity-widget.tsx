@@ -50,6 +50,9 @@ export function GameplayActivityWidget() {
   const inLobby = useAppSelector(s => s.lobby.inLobby)
   const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)
   const inDraft = useAtomValue(isInDraftAtom)
+  const isMatchmakingGameInProgress = useAppSelector(
+    s => s.matchmaking.isLaunching || s.matchmaking.isCountingDown,
+  )
 
   const [onLobbyRoute] = useRoute('/lobbies/:lobby/*?')
 
@@ -100,7 +103,7 @@ export function GameplayActivityWidget() {
   let widget: React.ReactNode | undefined
   if (inLobby && !onLobbyRoute) {
     widget = <LobbyWidget key='lobby' ref={widgetRef} onDragStart={onDragStart} />
-  } else if (matchmakingSearchInfo && !inDraft) {
+  } else if (matchmakingSearchInfo && !inDraft && !isMatchmakingGameInProgress) {
     widget = <MatchmakingWidget key='matchmaking' ref={widgetRef} onDragStart={onDragStart} />
   }
 
@@ -312,13 +315,6 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
   const dispatch = useAppDispatch()
   const isMatched = useAppSelector(s => !!s.matchmaking.match)
   const startTime = useAppSelector(s => s.matchmaking.searchInfo?.startTime)
-  const isGameInProgress = useAppSelector(
-    s => s.matchmaking.isLaunching || s.matchmaking.isCountingDown,
-  )
-
-  if (isGameInProgress) {
-    return null
-  }
 
   return (
     <Widget

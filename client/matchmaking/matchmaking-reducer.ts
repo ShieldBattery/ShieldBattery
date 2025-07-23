@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { ReadonlyDeep } from 'type-fest'
 import { MatchmakingServiceErrorCode, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { isFetchError } from '../network/fetch-errors'
@@ -29,7 +30,7 @@ export function isMatchmakingLoading(state: Immutable<MatchmakingState>): boolea
   return state.isLaunching || state.isCountingDown
 }
 
-const DEFAULT_STATE: Immutable<MatchmakingState> = {
+const DEFAULT_STATE: ReadonlyDeep<MatchmakingState> = {
   searchInfo: undefined,
   isAccepting: false,
   hasAccepted: false,
@@ -145,10 +146,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@matchmaking/queueStatus'](state, action) {
     if (!action.payload.matchmaking) {
-      return {
-        ...DEFAULT_STATE,
-        failedToAccept: state.failedToAccept,
-      }
+      return state.failedToAccept ? { ...DEFAULT_STATE, failedToAccept: true } : DEFAULT_STATE
     }
 
     return state
