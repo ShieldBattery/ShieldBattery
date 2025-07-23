@@ -100,6 +100,7 @@ services:
       - SB_HTTPS_REVERSE_PROXY=true
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
+      - AWS_EC2_METADATA_DISABLED=true
       - SB_CANONICAL_HOST
       - SB_MAILGUN_KEY
       - SB_MAILGUN_DOMAIN
