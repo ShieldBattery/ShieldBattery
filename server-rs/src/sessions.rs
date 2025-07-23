@@ -98,7 +98,7 @@ async fn load_session(
             return match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => Ok(SbSession::Anonymous),
                 e => {
-                    tracing::debug!("Invalid JWT: {e:?}");
+                    tracing::info!("Invalid JWT: {e:?}");
                     Err((StatusCode::BAD_REQUEST, "Invalid JWT"))
                 }
             };
