@@ -376,9 +376,14 @@ export class GameLoader {
       },
     )
 
-    Result.try(async () => await gameLoaded).catch(() => {
-      this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
-    })
+    Result.try(async () => await gameLoaded).then(
+      () => {
+        this.gameLoadSuccessesTotalMetric.labels(gameConfig.gameSource).inc()
+      },
+      () => {
+        this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
+      },
+    )
 
     return gameLoaded
   }
@@ -406,8 +411,6 @@ export class GameLoader {
       this.loadingGames = this.loadingGames.delete(gameId)
       loadingData.deferred.resolve(Result.ok())
     }
-
-    this.gameLoadSuccessesTotalMetric.labels(loadingData.gameSource).inc()
 
     return true
   }
