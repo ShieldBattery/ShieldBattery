@@ -387,9 +387,6 @@ pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
 unsafe fn init_bw() {
     unsafe {
         let bw = get_bw();
-        // Trigger a redraw here just to ensure things are as up-to-date as possible before a
-        // somewhat long blocking operation
-        bw.force_redraw_during_init();
         bw.init_sprites();
         (*bw.game()).is_bw = 1;
         HAS_INIT_BW.store(true, Ordering::Release);
