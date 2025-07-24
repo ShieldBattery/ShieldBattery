@@ -99,7 +99,6 @@ export class WebsocketServer {
     cb: (err: Error | null, authorized?: boolean) => void,
   ) {
     const logger = log.child({ reqId: nanoid() })
-    logger.info({ req }, 'websocket authorizing')
 
     const ctx = this.koa.createContext<StateWithJwt>(req, dummyRes)
     const jwtMiddleware = this.jwtMiddleware
@@ -110,6 +109,7 @@ export class WebsocketServer {
 
       if (!ctx.session || !ctx.state.jwtData) {
         // User is not logged in
+        logger.info({ req }, 'user tried to connect to websocket without valid session')
         cb(null, false)
         return
       }
