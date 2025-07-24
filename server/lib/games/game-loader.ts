@@ -376,7 +376,7 @@ export class GameLoader {
       },
     )
 
-    gameLoaded.catch(() => {
+    Result.try(async () => await gameLoaded).catch(() => {
       this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
     })
 
