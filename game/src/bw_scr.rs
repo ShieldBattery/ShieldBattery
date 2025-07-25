@@ -1594,6 +1594,8 @@ impl BwScr {
 
             let create_file_hook_closure =
                 move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
+            let get_file_attributes_closure = move |a, o| get_file_attributes_hook(self, a, o);
+
             let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
                 self.check_replay_file_finish(handle);
                 orig(handle)
@@ -1618,6 +1620,7 @@ impl BwScr {
                 "CreateFileW", CreateFileW, create_file_hook_closure;
                 "CopyFileW", CopyFileW, copy_file_hook;
                 "CloseHandle", CloseHandle, close_handle_hook;
+                "GetFileAttributesW", GetFileAttributesW, get_file_attributes_closure;
                 "GetTickCount", GetTickCount, get_tick_count_hook;
                 "GetSystemTimePreciseAsFileTime", GetSystemTimePreciseAsFileTime, get_system_time_precise_as_file_time_hook;
             );
@@ -3164,6 +3167,30 @@ fn create_event_hook(
     }
 }
 
+fn get_file_attributes_hook(
+    bw: &BwScr,
+    filename: *const u16,
+    orig: unsafe extern "C" fn(*const u16) -> u32,
+) -> u32 {
+    unsafe {
+        if !filename.is_null() {
+            let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
+            let filename = std::slice::from_raw_parts(filename, name_len);
+            if check_filename(filename, b"CSettings.json") {
+                let replacement = bw.settings_file_path.read();
+                if replacement.is_empty() {
+                    error!("Replacement settings file path not set")
+                } else {
+                    debug!("Mapping CSettings.json GetFileAttributesW call to {replacement}");
+                    return orig(windows::winapi_str(&*replacement).as_ptr());
+                }
+            }
+        }
+
+        orig(filename)
+    }
+}
+
 fn create_file_hook(
     bw: &BwScr,
     filename: *const u16,
@@ -3582,6 +3609,7 @@ mod hooks {
             *mut c_void,
         ) -> *mut c_void;
         !0 => CopyFileW(*const u16, *const u16, u32) -> u32;
+        !0 => GetFileAttributesW(*const u16) -> u32;
         !0 => XInputGetState(u32, *mut c_void) -> u32;
         !0 => GetSystemTimePreciseAsFileTime(*mut FILETIME);
     );
