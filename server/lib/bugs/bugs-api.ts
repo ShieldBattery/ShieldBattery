@@ -70,16 +70,7 @@ export class BugsApi {
             await deleteFile(`bug-reports/${reportId}.zip`)
             await markBugReportFilesDeleted(reportId)
           } catch (err: unknown) {
-            if (
-              err instanceof SyntaxError ||
-              err instanceof TypeError ||
-              err instanceof ReferenceError ||
-              err instanceof RangeError
-            ) {
-              throw err
-            }
-
-            logger.error({ err }, `failed to delete files from bug report ${reportId}`, err)
+            logger.error({ err }, `failed to delete files from bug report ${reportId}`)
           }
         }
       },
@@ -181,10 +172,14 @@ export class BugsApi {
     }
 
     const userIds = new Set([report.submitterId, report.resolverId].filter(Boolean) as SbUserId[])
-    const [users, logsUrl] = await Promise.all([
-      findUsersById(Array.from(userIds)),
-      report.logsDeleted ? undefined : getSignedUrl(`bug-reports/${report.id}.zip`),
-    ])
+    const users = await findUsersById(Array.from(userIds))
+    const submitterName =
+      users.find(u => u.id === report.submitterId)?.name ?? `${report.submitterId}`
+    const logsUrl = await (report.logsDeleted
+      ? undefined
+      : getSignedUrl(`bug-reports/${report.id}.zip`, {
+          contentDisposition: `attachment; filename="${submitterName}-${report.id}-logs.zip"`,
+        }))
 
     return {
       report: toBugReportJson(report),
