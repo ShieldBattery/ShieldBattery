@@ -7,10 +7,11 @@ import {
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import logger from '../logging/logger'
 
 export interface ResultSubmission {
   /** The user ID of the player who reported these results. */
-  reporter: number
+  reporter: SbUserId
   /** The elapsed time of the game, in milliseconds. */
   time: number
   /** A tuple of (user id, result info). */
@@ -56,6 +57,7 @@ function countTerminalStates(resultMap: ReadonlyArray<[SbUserId, GameClientPlaye
  *   submitted a result yet, a null will be present in this array.
  */
 export function reconcileResults(
+  users: ReadonlyArray<SbUserId>,
   results: ReadonlyArray<ResultSubmission | null>,
 ): ReconciledResults {
   // TODO(tec27): Incomplete results can also sometimes be reconciled (e.g. 1 player still playing,
@@ -78,14 +80,19 @@ export function reconcileResults(
   // control over the displayed time which is *slightly* unsafe, I suppose.
   const elapsedTime = sortedResults[sortedResults.length - 1].time
 
-  const combined = new Map<SbUserId, GameClientPlayerResult[]>()
-  const apm = new Map<SbUserId, number>()
+  const combined = new Map<SbUserId, GameClientPlayerResult[]>(users.map(u => [u, []]))
+  const apm = new Map<SbUserId, number | undefined>(users.map(u => [u, undefined]))
   for (const { reporter, playerResults } of sortedResults) {
+    if (!combined.has(reporter)) {
+      throw new Error(`Found results for ${reporter} that was not in the game`)
+    }
+
     const disconnectIsLoss = playerResults.some(([_, r]) => r.result === GameClientResult.Victory)
 
     for (const [id, r] of playerResults) {
       if (!combined.has(id)) {
-        combined.set(id, [])
+        logger.warn(`Received result from player ${reporter} for ${id} that was not in the game`)
+        continue
       }
 
       // Handle legacy client reports that don't properly force disconnect clients to a defeat when
@@ -106,7 +113,7 @@ export function reconcileResults(
         // exclusively?)
         apm.set(id, result.apm)
       }
-      if (!apm.has(id)) {
+      if (apm.get(id) === undefined) {
         // Store the first reported APM for a user just in case we don't get a report from them
         apm.set(id, result.apm)
       }
@@ -116,10 +123,12 @@ export function reconcileResults(
   const playerRaces = new Map<SbUserId, AssignedRaceChar>()
   for (const [playerId, playerResults] of combined) {
     const raceSet = new Set(playerResults.map(r => r.race))
-    if (raceSet.size > 1) {
+    if (raceSet.size !== 1) {
       disputed = true
     }
-    playerRaces.set(playerId, playerResults[0].race)
+    if (playerResults.length > 0) {
+      playerRaces.set(playerId, playerResults[0].race)
+    }
   }
 
   const reconciled = new Map<SbUserId, ReconciledPlayerResult>()
@@ -163,7 +172,11 @@ export function reconcileResults(
 
     reconciled.set(playerId, {
       result,
-      race: playerRaces.get(playerId)!,
+      // This default is ehhh but if this happens this game will definitely not be reconciled for
+      // a result because it had blank results for at least one player. We could make race optional
+      // but this bug only happened for a few games and we'd have to maintain that annoyance in
+      // perpetuity
+      race: playerRaces.get(playerId) ?? 'p',
       apm: apm.get(playerId) ?? 0,
     })
   }

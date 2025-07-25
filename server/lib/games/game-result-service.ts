@@ -304,13 +304,13 @@ export default class GameResultService {
 
     const gameId = gameRecord.id
     const currentResults = await getCurrentReportedResults(gameId)
-    const numHumans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer)).length
+    const humans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id))
     const haveResults = currentResults.filter(r => !!r).length
-    if (!force && haveResults < numHumans) {
+    if (!force && haveResults < humans.length) {
       return
     }
 
-    const reconciled = reconcileResults(currentResults)
+    const reconciled = reconcileResults(humans, currentResults)
     const reconcileDate = new Date(this.clock.now())
     await transact(async client => {
       // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
