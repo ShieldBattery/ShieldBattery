@@ -351,7 +351,6 @@ unsafe impl Send for Window {}
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     unsafe {
         debug!("ShowWindow {window:p} {show}");
-        let mut is_first_show = false;
         if show == SW_SHOW
             && is_forge_window(window)
             && !with_forge(|forge| {
@@ -360,31 +359,18 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
                 restored
             })
         {
-            is_first_show = true;
             restore_saved_window_pos();
             // Disable the close button, since we don't want the user to be able to close the window
             // during loading. We'll re-enable it once loading is complete.
             let menu = GetSystemMenu(window, FALSE);
             EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
             DrawMenuBar(window);
-        }
-        let result = orig(window, show);
-
-        if is_first_show {
-            debug!("First ShowWindow call");
             // Try to force the game to init its graphics stuff properly, speculative fix for people
             // that only see a black screen during countdown
             fix_clip_cursor();
             bring_window_forward();
-            RedrawWindow(
-                window,
-                null_mut(),
-                null_mut(),
-                RDW_INVALIDATE | RDW_ERASE | RDW_INTERNALPAINT,
-            );
         }
-
-        result
+        orig(window, show)
     }
 }
 
