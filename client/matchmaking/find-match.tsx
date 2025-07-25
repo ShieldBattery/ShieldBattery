@@ -292,7 +292,7 @@ export function FindMatch() {
               text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}
               value={MatchmakingType.Match2v2}
             />
-            <TabItem text={'3v3'} value={t('matchmaking.type.3v3', '3v3')} />
+            <TabItem text={t('matchmaking.type.3v3', '3v3')} value={'3v3'} />
           </Tabs>
         </TabArea>
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
