@@ -185,9 +185,8 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
             }
         }
     }
-    // TODO Probs tell how to report, where to get log file etc
     windows::message_box(
-        "Shieldbattery crash :(",
+        "Shieldbattery crash :( Please submit a bug report in the top left of the app.",
         &format!("{location}\n{panic_msg}"),
     );
     unsafe {
