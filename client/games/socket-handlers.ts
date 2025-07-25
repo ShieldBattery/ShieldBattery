@@ -46,10 +46,10 @@ export default function ({
               return
             } catch (err) {
               if (isFetchError(err)) {
-                if (err.code == GameResultErrorCode.AlreadyReported) {
+                if (err.code === GameResultErrorCode.AlreadyReported) {
                   logger.verbose(`Game result already reported, not retrying further`)
                   return
-                } else if (err.code == GameResultErrorCode.NotFound) {
+                } else if (err.code === GameResultErrorCode.NotFound) {
                   logger.warning(`Game result resend failed, game not found!`)
                   return
                 }
