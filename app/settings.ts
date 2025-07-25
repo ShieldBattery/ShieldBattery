@@ -407,7 +407,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       try {
         const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
         log.debug(`Got initial Blizzard settings file contents: \n${contents}`)
-        // If the file is empty
         this.blizzardSettings = JSON.parse(contents)
         // We only attach the watcher if the above doesn't throw, which means the settings exist.
         // TODO(tec27): We should probably be watching the directory if we can't watch the file
