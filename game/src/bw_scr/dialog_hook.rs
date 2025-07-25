@@ -165,7 +165,21 @@ unsafe extern "C" fn console_dialog_event_handler(
     unsafe {
         let bw = get_bw();
         if bw.console_hidden() {
-            return 0;
+            let allow_event = if (*event).ty == 0xe {
+                match (*event).ext_type {
+                    // 0xa and 0x0 are init events, 0x1 is delete event, so those have to
+                    // be allowed in order for the dialog not exploding due to unfinished
+                    // initialization / undone cleanup.
+                    // (We probably don't have these dialogs ever be deleted though)
+                    0xa | 0x0 | 0x1 => true,
+                    _ => false,
+                }
+            } else {
+                false
+            };
+            if !allow_event {
+                return 0;
+            }
         }
         orig(ctrl, event)
     }
