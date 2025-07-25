@@ -103,6 +103,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         }
 
         error!("{message}");
+        message = format!("{message}\nPlease submit a bug report in the launcher.");
         windows::message_box("Shieldbattery crash :(", &message);
         TerminateProcess(GetCurrentProcess(), exception_code);
         #[allow(clippy::empty_loop)]

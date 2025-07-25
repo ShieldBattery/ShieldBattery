@@ -186,8 +186,8 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
         }
     }
     windows::message_box(
-        "Shieldbattery crash :( Please submit a bug report in the top left of the app.",
-        &format!("{location}\n{panic_msg}"),
+        "Shieldbattery crash :(",
+        &format!("{location}\n{panic_msg}\nPlease submit a bug report in the launcher."),
     );
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
