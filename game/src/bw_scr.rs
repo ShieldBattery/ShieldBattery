@@ -1722,85 +1722,91 @@ impl BwScr {
                     // will have the is_hd value that is currently being used.
                     // Could also probably examine the render target from get_render_target,
                     // as that changes depending on if BW is currently rendering HD or not.
-                    let is_hd = (*commands)
+                    let hd_state = (*commands)
                         .draw_command_count
                         .checked_sub(1)
                         .and_then(|idx| (*commands).commands.get(idx as usize))
-                        .map(|x| x.is_hd != 0)
-                        .unwrap_or(false);
-                    // SC:R only enables carbot if both of these flags are set
-                    let is_carbot = self.is_carbot.load(Ordering::Relaxed)
-                        && self.show_skins.load(Ordering::Relaxed);
-                    // Render target 1 is for UI layers (0xb to 0x1d inclusive)
-                    let render_target =
-                        draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
-                    if let Some(mut render_state) = self.render_state.lock() {
-                        let countdown_start = *self.countdown_start.lock();
-                        let apm_guard = self.apm_state.lock();
-                        let apm = apm_guard.as_deref();
-                        let size = ((*render_target.bw).width, (*render_target.bw).height);
-                        let overlay_out = render_state.overlay.step(
-                            &draw_overlay::BwVars {
-                                is_replay_or_obs,
-                                is_replay,
-                                is_team_game,
-                                game,
-                                players,
-                                main_palette,
-                                rgb_colors,
-                                use_rgb_colors,
-                                replay_visions,
-                                active_units,
-                                first_player_unit,
-                                first_dialog,
-                                graphic_layers,
-                                is_hd,
-                                has_init_bw,
-                                countdown_start,
-                                game_started,
-                            },
-                            apm,
-                            size,
-                            game_thread::setup_info(),
-                        );
-                        if cfg!(debug_assertions) {
-                            self.handle_debug_ui_actions(&overlay_out, &mut render_state);
+                        .map(|x| x.is_hd != 0);
+                    // Hack: If the hd state is None (During loading with no draw commands from BW),
+                    // we just add overlay for both SD and HD and it works fine??
+                    for is_hd in [false, true] {
+                        if hd_state.is_some_and(|x| x != is_hd) {
+                            continue;
                         }
-                        if replay_visions != overlay_out.replay_visions {
-                            self.replay_visions.write(overlay_out.replay_visions);
-                            self.local_visions.write(overlay_out.replay_visions);
-                            // Has to be called here or otherwise there's minimap flicker
-                            // with the resources disappearing until the game logic moves
-                            // forward a step.
-                            game_thread::add_fow_sprites_for_replay_vision_change(self);
-                        }
-                        if let Some(unit) = overlay_out.select_unit {
-                            let units = [*unit];
-                            (self.select_units)(units.len(), units.as_ptr(), 1, 1);
-                            self.center_screen(&unit.position());
-                        }
-                        let console_shown = !self.console_hidden();
-                        if overlay_out.show_console != console_shown {
-                            if overlay_out.show_console {
-                                self.show_console(first_dialog);
-                            } else {
-                                self.hide_console(first_dialog);
+                        // SC:R only enables carbot if both of these flags are set
+                        let is_carbot = self.is_carbot.load(Ordering::Relaxed)
+                            && self.show_skins.load(Ordering::Relaxed);
+                        // Render target 1 is for UI layers (0xb to 0x1d inclusive)
+                        let render_target =
+                            draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
+                        if let Some(mut render_state) = self.render_state.lock() {
+                            let countdown_start = *self.countdown_start.lock();
+                            let apm_guard = self.apm_state.lock();
+                            let apm = apm_guard.as_deref();
+                            let size = ((*render_target.bw).width, (*render_target.bw).height);
+                            let overlay_out = render_state.overlay.step(
+                                &draw_overlay::BwVars {
+                                    is_replay_or_obs,
+                                    is_replay,
+                                    is_team_game,
+                                    game,
+                                    players,
+                                    main_palette,
+                                    rgb_colors,
+                                    use_rgb_colors,
+                                    replay_visions,
+                                    active_units,
+                                    first_player_unit,
+                                    first_dialog,
+                                    graphic_layers,
+                                    is_hd,
+                                    has_init_bw,
+                                    countdown_start,
+                                    game_started,
+                                },
+                                apm,
+                                size,
+                                game_thread::setup_info(),
+                            );
+                            if cfg!(debug_assertions) {
+                                self.handle_debug_ui_actions(&overlay_out, &mut render_state);
                             }
+                            if replay_visions != overlay_out.replay_visions {
+                                self.replay_visions.write(overlay_out.replay_visions);
+                                self.local_visions.write(overlay_out.replay_visions);
+                                // Has to be called here or otherwise there's minimap flicker
+                                // with the resources disappearing until the game logic moves
+                                // forward a step.
+                                game_thread::add_fow_sprites_for_replay_vision_change(self);
+                            }
+                            if let Some(unit) = overlay_out.select_unit {
+                                let units = [*unit];
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                                self.center_screen(&unit.position());
+                            }
+                            let console_shown = !self.console_hidden();
+                            if overlay_out.show_console != console_shown {
+                                if overlay_out.show_console {
+                                    self.show_console(first_dialog);
+                                } else {
+                                    self.hide_console(first_dialog);
+                                }
+                            }
+                            draw_inject::add_overlays(
+                                &mut render_state.render,
+                                &draw_inject::BwVars {
+                                    renderer,
+                                    commands,
+                                    vertex_buf: vertex_buffer,
+                                    is_hd,
+                                    is_carbot,
+                                    statres_icons,
+                                    cmdicons,
+                                },
+                                overlay_out,
+                                &render_target,
+                            );
                         }
-                        draw_inject::add_overlays(
-                            &mut render_state.render,
-                            &draw_inject::BwVars {
-                                renderer,
-                                commands,
-                                vertex_buf: vertex_buffer,
-                                is_hd,
-                                is_carbot,
-                                statres_icons,
-                                cmdicons,
-                            },
-                            overlay_out,
-                            &render_target,
-                        );
                     }
                 },
                 address,
