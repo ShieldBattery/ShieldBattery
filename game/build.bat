@@ -67,4 +67,6 @@ echo %copysrc% -^> %copytgt%
 copy "%copysrc%" "%copytgt%" /y
 
 :exit
+set OLDERROR=%ERRORLEVEL%
 cd "%startdir%"
+exit /b %OLDERROR%
