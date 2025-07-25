@@ -15,7 +15,8 @@ import {
   UserMenuComponent,
   UserMenuContext,
 } from '../users/user-context-menu'
-import { ChatContext, DefaultMessageMenu, MessageMenuComponent } from './chat-context'
+import { ChatContext } from './chat-context'
+import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu'
 
 const MessagesAndInput = styled.div`
   position: relative;

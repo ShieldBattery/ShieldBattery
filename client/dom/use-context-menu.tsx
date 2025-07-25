@@ -27,15 +27,18 @@ interface UseContextMenuProps {
 export function useContextMenu(props?: UseContextMenuProps): {
   onContextMenu: (event: React.MouseEvent) => void
   contextMenuPopoverProps: Omit<PopoverProps, 'children'>
+  selectedText: string
 } {
   const [anchor, setAnchor] = useState<Element>()
   const [anchorX, setAnchorX] = useState(0)
   const [anchorY, setAnchorY] = useState(0)
+  const [selectedText, setSelectedText] = useState('')
 
   const [isContextMenuOpen, openContextMenu, closeContextMenu] = usePopoverController()
 
   const onOpen = useCallback(
     (event: React.MouseEvent) => {
+      setSelectedText(window.getSelection()?.toString() ?? '')
       event.preventDefault()
 
       // NOTE(2Pac): This callback will be called each time user right-clicks inside an anchor, even
@@ -74,5 +77,6 @@ export function useContextMenu(props?: UseContextMenuProps): {
       originX: props?.originX ?? 'left',
       originY: props?.originY ?? 'top',
     },
+    selectedText,
   }
 }

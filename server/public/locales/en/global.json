@@ -256,6 +256,7 @@
       "cancel": "Cancel",
       "clear": "Clear",
       "close": "Close",
+      "copy": "Copy",
       "decline": "Decline",
       "download": "Download",
       "edit": "Edit",
@@ -817,6 +818,7 @@
     "blockedMessage": "Blocked message",
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
+    "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",
     "sendMessageChatRestricted": "Restricted from sending messages until {{date}}"
   },
