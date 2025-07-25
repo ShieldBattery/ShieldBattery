@@ -5,7 +5,8 @@ const path = require('path')
 const nodeEnv = process.env.NODE_ENV || 'development'
 const isProd = nodeEnv === 'production'
 
-const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, not op_mini all'
+const TARGET_BROWSERS =
+  'last 2 versions, not dead, >0.2%, not ie 11, not ie_mob 11, not op_mini all'
 
 const webpackOpts = {
   // Relative to the root directory
