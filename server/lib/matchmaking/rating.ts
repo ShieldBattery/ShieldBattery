@@ -84,10 +84,7 @@ export function calculateChangedRatings({
   } else {
     // Teams
     const [teamA, teamB] = teams
-    const mmrById = mmrs.reduce((result, mmr) => {
-      result.set(mmr.userId, mmr)
-      return result
-    }, new Map<SbUserId, MatchmakingRating>())
+    const mmrById = new Map(mmrs.map(mmr => [mmr.userId, mmr]))
 
     const teamARatings = teamA.map(userId => mmrById.get(userId)!)
     const [teamAEffective, teamAUncertainty] = calcTeamRating(teamARatings)
