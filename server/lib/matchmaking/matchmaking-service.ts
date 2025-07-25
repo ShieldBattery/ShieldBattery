@@ -710,7 +710,7 @@ export class MatchmakingService {
       await match.runDraft(activeClients, mapInfo)
 
       phase = 'loading'
-      await this.doGameLoad(match)
+      await this.doGameLoad(match, mapInfo)
     } catch (err: any) {
       if (!isAbortError(err) && !(err instanceof MatchmakingServiceError)) {
         logger.error({ err }, 'error while processing match')
@@ -816,7 +816,7 @@ export class MatchmakingService {
     }
   }
 
-  private async doGameLoad(match: Match) {
+  private async doGameLoad(match: Match, mapInfo: MapInfo) {
     let slots: Slot[]
     let playerInfos: PlayerInfo[]
     let teams: GameConfigPlayer[][]
@@ -919,7 +919,7 @@ export class MatchmakingService {
     }
 
     const entities = match.teams.flat()
-    const chosenMap = await pickMap(match.type, entities)
+    const chosenMap = mapInfo
 
     let gameSourceExtra: MatchmakingExtra
     switch (match.type) {
