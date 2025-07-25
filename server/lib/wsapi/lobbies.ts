@@ -2,7 +2,6 @@ import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
 import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
-import { Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
@@ -815,14 +814,12 @@ export class LobbyApi {
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       this.loadingLobbies = this.loadingLobbies.add(lobbyName)
 
-      const gameLoadResult = await Result.fromAsync(
-        this.gameLoader.loadGame({
-          players: getHumanSlots(lobby),
-          playerInfos: getPlayerInfos(lobby),
-          mapId: lobby.map!.id,
-          gameConfig,
-        }),
-      )
+      const gameLoadResult = await this.gameLoader.loadGame({
+        players: getHumanSlots(lobby),
+        playerInfos: getPlayerInfos(lobby),
+        mapId: lobby.map!.id,
+        gameConfig,
+      })
 
       if (gameLoadResult.isError()) {
         switch (gameLoadResult.error.code) {

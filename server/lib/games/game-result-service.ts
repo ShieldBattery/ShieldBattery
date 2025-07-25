@@ -104,16 +104,7 @@ export default class GameResultService {
             const gameRecord = await this.retrieveGame(gameId)
             await this.maybeReconcileResults(gameRecord, true /* force */)
           } catch (err: unknown) {
-            if (
-              err instanceof SyntaxError ||
-              err instanceof TypeError ||
-              err instanceof ReferenceError ||
-              err instanceof RangeError
-            ) {
-              throw err
-            }
-
-            logger.error({ err }, `failed to reconcile game ${gameId}`, err)
+            logger.error({ err }, `failed to reconcile game ${gameId}`)
           }
         }
       },
