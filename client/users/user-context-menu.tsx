@@ -468,7 +468,7 @@ function UserContextMenuList({
     (elems, category, index) => {
       const categoryItems = items.get(category) ?? []
 
-      if (categoryItems.length > 0 && index > 0) {
+      if (elems.length > 0 && categoryItems.length > 0 && index > 0) {
         elems.push(<Divider key={`divider-${index}`} $dense={true} />)
       }
 
