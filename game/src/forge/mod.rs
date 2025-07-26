@@ -104,6 +104,7 @@ unsafe extern "system" fn wnd_proc_scr(
                     // These events signal that Windows is going to run its own event loop on our
                     // main thread, so we start a timer to ensure we keep making game loading
                     // progress
+                    debug!("Enter size/move/menu loop {msg:x}");
                     if with_forge(|f| !f.game_started) {
                         SetTimer(
                             window,
@@ -116,6 +117,7 @@ unsafe extern "system" fn wnd_proc_scr(
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
                     // Opposite of the above, we are now running our own window loop again
+                    debug!("Exit size/move/menu loop {msg:x}");
                     if with_forge(|f| !f.game_started) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
                         get_bw().lock_event_processing_for_subwndproc();
