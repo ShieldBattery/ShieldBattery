@@ -5,6 +5,7 @@ import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
@@ -24,15 +25,15 @@ const UserListContainer = styled.div`
   border-radius: 8px;
 `
 
-const PaddingHeader = styled.div<{ context?: unknown }>`
+const PaddingHeader = eatVirtuosoContext(/* */ styled.div<{ context?: unknown }>`
   width: 100%;
   height: 10px;
-`
+`)
 
-const PaddingFooter = styled.div<{ context?: unknown }>`
+const PaddingFooter = eatVirtuosoContext(/* */ styled.div<{ context?: unknown }>`
   width: 100%;
   height: 8px;
-`
+`)
 
 const userListRow = css`
   ${singleLine};

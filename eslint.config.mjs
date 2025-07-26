@@ -112,7 +112,7 @@ export default [
         'single',
         {
           avoidEscape: true,
-          allowTemplateLiterals: true,
+          allowTemplateLiterals: 'always',
         },
       ],
       '@stylistic/semi': ['error', 'never'],
