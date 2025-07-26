@@ -106,15 +106,24 @@ export class MatchmakingTimesApi {
   async addNew(ctx: RouterContext): Promise<MatchmakingTimeJson> {
     const matchmakingType = getValidatedMatchmakingType(ctx)
     const {
-      body: { startDate, enabled },
+      body: { startDate, enabled, applyToAllMatchmakingTypes },
     } = validateRequest(ctx, {
       body: Joi.object<AddMatchmakingTimeRequest>({
         startDate: Joi.date().timestamp().greater('now').required(),
         enabled: Joi.boolean().required(),
+        applyToAllMatchmakingTypes: Joi.boolean().required(),
       }),
     })
 
     const result = await addMatchmakingTime(matchmakingType, new Date(startDate), enabled)
+
+    if (applyToAllMatchmakingTypes) {
+      await Promise.all(
+        ALL_MATCHMAKING_TYPES.filter(type => type !== matchmakingType).map(type =>
+          addMatchmakingTime(type, new Date(startDate), enabled),
+        ),
+      )
+    }
 
     const matchmakingStatus = container.resolve(MatchmakingStatusService)
     matchmakingStatus.maybePublish(matchmakingType)
