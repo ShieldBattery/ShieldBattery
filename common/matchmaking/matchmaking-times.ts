@@ -34,4 +34,5 @@ export interface GetPastMatchmakingTimesResponse {
 export interface AddMatchmakingTimeRequest {
   startDate: number
   enabled: boolean
+  applyToAllMatchmakingTypes: boolean
 }
