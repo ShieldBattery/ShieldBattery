@@ -442,7 +442,7 @@ impl OverlayState {
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
         self.replay_panels.hotkeys_active =
-            bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
+            bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
             if bw.game_started {
                 if self.was_loading {
