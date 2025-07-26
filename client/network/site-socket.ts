@@ -1,6 +1,6 @@
 import createNydus, { NydusClientOptions } from 'nydus-client'
 import { clientId } from './client-id'
-import { CREDENTIAL_STORAGE } from './fetch'
+import { CREDENTIAL_STORAGE, UNAUTHORIZED_EMITTER } from './fetch'
 import { makeServerUrl } from './server-url'
 
 const location = !IS_ELECTRON ? window.location : new window.URL(makeServerUrl(''))
@@ -20,4 +20,9 @@ const options = {
 } satisfies Partial<NydusClientOptions>
 
 const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`, options)
+
+siteSocket.on('unauthorized', () => {
+  UNAUTHORIZED_EMITTER.emit('unauthorized', 'websocket')
+})
+
 export default siteSocket
