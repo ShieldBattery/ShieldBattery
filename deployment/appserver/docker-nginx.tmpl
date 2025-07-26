@@ -168,8 +168,9 @@ server {
   {{ $access_log }}
   return 503;
 
-  ssl_session_cache shared:SSL:50m;
-  ssl_session_tickets off;
+  ssl_session_timeout 1d;
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_tickets on;
   ssl_certificate /etc/nginx/certs/default.crt;
   ssl_certificate_key /etc/nginx/certs/default.key;
   ssl_early_data on;
@@ -296,9 +297,9 @@ server {
 
   {{ template "ssl_policy" (dict "ssl_policy" $ssl_policy) }}
 
-  ssl_session_timeout 5m;
-  ssl_session_cache shared:SSL:50m;
-  ssl_session_tickets off;
+  ssl_session_timeout 1d;
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_tickets on;
   ssl_early_data on;
 
   quic_gso on;
