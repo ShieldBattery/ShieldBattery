@@ -35,6 +35,7 @@ use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
+use crate::sync::DumbSpinLock;
 use crate::windows;
 use crate::{GameThreadMessage, PROCESS_INIT_HOOK_REACHED};
 
@@ -264,6 +265,10 @@ pub struct BwScr {
     countdown_start: Mutex<Option<Instant>>,
     print_text_hooks_disabled: AtomicI32,
     chat_manager: Mutex<chat::ChatManager>,
+    /// Ensures that things that qualify as "event processing" (e.g. process_events,
+    /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
+    /// at certain points during game init).
+    event_processing_lock: DumbSpinLock,
 }
 
 /// State mutated during renderer draw call
@@ -1056,6 +1061,7 @@ impl BwScr {
             countdown_start: Mutex::new(None),
             print_text_hooks_disabled: AtomicI32::new(0),
             chat_manager: Mutex::new(chat::ChatManager::new()),
+            event_processing_lock: DumbSpinLock::new(),
         })
     }
 
@@ -1914,9 +1920,26 @@ impl BwScr {
     /// Typically the game will call this itself as part of stepping the game loop, but this may
     /// need to be manually called during initialization/shutdown.
     pub unsafe fn process_events(&self) {
+        self.event_processing_lock.lock();
         unsafe {
             (self.process_events)(3);
         }
+        self.event_processing_lock.unlock();
+    }
+
+    /// Unlocks the event processing lock when Windows has taken over our wndproc (i.e. for
+    /// resizing or a context menu). Once that completes, `lock_event_processing_for_subwndproc`
+    /// must be called to re-acquire the lock.
+    pub unsafe fn unlock_event_processing_for_subwndproc(&self) {
+        self.event_processing_lock.unlock();
+        debug!("Unlocked event processing lock for sub-wndproc");
+    }
+
+    /// Locks the event processing lock when Windows has stopped taking over our wndproc (i.e. for
+    /// resizing or a context menu), since afterwards we'll be back inside `process_events`.
+    pub unsafe fn lock_event_processing_for_subwndproc(&self) {
+        self.event_processing_lock.lock();
+        debug!("Locked event processing lock after sub-wndproc");
     }
 
     /// Forces a redraw of the graphic layers. This should only be used during game initialization,
@@ -2590,6 +2613,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn maybe_receive_turns(&self) {
+        self.event_processing_lock.lock();
         unsafe {
             // NOTE: This is actually not the same function that 1161 calls, but one
             // level higher that also ends up handling any received commands.
@@ -2612,6 +2636,7 @@ impl bw::Bw for BwScr {
             (self.snet_send_packets)();
             (self.step_network)();
         }
+        self.event_processing_lock.unlock();
     }
 
     unsafe fn init_game_network(&self) {

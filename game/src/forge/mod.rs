@@ -111,12 +111,14 @@ unsafe extern "system" fn wnd_proc_scr(
                             STEP_LOBBY_COMPLETION_TIMEOUT,
                             None,
                         );
+                        get_bw().unlock_event_processing_for_subwndproc();
                     }
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
                     // Opposite of the above, we are now running our own window loop again
                     if with_forge(|f| !f.game_started) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
+                        get_bw().lock_event_processing_for_subwndproc();
                     }
                 }
                 WM_NCRBUTTONDOWN => {

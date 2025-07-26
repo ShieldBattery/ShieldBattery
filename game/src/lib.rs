@@ -60,6 +60,7 @@ mod rally_point;
 mod recurse_checked_mutex;
 mod replay;
 mod snp;
+mod sync;
 mod udp;
 mod windows;
 
