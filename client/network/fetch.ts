@@ -25,7 +25,14 @@ export enum CredentialStorageType {
   Auto,
 }
 
-const CREDENTIAL_KEY = 'sbjwt'
+const BASE_CREDENTIAL_KEY = 'sbjwt'
+// In Electron, if a different server is set than the default, save the key namespaced by that
+// server so we don't end up with tokens that are signed for a different server when swapping
+// between them
+const CREDENTIAL_KEY =
+  IS_ELECTRON && window.SHIELDBATTERY_ELECTRON_API?.env?.SB_SERVER
+    ? `${BASE_CREDENTIAL_KEY}|${window.SHIELDBATTERY_ELECTRON_API.env.SB_SERVER}`
+    : BASE_CREDENTIAL_KEY
 
 export class CredentialStorage {
   get(): string | undefined {
