@@ -122,7 +122,7 @@ unsafe extern "C" fn minimap_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() {
+        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
             return 0;
         }
         let ret = orig(ctrl, event);
@@ -157,6 +157,21 @@ unsafe extern "C" fn minimap_event_handler(
     }
 }
 
+unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
+    if (*event).ty == 0xe {
+        match (*event).ext_type {
+            // 0xa and 0x0 are init events, 0x1 is delete event, so those have to
+            // be allowed in order for the dialog not exploding due to unfinished
+            // initialization / undone cleanup.
+            // (We probably don't have these dialogs ever be deleted though)
+            0xa | 0x0 | 0x1 => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
 unsafe extern "C" fn console_dialog_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
@@ -164,22 +179,8 @@ unsafe extern "C" fn console_dialog_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() {
-            let allow_event = if (*event).ty == 0xe {
-                match (*event).ext_type {
-                    // 0xa and 0x0 are init events, 0x1 is delete event, so those have to
-                    // be allowed in order for the dialog not exploding due to unfinished
-                    // initialization / undone cleanup.
-                    // (We probably don't have these dialogs ever be deleted though)
-                    0xa | 0x0 | 0x1 => true,
-                    _ => false,
-                }
-            } else {
-                false
-            };
-            if !allow_event {
-                return 0;
-            }
+        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
+            return 0;
         }
         orig(ctrl, event)
     }
