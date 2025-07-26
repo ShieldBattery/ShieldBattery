@@ -1,7 +1,6 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { container } from 'tsyringe'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import {
   AddMatchmakingTimeRequest,
@@ -41,6 +40,8 @@ function getValidatedMatchmakingType(ctx: RouterContext) {
 @httpApi('/matchmaking-times')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageMatchmakingTimes'))
 export class MatchmakingTimesApi {
+  constructor(private matchmakingStatus: MatchmakingStatusService) {}
+
   @httpGet('/:matchmakingType/current')
   async getCurrentTime(ctx: RouterContext): Promise<MatchmakingTimeJson | undefined> {
     const matchmakingType = getValidatedMatchmakingType(ctx)
@@ -115,18 +116,21 @@ export class MatchmakingTimesApi {
       }),
     })
 
-    const result = await addMatchmakingTime(matchmakingType, new Date(startDate), enabled)
+    const matchmakingTypes = applyToAllMatchmakingTypes ? ALL_MATCHMAKING_TYPES : [matchmakingType]
+    const date = new Date(startDate)
 
-    if (applyToAllMatchmakingTypes) {
-      await Promise.all(
-        ALL_MATCHMAKING_TYPES.filter(type => type !== matchmakingType).map(type =>
-          addMatchmakingTime(type, new Date(startDate), enabled),
-        ),
-      )
+    const results = await Promise.all(
+      matchmakingTypes.map(type => addMatchmakingTime(type, date, enabled)),
+    )
+
+    for (const type of matchmakingTypes) {
+      this.matchmakingStatus.maybePublish(type)
     }
 
-    const matchmakingStatus = container.resolve(MatchmakingStatusService)
-    matchmakingStatus.maybePublish(matchmakingType)
+    const result = results.find(r => r.matchmakingType === matchmakingType)
+    if (!result) {
+      throw new Error("Couldn't find main matchmaking type in addMatchmakingTime results")
+    }
 
     return toMatchmakingTimeJson(result)
   }
@@ -150,7 +154,6 @@ export class MatchmakingTimesApi {
 
     await removeMatchmakingTime(matchmakingTimeId)
 
-    const matchmakingStatus = container.resolve(MatchmakingStatusService)
-    matchmakingStatus.maybePublish(matchmakingTime.matchmakingType)
+    this.matchmakingStatus.maybePublish(matchmakingTime.matchmakingType)
   }
 }
