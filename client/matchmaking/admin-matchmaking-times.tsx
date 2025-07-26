@@ -81,12 +81,17 @@ function addMatchmakingTime(
   type: MatchmakingType,
   startDate: number,
   enabled: boolean,
+  applyToAllMatchmakingTypes: boolean,
   spec: RequestHandlingSpec<MatchmakingTimeJson>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     return await fetchJson<MatchmakingTimeJson>(apiUrl`matchmaking-times/${type}`, {
       method: 'post',
-      body: encodeBodyAsParams<AddMatchmakingTimeRequest>({ startDate, enabled }),
+      body: encodeBodyAsParams<AddMatchmakingTimeRequest>({
+        startDate,
+        enabled,
+        applyToAllMatchmakingTypes,
+      }),
       signal: spec.signal,
     })
   })
@@ -135,20 +140,16 @@ const AddNewCard = styled.div`
   border-radius: 8px;
 `
 
-const DateInputContainer = styled.div`
+const AddNewOptionsContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 16px;
 `
 
-const InvalidDateInput = styled.span`
-  ${bodyMedium};
-
-  color: var(--theme-error);
-`
-
-const ValidDateIcon = styledWithAttrs(MaterialIcon, { icon: 'check_circle' })`
-  color: var(--theme-success);
+const DateInputContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
 `
 
 const HistoryContainer = styled.div`
@@ -288,6 +289,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
   const [startDate, setStartDate] = useState('')
   const [invalidDate, setInvalidDate] = useState(false)
   const [enabled, setEnabled] = useState(false)
+  const [applyToAllMatchmakingTypes, setApplyToAllMatchmakingTypes] = useState(false)
   const [addingTimeError, setAddingTimeError] = useState<Error>()
 
   const [futureTimes, setFutureTimes] = useState<MatchmakingTimeJson[]>([])
@@ -335,7 +337,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
 
   const onAddMatchmakingTime = () => {
     dispatch(
-      addMatchmakingTime(activeTab, Date.parse(startDate), enabled, {
+      addMatchmakingTime(activeTab, Date.parse(startDate), enabled, applyToAllMatchmakingTypes, {
         onSuccess: data => {
           setFutureTimes(futureTimes =>
             concatWithoutDuplicates(futureTimes, [data], value => value.id).sort(
@@ -353,6 +355,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     )
     setStartDate('')
     setEnabled(false)
+    setApplyToAllMatchmakingTypes(false)
   }
 
   const onDeleteMatchmakingTime = (id: number) => {
@@ -368,15 +371,6 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
         },
       }),
     )
-  }
-
-  let dateValidationContents = null
-  if (invalidDate) {
-    dateValidationContents = (
-      <InvalidDateInput>Start date must be set into the future</InvalidDateInput>
-    )
-  } else if (startDate && !invalidDate) {
-    dateValidationContents = <ValidDateIcon />
   }
 
   let futureTimesContents: React.ReactNode
@@ -425,6 +419,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
             type='datetime-local'
             dense={true}
             value={startDate}
+            errorText={invalidDate ? 'Start date must be set into the future' : undefined}
             onChange={event => {
               const isValid =
                 event.target.validity.valid && Date.parse(event.target.value) > Date.now()
@@ -432,13 +427,20 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
               setInvalidDate(!isValid)
             }}
           />
-          {dateValidationContents}
         </DateInputContainer>
-        <CheckBox
-          label='Enabled'
-          checked={enabled}
-          onChange={event => setEnabled(event.target.checked)}
-        />
+
+        <AddNewOptionsContainer>
+          <CheckBox
+            label='Enabled'
+            checked={enabled}
+            onChange={event => setEnabled(event.target.checked)}
+          />
+          <CheckBox
+            label='Apply to all matchmaking types'
+            checked={applyToAllMatchmakingTypes}
+            onChange={event => setApplyToAllMatchmakingTypes(event.target.checked)}
+          />
+        </AddNewOptionsContainer>
 
         <FilledButton
           label='Add'
