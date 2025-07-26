@@ -28,6 +28,8 @@ nsis:
 win:
   icon: icon.ico
   target: nsis
+  publisherName:
+    - Fast Expo Collective LLC
   signExts:
     - dll
   signtoolOptions:

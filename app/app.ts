@@ -96,6 +96,7 @@ autoUpdater.logger = logger
 // We control the download ourselves to avoid problems with double-downloading that this library
 // sometimes has
 autoUpdater.autoDownload = false
+autoUpdater.disableWebInstaller = true
 let downloadingUpdate = false
 
 logger.info('Setting auto-updater url to: ' + updateUrl)
