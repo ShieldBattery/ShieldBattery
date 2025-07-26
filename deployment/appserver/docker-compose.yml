@@ -25,7 +25,8 @@ services:
     init: true
     ports:
       # rally-point route creator server
-      - '14099:14099'
+      - '14099:14099/tcp'
+      - '14099:14099/udp'
     environment:
       # This controls what addresses nginx_proxy will forward to this
       - VIRTUAL_HOST=${SB_VIRTUAL_HOST}
@@ -124,8 +125,9 @@ services:
     container_name: nginx_proxy
     restart: unless-stopped
     ports:
-      - '80:80'
-      - '443:443'
+      - '80:80/tcp'
+      - '443:443/tcp'
+      - '443:443/udp'
     labels:
       - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy'
     networks:
