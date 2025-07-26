@@ -107,6 +107,7 @@ interface PossibleNodeError extends Error {
 }
 
 app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext) => {
+  log.info({ err, req: ctx?.req }, 'spammy server error')
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
   if (err.code && err.code === 'ECONNRESET') {
