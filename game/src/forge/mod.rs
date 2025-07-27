@@ -104,7 +104,7 @@ unsafe extern "system" fn wnd_proc_scr(
                     // These events signal that Windows is going to run its own event loop on our
                     // main thread, so we start a timer to ensure we keep making game loading
                     // progress
-                    debug!("Enter size/move/menu loop {msg:x}");
+                    debug!("Enter size/move/menu loop {msg:#x}");
                     if with_forge(|f| !f.game_started) {
                         SetTimer(
                             window,
@@ -117,7 +117,7 @@ unsafe extern "system" fn wnd_proc_scr(
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
                     // Opposite of the above, we are now running our own window loop again
-                    debug!("Exit size/move/menu loop {msg:x}");
+                    debug!("Exit size/move/menu loop {msg:#x}");
                     if with_forge(|f| !f.game_started) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
                         get_bw().lock_event_processing_for_subwndproc();
@@ -278,6 +278,7 @@ struct Forge {
     window: Option<Window>,
     orig_wnd_proc: Option<unsafe extern "system" fn(HWND, u32, usize, isize) -> isize>,
     window_pos_restored: bool,
+    use_process_events: bool,
     game_started: bool,
 
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
@@ -594,6 +595,7 @@ pub fn init(
         starting_settings: settings,
         window: None,
         orig_wnd_proc: None,
+        use_process_events: false,
         game_started: false,
         window_pos_restored: false,
         scr_window_class: None,
@@ -625,9 +627,11 @@ pub unsafe fn run_wnd_proc() {
         // Wait for there to be messages in the queue, then tell SC:R to process events so it will
         // dispatch them. We do this because we need to call `process_events` anyway (for things
         // like sound playback), and it calls through to `PeekMessageW` anyway.
-        while MsgWaitForMultipleObjects(0, null_mut(), FALSE, u32::MAX, QS_ALLINPUT) != u32::MAX {
+        'outer: while MsgWaitForMultipleObjects(0, null_mut(), FALSE, u32::MAX, QS_ALLINPUT)
+            != u32::MAX
+        {
             let mut msg: MSG = mem::zeroed();
-            let done = PeekMessageW(
+            let mut done = PeekMessageW(
                 &mut msg,
                 null_mut(),
                 WM_END_WND_PROC_WORKER,
@@ -635,7 +639,28 @@ pub unsafe fn run_wnd_proc() {
                 PM_REMOVE,
             ) != 0;
 
-            get_bw().process_events();
+            if !done && with_forge(|forge| forge.use_process_events) {
+                // Once the lobby is initialized and players have joined (and we won't be
+                // touching the game memory outside of the event processing lock), we need to let
+                // process_events() dispatch the messages instead, so that it will also handle
+                // things like sound playback
+                get_bw().process_events();
+            } else if !done {
+                // Before then, we need to dispatch the messages ourselves so we give SC:R less
+                // opportunity to mess with memory we're using (e.g. during join_lobby)
+                while PeekMessageW(&mut msg, null_mut(), 0, 0, PM_REMOVE) != 0 {
+                    if msg.message == WM_QUIT {
+                        debug!("WM_QUIT received, exiting message pump");
+                        break 'outer;
+                    } else if msg.message == WM_END_WND_PROC_WORKER {
+                        done = true;
+                        break;
+                    }
+
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
 
             // NOTE(tec27): STOP_MESSAGE_PUMP may have been set by our wndproc hook since
             // process_events calls PeekMessageW in a loop, and the event may have been dispatched
@@ -691,6 +716,15 @@ pub fn force_mouse_up() {
             PostMessageW(handle, WM_LBUTTONUP, 0, lparam as isize);
         }
     }
+}
+
+/// Starts using process_events for Windows message dispatch. This should be called once the lobby
+/// is initialized and all players have joined (once any game state modifications are complete).
+pub fn start_process_events_dispatch() {
+    debug!("Starting to use process_events for message dispatch");
+    with_forge(|forge| {
+        forge.use_process_events = true;
+    });
 }
 
 pub fn game_started() {

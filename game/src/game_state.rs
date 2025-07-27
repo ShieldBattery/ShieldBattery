@@ -348,10 +348,12 @@ impl GameState {
                 };
                 setup_slots(&info.slots, &info.users, game_type, ums_forces);
             }
+
             send_messages_to_state
                 .send(GameStateMessage::InLobby)
                 .await
                 .map_err(|_| GameInitError::Closed)?;
+
             let bw = get_bw();
             loop {
                 unsafe {
@@ -445,6 +447,8 @@ impl GameState {
 
                 debug!("All players are ready to start");
             }
+
+            forge::start_process_events_dispatch();
 
             if !info.is_replay() {
                 unsafe {
