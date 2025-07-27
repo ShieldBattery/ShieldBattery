@@ -109,7 +109,7 @@ interface PossibleNodeError extends Error {
 app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext) => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
-  if (err.code && err.code === 'ECONNRESET') {
+  if (err.code && (err.code === 'ECONNRESET' || err.code === 'EPIPE')) {
     // These tend to happen when serving large files (e.g. videos) that get canceled by leaving the
     // page. They aren't severe or even really fixable (AFAIK), but still may be useful to log in
     // case they start happening for things we don't expect
