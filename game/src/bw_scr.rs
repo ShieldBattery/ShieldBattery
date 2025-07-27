@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
@@ -57,6 +57,10 @@ mod thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
+
+/// How long between lobby "turns", e.g. checking/sending/applying lobby commands. This matches
+/// SC'Rs timing.
+pub const LOBBY_TURN_TIME: Duration = Duration::from_millis(50);
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,

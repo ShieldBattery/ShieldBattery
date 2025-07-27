@@ -23,7 +23,7 @@ use crate::app_messages::{
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
 use crate::bw::{self, Bw, BwGameType, LobbyOptions, UserLatency, get_bw};
-use crate::bw_scr::BwScr;
+use crate::bw_scr::{BwScr, LOBBY_TURN_TIME};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
@@ -387,7 +387,7 @@ impl GameState {
                     }
                 }
                 select! {
-                    _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
+                    _ = tokio::time::sleep(LOBBY_TURN_TIME) => continue,
                     res = &mut players_joined => {
                         res?;
                         break;
@@ -435,7 +435,7 @@ impl GameState {
                     }
 
                     select! {
-                        _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
+                        _ = tokio::time::sleep(LOBBY_TURN_TIME) => continue,
                         res = &mut ready_future => {
                             res?;
                             break
@@ -1443,9 +1443,9 @@ async unsafe fn do_countdown() {
 
         // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
         // playback speed due to rendering changes
-        for _ in 0..50 {
+        for _ in 0..40 {
             bw.maybe_receive_turns();
-            tokio::time::sleep(Duration::from_millis(42)).await;
+            tokio::time::sleep(LOBBY_TURN_TIME).await;
         }
 
         // TODO(tec27): Sync countdown across clients
@@ -1453,7 +1453,7 @@ async unsafe fn do_countdown() {
 
         let mut beeps = 0;
         let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
-        let mut receive_interval = tokio::time::interval(Duration::from_millis(42));
+        let mut receive_interval = tokio::time::interval(LOBBY_TURN_TIME);
 
         loop {
             select! {
@@ -1480,7 +1480,7 @@ async unsafe fn do_countdown() {
         // Wait a minimum amount of time before starting the game
         for _ in 0..10 {
             bw.maybe_receive_turns();
-            tokio::time::sleep(Duration::from_millis(42)).await;
+            tokio::time::sleep(LOBBY_TURN_TIME).await;
         }
     }
 }

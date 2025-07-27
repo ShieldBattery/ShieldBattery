@@ -25,7 +25,7 @@ use crate::bw::players::{
     StormPlayerId, VictoryState,
 };
 use crate::bw::{Bw, BwGameType, get_bw};
-use crate::bw_scr::BwScr;
+use crate::bw_scr::{BwScr, LOBBY_TURN_TIME};
 use crate::forge::TRACK_WINDOW_POS;
 use crate::replay;
 use crate::snp;
@@ -164,8 +164,7 @@ impl LobbyInitCompleter {
                 return true;
             }
 
-            // Only check for turns every 42ms (same as BW's fastest game speed)
-            if self.last_receive_turns.elapsed() >= Duration::from_millis(42) {
+            if self.last_receive_turns.elapsed() >= LOBBY_TURN_TIME {
                 self.last_receive_turns = Instant::now();
                 bw.maybe_receive_turns();
             }
@@ -188,7 +187,14 @@ impl LobbyInitCompleter {
         }
         // Sleep until the next turn receiving time, but at most 16ms (so we're still
         // processing events and re-rendering reasonably during this time)
-        (42 - (self.last_receive_turns.elapsed().as_millis().min(42) as u64)).min(16)
+        let turn_time_millis = LOBBY_TURN_TIME.as_millis();
+        (turn_time_millis
+            - (self
+                .last_receive_turns
+                .elapsed()
+                .as_millis()
+                .min(turn_time_millis)))
+        .min(16) as u64
     }
 }
 
