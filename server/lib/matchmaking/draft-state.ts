@@ -66,13 +66,12 @@ export class DraftState {
       getShuffledAnonymizedNames(this.teams[1].players.length),
     ]
 
-    // Determine pick order: team with lowest effective rating goes first
+    // Determine pick order: team with lowest effective rating goes last
     const teamEffectiveRatings = matchTeams.map((team, index) => ({
       index,
       effectiveRating: calcEffectiveRating(team),
     }))
-
-    const sortedTeams = teamEffectiveRatings.sort((a, b) => a.effectiveRating - b.effectiveRating)
+    const sortedTeams = teamEffectiveRatings.sort((a, b) => b.effectiveRating - a.effectiveRating)
 
     // Create pick order alternating between teams: A0 B0 A1 B1 ...
     this.pickOrder = []
