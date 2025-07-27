@@ -100,11 +100,25 @@ unsafe extern "system" fn wnd_proc_scr(
                     }
                     return Some(0);
                 }
+                WM_USER => {
+                    if !IN_SIZE_MOVE_MENU_LOOP.load(Ordering::Relaxed)
+                        || with_forge(|f| !f.use_process_events)
+                    {
+                        // If we're not using process_events yet, we need to make sure not to pass
+                        // this message to SC:R's wndproc. It uses WM_USER as its way of getting
+                        // process_events called during resize/context menu (like our timer below).
+                        // We also ignore this if we're not in a resize/move/menu loop, as they
+                        // can be delivered after that's over and it can cause issues with our
+                        // locks.
+                        return Some(0);
+                    }
+                }
                 WM_ENTERSIZEMOVE | WM_ENTERMENULOOP => {
                     // These events signal that Windows is going to run its own event loop on our
                     // main thread, so we start a timer to ensure we keep making game loading
                     // progress
                     debug!("Enter size/move/menu loop {msg:#x}");
+                    IN_SIZE_MOVE_MENU_LOOP.store(true, Ordering::Release);
                     if with_forge(|f| !f.game_started) {
                         SetTimer(
                             window,
@@ -112,15 +126,35 @@ unsafe extern "system" fn wnd_proc_scr(
                             STEP_LOBBY_COMPLETION_TIMEOUT,
                             None,
                         );
-                        get_bw().unlock_event_processing_for_subwndproc();
+
+                        if with_forge(|f| {
+                            f.event_processing_needs_relock =
+                                USING_PROCESS_EVENTS_DISPATCH.load(Ordering::Relaxed);
+                            f.event_processing_needs_relock
+                        }) {
+                            get_bw().unlock_event_processing_for_size_move_menu();
+                            debug!("Unlocked event processing lock for size/move/menu loop");
+                        }
                     }
                 }
                 WM_EXITSIZEMOVE | WM_EXITMENULOOP => {
                     // Opposite of the above, we are now running our own window loop again
                     debug!("Exit size/move/menu loop {msg:#x}");
-                    if with_forge(|f| !f.game_started) {
+                    IN_SIZE_MOVE_MENU_LOOP.store(false, Ordering::Release);
+                    if with_forge(|f| !f.game_started && f.use_process_events) {
                         KillTimer(window, STEP_LOBBY_COMPLETION_ID);
-                        get_bw().lock_event_processing_for_subwndproc();
+
+                        if with_forge(|f| {
+                            if f.event_processing_needs_relock {
+                                f.event_processing_needs_relock = false;
+                                true
+                            } else {
+                                false
+                            }
+                        }) {
+                            get_bw().lock_event_processing_for_size_move_menu();
+                            debug!("Re-locked event processing lock after size/move/menu loop");
+                        }
                     }
                 }
                 WM_NCRBUTTONDOWN => {
@@ -189,16 +223,43 @@ unsafe extern "system" fn wnd_proc_scr(
         });
 
         if let Some(ret) = ret {
-            ret
+            return ret;
         } else if let Some(ret) = get_bw().window_proc_hook(window, msg, wparam, lparam) {
+            return ret;
+        }
+
+        let Some(orig_wnd_proc) = with_forge(|f| f.orig_wnd_proc) else {
+            return DefWindowProcA(window, msg, wparam, lparam);
+        };
+
+        if msg == WM_USER && with_forge(|f| !f.game_started) {
+            let should_pass = with_forge(|f| {
+                if f.handling_wm_user {
+                    // This would cause SC:R to call process_events inside of a process_events,
+                    // which is unnecessary and could recurse infinitely, so we just break out by
+                    // returning without calling through
+                    false
+                } else {
+                    f.handling_wm_user = true;
+                    true
+                }
+            });
+
+            if !should_pass {
+                return 0;
+            }
+            // process_events() will be called as a result of this WM_USER, so we need to acquire
+            // the lock around the wndproc call
+            get_bw().lock_event_processing_for_size_move_menu();
+            let ret = orig_wnd_proc(window, msg, wparam, lparam);
+            get_bw().unlock_event_processing_for_size_move_menu();
+            with_forge(|f| {
+                f.handling_wm_user = false;
+            });
+
             ret
         } else {
-            let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
-            if let Some(orig_wnd_proc) = orig_wnd_proc {
-                orig_wnd_proc(window, msg, wparam, lparam)
-            } else {
-                DefWindowProcA(window, msg, wparam, lparam)
-            }
+            orig_wnd_proc(window, msg, wparam, lparam)
         }
     }
 }
@@ -284,6 +345,16 @@ struct Forge {
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
     /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
     scr_window_class: Option<ATOM>,
+
+    /// Set to true if the event processing lock needs to be re-locked at the conclusion of the
+    /// resize/move/menu loop. This ensures we don't re-lock the lock if it wasn't locked when that
+    /// began (and lock everyone out forever).
+    event_processing_needs_relock: bool,
+    /// Flag set if we're currently letting SC:R handle a WM_USER message, which it will use to
+    /// call process_events. If WM_USER events get generated faster than process_events runs, it
+    /// can recurse forever => stack overflow (and is also just hard to reason about and very
+    /// unnecessary).
+    handling_wm_user: bool,
 }
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
@@ -292,6 +363,8 @@ static FORGE_INITED: AtomicBool = AtomicBool::new(false);
 // This lets us handle a race condition where SC:R's message handling receives the
 // WM_END_WND_PROC_WORKER message before we see it.
 static STOP_MESSAGE_PUMP: AtomicBool = AtomicBool::new(false);
+static USING_PROCESS_EVENTS_DISPATCH: AtomicBool = AtomicBool::new(false);
+static IN_SIZE_MOVE_MENU_LOOP: AtomicBool = AtomicBool::new(false);
 
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
     let thread_id = unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize };
@@ -599,6 +672,9 @@ pub fn init(
         game_started: false,
         window_pos_restored: false,
         scr_window_class: None,
+
+        event_processing_needs_relock: false,
+        handling_wm_user: false,
     });
     FORGE_INITED.store(true, Ordering::Release);
 }
@@ -644,6 +720,7 @@ pub unsafe fn run_wnd_proc() {
                 // touching the game memory outside of the event processing lock), we need to let
                 // process_events() dispatch the messages instead, so that it will also handle
                 // things like sound playback
+                USING_PROCESS_EVENTS_DISPATCH.store(true, Ordering::Release);
                 get_bw().process_events();
             } else if !done {
                 // Before then, we need to dispatch the messages ourselves so we give SC:R less

@@ -1934,16 +1934,14 @@ impl BwScr {
     /// Unlocks the event processing lock when Windows has taken over our wndproc (i.e. for
     /// resizing or a context menu). Once that completes, `lock_event_processing_for_subwndproc`
     /// must be called to re-acquire the lock.
-    pub unsafe fn unlock_event_processing_for_subwndproc(&self) {
+    pub unsafe fn unlock_event_processing_for_size_move_menu(&self) {
         self.event_processing_lock.unlock();
-        debug!("Unlocked event processing lock for sub-wndproc");
     }
 
     /// Locks the event processing lock when Windows has stopped taking over our wndproc (i.e. for
     /// resizing or a context menu), since afterwards we'll be back inside `process_events`.
-    pub unsafe fn lock_event_processing_for_subwndproc(&self) {
+    pub unsafe fn lock_event_processing_for_size_move_menu(&self) {
         self.event_processing_lock.lock();
-        debug!("Locked event processing lock after sub-wndproc");
     }
 
     /// Forces a redraw of the graphic layers. This should only be used during game initialization,
