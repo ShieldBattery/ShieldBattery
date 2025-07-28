@@ -566,6 +566,7 @@ export type Leagues_HomeFeedEntryFragmentFragment = {
   matchmakingType: Types.MatchmakingType
   startAt: string
   endAt: string
+  badgePath?: string | null
 } & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
 export type LiveGames_HomeFeedFragmentFragment = {
@@ -798,6 +799,7 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
         ],
       },
     },
@@ -856,6 +858,7 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
         ],
       },
     },
@@ -1907,6 +1910,7 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
         ],
       },
     },
