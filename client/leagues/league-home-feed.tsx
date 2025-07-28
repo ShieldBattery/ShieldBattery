@@ -86,6 +86,7 @@ export const Leagues_HomeFeedEntryFragment = graphql(/* GraphQL */ `
     matchmakingType
     startAt
     endAt
+    badgePath
   }
 `)
 
