@@ -206,7 +206,7 @@ pub extern "C" fn OnInject() {
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}[{}:{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S%.3f]"),
+                chrono::Utc::now().format("[%Y-%m-%d][%H:%M:%S%.3f]"),
                 record.file().unwrap_or(""),
                 record.line().unwrap_or(0),
                 record.level(),
