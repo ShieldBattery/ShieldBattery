@@ -641,4 +641,8 @@ impl<'e> Analysis<'e> {
     pub fn print_text(&mut self) -> Option<VirtualAddress> {
         self.0.print_text()
     }
+
+    pub fn snet_local_player_list(&mut self) -> Option<Operand<'e>> {
+        self.0.snet_local_player_list()
+    }
 }

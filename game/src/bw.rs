@@ -302,6 +302,48 @@ pub enum UserLatency {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+pub struct StormListHead<T> {
+    pub unk: usize,
+    pub node: StormListLink<T>,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct StormListLink<T> {
+    pub prev: *mut T,
+    /// NOTE: Bit 1 being set means that this is list end node, pointing to &list_head.node
+    /// (Storm lists loop on itself)
+    pub next: *mut T,
+}
+
+#[repr(C)]
+pub struct SNetPlayerConnection {
+    pub list: StormListLink<SNetPlayerConnection>,
+    pub name: [u8; 0x100],
+    /// Just sockaddr_in but making sure the layout is ok
+    pub sockaddr: [u8; 0x10],
+    pub flags: u32,
+    pub last_message_tick: u32, // unsure
+    pub last_resend_tick: u32,  // unsure
+    pub unk_12c: [u8; 0x14],
+    pub unconfirmed_sends: [StormListHead<c_void>; 4],
+    pub received_packets: [StormListHead<c_void>; 4],
+    pub unk_release_list: [StormListHead<c_void>; 4],
+    pub unk_class2_list: StormListHead<c_void>,
+    pub unk_seq_for_class: [u16; 4],
+    pub next_seq_for_class: [u16; 4],
+    pub class2_next_seq_unk: u16,
+    pub unk3_seq_for_class: [u16; 4],
+    pub unk4_seq_for_class: [u16; 4],
+    pub unk_tick_for_class: [u32; 4],
+    pub unk: [u8; 0x12],
+    /// 0..0xc instead of 0..8 0x80..0x84 that bw sees storm players as
+    pub storm_player_id: u8,
+    pub unk_other_player_id: u8,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct StormPlayer {
     pub state: u8,
     pub unk1: u8,
@@ -522,6 +564,7 @@ fn struct_sizes() {
     assert_eq!(size_of::<ReplayHeader>(), 0x279);
     assert_eq!(size_of::<UnitStatusFunc>(), size(0xc, 0x18));
     assert_eq!(size_of::<GraphicLayer>(), size(0x14, 0x20));
+    assert_eq!(size_of::<SNetPlayerConnection>(), size(0x21c, 0x2c0));
 }
 
 pub struct FowSpriteIterator(*mut FowSprite);

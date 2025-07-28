@@ -237,9 +237,10 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
                 let last_receive_turns = Instant::now();
                 // Check for turns to see if we are ready for the final lobby init state
+                let turn_seq = bw.snet_next_turn_sequence_number();
                 bw.maybe_receive_turns();
 
-                debug!("Creating LobbyInitCompleter");
+                debug!("Creating LobbyInitCompleter, turn seq = {turn_seq}");
                 LOBBY_INIT_COMPLETER
                     .with_borrow_mut(|c| c.replace(LobbyInitCompleter::new(last_receive_turns)));
 

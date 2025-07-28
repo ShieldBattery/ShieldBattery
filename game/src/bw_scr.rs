@@ -135,6 +135,7 @@ pub struct BwScr {
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
     first_dialog: Option<Value<*mut bw::Dialog>>,
     graphic_layers: Option<Value<*mut bw::GraphicLayer>>,
+    snet_local_player_list: Option<Value<*mut bw::StormListHead<bw::SNetPlayerConnection>>>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -821,6 +822,7 @@ impl BwScr {
         let anti_troll = analysis.anti_troll();
         let first_dialog = analysis.first_dialog();
         let graphic_layers = analysis.graphic_layers();
+        let snet_local_player_list = analysis.snet_local_player_list();
         let units = analysis.units().ok_or("units")?;
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
@@ -959,6 +961,7 @@ impl BwScr {
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
             first_dialog: first_dialog.map(move |x| Value::new(ctx, x)),
             graphic_layers: graphic_layers.map(move |x| Value::new(ctx, x)),
+            snet_local_player_list: snet_local_player_list.map(move |x| Value::new(ctx, x)),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -1142,13 +1145,16 @@ impl BwScr {
                     if !is_replay {
                         if let Some(players) = self.check_player_drops() {
                             let frame = (*self.game()).frame_count;
+                            let turn_seq = self.snet_next_turn_sequence_number().wrapping_sub(1);
                             info!(
                                 "Dropped players {:?} at some point between last check and before \
-                            handling commands for game player {} net {}. Game frame 0x{:x}",
+                            handling commands for game player {} net {}. Game frame 0x{:x}, \
+                            turn seq {}",
                                 players,
                                 command_user,
                                 self.storm_command_user.resolve(),
                                 frame,
+                                turn_seq,
                             );
                         }
                     }
@@ -1229,6 +1235,14 @@ impl BwScr {
                     let slice = std::slice::from_raw_parts(data, len);
                     if let Some(&byte) = slice.first() {
                         if byte == 0x48 && player == 0 {
+                            let seq = self.snet_next_turn_sequence_number();
+                            // I think that the sequence number for next turn gets incremented
+                            // before reaching this point, so subtract one to get current
+                            // turn.
+                            debug!(
+                                "Lobby game init command seen at turn seq {}",
+                                seq.wrapping_sub(1),
+                            );
                             self.lobby_game_init_command_seen
                                 .store(true, Ordering::Relaxed);
                         }
@@ -2503,6 +2517,23 @@ impl BwScr {
         chat_manager.set_players(players);
         chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
     }
+
+    pub fn snet_next_turn_sequence_number(&self) -> u16 {
+        unsafe {
+            if let Some(list) = self.snet_local_player_list {
+                let list = list.resolve();
+                let player = (*list).node.next;
+                if player.addr() & 0x1 != 0 || player.addr() == 0 {
+                    warn!("No local player connection for SNet???");
+                    return u16::MAX;
+                }
+                // Class 2 are synced game commands
+                (*player).next_seq_for_class[2]
+            } else {
+                u16::MAX
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -2583,7 +2614,8 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn run_game_loop(&self) {
-        debug!("Game loop running");
+        let turn_seq = self.snet_next_turn_sequence_number();
+        debug!("Game loop running, turn seq {turn_seq}");
         unsafe {
             loop {
                 self.reset_state_for_game_init();

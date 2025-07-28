@@ -345,7 +345,9 @@ impl GameState {
                 }
             }
 
-            debug!("In lobby, setting up slots");
+            let bw = get_bw();
+            let seq = bw.snet_next_turn_sequence_number().wrapping_sub(1);
+            debug!("In lobby, setting up slots, turn seq {seq}");
             unsafe {
                 let ums_forces = match info.map {
                     MapInfo::Replay(_) => &[],
@@ -359,7 +361,6 @@ impl GameState {
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
-            let bw = get_bw();
             loop {
                 unsafe {
                     let mut someone_left = false;
@@ -1463,7 +1464,8 @@ async unsafe fn do_countdown() {
         }
 
         // TODO(tec27): Sync countdown across clients
-        debug!("Starting countdown");
+        let turn_seq = bw.snet_next_turn_sequence_number();
+        debug!("Starting countdown at turn seq {turn_seq}");
 
         let mut beeps = 0;
         let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
@@ -1481,7 +1483,8 @@ async unsafe fn do_countdown() {
                     beeps += 1;
 
                     if beeps == 6 {
-                        debug!("Countdown complete, doing lobby game init");
+                        let turn_seq = bw.snet_next_turn_sequence_number();
+                        debug!("Countdown complete at turn seq {turn_seq}, doing lobby game init");
                         break;
                     }
                 }
