@@ -236,6 +236,13 @@ pub struct BwScr {
     open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
+    /// Is the game rendering draw commands with is_hd value 1 or 0? Second index will
+    /// be set during transfers between SD/HD
+    is_hd_mode: [AtomicBool; 2],
+    /// The hd mode guesses for overlay break when there are no BW draw commands and we have
+    /// just finished switching between SD/HD. Renderer_Render hook uses this to manually fix
+    /// the values if it detects this.
+    last_overlay_hd_value: AtomicBool,
     starting_fog: AtomicStartingFog,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
@@ -1045,6 +1052,8 @@ impl BwScr {
             open_replay_files: Mutex::new(Vec::new()),
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
+            is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
+            last_overlay_hd_value: AtomicBool::new(false),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
@@ -1746,28 +1755,42 @@ impl BwScr {
                     // will have the is_hd value that is currently being used.
                     // Could also probably examine the render target from get_render_target,
                     // as that changes depending on if BW is currently rendering HD or not.
-                    let hd_state = (*commands)
-                        .draw_command_count
-                        .checked_sub(1)
-                        .and_then(|idx| (*commands).commands.get(idx as usize))
-                        .map(|x| x.is_hd != 0);
-                    // Hack: If the hd state is None (During loading with no draw commands from BW),
-                    // we just add overlay for both SD and HD and it works fine??
-                    for is_hd in [false, true] {
-                        if hd_state.is_some_and(|x| x != is_hd) {
-                            continue;
-                        }
-                        // SC:R only enables carbot if both of these flags are set
-                        let is_carbot = self.is_carbot.load(Ordering::Relaxed)
-                            && self.show_skins.load(Ordering::Relaxed);
-                        // Render target 1 is for UI layers (0xb to 0x1d inclusive)
-                        let render_target =
-                            draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
-                        if let Some(mut render_state) = self.render_state.lock() {
-                            let countdown_start = *self.countdown_start.lock();
-                            let apm_guard = self.apm_state.lock();
-                            let apm = apm_guard.as_deref();
-                            let size = ((*render_target.bw).width, (*render_target.bw).height);
+                    let is_hd = if second_draw == 0 {
+                        (*commands)
+                            .draw_command_count
+                            .checked_sub(1)
+                            .and_then(|idx| (*commands).commands.get(idx as usize))
+                            .map(|x| x.is_hd != 0)
+                            .unwrap_or_else(|| {
+                                // Fallback: Use what previous frame had during render
+                                self.is_hd_mode[0].load(Ordering::Relaxed)
+                            })
+                    } else {
+                        // Always use previous frame's info for second draw, as we'd have to track
+                        // if the previous draw command was added by us (BW adding nothing) or not
+                        // otherwise.
+                        self.is_hd_mode[1].load(Ordering::Relaxed)
+                    };
+                    if second_draw == 0 {
+                        self.last_overlay_hd_value.store(is_hd, Ordering::Relaxed);
+                    }
+                    // SC:R only enables carbot if both of these flags are set
+                    let is_carbot = self.is_carbot.load(Ordering::Relaxed)
+                        && self.show_skins.load(Ordering::Relaxed);
+                    // Render target 1 is for UI layers (0xb to 0x1d inclusive)
+                    let render_target =
+                        draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
+                    if let Some(mut render_state) = self.render_state.lock() {
+                        let countdown_start = *self.countdown_start.lock();
+                        let apm_guard = self.apm_state.lock();
+                        let apm = apm_guard.as_deref();
+                        let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        // If we're switching between SD/HD, egui flexboxes will break due
+                        // to render target size constantly changing, so we allow the overlay
+                        // to request a second pass to provide nicer look.
+                        // This means we do 4 passes per frame while changing graphics quality,
+                        // but the performance should not be that bad..
+                        for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
                                     is_replay_or_obs,
@@ -1816,20 +1839,30 @@ impl BwScr {
                                     self.hide_console(first_dialog);
                                 }
                             }
-                            draw_inject::add_overlays(
-                                &mut render_state.render,
-                                &draw_inject::BwVars {
-                                    renderer,
-                                    commands,
-                                    vertex_buf: vertex_buffer,
-                                    is_hd,
-                                    is_carbot,
-                                    statres_icons,
-                                    cmdicons,
-                                },
-                                overlay_out,
-                                &render_target,
-                            );
+                            let bw = &draw_inject::BwVars {
+                                renderer,
+                                commands,
+                                vertex_buf: vertex_buffer,
+                                is_hd,
+                                is_carbot,
+                                statres_icons,
+                                cmdicons,
+                            };
+                            if overlay_out.run_second_draw {
+                                draw_inject::update_textures_without_adding_overlays(
+                                    &mut render_state.render,
+                                    bw,
+                                    overlay_out,
+                                );
+                            } else {
+                                draw_inject::add_overlays(
+                                    &mut render_state.render,
+                                    bw,
+                                    overlay_out,
+                                    &render_target,
+                                );
+                                break;
+                            }
                         }
                     }
                 },
@@ -1840,6 +1873,41 @@ impl BwScr {
             exe.hook_closure_address(
                 Renderer_Render,
                 move |renderer, commands, width, height, orig| {
+                    let draw_command_count = (*commands).draw_command_count as usize;
+
+                    // Update is_hd value based on what BW output to final render target draw
+                    // (Can have two values when doing the transfer between SD/HD)
+                    let mut n = 0;
+                    for i in 0..draw_command_count {
+                        let cmd = &raw mut (*commands).commands[i];
+                        if (*cmd).render_target_id == 0 {
+                            self.is_hd_mode[n].store((*cmd).is_hd != 0, Ordering::Relaxed);
+                            n += 1;
+                            if n == 2 {
+                                break;
+                            }
+                        }
+                    }
+                    if n == 1 {
+                        // n == 1 should mean that no SD/HD transfers were active this frame.
+
+                        // Set the other just opposite of what the first one was if it isn't
+                        // currently used. Will be a good guess if second draw gets used next
+                        // frame.
+                        let main_hd_mode = self.is_hd_mode[0].load(Ordering::Relaxed);
+                        self.is_hd_mode[1].store(!main_hd_mode, Ordering::Relaxed);
+                        // On the other hand, if SD/HD switch just finished, this is first
+                        // frame where second draw doesn't get used and main_hd_mode is
+                        // opposite of what it was previous frame.
+                        // This means that overlay code may have added wrong draw commands,
+                        // which have to be fixed now to prevent a single black frame flickering.
+                        if self.last_overlay_hd_value.load(Ordering::Relaxed) != main_hd_mode {
+                            for i in 0..draw_command_count {
+                                let cmd = &raw mut (*commands).commands[i];
+                                (*cmd).is_hd = main_hd_mode as u32;
+                            }
+                        }
+                    }
                     if self.shader_replaces.has_changed() {
                         // Hot reload shaders.
                         // Unfortunately repatching the .exe to replace shader sets in BW
@@ -1892,10 +1960,11 @@ impl BwScr {
                     } else {
                         1.0
                     };
-                    for cmd in &mut (*commands).commands {
-                        if cmd.shader_id == SHADER_ID_MASK {
-                            cmd.shader_constants[0] = use_new_mask;
-                            cmd.shader_constants[1] = show_network_stalled;
+                    for i in 0..draw_command_count {
+                        let cmd = &raw mut (*commands).commands[i];
+                        if (*cmd).shader_id == SHADER_ID_MASK {
+                            (*cmd).shader_constants[0] = use_new_mask;
+                            (*cmd).shader_constants[1] = show_network_stalled;
                         }
                     }
                     let ret = orig(renderer, commands, width, height);

@@ -209,6 +209,15 @@ pub unsafe fn add_overlays(
     }
 }
 
+pub unsafe fn update_textures_without_adding_overlays(
+    state: &mut RenderState,
+    bw: &BwVars,
+    overlay_out: draw_overlay::StepOutput,
+) {
+    update_textures(bw.renderer, state, &overlay_out.textures_delta);
+    queue_free_textures(state, &overlay_out.textures_delta);
+}
+
 trait IndexSize: Copy {
     fn to_u16(self) -> u16;
 }

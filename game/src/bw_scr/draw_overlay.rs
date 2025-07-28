@@ -123,6 +123,8 @@ pub struct StepOutput {
     pub show_hide_graphic_layer: Option<(u8, bool)>,
     pub statbtn_dialog_offset: (i32, i32),
     pub show_console: bool,
+    // true to run second draw to avoid ugly flickering due to screen size changing.
+    pub run_second_draw: bool,
 }
 
 /// Bw globals used by OverlayState::step
@@ -382,6 +384,7 @@ impl OverlayState {
             round_to_even(screen_size.0 as f32 / pixels_per_point) as u32,
             (screen_size.1 as f32 / pixels_per_point).round() as u32,
         );
+        let screen_size_changed = self.screen_size != screen_size;
         self.screen_size = screen_size;
         let screen_rect = Rect {
             min: Pos2 { x: 0.0, y: 0.0 },
@@ -482,6 +485,7 @@ impl OverlayState {
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
             show_console: self.out_state.show_console,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
+            run_second_draw: screen_size_changed,
         }
     }
 
