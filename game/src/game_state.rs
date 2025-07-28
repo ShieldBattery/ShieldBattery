@@ -1456,6 +1456,8 @@ async unsafe fn do_countdown() {
     unsafe {
         let bw = get_bw();
 
+        let turn_seq = bw.snet_next_turn_sequence_number();
+        debug!("Pre-countdown turn seq {turn_seq}");
         // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
         // playback speed due to rendering changes
         for _ in 0..40 {
