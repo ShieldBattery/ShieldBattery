@@ -293,7 +293,7 @@ pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
 pub const RACE_RANDOM: u8 = 0x6;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum UserLatency {
     Low,
     High,

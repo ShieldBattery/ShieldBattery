@@ -299,12 +299,34 @@ impl GameState {
             req.await;
             let req = send_game_request(&game_request_send, GameThreadRequestType::Initialize);
             req.await;
+
+            let latency = if let Some(latency) = info.user_latency {
+                match latency {
+                    0 => UserLatency::Low,
+                    1 => UserLatency::High,
+                    2 => UserLatency::ExtraHigh,
+                    val => {
+                        warn!("Invalid user latency value: {val}");
+                        UserLatency::Low
+                    }
+                }
+            } else {
+                UserLatency::Low
+            };
+
             unsafe {
                 get_bw().remaining_game_init(&local_user.name);
                 if is_host {
                     create_lobby(&info)?;
+
+                    debug!("Setting initial user latency: {latency:?}");
+                    get_bw().set_user_latency(latency);
                 }
             }
+
+
+
+
             init_routes_when_ready_future
                 .await
                 .map_err(GameInitError::NetworkInit)?;
@@ -319,24 +341,7 @@ impl GameState {
             debug!("Network ready");
             if !is_host {
                 unsafe {
-                    join_lobby(&info, game_type).await?;
-                }
-            }
-
-            if let Some(latency) = info.user_latency {
-                let latency = match latency {
-                    0 => UserLatency::Low,
-                    1 => UserLatency::High,
-                    2 => UserLatency::ExtraHigh,
-                    val => {
-                        warn!("Invalid user latency value: {val}");
-                        UserLatency::Low
-                    }
-                };
-                debug!("Setting initial user latency: {latency:?}");
-                let bw = get_bw();
-                unsafe {
-                    bw.set_user_latency(latency);
+                    join_lobby(&info, game_type, latency).await?;
                 }
             }
 
@@ -1177,6 +1182,7 @@ unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
 unsafe fn join_lobby(
     info: &GameSetupInfo,
     game_type: BwGameType,
+    user_latency: UserLatency,
 ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
     unsafe {
         let MapInfo::Game(ref game_map) = info.map else {
@@ -1239,6 +1245,10 @@ unsafe fn join_lobby(
             }
             let bw = get_bw();
             bw.init_game_network();
+
+            debug!("Setting initial user latency: {user_latency:?}");
+            bw.set_user_latency(user_latency);
+
             bw.maybe_receive_turns();
             let storm_flags = bw.storm_player_flags();
             for (i, &flags) in storm_flags.iter().enumerate() {
