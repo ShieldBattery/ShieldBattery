@@ -49,7 +49,7 @@ import { mapPath } from './paths'
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
-  burst: 50,
+  burst: 300,
   window: 60000,
 })
 const mapUploadThrottle = createThrottle('mapupload', {
