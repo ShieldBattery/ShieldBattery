@@ -61,6 +61,10 @@ impl<'e> Analysis<'e> {
         self.0.players()
     }
 
+    pub fn rng_seed(&mut self) -> Option<Operand<'e>> {
+        self.0.rng_seed()
+    }
+
     pub fn chk_init_players(&mut self) -> Option<Operand<'e>> {
         self.0.chk_init_players()
     }

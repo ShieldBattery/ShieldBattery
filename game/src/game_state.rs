@@ -23,7 +23,7 @@ use crate::app_messages::{
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
 use crate::bw::{self, Bw, BwGameType, LobbyOptions, UserLatency, get_bw};
-use crate::bw_scr::{BwScr, LOBBY_TURN_TIME};
+use crate::bw_scr::BwScr;
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
@@ -345,6 +345,8 @@ impl GameState {
                 }
             }
 
+            game_thread::step_lobby_init();
+
             let bw = get_bw();
             let seq = bw.snet_next_turn_sequence_number().wrapping_sub(1);
             debug!("In lobby, setting up slots, turn seq {seq}");
@@ -366,7 +368,7 @@ impl GameState {
                     let mut someone_left = false;
                     let mut new_players = false;
                     let flags_before = bw.storm_player_flags();
-                    bw.maybe_receive_turns();
+                    game_thread::step_lobby_init();
                     let flags_after = bw.storm_player_flags();
                     let flags = flags_before.iter().zip(flags_after.iter());
                     for (i, (&old, &new)) in flags.enumerate() {
@@ -395,7 +397,7 @@ impl GameState {
                     }
                 }
                 select! {
-                    _ = tokio::time::sleep(LOBBY_TURN_TIME) => continue,
+                    _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
                     res = &mut players_joined => {
                         res?;
                         break;
@@ -438,12 +440,10 @@ impl GameState {
                 let mut ready_future =
                     future::try_join(allow_start.map(|_| Ok(())), all_players_ready);
                 loop {
-                    unsafe {
-                        bw.maybe_receive_turns();
-                    }
+                    game_thread::step_lobby_init();
 
                     select! {
-                        _ = tokio::time::sleep(LOBBY_TURN_TIME) => continue,
+                        _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
                         res = &mut ready_future => {
                             res?;
                             break
@@ -454,6 +454,11 @@ impl GameState {
                 debug!("All players are ready to start");
             }
 
+            unsafe {
+                bw.ready_lobby_for_start();
+            }
+
+            game_thread::notify_lobby_init_players_ready();
             forge::start_process_events_dispatch();
 
             if !info.is_replay() {
@@ -461,6 +466,7 @@ impl GameState {
                     do_countdown().await;
                 }
             }
+
 
             send_messages_to_state
                 .send(GameStateMessage::GameSetupDone)
@@ -1453,54 +1459,60 @@ unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
 async unsafe fn do_countdown() {
     const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
 
-    unsafe {
-        let bw = get_bw();
+    let bw = get_bw();
 
-        let turn_seq = bw.snet_next_turn_sequence_number();
-        debug!("Pre-countdown turn seq {turn_seq}");
-        // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
-        // playback speed due to rendering changes
-        for _ in 0..40 {
-            bw.maybe_receive_turns();
-            tokio::time::sleep(LOBBY_TURN_TIME).await;
-        }
+    let turn_seq = bw.snet_next_turn_sequence_number();
+    debug!("Pre-countdown turn seq {turn_seq}");
 
-        // TODO(tec27): Sync countdown across clients
-        let turn_seq = bw.snet_next_turn_sequence_number();
-        debug!("Starting countdown at turn seq {turn_seq}");
+    let load_start = Instant::now();
 
-        let mut beeps = 0;
-        let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
-        let mut receive_interval = tokio::time::interval(LOBBY_TURN_TIME);
+    // Wait a small amount of time for things to settle so the countdown beeps don't have laggy
+    // playback speed due to rendering changes
+    while load_start.elapsed() < Duration::from_secs(2) {
+        tokio::time::sleep(Duration::from_millis(
+            game_thread::until_next_lobby_init_step(),
+        ))
+        .await;
+        game_thread::step_lobby_init();
+    }
 
-        loop {
-            select! {
-                _ = countdown_interval.tick() => {
-                    if beeps == 0 {
-                        let countdown_start = Instant::now();
-                        bw.set_countdown_start(countdown_start);
-                    }
+    // TODO(tec27): Sync countdown across clients
+    let turn_seq = bw.snet_next_turn_sequence_number();
+    debug!("Starting countdown at turn seq {turn_seq}");
 
-                    bw.play_sound(COUNTDOWN_BEEP);
-                    beeps += 1;
+    let mut beeps = 0;
+    let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
 
-                    if beeps == 6 {
-                        let turn_seq = bw.snet_next_turn_sequence_number();
-                        debug!("Countdown complete at turn seq {turn_seq}, doing lobby game init");
-                        break;
-                    }
+    loop {
+        select! {
+            _ = countdown_interval.tick() => {
+                if beeps == 0 {
+                    let countdown_start = Instant::now();
+                    bw.set_countdown_start(countdown_start);
                 }
-                _ = receive_interval.tick() => {
-                    bw.maybe_receive_turns();
+
+                bw.play_sound(COUNTDOWN_BEEP);
+                beeps += 1;
+
+                if beeps == 6 {
+                    let turn_seq = bw.snet_next_turn_sequence_number();
+                    debug!("Countdown complete at turn seq {turn_seq}");
+                    break;
                 }
             }
+            _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => {
+                game_thread::step_lobby_init();
+            }
         }
+    }
 
-        // Wait a minimum amount of time before starting the game
-        for _ in 0..10 {
-            bw.maybe_receive_turns();
-            tokio::time::sleep(LOBBY_TURN_TIME).await;
-        }
+    // Wait a minimum amount of time before starting the game
+    while load_start.elapsed() < Duration::from_secs_f32(8.2) {
+        tokio::time::sleep(Duration::from_millis(
+            game_thread::until_next_lobby_init_step(),
+        ))
+        .await;
+        game_thread::step_lobby_init();
     }
 }
 

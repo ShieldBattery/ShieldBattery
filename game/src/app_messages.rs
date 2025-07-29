@@ -75,7 +75,7 @@ impl Display for SbUserId {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct SbUser {
     pub id: SbUserId,
     pub name: String,

@@ -1,14 +1,14 @@
 //! Hooks and other code that is running on the game/main thread (As opposed to async threads).
 
+mod lobby_init;
 mod pathing;
 
-use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use bw_dat::dialog::Dialog;
 use bw_dat::{Unit, UnitId};
@@ -25,8 +25,9 @@ use crate::bw::players::{
     StormPlayerId, VictoryState,
 };
 use crate::bw::{Bw, BwGameType, get_bw};
-use crate::bw_scr::{BwScr, LOBBY_TURN_TIME};
+use crate::bw_scr::BwScr;
 use crate::forge::TRACK_WINDOW_POS;
+use crate::game_thread::lobby_init::LobbyInitCompleter;
 use crate::replay;
 use crate::snp;
 use crate::{bw, forge};
@@ -36,6 +37,8 @@ lazy_static! {
         Mutex::new(None);
     pub static ref GAME_RECEIVE_REQUESTS: Mutex<Option<Receiver<GameThreadRequest>>> =
         Mutex::new(None);
+    static ref LOBBY_INIT_COMPLETER: Mutex<LobbyInitCompleter> =
+        Mutex::new(LobbyInitCompleter::new());
 }
 
 /// Global for accessing game type/slots/etc from hooks.
@@ -137,79 +140,27 @@ pub fn run_event_loop() -> ! {
     crate::wait_async_exit();
 }
 
-#[derive(Debug)]
-struct LobbyInitCompleter {
-    last_receive_turns: Instant,
-    completed: bool,
-}
-
-impl LobbyInitCompleter {
-    fn new(last_receive_turns: Instant) -> Self {
-        LobbyInitCompleter {
-            last_receive_turns,
-            completed: unsafe { get_bw().try_finish_lobby_game_init() },
-        }
-    }
-
-    pub fn step(&mut self) -> bool {
-        if self.completed {
-            return true;
-        }
-
-        unsafe {
-            let bw = get_bw();
-
-            if bw.try_finish_lobby_game_init() {
-                self.completed = true;
-                return true;
-            }
-
-            if self.last_receive_turns.elapsed() >= LOBBY_TURN_TIME {
-                self.last_receive_turns = Instant::now();
-                bw.maybe_receive_turns();
-            }
-
-            if bw.try_finish_lobby_game_init() {
-                self.completed = true;
-                return true;
-            }
-
-            bw.force_redraw_during_init();
-        }
-
+pub fn step_lobby_init() -> bool {
+    if let Ok(mut completer) = LOBBY_INIT_COMPLETER.lock() {
+        completer.step()
+    } else {
         false
     }
+}
 
-    /// Returns the time that a caller should wait until calling [LobbyInitCompleter::step] again.
-    pub fn until_next_step(&self) -> u64 {
-        if self.completed {
-            return 0;
-        }
-        // Sleep until the next turn receiving time, but at most 16ms (so we're still
-        // processing events and re-rendering reasonably during this time)
-        let turn_time_millis = LOBBY_TURN_TIME.as_millis();
-        (turn_time_millis
-            - (self
-                .last_receive_turns
-                .elapsed()
-                .as_millis()
-                .min(turn_time_millis)))
-        .min(16) as u64
+pub fn until_next_lobby_init_step() -> u64 {
+    if let Ok(completer) = LOBBY_INIT_COMPLETER.lock() {
+        completer.until_next_step()
+    } else {
+        // If the lock is poisoned we're probably crashing anyway soooo
+        1000
     }
 }
 
-thread_local! {
-    static LOBBY_INIT_COMPLETER: RefCell<Option<LobbyInitCompleter>> = const { RefCell::new(None) };
-}
-
-pub fn step_lobby_init_from_resize() -> bool {
-    LOBBY_INIT_COMPLETER.with_borrow_mut(|c| {
-        if let Some(completer) = c {
-            completer.step()
-        } else {
-            false
-        }
-    })
+pub fn notify_lobby_init_players_ready() {
+    if let Ok(mut completer) = LOBBY_INIT_COMPLETER.lock() {
+        completer.notify_players_ready();
+    }
 }
 
 unsafe fn handle_game_request(request: GameThreadRequestType) {
@@ -233,36 +184,29 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 // Do the last little bit of initialization (we do it here so that we're not
                 // jockeying between threads right as the game is starting)
 
-                // Set the penultimate lobby init state
-                bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
-                let last_receive_turns = Instant::now();
-                // Check for turns to see if we are ready for the final lobby init state
                 let turn_seq = bw.snet_next_turn_sequence_number();
-                bw.maybe_receive_turns();
-
-                debug!("Creating LobbyInitCompleter, turn seq = {turn_seq}");
-                LOBBY_INIT_COMPLETER
-                    .with_borrow_mut(|c| c.replace(LobbyInitCompleter::new(last_receive_turns)));
+                debug!("Doing lobby game init, turn seq = {turn_seq}");
+                bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
 
                 loop {
-                    if LOBBY_INIT_COMPLETER.with_borrow_mut(|c| c.as_mut().unwrap().step()) {
+                    let sleep_time = until_next_lobby_init_step();
+                    if sleep_time > 0 {
+                        thread::sleep(Duration::from_millis(sleep_time));
+                    }
+
+                    if step_lobby_init() {
                         break;
                     }
 
                     // If the user is resizing the window, this may not return until that completes
                     bw.process_events();
-
-                    // If we still haven't seen the turn with the init message, we need to wait.
-                    let sleep_time =
-                        LOBBY_INIT_COMPLETER.with_borrow(|c| c.as_ref().unwrap().until_next_step());
-                    if sleep_time > 0 {
-                        thread::sleep(Duration::from_millis(sleep_time));
-                    }
                 }
 
                 debug!("LobbyInitCompleter finished, proceeding to game loop");
 
                 send_game_msg_to_async(GameThreadMessage::GameStarting);
+
+                debug!("Game seed: {:#x}", bw.rng_seed());
 
                 forge::fix_clip_cursor();
                 forge::game_started();

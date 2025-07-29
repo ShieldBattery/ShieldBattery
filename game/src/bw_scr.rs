@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
@@ -58,10 +58,6 @@ mod thiscall;
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
 
-/// How long between lobby "turns", e.g. checking/sending/applying lobby commands. This matches
-/// SC'Rs timing.
-pub const LOBBY_TURN_TIME: Duration = Duration::from_millis(50);
-
 pub struct BwScr {
     game: Value<*mut bw::Game>,
     game_data: Value<*mut bw::BwGameData>,
@@ -82,6 +78,7 @@ pub struct BwScr {
     command_user: Value<u32>,
     unique_command_user: Value<u32>,
     storm_command_user: Value<u32>,
+    rng_seed: Value<u32>,
     /// Indicates whether the network is okay to proceed with the next turn (i.e. all turns are
     /// available from all players)
     is_network_ready: Value<u8>,
@@ -151,7 +148,7 @@ pub struct BwScr {
     original_status_screen_update: Vec<unsafe extern "C" fn(*mut bw::Dialog)>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
-    step_network: unsafe extern "C" fn(),
+    step_network: unsafe extern "C" fn() -> usize,
     select_map_entry: unsafe extern "C" fn(
         *mut scr::GameInput,
         *mut *const scr::LobbyDialogVtable,
@@ -680,6 +677,7 @@ impl BwScr {
         let is_multiplayer = analysis.is_multiplayer().ok_or("is_multiplayer")?;
         let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
         let game_state = analysis.game_state().ok_or("Game state")?;
+        let rng_seed = analysis.rng_seed().ok_or("RNG seed")?;
         let mainmenu_entry_hook = analysis.mainmenu_entry_hook().ok_or("Entry hook")?;
         let game_loop = analysis.game_loop().ok_or("Game loop")?;
         let init_map_from_path = analysis.init_map_from_path().ok_or("init_map_from_path")?;
@@ -924,6 +922,7 @@ impl BwScr {
             command_user: Value::new(ctx, command_user),
             unique_command_user: Value::new(ctx, unique_command_user),
             storm_command_user: Value::new(ctx, storm_command_user),
+            rng_seed: Value::new(ctx, rng_seed),
             is_network_ready: Value::new(ctx, is_network_ready),
             net_user_latency: Value::new(ctx, net_user_latency),
             net_player_to_game: Value::new(ctx, net_player_to_game),
@@ -1204,14 +1203,16 @@ impl BwScr {
                         }
                         if let Some(players) = self.check_player_drops() {
                             let frame = (*self.game()).frame_count;
+                            let turn_seq = self.snet_next_turn_sequence_number().wrapping_sub(1);
                             info!(
                                 "Dropped players {:?} while handling commands for game player {} \
-                            net {}, {:02x?}. Game frame 0x{:x}",
+                            net {}, {:02x?}. Game frame 0x{:x}, turn seq {}",
                                 players,
                                 command_user,
                                 self.storm_command_user.resolve(),
                                 slice,
                                 frame,
+                                turn_seq,
                             );
                         }
                     }
@@ -2505,6 +2506,14 @@ impl BwScr {
         unsafe { self.pathing.resolve() }
     }
 
+    pub fn rng_seed(&self) -> u32 {
+        unsafe {
+            // TODO(tec27): add analysis for this instead
+            let seed = self.rng_seed.resolve_as_ptr();
+            seed.add(1).read_unaligned()
+        }
+    }
+
     /// Look up the idea for a given sound. Note that unknown IDs will cause a crash.
     fn lookup_sound(&self, id: impl Into<String>) -> u32 {
         let id = id.into();
@@ -2715,9 +2724,12 @@ impl bw::Bw for BwScr {
         }
     }
 
-    unsafe fn maybe_receive_turns(&self) {
+    /// Sends/receives packets and steps the network, returning whether or not the network could
+    /// be stepped (i.e. false => no new turns available/network stall).
+    unsafe fn maybe_receive_turns(&self) -> bool {
         self.event_processing_lock.lock();
-        unsafe {
+
+        let ret = unsafe {
             // NOTE: This is actually not the same function that 1161 calls, but one
             // level higher that also ends up handling any received commands.
             // I think there was an issue where maybe_receive_turns was being inlined
@@ -2737,9 +2749,11 @@ impl bw::Bw for BwScr {
             // Since the main thread isn't running it's normal loop at all, it's probably fine.
             (self.snet_recv_packets)();
             (self.snet_send_packets)();
-            (self.step_network)();
-        }
+            (self.step_network)() != 0
+        };
+
         self.event_processing_lock.unlock();
+        ret
     }
 
     unsafe fn init_game_network(&self) {
@@ -2752,10 +2766,16 @@ impl bw::Bw for BwScr {
         }
     }
 
-    unsafe fn do_lobby_game_init(&self, seed: u32) {
+    unsafe fn ready_lobby_for_start(&self) {
+        debug!("Readying lobby for start");
         unsafe {
             self.update_nation_and_human_ids();
             self.lobby_state.write(8);
+        }
+    }
+
+    unsafe fn do_lobby_game_init(&self, seed: u32) {
+        unsafe {
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
                 let data = bw::LobbyGameInitData {
@@ -2764,6 +2784,10 @@ impl bw::Bw for BwScr {
                     // TODO(tec27): deal with player bytes if we ever allow save games
                     player_bytes: [8; 8],
                 };
+                debug!(
+                    "Sending lobby game init data: {:#x} {:#x} {:#x?}",
+                    data.game_init_command, seed, data.player_bytes
+                );
                 let ptr = &data as *const bw::LobbyGameInitData as *const u8;
                 let len = mem::size_of::<bw::LobbyGameInitData>();
                 (self.send_command)(ptr, len);

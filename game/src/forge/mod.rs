@@ -322,8 +322,7 @@ unsafe fn msg_timer(window: HWND, timer_id: usize) {
             debug!("Bringing window to foreground");
             SetForegroundWindow(window);
             ShowWindow(window, SW_SHOWNORMAL);
-        } else if timer_id == STEP_LOBBY_COMPLETION_ID && game_thread::step_lobby_init_from_resize()
-        {
+        } else if timer_id == STEP_LOBBY_COMPLETION_ID && game_thread::step_lobby_init() {
             debug!("Lobby init completed during WM_TIMER");
             force_mouse_up();
         }
@@ -759,7 +758,6 @@ pub fn end_wnd_proc() {
         None => panic!("Cannot stop running window procedure without a window"),
     });
     unsafe {
-        KillTimer(handle, DRAW_TIMER_ID);
         PostMessageW(handle, WM_END_WND_PROC_WORKER, 0, 0);
     }
 }
@@ -808,6 +806,7 @@ pub fn game_started() {
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
+            KillTimer(handle, DRAW_TIMER_ID);
             PostMessageW(handle, WM_GAME_STARTED, 0, 0);
         }
     }

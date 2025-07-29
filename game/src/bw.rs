@@ -63,8 +63,9 @@ pub trait Bw: Sync + Send {
     unsafe fn clean_up_for_exit(&self);
     unsafe fn init_sprites(&self);
     unsafe fn remaining_game_init(&self, local_player_name: &str);
-    unsafe fn maybe_receive_turns(&self);
+    unsafe fn maybe_receive_turns(&self) -> bool;
     unsafe fn init_game_network(&self);
+    unsafe fn ready_lobby_for_start(&self);
     unsafe fn do_lobby_game_init(&self, seed: u32);
     unsafe fn try_finish_lobby_game_init(&self) -> bool;
 
