@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bw_dat::dialog::Dialog;
 use bw_dat::{Unit, UnitId};
@@ -178,12 +178,13 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 debug!("Game thread received StartGame");
                 forge::bring_window_forward();
 
-                let bw = get_bw();
+                let start_time = Instant::now();
 
                 debug!("Finishing lobby init");
                 // Do the last little bit of initialization (we do it here so that we're not
                 // jockeying between threads right as the game is starting)
 
+                let bw = get_bw();
                 let turn_seq = bw.snet_next_turn_sequence_number();
                 debug!("Doing lobby game init, turn seq = {turn_seq}");
                 bw.do_lobby_game_init(SETUP_INFO.get().unwrap().seed);
@@ -194,7 +195,12 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                         thread::sleep(Duration::from_millis(sleep_time));
                     }
 
-                    if step_lobby_init() {
+                    // Wait until the lobby init is done or we've waiting a minimum amount of time.
+                    // Note that because of our handling of move/resize events, the window will
+                    // not be movable/resizable if lobby init has completeted but we're still under
+                    // the minimum time. Since the time is so short, this seems like an okay
+                    // trade-off for not making people wait extra time in higher latency lobbies.
+                    if step_lobby_init() && start_time.elapsed() >= Duration::from_millis(500) {
                         break;
                     }
 

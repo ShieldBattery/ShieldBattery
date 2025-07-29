@@ -72,9 +72,9 @@ impl LobbyInitCompleter {
             LobbyInitCompleterState::NotStarted => 0,
             LobbyInitCompleterState::WaitingForPlayers(ref s) => s.until_next_step(),
             LobbyInitCompleterState::Running(ref s) => s.until_next_step(),
-            // NOTE(tec27): This time mostly only gets used if lobby init completes during the
-            // countdown, so we just want a value that will let it wait out its remaining time
-            // somewhat accurately
+            // NOTE(tec27): This time mostly only gets used if lobby init completes before we
+            // have finished the countdown/mandatory minimum waiting time, so we just want a value
+            // that will let it wait out its remaining time somewhat accurately
             LobbyInitCompleterState::Completed => 10,
         }
     }

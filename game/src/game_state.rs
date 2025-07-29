@@ -1505,15 +1505,6 @@ async unsafe fn do_countdown() {
             }
         }
     }
-
-    // Wait a minimum amount of time before starting the game
-    while load_start.elapsed() < Duration::from_secs_f32(8.2) {
-        tokio::time::sleep(Duration::from_millis(
-            game_thread::until_next_lobby_init_step(),
-        ))
-        .await;
-        game_thread::step_lobby_init();
-    }
 }
 
 pub async fn create_future(
