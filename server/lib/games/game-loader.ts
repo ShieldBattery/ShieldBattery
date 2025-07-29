@@ -1,4 +1,4 @@
-import { Map as IMap, List, Record, Set } from 'immutable'
+import { Map as IMap, Set as ISet, List, Record } from 'immutable'
 import { Counter, Histogram, linearBuckets } from 'prom-client'
 import { container, singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
@@ -101,9 +101,9 @@ interface RouteResult extends RallyPointRouteInfo {
   p2Slot: Slot
 }
 
-function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
+function createRoutes(players: ISet<Slot>): Promise<RouteResult[]> {
   // Generate all the pairings of players to figure out the routes we need
-  const matchGen: Array<[Slot, Set<Slot>]> = []
+  const matchGen: Array<[Slot, ISet<Slot>]> = []
   let rest = players
   while (!rest.isEmpty()) {
     const first = rest.first<Slot>()
@@ -137,8 +137,8 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
 
 const createLoadingData = Record({
   gameSource: GameSource.Lobby,
-  players: Set<Slot>(),
-  finishedPlayers: Set<SbUserId>(),
+  players: ISet<Slot>(),
+  finishedPlayers: ISet<SbUserId>(),
   cancelToken: null as unknown as CancelToken,
   deferred: null as unknown as Deferred<Result<void, GameLoaderError>>,
 })
@@ -268,6 +268,7 @@ function getGeneralGameSetup({
 export class GameLoader {
   // Maps game id -> loading data
   private loadingGames = IMap<string, LoadingData>()
+  private recentlyLoadedGames = new Set<string>()
 
   private gameLoadRequestsTotalMetric = new Counter({
     name: 'shieldbattery_game_loader_requests_total',
@@ -326,7 +327,7 @@ export class GameLoader {
           gameId,
           createLoadingData({
             gameSource: gameConfig.gameSource,
-            players: Set(players),
+            players: ISet(players),
             cancelToken: loadingCancelToken,
             deferred: gameLoaded,
           }),
@@ -395,6 +396,11 @@ export class GameLoader {
    * @returns whether the relevant game could be found
    */
   registerGameAsLoaded(gameId: string, playerId: SbUserId): boolean {
+    if (this.recentlyLoadedGames.has(gameId)) {
+      // This is just to prevent an erroneous 404/409 resulting from retrying game status updates
+      return true
+    }
+
     if (!this.loadingGames.has(gameId)) {
       return false
     }
@@ -408,8 +414,13 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.set(gameId, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData)) {
+      this.recentlyLoadedGames.add(gameId)
       this.loadingGames = this.loadingGames.delete(gameId)
       loadingData.deferred.resolve(Result.ok())
+
+      setTimeout(() => {
+        this.recentlyLoadedGames.delete(gameId)
+      }, 60000)
     }
 
     return true
@@ -457,7 +468,7 @@ export class GameLoader {
   }
 
   isLoading(gameId: string) {
-    return this.loadingGames.has(gameId)
+    return this.loadingGames.has(gameId) || this.recentlyLoadedGames.has(gameId)
   }
 
   private doGameLoad({

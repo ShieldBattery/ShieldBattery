@@ -98,22 +98,51 @@ export default function ({
       }
 
       if (status.state === 'playing' || status.state === 'error') {
-        fetchJson(apiUrl`games/${status.id}/status`, {
-          method: 'put',
-          body: JSON.stringify({ status: stringToStatus(status.state), extra: status.extra }),
-        }).catch(err => {
-          if (isFetchError(err)) {
-            if (err.status === 409 || err.status === 404) {
-              logger.error(
-                'Quitting current game due to error reporting game status to server: ' +
-                  err.message,
-              )
-              // TODO(tec27): This feels kinda dangerous because this request might not have been
-              // for the current game even... We should probably rework this API a bit.
-              ipcRenderer.invoke('activeGameSetConfig', {})?.catch(swallowNonBuiltins)
-            }
-          }
-        })
+        let done = false
+        let retries = 0
+
+        // NOTE(tec27): Because these states are terminal, we don't need to worry about further
+        // game states coming in that would need to abort these ones. If that ever changes, we'd
+        // probably need a Map of game id -> abort controller or something
+        const doFetch = () => {
+          fetchJson(apiUrl`games/${status.id}/status`, {
+            method: 'put',
+            body: JSON.stringify({ status: stringToStatus(status.state), extra: status.extra }),
+            signal: AbortSignal.timeout(2000),
+          })
+            .then(
+              () => {
+                logger.debug(`Reported game status for ${status.id} (${status.state}) to server`)
+                done = true
+              },
+              err => {
+                if (isFetchError(err)) {
+                  if (err.status === 409 || err.status === 404) {
+                    logger.error(
+                      'Quitting current game due to error reporting game status to server: ' +
+                        err.message,
+                    )
+                    // TODO(tec27): This feels kinda dangerous because this request might not have been
+                    // for the current game even... We should probably rework this API a bit.
+                    ipcRenderer.invoke('activeGameSetConfig', {})?.catch(swallowNonBuiltins)
+                  }
+                }
+              },
+            )
+            .finally(() => {
+              retries += 1
+              if (!done && retries < 5) {
+                logger.debug(`Retrying game status report for ${status.id} (${status.state})`)
+                setTimeout(() => doFetch(), 500)
+              } else if (!done) {
+                logger.error(
+                  `Failed to report game status for ${status.id} (${status.state}) after 5 attempts`,
+                )
+              }
+            })
+        }
+
+        doFetch()
       }
     })
     .on('activeGameReplaySaved', (_, gameId, path) => {
