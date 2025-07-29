@@ -1,16 +1,19 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import { SetRequired } from 'type-fest'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
+  ALL_TILESETS,
   GetBatchMapInfoResponse,
   GetFavoritedMapsQueryParams,
   GetFavoritesResponse,
   GetMapsQueryParams,
   GetMapsResponse,
   MAP_LIST_LIMIT,
+  MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
@@ -82,6 +85,16 @@ function getValidatedMapId(ctx: RouterContext) {
   return mapId
 }
 
+type ServerGetMapsQueryParams = SetRequired<
+  GetMapsQueryParams,
+  'visibility' | 'sort' | 'numPlayers' | 'tilesets'
+>
+
+type ServerGetFavoritedMapsQueryParams = SetRequired<
+  GetFavoritedMapsQueryParams,
+  'sort' | 'numPlayers' | 'tilesets'
+>
+
 @httpApi('/maps')
 export class MapsApi {
   @httpGet('/')
@@ -90,17 +103,19 @@ export class MapsApi {
     const {
       query: { visibility, sort, numPlayers, tilesets, q: searchQuery, offset },
     } = validateRequest(ctx, {
-      query: Joi.object<GetMapsQueryParams>({
+      query: Joi.object<ServerGetMapsQueryParams>({
         visibility: Joi.string()
           .valid(...ALL_MAP_VISIBILITIES)
-          .required(),
+          .default(MapVisibility.Official),
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
-          .required(),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).required(),
-        tilesets: Joi.array().items(Joi.number().min(0).max(7)).required(),
-        q: Joi.string().allow('').required(),
-        offset: Joi.number().min(0).required(),
+          .default(MapSortType.Name),
+        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
+        tilesets: Joi.array()
+          .items(Joi.number().valid(...ALL_TILESETS))
+          .default(ALL_TILESETS),
+        q: Joi.string().allow(''),
+        offset: Joi.number().min(0),
       }),
     })
 
@@ -142,13 +157,15 @@ export class MapsApi {
     const {
       query: { sort, numPlayers, tilesets, q: searchQuery },
     } = validateRequest(ctx, {
-      query: Joi.object<GetFavoritedMapsQueryParams>({
+      query: Joi.object<ServerGetFavoritedMapsQueryParams>({
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
-          .required(),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).required(),
-        tilesets: Joi.array().items(Joi.number().min(0).max(7)).required(),
-        q: Joi.string().allow('').required(),
+          .default(MapSortType.Name),
+        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
+        tilesets: Joi.array()
+          .items(Joi.number().valid(...ALL_TILESETS))
+          .default(ALL_TILESETS),
+        q: Joi.string().allow(''),
       }),
     })
 

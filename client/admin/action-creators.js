@@ -1,4 +1,4 @@
-import { apiUrl } from '../../common/urls'
+import { apiUrl, urlPath } from '../../common/urls'
 import {
   ADMIN_MAP_POOL_CLEAR_SEARCH,
   ADMIN_MAP_POOL_CREATE,
@@ -22,11 +22,11 @@ export async function fetchUserId(username) {
   }
 }
 
-export function searchMaps(visibility, limit, page, query = '') {
+export function searchMaps(visibility, offset, query = '') {
   return dispatch => {
     dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN })
 
-    const reqUrl = `/api/1/maps?visibility=${visibility}&q=${query}&limit=${limit}&page=${page}`
+    const reqUrl = urlPath`/api/1/maps?visibility=${visibility}&q=${query}&offset=${offset}`
     dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS, payload: fetchJson(reqUrl) })
   }
 }

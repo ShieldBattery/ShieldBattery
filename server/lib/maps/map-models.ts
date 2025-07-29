@@ -347,7 +347,7 @@ function getWhereCondition(
   conditions: SqlTemplate[],
   numPlayers: NumPlayers[],
   tilesets: Tileset[],
-  searchStr: string,
+  searchStr?: string,
 ): SqlTemplate {
   // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
   // on, so we use players_melee in that case
@@ -386,16 +386,16 @@ export async function getMaps({
   uploadedBy,
   searchStr,
   limit,
-  offset,
+  offset = 0,
 }: {
   visibility: MapVisibility
   sort: MapSortType
   numPlayers: NumPlayers[]
   tilesets: Tileset[]
   uploadedBy?: SbUserId
-  searchStr: string
+  searchStr?: string
   limit: number
-  offset: number
+  offset?: number
 }) {
   const conditions = [sql`WHERE removed_at IS NULL AND visibility = ${visibility}`]
   if (uploadedBy) {
@@ -460,7 +460,7 @@ export async function getFavoritedMaps({
   sort: MapSortType
   numPlayers: NumPlayers[]
   tilesets: Tileset[]
-  searchStr: string
+  searchStr?: string
 }): Promise<MapInfo[]> {
   const conditions = [sql`WHERE favorited_by = ${favoritedBy}`]
 

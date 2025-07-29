@@ -84,16 +84,28 @@ export function getMaps(
     const { visibility, sort, numPlayers, tilesets, q, offset } = params
 
     const queryParams = new URLSearchParams()
-    queryParams.set('visibility', visibility)
-    queryParams.set('sort', sort.toString())
-    for (const playerCount of numPlayers) {
-      queryParams.append('numPlayers', playerCount.toString())
+    if (visibility) {
+      queryParams.set('visibility', visibility)
     }
-    for (const tileset of tilesets) {
-      queryParams.append('tilesets', tileset.toString())
+    if (sort !== undefined) {
+      queryParams.set('sort', sort.toString())
     }
-    queryParams.set('q', q)
-    queryParams.set('offset', offset.toString())
+    if (numPlayers) {
+      for (const playerCount of numPlayers) {
+        queryParams.append('numPlayers', playerCount.toString())
+      }
+    }
+    if (tilesets) {
+      for (const tileset of tilesets) {
+        queryParams.append('tilesets', tileset.toString())
+      }
+    }
+    if (q) {
+      queryParams.set('q', q)
+    }
+    if (offset !== undefined) {
+      queryParams.set('offset', offset.toString())
+    }
 
     const result = await fetchJson<GetMapsResponse>(apiUrl`maps?${queryParams}`, {
       signal: spec.signal,
@@ -117,14 +129,22 @@ export function getFavorites(
     const { sort, numPlayers, tilesets, q } = params
 
     const queryParams = new URLSearchParams()
-    queryParams.set('sort', sort.toString())
-    for (const playerCount of numPlayers) {
-      queryParams.append('numPlayers', playerCount.toString())
+    if (sort !== undefined) {
+      queryParams.set('sort', sort.toString())
     }
-    for (const tileset of tilesets) {
-      queryParams.append('tilesets', tileset.toString())
+    if (numPlayers) {
+      for (const playerCount of numPlayers) {
+        queryParams.append('numPlayers', playerCount.toString())
+      }
     }
-    queryParams.set('q', q)
+    if (tilesets) {
+      for (const tileset of tilesets) {
+        queryParams.append('tilesets', tileset.toString())
+      }
+    }
+    if (q) {
+      queryParams.set('q', q)
+    }
 
     const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites?${queryParams}`, {
       signal: spec.signal,

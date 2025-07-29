@@ -2,7 +2,7 @@ import { List, OrderedMap } from 'immutable'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MapInfoJson, MapVisibility } from '../../common/maps'
+import { MAP_LIST_LIMIT, MapInfoJson, MapVisibility } from '../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   hasVetoes,
@@ -32,7 +32,6 @@ import {
 } from './action-creators'
 
 const MAP_POOLS_LIMIT = 10
-const SEARCH_MAPS_LIMIT = 30
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -180,7 +179,7 @@ interface MapPoolEditorProps {
   initialMaps: List<MapInfoJson>
   searchResults: SearchResults
   onSearchClick: () => void
-  onLoadMoreMaps: (searchQuery: string, page: number) => void
+  onLoadMoreMaps: (searchQuery: string, offset: number) => void
   onCreate: (maps: string[], maxVetoCount: number, startDate: number) => void
   hasVetoes: boolean
 }
@@ -201,7 +200,7 @@ function MapPoolEditor({
   const [maxVetoCount, setMaxVetoCount] = useState(3)
   const [invalidDate, setInvalidDate] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
-  const [currentSearchPage, setCurrentSearchPage] = useState(0)
+  const [offset, setOffset] = useState(0)
   const carouselRef = useRef<any>(null)
 
   useEffect(() => {
@@ -250,8 +249,8 @@ function MapPoolEditor({
         isLoading={isRequesting}
         hasMoreItems={hasMoreMaps}
         onLoadMoreData={() => {
-          onLoadMoreMaps(searchQuery, currentSearchPage)
-          setCurrentSearchPage(currentSearchPage + 1)
+          onLoadMoreMaps(searchQuery, offset)
+          setOffset(prevOffset => prevOffset + MAP_LIST_LIMIT)
         }}>
         {mapItems}
       </Carousel>
@@ -263,7 +262,7 @@ function MapPoolEditor({
       if ((event.code === ENTER || event.code === ENTER_NUMPAD) && searchFocused) {
         ;(() => {
           onSearchClick()
-          setCurrentSearchPage(0)
+          setOffset(0)
           if (carouselRef.current) carouselRef.current.reset()
         })()
         return true
@@ -314,7 +313,7 @@ function MapPoolEditor({
           label='Find'
           onClick={() => {
             onSearchClick()
-            setCurrentSearchPage(0)
+            setOffset(0)
             if (carouselRef.current) carouselRef.current.reset()
           }}
         />
@@ -518,8 +517,8 @@ export default function MapPools() {
         onSearchClick={() => {
           dispatch(clearSearch() as any)
         }}
-        onLoadMoreMaps={(searchQuery, page) => {
-          dispatch(searchMaps(MapVisibility.Official, SEARCH_MAPS_LIMIT, page, searchQuery) as any)
+        onLoadMoreMaps={(searchQuery, offset) => {
+          dispatch(searchMaps(MapVisibility.Official, offset, searchQuery) as any)
         }}
         onCreate={(maps, maxVetoCount, startDate) => {
           dispatch(createMapPool(activeTab, maps, maxVetoCount, startDate) as any)

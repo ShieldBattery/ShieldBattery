@@ -250,12 +250,12 @@ export function filterColorCodes(str: string): string {
 }
 
 export interface GetMapsQueryParams {
-  visibility: MapVisibility
-  sort: MapSortType
-  numPlayers: NumPlayers[]
-  tilesets: Tileset[]
-  q: string
-  offset: number
+  visibility?: MapVisibility
+  sort?: MapSortType
+  numPlayers?: NumPlayers[]
+  tilesets?: Tileset[]
+  q?: string
+  offset?: number
 }
 
 export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
