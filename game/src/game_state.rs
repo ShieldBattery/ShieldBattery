@@ -424,6 +424,10 @@ impl GameState {
                 }
             }
 
+            unsafe {
+                bw.ready_lobby_for_start();
+            }
+
             if !is_host {
                 debug!("Notifying host that client is ready");
                 network_send
@@ -435,6 +439,11 @@ impl GameState {
                     .map_err(|_| GameInitError::Closed)?;
                 // Note that we don't need to wait for anything further as a non-host, the game's
                 // normal seed event will signal it's time to start (handled in do_lobby_game_init)
+
+                // TODO(tec27): Would be nice if the host would send an
+                // "I'm about to start countdown" message that would trigger joiners' countdowns,
+                // ideally with some synchronization method so they all start at relatively the same
+                // instant
             } else {
                 // Wait for all the players to be ready to start, and the server to let us go
                 let mut ready_future =
@@ -454,11 +463,6 @@ impl GameState {
                 debug!("All players are ready to start");
             }
 
-            unsafe {
-                bw.ready_lobby_for_start();
-            }
-
-            game_thread::notify_lobby_init_players_ready();
             forge::start_process_events_dispatch();
 
             if !info.is_replay() {

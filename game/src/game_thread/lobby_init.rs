@@ -9,7 +9,6 @@ const LOBBY_TURN_TIME: Duration = Duration::from_millis(50);
 #[derive(Debug)]
 enum LobbyInitCompleterState {
     NotStarted,
-    WaitingForPlayers(WaitingForPlayersState),
     Running(RunningState),
     Completed,
 }
@@ -26,30 +25,12 @@ impl LobbyInitCompleter {
         }
     }
 
-    pub fn notify_players_ready(&mut self) {
-        if let LobbyInitCompleterState::WaitingForPlayers(ref mut waiting_state) = self.state {
-            debug!("LobbyInitCompleter advancing to Running state");
-            self.state = LobbyInitCompleterState::Running(RunningState::new(waiting_state));
-        } else {
-            warn!(
-                "notify_players_ready called in unexpected state: {:?}",
-                self.state
-            );
-        }
-    }
-
     /// Steps the lobby init once, returning whether the lobby init is completed.
     pub fn step(&mut self) -> bool {
         match self.state {
             LobbyInitCompleterState::NotStarted => {
-                debug!("LobbyInitCompleter advancing to WaitingForPlayers state");
-                self.state =
-                    LobbyInitCompleterState::WaitingForPlayers(WaitingForPlayersState::new());
-
-                false
-            }
-            LobbyInitCompleterState::WaitingForPlayers(ref mut waiting_state) => {
-                waiting_state.step();
+                debug!("LobbyInitCompleter advancing to Running state");
+                self.state = LobbyInitCompleterState::Running(RunningState::new());
 
                 false
             }
@@ -70,7 +51,6 @@ impl LobbyInitCompleter {
     pub fn until_next_step(&self) -> u64 {
         match self.state {
             LobbyInitCompleterState::NotStarted => 0,
-            LobbyInitCompleterState::WaitingForPlayers(ref s) => s.until_next_step(),
             LobbyInitCompleterState::Running(ref s) => s.until_next_step(),
             // NOTE(tec27): This time mostly only gets used if lobby init completes before we
             // have finished the countdown/mandatory minimum waiting time, so we just want a value
@@ -81,66 +61,15 @@ impl LobbyInitCompleter {
 }
 
 #[derive(Debug)]
-struct WaitingForPlayersState {
-    last_receive_turns: Instant,
-    in_stall: bool,
-}
-
-impl WaitingForPlayersState {
-    fn new() -> Self {
-        WaitingForPlayersState {
-            last_receive_turns: Instant::now(),
-            in_stall: false,
-        }
-    }
-
-    fn step(&mut self) {
-        unsafe {
-            let bw = get_bw();
-
-            if self.last_receive_turns.elapsed() >= LOBBY_TURN_TIME {
-                let time = Instant::now();
-                if bw.maybe_receive_turns() {
-                    self.last_receive_turns = time;
-                    self.in_stall = false;
-                } else {
-                    self.in_stall = true;
-                }
-            }
-        }
-    }
-
-    pub fn until_next_step(&self) -> u64 {
-        if self.in_stall {
-            // If we're in a stall, we want to step the network as soon as we can, but we also don't
-            // want to completely block the thread/CPU. SC:R will basically call its equivalent
-            // every render loop, so this could be anywhere from ~3ms to ~16ms for them.
-            return 5;
-        }
-
-        // Sleep until the next turn receiving time
-        // NOTE(tec27): Unlike the RunningState, we expect that our Windows message dispatcher
-        // will be handling redrawing at this point
-        let turn_time_millis = LOBBY_TURN_TIME.as_millis();
-        (turn_time_millis
-            - (self
-                .last_receive_turns
-                .elapsed()
-                .as_millis()
-                .min(turn_time_millis))) as u64
-    }
-}
-
-#[derive(Debug)]
 struct RunningState {
     last_receive_turns: Instant,
     in_stall: bool,
 }
 
 impl RunningState {
-    fn new(old_state: &WaitingForPlayersState) -> Self {
+    fn new() -> Self {
         RunningState {
-            last_receive_turns: old_state.last_receive_turns,
+            last_receive_turns: Instant::now(),
             in_stall: false,
         }
     }

@@ -157,12 +157,6 @@ pub fn until_next_lobby_init_step() -> u64 {
     }
 }
 
-pub fn notify_lobby_init_players_ready() {
-    if let Ok(mut completer) = LOBBY_INIT_COMPLETER.lock() {
-        completer.notify_players_ready();
-    }
-}
-
 unsafe fn handle_game_request(request: GameThreadRequestType) {
     unsafe {
         use self::GameThreadRequestType::*;
