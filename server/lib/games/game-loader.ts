@@ -638,6 +638,8 @@ export class GameLoader {
             chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
             chosenUserLatency = BwUserLatency.High
           }
+        } else if (gameConfig.gameSourceExtra?.turnRate) {
+          chosenTurnRate = gameConfig.gameSourceExtra.turnRate
         }
 
         const [maps, mapError] = await mapPromise.toTuple()
