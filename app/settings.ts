@@ -406,7 +406,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
 
       try {
         const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
-        log.debug(`Got initial Blizzard settings file contents: \n${contents}`)
         this.blizzardSettings = JSON.parse(contents)
         // We only attach the watcher if the above doesn't throw, which means the settings exist.
         // TODO(tec27): We should probably be watching the directory if we can't watch the file
@@ -525,7 +524,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   private async readBlizzardFile() {
     await this.initialized
     const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
-    log.debug(`Got new Blizzard settings file contents: \n${contents}`)
     const newData = JSON.parse(contents)
     if (!deepEqual(newData, this.blizzardSettings)) {
       this.blizzardSettings = newData
@@ -553,7 +551,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       forcedCarbot: true,
     }
     const contents = jsonify(merged)
-    log.debug(`Writing game settings file contents: \n${contents}`)
     await fsPromises.writeFile(this.gameFilepath, contents, { encoding: 'utf8' })
   }
 
