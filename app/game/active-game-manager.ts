@@ -437,8 +437,11 @@ async function doLaunch(
   log.debug(`Attempting to launch "${appPath}" with StarCraft path: "${starcraftPath}"`)
 
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
+  const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
-  const args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} -launch`
+  const args =
+    `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} ` +
+    `-launch ${legacyCursorSizingArg}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

@@ -15,6 +15,9 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinHeight: undefined,
   quickOpenReplays: false,
   startingFog: StartingFog.Transparent,
+  legacyCursorSizing: false,
+  useCustomCursorSize: false,
+  customCursorSize: 0.25,
 }
 
 export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {

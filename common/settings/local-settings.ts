@@ -47,6 +47,17 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinHeight: number | undefined
   quickOpenReplays: boolean
   startingFog: StartingFog
+  /**
+   * Whether to use Blizzard's cursor sizing algorithm (that maxes out at 64px) instead of our fixed
+   * version that allows larger cursors and keeps all the cursors the same scale.
+   */
+  legacyCursorSizing: boolean
+  /** Whether to use the customCursorSize scale value instead of one based on game height. */
+  useCustomCursorSize: boolean
+  /**
+   * If `useCustomCursorSize` is on, will be used to scale cursors down from their 4K resolution.
+   */
+  customCursorSize: number
 
   visualizeNetworkStalls?: boolean
   disableHd?: boolean

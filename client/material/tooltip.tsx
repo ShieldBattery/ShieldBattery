@@ -51,6 +51,7 @@ export const TooltipContent = styled.div<{ $position: TooltipPosition; $interact
   ${elevationPlus2};
 
   position: relative;
+  max-width: 360px;
   min-height: 24px;
   padding: 4px 8px;
   ${props => marginStyle[props.$position]};

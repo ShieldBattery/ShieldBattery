@@ -256,6 +256,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
         }
     };
     unsafe {
+        bw.set_use_legacy_cursor_sizing(parse_args().use_legacy_cursor_sizing);
         bw.patch_game(image);
     }
     bw::set_bw_impl(bw);
@@ -518,6 +519,7 @@ struct Args {
     server_port: u16,
     user_data_path: PathBuf,
     rally_point_port: u16,
+    use_legacy_cursor_sizing: bool,
 }
 
 static ARGS: OnceLock<Args> = OnceLock::new();
@@ -539,11 +541,23 @@ fn try_parse_args() -> Option<Args> {
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
     let rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
+    let mut use_legacy_cursor_sizing = false;
+
+    for arg in args {
+        let arg = arg.into_string().ok()?;
+        if arg == "-legacy-cursor-sizing" {
+            // NOTE(tec27): We pass this through args because we need to know if it's enabled before
+            // we patch the game, and settings come over websocket (so too late)
+            debug!("Legacy cursor sizing enabled");
+            use_legacy_cursor_sizing = true;
+        }
+    }
 
     Some(Args {
         game_id,
         server_port,
         user_data_path,
         rally_point_port,
+        use_legacy_cursor_sizing,
     })
 }

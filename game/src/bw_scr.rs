@@ -117,6 +117,7 @@ pub struct BwScr {
     /// Usually ~0.8 so that the ui console doesn't cover bottom of the map.
     game_screen_height_ratio: Option<Value<f32>>,
     zoom: Value<f32>,
+    cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
@@ -217,6 +218,7 @@ pub struct BwScr {
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
     decide_cursor_type: VirtualAddress,
+    load_ddsgrp_cursor: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
     print_text_addr: VirtualAddress,
@@ -241,6 +243,9 @@ pub struct BwScr {
     /// the values if it detects this.
     last_overlay_hd_value: AtomicBool,
     starting_fog: AtomicStartingFog,
+    use_legacy_cursor_sizing: AtomicBool,
+    use_custom_cursor_size: AtomicBool,
+    custom_cursor_size: Mutex<f32>,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// True if the network is currently stalled (updated whenever `step_network` is called).
@@ -864,6 +869,10 @@ impl BwScr {
             .ok_or("draw_graphic_layers")?;
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
+        let load_ddsgrp_cursor = analysis.load_ddsgrp_cursor().ok_or("load_ddsgrp_cursor")?;
+        let cursor_scale_factor = analysis
+            .cursor_scale_factor()
+            .ok_or("cursor_scale_factor")?;
         let select_units = analysis.select_units().ok_or("select_units")?;
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
@@ -961,6 +970,7 @@ impl BwScr {
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
+            cursor_scale_factor: Value::new(ctx, cursor_scale_factor),
             game_screen_height_ratio: game_screen_height_ratio.map(move |x| Value::new(ctx, x)),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
@@ -980,6 +990,7 @@ impl BwScr {
             init_obs_ui,
             draw_graphic_layers,
             decide_cursor_type,
+            load_ddsgrp_cursor,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
@@ -1054,6 +1065,9 @@ impl BwScr {
             is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
             last_overlay_hd_value: AtomicBool::new(false),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
+            use_legacy_cursor_sizing: AtomicBool::new(false),
+            use_custom_cursor_size: AtomicBool::new(false),
+            custom_cursor_size: Mutex::new(0.25),
             visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
             in_network_stall: AtomicBool::new(false),
@@ -1447,7 +1461,11 @@ impl BwScr {
                 let address = patch.address.0 as usize - base;
                 exe.replace(address, &patch.data);
             }
-            if let Some(ref patch) = self.cursor_dimension_patch {
+
+            if !self.use_legacy_cursor_sizing.load(Ordering::Acquire)
+                && let Some(ref patch) = self.cursor_dimension_patch
+            {
+                debug!("Applying cursor dimension patch");
                 let address = patch.address.0 as usize - base;
                 exe.replace(address, &patch.data);
             }
@@ -1545,6 +1563,20 @@ impl BwScr {
                         }
                     }
                     orig()
+                },
+                address,
+            );
+
+            let address = self.load_ddsgrp_cursor.0 as usize - base;
+            exe.hook_closure_address(
+                LoadDdsgrpCursor,
+                move |filepath, b, hotspot_x, hotspot_y, e, orig| {
+                    if self.use_custom_cursor_size.load(Ordering::Acquire) {
+                        let custom_size = *self.custom_cursor_size.lock();
+                        self.cursor_scale_factor.write(custom_size);
+                    }
+
+                    orig(filepath, b, hotspot_x, hotspot_y, e)
                 },
                 address,
             );
@@ -2502,6 +2534,11 @@ impl BwScr {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
     }
 
+    pub fn set_use_legacy_cursor_sizing(&self, use_legacy: bool) {
+        self.use_legacy_cursor_sizing
+            .store(use_legacy, Ordering::Release);
+    }
+
     pub fn pathing(&self) -> *mut bw::Pathing {
         unsafe { self.pathing.resolve() }
     }
@@ -2673,12 +2710,28 @@ impl bw::Bw for BwScr {
             .get("disableHd")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
-        self.is_carbot.store(is_carbot, Ordering::Relaxed);
-        self.show_skins.store(show_skins, Ordering::Relaxed);
-        self.starting_fog.store(starting_fog, Ordering::Relaxed);
+
+        let use_custom_cursor_size = settings
+            .local
+            .get("useCustomCursorSize")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
+        let custom_cursor_size = settings
+            .local
+            .get("customCursorSize")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(0.25) as f32;
+
+        self.is_carbot.store(is_carbot, Ordering::Release);
+        self.show_skins.store(show_skins, Ordering::Release);
+        self.starting_fog.store(starting_fog, Ordering::Release);
+        self.use_custom_cursor_size
+            .store(use_custom_cursor_size, Ordering::Release);
+        *self.custom_cursor_size.lock() = custom_cursor_size;
+
         self.visualize_network_stalls
-            .store(visualize_network_stalls, Ordering::Relaxed);
-        self.disable_hd.store(disable_hd, Ordering::Relaxed);
+            .store(visualize_network_stalls, Ordering::Release);
+        self.disable_hd.store(disable_hd, Ordering::Release);
         if disable_hd && settings.scr.get("hdGraphicsOn").and_then(|x| x.as_bool()) == Some(true) {
             // Obviously would be nice to have to have the app settings to notice this but
             // this check is trivial to add, and better than spending time on wondering why the
@@ -3764,6 +3817,7 @@ mod hooks {
         !0 => UpdateGameScreenSize(f32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
+        !0 => LoadDdsgrpCursor(*const u8, bool, f32, f32, usize) -> usize;
         !0 => PrintText(*const i8, u32, u32);
     );
 

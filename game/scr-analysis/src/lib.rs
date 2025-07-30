@@ -591,6 +591,14 @@ impl<'e> Analysis<'e> {
         self.0.cursor_dimension_patch().map(|x| (*x).clone())
     }
 
+    pub fn cursor_scale_factor(&mut self) -> Option<Operand<'e>> {
+        self.0.cursor_scale_factor()
+    }
+
+    pub fn load_ddsgrp_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.load_ddsgrp_cursor()
+    }
+
     pub fn select_units(&mut self) -> Option<VirtualAddress> {
         self.0.select_units()
     }
