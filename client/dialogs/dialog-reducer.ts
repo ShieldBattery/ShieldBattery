@@ -27,7 +27,8 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
     // should probably reconsider how all of this works together
     const dialogIndex = findLastIndex(state.history, h => h.type === type)
     if (dialogIndex >= 0) {
-      state.history = state.history.slice(0, dialogIndex)
+      // TODO(tec27): Track other dialogs opened by this dialog so we can close those too
+      state.history.splice(dialogIndex, 1)
     }
 
     state.history.push({ type, initData, id: action.meta.id })
@@ -46,7 +47,8 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
       return
     }
 
-    state.history = state.history.slice(0, dialogIndex)
+    // TODO(tec27): Track other dialogs opened by this dialog so we can close those too
+    state.history.splice(dialogIndex, 1)
   },
 
   ['@network/disconnect']() {
