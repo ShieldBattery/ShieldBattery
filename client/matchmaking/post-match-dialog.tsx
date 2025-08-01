@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import {
   AnimatePresence,
   AnimationDefinition,
@@ -40,9 +41,10 @@ import { Body, Dialog } from '../material/dialog'
 import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { Tooltip } from '../material/tooltip'
 import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { startReplay } from '../replays/action-creators'
 import { headlineMedium, labelMedium, singleLine, titleLarge } from '../styles/typography'
+import { isMatchmakingAtom } from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
 
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
@@ -161,10 +163,7 @@ export function PostMatchDialog({
       dispatch(startReplay({ path: replayPath }))
     }
   })
-  const canSearchMatchmaking = useAppSelector(s => {
-    const isSearching = !!s.matchmaking.searchInfo
-    return !isSearching
-  })
+  const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
 
   const leagueValues = useMemo(() => {
     const leagueById = new Map(leagues.map(l => [l.id, l]))

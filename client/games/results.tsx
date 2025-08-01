@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +25,7 @@ import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.s
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
+import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
@@ -169,10 +171,7 @@ export function ConnectedGameResultsPage({
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
-  const canSearchMatchmaking = useAppSelector(s => {
-    const isSearching = !!s.matchmaking.searchInfo
-    return !isSearching
-  })
+  const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
 
   const results = game?.results
 

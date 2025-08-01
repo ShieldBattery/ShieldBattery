@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -9,7 +10,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
+import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -119,9 +120,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
   useTrackPageView('/lobbies')
   const { t } = useTranslation()
   const isConnected = useAppSelector(s => s.network.isConnected)
-  const isMatchmaking = useAppSelector(
-    s => !!s.matchmaking.searchInfo || isMatchmakingLoading(s.matchmaking),
-  )
+  const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
   useEffect(() => {
     if (!isConnected) {
@@ -165,9 +164,7 @@ function LobbyList() {
   const dispatch = useAppDispatch()
   const { byName, list } = useAppSelector(s => s.lobbyList)
 
-  const isMatchmaking = useAppSelector(
-    s => !!s.matchmaking.searchInfo || isMatchmakingLoading(s.matchmaking),
-  )
+  const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
   if (!list.size) {
     return (

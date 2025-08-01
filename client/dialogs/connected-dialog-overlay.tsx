@@ -17,7 +17,7 @@ import { LeagueExplainerDialog } from '../leagues/league-explainer'
 import MapDetailsDialog from '../maps/map-details'
 import { MapDownloadDialog } from '../maps/map-download-dialog'
 import { MapPreviewDialog } from '../maps/map-preview'
-import AcceptMatch from '../matchmaking/accept-match'
+import { AcceptMatchDialog, FailedToAcceptMatchDialog } from '../matchmaking/accept-match'
 import { MatchmakingBannedDialog } from '../matchmaking/matchmaking-banned-dialog'
 import { PostMatchDialog } from '../matchmaking/post-match-dialog'
 import { DialogContext } from '../material/dialog'
@@ -64,7 +64,7 @@ function getDialog(dialogType: DialogType): {
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
-      return { component: AcceptMatch, modal: true }
+      return { component: AcceptMatchDialog, modal: true }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
     case DialogType.BugReport:
@@ -83,6 +83,8 @@ function getDialog(dialogType: DialogType): {
       return { component: EmailVerificationDialog }
     case DialogType.ExternalLink:
       return { component: ExternalLinkDialog }
+    case DialogType.FailedToAcceptMatch:
+      return { component: FailedToAcceptMatchDialog }
     case DialogType.LaunchingGame:
       return { component: LaunchingGameDialog, modal: true }
     case DialogType.LeagueExplainer:

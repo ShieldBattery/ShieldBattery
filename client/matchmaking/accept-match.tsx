@@ -1,19 +1,31 @@
-import * as React from 'react'
-import { useEffect } from 'react'
+import { useAtomValue, useStore } from 'jotai'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MATCHMAKING_ACCEPT_MATCH_TIME_MS } from '../../common/matchmaking'
+import { getErrorStack } from '../../common/errors'
+import {
+  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+  MatchmakingServiceErrorCode,
+} from '../../common/matchmaking'
 import { range } from '../../common/range'
 import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
+import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledButton } from '../material/button'
+import logger from '../logging/logger'
+import { FilledButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { isFetchError } from '../network/fetch-errors'
+import { useAppDispatch } from '../redux-hooks'
 import { BodyMedium } from '../styles/typography'
 import { acceptMatch } from './action-creators'
+import {
+  clearMatchmakingState,
+  currentSearchInfoAtom,
+  foundMatchAtom,
+  hasAcceptedAtom,
+} from './matchmaking-atoms'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -60,22 +72,31 @@ const FilledTimerBar = styled.div`
   will-change: transform;
 `
 
-export default function AcceptMatch() {
+export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const searchInfo = useAppSelector(s => s.matchmaking.searchInfo)
-  const failedToAccept = useAppSelector(s => s.matchmaking.failedToAccept)
-  const match = useAppSelector(s => s.matchmaking.match)
+  const currentSearchInfo = useAtomValue(currentSearchInfoAtom)
+  const foundMatch = useAtomValue(foundMatchAtom)
 
   useEffect(() => {
-    if (!searchInfo && !failedToAccept && !match) {
+    if (!currentSearchInfo && !foundMatch) {
       dispatch(closeDialog(DialogType.AcceptMatch))
+    } else if (currentSearchInfo && !foundMatch) {
+      const timeout = setTimeout(() => {
+        dispatch(closeDialog(DialogType.AcceptMatch))
+      }, 5000)
+
+      return () => {
+        clearTimeout(timeout)
+      }
     }
-  }, [dispatch, searchInfo, failedToAccept, match])
+
+    return () => {}
+  }, [dispatch, currentSearchInfo, foundMatch])
 
   let contents: React.ReactNode | undefined
-  if (searchInfo && !match) {
+  if (currentSearchInfo && !foundMatch) {
     contents = (
       <p>
         {t(
@@ -85,20 +106,18 @@ export default function AcceptMatch() {
         )}
       </p>
     )
-  } else if (failedToAccept) {
-    contents = <FailedStateView />
-  } else if (!match) {
+  } else if (!foundMatch) {
     // In this case, the dialog is about to close anyway
     contents = undefined
   } else {
     contents = <AcceptingStateView />
   }
 
-  const title = failedToAccept
-    ? t('matchmaking.acceptMatch.failedToAccept', 'Failed to accept')
-    : t('matchmaking.acceptMatch.matchFound', 'Match found')
   return (
-    <StyledDialog title={title} showCloseButton={false}>
+    <StyledDialog
+      title={t('matchmaking.acceptMatch.matchFound', 'Match found')}
+      onCancel={onCancel}
+      showCloseButton={false}>
       {contents}
     </StyledDialog>
   )
@@ -107,18 +126,39 @@ export default function AcceptMatch() {
 function AcceptingStateView() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isAccepting = useAppSelector(s => s.matchmaking.isAccepting)
-  const hasAccepted = useAppSelector(s => s.matchmaking.hasAccepted)
-  const match = useAppSelector(s => s.matchmaking.match)
-  const acceptTime = useAppSelector(s => s.matchmaking.acceptTime ?? 0)
+  const store = useStore()
+  const hasAccepted = useAtomValue(hasAcceptedAtom)
+  const foundMatch = useAtomValue(foundMatchAtom)
 
-  const onAcceptClick = useStableCallback(() => {
-    dispatch(acceptMatch())
+  const acceptStart = foundMatch?.acceptStart ?? window.performance.now()
+  const [secondsLeft, setSecondsLeft] = useState(() => {
+    const elapsed = (window.performance.now() - acceptStart) / 1000
+    return Math.max(Math.ceil(MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000 - elapsed), 0)
   })
+
+  const acceptButtonRef = useRef<HTMLButtonElement>(null)
+  const retries = useRef(0)
+  const [acceptInProgress, setAcceptInProgress] = useState(false)
+
+  useEffect(() => {
+    const update = () => {
+      const elapsed = (window.performance.now() - acceptStart) / 1000
+      setSecondsLeft(Math.max(Math.ceil(MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000 - elapsed), 0))
+    }
+
+    const interval = setInterval(() => {
+      update()
+    }, 1000)
+
+    update()
+
+    return () => clearInterval(interval)
+  }, [acceptStart])
+
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (event.code === ENTER || event.code === ENTER_NUMPAD) {
-        onAcceptClick()
+        acceptButtonRef.current?.click()
         return true
       }
 
@@ -126,14 +166,11 @@ function AcceptingStateView() {
     },
   })
 
-  // TODO(2Pac): Display actual user's avatars for themselves / their party members, while
-  // leaving the default avatar for opponents (though maybe it's fine to show opponents too at
-  // this point?).
-  const acceptedAvatars = Array.from(range(0, match?.acceptedPlayers ?? 0), i => (
+  const acceptedAvatars = Array.from(range(0, foundMatch?.acceptedPlayers ?? 0), i => (
     <StyledAvatar key={i} color={'var(--theme-amber)'} glowing={true} />
   ))
   const unacceptedAvatars = Array.from(
-    range(match?.acceptedPlayers ?? 0, match?.numPlayers ?? 0),
+    range(foundMatch?.acceptedPlayers ?? 0, foundMatch?.numPlayers ?? 0),
     i => <StyledAvatar key={i} />,
   )
 
@@ -147,9 +184,40 @@ function AcceptingStateView() {
           [...acceptedAvatars, ...unacceptedAvatars]
         ) : (
           <AcceptMatchButton
+            ref={acceptButtonRef}
             label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
-            onClick={onAcceptClick}
-            disabled={isAccepting}
+            onClick={() =>
+              dispatch(
+                acceptMatch({
+                  onSuccess: () => {
+                    setAcceptInProgress(false)
+                  },
+                  onError: err => {
+                    if (
+                      isFetchError(err) &&
+                      err.code === MatchmakingServiceErrorCode.NoActiveMatch
+                    ) {
+                      logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
+                      clearMatchmakingState(store)
+                      dispatch(closeDialog(DialogType.AcceptMatch))
+                    } else {
+                      logger.error(`Accepting match failed: ${getErrorStack(err)}`)
+                      setAcceptInProgress(false)
+                      setTimeout(() => {
+                        if (retries.current < 10) {
+                          retries.current++
+                          // Retry the accept after we let the button un-disable, since the user
+                          // almost certainly wants to and may not have much time to react to an
+                          // error
+                          acceptButtonRef.current?.click()
+                        }
+                      }, 400)
+                    }
+                  },
+                }),
+              )
+            }
+            disabled={acceptInProgress}
           />
         )}
       </CenteredContainer>
@@ -157,7 +225,7 @@ function AcceptingStateView() {
         <FilledTimerBar
           style={
             {
-              '--sb-timer-scale-x': (acceptTime / MATCHMAKING_ACCEPT_MATCH_TIME_MS) * 1000,
+              '--sb-timer-scale-x': (secondsLeft / MATCHMAKING_ACCEPT_MATCH_TIME_MS) * 1000,
             } as any
           }
         />
@@ -166,16 +234,13 @@ function AcceptingStateView() {
   )
 }
 
-function FailedStateView() {
+export function FailedToAcceptMatchDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const onFailedClick = useStableCallback(() => {
-    dispatch(closeDialog(DialogType.AcceptMatch))
-  })
+
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (event.code === ENTER || event.code === ENTER_NUMPAD) {
-        onFailedClick()
+        onCancel()
         return true
       }
 
@@ -184,14 +249,19 @@ function FailedStateView() {
   })
 
   return (
-    <div>
+    <StyledDialog
+      title={t('matchmaking.acceptMatch.failedToAccept', 'Failed to accept')}
+      onCancel={onCancel}
+      showCloseButton={true}
+      buttons={[
+        <TextButton key='ok' label={t('common.actions.okay', 'Okay')} onClick={onCancel} />,
+      ]}>
       <p>
         {t(
           'matchmaking.acceptMatch.removedFromQueue',
           "You didn't ready up in time and have been removed from the queue.",
         )}
       </p>
-      <FilledButton label='Ok' onClick={onFailedClick} />
-    </div>
+    </StyledDialog>
   )
 }

@@ -13,11 +13,18 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
+import {
+  currentSearchInfoAtom,
+  foundMatchAtom,
+  isMatchmakingAtom,
+  matchLaunchingAtom,
+} from '../matchmaking/matchmaking-atoms'
 import { OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
 import { push } from '../navigation/routing'
+import { isConnectedAtom } from '../network/network-atoms'
 import { useMultiplexRef } from '../react/refs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -48,11 +55,10 @@ const PositioningArea = styled.div`
 
 export function GameplayActivityWidget() {
   const inLobby = useAppSelector(s => s.lobby.inLobby)
-  const matchmakingSearchInfo = useAppSelector(s => s.matchmaking.searchInfo)
+  const isMatchmaking = useAtomValue(isMatchmakingAtom)
   const inDraft = useAtomValue(isInDraftAtom)
-  const isMatchmakingGameInProgress = useAppSelector(
-    s => s.matchmaking.isLaunching || s.matchmaking.isCountingDown,
-  )
+  const isConnected = useAtomValue(isConnectedAtom)
+  const isMatchLaunching = useAtomValue(matchLaunchingAtom)
 
   const [onLobbyRoute] = useRoute('/lobbies/:lobby/*?')
 
@@ -101,9 +107,9 @@ export function GameplayActivityWidget() {
   }, [dragging, dragOffset, setX, setY])
 
   let widget: React.ReactNode | undefined
-  if (inLobby && !onLobbyRoute) {
+  if (isConnected && inLobby && !onLobbyRoute) {
     widget = <LobbyWidget key='lobby' ref={widgetRef} onDragStart={onDragStart} />
-  } else if (matchmakingSearchInfo && !inDraft && !isMatchmakingGameInProgress) {
+  } else if (isConnected && isMatchmaking && !inDraft && !isMatchLaunching) {
     widget = <MatchmakingWidget key='matchmaking' ref={widgetRef} onDragStart={onDragStart} />
   }
 
@@ -313,8 +319,10 @@ const StyledElapsedTime = styled(ElapsedTime)`
 export function MatchmakingWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isMatched = useAppSelector(s => !!s.matchmaking.match)
-  const startTime = useAppSelector(s => s.matchmaking.searchInfo?.startTime)
+  const isMatched = !!useAtomValue(foundMatchAtom)
+  const startTime = useAtomValue(currentSearchInfoAtom)?.startTime
+
+  const [isCancelling, setIsCancelling] = useState(false)
 
   return (
     <Widget
@@ -333,7 +341,16 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
         <OutlinedButton
           iconStart={<MaterialIcon icon='close' size={20} />}
           label={t('common.actions.cancel', 'Cancel')}
-          onClick={() => dispatch(cancelFindMatch())}
+          disabled={isCancelling}
+          onClick={() => {
+            setIsCancelling(true)
+            dispatch(
+              cancelFindMatch({
+                onSuccess: () => setIsCancelling(false),
+                onError: () => setIsCancelling(false),
+              }),
+            )
+          }}
         />
       ) : null}
     </Widget>

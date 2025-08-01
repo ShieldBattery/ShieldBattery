@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
@@ -28,19 +29,25 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { UpdateLastQueuedMatchmakingType } from './actions'
 import { draftStateAtom, updateLockedPickAtom, updateProvisionalPickAtom } from './draft-atoms'
+import { clearMatchmakingState, hasAcceptedAtom } from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
 export function findMatch<M extends MatchmakingType>(
-  matchmakingType: M,
-  preferences:
-    | Immutable<MatchmakingPreferences & { matchmakingType: M }>
-    | Record<string, never>
-    | undefined,
+  {
+    matchmakingType,
+    preferences,
+  }: {
+    matchmakingType: M
+    preferences:
+      | Immutable<MatchmakingPreferences & { matchmakingType: M }>
+      | Record<string, never>
+      | undefined
+  },
+  spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return (dispatch, getState) => {
+  return abortableThunk(spec, async (dispatch, getState) => {
     ipcRenderer.send('rallyPointRefreshPings')
 
     const {
@@ -121,37 +128,35 @@ export function findMatch<M extends MatchmakingType>(
         dispatch(getCurrentMapPool(matchmakingType))
       })
       .catch(swallowNonBuiltins)
-  }
+
+    await findPromise
+  })
 }
 
-export function cancelFindMatch(): ThunkAction {
-  return dispatch => {
-    dispatch({ type: '@matchmaking/cancelMatchBegin' })
+export function cancelFindMatch(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async () => {
+    try {
+      await fetchJson<void>(apiUrl`matchmaking/find`, { method: 'DELETE', signal: spec.signal })
+    } catch (err) {
+      logger.error(`Error while cancelling matchmaking: ${getErrorStack(err)}`)
+      if (isFetchError(err) && err.code === MatchmakingServiceErrorCode.NotInQueue) {
+        clearMatchmakingState(jotaiStore)
+      }
 
-    dispatch({
-      type: '@matchmaking/cancelMatch',
-      payload: fetchJson<void>(apiUrl`matchmaking/find`, { method: 'DELETE' }),
-    })
-  }
-}
-
-export function acceptMatch(): ThunkAction {
-  return (dispatch, getState) => {
-    const {
-      matchmaking: { isAccepting },
-    } = getState()
-
-    if (isAccepting) {
-      return
+      throw err
     }
+  })
+}
 
-    dispatch({ type: '@matchmaking/acceptMatchBegin' })
-
-    dispatch({
-      type: '@matchmaking/acceptMatch',
-      payload: fetchJson<void>(apiUrl`matchmaking/accept`, { method: 'POST' }),
+export function acceptMatch(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`matchmaking/accept`, {
+      method: 'POST',
+      signal: spec.signal,
     })
-  }
+
+    jotaiStore.set(hasAcceptedAtom, true)
+  })
 }
 
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
@@ -195,11 +200,6 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
   prefs: Immutable<PartialMatchmakingPreferences & { matchmakingType: M }>,
 ): ThunkAction {
   return (dispatch, getState) => {
-    dispatch({
-      type: '@matchmaking/updatePreferencesBegin',
-      payload: matchmakingType,
-    })
-
     const promise = fetchJson<GetPreferencesResponse>(
       apiUrl`matchmakingPreferences/${matchmakingType}`,
       {
@@ -228,15 +228,6 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
         }
       })
       .catch(swallowNonBuiltins)
-  }
-}
-
-export function updateLastQueuedMatchmakingType(
-  type: MatchmakingType,
-): UpdateLastQueuedMatchmakingType {
-  return {
-    type: '@matchmaking/updateLastQueuedMatchmakingType',
-    payload: type,
   }
 }
 

@@ -208,13 +208,29 @@ export function FindMatch() {
     refreshToken: activeTab,
   })
   const formRef = useRef<FindMatchFormRef>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const onSubmit = healthChecked((prefs: Immutable<MatchmakingPreferences>) => {
     if (activeTab === '3v3') {
       return
     }
 
-    dispatch(findMatch(activeTab, prefs))
+    setIsSubmitting(true)
+    dispatch(
+      findMatch(
+        { matchmakingType: activeTab, preferences: prefs },
+        {
+          onSuccess: () => {
+            setIsSubmitting(false)
+          },
+          onError: () => {
+            // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
+            // creator
+            setIsSubmitting(false)
+          },
+        },
+      ),
+    )
   })
 
   const onFindClick = () => {
@@ -267,7 +283,7 @@ export function FindMatch() {
       contents = assertUnreachable(activeTab)
   }
 
-  const disabled = isMatchmakingDisabled || inLobby
+  const disabled = isMatchmakingDisabled || inLobby || isSubmitting
 
   return (
     <Container>

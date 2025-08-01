@@ -408,6 +408,16 @@ export class MatchmakingService {
           .setOnMatchFound(this.matchmakerDelegate.onMatchFound),
       ]),
     )
+
+    this.userSocketsManager.on('newUser', userSockets => {
+      userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
+        const queuedType = this.queueEntries.get(userSockets.userId)?.type
+        return {
+          type: 'queueStatus',
+          matchmaking: queuedType ? { type: queuedType } : undefined,
+        }
+      })
+    })
   }
 
   /**
@@ -656,12 +666,6 @@ export class MatchmakingService {
     matchmakingType: MatchmakingType,
     race: RaceChar,
   ): void {
-    userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
-      return {
-        type: 'queueStatus',
-        matchmaking: { type: matchmakingType },
-      }
-    })
     clientSockets.subscribe<MatchmakingEvent>(
       getMatchmakingClientPath(clientSockets),
       () => ({

@@ -6,6 +6,8 @@ import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import { lastGameAtom } from '../games/game-atoms'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
@@ -97,6 +99,10 @@ export default function ({
         return
       }
 
+      if (status.state === 'playing') {
+        jotaiStore.set(lastGameAtom, { id: status.id })
+      }
+
       if (status.state === 'playing' || status.state === 'error') {
         let done = false
         let retries = 0
@@ -146,6 +152,11 @@ export default function ({
       }
     })
     .on('activeGameReplaySaved', (_, gameId, path) => {
+      const currentLastGameState = jotaiStore.get(lastGameAtom)
+      if (currentLastGameState?.id === gameId) {
+        jotaiStore.set(lastGameAtom, { id: gameId, replayPath: path })
+      }
+
       dispatch({
         type: '@active-game/replaySaved',
         payload: { gameId, path },

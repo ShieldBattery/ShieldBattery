@@ -103,6 +103,17 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       return
     }
 
-    dispatch(findMatch(matchmakingType, prefs ?? {}))
+    dispatch(
+      findMatch(
+        { matchmakingType, preferences: prefs ?? {} },
+        {
+          onSuccess: () => {},
+          onError: () => {
+            // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
+            // creator
+          },
+        },
+      ),
+    )
   }
 }

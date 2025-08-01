@@ -3,7 +3,6 @@ import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetPreferencesResponse,
-  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingEvent,
   MatchmakingStatusJson,
   MatchmakingType,
@@ -13,9 +12,9 @@ import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
+import { lastGameAtom } from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
-import logger from '../logging/logger'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
 import {
@@ -27,6 +26,13 @@ import {
   updateLockedPickAtom,
   updateProvisionalPickAtom,
 } from './draft-atoms'
+import {
+  acceptedPlayersAtom,
+  clearMatchmakingState,
+  currentSearchInfoAtom,
+  foundMatchAtom,
+  matchLaunchingAtom,
+} from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -37,69 +43,29 @@ type EventToActionMap = {
   ) => Dispatchable | undefined | void
 }
 
-interface TimerState {
-  timer: ReturnType<typeof setInterval> | undefined
-}
-
-const acceptMatchState: TimerState = {
-  timer: undefined,
-}
-
-function clearAcceptMatchTimer() {
-  const { timer } = acceptMatchState
-  if (timer) {
-    clearInterval(timer)
-    acceptMatchState.timer = undefined
-  }
-}
-
-const requeueState: TimerState = {
-  timer: undefined,
-}
-function clearRequeueTimer() {
-  const { timer } = requeueState
-  if (timer) {
-    clearTimeout(timer)
-    requeueState.timer = undefined
-  }
-}
-
 const eventToAction: EventToActionMap = {
   matchFound: (matchmakingType, event) => {
     ipcRenderer.send('userAttentionRequired')
-
     audioManager.playSound(AvailableSound.MatchFound)
-
-    clearRequeueTimer()
-    clearAcceptMatchTimer()
     ipcRenderer.send('rallyPointRefreshPings')
 
-    let tick = MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000
-    dispatch({
-      type: '@matchmaking/acceptMatchTime',
-      payload: tick,
+    jotaiStore.set(foundMatchAtom, {
+      matchmakingType: event.matchmakingType,
+      numPlayers: event.numPlayers,
+      acceptStart: window.performance.now(),
+
+      acceptedPlayers: 0,
+      hasAccepted: false,
     })
+
+    // We clear out this state so that we don't e.g. show the user a dialog about their previous
+    // match that prevents them from accepting the new match.
+    jotaiStore.set(lastGameAtom, undefined)
+
     dispatch(openDialog({ type: DialogType.AcceptMatch }))
-
-    acceptMatchState.timer = setInterval(() => {
-      tick -= 1
-      dispatch({
-        type: '@matchmaking/acceptMatchTime',
-        payload: tick,
-      })
-      if (tick <= 0) {
-        clearAcceptMatchTimer()
-      }
-    }, 1000)
-
-    return {
-      type: '@matchmaking/matchFound',
-      payload: event,
-    }
   },
 
   draftStarted: (matchmakingType, event) => (dispatch, getState) => {
-    clearAcceptMatchTimer()
     dispatch(closeDialog(DialogType.AcceptMatch))
 
     dispatch({
@@ -173,96 +139,67 @@ const eventToAction: EventToActionMap = {
   },
 
   playerAccepted: (matchmakingType, event) => {
-    return {
-      type: '@matchmaking/playerAccepted',
-      payload: event,
-    }
+    jotaiStore.set(acceptedPlayersAtom, event.acceptedPlayers)
   },
 
-  acceptTimeout: (matchmakingType, event) => {
-    return {
-      type: '@matchmaking/playerFailedToAccept',
-      payload: event,
-    }
+  acceptTimeout: (matchmakingType, event) => dispatch => {
+    dispatch(closeDialog(DialogType.AcceptMatch))
+    dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
   },
 
   startSearch: (matchmakingType, event) => {
     audioManager.playSound(AvailableSound.EnteredQueue)
-    return {
-      type: '@matchmaking/startSearch',
-      payload: event,
-    }
+    jotaiStore.set(currentSearchInfoAtom, {
+      matchmakingType: event.matchmakingType,
+      race: event.race,
+      startTime: window.performance.now(),
+    })
   },
 
-  requeue: (matchmakingType, event) => (dispatch, getState) => {
-    clearRequeueTimer()
-    clearAcceptMatchTimer()
-
+  requeue: (matchmakingType, event) => {
     audioManager.playSound(AvailableSound.EnteredQueue)
-    dispatch({
-      type: '@matchmaking/requeue',
-      payload: {},
-    })
-    requeueState.timer = setTimeout(() => {
-      // TODO(tec27): we should allow people to close this dialog themselves, and if/when they do,
-      // clear this timer
-      dispatch(closeDialog(DialogType.AcceptMatch))
-    }, 5000)
+
+    jotaiStore.set(foundMatchAtom, undefined)
   },
 
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
     dispatch(closeDialog(DialogType.AcceptMatch))
-    clearAcceptMatchTimer()
     resetDraftState(jotaiStore)
 
-    // All players are ready; feel free to move to the loading screen and start the game
-    dispatch({
-      type: '@matchmaking/matchReady',
-      payload: event,
-    })
+    jotaiStore.set(foundMatchAtom, undefined)
+    jotaiStore.set(matchLaunchingAtom, true)
     dispatch(openDialog({ type: DialogType.LaunchingGame }))
   },
 
   cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
     resetDraftState(jotaiStore)
+    jotaiStore.set(matchLaunchingAtom, false)
     dispatch(closeDialog(DialogType.LaunchingGame))
 
     dispatch({
       type: '@active-game/launch',
       payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
     })
-    dispatch({ type: '@matchmaking/loadingCanceled' })
     externalShowSnackbar(
       i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
     )
   },
 
   gameStarted: (matchmakingType, event) => (dispatch, getState) => {
-    const {
-      matchmaking: { match },
-    } = getState()
-
-    if (!match) {
-      logger.error('Received gameStarted event without a match')
-      return
-    }
-
+    clearMatchmakingState(jotaiStore)
     dispatch(closeDialog(DialogType.LaunchingGame))
-    // TODO(tec27): This event is kind of absurd: we're pulling state out of the reducer to pass it
-    // back to the reducer again? Should think more deeply about what we're trying to signal here
+    // TODO(tec27): Delete this event type after we get rid of active-game-reducer
     dispatch({
       type: '@matchmaking/gameStarted',
-      payload: {
-        match,
-      },
+      payload: undefined,
     })
   },
 
   queueStatus: (matchmakingType, event) => {
-    return {
-      type: '@matchmaking/queueStatus',
-      payload: event,
+    if (!event.matchmaking) {
+      clearMatchmakingState(jotaiStore)
     }
+    // NOTE(tec27): Any other state updates will be handled by `startSearch`
   },
 }
 
@@ -320,9 +257,9 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     '/matchmaking-results/:userId',
     (_route: RouteInfo, event: MatchmakingResultsEvent) => {
       dispatch((dispatch, getState) => {
-        const { lastGame } = getState()
+        const lastGame = jotaiStore.get(lastGameAtom)
 
-        if (event.game.id === lastGame.id) {
+        if (event.game.id === lastGame?.id) {
           dispatch(
             openDialog({
               type: DialogType.PostMatch,
