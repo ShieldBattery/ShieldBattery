@@ -56,6 +56,7 @@ const PositionedFloatingActionButton = styled(FloatingActionButton)`
 const StyledSearchInput = styled(SearchInput)`
   width: 200px;
   ${fastOutSlowInShort};
+  transition-property: width;
 
   &:focus-within {
     width: 256px;

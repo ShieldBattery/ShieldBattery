@@ -352,7 +352,7 @@ export function TextField({
     renderLabel = (
       <FloatingLabel
         htmlFor={id}
-        $hasValue={!!value}
+        $hasValue={!!value || type === 'datetime-local' || type === 'date'}
         $dense={dense}
         $focused={isFocused}
         $disabled={disabled}
@@ -365,7 +365,7 @@ export function TextField({
     renderLabel = (
       <Label
         htmlFor={id}
-        $hasValue={!!value}
+        $hasValue={!!value || type === 'datetime-local' || type === 'date'}
         $dense={dense}
         $disabled={disabled}
         $leadingIconsLength={leadingIcons.length}>
