@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import {
-  GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingSeasonJson,
@@ -8,6 +7,11 @@ import {
   MatchmakingType,
   MatchReadyEvent,
 } from '../../common/matchmaking'
+import {
+  CreateMatchmakingMapPoolResponse,
+  GetMatchmakingMapPoolResponse,
+  GetMatchmakingMapPoolsHistoryResponse,
+} from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
 import { BaseFetchFailure } from '../network/fetch-errors'
 import { MatchmakingMatch } from './matchmaking-match-state'
@@ -16,6 +20,8 @@ export type MatchmakingActions =
   | GetCurrentMapPoolBegin
   | GetCurrentMapPoolSuccess
   | GetCurrentMapPoolFailure
+  | GetMatchmakingMapPoolsHistory
+  | CreateMatchmakingMapPool
   | InitPreferences
   | UpdatePreferencesBegin
   | UpdatePreferencesSuccess
@@ -52,7 +58,7 @@ export interface GetCurrentMapPoolBegin {
 
 export interface GetCurrentMapPoolSuccess {
   type: '@matchmaking/getCurrentMapPool'
-  payload: GetMatchmakingMapPoolBody
+  payload: GetMatchmakingMapPoolResponse
   meta: {
     type: MatchmakingType
   }
@@ -64,6 +70,16 @@ export interface GetCurrentMapPoolFailure
   meta: {
     type: MatchmakingType
   }
+}
+
+export interface GetMatchmakingMapPoolsHistory {
+  type: '@matchmaking/getMatchmakingMapPoolsHistory'
+  payload: GetMatchmakingMapPoolsHistoryResponse
+}
+
+export interface CreateMatchmakingMapPool {
+  type: '@matchmaking/createMatchmakingMapPool'
+  payload: CreateMatchmakingMapPoolResponse
 }
 
 /**

@@ -120,6 +120,30 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@matchmaking/getMatchmakingMapPoolsHistory'](state, action) {
+    const {
+      payload: { mapInfos },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of mapInfos) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
+  ['@matchmaking/createMatchmakingMapPool'](state, action) {
+    const {
+      payload: { mapInfos },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of mapInfos) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   ['@matchmaking/initPreferences'](state, action) {
     if (!action.payload.mapInfos?.length) {
       return

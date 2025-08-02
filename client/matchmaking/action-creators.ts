@@ -8,7 +8,6 @@ import {
   DraftProvisionalPickRequest,
   FindMatchRequest,
   GetMatchmakingBanStatusResponse,
-  GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingPreferences,
@@ -16,6 +15,7 @@ import {
   MatchmakingType,
   PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
+import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
 import { apiUrl } from '../../common/urls'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
@@ -161,7 +161,7 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
       payload: { type },
     })
 
-    const promise = fetchJson<GetMatchmakingMapPoolBody>(
+    const promise = fetchJson<GetMatchmakingMapPoolResponse>(
       apiUrl`matchmaking-map-pools/${type}/current`,
     )
 

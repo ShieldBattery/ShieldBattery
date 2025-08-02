@@ -56,7 +56,6 @@ import {
   insertMatchmakingCompletion,
   MatchmakingRating,
 } from '../matchmaking/models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
@@ -70,6 +69,7 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { DraftState } from './draft-state'
 import { MatchmakingBanService } from './matchmaking-ban-service'
+import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import {

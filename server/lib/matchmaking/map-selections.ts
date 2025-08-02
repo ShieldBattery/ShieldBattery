@@ -1,6 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../../common/maps'
-import { hasVetoes, MatchmakingMapPool } from '../../../common/matchmaking'
+import { hasVetoes } from '../../../common/matchmaking'
+import { MatchmakingMapPool } from '../../../common/matchmaking/matchmaking-map-pools'
 
 /**
  * Returns a list of selected map IDs filtered to match the current map pool (and within the limit
@@ -10,6 +11,6 @@ export function filterMapSelections(
   mapPool: ReadonlyDeep<MatchmakingMapPool>,
   selectedMapIds: ReadonlyArray<SbMapId> = [],
 ): SbMapId[] {
-  const result = selectedMapIds.filter(m => mapPool.maps.includes(m))
+  const result = selectedMapIds.filter(id => mapPool.maps.includes(id))
   return hasVetoes(mapPool.matchmakingType) ? result.slice(0, mapPool.maxVetoCount) : result
 }

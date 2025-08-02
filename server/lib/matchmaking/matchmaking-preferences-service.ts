@@ -10,8 +10,8 @@ import {
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { ClientSocketsManager } from '../websockets/socket-groups'
+import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
   getMatchmakingPreferences,
   upsertMatchmakingPreferences,
