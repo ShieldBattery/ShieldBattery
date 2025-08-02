@@ -165,7 +165,7 @@ type SearchParamsValues = string | number | boolean | null | undefined | Date
 // make the properties required (that is, remove optionalality). Good explanation with examples
 // here: https://stackoverflow.com/a/56140392
 type ValidSearchParams<T> = {
-  [K in keyof T]: SearchParamsValues
+  [K in keyof T]: SearchParamsValues | ReadonlyArray<SearchParamsValues>
 }
 
 /**
@@ -176,9 +176,16 @@ type ValidSearchParams<T> = {
 export function encodeBodyAsParams<BodyType extends ValidSearchParams<BodyType>>(
   body: BodyType,
 ): URLSearchParams {
-  const params = Object.entries(body)
-  return new URLSearchParams(
-    // Remove any undefined/null values since they get converted to strings
-    params.filter(([, value]) => value !== undefined && value !== null) as string[][],
-  )
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(body)) {
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        params.append(key, String(v))
+      }
+    } else if (value !== undefined && value !== null) {
+      // Remove any undefined/null values since they get converted to strings
+      params.append(key, String(value))
+    }
+  }
+  return params
 }

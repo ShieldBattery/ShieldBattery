@@ -3,11 +3,8 @@ import { forwardRef, useImperativeHandle, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
-import {
-  MatchmakingMapPool,
-  MatchmakingPreferences2v2,
-  MatchmakingType,
-} from '../../common/matchmaking'
+import { MatchmakingPreferences2v2, MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingMapPool } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'

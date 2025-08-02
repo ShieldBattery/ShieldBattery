@@ -12,7 +12,9 @@ const LoadableMapManager = IS_ELECTRON
       default: (await import('./map-manager')).AdminMapManager,
     }))
   : () => null
-const LoadableMapPools = React.lazy(() => import('./map-pools'))
+const LoadableMapPools = React.lazy(async () => ({
+  default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
+}))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
   default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,
 }))

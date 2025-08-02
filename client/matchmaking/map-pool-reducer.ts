@@ -1,9 +1,9 @@
 import { Immutable } from 'immer'
+import { MatchmakingType } from '../../common/matchmaking'
 import {
   fromMatchmakingMapPoolJson,
   MatchmakingMapPool,
-  MatchmakingType,
-} from '../../common/matchmaking'
+} from '../../common/matchmaking/matchmaking-map-pools'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapPoolState {

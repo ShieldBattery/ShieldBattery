@@ -10,10 +10,10 @@ import {
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
 import { getMapInfos } from '../maps/map-models'
-import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import { filterMapSelections } from './map-selections'
+import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
