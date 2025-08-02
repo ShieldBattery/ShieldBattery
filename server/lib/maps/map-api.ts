@@ -16,7 +16,9 @@ import {
   MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
+  NumPlayers,
   SbMapId,
+  Tileset,
   toMapInfoJson,
   UpdateMapResponse,
   UploadMapResponse,
@@ -86,12 +88,18 @@ function getValidatedMapId(ctx: RouterContext) {
 }
 
 type ServerGetMapsQueryParams = SetRequired<
-  GetMapsQueryParams,
+  Omit<GetMapsQueryParams, 'numPlayers' | 'tilesets'> & {
+    numPlayers?: NumPlayers | NumPlayers[]
+    tilesets?: Tileset | Tileset[]
+  },
   'visibility' | 'sort' | 'numPlayers' | 'tilesets'
 >
 
 type ServerGetFavoritedMapsQueryParams = SetRequired<
-  GetFavoritedMapsQueryParams,
+  Omit<GetFavoritedMapsQueryParams, 'numPlayers' | 'tilesets'> & {
+    numPlayers?: NumPlayers | NumPlayers[]
+    tilesets?: Tileset | Tileset[]
+  },
   'sort' | 'numPlayers' | 'tilesets'
 >
 
@@ -110,9 +118,16 @@ export class MapsApi {
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .default(MapSortType.Name),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
-        tilesets: Joi.array()
-          .items(Joi.number().valid(...ALL_TILESETS))
+        // When sending only one value with URLSearchParams, it doesn't get parsed as an array
+        numPlayers: Joi.alternatives()
+          .try(Joi.array().items(Joi.number().min(2).max(8)), Joi.number().min(2).max(8))
+          .default([2, 3, 4, 5, 6, 7, 8]),
+        // When sending only one value with URLSearchParams, it doesn't get parsed as an array
+        tilesets: Joi.alternatives()
+          .try(
+            Joi.array().items(Joi.number().valid(...ALL_TILESETS)),
+            Joi.number().valid(...ALL_TILESETS),
+          )
           .default(ALL_TILESETS),
         q: Joi.string().allow(''),
         offset: Joi.number().min(0),
@@ -128,8 +143,8 @@ export class MapsApi {
     const mapsResult = await getMaps({
       visibility,
       sort,
-      numPlayers,
-      tilesets,
+      numPlayers: Array.isArray(numPlayers) ? numPlayers : [numPlayers],
+      tilesets: Array.isArray(tilesets) ? tilesets : [tilesets],
       uploadedBy,
       searchStr: searchQuery,
       limit: MAP_LIST_LIMIT,
@@ -161,9 +176,16 @@ export class MapsApi {
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .default(MapSortType.Name),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
-        tilesets: Joi.array()
-          .items(Joi.number().valid(...ALL_TILESETS))
+        // When sending only one value with URLSearchParams, it doesn't get parsed as an array
+        numPlayers: Joi.alternatives()
+          .try(Joi.array().items(Joi.number().min(2).max(8)), Joi.number().min(2).max(8))
+          .default([2, 3, 4, 5, 6, 7, 8]),
+        // When sending only one value with URLSearchParams, it doesn't get parsed as an array
+        tilesets: Joi.alternatives()
+          .try(
+            Joi.array().items(Joi.number().valid(...ALL_TILESETS)),
+            Joi.number().valid(...ALL_TILESETS),
+          )
           .default(ALL_TILESETS),
         q: Joi.string().allow(''),
       }),
@@ -172,8 +194,8 @@ export class MapsApi {
     const favoritedBy = ctx.session!.user.id
     const mapResult = await getFavoritedMaps({
       sort,
-      numPlayers,
-      tilesets,
+      numPlayers: Array.isArray(numPlayers) ? numPlayers : [numPlayers],
+      tilesets: Array.isArray(tilesets) ? tilesets : [tilesets],
       searchStr: searchQuery,
       favoritedBy,
     })
