@@ -23,8 +23,8 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use crate::app_messages::ReplaySaved;
@@ -520,13 +520,14 @@ struct Args {
     rally_point_port: u16,
 }
 
-// TODO: This function should probably cache the result instead of recomputing
-// it several times. It's not really slow relative to anything but unnecessary
-// work is unnecessary.
-fn parse_args() -> Args {
-    try_parse_args().unwrap_or_else(|| {
-        let args = std::env::args_os().collect::<Vec<_>>();
-        panic!("Couldn't parse the following args {args:?}");
+static ARGS: OnceLock<Args> = OnceLock::new();
+
+fn parse_args() -> &'static Args {
+    ARGS.get_or_init(|| {
+        try_parse_args().unwrap_or_else(|| {
+            let args = std::env::args_os().collect::<Vec<_>>();
+            panic!("Couldn't parse the following args {args:?}");
+        })
     })
 }
 

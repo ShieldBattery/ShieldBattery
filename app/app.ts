@@ -481,6 +481,14 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
 
     try {
+      const filePath = path.join(tempDir, 'SCR-NGDP-DiagnosticLog.txt')
+      await copyFile(path.join(logsDir, 'SCR-NGDP-DiagnosticLog.txt'), filePath)
+      collectedFiles.push({ name: 'SCR-NGDP-DiagnosticLog.txt', filePath })
+    } catch (err) {
+      logger.warning('Error copying CASC log: ' + getErrorStack(err))
+    }
+
+    try {
       const dumpPath = path.join(logsDir, 'latest_crash.dmp')
       const stats = await fsPromises.stat(dumpPath)
       const dayAgo = Number(Date.now() - 24 * 60 * 60 * 1000)

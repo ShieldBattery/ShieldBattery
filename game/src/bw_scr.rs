@@ -3417,6 +3417,21 @@ fn create_file_hook(
                     }
                 }
 
+                // Redirect CASC log to our log directory.
+                if check_filename(filename, b"SCR-NGDP-DiagnosticLog.txt") {
+                    let args = crate::parse_args();
+                    let replacement = args.user_data_path.join("logs/SCR-NGDP-DiagnosticLog.txt");
+                    return orig(
+                        windows::winapi_str(&replacement).as_ptr(),
+                        access,
+                        share,
+                        security,
+                        creation_disposition,
+                        flags,
+                        template,
+                    );
+                }
+
                 // Check for CASC repair marker. If trying to read, just pretend it doesn't
                 // exits. If trying to create (SC:R thought that the installation is broken),
                 // exit without creating the file (Hopefully the crash dump will have some
