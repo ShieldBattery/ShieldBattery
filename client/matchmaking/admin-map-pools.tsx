@@ -489,19 +489,20 @@ function CreateMapPoolForm({
 }) {
   const dispatch = useAppDispatch()
 
-  const { submit, bindCustom, form, getInputValue, setInputValue } = useForm<CreateMapPoolModel>(
-    {
-      selectedMaps: [],
-      maxVetoCount: 0,
-      startDate: '',
-    },
-    {
-      selectedMaps: value => (value.length ? undefined : 'At least one map must be selected'),
-      maxVetoCount: value => (value >= 0 ? undefined : 'Maximum veto count must be positive'),
-      startDate: value =>
-        !value || Date.parse(value) < Date.now() ? 'Start date must be in the future' : undefined,
-    },
-  )
+  const { submit, bindInput, bindCustom, form, getInputValue, setInputValue } =
+    useForm<CreateMapPoolModel>(
+      {
+        selectedMaps: [],
+        maxVetoCount: 0,
+        startDate: '',
+      },
+      {
+        selectedMaps: value => (value.length ? undefined : 'At least one map must be selected'),
+        maxVetoCount: value => (value >= 0 ? undefined : 'Maximum veto count must be positive'),
+        startDate: value =>
+          !value || Date.parse(value) < Date.now() ? 'Start date must be in the future' : undefined,
+      },
+    )
 
   useFormCallbacks(form, {
     onSubmit,
@@ -604,7 +605,7 @@ function CreateMapPoolForm({
           />
 
           <DateTimeTextField
-            {...bindCustom('startDate')}
+            {...bindInput('startDate')}
             label='Start date'
             floatingLabel
             inputProps={{ tabIndex: 0 }}

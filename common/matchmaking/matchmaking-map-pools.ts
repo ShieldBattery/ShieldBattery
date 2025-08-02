@@ -46,7 +46,7 @@ export interface GetMatchmakingMapPoolsHistoryResponse {
 }
 
 export interface CreateMatchmakingMapPoolRequest {
-  maps: SbMapId | ReadonlyArray<SbMapId>
+  maps: ReadonlyArray<SbMapId>
   maxVetoCount: number
   startDate: number
 }

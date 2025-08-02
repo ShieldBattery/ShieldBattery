@@ -53,7 +53,7 @@ export async function addMapPool(
     startDate,
   }: {
     matchmakingType: MatchmakingType
-    maps: SbMapId[]
+    maps: ReadonlyArray<SbMapId>
     maxVetoCount: number
     startDate: Date
   },

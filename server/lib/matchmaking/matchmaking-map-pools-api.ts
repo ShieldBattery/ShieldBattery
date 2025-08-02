@@ -97,11 +97,7 @@ export class MatchmakingMapPoolsApi {
       body: { maps, maxVetoCount, startDate },
     } = validateRequest(ctx, {
       body: Joi.object<CreateMatchmakingMapPoolRequest>({
-        // When sending only one map with URLSearchParams, it doesn't get parsed as an array
-        maps: Joi.alternatives().try(
-          Joi.array().items(Joi.string()).required(),
-          Joi.string().required(),
-        ),
+        maps: Joi.array().items(Joi.string()).single().required(),
         maxVetoCount: Joi.number().min(0).required(),
         startDate: Joi.date().timestamp().min(Date.now()).required(),
       }),
@@ -112,7 +108,7 @@ export class MatchmakingMapPoolsApi {
 
     const mapPool = await addMapPool({
       matchmakingType,
-      maps: Array.isArray(maps) ? maps : [maps],
+      maps,
       maxVetoCount,
       startDate: new Date(startDate),
     })
