@@ -60,7 +60,7 @@ export const ChannelCardBadge = styled.div`
   padding: 6px;
 
   background: var(--sb-color-background);
-  border-radius: 9999px;
+  border-radius: 16px;
 `
 
 export const ChannelName = styled.div`
