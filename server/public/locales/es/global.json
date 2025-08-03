@@ -38,7 +38,9 @@
             "close": "Cerrar",
             "read": "Leer",
             "download": "Descargar",
-            "back": "Volver"
+            "back": "Volver",
+            "zoomIn": "Acercar",
+            "zoomOut": "Alejar"
         },
         "lists": {
             "empty": "Nada que ver aquí"

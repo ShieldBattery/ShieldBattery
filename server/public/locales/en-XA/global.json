@@ -36,7 +36,9 @@
             "close": "$🗡Close🗡!",
             "read": "$🗡Read🗡!",
             "download": "$🗡Download🗡!",
-            "back": "$🗡Back🗡!"
+            "back": "$🗡Back🗡!",
+            "zoomOut": "$🗡Zoom out🗡!",
+            "zoomIn": "$🗡Zoom in🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
