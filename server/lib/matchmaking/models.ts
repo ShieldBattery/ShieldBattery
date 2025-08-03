@@ -456,6 +456,10 @@ export async function getFinalizedRanksForSeason(
       `)
     }
 
+    query = query.append(sql`
+      ORDER BY mfr.rank ASC, mr.points DESC, mr.rating DESC
+    `)
+
     const result = await client.query<DbMatchmakingFinalizedRank>(query)
 
     return result.rows.map(r => fromDbMatchmakingFinalizedRank(r))
