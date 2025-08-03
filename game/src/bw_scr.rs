@@ -1468,6 +1468,8 @@ impl BwScr {
                 debug!("Applying cursor dimension patch");
                 let address = patch.address.0 as usize - base;
                 exe.replace(address, &patch.data);
+            } else {
+                debug!("Legacy cursor sizing enabled");
             }
 
             let address = self.open_file.0 as usize - base;

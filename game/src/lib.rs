@@ -548,7 +548,6 @@ fn try_parse_args() -> Option<Args> {
         if arg == "-legacy-cursor-sizing" {
             // NOTE(tec27): We pass this through args because we need to know if it's enabled before
             // we patch the game, and settings come over websocket (so too late)
-            debug!("Legacy cursor sizing enabled");
             use_legacy_cursor_sizing = true;
         }
     }
