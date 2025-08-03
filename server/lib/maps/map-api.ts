@@ -110,9 +110,13 @@ export class MapsApi {
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .default(MapSortType.Name),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
+        numPlayers: Joi.array()
+          .items(Joi.number().min(2).max(8))
+          .single()
+          .default([2, 3, 4, 5, 6, 7, 8]),
         tilesets: Joi.array()
           .items(Joi.number().valid(...ALL_TILESETS))
+          .single()
           .default(ALL_TILESETS),
         q: Joi.string().allow(''),
         offset: Joi.number().min(0),
@@ -161,9 +165,13 @@ export class MapsApi {
         sort: Joi.number()
           .valid(...ALL_MAP_SORT_TYPES)
           .default(MapSortType.Name),
-        numPlayers: Joi.array().items(Joi.number().min(2).max(8)).default([2, 3, 4, 5, 6, 7, 8]),
+        numPlayers: Joi.array()
+          .items(Joi.number().min(2).max(8))
+          .single()
+          .default([2, 3, 4, 5, 6, 7, 8]),
         tilesets: Joi.array()
           .items(Joi.number().valid(...ALL_TILESETS))
+          .single()
           .default(ALL_TILESETS),
         q: Joi.string().allow(''),
       }),
