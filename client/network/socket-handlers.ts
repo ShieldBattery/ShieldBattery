@@ -101,7 +101,7 @@ function rallyPointHandler({
     pingsToSend.set(server.id, ping)
 
     if (!sendTimeout) {
-      setTimeout(sendPings, 333)
+      sendTimeout = setTimeout(sendPings, 333)
     }
   })
 }
