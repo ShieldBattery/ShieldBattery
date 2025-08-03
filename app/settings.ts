@@ -10,7 +10,7 @@ import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 14
+const VERSION = 15
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -290,6 +290,14 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       newSettings.legacyCursorSizing = false
       newSettings.useCustomCursorSize = false
       newSettings.customCursorSize = 0.25
+    }
+
+    if (!settings.version || settings.version < 15) {
+      log.verbose('Found settings version 14, migrating to version 15')
+      newSettings.winX = -1
+      newSettings.winY = -1
+      newSettings.winWidth = -1
+      newSettings.winHeight = -1
     }
 
     newSettings.version = VERSION
