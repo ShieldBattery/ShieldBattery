@@ -1,11 +1,26 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbMapId } from '../../common/maps'
+import { ReadonlyDeep } from 'type-fest'
+import { MapInfoJson, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { AutoSizeImage } from '../dom/auto-size-image'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { IconButton } from '../material/button'
+import { fastOutSlowInShort } from '../material/curves'
 import { Dialog } from '../material/dialog'
+import { elevationPlus2 } from '../material/shadows'
+import { Slider } from '../material/slider'
+import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { batchGetMapInfo } from './action-creators'
-import { MapInfoImage } from './map-image'
+
+const ZOOM_MIN = 1
+const ZOOM_MAX = 4
+const ZOOM_STEP_SLIDER = 0.1
+const ZOOM_STEP_BUTTON = 0.5
+const MOUSE_LEFT = 0
 
 const StyledDialog = styled(Dialog)`
   --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
@@ -20,11 +35,6 @@ const StyledDialog = styled(Dialog)`
   */
   background-color: transparent;
   max-width: min(var(--sb-map-preview-height-restricted), var(--sb-map-preview-width-restricted));
-`
-
-const StyledMapImage = styled(MapInfoImage)`
-  background-color: var(--theme-container-low);
-  border-radius: 4px;
 `
 
 export interface MapPreviewDialogProps extends CommonDialogProps {
@@ -53,7 +63,212 @@ export function MapPreviewDialog({ mapId, onCancel }: MapPreviewDialogProps) {
       fullBleed={true}
       showCloseButton={true}
       title={map?.name ?? ''}>
-      {map ? <StyledMapImage map={map} size={1024} /> : null}
+      {map ? <ZoomableMapImage map={map} /> : null}
     </StyledDialog>
+  )
+}
+
+const ZoomableMapImageContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  background-color: var(--theme-container-low);
+  border-radius: 4px;
+`
+
+// Not using the `MapInfoImage` here as we have specific requirements with zooming that makes the
+// regular use of that component more annoying.
+const MapImage = styled(AutoSizeImage)`
+  ${fastOutSlowInShort};
+
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: var(--aspect-ratio, 1);
+  object-fit: cover;
+
+  transform: scale(var(--zoom));
+  transform-origin: var(--x-origin) var(--y-origin);
+
+  cursor: var(--cursor);
+
+  &:active {
+    cursor: var(--active-cursor);
+  }
+`
+
+const ControlsContainer = styled.div`
+  ${containerStyles(ContainerLevel.High)};
+  ${elevationPlus2};
+
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+`
+
+const StyledIconButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+  flex-shrink: 0;
+`
+
+const StyledSlider = styled(Slider)`
+  width: 156px;
+`
+
+const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
+  const { t } = useTranslation()
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useValueAsRef(zoom)
+  const [x, setX] = useState<number>()
+  const [y, setY] = useState<number>()
+  const [isDragging, setIsDragging] = useState(false)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== MOUSE_LEFT) {
+      return
+    }
+
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  useEffect(() => {
+    if (!isDragging) {
+      return () => {}
+    }
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) {
+        return
+      }
+
+      const rect = containerRef.current.getBoundingClientRect()
+
+      // NOTE(2Pac): This pan speed was chosen pretty randomly. I feel like some logarithmic
+      // function based on the zoom level would maybe feel a bit nicer, but we don't really have
+      // huge pan areas where this would become much noticeable.
+      const panSpeed = zoomRef.current / 2
+      const deltaX = e.movementX / panSpeed
+      const deltaY = e.movementY / panSpeed
+
+      setX(x => {
+        const initialX = x !== undefined ? x : rect.width / 2
+        return Math.max(0, Math.min(rect.width, initialX - deltaX))
+      })
+      setY(y => {
+        const initialY = y !== undefined ? y : rect.height / 2
+        return Math.max(0, Math.min(rect.height, initialY - deltaY))
+      })
+    }
+    const onMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [isDragging, zoomRef])
+
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) {
+        return
+      }
+
+      const isZoomingIn = e.deltaY < 0
+
+      if (
+        (zoomRef.current === ZOOM_MAX && isZoomingIn) ||
+        (zoomRef.current === ZOOM_MIN && !isZoomingIn)
+      ) {
+        return
+      }
+
+      e.preventDefault()
+
+      const newStep = isZoomingIn ? ZOOM_STEP_BUTTON : -ZOOM_STEP_BUTTON
+      setZoom(zoom => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + newStep)))
+
+      if (isZoomingIn) {
+        setX(e.offsetX)
+        setY(e.offsetY)
+      }
+    }
+
+    const container = containerRef.current
+    container?.addEventListener('wheel', onWheel)
+    return () => {
+      container?.removeEventListener('wheel', onWheel)
+    }
+  }, [zoomRef])
+
+  const srcSet = `
+    ${map.image256Url} 256w,
+    ${map.image512Url} 512w,
+    ${map.image1024Url} 1024w,
+    ${map.image2048Url} 2048w
+  `
+
+  return (
+    <ZoomableMapImageContainer ref={containerRef}>
+      <MapImage
+        srcSet={srcSet}
+        scale={zoom}
+        alt={map.name}
+        draggable={false}
+        decoding='sync'
+        loading='lazy'
+        style={
+          {
+            '--aspect-ratio': map.mapData.width / map.mapData.height,
+            '--zoom': zoom,
+            '--x-origin': x !== undefined ? `${x}px` : 'center',
+            '--y-origin': y !== undefined ? `${y}px` : 'center',
+            '--cursor': zoom > 1 ? 'grab' : 'default',
+            '--active-cursor': zoom > 1 ? 'grabbing' : 'default',
+          } as React.CSSProperties
+        }
+        onMouseDown={onMouseDown}
+      />
+
+      <ControlsContainer>
+        <StyledIconButton
+          icon={<MaterialIcon icon='zoom_out' size={20} />}
+          onClick={() => setZoom(zoom => Math.max(ZOOM_MIN, zoom - ZOOM_STEP_BUTTON))}
+          title={t('common.actions.zoomOut', 'Zoom out')}
+          disabled={zoom <= ZOOM_MIN}
+        />
+        <StyledSlider
+          min={ZOOM_MIN}
+          max={ZOOM_MAX}
+          step={ZOOM_STEP_SLIDER}
+          showTicks={false}
+          showBalloon={false}
+          value={zoom}
+          onChange={setZoom}
+        />
+        <StyledIconButton
+          icon={<MaterialIcon icon='zoom_in' size={20} />}
+          onClick={() => setZoom(zoom => Math.min(ZOOM_MAX, zoom + ZOOM_STEP_BUTTON))}
+          title={t('common.actions.zoomIn', 'Zoom in')}
+          disabled={zoom >= ZOOM_MAX}
+        />
+      </ControlsContainer>
+    </ZoomableMapImageContainer>
   )
 }
