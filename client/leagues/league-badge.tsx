@@ -9,7 +9,7 @@ import { headlineLarge } from '../styles/typography'
 const badgeCommon = css`
   width: 40px;
   height: 40px;
-  border-radius: 9999px;
+  border-radius: 10px;
   contain: content;
 `
 
