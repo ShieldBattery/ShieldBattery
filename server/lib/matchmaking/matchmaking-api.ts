@@ -44,8 +44,8 @@ const matchmakingThrottle = createThrottle('matchmaking', {
 })
 
 const draftActionThrottle = createThrottle('matchmaking/draftAction', {
-  rate: 30,
-  burst: 60,
+  rate: 40,
+  burst: 120,
   window: 60000,
 })
 
