@@ -25,6 +25,7 @@ import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
@@ -110,6 +111,7 @@ const SectionSpacer = styled.hr`
 `
 
 const TabsAndPin = styled.div`
+  position: relative;
   margin: 8px 0 0;
   padding-inline: 8px;
 
@@ -131,15 +133,22 @@ const TabsContainer = styled.div`
   padding: 8px 0;
 `
 
+const ChatContainer = styled.div`
+  flex-basis: 0;
+  flex-grow: 1;
+  min-height: 0;
+  height: 0;
+  width: 100%;
+  padding-block: 16px;
+
+  overflow-y: auto;
+`
+
 const FriendsListContainer = styled.div`
   flex-grow: 1;
 
   display: flex;
   flex-direction: column;
-`
-
-const ChatSpacer = styled.div`
-  height: 8px;
 `
 
 export function SocialSidebar({
@@ -274,6 +283,8 @@ export function SocialSidebar({
 
   useRelationshipsLoader()
 
+  const [isAtTop, _, topElem, bottomElem] = useScrollIndicatorState()
+
   const content = (
     <NavigationTrackerProvider
       onNavigation={() => {
@@ -309,21 +320,25 @@ export function SocialSidebar({
             />
           </Tabs>
         </TabsContainer>
+        <ScrollDivider $showAt='bottom' $show={!isAtTop} />
       </TabsAndPin>
       <span ref={focusableRef} tabIndex={-1} />
       {activeTab === SocialTab.Chat ? (
-        <>
-          <ChatSpacer />
+        <ChatContainer>
+          {topElem}
           <ChatContent
             isLoadingJoinedChannels={isLoadingJoinedChannels}
             loadingJoinedChannelsError={loadingJoinedChannelsError}
             isLoadingWhisperSessions={isLoadingWhisperSessions}
             loadingWhisperSessionsError={loadingWhisperSessionsError}
           />
-        </>
+          {bottomElem}
+        </ChatContainer>
       ) : (
         <FriendsListContainer>
+          {topElem}
           <FriendsList />
+          {bottomElem}
         </FriendsListContainer>
       )}
     </NavigationTrackerProvider>
@@ -393,6 +408,7 @@ const Subheader = styled.div`
 `
 
 const ChatListButton = styled(OutlinedButton)`
+  display: block;
   margin: 8px auto 0;
 `
 
