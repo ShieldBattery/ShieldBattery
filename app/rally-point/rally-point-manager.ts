@@ -7,11 +7,11 @@ import logger from '../logger'
 import { monotonicNow } from '../time/monotonic-now'
 
 // Time until pings are considered "old" and recalculated when requested
-const OUTDATED_PING_TIME = 30 * 60 * 1000
+const OUTDATED_PING_TIME = 2 * 60 * 60 * 1000
 // NOTE(tec27): We take the median so this number should generally be odd
 const PING_ATTEMPTS = 5
 const TIME_BETWEEN_ATTEMPTS = 40
-const TIME_JITTER = 25
+const TIME_JITTER_MS = 25
 
 interface PingResult {
   ping: number
@@ -124,7 +124,7 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
       Promise.resolve()
         .then(async () => {
           // Randomize the start point for each server a bit as well just to spread things out
-          await timeout(Math.random() * TIME_JITTER)
+          await timeout(Math.random() * TIME_JITTER_MS)
 
           const promises: Array<Promise<void>> = []
           const results: number[] = []
@@ -144,7 +144,7 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
             promises.push(promise)
 
             const nextPingTime =
-              TIME_BETWEEN_ATTEMPTS + Math.random() * 2 * TIME_JITTER - TIME_JITTER
+              TIME_BETWEEN_ATTEMPTS + Math.random() * 2 * TIME_JITTER_MS - TIME_JITTER_MS
             await timeout(nextPingTime)
           }
 
