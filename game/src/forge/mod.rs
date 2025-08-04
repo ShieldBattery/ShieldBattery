@@ -152,8 +152,8 @@ unsafe extern "system" fn wnd_proc_scr(
                                 false
                             }
                         }) {
+                            debug!("Re-locking event processing lock after size/move/menu loop");
                             get_bw().lock_event_processing_for_size_move_menu();
-                            debug!("Re-locked event processing lock after size/move/menu loop");
                         }
                     }
                 }
