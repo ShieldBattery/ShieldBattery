@@ -201,6 +201,7 @@ const MapName = styled.div`
 
   min-width: 0;
   width: 100%;
+  text-align: right;
 `
 
 const GameType = styled.div`
@@ -210,6 +211,7 @@ const GameType = styled.div`
 
   min-width: 0;
   width: 100%;
+  text-align: right;
 `
 
 const StyledMapThumbnail = styled(MapThumbnail)`
