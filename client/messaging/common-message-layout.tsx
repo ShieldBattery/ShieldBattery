@@ -14,7 +14,7 @@ import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
-import { ConnectedMessageContextMenu } from './message-context-menu'
+import { MessageContextMenu } from './message-context-menu'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -157,7 +157,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
 
-      <ConnectedMessageContextMenu
+      <MessageContextMenu
         messageId={msgId}
         selectedText={selectedText}
         MessageMenu={MessageMenu}

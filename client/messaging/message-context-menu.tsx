@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { appendToMultimap } from '../../common/data-structures/maps'
+import { getErrorStack } from '../../common/errors'
 import logger from '../logging/logger'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -11,19 +12,22 @@ import { Popover, PopoverProps } from '../material/popover'
  * All the possible categories of the menu items in the message context menu. In case you're not
  * sure what constitues a new category, a divider will be inserted between each category, so it
  * might help to think of it in those terms.
- *
- * **IMPORTANT**: The order of the values in this enum is used to render the menu item categories in
- * that same order.
  */
 export enum MenuItemCategory {
-  /** Contains general menu items, like copy, search with google */
+  /** Contains general menu items that are not grouped by any specific purpose. */
   General = 'General',
-  /** Contains destructive menu items, like delete message */
+  /**
+   * Contains destructive menu items that are usually shown in red color to highlight their
+   * importance.
+   */
   Destructive = 'Destructive',
 }
 
-export const ALL_MENU_ITEM_CATEGORIES: ReadonlyArray<MenuItemCategory> =
-  Object.values(MenuItemCategory)
+// Not using Object.values() here to define the order we want.
+export const ALL_MENU_ITEM_CATEGORIES: ReadonlyArray<MenuItemCategory> = [
+  MenuItemCategory.General,
+  MenuItemCategory.Destructive,
+]
 
 /**
  * Props passed to the component that customizes/displays context menu items for a message within
@@ -85,9 +89,7 @@ export interface ConnectedMessageContextMenuProps {
   popoverProps: Omit<PopoverProps, 'children'>
 }
 
-// Even though this component is not technically connected yet, it *could* be at some point, so we
-// preemptively called it this.
-export function ConnectedMessageContextMenu({
+export function MessageContextMenu({
   messageId,
   selectedText,
   MessageMenu,
@@ -95,7 +97,7 @@ export function ConnectedMessageContextMenu({
 }: ConnectedMessageContextMenuProps) {
   return (
     <Popover {...popoverProps}>
-      <ConnectedMessageContextMenuContents
+      <MessageContextMenuContents
         messageId={messageId}
         selectedText={selectedText}
         MessageMenu={MessageMenu}
@@ -109,7 +111,7 @@ export function ConnectedMessageContextMenu({
  * Helper component for message context menu to make sure the hooks are only run when the menu is
  * open.
  */
-function ConnectedMessageContextMenuContents({
+function MessageContextMenuContents({
   messageId,
   selectedText,
   MessageMenu = DefaultMessageMenu,
@@ -130,7 +132,7 @@ function ConnectedMessageContextMenuContents({
         onClick={() => {
           navigator.clipboard
             .writeText(selectedText)
-            .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
+            .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))
           onDismiss()
         }}
       />,
@@ -171,19 +173,16 @@ function MessageContextMenuList({
   messageId: string
   onMenuClose: (event?: MouseEvent) => void
 }) {
-  const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>(
-    (elems, category, index) => {
-      const categoryItems = items.get(category) ?? []
+  const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>((elems, category) => {
+    const categoryItems = items.get(category) ?? []
 
-      if (elems.length > 0 && categoryItems.length > 0 && index > 0) {
-        elems.push(<Divider key={`divider-${index}`} $dense={true} />)
-      }
+    if (elems.length > 0 && categoryItems.length > 0) {
+      elems.push(<Divider key={`divider-${category}`} $dense={true} />)
+    }
 
-      elems.push(...categoryItems)
-      return elems
-    },
-    [],
-  )
+    elems.push(...categoryItems)
+    return elems
+  }, [])
 
   return (
     <MessageMenuContext.Provider value={{ messageId, onMenuClose }}>
