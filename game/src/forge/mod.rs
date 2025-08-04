@@ -743,6 +743,9 @@ pub unsafe fn run_wnd_proc() {
             // to the window during that loop
             if done || STOP_MESSAGE_PUMP.load(Ordering::Acquire) {
                 STOP_MESSAGE_PUMP.store(true, Ordering::Release);
+                // Just to ensure this is always set once our message pump is done (since
+                // process_events will be handling everything at that point)
+                USING_PROCESS_EVENTS_DISPATCH.store(true, Ordering::Release);
                 return;
             }
         }
