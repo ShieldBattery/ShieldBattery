@@ -1225,7 +1225,18 @@ unsafe fn join_lobby(
                 is_replay: 0,
                 ..mem::zeroed()
             };
-            for (out, val) in game_info.game_creator.iter_mut().zip(b"fakename".iter()) {
+
+            let creator =
+                if let Some(host) = &info.users.iter().find(|u| Some(u.id) == info.host.user_id) {
+                    &host.name
+                } else {
+                    "fakename"
+                };
+            for (out, val) in game_info
+                .game_creator
+                .iter_mut()
+                .zip(creator.as_bytes().iter())
+            {
                 *out = *val;
             }
             for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
