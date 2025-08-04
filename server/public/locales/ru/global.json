@@ -167,7 +167,15 @@
                 "lockCursor": "Привязать курсор к окну",
                 "mouseScaling": "Использовать масштабирование мыши",
                 "mouseSensitivity": "Чувствительность мыши",
-                "title": "Ввод"
+                "title": "Ввод",
+                "customCursorSizeLargest": "Наибольший",
+                "customCursorSizeSmallest": "Наименьший",
+                "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости",
+                "legacyCursorSizing": "Использовать размеры курсора из предыдущих версий",
+                "legacyCursorSizingTooltip": "Использует оригинальные размеры курсора StarCraft: Remastered, которые имеют непостоянные масштабы при более высоких разрешениях.",
+                "legacySettingsDescription": "Эти настройки доступны для совместимости с настройками StarCraft: Remastered, но их не рекомендуется использовать, так как они вызывают проблемы с производительностью.",
+                "legacySettingsHeader": "Настройки предыдущих версий",
+                "useCustomCursorSize": "Использовать пользовательский размер курсора"
             },
             "title": "Игра"
         },

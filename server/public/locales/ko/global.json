@@ -103,7 +103,15 @@
                 "keyboardScrollSpeed": "키보드 스크롤 속도",
                 "lockCursor": "커서를 창에 고정",
                 "mouseScaling": "마우스 스케일링 사용",
-                "customMouseSensitivity": "사용자 지정 마우스 감도"
+                "customMouseSensitivity": "사용자 지정 마우스 감도",
+                "customCursorSizeLargest": "가장 큼",
+                "customCursorSizeSmallest": "가장 작음",
+                "hardwareCursorTooltip": "최고의 성능과 입력 반응성을 위해 추천",
+                "legacyCursorSizing": "구형 커서 크기 사용",
+                "legacyCursorSizingTooltip": "해상도가 높을 때 일관되지 않은 비율을 가진 원래 스타크래프트: 리마스터 커서 크기를 사용합니다.",
+                "legacySettingsDescription": "이 설정은 스타크래프트: 리마스터 설정과의 호환성을 위해 제공되지만, 성능 문제를 일으키기 때문에 사용을 권장하지 않습니다.",
+                "legacySettingsHeader": "구형 설정",
+                "useCustomCursorSize": "사용자 정의 커서 크기 사용"
             },
             "sound": {
                 "announcer": {

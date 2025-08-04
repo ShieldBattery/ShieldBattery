@@ -144,7 +144,15 @@
                 "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
                 "lockCursor": "Bloquear el cursor en la ventana",
                 "mouseScaling": "Usar la escala del mouse",
-                "mouseScrollSpeed": "Velocidad de desplazamiento del ratón"
+                "mouseScrollSpeed": "Velocidad de desplazamiento del ratón",
+                "legacyCursorSizingTooltip": "Utiliza los tamaños de cursor originales de StarCraft: Remastered, que tienen escalas inconsistentes a resoluciones más altas.",
+                "customCursorSizeLargest": "Más grande",
+                "customCursorSizeSmallest": "Más pequeño",
+                "hardwareCursorTooltip": "Recomendado para el mejor rendimiento y respuesta de entrada",
+                "legacyCursorSizing": "Usar tamaño de cursor heredado",
+                "legacySettingsDescription": "Estas configuraciones están disponibles para compatibilidad con las configuraciones de StarCraft: Remastered, pero no se recomiendan porque causan problemas de rendimiento.",
+                "legacySettingsHeader": "Configuraciones heredadas",
+                "useCustomCursorSize": "Usar tamaño de cursor personalizado"
             },
             "sound": {
                 "announcer": {

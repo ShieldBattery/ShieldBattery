@@ -106,7 +106,15 @@
                 "mouseScaling": "使用鼠标缩放",
                 "mouseScrollSpeed": "鼠标滚屏速度",
                 "mouseSensitivity": "鼠标灵敏度",
-                "title": "输入"
+                "title": "输入",
+                "customCursorSizeLargest": "最大",
+                "customCursorSizeSmallest": "最小",
+                "hardwareCursorTooltip": "推荐以获得最佳性能和输入响应",
+                "legacyCursorSizing": "使用传统光标大小",
+                "legacyCursorSizingTooltip": "使用原版《星际争霸：重制版》的光标大小，在更高分辨率下比例不一致。",
+                "legacySettingsDescription": "这些设置是为了与《星际争霸：重制版》的设置兼容，但不推荐使用，因为会导致性能问题。",
+                "legacySettingsHeader": "传统设置",
+                "useCustomCursorSize": "使用自定义光标大小"
             },
             "sound": {
                 "announcer": {
