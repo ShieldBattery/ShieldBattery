@@ -66,7 +66,6 @@ export function GameVideoSettings() {
   const scrSettings = useAppSelector(s => s.settings.scr)
   const localSettings = useAppSelector(s => s.settings.local)
 
-  const [primaryMonitorId, setPrimaryMonitorId] = useState<number | null>(null)
   const [monitors, setMonitors] = useState<Display[]>([])
 
   const initialModel: GameVideoSettingsModel = {
@@ -130,8 +129,7 @@ export function GameVideoSettings() {
   useEffect(() => {
     ipcRenderer
       .invoke('settingsGetMonitorInfo')
-      ?.then(({ primary, monitors }) => {
-        setPrimaryMonitorId(primary?.id)
+      ?.then(({ monitors }) => {
         setMonitors(monitors)
       })
       .catch(err => {
