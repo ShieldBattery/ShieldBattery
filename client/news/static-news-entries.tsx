@@ -650,6 +650,61 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
       — tec27 and the ShieldBattery team
     `,
   },
+  {
+    date: 1754369985085,
+    title: 'Update 10.1.0',
+    summary: 'Bug fixes, new cursor size features, monitor choice for fullscreen modes, and more!',
+    contents: `
+      Welcome back to another update! This one is a *bit* smaller than the last one, but still
+      contains a bunch of things we think you'll enjoy. Let's dive in!
+
+      ## Bug fixes
+
+      Most of our bug fixes made it into the minor releases between 10.0.0 and now, but this update
+      should still fix a few issues we've seen:
+
+      - A complete overhaul of the matchmaking acceptance code to make things more reliable.
+
+      - Fixes for the game freezing when resizing or changing between windowed/fullscreen mode
+        during loading and countdown.
+
+      - Fixed a potential issue with draft mode that causes races to prematurely lock.
+
+      - Fixed issues with the chat sidebar when you had many channels/whispers open. It should now
+        keep things sized properly and scroll as expected.
+
+      ## New features
+
+      - Added settings related to cursor size (check the Game -> Input settings). If you enjoy
+        having one cursor smaller than all of the other ones for no good reason, you can enable
+        legacy cursor sizing. If you just think all the cursors are too big or too small, you can
+        now also adjust their size to your liking. Both of these options only apply with Hardware
+        Cursor enabled (but you probably want that on anyway).
+
+      - Added a setting to choose which monitor the game launches on when using fullscreen modes.
+        This setting won't be remembered if you adjust it mid-game, so make sure you choose the
+        correct monitor before you start gaming.
+
+      - Added new actions when you right click in the chat view with text highlighted: Copy and
+        Search with Google.
+
+      ## Miscellaneous
+
+      - We've reset the saved positioning of the app, so you may have noticed it was larger or
+        smaller than you're used to.
+
+      - We've added more detailed logging about CASC errors. If you're one of the people seeing
+        these errors, please file another bug report the next time you see one.
+
+      - We've modified the shape of chat and league badges to better differentiate them from user
+        avatars.
+
+      That's all for this update! As always, we hope you enjoy the new changes. If you'd like to
+      support further development of ShieldBattery, please check out the donation links at the
+      top of the home page!
+
+    `,
+  },
 ]
 
 export const newsDateFormatter = new Intl.DateTimeFormat(navigator.language, {
