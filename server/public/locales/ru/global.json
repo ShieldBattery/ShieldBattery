@@ -157,7 +157,10 @@
                 "hdGraphics": "HD-графика",
                 "pillarbox": "Pillarbox (соотношение сторон 4:3)",
                 "realTimeLighting": "Освещение в реальном времени",
-                "customFpsLimit": "Пользовательский лимит FPS"
+                "customFpsLimit": "Пользовательский лимит FPS",
+                "monitor": "Монитор",
+                "monitorItem": "Монитор {{index}} - {{label}}",
+                "primaryMonitor": "По умолчанию (основной монитор)"
             },
             "input": {
                 "mouseScrollSpeed": "Скорость прокрутки мыши",
@@ -1032,7 +1035,8 @@
             "userBlocked": "Пользователь заблокирован",
             "userUnblocked": "Пользователь разблокирован",
             "viewProfile": "Просмотреть профиль",
-            "whisper": "Личное сообщение"
+            "whisper": "Личное сообщение",
+            "copyUserId": "Скопировать ID"
         },
         "errors": {
             "friendsList": {

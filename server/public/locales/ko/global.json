@@ -171,7 +171,10 @@
                 "sdGraphicsFilter": "SD 그래픽 필터",
                 "shadowStacking": "섀도우 스태킹",
                 "showFps": "FPS 표시",
-                "customFpsLimit": "사용자 지정 FPS 제한"
+                "customFpsLimit": "사용자 지정 FPS 제한",
+                "monitor": "모니터",
+                "monitorItem": "모니터 {{index}} - {{label}}",
+                "primaryMonitor": "기본 (주 모니터)"
             },
             "title": "게임"
         },
@@ -967,7 +970,8 @@
             "friendRequestAccepted": "친구 요청이 수락되었습니다",
             "friendRequestRemoved": "친구 요청이 취소되었습니다",
             "friendRequestSent": "친구 요청이 전송되었습니다",
-            "loadingUsers": "사용자 로딩 중…"
+            "loadingUsers": "사용자 로딩 중…",
+            "copyUserId": "ID 복사"
         },
         "profileOverlay": {
             "viewProfile": "프로필 보기",

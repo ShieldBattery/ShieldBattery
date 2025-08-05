@@ -84,7 +84,10 @@
                 "fpsLimit": "límite de FPS",
                 "hdGraphics": "Gráficos de alta definición",
                 "title": "Video",
-                "customFpsLimit": "Límite de FPS personalizado"
+                "customFpsLimit": "Límite de FPS personalizado",
+                "monitor": "Monitor",
+                "monitorItem": "Monitor {{index}} - {{label}}",
+                "primaryMonitor": "Predeterminado (monitor principal)"
             },
             "gameplay": {
                 "apmAlert": "Alerta cuando APM cae por debajo",
@@ -988,7 +991,8 @@
             "userBlocked": "Usuario bloqueado",
             "userUnblocked": "Usuario desbloqueado",
             "viewProfile": "Ver perfil",
-            "whisper": "Susurro"
+            "whisper": "Susurro",
+            "copyUserId": "Copiar ID"
         },
         "errors": {
             "friendsList": {

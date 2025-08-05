@@ -158,7 +158,10 @@
                 "fpsLimit": "帧数限制",
                 "smoothUnitTurning": "单位转身更平滑",
                 "title": "图像",
-                "customFpsLimit": "自定义帧率上限"
+                "customFpsLimit": "自定义帧率上限",
+                "monitor": "监视器",
+                "monitorItem": "监视器 {{index}} - {{label}}",
+                "primaryMonitor": "默认（主监视器）"
             },
             "starcraft": {
                 "title": "星际争霸",
@@ -1019,7 +1022,8 @@
             "whisper": "私聊",
             "friendRequestRemoved": "已删除好友请求",
             "friendRequestSent": "已发送好友请求",
-            "loadingUsers": "正在加载用户……"
+            "loadingUsers": "正在加载用户……",
+            "copyUserId": "复制ID"
         },
         "errors": {
             "friendsList": {

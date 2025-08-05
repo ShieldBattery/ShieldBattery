@@ -173,7 +173,10 @@
                 "showFps": "$🗡Show FPS🗡!",
                 "smoothUnitTurning": "$🗡Smooth unit turning🗡!",
                 "title": "$🗡Video🗡!",
-                "customFpsLimit": "$🗡Custom FPS limit🗡!"
+                "customFpsLimit": "$🗡Custom FPS limit🗡!",
+                "monitor": "$🗡Monitor🗡!",
+                "monitorItem": "$🗡Monitor {{index}} - {{label}}🗡!",
+                "primaryMonitor": "$🗡Default (primary monitor)🗡!"
             }
         },
         "close": "$🗡Close settings🗡!",
@@ -983,7 +986,8 @@
             "whisper": "$🗡Whisper🗡!",
             "friendRemoved": "$🗡Friend removed🗡!",
             "loadingUsers": "$🗡Loading user…🗡!",
-            "viewProfile": "$🗡View profile🗡!"
+            "viewProfile": "$🗡View profile🗡!",
+            "copyUserId": "$🗡Copy ID🗡!"
         },
         "errors": {
             "friendsList": {
