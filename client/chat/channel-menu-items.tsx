@@ -7,7 +7,7 @@ import { useSelfPermissions } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { DestructiveMenuItem } from '../material/menu/item'
-import { MessageMenuProps } from '../messaging/chat-context'
+import { MessageMenuProps } from '../messaging/message-context-menu'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
@@ -199,10 +199,11 @@ export function ChannelMessageMenu({
   const selfPermissions = useSelfPermissions()
   const { channelId } = useContext(ChannelContext)
 
-  const menuItems = items.slice(0)
-
+  const menuItems = new Map(items)
   if (selfPermissions?.moderateChatChannels) {
-    menuItems.push(
+    appendToMultimap(
+      menuItems,
+      MenuItemCategory.Destructive,
       <DestructiveMenuItem
         key='delete-message'
         text='Delete message'

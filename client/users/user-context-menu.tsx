@@ -483,19 +483,16 @@ function UserContextMenuList({
   userId: SbUserId
   onMenuClose: (event?: MouseEvent) => void
 }) {
-  const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>(
-    (elems, category, index) => {
-      const categoryItems = items.get(category) ?? []
+  const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>((elems, category) => {
+    const categoryItems = items.get(category) ?? []
 
-      if (categoryItems.length > 0 && index > 0) {
-        elems.push(<Divider key={`divider-${index}`} $dense={true} />)
-      }
+    if (elems.length > 0 && categoryItems.length > 0) {
+      elems.push(<Divider key={`divider-${category}`} $dense={true} />)
+    }
 
-      elems.push(...categoryItems)
-      return elems
-    },
-    [],
-  )
+    elems.push(...categoryItems)
+    return elems
+  }, [])
 
   return (
     <UserMenuContext.Provider value={{ userId, onMenuClose }}>

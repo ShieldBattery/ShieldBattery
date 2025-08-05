@@ -9,13 +9,12 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { TransInterpolation } from '../i18n/i18next'
-import { MenuList } from '../material/menu/menu'
-import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { ChatContext, MessageMenuContext } from './chat-context'
+import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
+import { MessageContextMenu } from './message-context-menu'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -73,7 +72,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
   const filterClick = useMentionFilterClick()
   const { UserMenu, MessageMenu, disallowMentionInteraction } = useContext(ChatContext)
 
-  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+  const { onContextMenu, contextMenuPopoverProps, selectedText } = useContextMenu()
 
   const parsedText: React.ReactNode[] = []
   let isHighlighted = false
@@ -140,8 +139,6 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
     parsedText.push(text.substring(lastIndex))
   }
 
-  // TODO(tec27): Get the base menu items from a context value if/when we need it
-  const baseMenuItems: React.ReactNode[] = []
   return (
     <>
       <TimestampMessageLayout
@@ -160,31 +157,13 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
 
-      <Popover {...contextMenuPopoverProps}>
-        <MessageMenu
-          messageId={msgId}
-          items={baseMenuItems}
-          onMenuClose={contextMenuPopoverProps.onDismiss}
-          MenuComponent={MessageMenuList}
-        />
-      </Popover>
+      <MessageContextMenu
+        messageId={msgId}
+        selectedText={selectedText}
+        MessageMenu={MessageMenu}
+        popoverProps={contextMenuPopoverProps}
+      />
     </>
-  )
-}
-
-function MessageMenuList({
-  items,
-  messageId,
-  onMenuClose,
-}: {
-  items: ReadonlyArray<React.ReactNode>
-  messageId: string
-  onMenuClose: (event?: MouseEvent) => void
-}) {
-  return (
-    <MessageMenuContext.Provider value={{ messageId, onMenuClose }}>
-      {items.length ? <MenuList dense={true}>{items}</MenuList> : null}
-    </MessageMenuContext.Provider>
   )
 }
 
