@@ -348,10 +348,10 @@ export class MatchmakingService {
               MatchmakingCompletionType.Found,
             )
             .observe((entity.searchIterations * MATCHMAKING_INTERVAL_MS) / 1000)
+
+          this.matchesFoundMetric.labels(matchInfo.type).inc()
         }
       }
-
-      this.matchesFoundMetric.labels(matchInfo.type).inc()
 
       this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
     },
