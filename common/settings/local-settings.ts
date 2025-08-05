@@ -45,6 +45,7 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinY: number | undefined
   gameWinWidth: number | undefined
   gameWinHeight: number | undefined
+  monitorId: number | undefined
   quickOpenReplays: boolean
   startingFog: StartingFog
   /**

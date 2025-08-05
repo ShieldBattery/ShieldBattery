@@ -174,7 +174,7 @@ quick_error! {
 impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
-            forge::init(&settings.local, &settings.scr);
+            forge::init(&settings.local, &settings.scr, settings.monitor_bounds);
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {

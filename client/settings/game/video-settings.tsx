@@ -1,18 +1,24 @@
-import * as React from 'react'
+import type { Display } from 'electron'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getErrorStack } from '../../../common/errors'
+import { TypedIpcRenderer } from '../../../common/ipc'
 import {
   ALL_DISPLAY_MODES,
   DisplayMode,
   getDisplayModeName,
 } from '../../../common/settings/blizz-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import logger from '../../logging/logger'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { mergeScrSettings } from '../action-creators'
+import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 // NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
 // component just acts as a custom one and does the conversion
@@ -40,6 +46,7 @@ function VsyncCheckBox(props: {
 
 interface GameVideoSettingsModel {
   displayMode: DisplayMode
+  monitorId: number | null
   sdGraphicsFilter: number
   fpsLimitOn: boolean
   fpsLimit: number
@@ -57,9 +64,29 @@ export function GameVideoSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
+  const localSettings = useAppSelector(s => s.settings.local)
+
+  const [primaryMonitorId, setPrimaryMonitorId] = useState<number | null>(null)
+  const [monitors, setMonitors] = useState<Display[]>([])
+
+  const initialModel: GameVideoSettingsModel = {
+    displayMode: scrSettings.displayMode,
+    monitorId: localSettings.monitorId ?? null,
+    sdGraphicsFilter: scrSettings.sdGraphicsFilter,
+    fpsLimitOn: scrSettings.fpsLimitOn,
+    fpsLimit: scrSettings.fpsLimit,
+    vsyncOn: scrSettings.vsyncOn,
+    hdGraphicsOn: scrSettings.hdGraphicsOn,
+    environmentEffectsOn: scrSettings.environmentEffectsOn,
+    realTimeLightingOn: scrSettings.realTimeLightingOn,
+    smoothUnitTurningOn: scrSettings.smoothUnitTurningOn,
+    shadowStackingOn: scrSettings.shadowStackingOn,
+    pillarboxOn: scrSettings.pillarboxOn,
+    showFps: scrSettings.showFps,
+  }
 
   const { bindCustom, bindCheckable, getInputValue, submit, form } =
-    useForm<GameVideoSettingsModel>({ ...scrSettings }, {})
+    useForm<GameVideoSettingsModel>(initialModel, {})
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
@@ -85,8 +112,32 @@ export function GameVideoSettings() {
           },
         ),
       )
+
+      dispatch(
+        mergeLocalSettings(
+          {
+            monitorId: model.monitorId === null ? undefined : model.monitorId,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
     },
   })
+
+  useEffect(() => {
+    ipcRenderer
+      .invoke('settingsGetMonitorInfo')
+      ?.then(({ primary, monitors }) => {
+        setPrimaryMonitorId(primary?.id)
+        setMonitors(monitors)
+      })
+      .catch(err => {
+        logger.error('Error getting monitor info: ' + getErrorStack(err))
+      })
+  }, [])
 
   return (
     <form noValidate={true} onSubmit={submit}>
@@ -100,6 +151,31 @@ export function GameVideoSettings() {
               <SelectOption key={i} value={dm} text={getDisplayModeName(dm, t)} />
             ))}
           </Select>
+          {getInputValue('displayMode') !== DisplayMode.Windowed ? (
+            <Select
+              {...bindCustom('monitorId')}
+              label={t('settings.game.video.monitor', 'Monitor')}
+              tabIndex={0}>
+              <SelectOption
+                key={'primary'}
+                value={null}
+                text={t('settings.game.video.primaryMonitor', 'Default (primary monitor)')}
+              />
+              {monitors.map((m, i) => (
+                <SelectOption
+                  key={m.id}
+                  value={m.id}
+                  text={t('settings.game.video.monitorItem', {
+                    defaultValue: 'Monitor {{index}} - {{label}}',
+                    index: i,
+                    label: m.label,
+                  })}
+                />
+              ))}
+            </Select>
+          ) : null}
+        </div>
+        <div>
           <Slider
             {...bindCustom('sdGraphicsFilter')}
             label={t('settings.game.video.sdGraphicsFilter', 'SD graphics filter')}

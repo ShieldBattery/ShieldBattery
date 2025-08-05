@@ -426,6 +426,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     return primaryDisplay.size
   })
 
+  ipcMain.handle('settingsGetMonitorInfo', async event => {
+    const primary = screen.getPrimaryDisplay()
+    const monitors = screen.getAllDisplays()
+    return { primary, monitors }
+  })
+
   const activeGameManager = container.resolve(ActiveGameManager)
 
   activeGameManager

@@ -1,4 +1,10 @@
-import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
+import type {
+  Display,
+  IpcMainEvent,
+  IpcMainInvokeEvent,
+  IpcRendererEvent,
+  WebContents,
+} from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
@@ -83,6 +89,7 @@ interface IpcInvokeables {
     defaultPath: string,
   ) => Promise<{ canceled: boolean; filePaths: string[] }>
   settingsGetPrimaryResolution: () => Promise<{ width: number; height: number }>
+  settingsGetMonitorInfo: () => Promise<{ primary: Display; monitors: Display[] }>
   settingsOverwriteBlizzardFile: () => void
 
   shieldbatteryCheckFiles: () => Promise<ShieldBatteryFileResult[]>

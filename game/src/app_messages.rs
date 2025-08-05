@@ -16,6 +16,8 @@ pub struct Settings {
     pub local: serde_json::Map<String, serde_json::Value>,
     pub scr: serde_json::Map<String, serde_json::Value>,
     pub settings_file_path: String,
+    /// If set, the bounds of the monitor that the user wants to launch on (in fullscreen modes).
+    pub monitor_bounds: Option<(i32, i32, u32, u32)>,
 }
 
 #[atomic_enum]

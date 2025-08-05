@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
-use winapi::shared::windef::{HMENU, HWND, POINT, RECT};
+use winapi::shared::windef::{HMENU, HMONITOR, HWND, POINT, RECT};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
@@ -17,16 +17,18 @@ use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
 mod scr_hooks {
 
-    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW, c_void};
+    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HMONITOR, HWND, POINT, WNDCLASSEXW, c_void};
 
     system_hooks!(
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
         !0 => CreateWindowExW(
             u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
         ) -> HWND;
+        !0 => MonitorFromPoint32(i32, i32, u32) -> HMONITOR;
+        !0 => MonitorFromPoint64(POINT, u32) -> HMONITOR;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
-        !0 => ShowWindow(HWND, i32) -> u32;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
+        !0 => ShowWindow(HWND, i32) -> u32;
     );
 }
 
@@ -42,6 +44,9 @@ const STEP_LOBBY_COMPLETION_TIMEOUT: u32 = USER_TIMER_MINIMUM;
 /// Controls whether the window position is tracked/saved when a move event occurs. We toggle this
 /// once we know that moves must be triggered by user action (instead of during init/quit).
 pub static TRACK_WINDOW_POS: AtomicBool = AtomicBool::new(false);
+/// Whether to fake the current primary monitor. Used during the window creation process to launch
+/// fullscreen modes on the correct screen.
+static FAKE_PRIMARY_MONITOR: AtomicBool = AtomicBool::new(false);
 
 // Currently no nicer way to prevent us from hooking winapi calls we ourselves make
 // with remastered :/
@@ -414,6 +419,9 @@ pub struct Settings {
     height: Option<i32>,
 
     display_mode: DisplayMode,
+
+    /// If set, the bounds of the monitor that the user wants to launch on (in fullscreen modes).
+    monitor_bounds: Option<(i32, i32, u32, u32)>,
 }
 
 struct Window {
@@ -602,6 +610,50 @@ fn change_display_settings_ex(
     }
 }
 
+fn monitor_from_point_impl(x: i32, y: i32, flags: u32) -> Option<POINT> {
+    if x == 0
+        && y == 0
+        && flags == MONITOR_DEFAULTTOPRIMARY
+        && FAKE_PRIMARY_MONITOR.load(Ordering::Acquire)
+    {
+        if let Some(bounds) = with_forge(|forge| forge.starting_settings.monitor_bounds) {
+            let x = bounds.0 + (bounds.2 / 2) as i32;
+            let y = bounds.1 + (bounds.3 / 2) as i32;
+            debug!("Faking MonitorFromPoint call to ({x}, {y})");
+            return Some(POINT { x, y });
+        }
+    }
+
+    None
+}
+
+// 32-bit version, code pushes x/y separately
+#[cfg(target_arch = "x86")]
+fn monitor_from_point(
+    x: i32,
+    y: i32,
+    flags: u32,
+    orig: unsafe extern "C" fn(i32, i32, u32) -> HMONITOR,
+) -> HMONITOR {
+    unsafe {
+        let point = monitor_from_point_impl(x, y, flags).unwrap_or(POINT { x, y });
+        orig(point.x, point.y, flags)
+    }
+}
+
+// 64-bit version, code pushes x/y as a single POINT struct
+#[cfg(target_arch = "x86_64")]
+fn monitor_from_point(
+    point: POINT,
+    flags: u32,
+    orig: unsafe extern "C" fn(POINT, u32) -> HMONITOR,
+) -> HMONITOR {
+    unsafe {
+        let point = monitor_from_point_impl(point.x, point.y, flags).unwrap_or(point);
+        orig(point, flags)
+    }
+}
+
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         use self::scr_hooks::*;
@@ -621,15 +673,29 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
-            "ShowWindow", ShowWindow, show_window;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
+            "ShowWindow", ShowWindow, show_window;
         );
+
+        #[cfg(target_arch = "x86")]
+        {
+            hook_winapi_exports!(patcher, "user32",
+                "MonitorFromPoint", MonitorFromPoint32, monitor_from_point;
+            );
+        }
+        #[cfg(target_arch = "x86_64")]
+        {
+            hook_winapi_exports!(patcher, "user32",
+                "MonitorFromPoint", MonitorFromPoint64, monitor_from_point;
+            );
+        }
     }
 }
 
 pub fn init(
     local_settings: &serde_json::Map<String, serde_json::Value>,
     scr_settings: &serde_json::Map<String, serde_json::Value>,
+    monitor_bounds: Option<(i32, i32, u32, u32)>,
 ) {
     let window_x = local_settings
         .get("gameWinX")
@@ -655,6 +721,9 @@ pub fn init(
         .and_then(|v| serde_json::from_value::<DisplayMode>(v.clone()).ok())
         .unwrap_or_default();
 
+    let fake_monitor = display_mode != DisplayMode::Windowed && monitor_bounds.is_some();
+    FAKE_PRIMARY_MONITOR.store(fake_monitor, Ordering::Release);
+
     let settings = Settings {
         window_x,
         window_y,
@@ -662,6 +731,8 @@ pub fn init(
         height,
 
         display_mode,
+
+        monitor_bounds,
     };
     *FORGE.lock().unwrap() = Some(Forge {
         starting_settings: settings,
@@ -850,9 +921,9 @@ pub fn restore_saved_window_pos() {
     };
     let display_mode = settings.display_mode;
     if display_mode != DisplayMode::Windowed {
-        // TODO(tec27): Make this work for fullscreen modes too. With this implementation, it moves
-        // the window over but then it gets snapped back to the primary monitor, leaving a bugged
-        // taskbar entry on the target monitor.
+        // Once we hit this point, we no longer need to fake which monitor is the primary one, since
+        // the window has already been positioned on what SC:R thought was the primary one
+        FAKE_PRIMARY_MONITOR.store(false, Ordering::Release);
         debug!("Not restoring window position for {display_mode:?} display mode");
         return;
     };

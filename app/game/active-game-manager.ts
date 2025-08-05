@@ -1,5 +1,5 @@
 import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
-import { app } from 'electron'
+import { app, screen } from 'electron'
 import { Set } from 'immutable'
 import { promises as fsPromises } from 'node:fs'
 import path from 'node:path'
@@ -228,12 +228,27 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       ? map.path
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
+    const local = await this.localSettings.get()
+    const desiredMonitorBounds =
+      local.monitorId !== undefined
+        ? screen.getAllDisplays().find(d => d.id === local.monitorId)?.bounds
+        : undefined
+    const monitorBounds = desiredMonitorBounds
+      ? [
+          desiredMonitorBounds.x,
+          desiredMonitorBounds.y,
+          desiredMonitorBounds.width,
+          desiredMonitorBounds.height,
+        ]
+      : undefined
+
     this.emit('gameCommand', id, 'localUser', config.localUser)
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
-      local: await this.localSettings.get(),
+      local,
       scr: await this.scrSettings.get(),
       settingsFilePath: this.scrSettings.gameFilepath,
+      monitorBounds,
     })
 
     if (game.routes) {
