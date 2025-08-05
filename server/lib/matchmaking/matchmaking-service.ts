@@ -1023,8 +1023,6 @@ export class MatchmakingService {
       matchmaking: undefined,
     })
 
-    const userSockets = this.userSocketsManager.getById(userId)
-    userSockets?.unsubscribe(getMatchmakingUserPath(userId))
     activeClient?.unsubscribe(getMatchmakingClientPath(activeClient))
   }
 
