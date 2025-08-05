@@ -347,7 +347,11 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     let status = this.activeGame.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
       if (status >= GameStatus.Playing) {
-        if (!this.activeGame?.resultSent && this.activeGame.config) {
+        if (
+          this.activeGame.config?.setup.resultCode &&
+          !this.activeGame?.result &&
+          !this.activeGame?.resultSent
+        ) {
           // The game didn't send a result, so we will send a blank one
           const config = this.activeGame.config
           const submission: SubmitGameResultsRequest = {
