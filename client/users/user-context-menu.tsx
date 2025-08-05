@@ -6,7 +6,8 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap, mergeMultimaps } from '../../common/data-structures/maps'
 import { UserRelationshipKind } from '../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
-import { useSelfUser } from '../auth/auth-utils'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import logger from '../logging/logger'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -162,6 +163,7 @@ function ConnectedUserContextMenuContents({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const snackbarController = useSnackbarController()
   const { onNavigation } = useNavigationTracker()
@@ -216,6 +218,23 @@ function ConnectedUserContextMenuContents({
         }}
       />,
     )
+
+    if (selfPermissions?.debug) {
+      appendToMultimap(
+        items,
+        MenuItemCategory.General,
+        <MenuItem
+          key='copy-user-id'
+          text={t('users.contextMenu.copyUserId', 'Copy ID')}
+          onClick={() => {
+            navigator.clipboard.writeText(user.id.toString()).catch(err => {
+              logger.error(`Error copying user ID to clipboard: ${err}`)
+            })
+            onDismiss()
+          }}
+        />,
+      )
+    }
 
     if (user.id !== selfUser?.id) {
       if (relationshipKind !== UserRelationshipKind.Block) {

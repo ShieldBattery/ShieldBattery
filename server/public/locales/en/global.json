@@ -1180,6 +1180,7 @@
   "users": {
     "contextMenu": {
       "addFriend": "Add friend",
+      "copyUserId": "Copy ID",
       "friendRemoved": "Friend removed",
       "friendRequestAccepted": "Friend request accepted",
       "friendRequestRemoved": "Friend request removed",
