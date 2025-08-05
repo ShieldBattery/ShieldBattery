@@ -41,11 +41,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStartMinimized: boolean
   starcraftPath: string
   masterVolume: number
-  gameWinX: number | undefined
-  gameWinY: number | undefined
-  gameWinWidth: number | undefined
-  gameWinHeight: number | undefined
-  monitorId: number | undefined
+  gameWinX?: number
+  gameWinY?: number
+  gameWinWidth?: number
+  gameWinHeight?: number
+  monitorId?: number
   quickOpenReplays: boolean
   startingFog: StartingFog
   /**
