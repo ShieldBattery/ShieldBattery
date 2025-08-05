@@ -36,6 +36,7 @@ export class DraftState {
   private teams: DraftTeam[]
   private pickOrder: Array<{ team: number; slot: number }>
   private isComplete = false
+  private currentPickerIndex = -1
   readonly shuffledNames: Array<AnonymizedNameIndex[]>
 
   private pickTimeout?: NodeJS.Timeout
@@ -88,7 +89,7 @@ export class DraftState {
         // Initial animations + delay so players can get their bearings
         await raceAbort(
           this.abortController.signal,
-          new Promise(resolve => setTimeout(resolve, 3000)),
+          new Promise(resolve => setTimeout(resolve, 5000)),
         )
         this.advanceToNextPicker()
       })
@@ -167,23 +168,17 @@ export class DraftState {
   }
 
   getCurrentPicker(): { userId: SbUserId; team: number; slot: number } | undefined {
-    if (this.isComplete) {
+    if (this.isComplete || this.currentPickerIndex < 0) {
       return undefined
     }
 
-    // Find first unlocked player in pick order
-    for (const pickSlot of this.pickOrder) {
-      const player = this.teams[pickSlot.team].players[pickSlot.slot]
-      if (!player.hasLocked) {
-        return {
-          userId: player.userId,
-          team: pickSlot.team,
-          slot: pickSlot.slot,
-        }
-      }
+    const currentPicker = this.pickOrder[this.currentPickerIndex]
+    const player = this.teams[currentPicker.team].players[currentPicker.slot]
+    return {
+      userId: player.userId,
+      team: currentPicker.team,
+      slot: currentPicker.slot,
     }
-
-    return undefined
   }
 
   updateProvisionalRace(userId: SbUserId, race: RaceChar): void {
@@ -292,15 +287,24 @@ export class DraftState {
 
   private advanceToNextPicker() {
     this.checkIfComplete()
+    if (this.isComplete) {
+      return
+    }
 
-    const nextPicker = this.getCurrentPicker()
-    if (nextPicker) {
-      this.publisher.publish(getMatchPath(this.matchId), {
-        type: 'draftPickStarted',
-        teamId: nextPicker.team,
-        index: nextPicker.slot,
-      })
-      this.startPickTimer()
+    // Find first unlocked player in pick order
+    for (let i = 0; i < this.pickOrder.length; i++) {
+      const pickSlot = this.pickOrder[i]
+      const player = this.teams[pickSlot.team].players[pickSlot.slot]
+      if (!player.hasLocked) {
+        this.currentPickerIndex = i
+        this.publisher.publish(getMatchPath(this.matchId), {
+          type: 'draftPickStarted',
+          teamId: pickSlot.team,
+          index: pickSlot.slot,
+        })
+        this.startPickTimer()
+        break
+      }
     }
   }
 
