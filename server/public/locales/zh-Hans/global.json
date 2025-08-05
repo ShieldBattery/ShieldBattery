@@ -110,10 +110,10 @@
                 "title": "输入",
                 "customCursorSizeLargest": "最大",
                 "customCursorSizeSmallest": "最小",
-                "hardwareCursorTooltip": "推荐以获得最佳性能和输入响应",
-                "legacyCursorSizing": "使用传统光标大小",
-                "legacyCursorSizingTooltip": "使用原版《星际争霸：重制版》的光标大小，在更高分辨率下比例不一致。",
-                "legacySettingsDescription": "这些设置是为了与《星际争霸：重制版》的设置兼容，但不推荐使用，因为会导致性能问题。",
+                "hardwareCursorTooltip": "推荐此设置以获得最佳性能和响应速度",
+                "legacyCursorSizing": "使用传统光标大小调整",
+                "legacyCursorSizingTooltip": "使用《星际争霸：重制版》的原始光标大小设置，高分辨率下缩放比例不一致。",
+                "legacySettingsDescription": "这些设置是为了兼容《星际争霸：重制版》的设置而保留的，但不推荐使用，因为它们可能导致性能问题。",
                 "legacySettingsHeader": "传统设置",
                 "useCustomCursorSize": "使用自定义光标大小"
             },
@@ -160,9 +160,9 @@
                 "smoothUnitTurning": "单位转身更平滑",
                 "title": "图像",
                 "customFpsLimit": "自定义帧率上限",
-                "monitor": "监视器",
-                "monitorItem": "监视器 {{index}} - {{label}}",
-                "primaryMonitor": "默认（主监视器）"
+                "monitor": "显示器",
+                "monitorItem": "显示器 {{index}} - {{label}}",
+                "primaryMonitor": "默认（主显示器）"
             },
             "starcraft": {
                 "title": "星际争霸",
@@ -1123,7 +1123,7 @@
         "newDayMessage": "日期已变为<2>{{day}}</2>",
         "sendMessage": "发送消息",
         "sendMessageChatRestricted": "限制发送消息至 {{date}}",
-        "searchWithGoogle": "使用 Google 搜索"
+        "searchWithGoogle": "用谷歌搜索"
     },
     "windowControls": {
         "close": "关闭",

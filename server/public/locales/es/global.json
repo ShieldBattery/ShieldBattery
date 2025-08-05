@@ -154,8 +154,8 @@
                 "customCursorSizeSmallest": "Más pequeño",
                 "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
                 "legacyCursorSizing": "Usar tamaño de cursor heredado",
-                "legacySettingsDescription": "Estas configuraciones están disponibles para compatibilidad con las configuraciones de StarCraft: Remastered, pero no se recomiendan porque causan problemas de rendimiento.",
-                "legacySettingsHeader": "Configuraciones heredadas",
+                "legacySettingsDescription": "Estas configuraciones existen por motivos de compatibilidad con StarCraft: Remastered, pero no se aconseja activarlas ya que pueden causar problemas de rendimiento.",
+                "legacySettingsHeader": "Configuración heredada",
                 "useCustomCursorSize": "Usar tamaño de cursor personalizado"
             },
             "sound": {
@@ -733,7 +733,7 @@
         "newDayMessage": "Día cambiado a <2>{{day}}</2>",
         "sendMessage": "Enviar un mensaje",
         "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}",
-        "searchWithGoogle": "Buscar en Google"
+        "searchWithGoogle": "Buscar con Google"
     },
     "policy": {
         "acceptableUse": "Uso aceptable",

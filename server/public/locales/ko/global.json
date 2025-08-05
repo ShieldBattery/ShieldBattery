@@ -107,12 +107,12 @@
                 "customMouseSensitivity": "사용자 지정 마우스 감도",
                 "customCursorSizeLargest": "가장 큼",
                 "customCursorSizeSmallest": "가장 작음",
-                "hardwareCursorTooltip": "최고의 성능과 입력 반응성을 위해 추천",
-                "legacyCursorSizing": "구형 커서 크기 사용",
-                "legacyCursorSizingTooltip": "해상도가 높을 때 일관되지 않은 비율을 가진 원래 스타크래프트: 리마스터 커서 크기를 사용합니다.",
-                "legacySettingsDescription": "이 설정은 스타크래프트: 리마스터 설정과의 호환성을 위해 제공되지만, 성능 문제를 일으키기 때문에 사용을 권장하지 않습니다.",
-                "legacySettingsHeader": "구형 설정",
-                "useCustomCursorSize": "사용자 정의 커서 크기 사용"
+                "hardwareCursorTooltip": "최적의 성능과 입력 반응 속도를 위해 권장됩니다",
+                "legacyCursorSizing": "이전 커서 크기 방식을 사용",
+                "legacyCursorSizingTooltip": "원래 스타크래프트: 리마스터드 커서 크기를 사용하며, 고해상도에서 크기 비율이 일관되지 않을 수 있습니다.",
+                "legacySettingsDescription": "이 설정들은 스타크래프트: 리마스터드 설정과 호환성을 위해 제공되지만, 성능 문제를 일으킬 수 있으므로 사용을 권장하지 않습니다.",
+                "legacySettingsHeader": "이전 설정",
+                "useCustomCursorSize": "사용자 지정 커서 크기 사용"
             },
             "sound": {
                 "announcer": {
@@ -175,7 +175,7 @@
                 "customFpsLimit": "사용자 지정 FPS 제한",
                 "monitor": "모니터",
                 "monitorItem": "모니터 {{index}} - {{label}}",
-                "primaryMonitor": "기본 (주 모니터)"
+                "primaryMonitor": "기본값 (주 모니터)"
             },
             "title": "게임"
         },
@@ -929,7 +929,7 @@
         "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
         "sendMessage": "메시지를 입력하세요",
         "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다",
-        "searchWithGoogle": "구글로 검색"
+        "searchWithGoogle": "Google에서 검색"
     },
     "navigation": {
         "copyLink": {

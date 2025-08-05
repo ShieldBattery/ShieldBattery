@@ -40,7 +40,7 @@
             "download": "Скачать",
             "back": "Назад",
             "zoomIn": "Приблизить",
-            "zoomOut": "Удалить",
+            "zoomOut": "Отдалить",
             "copy": "Копировать"
         },
         "lists": {
@@ -160,7 +160,7 @@
                 "realTimeLighting": "Освещение в реальном времени",
                 "customFpsLimit": "Пользовательский лимит FPS",
                 "monitor": "Монитор",
-                "monitorItem": "Монитор {{index}} - {{label}}",
+                "monitorItem": "Монитор {{index}} — {{label}}",
                 "primaryMonitor": "По умолчанию (основной монитор)"
             },
             "input": {
@@ -172,13 +172,13 @@
                 "mouseScaling": "Использовать масштабирование мыши",
                 "mouseSensitivity": "Чувствительность мыши",
                 "title": "Ввод",
-                "customCursorSizeLargest": "Наибольший",
-                "customCursorSizeSmallest": "Наименьший",
-                "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости",
-                "legacyCursorSizing": "Использовать размеры курсора из предыдущих версий",
-                "legacyCursorSizingTooltip": "Использует оригинальные размеры курсора StarCraft: Remastered, которые имеют непостоянные масштабы при более высоких разрешениях.",
-                "legacySettingsDescription": "Эти настройки доступны для совместимости с настройками StarCraft: Remastered, но их не рекомендуется использовать, так как они вызывают проблемы с производительностью.",
-                "legacySettingsHeader": "Настройки предыдущих версий",
+                "customCursorSizeLargest": "Максимальный",
+                "customCursorSizeSmallest": "Минимальный",
+                "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости управления",
+                "legacyCursorSizing": "Использовать старое изменение размера курсора",
+                "legacyCursorSizingTooltip": "Использует оригинальные размеры курсора из StarCraft: Remastered, которые при высоких разрешениях отображаются с несоответствующими масштабами.",
+                "legacySettingsDescription": "Эти настройки доступны для совместимости с настройками StarCraft: Remastered, но их использование не рекомендуется из-за возможных проблем с производительностью.",
+                "legacySettingsHeader": "Старые настройки",
                 "useCustomCursorSize": "Использовать пользовательский размер курсора"
             },
             "title": "Игра"
@@ -1185,7 +1185,7 @@
         "newDayMessage": "День изменен на <2>{{day}}</2>",
         "sendMessage": "Отправить сообщение",
         "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}",
-        "searchWithGoogle": "Поиск в Google"
+        "searchWithGoogle": "Искать в Google"
     },
     "material": {
         "dialog": {
