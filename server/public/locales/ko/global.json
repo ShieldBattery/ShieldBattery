@@ -36,7 +36,8 @@
             "download": "다운로드",
             "back": "뒤로",
             "zoomIn": "확대",
-            "zoomOut": "축소"
+            "zoomOut": "축소",
+            "copy": "복사"
         },
         "lists": {
             "empty": "볼 것이 없다"
@@ -927,7 +928,8 @@
         "mention": "멘션",
         "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
         "sendMessage": "메시지를 입력하세요",
-        "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다"
+        "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다",
+        "searchWithGoogle": "구글로 검색"
     },
     "navigation": {
         "copyLink": {

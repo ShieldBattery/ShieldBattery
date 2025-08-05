@@ -40,7 +40,8 @@
             "download": "Скачать",
             "back": "Назад",
             "zoomIn": "Приблизить",
-            "zoomOut": "Удалить"
+            "zoomOut": "Удалить",
+            "copy": "Копировать"
         },
         "lists": {
             "empty": "Здесь ничего нет"
@@ -1183,7 +1184,8 @@
         "blockedMessage": "Заблокированное сообщение",
         "newDayMessage": "День изменен на <2>{{day}}</2>",
         "sendMessage": "Отправить сообщение",
-        "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}"
+        "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}",
+        "searchWithGoogle": "Поиск в Google"
     },
     "material": {
         "dialog": {

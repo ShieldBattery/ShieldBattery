@@ -38,7 +38,8 @@
             "download": "$🗡Download🗡!",
             "back": "$🗡Back🗡!",
             "zoomOut": "$🗡Zoom out🗡!",
-            "zoomIn": "$🗡Zoom in🗡!"
+            "zoomIn": "$🗡Zoom in🗡!",
+            "copy": "$🗡Copy🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -726,7 +727,8 @@
         "mention": "$🗡Mention🗡!",
         "newDayMessage": "$🗡Day changed to <2>{{day}}</2>🗡!",
         "sendMessage": "$🗡Send a message🗡!",
-        "sendMessageChatRestricted": "$🗡Restricted from sending messages until {{date}}🗡!"
+        "sendMessageChatRestricted": "$🗡Restricted from sending messages until {{date}}🗡!",
+        "searchWithGoogle": "$🗡Search with Google🗡!"
     },
     "policy": {
         "acceptableUse": "$🗡Acceptable use🗡!",

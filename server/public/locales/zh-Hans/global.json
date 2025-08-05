@@ -36,7 +36,8 @@
             "download": "下载",
             "back": "返回",
             "zoomIn": "放大",
-            "zoomOut": "缩小"
+            "zoomOut": "缩小",
+            "copy": "复制"
         },
         "lists": {
             "empty": "这里什么都没有"
@@ -1121,7 +1122,8 @@
         "mention": "提到",
         "newDayMessage": "日期已变为<2>{{day}}</2>",
         "sendMessage": "发送消息",
-        "sendMessageChatRestricted": "限制发送消息至 {{date}}"
+        "sendMessageChatRestricted": "限制发送消息至 {{date}}",
+        "searchWithGoogle": "使用 Google 搜索"
     },
     "windowControls": {
         "close": "关闭",

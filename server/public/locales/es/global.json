@@ -40,7 +40,8 @@
             "download": "Descargar",
             "back": "Volver",
             "zoomIn": "Acercar",
-            "zoomOut": "Alejar"
+            "zoomOut": "Alejar",
+            "copy": "Copiar"
         },
         "lists": {
             "empty": "Nada que ver aquí"
@@ -151,7 +152,7 @@
                 "legacyCursorSizingTooltip": "Utiliza los tamaños de cursor originales de StarCraft: Remastered, que tienen escalas inconsistentes a resoluciones más altas.",
                 "customCursorSizeLargest": "Más grande",
                 "customCursorSizeSmallest": "Más pequeño",
-                "hardwareCursorTooltip": "Recomendado para el mejor rendimiento y respuesta de entrada",
+                "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
                 "legacyCursorSizing": "Usar tamaño de cursor heredado",
                 "legacySettingsDescription": "Estas configuraciones están disponibles para compatibilidad con las configuraciones de StarCraft: Remastered, pero no se recomiendan porque causan problemas de rendimiento.",
                 "legacySettingsHeader": "Configuraciones heredadas",
@@ -731,7 +732,8 @@
         "mention": "Mención",
         "newDayMessage": "Día cambiado a <2>{{day}}</2>",
         "sendMessage": "Enviar un mensaje",
-        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}"
+        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}",
+        "searchWithGoogle": "Buscar en Google"
     },
     "policy": {
         "acceptableUse": "Uso aceptable",
