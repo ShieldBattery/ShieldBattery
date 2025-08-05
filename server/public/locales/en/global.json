@@ -992,7 +992,7 @@
         "hardwareCursorTooltip": "Recommended for best performance and input responsiveness",
         "keyboardScrollSpeed": "Keyboard scroll speed",
         "legacyCursorSizing": "Use legacy cursor sizing",
-        "legacyCursorSizingTooltip": "Uses the original StarCraft: Remastered cursor sizes, which have inconsisent scales at higher resolutions.",
+        "legacyCursorSizingTooltip": "Uses the original StarCraft: Remastered cursor sizes, which have inconsistent scales at higher resolutions.",
         "legacySettingsDescription": "These settings are available for compatibility with the StarCraft: Remastered settings, but are not recommended for use because they cause performance issues.",
         "legacySettingsHeader": "Legacy settings",
         "lockCursor": "Lock cursor to window",

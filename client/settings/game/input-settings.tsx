@@ -218,7 +218,7 @@ export function GameInputSettings() {
                 position='right'
                 text={t(
                   'settings.game.input.legacyCursorSizingTooltip',
-                  'Uses the original StarCraft: Remastered cursor sizes, which have inconsisent ' +
+                  'Uses the original StarCraft: Remastered cursor sizes, which have inconsistent ' +
                     'scales at higher resolutions.',
                 )}>
                 <TooltipIcon />
