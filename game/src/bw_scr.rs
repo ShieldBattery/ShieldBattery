@@ -3682,7 +3682,7 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
 
 thread_local! {
     /// A counter for how many GetSystemTimePreciseAsFileTime hooks to modify on this thread.
-    pub static PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT: Cell<u32> = const { Cell::new(0) };
+    static PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT: Cell<u32> = const { Cell::new(0) };
 
     /// Avoids hooking our own time retrieval during logging
     pub static IS_LOGGING_TIME_CALL: Cell<bool> = const { Cell::new(false) };
