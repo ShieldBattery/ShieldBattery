@@ -1570,15 +1570,27 @@ impl BwScr {
             );
 
             let address = self.load_ddsgrp_cursor.0 as usize - base;
+            let check_custom_cursor_size = move || {
+                if self.use_custom_cursor_size.load(Ordering::Acquire) {
+                    let custom_size = *self.custom_cursor_size.lock();
+                    self.cursor_scale_factor.write(custom_size);
+                }
+            };
+            #[cfg(target_arch = "x86")]
             exe.hook_closure_address(
                 LoadDdsgrpCursor,
                 move |filepath, b, hotspot_x, hotspot_y, e, orig| {
-                    if self.use_custom_cursor_size.load(Ordering::Acquire) {
-                        let custom_size = *self.custom_cursor_size.lock();
-                        self.cursor_scale_factor.write(custom_size);
-                    }
-
+                    check_custom_cursor_size();
                     orig(filepath, b, hotspot_x, hotspot_y, e)
+                },
+                address,
+            );
+            #[cfg(target_arch = "x86_64")]
+            exe.hook_closure_address(
+                LoadDdsgrpCursor,
+                move |filepath, b, hotspot_xy, e, orig| {
+                    check_custom_cursor_size();
+                    orig(filepath, b, hotspot_xy, e)
                 },
                 address,
             );
@@ -3819,7 +3831,6 @@ mod hooks {
         !0 => UpdateGameScreenSize(f32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
-        !0 => LoadDdsgrpCursor(*const u8, bool, f32, f32, usize) -> usize;
         !0 => PrintText(*const i8, u32, u32);
     );
 
@@ -3858,6 +3869,16 @@ mod hooks {
         ) -> usize;
         !0 => Console_HitTest(*mut scr::UiConsole, i32, i32) -> u8;
         !0 => OrderFn(*mut bw::Unit);
+    );
+
+    #[cfg(target_arch = "x86")]
+    whack_hooks!(0, // cdecl
+        !0 => LoadDdsgrpCursor(*const u8, bool, f32, f32, usize) -> usize;
+    );
+
+    #[cfg(target_arch = "x86_64")]
+    whack_hooks!(0, // cdecl
+        !0 => LoadDdsgrpCursor(*const u8, bool, u64, usize) -> usize;
     );
 
     #[cfg(target_arch = "x86")]
