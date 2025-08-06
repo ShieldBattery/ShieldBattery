@@ -3409,6 +3409,8 @@ fn get_file_attributes_hook(
                     debug!("Mapping CSettings.json GetFileAttributesW call to {replacement}");
                     return orig(windows::winapi_str(&*replacement).as_ptr());
                 }
+            } else if check_filename(filename, b"Battle.net") {
+                stop_precise_system_time_hook();
             }
         }
 
@@ -3515,12 +3517,8 @@ fn create_file_hook(
                         SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
                         return -1isize as *mut c_void;
                     }
-                }
-
-                if check_filename(filename, b"cookie.bin") {
+                } else if check_filename(filename, b"cookie.bin") {
                     start_precise_system_time_hook();
-                } else if check_filename(filename, b"Agent.dat") {
-                    stop_precise_system_time_hook();
                 }
             }
         }
@@ -3556,6 +3554,7 @@ fn create_file_hook(
                 }
             }
         }
+
         handle
     }
 }
@@ -3687,7 +3686,13 @@ pub fn start_precise_system_time_hook() {
 }
 
 fn stop_precise_system_time_hook() {
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(0, Ordering::Release);
+    let thread_id = unsafe { GetCurrentThreadId() };
+    if PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON
+        .compare_exchange(thread_id, 0, Ordering::Release, Ordering::Relaxed)
+        .is_err()
+    {
+        warn!("Tried to stop precise system time hook, but it was enabled for a different thread");
+    }
 }
 
 fn get_system_time_precise_as_file_time_hook(
