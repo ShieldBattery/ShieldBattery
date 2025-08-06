@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::mem;
@@ -17,13 +18,13 @@ use winapi::shared::minwindef::FILETIME;
 use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::um::libloaderapi::GetModuleHandleW;
-use winapi::um::processthreadsapi::GetCurrentThreadId;
 
 use scr_analysis::{DatType, VirtualAddress, scarf};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
+use crate::GameThreadMessage;
 use crate::app_messages::{AtomicStartingFog, MapInfo, SbUserId, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
@@ -37,7 +38,6 @@ use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
 use crate::windows;
-use crate::{GameThreadMessage, PROCESS_INIT_HOOK_REACHED};
 
 pub mod scr;
 
@@ -3519,6 +3519,9 @@ fn create_file_hook(
                     }
                 } else if check_filename(filename, b"cookie.bin") {
                     start_precise_system_time_hook();
+                } else if check_filename(filename, b"Agent.dat") {
+                    // Should happen earlier, but just in case
+                    stop_precise_system_time_hook();
                 }
             }
         }
@@ -3677,22 +3680,21 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
     true
 }
 
-// We only want to hook one specific thread that uses these times.
-static PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON: AtomicU32 = AtomicU32::new(0);
+thread_local! {
+    /// A counter for how many GetSystemTimePreciseAsFileTime hooks to modify on this thread.
+    pub static PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT: Cell<u32> = const { Cell::new(0) };
+
+    /// Avoids hooking our own time retrieval during logging
+    pub static IS_LOGGING_TIME_CALL: Cell<bool> = const { Cell::new(false) };
+}
 
 pub fn start_precise_system_time_hook() {
-    let thread_id = unsafe { GetCurrentThreadId() };
-    PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.store(thread_id, Ordering::Release);
+    // Experimentally derived to be a good value
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.set(1);
 }
 
 fn stop_precise_system_time_hook() {
-    let thread_id = unsafe { GetCurrentThreadId() };
-    if PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON
-        .compare_exchange(thread_id, 0, Ordering::Release, Ordering::Relaxed)
-        .is_err()
-    {
-        warn!("Tried to stop precise system time hook, but it was enabled for a different thread");
-    }
+    PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.set(0);
 }
 
 fn get_system_time_precise_as_file_time_hook(
@@ -3702,12 +3704,15 @@ fn get_system_time_precise_as_file_time_hook(
     unsafe {
         orig(time);
 
-        if !PROCESS_INIT_HOOK_REACHED.load(Ordering::Acquire)
-            && PRECISE_SYSTEM_TIME_HOOK_ENABLED_ON.load(Ordering::Acquire) == GetCurrentThreadId()
-        {
+        if PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.get() > 0 && !IS_LOGGING_TIME_CALL.get() {
+            debug!("Modifying GetSystemTimePreciseAsFileTime result");
             // Making StarCraft feel young again makes it initialize a bit faster
             (*time).dwHighDateTime = 0x01BF53B7;
             (*time).dwLowDateTime = 0x8F200000;
+
+            PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.with(|count| {
+                count.update(|c| c.saturating_sub(1));
+            });
         }
     }
 }

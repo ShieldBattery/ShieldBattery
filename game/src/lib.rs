@@ -29,6 +29,7 @@ use std::time::Duration;
 
 use crate::app_messages::ReplaySaved;
 use crate::app_messages::WindowMove;
+use crate::bw_scr::IS_LOGGING_TIME_CALL;
 use crate::forge::TRACK_WINDOW_POS;
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -204,9 +205,13 @@ pub extern "C" fn OnInject() {
     }
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
+            let old = IS_LOGGING_TIME_CALL.replace(true);
+            let time = chrono::Utc::now();
+            IS_LOGGING_TIME_CALL.replace(old);
+
             out.finish(format_args!(
                 "{}[{}:{}][{}] {}",
-                chrono::Utc::now().format("[%Y-%m-%d][%H:%M:%S%.3f]"),
+                time.format("[%Y-%m-%d][%H:%M:%S%.3f]"),
                 record.file().unwrap_or(""),
                 record.line().unwrap_or(0),
                 record.level(),
