@@ -36,10 +36,12 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
     { server: ResolvedRallyPointServer; pingAbort: AbortController }
   >()
   private pingResults = new Map<number, PingResult>()
+  private pingsInProgress = new Set<number>()
 
   /** Sets the server list for the manager. */
   setServers(servers: [id: number, server: ResolvedRallyPointServer][]) {
     this.pingResults.clear()
+    this.pingsInProgress.clear()
     for (const { pingAbort } of this.servers.values()) {
       pingAbort.abort()
     }
@@ -64,6 +66,7 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
         deletedPings = true
         pingAbort.abort()
         this.pingResults.delete(server.id)
+        this.pingsInProgress.delete(server.id)
       }
     }
 
@@ -77,6 +80,7 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
 
   deleteServer(id: number) {
     this.pingResults.delete(id)
+    this.pingsInProgress.delete(id)
 
     if (this.servers.has(id)) {
       logger.info(`removed rally-point server: ${JSON.stringify(this.servers.get(id))}`)
@@ -102,6 +106,10 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
           return false
         }
 
+        if (this.pingsInProgress.has(id)) {
+          return false
+        }
+
         return true
       })
       .map(id => {
@@ -120,6 +128,8 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
 
     for (const targets of needToPing) {
       const { id, abortSignal: signal } = targets[0]
+
+      this.pingsInProgress.add(id)
 
       Promise.resolve()
         .then(async () => {
@@ -152,32 +162,38 @@ export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents
             await raceAbort(signal, Promise.all(promises))
           } catch (err) {
             if (isAbortError(err)) {
+              this.pingsInProgress.delete(id)
               return
             }
             throw err
           }
 
           if (!this.servers.has(id)) {
+            this.pingsInProgress.delete(id)
             return
           }
           const { server } = this.servers.get(id)!
 
           if (!results.length) {
             logger.verbose(`could not ping rally-point server [${id}, ${server.description}]`)
+            this.pingsInProgress.delete(id)
             return
           }
 
           // Sort the results and take the median
           results.sort((a, b) => a - b)
           const median = results[Math.floor(results.length / 2)]
+          this.pingResults.set(id, { ping: median, lastPinged: requestTime })
           logger.verbose(
             `ping for rally-point server [${id}, ${server.description}]: ${JSON.stringify(
               results,
             )} => ${median}ms`,
           )
           this.emit('ping', server, median)
+          this.pingsInProgress.delete(id)
         })
         .catch(err => {
+          this.pingsInProgress.delete(id)
           logger.error(`error while pinging rally-point server ${id}: ${err.stack ?? err}`)
         })
     }
