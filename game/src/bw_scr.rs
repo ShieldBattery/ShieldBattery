@@ -15,14 +15,14 @@ use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
 use winapi::shared::windef::HWND;
-use winapi::um::errhandlingapi::SetLastError;
+use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::processthreadsapi::GetCurrentThreadId;
 
 use scr_analysis::{DatType, VirtualAddress, scarf};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
-use winapi::um::processthreadsapi::GetCurrentThreadId;
 
 use crate::app_messages::{AtomicStartingFog, MapInfo, SbUserId, Settings, StartingFog};
 use crate::bw::apm_stats::ApmStats;
@@ -3418,7 +3418,7 @@ fn get_file_attributes_hook(
 
 fn create_file_hook(
     bw: &BwScr,
-    filename: *const u16,
+    filename_ptr: *const u16,
     access: u32,
     share: u32,
     security: *mut c_void,
@@ -3440,9 +3440,14 @@ fn create_file_hook(
     unsafe {
         let mut is_replay = false;
         let mut access = access;
-        if !filename.is_null() {
-            let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
-            let filename = std::slice::from_raw_parts(filename, name_len);
+        let filename = match filename_ptr.is_null() {
+            true => None,
+            false => {
+                let name_len = (0..).find(|&i| *filename_ptr.add(i) == 0).unwrap();
+                Some(std::slice::from_raw_parts(filename_ptr, name_len))
+            }
+        };
+        if let Some(filename) = filename {
             // Check for creating a replay file. (We add more data to it after BW has done
             // writing it)
             //
@@ -3520,7 +3525,7 @@ fn create_file_hook(
             }
         }
         let handle = orig(
-            filename,
+            filename_ptr,
             access,
             share,
             security,
@@ -3531,6 +3536,26 @@ fn create_file_hook(
         if handle != -1isize as *mut c_void && is_replay {
             bw.register_possible_replay_handle(handle);
         }
+        if handle == -1isize as *mut c_void {
+            if let Some(filename) = filename {
+                // Log failures outside few expected cases, as CreateFileW failing is
+                // mostly unexpected, even if the caller is able to handle them.
+                // Expected errors that show up still in logging are telemetry & replay saving
+                // related, skipping those gets too inconvenient to do.
+                let error = GetLastError();
+                let skip =
+                    check_filename(filename, b"CONOUT$") || check_filename(filename, b"cookie.bin");
+                if !skip {
+                    debug!(
+                        "CreateFileW for '{}' with params {access:x} {share:x} \
+                        {creation_disposition:x} {flags:x} failed with code {error}",
+                        windows::os_string_from_winapi(filename).display(),
+                    );
+                    // Logging may have written over last error, so set it again
+                    SetLastError(error);
+                }
+            }
+        }
         handle
     }
 }
@@ -3539,13 +3564,11 @@ fn check_filename(filename: &[u16], compare: &[u8]) -> bool {
     let ending =
         Some(()).and_then(|()| filename.get(filename.len().checked_sub(compare.len() + 1)?..));
     if let Some(ending) = ending {
-        if (ending[0] == b'\\' as u16 || ending[0] == b'/' as u16)
+        (ending[0] == b'\\' as u16 || ending[0] == b'/' as u16)
             && ascii_compare_u16_u8_casei(&ending[1..], compare)
-        {
-            return true;
-        }
+    } else {
+        ascii_compare_u16_u8_casei(filename, compare)
     }
-    false
 }
 
 fn copy_file_hook(
