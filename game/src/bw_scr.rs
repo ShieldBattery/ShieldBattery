@@ -3463,6 +3463,7 @@ fn create_file_hook(
     unsafe {
         let mut is_replay = false;
         let mut access = access;
+        let mut needs_time_hook = false;
         let filename = match filename_ptr.is_null() {
             true => None,
             false => {
@@ -3539,7 +3540,7 @@ fn create_file_hook(
                         return -1isize as *mut c_void;
                     }
                 } else if check_filename(filename, b"cookie.bin") {
-                    start_precise_system_time_hook();
+                    needs_time_hook = true;
                 } else if check_filename(filename, b"Agent.dat") {
                     // Should happen earlier, but just in case
                     stop_precise_system_time_hook();
@@ -3577,6 +3578,9 @@ fn create_file_hook(
                 // Logging may have written over last error, so set it again
                 SetLastError(error);
             }
+        }
+        if handle != -1isize as *mut c_void && needs_time_hook {
+            start_precise_system_time_hook();
         }
 
         handle
