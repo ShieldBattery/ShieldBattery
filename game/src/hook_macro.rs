@@ -102,7 +102,7 @@ pub unsafe fn unprotect_memory_for_hook(
     active_patcher: &mut whack::Patcher,
     proc_address: usize,
 ) -> (
-    whack::ModulePatcher,
+    whack::ModulePatcher<'_>,
     usize,
     Option<windows::MemoryProtectionGuard>,
 ) {

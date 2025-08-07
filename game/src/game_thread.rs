@@ -552,7 +552,7 @@ struct ReplayFrame<'a> {
     commands: &'a [u8],
 }
 
-fn replay_next_frame(input: &[u8]) -> Option<(ReplayFrame, &[u8])> {
+fn replay_next_frame(input: &[u8]) -> Option<(ReplayFrame<'_>, &[u8])> {
     let &commands_len = input.get(4)?;
     let frame = LittleEndian::read_u32(input.get(..4)?);
     let rest = input.get(5..)?;

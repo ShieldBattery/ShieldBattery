@@ -32,14 +32,14 @@ impl<T> Mutex<T> {
     }
 
     #[inline]
-    pub fn lock(&self) -> Option<MutexGuard<T>> {
+    pub fn lock(&self) -> Option<MutexGuard<'_, T>> {
         Some(MutexGuard {
             mutex: self,
             guard: self.lock_inner()?,
         })
     }
 
-    fn lock_inner(&self) -> Option<parking_lot::MutexGuard<T>> {
+    fn lock_inner(&self) -> Option<parking_lot::MutexGuard<'_, T>> {
         let self_thread_id = unsafe { GetCurrentThreadId() };
         if self.locking_thread.load(Ordering::Relaxed) as u32 == self_thread_id {
             // Should maybe just log a warning here?

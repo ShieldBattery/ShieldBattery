@@ -233,7 +233,7 @@ impl InitSdfCache {
         }
     }
 
-    pub fn lock(&self) -> MappedMutexGuard<SdfCache> {
+    pub fn lock(&self) -> MappedMutexGuard<'_, SdfCache> {
         let guard = self.cache.lock();
         MutexGuard::map(guard, |x| {
             x.as_mut().expect("SDF Cache wasn't initialized?")
@@ -392,7 +392,7 @@ impl SdfCache {
         })
     }
 
-    fn get(&mut self, font_id: FontId, glyph: u32) -> SdfCacheResult {
+    fn get(&mut self, font_id: FontId, glyph: u32) -> SdfCacheResult<'_> {
         match self.glyphs.entry((font_id, glyph)) {
             hash_map::Entry::Vacant(entry) => SdfCacheResult::Missing(VacantSdfEntry {
                 entry,

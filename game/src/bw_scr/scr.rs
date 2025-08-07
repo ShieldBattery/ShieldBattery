@@ -162,7 +162,7 @@ impl SafeBwString {
 
     /// Borrows the inner [BwString], allowing you to use the inner pointer directly. This is useful
     /// if you need to pass the string to a BW function that does not take ownership over it.
-    pub unsafe fn borrow(&mut self) -> BorrowedBwString {
+    pub unsafe fn borrow(&mut self) -> BorrowedBwString<'_> {
         BorrowedBwString(&mut self.0)
     }
 
