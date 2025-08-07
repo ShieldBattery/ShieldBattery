@@ -168,10 +168,11 @@ impl NetworkState {
 impl State {
     fn maybe_init_routes(&mut self) {
         let mut setup = None;
-        if let NetworkState::Incomplete(ref mut incomplete) = self.network {
-            if incomplete.ready_to_init && incomplete.setup.is_some() {
-                setup = incomplete.setup.take();
-            }
+        if let NetworkState::Incomplete(ref mut incomplete) = self.network
+            && incomplete.ready_to_init
+            && incomplete.setup.is_some()
+        {
+            setup = incomplete.setup.take();
         }
 
         if let Some(setup) = setup {
@@ -386,13 +387,12 @@ impl State {
                             Some(ResendType::Request(Some(ref resend_target))) => {
                                 if let Some(last_seen) =
                                     self.last_seen_packet_time.get(resend_target)
+                                    && last_seen.elapsed() < Duration::from_millis(500)
                                 {
-                                    if last_seen.elapsed() < Duration::from_millis(500) {
-                                        // If we've seen a packet from this player recently, then
-                                        // just ignore this request and assume Storm will get what
-                                        // it needs through normal protocol means.
-                                        return;
-                                    }
+                                    // If we've seen a packet from this player recently, then
+                                    // just ignore this request and assume Storm will get what
+                                    // it needs through normal protocol means.
+                                    return;
                                 }
                             }
                             // NOTE(tec27): We allow all resend responses through because those are
@@ -494,23 +494,15 @@ impl State {
                                 for payload in game_message.payloads.into_iter() {
                                     match payload.payload {
                                         Some(Payload::Storm(s)) => {
-                                            if need_id {
-                                                if let Some(from_id) =
+                                            if need_id
+                                                && let Some(from_id) =
                                                     get_storm_id(s.storm_data.as_ref())
-                                                {
-                                                    if from_id != 255
-                                                        && get_resend_info(s.storm_data.as_ref())
-                                                            .is_none()
-                                                    {
-                                                        self.ip_to_storm_id
-                                                            .entry(ip)
-                                                            .or_insert(from_id);
-                                                        need_id = false;
-                                                        debug!(
-                                                            "{ip:?} found to have Storm ID: {from_id}"
-                                                        );
-                                                    }
-                                                }
+                                                && from_id != 255
+                                                && get_resend_info(s.storm_data.as_ref()).is_none()
+                                            {
+                                                self.ip_to_storm_id.entry(ip).or_insert(from_id);
+                                                need_id = false;
+                                                debug!("{ip:?} found to have Storm ID: {from_id}");
                                             }
 
                                             let message = snp::ReceivedMessage {

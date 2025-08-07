@@ -26,11 +26,12 @@ pub fn open_file_hook(
         let real = real_path(path, params, &mut buffer);
         if let Some(path) = real {
             let is_sd = (*params).file_type == 1;
-            if bw.disable_hd.load(Ordering::Relaxed) && !is_sd {
-                if let Some(patched) = check_dummied_out_hd(path) {
-                    memory_buffer_to_bw_file_handle(patched, out);
-                    return out;
-                }
+            if bw.disable_hd.load(Ordering::Relaxed)
+                && !is_sd
+                && let Some(patched) = check_dummied_out_hd(path)
+            {
+                memory_buffer_to_bw_file_handle(patched, out);
+                return out;
             }
             // This file is so big that it can take hundreds of milliseconds to parse,
             // use empty json array instead.
@@ -189,10 +190,10 @@ unsafe fn real_path(
         {
             return None;
         }
-        if let Some(ext) = alt_extension {
-            if buffer.try_extend_from_slice(ext.to_bytes()).is_err() {
-                return None;
-            }
+        if let Some(ext) = alt_extension
+            && buffer.try_extend_from_slice(ext.to_bytes()).is_err()
+        {
+            return None;
         }
         let slice = &mut buffer[..];
         for val in slice.iter_mut() {

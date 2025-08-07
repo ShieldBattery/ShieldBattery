@@ -1160,11 +1160,10 @@ impl BwScr {
                     {
                         let mut apm_state = self.apm_state.lock();
                         for command in commands::iter_commands(&slice, &self.game_command_lengths) {
-                            if let Some(ref mut apm) = apm_state {
-                                if !is_replay || are_recorded_replay_commands != 0 {
+                            if let Some(ref mut apm) = apm_state
+                                && (!is_replay || are_recorded_replay_commands != 0) {
                                     apm.action(unique_command_user as u8, command);
                                 }
-                            }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
                                     if are_recorded_replay_commands == 0 {
@@ -1185,8 +1184,8 @@ impl BwScr {
                         }
                     }
 
-                    if !is_replay {
-                        if let Some(players) = self.check_player_drops() {
+                    if !is_replay
+                        && let Some(players) = self.check_player_drops() {
                             let frame = (*self.game()).frame_count;
                             let turn_seq = self.snet_next_turn_sequence_number().wrapping_sub(1);
                             info!(
@@ -1200,7 +1199,6 @@ impl BwScr {
                                 turn_seq,
                             );
                         }
-                    }
                     // There should be no way this is called recursively, but even still
                     // handle that case by keeping track of was_processing.
                     let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
@@ -1278,19 +1276,20 @@ impl BwScr {
                 ProcessLobbyCommands,
                 move |data, len, player, orig| {
                     let slice = std::slice::from_raw_parts(data, len);
-                    if let Some(&byte) = slice.first() {
-                        if byte == 0x48 && player == 0 {
-                            let seq = self.snet_next_turn_sequence_number();
-                            // I think that the sequence number for next turn gets incremented
-                            // before reaching this point, so subtract one to get current
-                            // turn.
-                            debug!(
-                                "Lobby game init command seen at turn seq {}",
-                                seq.wrapping_sub(1),
-                            );
-                            self.lobby_game_init_command_seen
-                                .store(true, Ordering::Relaxed);
-                        }
+                    if let Some(&byte) = slice.first()
+                        && byte == 0x48
+                        && player == 0
+                    {
+                        let seq = self.snet_next_turn_sequence_number();
+                        // I think that the sequence number for next turn gets incremented
+                        // before reaching this point, so subtract one to get current
+                        // turn.
+                        debug!(
+                            "Lobby game init command seen at turn seq {}",
+                            seq.wrapping_sub(1),
+                        );
+                        self.lobby_game_init_command_seen
+                            .store(true, Ordering::Relaxed);
                     }
                     orig(data, len, player);
                 },
@@ -1580,10 +1579,10 @@ impl BwScr {
             exe.hook_closure_address(
                 DecideCursorType,
                 move |orig| {
-                    if let Some(render_state) = self.render_state.lock() {
-                        if let Some(val) = render_state.overlay.decide_cursor_type() {
-                            return val as u32;
-                        }
+                    if let Some(render_state) = self.render_state.lock()
+                        && let Some(val) = render_state.overlay.decide_cursor_type()
+                    {
+                        return val as u32;
                     }
                     orig()
                 },
@@ -1623,12 +1622,12 @@ impl BwScr {
                     if text.is_null() {
                         return;
                     }
-                    if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0 {
-                        if let Ok(text) = CStr::from_ptr(text).to_str() {
-                            let handled = self.chat_manager.lock().handle_message(text, player);
-                            if handled {
-                                return;
-                            }
+                    if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
+                        && let Ok(text) = CStr::from_ptr(text).to_str()
+                    {
+                        let handled = self.chat_manager.lock().handle_message(text, player);
+                        if handled {
+                            return;
                         }
                     }
 
@@ -2429,13 +2428,14 @@ impl BwScr {
             drop(open_files);
 
             if crate::replay::has_replay_magic_bytes(handle) {
-                if let Err(e) = crate::replay::add_shieldbattery_data(
+                let result = crate::replay::add_shieldbattery_data(
                     handle,
                     self,
                     self.exe_build,
                     game_thread::setup_info().unwrap(),
                     game_thread::player_id_mapping(),
-                ) {
+                );
+                if let Err(e) = result {
                     error!("Unable to write extended replay data: {e}");
                 }
             }
@@ -3558,24 +3558,24 @@ fn create_file_hook(
         if handle != -1isize as *mut c_void && is_replay {
             bw.register_possible_replay_handle(handle);
         }
-        if handle == -1isize as *mut c_void {
-            if let Some(filename) = filename {
-                // Log failures outside few expected cases, as CreateFileW failing is
-                // mostly unexpected, even if the caller is able to handle them.
-                // Expected errors that show up still in logging are telemetry & replay saving
-                // related, skipping those gets too inconvenient to do.
-                let error = GetLastError();
-                let skip =
-                    check_filename(filename, b"CONOUT$") || check_filename(filename, b"cookie.bin");
-                if !skip {
-                    debug!(
-                        "CreateFileW for '{}' with params {access:x} {share:x} \
+        if handle == -1isize as *mut c_void
+            && let Some(filename) = filename
+        {
+            // Log failures outside few expected cases, as CreateFileW failing is
+            // mostly unexpected, even if the caller is able to handle them.
+            // Expected errors that show up still in logging are telemetry & replay saving
+            // related, skipping those gets too inconvenient to do.
+            let error = GetLastError();
+            let skip =
+                check_filename(filename, b"CONOUT$") || check_filename(filename, b"cookie.bin");
+            if !skip {
+                debug!(
+                    "CreateFileW for '{}' with params {access:x} {share:x} \
                         {creation_disposition:x} {flags:x} failed with code {error}",
-                        windows::os_string_from_winapi(filename).display(),
-                    );
-                    // Logging may have written over last error, so set it again
-                    SetLastError(error);
-                }
+                    windows::os_string_from_winapi(filename).display(),
+                );
+                // Logging may have written over last error, so set it again
+                SetLastError(error);
             }
         }
 

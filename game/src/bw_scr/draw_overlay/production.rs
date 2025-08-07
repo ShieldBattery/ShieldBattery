@@ -136,12 +136,11 @@ impl OverlayState {
             player_prod.new_frame();
         }
         for unit in bw.active_units {
-            if let Some((production, progress)) = unit_production(unit) {
-                if let Some(player_prod) =
+            if let Some((production, progress)) = unit_production(unit)
+                && let Some(player_prod) =
                     self.production.per_player.get_mut(unit.player() as usize)
-                {
-                    player_prod.add_production(unit, production, progress);
-                }
+            {
+                player_prod.add_production(unit, production, progress);
             }
         }
         for player_prod in &mut self.production.per_player {

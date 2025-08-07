@@ -1696,10 +1696,10 @@ fn determine_game_results(
     // all their buildings destroyed), they will still be marked as Playing. We map any Playing
     // status to Defeat (since Victory would have been applied). Logic further on may still map this
     // to other statuses.
-    if let Some(r) = results.get_mut(&local_user.id) {
-        if r.result == VictoryState::Playing {
-            r.result = VictoryState::Defeat;
-        }
+    if let Some(r) = results.get_mut(&local_user.id)
+        && r.result == VictoryState::Playing
+    {
+        r.result = VictoryState::Defeat;
     };
 
     let has_victory = game_thread_results

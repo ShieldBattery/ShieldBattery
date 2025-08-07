@@ -89,12 +89,11 @@ impl ChatManager {
             .players
             .iter()
             .find(|p| p.player_id.is_some_and(|id| id.0 as u32 == player_id));
-        if let Some(player) = player {
-            if self.blocked_players.contains(&player.sb_user_id)
-                || self.muted_players.contains(&player.sb_user_id)
-            {
-                return true;
-            }
+        if let Some(player) = player
+            && (self.blocked_players.contains(&player.sb_user_id)
+                || self.muted_players.contains(&player.sb_user_id))
+        {
+            return true;
         }
 
         false

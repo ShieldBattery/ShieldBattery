@@ -80,16 +80,14 @@ impl ShaderReplaces {
         let result = {
             let mut shaders = self.shaders.lock();
             for &mut (_, ref mut data, ref mut path_time) in shaders.iter_mut() {
-                if let Some((ref path, ref mut time)) = *path_time {
-                    if let Some(new_time) = file_changed_time(path) {
-                        if new_time != *time {
-                            if let Some((shader, new_time)) = compile_shader_retry_on_err(path) {
-                                debug!("Recompiled shader {}", path.display());
-                                *data = shader;
-                                *time = new_time;
-                            }
-                        }
-                    }
+                if let Some((ref path, ref mut time)) = *path_time
+                    && let Some(new_time) = file_changed_time(path)
+                    && new_time != *time
+                    && let Some((shader, new_time)) = compile_shader_retry_on_err(path)
+                {
+                    debug!("Recompiled shader {}", path.display());
+                    *data = shader;
+                    *time = new_time;
                 }
             }
             shaders

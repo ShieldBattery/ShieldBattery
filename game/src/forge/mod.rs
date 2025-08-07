@@ -538,12 +538,12 @@ fn create_window_w(
         // locking forge during panics.
         if forge_inited() && !std::thread::panicking() {
             with_forge(|forge| {
-                if let Some(bw_class) = forge.scr_window_class {
-                    if class_name as usize == bw_class as usize {
-                        debug!("Created main window {window:p}");
+                if let Some(bw_class) = forge.scr_window_class
+                    && class_name as usize == bw_class as usize
+                {
+                    debug!("Created main window {window:p}");
 
-                        forge.set_window(Window { handle: window });
-                    }
+                    forge.set_window(Window { handle: window });
                 }
             });
         }
@@ -615,13 +615,12 @@ fn monitor_from_point_impl(x: i32, y: i32, flags: u32) -> Option<POINT> {
         && y == 0
         && flags == MONITOR_DEFAULTTOPRIMARY
         && FAKE_PRIMARY_MONITOR.load(Ordering::Acquire)
+        && let Some(bounds) = with_forge(|forge| forge.starting_settings.monitor_bounds)
     {
-        if let Some(bounds) = with_forge(|forge| forge.starting_settings.monitor_bounds) {
-            let x = bounds.0 + (bounds.2 / 2) as i32;
-            let y = bounds.1 + (bounds.3 / 2) as i32;
-            debug!("Faking MonitorFromPoint call to ({x}, {y})");
-            return Some(POINT { x, y });
-        }
+        let x = bounds.0 + (bounds.2 / 2) as i32;
+        let y = bounds.1 + (bounds.3 / 2) as i32;
+        debug!("Faking MonitorFromPoint call to ({x}, {y})");
+        return Some(POINT { x, y });
     }
 
     None

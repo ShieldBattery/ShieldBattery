@@ -715,26 +715,24 @@ pub unsafe fn order_harvest_gas(
     //
     // This should be very rare as BW doesn't usually let ground units to move on unwalkable
     // terrain.
-    if sb_game_logic_version() >= 3 {
-        if let Some(unit) = Unit::from_ptr(unit) {
-            // Check if unit is about to try exiting gas building on this step.
-            if unit.order_state() == 5 && (**unit).order_timer == 0 {
-                let game = bw_dat::Game::from_ptr(bw.game());
-                let pathing = bw.pathing();
-                let pos = unit.position();
-                if pathing::is_at_unwalkable_region(pathing, &pos) {
-                    debug!(
-                        "Fixing gas worker position at {}, {}, during step {}",
-                        pos.x,
-                        pos.y,
-                        game.frame_count(),
-                    );
-                    if let Some(new_pos) =
-                        find_walkable_position_for_gas_worker(game, pathing, unit)
-                    {
-                        debug!("Moved gas worker to {}, {}", new_pos.x, new_pos.y);
-                        bw.move_unit(unit, &new_pos);
-                    }
+    if sb_game_logic_version() >= 3
+        && let Some(unit) = Unit::from_ptr(unit)
+    {
+        // Check if unit is about to try exiting gas building on this step.
+        if unit.order_state() == 5 && (**unit).order_timer == 0 {
+            let game = bw_dat::Game::from_ptr(bw.game());
+            let pathing = bw.pathing();
+            let pos = unit.position();
+            if pathing::is_at_unwalkable_region(pathing, &pos) {
+                debug!(
+                    "Fixing gas worker position at {}, {}, during step {}",
+                    pos.x,
+                    pos.y,
+                    game.frame_count(),
+                );
+                if let Some(new_pos) = find_walkable_position_for_gas_worker(game, pathing, unit) {
+                    debug!("Moved gas worker to {}, {}", new_pos.x, new_pos.y);
+                    bw.move_unit(unit, &new_pos);
                 }
             }
         }
