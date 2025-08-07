@@ -191,6 +191,7 @@ pub struct BwScr {
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
+    sc_main: Option<VirtualAddress>,
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -683,6 +684,7 @@ impl BwScr {
         let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
         let game_state = analysis.game_state().ok_or("Game state")?;
         let rng_seed = analysis.rng_seed().ok_or("RNG seed")?;
+        let sc_main = analysis.sc_main();
         let mainmenu_entry_hook = analysis.mainmenu_entry_hook().ok_or("Entry hook")?;
         let game_loop = analysis.game_loop().ok_or("Game loop")?;
         let init_map_from_path = analysis.init_map_from_path().ok_or("init_map_from_path")?;
@@ -1026,6 +1028,7 @@ impl BwScr {
             print_text: unsafe { mem::transmute(print_text_addr.0) },
             load_snp_list,
             start_udp_server,
+            sc_main,
             mainmenu_entry_hook,
             open_file,
             lobby_create_callback_offset,
@@ -1102,6 +1105,24 @@ impl BwScr {
             let mut active_patcher = crate::PATCHER.lock();
             let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
             let base = base as usize;
+
+            if let Some(sc_main) = self.sc_main {
+                // This is a hook at early point during program startup, some initial
+                // settings have been done already though.
+                // Just used for checking if documents path is somehow unaccessible,
+                // as this is right after BW does it's own checks for it.
+                // mainmenu_entry_hook is further into this same function.
+                let address = sc_main.0 as usize - base;
+                exe.hook_closure_address(
+                    ScMain,
+                    move |orig| {
+                        check_documents_starcraft_path_accessibility();
+                        orig();
+                    },
+                    address,
+                );
+            }
+
             let address = self.mainmenu_entry_hook.0 as usize - base;
             exe.call_hook_closure_address(
                 GameInit,
@@ -3825,8 +3846,8 @@ mod hooks {
     use super::scr;
 
     whack_hooks!(0, // cdecl
+        !0 => ScMain();
         !0 => GameInit();
-        !0 => EntryPoint();
         !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
             *mut scr::FileHandle;
         !0 => Ttf_RenderSdf(
@@ -4022,4 +4043,38 @@ unsafe fn step_game_logic_hook(
         detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
     }
     ret
+}
+
+unsafe fn check_documents_starcraft_path_accessibility() {
+    use winapi::um::fileapi::GetFileAttributesW;
+    use winapi::um::shlobj::{CSIDL_PERSONAL, SHGetFolderPathW};
+    use winapi::um::winnt::FILE_ATTRIBUTE_DIRECTORY;
+    // Using same functions what BW uses to see if something weird goes wrong there.
+    let mut buffer = [0u16; 0x104];
+    let result = SHGetFolderPathW(
+        null_mut(),
+        CSIDL_PERSONAL,
+        null_mut(),
+        0,
+        buffer.as_mut_ptr(),
+    );
+    if result != 0 {
+        warn!(
+            "SHGetFolderPathW(CSIDL_PERSONAL) failed: {:08x} {}",
+            result,
+            std::io::Error::from_raw_os_error(result),
+        );
+        return;
+    }
+    let mut path = windows::os_string_from_winapi_with_nul(&buffer);
+    path.push("\\StarCraft\\");
+    let result = GetFileAttributesW(windows::winapi_str(&path).as_ptr());
+    if result == 0xffff_ffff {
+        // Note: BW is able to handle this folder not existing, but our call point
+        // is after the point in which it should have been created already.
+        let error = std::io::Error::last_os_error();
+        warn!("BW documents path '{path:?}' is not usable: {error}");
+    } else if result & FILE_ATTRIBUTE_DIRECTORY == 0 {
+        warn!("BW documents path '{path:?}' is not a directory, file attributes are {result:08x}");
+    }
 }

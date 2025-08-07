@@ -25,8 +25,16 @@ pub fn winapi_str<T: AsRef<OsStr>>(input: T) -> Vec<u16> {
     buf
 }
 
+/// If there are null characters, or garbage after one in the string, they will
+/// be also included in the result.
 pub fn os_string_from_winapi(input: &[u16]) -> OsString {
     OsString::from_wide(input)
+}
+
+/// Truncates string to end at first 0 in `input`
+pub fn os_string_from_winapi_with_nul(input: &[u16]) -> OsString {
+    let end = input.iter().position(|&x| x == 0).unwrap_or(input.len());
+    OsString::from_wide(&input[..end])
 }
 
 pub struct OwnedHandle(HANDLE);
