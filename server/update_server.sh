@@ -8,8 +8,6 @@ cd ..
 
 NODE_ENV=production
 echo "Running DB migrations"
-# TODO(tec27): Delete this once the sqlx migration stuff has been deployed to prod once
-pnpm exec db-migrate -m ./server/migrations up || exit 1
 ./tools/sqlx migrate run || exit 1
 echo "DB migrations complete"
 echo ""

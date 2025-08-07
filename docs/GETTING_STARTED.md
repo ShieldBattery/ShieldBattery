@@ -169,7 +169,7 @@ This should be done every time a `pnpm-lock.yaml` file changes in the repository
 
 ## Initialize the database structure
 
-**NOTE**: PostgreSQL must be properly configured beforehand for the db-migrate scripts to work.
+**NOTE**: PostgreSQL must be properly configured beforehand for the DB migration scripts to work.
 
 From the root of this repository execute this to migrate the database to the latest structure:
 

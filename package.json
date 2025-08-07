@@ -81,8 +81,6 @@
     "bl": "^6.1.0",
     "bw-chk": "^1.4.1",
     "core-js": "^3.44.0",
-    "db-migrate": "^0.11.14",
-    "db-migrate-pg": "^1.5.2",
     "dotenv": "^17.2.1",
     "dotenv-expand": "^12.0.2",
     "form-data": "^4.0.4",
