@@ -353,6 +353,7 @@
     }
   },
   "gameDetails": {
+    "buttonCopyGameId": "Copy ID",
     "buttonCopyLink": "Copy link to game",
     "buttonSearchAgain": "Search again",
     "debugInfo": {

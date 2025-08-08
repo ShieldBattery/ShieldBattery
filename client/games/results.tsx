@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { getErrorStack } from '../../common/errors'
 import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import { isTeamType } from '../../common/games/game-type'
 import {
@@ -33,10 +34,11 @@ import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
+import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
-import { FilledButton, useButtonState } from '../material/button'
+import { FilledButton, IconButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
@@ -178,6 +180,7 @@ export function ConnectedGameResultsPage({
   )
 
   const selfUser = useSelfUser()
+  const hasDebugPermission = !!useSelfPermissions()?.debug
   const game = useAppSelector(s => s.games.byId.get(gameId))
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
@@ -307,7 +310,7 @@ export function ConnectedGameResultsPage({
   const isLive = !game?.results
 
   return (
-    <Container>
+    <Container layoutScroll>
       <HeaderArea>
         <DisplaySmall>{headline}</DisplaySmall>
         <HeaderInfo>
@@ -345,8 +348,19 @@ export function ConnectedGameResultsPage({
             onClick={onSearchAgain}
           />
         ) : null}
-        {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
+        {hasDebugPermission ? (
+          <Tooltip text={t('gameDetails.buttonCopyGameId', 'Copy ID')} position='left'>
+            <IconButton
+              icon={<MaterialIcon icon='frame_source' />}
+              onClick={() => {
+                navigator.clipboard.writeText(gameId).catch(err => {
+                  logger.error(`Error writing game ID to clipboard: ${getErrorStack(err)}`)
+                })
+              }}
+            />
+          </Tooltip>
+        ) : null}
         <CopyLinkButton
           startingText={t('gameDetails.buttonCopyLink', 'Copy link to game')}
           tooltipPosition='left'
@@ -796,7 +810,7 @@ function NumberDelta({ className, delta }: { className?: string; delta: number }
   }
 }
 
-const DebugInfoSection = styled.div`
+const DebugInfoSection = styled(m.div)`
   grid-column: 1 / -1;
   width: 100%;
   margin-top: 24px;
@@ -817,10 +831,12 @@ const DebugSectionTitle = styled(m.div)`
   justify-content: space-between;
 
   color: var(--theme-on-surface-variant);
-  cursor: pointer;
 
-  &:hover {
+  &:hover,
+  &:focus-visible {
     color: var(--theme-on-surface);
+    cursor: pointer;
+    outline: none;
   }
 `
 
@@ -934,10 +950,29 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
 
   const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
 
+  const sortedReports = debugInfo.reportedResults.slice().sort((a, b) => {
+    // Sort by reported time - earliest first, undefined/null last
+    if (!a.reportedAt && !b.reportedAt) return 0
+    if (!a.reportedAt) return 1
+    if (!b.reportedAt) return -1
+    return a.reportedAt - b.reportedAt
+  })
+
   return (
-    <DebugInfoSection>
+    <DebugInfoSection layoutScroll>
       <DebugCard layout style={{ borderRadius: 4 }} transition={transition}>
-        <DebugSectionTitle onClick={() => setOpen(open => !open)} layout transition={transition}>
+        <DebugSectionTitle
+          onClick={() => setOpen(open => !open)}
+          onKeyPress={e => {
+            console.dir(e)
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setOpen(open => !open)
+            }
+          }}
+          layout
+          transition={transition}
+          tabIndex={0}>
           <span>{t('gameDetails.debugInfo.title', 'Debug Information')}</span>
           <ExpandIconContainer
             animate={{
@@ -1000,51 +1035,42 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                   </tr>
                 </thead>
                 <tbody>
-                  {debugInfo.reportedResults
-                    .slice()
-                    .sort((a, b) => {
-                      // Sort by reported time - earliest first, undefined/null last
-                      if (!a.reportedAt && !b.reportedAt) return 0
-                      if (!a.reportedAt) return 1
-                      if (!b.reportedAt) return -1
-                      return a.reportedAt - b.reportedAt
-                    })
-                    .map(report => (
-                      <tr key={report.userId}>
-                        <td>
-                          <ConnectedUsername userId={report.userId} />
-                        </td>
-                        <td>
-                          {report.reportedAt ? (
-                            <Tooltip
-                              text={longTimestampWithSeconds.format(report.reportedAt)}
-                              position='top'>
-                              {longTimestamp.format(report.reportedAt)}
-                            </Tooltip>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <HasReportCell $hasReport={!!report.reportedResults}>
-                          {report.reportedResults ? 'Yes' : 'No'}
-                        </HasReportCell>
-                        <td>
-                          {report.reportedResults
-                            ? getGameDurationString(report.reportedResults.time)
-                            : '—'}
-                        </td>
-                      </tr>
-                    ))}
+                  {sortedReports.map(report => (
+                    <tr key={report.userId}>
+                      <td>
+                        <ConnectedUsername userId={report.userId} />
+                      </td>
+                      <td>
+                        {report.reportedAt ? (
+                          <Tooltip
+                            text={longTimestampWithSeconds.format(report.reportedAt)}
+                            position='top'>
+                            {longTimestamp.format(report.reportedAt)}
+                          </Tooltip>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <HasReportCell $hasReport={!!report.reportedResults}>
+                        {report.reportedResults ? 'Yes' : 'No'}
+                      </HasReportCell>
+                      <td>
+                        {report.reportedResults
+                          ? getGameDurationString(report.reportedResults.time)
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </DebugTable>
             </DebugTableContainer>
           </div>
-          {debugInfo.reportedResults.some(r => r.reportedResults) && (
+          {sortedReports.some(r => r.reportedResults) && (
             <div>
               <DebugSubsectionTitle>
                 {t('gameDetails.debugInfo.detailedResults', 'Detailed Individual Results')}
               </DebugSubsectionTitle>
-              {debugInfo.reportedResults
+              {sortedReports
                 .filter(r => r.reportedResults)
                 .map(report => (
                   <div key={report.userId} style={{ marginBottom: '16px' }}>
@@ -1063,20 +1089,23 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                           </tr>
                         </thead>
                         <tbody>
-                          {report.reportedResults!.playerResults.map(([playerId, playerResult]) => (
-                            <tr key={playerId}>
-                              <td>
-                                <ConnectedUsername userId={playerId} />
-                              </td>
-                              <ResultCell $result={playerResult.result}>
-                                {getClientResultLabel(playerResult.result, t)}
-                              </ResultCell>
-                              <td>
-                                <StyledRaceIcon race={playerResult.race} />
-                              </td>
-                              <td>{playerResult.apm}</td>
-                            </tr>
-                          ))}
+                          {report
+                            .reportedResults!.playerResults.slice(0)
+                            .sort(([idA], [idB]) => idA - idB)
+                            .map(([playerId, playerResult]) => (
+                              <tr key={playerId}>
+                                <td>
+                                  <ConnectedUsername userId={playerId} />
+                                </td>
+                                <ResultCell $result={playerResult.result}>
+                                  {getClientResultLabel(playerResult.result, t)}
+                                </ResultCell>
+                                <td>
+                                  <StyledRaceIcon race={playerResult.race} />
+                                </td>
+                                <td>{playerResult.apm}</td>
+                              </tr>
+                            ))}
                         </tbody>
                       </DebugTable>
                     </DebugTableContainer>

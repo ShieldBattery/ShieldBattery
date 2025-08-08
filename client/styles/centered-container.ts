@@ -1,3 +1,4 @@
+import * as m from 'motion/react-m'
 import styled from 'styled-components'
 
 /**
@@ -8,7 +9,7 @@ import styled from 'styled-components'
  * The target width can be changed by setting the `$targetWidth` prop (defaults to `1184px`). Target
  * padding can be changed by settings the $targetHorizontalPadding prop (defaults to `24px`).
  */
-export const CenteredContentContainer = styled.div<{
+export const CenteredContentContainer = styled(m.div)<{
   $targetWidth?: number
   $targetHorizontalPadding?: number
 }>`
