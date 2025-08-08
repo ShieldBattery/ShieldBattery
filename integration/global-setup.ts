@@ -44,5 +44,5 @@ setup('create admin account', async ({ page, request }) => {
 
   await page.click('[data-test=save-permissions-button]')
 
-  await page.waitForSelector('[data-test=ban-history-section]')
+  await page.waitForSelector('[data-test=punishments-button]')
 })

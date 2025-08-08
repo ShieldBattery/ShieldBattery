@@ -154,6 +154,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
             position='bottom'
             tabIndex={-1}>
             <AdminNavLink
+              data-test='punishments-button'
               $active={adminSubPage === AdminSubPage.Punishments}
               href={subPageUrl(AdminSubPage.Punishments)}>
               <AdminNavIconButton icon='bomb' styledAs='div' />
