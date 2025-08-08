@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useAtomValue } from 'jotai'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -7,8 +8,14 @@ import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import { isTeamType } from '../../common/games/game-type'
-import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import {
+  GameDebugInfoJson,
+  GameRecordJson,
+  getGameDurationString,
+  getGameTypeLabel,
+} from '../../common/games/games'
+import {
+  GameClientResult,
   ReconciledPlayerResult,
   ReconciledResult,
   getResultLabel,
@@ -16,11 +23,11 @@ import {
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { useSelfUser } from '../auth/auth-utils'
+import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
-import { longTimestamp } from '../i18n/date-formats'
+import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -37,6 +44,8 @@ import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { CenteredContentContainer } from '../styles/centered-container'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import {
   DisplaySmall,
   bodyLarge,
@@ -44,9 +53,11 @@ import {
   labelMedium,
   singleLine,
   titleLarge,
+  titleMedium,
   titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
+import { ConnectedUsername } from '../users/connected-username'
 import {
   navigateToGameResults,
   searchAgainFromGame,
@@ -56,11 +67,8 @@ import {
 } from './action-creators'
 import { ResultsSubPage } from './results-sub-page'
 
-const Container = styled.div`
-  width: 100%;
-  min-width: 640px;
-  max-width: 960px;
-  padding: 0px 12px 24px;
+const Container = styled(CenteredContentContainer)`
+  padding-block: 16px;
 `
 
 const TabArea = styled.div`
@@ -448,10 +456,12 @@ function SummaryPage({
 }) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
+  const hasDebugPermission = !!useSelfPermissions()?.debug
 
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
   const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
+  const debugInfo = useAppSelector(s => s.games.debugInfoById.get(gameId))
 
   const [configAndResults, teamLabels] = useMemo((): [
     Map<SbUserId | string, ConfigAndResult>,
@@ -552,6 +562,8 @@ function SummaryPage({
         {map ? <StyledMapThumbnail map={map} size={MAP_SIZE} /> : null}
         {map ? <MapName>{map.name}</MapName> : null}
       </MapContainer>
+
+      {hasDebugPermission && debugInfo ? <DebugInfoDisplay debugInfo={debugInfo} /> : null}
     </SummaryRoot>
   )
 }
@@ -779,4 +791,254 @@ function NumberDelta({ className, delta }: { className?: string; delta: number }
   } else {
     return <NegativeText className={className}>{delta}</NegativeText>
   }
+}
+
+const DebugInfoSection = styled.div`
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 24px;
+`
+
+const DebugCard = styled(Card)`
+  ${containerStyles(ContainerLevel.Normal)};
+
+  padding: 16px;
+`
+
+const DebugSectionTitle = styled.div`
+  ${titleLarge};
+  margin-bottom: 16px;
+  color: var(--theme-on-surface-variant);
+`
+
+const DebugSubsectionTitle = styled.div`
+  ${titleMedium};
+  margin-top: 32px;
+  color: var(--theme-on-surface);
+`
+
+const ReportTitle = styled.div`
+  ${titleSmall};
+  margin-block: 24px 8px;
+  color: var(--theme-on-surface);
+`
+
+const DebugTableContainer = styled.div`
+  width: 100%;
+  margin-bottom: 16px;
+
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 8px;
+  contain: paint;
+`
+
+const DebugTable = styled.table`
+  width: 100%;
+
+  th,
+  td {
+    ${bodyMedium};
+    padding: 8px;
+    text-align: left;
+
+    vertical-align: middle;
+  }
+
+  td > svg {
+    vertical-align: middle;
+  }
+
+  th {
+    ${containerStyles(ContainerLevel.Normal)};
+    ${labelMedium};
+    color: var(--theme-on-surface-variant);
+  }
+`
+
+const ResultCell = styled.td<{ $result: GameClientResult }>`
+  color: ${props => {
+    switch (props.$result) {
+      case GameClientResult.Victory:
+        return 'var(--theme-positive)'
+      case GameClientResult.Defeat:
+        return 'var(--theme-negative)'
+      case GameClientResult.Disconnected:
+        return 'var(--theme-on-surface-variant)'
+      case GameClientResult.Playing:
+      default:
+        return 'var(--theme-on-surface)'
+    }
+  }};
+`
+
+const HasReportCell = styled.td<{ $hasReport: boolean }>`
+  color: ${props => (props.$hasReport ? 'var(--theme-positive)' : 'var(--theme-negative)')};
+`
+
+function getClientResultLabel(result: GameClientResult, t: TFunction): string {
+  switch (result) {
+    case GameClientResult.Playing:
+      return t('gameDetails.debugInfo.clientResult.playing', 'Playing')
+    case GameClientResult.Disconnected:
+      return t('gameDetails.debugInfo.clientResult.disconnected', 'Disconnected')
+    case GameClientResult.Defeat:
+      return t('gameDetails.debugInfo.clientResult.defeat', 'Defeat')
+    case GameClientResult.Victory:
+      return t('gameDetails.debugInfo.clientResult.victory', 'Victory')
+    default:
+      return String(result)
+  }
+}
+
+function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfoJson> }) {
+  const { t } = useTranslation()
+
+  return (
+    <DebugInfoSection>
+      <DebugCard>
+        <DebugSectionTitle>
+          {t('gameDetails.debugInfo.title', 'Debug Information')}
+        </DebugSectionTitle>
+
+        {debugInfo.routes.length > 0 && (
+          <div>
+            <DebugSubsectionTitle>
+              {t('gameDetails.debugInfo.routes', 'Network Routes')}
+            </DebugSubsectionTitle>
+            <DebugTableContainer>
+              <DebugTable>
+                <thead>
+                  <tr>
+                    <th>{t('gameDetails.debugInfo.player1', 'Player 1')}</th>
+                    <th>{t('gameDetails.debugInfo.player2', 'Player 2')}</th>
+                    <th>{t('gameDetails.debugInfo.server', 'Server')}</th>
+                    <th>{t('gameDetails.debugInfo.latency', 'Latency (ms)')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {debugInfo.routes.map((route, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <ConnectedUsername userId={route.p1} />
+                      </td>
+                      <td>
+                        <ConnectedUsername userId={route.p2} />
+                      </td>
+                      <td>
+                        {route.serverDescription
+                          ? `${route.serverDescription} (${route.server})`
+                          : route.server}
+                      </td>
+                      <td>{route.latency.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DebugTable>
+            </DebugTableContainer>
+          </div>
+        )}
+
+        <div>
+          <DebugSubsectionTitle>
+            {t('gameDetails.debugInfo.reportedResults', 'Individual Reports Summary')}
+          </DebugSubsectionTitle>
+          <DebugTableContainer>
+            <DebugTable>
+              <thead>
+                <tr>
+                  <th>{t('gameDetails.debugInfo.player', 'Player')}</th>
+                  <th>{t('gameDetails.debugInfo.reportedAt', 'Reported At')}</th>
+                  <th>{t('gameDetails.debugInfo.hasReport', 'Has Report')}</th>
+                  <th>{t('gameDetails.debugInfo.reportedTime', 'Reported Time')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debugInfo.reportedResults
+                  .slice()
+                  .sort((a, b) => {
+                    // Sort by reported time - earliest first, undefined/null last
+                    if (!a.reportedAt && !b.reportedAt) return 0
+                    if (!a.reportedAt) return 1
+                    if (!b.reportedAt) return -1
+                    return a.reportedAt - b.reportedAt
+                  })
+                  .map(report => (
+                    <tr key={report.userId}>
+                      <td>
+                        <ConnectedUsername userId={report.userId} />
+                      </td>
+                      <td>
+                        {report.reportedAt ? (
+                          <Tooltip
+                            text={longTimestampWithSeconds.format(report.reportedAt)}
+                            position='top'>
+                            {longTimestamp.format(report.reportedAt)}
+                          </Tooltip>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <HasReportCell $hasReport={!!report.reportedResults}>
+                        {report.reportedResults ? 'Yes' : 'No'}
+                      </HasReportCell>
+                      <td>
+                        {report.reportedResults
+                          ? getGameDurationString(report.reportedResults.time)
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </DebugTable>
+          </DebugTableContainer>
+        </div>
+
+        {debugInfo.reportedResults.some(r => r.reportedResults) && (
+          <div>
+            <DebugSubsectionTitle>
+              {t('gameDetails.debugInfo.detailedResults', 'Detailed Individual Results')}
+            </DebugSubsectionTitle>
+            {debugInfo.reportedResults
+              .filter(r => r.reportedResults)
+              .map(report => (
+                <div key={report.userId} style={{ marginBottom: '16px' }}>
+                  <ReportTitle>
+                    {t('gameDetails.debugInfo.reportBy', 'Report by ')}
+                    <ConnectedUsername userId={report.userId} />:
+                  </ReportTitle>
+                  <DebugTableContainer>
+                    <DebugTable>
+                      <thead>
+                        <tr>
+                          <th>{t('gameDetails.debugInfo.reportedPlayer', 'Player')}</th>
+                          <th>{t('gameDetails.debugInfo.reportedResult', 'Result')}</th>
+                          <th>{t('gameDetails.debugInfo.reportedRace', 'Race')}</th>
+                          <th>{t('gameDetails.debugInfo.reportedAPM', 'APM')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.reportedResults!.playerResults.map(([playerId, playerResult]) => (
+                          <tr key={playerId}>
+                            <td>
+                              <ConnectedUsername userId={playerId} />
+                            </td>
+                            <ResultCell $result={playerResult.result}>
+                              {getClientResultLabel(playerResult.result, t)}
+                            </ResultCell>
+                            <td>
+                              <StyledRaceIcon race={playerResult.race} />
+                            </td>
+                            <td>{playerResult.apm}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DebugTable>
+                  </DebugTableContainer>
+                </div>
+              ))}
+          </div>
+        )}
+      </DebugCard>
+    </DebugInfoSection>
+  )
 }

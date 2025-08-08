@@ -218,3 +218,45 @@ export async function findUnreconciledGames(
     done()
   }
 }
+
+/**
+ * Retrieves route debug information for a specific game, with server descriptions.
+ */
+export async function getGameRoutes(gameId: string): Promise<GameRouteDebugInfo[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ routes: GameRouteDebugInfo[] | null }>(sql`
+      SELECT routes
+      FROM games
+      WHERE id = ${gameId}
+    `)
+
+    if (!result.rowCount || !result.rows[0].routes) {
+      return []
+    }
+
+    const routes = result.rows[0].routes
+
+    // Get server descriptions for all unique server IDs
+    const serverIds = [...new Set(routes.map(r => r.server))]
+    if (serverIds.length === 0) {
+      return routes
+    }
+
+    const serversResult = await client.query<{ id: number; description: string }>(sql`
+      SELECT id, description
+      FROM rally_point_servers
+      WHERE id = ANY(${serverIds})
+    `)
+
+    const serverDescriptions = new Map(serversResult.rows.map(row => [row.id, row.description]))
+
+    // Add server descriptions to routes
+    return routes.map(route => ({
+      ...route,
+      serverDescription: serverDescriptions.get(route.server),
+    }))
+  } finally {
+    done()
+  }
+}

@@ -355,6 +355,30 @@
   "gameDetails": {
     "buttonCopyLink": "Copy link to game",
     "buttonSearchAgain": "Search again",
+    "debugInfo": {
+      "clientResult": {
+        "defeat": "Defeat",
+        "playing": "Playing",
+        "victory": "Victory"
+      },
+      "detailedResults": "Detailed Individual Results",
+      "hasReport": "Has Report",
+      "latency": "Latency (ms)",
+      "player": "Player",
+      "player1": "Player 1",
+      "player2": "Player 2",
+      "reportBy": "Report by ",
+      "reportedAPM": "APM",
+      "reportedAt": "Reported At",
+      "reportedPlayer": "Player",
+      "reportedRace": "Race",
+      "reportedResult": "Result",
+      "reportedResults": "Individual Reports Summary",
+      "reportedTime": "Reported Time",
+      "routes": "Network Routes",
+      "server": "Server",
+      "title": "Debug Information"
+    },
     "errorLoading": "There was a problem loading this game.",
     "headlineDefault": "Results",
     "headlineDefeat": "Defeat!",

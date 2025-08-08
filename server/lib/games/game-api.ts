@@ -6,7 +6,12 @@ import { Readable } from 'stream'
 import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameStatus } from '../../../common/games/game-status'
-import { GetGameResponse, toGameRecordJson } from '../../../common/games/games'
+import {
+  GameDebugInfo,
+  GetGameResponse,
+  toGameDebugInfoJson,
+  toGameRecordJson,
+} from '../../../common/games/games'
 import {
   ALL_GAME_CLIENT_RESULTS,
   GameResultErrorCode,
@@ -19,6 +24,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
+import { getGameReportedResults } from '../models/games-users'
 import { UpsertUserIp } from '../network/user-ips-type'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -27,7 +33,7 @@ import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames } from './game-models'
+import { countCompletedGames, getGameRoutes } from './game-models'
 import GameResultService, { GameResultServiceError } from './game-result-service'
 
 const throttle = createThrottle('games', {
@@ -154,11 +160,27 @@ export class GameApi {
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])
 
+    // Check for debug permission and add debug info if authorized
+    let debugInfo: GameDebugInfo | undefined
+    if (ctx.session?.permissions?.debug) {
+      try {
+        const [routes, reportedResults] = await Promise.all([
+          getGameRoutes(gameId),
+          getGameReportedResults(gameId),
+        ])
+        debugInfo = { routes, reportedResults }
+      } catch (err) {
+        // Log error but don't fail the request
+        ctx.log.error({ err }, 'Error retrieving debug info for game')
+      }
+    }
+
     return {
       game: toGameRecordJson(game),
       map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
       users: Array.from(users.values()),
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+      debugInfo: debugInfo ? toGameDebugInfoJson(debugInfo) : undefined,
     }
   }
 

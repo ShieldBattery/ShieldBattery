@@ -21,6 +21,19 @@ export const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
+/**
+ * A formatter for long timestamps that includes seconds. This is mostly useful for things that need
+ * a very high level of precision, like debug information.
+ */
+export const longTimestampWithSeconds = new Intl.DateTimeFormat(navigator.language, {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
 /** A formatter for timestamps that shows the full month and day. */
 export const monthDay = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',

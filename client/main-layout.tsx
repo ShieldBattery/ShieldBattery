@@ -848,7 +848,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [sidebarPinned, setSidebarPinned] = useUserLocalStorageValue('socialSidebarPinned', true)
 
   return (
-    <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned}>
+    <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-test='main-layout'>
       <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
       {children}
       {isLoggedIn ? (

@@ -12,7 +12,7 @@ import {
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
-import { ReconciledPlayerResult } from './results'
+import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export interface GameRecord {
   id: string
@@ -33,8 +33,35 @@ export interface GameRouteDebugInfo {
   p2: SbUserId
   /** A rally-point server ID. */
   server: number
+  /** The rally-point server description/name. */
+  serverDescription?: string
   /** The estimated latency between the players (1-way) in milliseconds. */
   latency: number
+}
+
+export interface GameDebugInfo {
+  routes: GameRouteDebugInfo[]
+  reportedResults: Array<{
+    userId: SbUserId
+    reportedAt?: Date
+    reportedResults?: {
+      time: number
+      playerResults: Array<[SbUserId, GameClientPlayerResult]>
+    }
+  }>
+}
+
+export type GameDebugInfoJson = Jsonify<GameDebugInfo>
+
+export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson {
+  return {
+    routes: debugInfo.routes,
+    reportedResults: debugInfo.reportedResults.map(result => ({
+      userId: result.userId,
+      reportedAt: result.reportedAt ? Number(result.reportedAt) : undefined,
+      reportedResults: result.reportedResults,
+    })),
+  }
 }
 
 export function toGameRecordJson(game: GameRecord): GameRecordJson {
@@ -71,6 +98,7 @@ export interface GetGameResponse {
   map: MapInfoJson | undefined
   users: SbUser[]
   mmrChanges: PublicMatchmakingRatingChangeJson[]
+  debugInfo?: GameDebugInfoJson
 }
 
 /** Events that can be sent when subscribed to changes to a particular game record. */

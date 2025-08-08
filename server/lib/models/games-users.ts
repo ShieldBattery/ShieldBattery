@@ -10,6 +10,15 @@ import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { ResultSubmission } from '../games/results'
 
+export interface GameUserReportedResults {
+  userId: SbUserId
+  reportedAt?: Date
+  reportedResults?: {
+    time: number
+    playerResults: Array<[SbUserId, GameClientPlayerResult]>
+  }
+}
+
 export interface ReportedResultsData {
   userId: SbUserId
   gameId: string
@@ -183,4 +192,33 @@ export async function setUserReconciledResult(
       apm = ${result.apm}
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
+}
+
+/**
+ * Gets reported results for all users in a game (for debug purposes).
+ */
+export async function getGameReportedResults(gameId: string): Promise<GameUserReportedResults[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      user_id: SbUserId
+      reported_at?: Date | null
+      reported_results?: {
+        time: number
+        playerResults: Array<[SbUserId, GameClientPlayerResult]>
+      } | null
+    }>(sql`
+      SELECT user_id, reported_at, reported_results
+      FROM games_users
+      WHERE game_id = ${gameId}
+      ORDER BY user_id
+    `)
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      reportedAt: row.reported_at ?? undefined,
+      reportedResults: row.reported_results ?? undefined,
+    }))
+  } finally {
+    done()
+  }
 }
