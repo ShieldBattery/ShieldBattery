@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import {
@@ -12,6 +12,7 @@ import { BanHistoryEntryJson, UserRestrictionHistoryJson } from '../../../common
 import { useSelfUser } from '../../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { FilledButton } from '../../material/button'
+import { DateTimeTextField } from '../../material/datetime-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { TextField } from '../../material/text-field'
@@ -87,12 +88,6 @@ const FieldLabel = styled.label`
   display: block;
 
   color: var(--theme-on-surface-variant);
-`
-
-const DateInput = styled.input`
-  color: var(--theme-on-surface);
-  padding: 4px 0;
-  margin: 8px 0;
 `
 
 const DateError = styled.div`
@@ -435,8 +430,6 @@ function RestrictUserForm({
     onSubmit,
   })
 
-  const baseId = useId()
-
   return (
     <form noValidate={true} onSubmit={submit}>
       <TitleLarge>Restrict user</TitleLarge>
@@ -445,16 +438,12 @@ function RestrictUserForm({
           <SelectOption key={kind} value={kind} text={kind} />
         ))}
       </Select>
-      <FieldLabel htmlFor={`${baseId}-endTime`}>End time</FieldLabel>
-      <DateInput
+      <DateTimeTextField
         {...bindInput('endTime')}
-        id={`${baseId}-endTime`}
-        type='datetime-local'
-        tabIndex={0}
+        label='End time'
+        floatingLabel={true}
+        inputProps={{ tabIndex: 0 }}
       />
-      {bindInput('endTime').errorText ? (
-        <DateError>{bindInput('endTime').errorText}</DateError>
-      ) : null}
       <Select {...bindCustom('reason')} label='Reason' tabIndex={0}>
         {ALL_RESTRICTION_REASONS.map(reason => (
           <SelectOption key={reason} value={reason} text={reason.replace('_', ' ')} />

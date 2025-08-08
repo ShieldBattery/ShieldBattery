@@ -18,10 +18,17 @@ export function assignRef<T>(
  */
 export function useMultiplexRef<T>(
   ...refs: Array<Ref<T> | Ref<T | null> | undefined>
-): RefCallback<T> {
+): Ref<T> | undefined {
+  const definedRefs = refs.filter(r => r !== undefined)
+  if (definedRefs.length === 0) {
+    return () => {}
+  } else if (definedRefs.length === 1) {
+    return definedRefs[0]
+  }
+
   return (value: T) => {
     const callbacks: Array<() => void> = []
-    for (const ref of refs) {
+    for (const ref of definedRefs) {
       const cb = assignRef(ref, value)
       callbacks.push(cb ?? (() => assignRef(ref, null)))
     }

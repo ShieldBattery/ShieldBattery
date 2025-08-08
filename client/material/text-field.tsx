@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { assignRef } from '../react/refs'
+import { useMultiplexRef } from '../react/refs'
 import { useStableCallback } from '../react/state-hooks'
 import { IconButton } from './button'
 import { InputBase } from './input-base'
@@ -101,13 +101,7 @@ const TextFieldContainer = styled.div<{
   & input[type='datetime'],
   & input[type='datetime-local'] {
     &::-webkit-calendar-picker-indicator {
-      filter: invert(1);
-      opacity: 0.7;
-      cursor: pointer;
-
-      &:hover {
-        opacity: 1;
-      }
+      display: none;
     }
   }
 `
@@ -175,6 +169,11 @@ export interface TextFieldProps {
   disabled?: boolean
   errorText?: string
   floatingLabel?: boolean
+  /**
+   * If true, the label will always be rendered as if there is a value present, regardless of the
+   * actual `value`.
+   */
+  alwaysHasValue?: boolean
   hasClearButton?: boolean
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
   label?: string
@@ -207,6 +206,7 @@ export function TextField({
   disabled,
   errorText,
   floatingLabel,
+  alwaysHasValue,
   hasClearButton,
   inputProps,
   label,
@@ -229,7 +229,9 @@ export function TextField({
 }: TextFieldProps) {
   const id = useId()
   const [isFocused, setIsFocused] = useState(false)
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+
+  const multiplexedRef = useMultiplexRef(inputRef, ref)
 
   const autoSize = useCallback((elem: HTMLInputElement | HTMLTextAreaElement) => {
     // Needed in order to lower the height when deleting text
@@ -352,7 +354,7 @@ export function TextField({
     renderLabel = (
       <FloatingLabel
         htmlFor={id}
-        $hasValue={!!value}
+        $hasValue={alwaysHasValue || !!value}
         $dense={dense}
         $focused={isFocused}
         $disabled={disabled}
@@ -365,7 +367,7 @@ export function TextField({
     renderLabel = (
       <Label
         htmlFor={id}
-        $hasValue={!!value}
+        $hasValue={alwaysHasValue || !!value}
         $dense={dense}
         $disabled={disabled}
         $leadingIconsLength={leadingIcons.length}>
@@ -388,10 +390,7 @@ export function TextField({
         {renderLabel}
         {leadingIconsElements.length > 0 ? leadingIconsElements : null}
         <InputBase
-          ref={(r: HTMLInputElement | HTMLTextAreaElement | null) => {
-            inputRef.current = r
-            return assignRef(ref, r)
-          }}
+          ref={multiplexedRef as any}
           as={multiline ? 'textarea' : 'input'}
           rows={rows}
           $focused={isFocused}
