@@ -40,8 +40,8 @@ import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
 
-const LoadableAdminUserPage = React.lazy(async () => ({
-  default: (await import('./user-profile-admin')).AdminUserPage,
+const LoadableAdminUserPageLayout = React.lazy(async () => ({
+  default: (await import('./admin/admin-layout')).AdminUserPageLayout,
 }))
 
 const LoadingError = styled.div`
@@ -236,7 +236,7 @@ export function UserProfilePage({
       // is fine in that case
       content = isAdmin ? (
         <React.Suspense fallback={<LoadingDotsArea />}>
-          <LoadableAdminUserPage user={user} />{' '}
+          <LoadableAdminUserPageLayout user={user} />
         </React.Suspense>
       ) : null
       break

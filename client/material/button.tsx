@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
-import styled from 'styled-components'
+import styled, { WebTarget } from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { labelLarge } from '../styles/typography'
@@ -650,6 +651,7 @@ export interface IconButtonProps {
   testName?: string
   ariaLabel?: string
   ref?: React.Ref<HTMLButtonElement>
+  styledAs?: WebTarget
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
@@ -669,6 +671,7 @@ export function IconButton({
   testName,
   ariaLabel,
   ref,
+  styledAs,
 }: IconButtonProps) {
   const [buttonProps, rippleRef] = useButtonState({
     disabled,
@@ -681,6 +684,7 @@ export function IconButton({
 
   return (
     <IconButtonRoot
+      as={styledAs}
       ref={ref}
       className={className}
       tabIndex={tabIndex}
@@ -690,7 +694,7 @@ export function IconButton({
       data-test={testName}
       aria-label={ariaLabel}
       {...buttonProps}>
-      {icon}
+      {typeof icon === 'string' ? <MaterialIcon icon={icon} /> : icon}
       <Ripple ref={rippleRef} disabled={disabled} />
     </IconButtonRoot>
   )

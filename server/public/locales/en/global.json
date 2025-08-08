@@ -1206,6 +1206,11 @@
     }
   },
   "users": {
+    "admin": {
+      "ipAddresses": "IP addresses",
+      "permissions": "Permissions",
+      "punishments": "Punishments"
+    },
     "contextMenu": {
       "addFriend": "Add friend",
       "copyUserId": "Copy ID",

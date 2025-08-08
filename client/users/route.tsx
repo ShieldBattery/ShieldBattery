@@ -6,7 +6,7 @@ import { ALL_USER_PROFILE_SUB_PAGES, UserProfileSubPage } from './user-profile-s
 
 export function ProfileRouteComponent(props: { params: any }) {
   const [matches, params] = useRoute<{ userId: string; username: string; subPage?: string }>(
-    '/users/:userId/:username/:subPage?',
+    '/users/:userId/:username/:subPage?/*?',
   )
 
   if (!matches) {
@@ -14,9 +14,7 @@ export function ProfileRouteComponent(props: { params: any }) {
   }
   const userIdNum = Number(params!.userId)
   if (isNaN(userIdNum)) {
-    queueMicrotask(() => {
-      replace('/')
-    })
+    replace('/')
     return null
   }
 
