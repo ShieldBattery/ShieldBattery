@@ -725,7 +725,33 @@
         "tabStats": "Estadísticas",
         "tabSummary": "Resumen",
         "statusFinal": "Final",
-        "statusLive": "En vivo"
+        "statusLive": "En vivo",
+        "debugInfo": {
+            "clientResult": {
+                "defeat": "Derrota",
+                "playing": "Jugando",
+                "victory": "Victoria",
+                "disconnected": "Desconectado"
+            },
+            "detailedResults": "Resultados Individuales Detallados",
+            "hasReport": "Tiene Informe",
+            "reportedResults": "Resumen de Informes Individuales",
+            "latency": "Latencia (ms)",
+            "player1": "Jugador 1",
+            "player2": "Jugador 2",
+            "reportBy": "Informe de ",
+            "reportedAt": "Informado A",
+            "reportedResult": "Resultado",
+            "reportedTime": "Hora del Informe",
+            "routes": "Rutas de Red",
+            "server": "Servidor",
+            "title": "Información de Depuración",
+            "player": "Jugador",
+            "reportedAPM": "APM",
+            "reportedPlayer": "Jugador",
+            "reportedRace": "Raza"
+        },
+        "buttonCopyGameId": "Copiar ID"
     },
     "messaging": {
         "blockedMessage": "Mensaje bloqueado",

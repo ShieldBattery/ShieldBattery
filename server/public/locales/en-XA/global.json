@@ -720,7 +720,33 @@
         },
         "tabStats": "$🗡Stats🗡!",
         "tabSummary": "$🗡Summary🗡!",
-        "tabBuildOrders": "$🗡Build orders🗡!"
+        "tabBuildOrders": "$🗡Build orders🗡!",
+        "debugInfo": {
+            "clientResult": {
+                "defeat": "$🗡Defeat🗡!",
+                "playing": "$🗡Playing🗡!",
+                "victory": "$🗡Victory🗡!",
+                "disconnected": "$🗡Disconnected🗡!"
+            },
+            "player2": "$🗡Player 2🗡!",
+            "reportBy": "$🗡Report by 🗡! ",
+            "reportedAPM": "$🗡APM🗡!",
+            "reportedAt": "$🗡Reported At🗡!",
+            "reportedPlayer": "$🗡Player🗡!",
+            "reportedRace": "$🗡Race🗡!",
+            "reportedResult": "$🗡Result🗡!",
+            "reportedResults": "$🗡Individual Reports Summary🗡!",
+            "server": "$🗡Server🗡!",
+            "detailedResults": "$🗡Detailed Individual Results🗡!",
+            "hasReport": "$🗡Has Report🗡!",
+            "latency": "$🗡Latency (ms)🗡!",
+            "player": "$🗡Player🗡!",
+            "player1": "$🗡Player 1🗡!",
+            "reportedTime": "$🗡Reported Time🗡!",
+            "routes": "$🗡Network Routes🗡!",
+            "title": "$🗡Debug Information🗡!"
+        },
+        "buttonCopyGameId": "$🗡Copy ID🗡!"
     },
     "messaging": {
         "blockedMessage": "$🗡Blocked message🗡!",
@@ -1048,6 +1074,11 @@
                 "other": "$🗡Other🗡!",
                 "spam": "$🗡Spam🗡!"
             }
+        },
+        "admin": {
+            "ipAddresses": "$🗡IP addresses🗡!",
+            "permissions": "$🗡Permissions🗡!",
+            "punishments": "$🗡Punishments🗡!"
         }
     },
     "lobbies": {

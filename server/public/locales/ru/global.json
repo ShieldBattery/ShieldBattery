@@ -725,7 +725,33 @@
         "tabSummary": "Итоги",
         "infoGameType": "Тип",
         "statusFinal": "Финал",
-        "statusLive": "В реальном времени"
+        "statusLive": "В реальном времени",
+        "debugInfo": {
+            "latency": "Задержка (мс)",
+            "reportBy": "Отчет от ",
+            "reportedResult": "Результат",
+            "reportedResults": "Сводка индивидуальных отчетов",
+            "clientResult": {
+                "defeat": "Поражение",
+                "playing": "Игра",
+                "victory": "Победа",
+                "disconnected": "Отключено"
+            },
+            "detailedResults": "Подробные индивидуальные результаты",
+            "hasReport": "Есть отчет",
+            "player1": "Игрок 1",
+            "player2": "Игрок 2",
+            "reportedAt": "Отчет создан",
+            "reportedTime": "Время отчета",
+            "routes": "Сетевые маршруты",
+            "server": "Сервер",
+            "title": "Информация для отладки",
+            "player": "Игрок",
+            "reportedAPM": "APM",
+            "reportedPlayer": "Игрок",
+            "reportedRace": "Раса"
+        },
+        "buttonCopyGameId": "Скопировать ID"
     },
     "navigation": {
         "leftNav": {
@@ -1096,6 +1122,11 @@
                 "spam": "Спам",
                 "toxicity": "Токсичность"
             }
+        },
+        "admin": {
+            "ipAddresses": "IP-адреса",
+            "permissions": "Разрешения",
+            "punishments": "Наказания"
         }
     },
     "leagues": {
