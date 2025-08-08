@@ -1,5 +1,7 @@
 import type { TFunction } from 'i18next'
 import { useAtomValue } from 'jotai'
+import { Transition } from 'motion/react'
+import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,6 +30,7 @@ import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -799,16 +802,37 @@ const DebugInfoSection = styled.div`
   margin-top: 24px;
 `
 
-const DebugCard = styled(Card)`
+const DebugCard = styled(m.div)`
   ${containerStyles(ContainerLevel.Normal)};
-
+  /** NOTE(tec27): We set border radius + shadow via style to avoid issues with layout animations */
   padding: 16px;
 `
 
-const DebugSectionTitle = styled.div`
+const DebugSectionTitle = styled(m.div)`
   ${titleLarge};
-  margin-bottom: 16px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+
   color: var(--theme-on-surface-variant);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--theme-on-surface);
+  }
+`
+
+const ExpandIconContainer = styled(m.div)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+`
+
+const DebugCollapsibleContent = styled(m.div)<{ $open: boolean }>`
+  height: ${props => (props.$open ? 'auto' : 0)};
+  overflow: hidden;
 `
 
 const DebugSubsectionTitle = styled.div`
@@ -890,154 +914,177 @@ function getClientResultLabel(result: GameClientResult, t: TFunction): string {
   }
 }
 
+const DEBUG_OPEN_TRANSITION: Transition = {
+  type: 'spring',
+  mass: 4,
+  stiffness: 550,
+  damping: 48,
+}
+
+const DEBUG_CLOSE_TRANSITION: Transition = {
+  type: 'spring',
+  mass: 4,
+  stiffness: 700,
+  damping: 100,
+}
+
 function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfoJson> }) {
   const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
 
   return (
     <DebugInfoSection>
-      <DebugCard>
-        <DebugSectionTitle>
-          {t('gameDetails.debugInfo.title', 'Debug Information')}
+      <DebugCard layout style={{ borderRadius: 4 }} transition={transition}>
+        <DebugSectionTitle onClick={() => setOpen(open => !open)} layout transition={transition}>
+          <span>{t('gameDetails.debugInfo.title', 'Debug Information')}</span>
+          <ExpandIconContainer
+            animate={{
+              rotate: open ? -180 : 0,
+            }}
+            transition={transition}>
+            <MaterialIcon icon={'expand_circle_down'} />
+          </ExpandIconContainer>
         </DebugSectionTitle>
-
-        {debugInfo.routes.length > 0 && (
+        <DebugCollapsibleContent $open={open} layout transition={transition}>
+          {debugInfo.routes.length > 0 && (
+            <div>
+              <DebugSubsectionTitle>
+                {t('gameDetails.debugInfo.routes', 'Network Routes')}
+              </DebugSubsectionTitle>
+              <DebugTableContainer>
+                <DebugTable>
+                  <thead>
+                    <tr>
+                      <th>{t('gameDetails.debugInfo.player1', 'Player 1')}</th>
+                      <th>{t('gameDetails.debugInfo.player2', 'Player 2')}</th>
+                      <th>{t('gameDetails.debugInfo.server', 'Server')}</th>
+                      <th>{t('gameDetails.debugInfo.latency', 'Latency (ms)')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {debugInfo.routes.map((route, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <ConnectedUsername userId={route.p1} />
+                        </td>
+                        <td>
+                          <ConnectedUsername userId={route.p2} />
+                        </td>
+                        <td>
+                          {route.serverDescription
+                            ? `${route.serverDescription} (${route.server})`
+                            : route.server}
+                        </td>
+                        <td>{route.latency.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DebugTable>
+              </DebugTableContainer>
+            </div>
+          )}
           <div>
             <DebugSubsectionTitle>
-              {t('gameDetails.debugInfo.routes', 'Network Routes')}
+              {t('gameDetails.debugInfo.reportedResults', 'Individual Reports Summary')}
             </DebugSubsectionTitle>
             <DebugTableContainer>
               <DebugTable>
                 <thead>
                   <tr>
-                    <th>{t('gameDetails.debugInfo.player1', 'Player 1')}</th>
-                    <th>{t('gameDetails.debugInfo.player2', 'Player 2')}</th>
-                    <th>{t('gameDetails.debugInfo.server', 'Server')}</th>
-                    <th>{t('gameDetails.debugInfo.latency', 'Latency (ms)')}</th>
+                    <th>{t('gameDetails.debugInfo.player', 'Player')}</th>
+                    <th>{t('gameDetails.debugInfo.reportedAt', 'Reported At')}</th>
+                    <th>{t('gameDetails.debugInfo.hasReport', 'Has Report')}</th>
+                    <th>{t('gameDetails.debugInfo.reportedTime', 'Reported Time')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {debugInfo.routes.map((route, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <ConnectedUsername userId={route.p1} />
-                      </td>
-                      <td>
-                        <ConnectedUsername userId={route.p2} />
-                      </td>
-                      <td>
-                        {route.serverDescription
-                          ? `${route.serverDescription} (${route.server})`
-                          : route.server}
-                      </td>
-                      <td>{route.latency.toFixed(1)}</td>
-                    </tr>
-                  ))}
+                  {debugInfo.reportedResults
+                    .slice()
+                    .sort((a, b) => {
+                      // Sort by reported time - earliest first, undefined/null last
+                      if (!a.reportedAt && !b.reportedAt) return 0
+                      if (!a.reportedAt) return 1
+                      if (!b.reportedAt) return -1
+                      return a.reportedAt - b.reportedAt
+                    })
+                    .map(report => (
+                      <tr key={report.userId}>
+                        <td>
+                          <ConnectedUsername userId={report.userId} />
+                        </td>
+                        <td>
+                          {report.reportedAt ? (
+                            <Tooltip
+                              text={longTimestampWithSeconds.format(report.reportedAt)}
+                              position='top'>
+                              {longTimestamp.format(report.reportedAt)}
+                            </Tooltip>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <HasReportCell $hasReport={!!report.reportedResults}>
+                          {report.reportedResults ? 'Yes' : 'No'}
+                        </HasReportCell>
+                        <td>
+                          {report.reportedResults
+                            ? getGameDurationString(report.reportedResults.time)
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </DebugTable>
             </DebugTableContainer>
           </div>
-        )}
-
-        <div>
-          <DebugSubsectionTitle>
-            {t('gameDetails.debugInfo.reportedResults', 'Individual Reports Summary')}
-          </DebugSubsectionTitle>
-          <DebugTableContainer>
-            <DebugTable>
-              <thead>
-                <tr>
-                  <th>{t('gameDetails.debugInfo.player', 'Player')}</th>
-                  <th>{t('gameDetails.debugInfo.reportedAt', 'Reported At')}</th>
-                  <th>{t('gameDetails.debugInfo.hasReport', 'Has Report')}</th>
-                  <th>{t('gameDetails.debugInfo.reportedTime', 'Reported Time')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {debugInfo.reportedResults
-                  .slice()
-                  .sort((a, b) => {
-                    // Sort by reported time - earliest first, undefined/null last
-                    if (!a.reportedAt && !b.reportedAt) return 0
-                    if (!a.reportedAt) return 1
-                    if (!b.reportedAt) return -1
-                    return a.reportedAt - b.reportedAt
-                  })
-                  .map(report => (
-                    <tr key={report.userId}>
-                      <td>
-                        <ConnectedUsername userId={report.userId} />
-                      </td>
-                      <td>
-                        {report.reportedAt ? (
-                          <Tooltip
-                            text={longTimestampWithSeconds.format(report.reportedAt)}
-                            position='top'>
-                            {longTimestamp.format(report.reportedAt)}
-                          </Tooltip>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <HasReportCell $hasReport={!!report.reportedResults}>
-                        {report.reportedResults ? 'Yes' : 'No'}
-                      </HasReportCell>
-                      <td>
-                        {report.reportedResults
-                          ? getGameDurationString(report.reportedResults.time)
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </DebugTable>
-          </DebugTableContainer>
-        </div>
-
-        {debugInfo.reportedResults.some(r => r.reportedResults) && (
-          <div>
-            <DebugSubsectionTitle>
-              {t('gameDetails.debugInfo.detailedResults', 'Detailed Individual Results')}
-            </DebugSubsectionTitle>
-            {debugInfo.reportedResults
-              .filter(r => r.reportedResults)
-              .map(report => (
-                <div key={report.userId} style={{ marginBottom: '16px' }}>
-                  <ReportTitle>
-                    {t('gameDetails.debugInfo.reportBy', 'Report by ')}
-                    <ConnectedUsername userId={report.userId} />:
-                  </ReportTitle>
-                  <DebugTableContainer>
-                    <DebugTable>
-                      <thead>
-                        <tr>
-                          <th>{t('gameDetails.debugInfo.reportedPlayer', 'Player')}</th>
-                          <th>{t('gameDetails.debugInfo.reportedResult', 'Result')}</th>
-                          <th>{t('gameDetails.debugInfo.reportedRace', 'Race')}</th>
-                          <th>{t('gameDetails.debugInfo.reportedAPM', 'APM')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.reportedResults!.playerResults.map(([playerId, playerResult]) => (
-                          <tr key={playerId}>
-                            <td>
-                              <ConnectedUsername userId={playerId} />
-                            </td>
-                            <ResultCell $result={playerResult.result}>
-                              {getClientResultLabel(playerResult.result, t)}
-                            </ResultCell>
-                            <td>
-                              <StyledRaceIcon race={playerResult.race} />
-                            </td>
-                            <td>{playerResult.apm}</td>
+          {debugInfo.reportedResults.some(r => r.reportedResults) && (
+            <div>
+              <DebugSubsectionTitle>
+                {t('gameDetails.debugInfo.detailedResults', 'Detailed Individual Results')}
+              </DebugSubsectionTitle>
+              {debugInfo.reportedResults
+                .filter(r => r.reportedResults)
+                .map(report => (
+                  <div key={report.userId} style={{ marginBottom: '16px' }}>
+                    <ReportTitle>
+                      {t('gameDetails.debugInfo.reportBy', 'Report by ')}
+                      <ConnectedUsername userId={report.userId} />:
+                    </ReportTitle>
+                    <DebugTableContainer>
+                      <DebugTable>
+                        <thead>
+                          <tr>
+                            <th>{t('gameDetails.debugInfo.reportedPlayer', 'Player')}</th>
+                            <th>{t('gameDetails.debugInfo.reportedResult', 'Result')}</th>
+                            <th>{t('gameDetails.debugInfo.reportedRace', 'Race')}</th>
+                            <th>{t('gameDetails.debugInfo.reportedAPM', 'APM')}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </DebugTable>
-                  </DebugTableContainer>
-                </div>
-              ))}
-          </div>
-        )}
+                        </thead>
+                        <tbody>
+                          {report.reportedResults!.playerResults.map(([playerId, playerResult]) => (
+                            <tr key={playerId}>
+                              <td>
+                                <ConnectedUsername userId={playerId} />
+                              </td>
+                              <ResultCell $result={playerResult.result}>
+                                {getClientResultLabel(playerResult.result, t)}
+                              </ResultCell>
+                              <td>
+                                <StyledRaceIcon race={playerResult.race} />
+                              </td>
+                              <td>{playerResult.apm}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </DebugTable>
+                    </DebugTableContainer>
+                  </div>
+                ))}
+            </div>
+          )}
+        </DebugCollapsibleContent>
       </DebugCard>
     </DebugInfoSection>
   )
