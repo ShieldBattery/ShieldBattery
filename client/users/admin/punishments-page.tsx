@@ -83,18 +83,6 @@ const EmptyState = styled.td`
   color: var(--theme-on-surface-variant);
 `
 
-const FieldLabel = styled.label`
-  ${bodyMedium};
-  display: block;
-
-  color: var(--theme-on-surface-variant);
-`
-
-const DateError = styled.div`
-  ${bodyMedium};
-  color: var(--theme-error);
-`
-
 const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
   month: 'short',

@@ -23,7 +23,7 @@ export function AutoSizeImage(
   const { ref, src, srcSet, scale, ...rest } = props
   const [imageRef, imageRect] = useObservedDimensions()
 
-  const multiRef = useMultiplexRef(ref, imageRef)
+  const multiRef = useMultiplexRef<HTMLImageElement>(ref, imageRef)
   // NOTE(tec27): We withold the src/srcSet attributes until we know the dimensions of the image,
   // to avoid the browser immediately loading the full-size image and loading the lower res version
   // right after

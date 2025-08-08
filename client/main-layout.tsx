@@ -280,7 +280,7 @@ function AppBarMenuItem({
   const strokeRightId = useId()
 
   const [linkElem, setLinkElem] = useState<HTMLAnchorElement | null>(null)
-  const combinedRef = useMultiplexRef(setLinkElem, ref)
+  const combinedRef = useMultiplexRef<HTMLAnchorElement>(setLinkElem, ref)
   useButtonHotkey({ elem: linkElem, hotkey })
 
   return (
