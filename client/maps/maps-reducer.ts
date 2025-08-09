@@ -76,6 +76,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.lastRetrieved.set(map.id, monotonicTime)
   },
 
+  ['@maps/loadMapInfos'](state, { payload: maps, system: { monotonicTime } }) {
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   ['@maps/addToFavorites'](state, action) {
     state.favoritedMapIds.add(action.payload)
   },
@@ -109,30 +116,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    const {
-      payload: { mapInfos },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of mapInfos) {
-      state.byId.set(map.id, map)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-  },
-
-  ['@matchmaking/getMatchmakingMapPoolsHistory'](state, action) {
-    const {
-      payload: { mapInfos },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of mapInfos) {
-      state.byId.set(map.id, map)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-  },
-
-  ['@matchmaking/createMatchmakingMapPool'](state, action) {
     const {
       payload: { mapInfos },
       system: { monotonicTime },

@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
 import { MatchmakingPreferences1v1Fastest, MatchmakingType } from '../../common/matchmaking'
-import { MatchmakingMapPool } from '../../common/matchmaking/matchmaking-map-pools'
+import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -35,7 +35,7 @@ interface Model1v1Fastest {
 interface Form1v1FastestProps {
   disabled: boolean
   model: Model1v1Fastest
-  mapPool?: ReadonlyDeep<MatchmakingMapPool>
+  mapPool?: ReadonlyDeep<MatchmakingMapPoolJson>
   mapPoolOutdated: boolean
   onValidatedChange: (model: ReadonlyDeep<Model1v1Fastest>) => void
   onSubmit: (model: ReadonlyDeep<Model1v1Fastest>) => void

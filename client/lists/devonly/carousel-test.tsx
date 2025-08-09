@@ -51,9 +51,11 @@ export default function CarouselTest() {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
     }
   }, [])
 

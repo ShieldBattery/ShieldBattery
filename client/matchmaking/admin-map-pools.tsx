@@ -65,8 +65,8 @@ function getMapPoolsHistory(
     )
 
     dispatch({
-      type: '@matchmaking/getMatchmakingMapPoolsHistory',
-      payload: result,
+      type: '@maps/loadMapInfos',
+      payload: result.mapInfos,
     })
 
     return result
@@ -95,8 +95,8 @@ function createMapPool(
     )
 
     dispatch({
-      type: '@matchmaking/createMatchmakingMapPool',
-      payload: result,
+      type: '@maps/loadMapInfos',
+      payload: result.mapInfos,
     })
 
     return result
@@ -596,6 +596,31 @@ function CreateMapPoolForm({
           }}
         />
 
+        {selectedMaps.length > 0 ? (
+          <>
+            <SelectedMapsHeader>Selected maps</SelectedMapsHeader>
+            <MapsListContainer>
+              {selectedMaps.map((id, i) => (
+                <StyledMapThumbnail
+                  key={id}
+                  mapId={id}
+                  forceAspectRatio={1}
+                  size={256}
+                  showMapName={true}
+                  isSelected={true}
+                  selectedIcon={<StyledSelectedIcon />}
+                  onClick={() => {
+                    setInputValue(
+                      'selectedMaps',
+                      selectedMaps.filter(mapId => mapId !== id),
+                    )
+                  }}
+                />
+              ))}
+            </MapsListContainer>
+          </>
+        ) : null}
+
         <CreateNewOptionsContainer>
           <NumberTextField
             {...bindCustom('maxVetoCount')}
@@ -612,31 +637,6 @@ function CreateMapPoolForm({
           />
         </CreateNewOptionsContainer>
       </CreateNewForm>
-
-      <SelectedMapsHeader>Selected maps</SelectedMapsHeader>
-      {selectedMaps.length > 0 ? (
-        <MapsListContainer>
-          {selectedMaps.map((id, i) => (
-            <StyledMapThumbnail
-              key={id}
-              mapId={id}
-              forceAspectRatio={1}
-              size={256}
-              showMapName={true}
-              isSelected={true}
-              selectedIcon={<StyledSelectedIcon />}
-              onClick={() => {
-                setInputValue(
-                  'selectedMaps',
-                  selectedMaps.filter(mapId => mapId !== id),
-                )
-              }}
-            />
-          ))}
-        </MapsListContainer>
-      ) : (
-        <BodyLarge>No maps selected</BodyLarge>
-      )}
 
       <CreateButton label='Create' onClick={submit} />
     </CreateNewCard>
@@ -671,7 +671,6 @@ function MapSelect({
 }) {
   return (
     <>
-      {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
       <StyledCarousel infiniteListProps={carouselInfiniteListProps}>
         {!carouselInfiniteListProps.isLoadingNext && mapIds && mapIds.length === 0 ? (
           <BodyLarge>No maps found</BodyLarge>
@@ -696,6 +695,7 @@ function MapSelect({
           ))
         )}
       </StyledCarousel>
+      {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
     </>
   )
 }

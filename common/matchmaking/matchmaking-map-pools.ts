@@ -24,16 +24,6 @@ export function toMatchmakingMapPoolJson(pool: MatchmakingMapPool): MatchmakingM
   }
 }
 
-export function fromMatchmakingMapPoolJson(pool: MatchmakingMapPoolJson): MatchmakingMapPool {
-  return {
-    id: pool.id,
-    matchmakingType: pool.matchmakingType,
-    maps: pool.maps,
-    maxVetoCount: pool.maxVetoCount,
-    startDate: new Date(pool.startDate),
-  }
-}
-
 export interface GetMatchmakingMapPoolResponse {
   pool: MatchmakingMapPoolJson
   mapInfos: MapInfoJson[]

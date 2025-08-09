@@ -5,7 +5,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapInfoJson, SbMapId } from '../../common/maps'
 import { MatchmakingPreferences } from '../../common/matchmaking'
-import { MatchmakingMapPool } from '../../common/matchmaking/matchmaking-map-pools'
+import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -161,7 +161,7 @@ function ConnectedSelectableMap({
 export interface MapVetoesControlProps {
   onChange: (vetoedMaps: SbMapId[]) => void
   value: SbMapId[] | null
-  mapPool: Immutable<MatchmakingMapPool>
+  mapPool: Immutable<MatchmakingMapPoolJson>
   disabled: boolean
   className?: string
   errorText?: string

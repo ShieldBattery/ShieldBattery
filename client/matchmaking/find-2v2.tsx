@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
 import { MatchmakingPreferences2v2, MatchmakingType } from '../../common/matchmaking'
-import { MatchmakingMapPool } from '../../common/matchmaking/matchmaking-map-pools'
+import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -32,7 +32,7 @@ interface Model2v2 {
 interface Form2v2Props {
   disabled: boolean
   model: Model2v2
-  mapPool?: Immutable<MatchmakingMapPool>
+  mapPool?: ReadonlyDeep<MatchmakingMapPoolJson>
   mapPoolOutdated: boolean
   onValidatedChange: (model: ReadonlyDeep<Model2v2>) => void
   onSubmit: (model: ReadonlyDeep<Model2v2>) => void

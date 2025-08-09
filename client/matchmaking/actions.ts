@@ -5,19 +5,13 @@ import {
   MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
-import {
-  CreateMatchmakingMapPoolResponse,
-  GetMatchmakingMapPoolResponse,
-  GetMatchmakingMapPoolsHistoryResponse,
-} from '../../common/matchmaking/matchmaking-map-pools'
+import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MatchmakingActions =
   | GetCurrentMapPoolBegin
   | GetCurrentMapPoolSuccess
   | GetCurrentMapPoolFailure
-  | GetMatchmakingMapPoolsHistory
-  | CreateMatchmakingMapPool
   | InitPreferences
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
@@ -47,16 +41,6 @@ export interface GetCurrentMapPoolFailure
   meta: {
     type: MatchmakingType
   }
-}
-
-export interface GetMatchmakingMapPoolsHistory {
-  type: '@matchmaking/getMatchmakingMapPoolsHistory'
-  payload: GetMatchmakingMapPoolsHistoryResponse
-}
-
-export interface CreateMatchmakingMapPool {
-  type: '@matchmaking/createMatchmakingMapPool'
-  payload: CreateMatchmakingMapPoolResponse
 }
 
 /**
