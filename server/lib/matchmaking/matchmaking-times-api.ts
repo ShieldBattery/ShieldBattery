@@ -12,6 +12,10 @@ import {
 } from '../../../common/matchmaking/matchmaking-times'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { checkAllPermissions } from '../permissions/check-permissions'
+import ensureLoggedIn from '../session/ensure-logged-in'
+import { validateRequest } from '../validation/joi-validator'
+import MatchmakingStatusService from './matchmaking-status'
 import {
   addMatchmakingTime,
   getCurrentMatchmakingTime,
@@ -19,11 +23,7 @@ import {
   getMatchmakingTimeById,
   getPastMatchmakingTimes,
   removeMatchmakingTime,
-} from '../models/matchmaking-times'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { validateRequest } from '../validation/joi-validator'
-import MatchmakingStatusService from './matchmaking-status'
+} from './matchmaking-times-models'
 
 function getValidatedMatchmakingType(ctx: RouterContext) {
   const {

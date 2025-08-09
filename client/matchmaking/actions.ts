@@ -1,11 +1,11 @@
 import {
-  GetMatchmakingMapPoolBody,
   GetMatchmakingSeasonsResponse,
   GetPreferencesResponse,
   MatchmakingSeasonJson,
   MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
+import { GetMatchmakingMapPoolResponse } from '../../common/matchmaking/matchmaking-map-pools'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MatchmakingActions =
@@ -29,7 +29,7 @@ export interface GetCurrentMapPoolBegin {
 
 export interface GetCurrentMapPoolSuccess {
   type: '@matchmaking/getCurrentMapPool'
-  payload: GetMatchmakingMapPoolBody
+  payload: GetMatchmakingMapPoolResponse
   meta: {
     type: MatchmakingType
   }

@@ -13,7 +13,7 @@ const LoadingArea = styled.div`
   padding: 16px 0;
 `
 
-interface InfiniteListProps {
+export interface InfiniteListProps {
   children: React.ReactNode
   /** Whether the functionality of loading data at the beginning of the list is enabled. */
   prevLoadingEnabled?: boolean
