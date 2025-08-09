@@ -1225,6 +1225,9 @@
         "passwordField": {
             "hide": "Скрыть пароль",
             "show": "Показать пароль"
+        },
+        "datetimeTextField": {
+            "pickerButtonLabel": "Показать выбор"
         }
     },
     "rootErrorBoundary": {

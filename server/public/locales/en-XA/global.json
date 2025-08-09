@@ -915,6 +915,9 @@
         },
         "dialog": {
             "closeDialog": "$🗡Close dialog🗡!"
+        },
+        "datetimeTextField": {
+            "pickerButtonLabel": "$🗡Show picker🗡!"
         }
     },
     "navigation": {

@@ -921,6 +921,9 @@
         "passwordField": {
             "hide": "비밀번호 숨기기",
             "show": "비밀번호 표시"
+        },
+        "datetimeTextField": {
+            "pickerButtonLabel": "선택기 표시"
         }
     },
     "messaging": {
