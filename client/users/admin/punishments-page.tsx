@@ -45,6 +45,7 @@ const LoadingError = styled.div`
 
 const BanTable = styled.table`
   width: 100%;
+  table-layout: fixed;
 
   text-align: left;
   margin: 16px 0 32px;
@@ -53,16 +54,12 @@ const BanTable = styled.table`
   td {
     ${bodyMedium};
 
-    min-width: 100px;
-    max-width: 150px;
     padding: 4px;
 
     border: 1px solid var(--theme-outline-variant);
-    border-radius: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: top;
-    white-space: nowrap;
   }
 
   th {
@@ -197,14 +194,22 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
   )
 }
 
+const TimeCell = styled.td`
+  width: 192px;
+`
+
+const UsernameCell = styled.td`
+  width: 96px;
+`
+
 function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEntryJson[]> }) {
   return (
     <BanTable>
       <thead>
         <tr>
-          <th>Start time</th>
-          <th>End time</th>
-          <th>Banned by</th>
+          <TimeCell as='th'>Start time</TimeCell>
+          <TimeCell as='th'>End time</TimeCell>
+          <UsernameCell as='th'>Banned by</UsernameCell>
           <th>Reason</th>
         </tr>
       </thead>
@@ -212,15 +217,15 @@ function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEnt
         {banHistory.length ? (
           banHistory.map((b, i) => (
             <BanRow key={i} $expired={b.startTime <= Date.now() && b.endTime <= Date.now()}>
-              <td>{banDateFormat.format(b.startTime)}</td>
-              <td>{banDateFormat.format(b.endTime)}</td>
-              <td>
+              <TimeCell>{banDateFormat.format(b.startTime)}</TimeCell>
+              <TimeCell>{banDateFormat.format(b.endTime)}</TimeCell>
+              <UsernameCell>
                 {b.bannedBy !== undefined ? (
                   <ConnectedUsername userId={b.bannedBy} />
                 ) : (
                   <span>- system -</span>
                 )}
-              </td>
+              </UsernameCell>
               <td>{b.reason ?? ''}</td>
             </BanRow>
           ))
@@ -353,6 +358,14 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
   )
 }
 
+const RestrictionKindCell = styled.td`
+  width: 96px;
+`
+
+const RestrictionReasonCell = styled.td`
+  width: 112px;
+`
+
 function RestrictionHistoryList({
   restrictionHistory,
 }: {
@@ -362,11 +375,11 @@ function RestrictionHistoryList({
     <BanTable>
       <thead>
         <tr>
-          <th>Kind</th>
-          <th>Start time</th>
-          <th>End time</th>
-          <th>Restricted by</th>
-          <th>Reason</th>
+          <RestrictionKindCell as='th'>Kind</RestrictionKindCell>
+          <TimeCell as='th'>Start time</TimeCell>
+          <TimeCell as='th'>End time</TimeCell>
+          <UsernameCell as='th'>Restricted by</UsernameCell>
+          <RestrictionReasonCell as='th'>Reason</RestrictionReasonCell>
           <th>Admin notes</th>
         </tr>
       </thead>
@@ -374,17 +387,17 @@ function RestrictionHistoryList({
         {restrictionHistory.length ? (
           restrictionHistory.map((r, i) => (
             <BanRow key={i} $expired={r.startTime <= Date.now() && r.endTime <= Date.now()}>
-              <td>{r.kind}</td>
-              <td>{banDateFormat.format(r.startTime)}</td>
-              <td>{banDateFormat.format(r.endTime)}</td>
-              <td>
+              <RestrictionKindCell>{r.kind}</RestrictionKindCell>
+              <TimeCell>{banDateFormat.format(r.startTime)}</TimeCell>
+              <TimeCell>{banDateFormat.format(r.endTime)}</TimeCell>
+              <UsernameCell>
                 {r.restrictedBy !== undefined ? (
                   <ConnectedUsername userId={r.restrictedBy} />
                 ) : (
                   <span>- system -</span>
                 )}
-              </td>
-              <td>{r.reason.replaceAll('_', ' ')}</td>
+              </UsernameCell>
+              <RestrictionReasonCell>{r.reason.replaceAll('_', ' ')}</RestrictionReasonCell>
               <td>{r.adminNotes ?? ''}</td>
             </BanRow>
           ))
