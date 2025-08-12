@@ -464,14 +464,14 @@ function ConnectedUserContextMenuContents({
   }
   const mergedItems = mergeMultimaps(items, baseItems)
 
-  return (
+  return mergedItems.size > 0 ? (
     <UserMenu
       MenuComponent={UserContextMenuList}
       items={mergedItems}
       userId={userId}
       onMenuClose={onDismiss}
     />
-  )
+  ) : null
 }
 
 function UserContextMenuList({

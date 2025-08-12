@@ -154,14 +154,14 @@ function MessageContextMenuContents({
     )
   }
 
-  return (
+  return items.size > 0 ? (
     <MessageMenu
       messageId={messageId}
       items={items}
       onMenuClose={onDismiss}
       MenuComponent={MessageContextMenuList}
     />
-  )
+  ) : null
 }
 
 function MessageContextMenuList({
