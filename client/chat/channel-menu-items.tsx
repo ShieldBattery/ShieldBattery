@@ -43,18 +43,26 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
   }, [dispatch, channelId, userId])
 
   const menuItems = new Map(items)
-  if (user && joinedChannelInfo && channelUserProfiles && channelSelfPermissions) {
-    const channelUserProfile = channelUserProfiles.get(user.id)
-    if (
-      channelUserProfile &&
-      user.id !== selfUserId &&
-      (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)
-    ) {
-      if (
-        selfPermissions?.editPermissions ||
-        selfPermissions?.moderateChatChannels ||
-        joinedChannelInfo.ownerId === selfUserId
-      ) {
+  if (user && selfPermissions && joinedChannelInfo && channelSelfPermissions) {
+    if (user.id !== selfUserId && (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)) {
+      const channelUserProfile = channelUserProfiles?.get(user.id)
+
+      const isSelfServerModerator =
+        selfPermissions.editPermissions || selfPermissions.moderateChatChannels
+      const isSelfChannelOwner = joinedChannelInfo.ownerId === selfUserId
+      const isSelfChannelModerator =
+        channelSelfPermissions.editPermissions ||
+        channelSelfPermissions.kick ||
+        channelSelfPermissions.ban
+
+      let disabled = false
+      // Server moderators and channel owners always have these actions enabled and don't even have
+      // to wait for the user's profile to be fully fetched to check their permissions.
+      if (!isSelfServerModerator && !isSelfChannelOwner && isSelfChannelModerator) {
+        disabled = !channelUserProfile || channelUserProfile.isModerator
+      }
+
+      if (isSelfServerModerator || isSelfChannelOwner || isSelfChannelModerator) {
         appendToMultimap(
           menuItems,
           MenuItemCategory.Destructive,
@@ -64,6 +72,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
               defaultValue: 'Kick {{user}}',
               user: user.name,
             })}
+            disabled={disabled}
             onClick={() => {
               if (!user) {
                 return
@@ -100,6 +109,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
               defaultValue: 'Ban {{user}}',
               user: user.name,
             })}
+            disabled={disabled}
             onClick={() => {
               if (!user) {
                 return
@@ -115,71 +125,6 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
             }}
           />,
         )
-      } else if (!channelUserProfile.isModerator) {
-        if (channelSelfPermissions.kick) {
-          appendToMultimap(
-            menuItems,
-            MenuItemCategory.Destructive,
-            <DestructiveMenuItem
-              key='kick'
-              text={t('chat.channelMenu.kickAction', {
-                defaultValue: 'Kick {{user}}',
-                user: user.name,
-              })}
-              onClick={() => {
-                if (!user) {
-                  return
-                }
-
-                dispatch(
-                  moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
-                    onSuccess: () =>
-                      snackbarController.showSnackbar(
-                        t('chat.channelMenu.userKicked', {
-                          defaultValue: '{{user}} was kicked',
-                          user: user.name,
-                        }),
-                      ),
-                    onError: () =>
-                      snackbarController.showSnackbar(
-                        t('chat.channelMenu.kickingError', {
-                          defaultValue: 'Error kicking {{user.name}}',
-                          user: user.name,
-                        }),
-                      ),
-                  }),
-                )
-                onMenuClose()
-              }}
-            />,
-          )
-        }
-        if (channelSelfPermissions.ban) {
-          appendToMultimap(
-            menuItems,
-            MenuItemCategory.Destructive,
-            <DestructiveMenuItem
-              key='ban'
-              text={t('chat.channelMenu.banAction', {
-                defaultValue: 'Ban {{user}}',
-                user: user.name,
-              })}
-              onClick={() => {
-                if (!user) {
-                  return
-                }
-
-                dispatch(
-                  openDialog({
-                    type: DialogType.ChannelBanUser,
-                    initData: { channelId, userId },
-                  }),
-                )
-                onMenuClose()
-              }}
-            />,
-          )
-        }
       }
     }
   }

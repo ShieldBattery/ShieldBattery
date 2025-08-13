@@ -995,7 +995,7 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    const isOwner = channelInfo.ownerId === userId
+    const isOwner = channelInfo.ownerId === chatUser.userId
 
     const { channelPermissions: perms } = chatUser
     return {
