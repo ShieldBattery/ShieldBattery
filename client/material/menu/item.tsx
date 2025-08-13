@@ -22,6 +22,12 @@ const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
 
   border-radius: 4px;
   text-align: left;
+
+  &:disabled,
+  &[disabled] {
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+    pointer-events: none;
+  }
 `
 
 const ItemText = styled.div`
@@ -47,12 +53,13 @@ export function MenuItem({
   icon,
   dense,
   focused,
+  disabled,
   trailingContent,
   onClick,
   className,
   testName,
 }: MenuItemProps) {
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const [buttonProps, rippleRef] = useButtonState({ onClick, disabled })
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {

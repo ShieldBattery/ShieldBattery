@@ -43,6 +43,7 @@ export interface BaseMenuItemProps {
   className?: string
   focused?: boolean
   dense?: boolean
+  disabled?: boolean
   trailingContent?: React.ReactNode
   testName?: string
   onClick?: (event: React.MouseEvent | KeyboardEvent) => void
