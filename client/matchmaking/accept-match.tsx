@@ -9,9 +9,7 @@ import {
 } from '../../common/matchmaking'
 import { range } from '../../common/range'
 import { Avatar } from '../avatars/avatar'
-import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { DialogType } from '../dialogs/dialog-type'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { FilledButton, TextButton } from '../material/button'
@@ -72,7 +70,7 @@ const FilledTimerBar = styled.div`
   will-change: transform;
 `
 
-export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
+export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -81,10 +79,10 @@ export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
 
   useEffect(() => {
     if (!currentSearchInfo && !foundMatch) {
-      dispatch(closeDialog(DialogType.AcceptMatch))
+      close()
     } else if (currentSearchInfo && !foundMatch) {
       const timeout = setTimeout(() => {
-        dispatch(closeDialog(DialogType.AcceptMatch))
+        close()
       }, 5000)
 
       return () => {
@@ -93,7 +91,7 @@ export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
     }
 
     return () => {}
-  }, [dispatch, currentSearchInfo, foundMatch])
+  }, [dispatch, currentSearchInfo, foundMatch, close])
 
   let contents: React.ReactNode | undefined
   if (currentSearchInfo && !foundMatch) {
@@ -110,7 +108,7 @@ export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
     // In this case, the dialog is about to close anyway
     contents = undefined
   } else {
-    contents = <AcceptingStateView />
+    contents = <AcceptingStateView close={close} />
   }
 
   return (
@@ -123,7 +121,7 @@ export function AcceptMatchDialog({ onCancel }: CommonDialogProps) {
   )
 }
 
-function AcceptingStateView() {
+function AcceptingStateView({ close }: { close: () => void }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const store = useStore()
@@ -186,10 +184,14 @@ function AcceptingStateView() {
           <AcceptMatchButton
             ref={acceptButtonRef}
             label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
-            onClick={() =>
+            onClick={event => {
+              logger.debug(`Accept match button clicked, programmatic: ${!event.isTrusted}`)
+              setAcceptInProgress(true)
               dispatch(
                 acceptMatch({
+                  signal: AbortSignal.timeout(3000),
                   onSuccess: () => {
+                    logger.debug(`Accepted match successfully`)
                     setAcceptInProgress(false)
                   },
                   onError: err => {
@@ -199,7 +201,7 @@ function AcceptingStateView() {
                     ) {
                       logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
                       clearMatchmakingState(store)
-                      dispatch(closeDialog(DialogType.AcceptMatch))
+                      close()
                     } else {
                       logger.error(`Accepting match failed: ${getErrorStack(err)}`)
                       setAcceptInProgress(false)
@@ -209,6 +211,7 @@ function AcceptingStateView() {
                           // Retry the accept after we let the button un-disable, since the user
                           // almost certainly wants to and may not have much time to react to an
                           // error
+                          logger.debug(`Retrying accept match...`)
                           acceptButtonRef.current?.click()
                         }
                       }, 400)
@@ -216,7 +219,7 @@ function AcceptingStateView() {
                   },
                 }),
               )
-            }
+            }}
             disabled={acceptInProgress}
           />
         )}

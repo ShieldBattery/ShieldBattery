@@ -32,3 +32,12 @@ export function closeDialog(dialogType: DialogType | 'all'): CloseDialog {
     },
   }
 }
+
+export function closeDialogById(id: string): CloseDialog {
+  return {
+    type: '@dialogs/close',
+    payload: {
+      id,
+    },
+  }
+}

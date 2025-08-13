@@ -37,7 +37,7 @@ import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import { StarcraftHealthCheckupDialog } from '../starcraft/starcraft-health'
 import { dialogScrimOpacity } from '../styles/colors'
 import { CreateWhisper as CreateWhisperSessionDialog } from '../whispers/create-whisper'
-import { closeDialog } from './action-creators'
+import { closeDialogById } from './action-creators'
 import { DialogState } from './dialog-reducer'
 import { DialogType } from './dialog-type'
 import { MarkdownDialog } from './markdown-dialog'
@@ -130,9 +130,9 @@ export const ConnectedDialogOverlay = () => {
   return ReactDOM.createPortal(
     <DialogOverlayContent
       dialogHistory={dialogHistory}
-      onCancel={(dialogType, event) => {
+      onCancel={(id, event) => {
         if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
-          dispatch(closeDialog(dialogType))
+          dispatch(closeDialogById(id))
         }
       }}
     />,
@@ -144,7 +144,7 @@ function DialogOverlayContent({
   onCancel,
 }: {
   dialogHistory: Immutable<DialogState[]>
-  onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
+  onCancel: (id: string, event?: React.MouseEvent) => void
 }) {
   return (
     <AnimatePresence>
@@ -177,10 +177,10 @@ function DialogDisplay({
 }: {
   dialogState: Immutable<DialogState>
   isTopDialog: boolean
-  onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
+  onCancel: (id: string, event?: React.MouseEvent) => void
 }) {
-  const dialogType = dialogState.type
-  const { component: DialogComponent, modal } = getDialog(dialogState.type)
+  const { type: dialogType, id } = dialogState
+  const { component: DialogComponent, modal } = getDialog(dialogType)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
 
@@ -195,7 +195,7 @@ function DialogDisplay({
             animate='animate'
             exit='exit'
             transition={scrimTransition}
-            onClick={modal ? noop : event => onCancel(dialogType, event)}
+            onClick={modal ? noop : event => onCancel(id, event)}
           />
         )}
       </AnimatePresence>
@@ -206,7 +206,8 @@ function DialogDisplay({
             <DialogContext.Provider value={{ isTopDialog }}>
               <DialogComponent
                 key={dialogState.id}
-                onCancel={modal ? noop : (event?: React.MouseEvent) => onCancel(dialogType, event)}
+                onCancel={modal ? noop : (event?: React.MouseEvent) => onCancel(id, event)}
+                close={() => onCancel(id)}
                 {...dialogState.initData}
               />
             </DialogContext.Provider>

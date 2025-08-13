@@ -33,7 +33,7 @@ const DevContent = styled.div`
   color: var(--theme-error);
 `
 
-export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
+export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps) {
   const { t } = useTranslation()
   const [files] = useAtom(shieldBatteryFilesState)
   const [healthy] = useAtom(shieldBatteryHealthy)
@@ -47,9 +47,9 @@ export function ShieldBatteryHealthDialog({ onCancel }: CommonDialogProps) {
           'Your local installation is now free of problems.',
         ),
       )
-      onCancel()
+      close()
     }
-  }, [healthy, onCancel, snackbarController, t])
+  }, [healthy, close, snackbarController, t])
 
   const initDescription = files.init ? null : <li>sb_init.dll</li>
   const mainDescription = files.main ? null : <li>shieldbattery.dll</li>

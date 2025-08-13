@@ -63,6 +63,20 @@ export function isFetchError(err: unknown): err is FetchError {
 }
 
 /**
+ * A network error (such as a malformed response, early termination, timeout, etc.) occurred.
+ * Unfortunately we get very little information about what *kind* of problem happened.
+ */
+export class FetchNetworkError extends Error {
+  constructor(cause: TypeError) {
+    super(`Network error occurred`, { cause })
+  }
+}
+
+export function isFetchNetworkError(err: unknown): err is FetchNetworkError {
+  return err instanceof FetchNetworkError
+}
+
+/**
  * A base action type for fetch requests that fail. Most of these should probably add a `meta`
  * field with more info about what the request actually was.
  */

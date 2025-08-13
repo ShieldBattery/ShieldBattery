@@ -1,6 +1,7 @@
+import isNetworkError from 'is-network-error'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { TypedEventEmitter } from '../../common/typed-emitter'
-import { FetchError } from './fetch-errors'
+import { FetchError, FetchNetworkError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
@@ -110,6 +111,14 @@ const DEFAULT_HEADERS: HeadersInit = {
   Accept: 'application/json',
 }
 
+function handleNetworkErrors(err: unknown): any {
+  if (isNetworkError(err)) {
+    throw new FetchNetworkError(err)
+  } else {
+    throw err
+  }
+}
+
 function doFetch(url: string, opts: RequestInit): Promise<Response> {
   if (opts.credentials === 'include') {
     // Add the JWT to the request if we have one
@@ -118,9 +127,9 @@ function doFetch(url: string, opts: RequestInit): Promise<Response> {
     if (token) {
       withCredentials = { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } }
     }
-    return fetch(url, withCredentials)
+    return fetch(url, withCredentials).catch(handleNetworkErrors)
   } else {
-    return fetch(url, opts)
+    return fetch(url, opts).catch(handleNetworkErrors)
   }
 }
 
@@ -155,9 +164,13 @@ export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
 }
 
 export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await ensureSuccessStatus(await fetchRaw(path, opts))
-  const text = await res.text()
-  return parseResponseJson(text)
+  try {
+    const res = await ensureSuccessStatus(await fetchRaw(path, opts))
+    const text = await res.text()
+    return parseResponseJson(text)
+  } catch (err) {
+    return await handleNetworkErrors(err)
+  }
 }
 
 type SearchParamsValues = string | number | boolean | null | undefined | Date

@@ -35,20 +35,31 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
   },
 
   ['@dialogs/close'](state, action) {
-    const { dialogType } = action.payload
+    if ('dialogType' in action.payload) {
+      const { dialogType } = action.payload
 
-    if (dialogType === 'all') {
-      state.history = []
-      return
+      if (dialogType === 'all') {
+        state.history = []
+        return
+      }
+
+      const dialogIndex = findLastIndex(state.history, h => h.type === dialogType)
+      if (dialogIndex < 0) {
+        return
+      }
+
+      // TODO(tec27): Track other dialogs opened by this dialog so we can close those too
+      state.history.splice(dialogIndex, 1)
+    } else {
+      const { id } = action.payload
+      const dialogIndex = state.history.findIndex(h => h.id === id)
+      if (dialogIndex < 0) {
+        return
+      }
+
+      // TODO(tec27): Track other dialogs opened by this dialog so we can close those too
+      state.history.splice(dialogIndex, 1)
     }
-
-    const dialogIndex = findLastIndex(state.history, h => h.type === dialogType)
-    if (dialogIndex < 0) {
-      return
-    }
-
-    // TODO(tec27): Track other dialogs opened by this dialog so we can close those too
-    state.history.splice(dialogIndex, 1)
   },
 
   ['@network/disconnect']() {

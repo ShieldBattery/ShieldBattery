@@ -11,7 +11,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
 import { starcraftPathValid, starcraftVersionValid } from './health-state'
 
-export function StarcraftHealthCheckupDialog({ onCancel }: CommonDialogProps) {
+export function StarcraftHealthCheckupDialog({ onCancel, close }: CommonDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -26,9 +26,9 @@ export function StarcraftHealthCheckupDialog({ onCancel }: CommonDialogProps) {
           'Your local installation is now free of problems.',
         ),
       )
-      onCancel()
+      close()
     }
-  }, [onCancel, pathValid, snackbarController, t, versionValid])
+  }, [close, pathValid, snackbarController, t, versionValid])
 
   return (
     <Dialog

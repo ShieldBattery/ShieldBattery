@@ -58,6 +58,9 @@ function StarcraftContent() {
           onCancel={() => {
             setShown(false)
           }}
+          close={() => {
+            setShown(false)
+          }}
         />
       )}
     </div>
@@ -90,6 +93,9 @@ function ShieldBatteryContent() {
       {shown && (
         <ShieldBatteryHealthDialog
           onCancel={() => {
+            setShown(false)
+          }}
+          close={() => {
             setShown(false)
           }}
         />

@@ -15,6 +15,7 @@ import windowFocus from '../dom/window-focus'
 import { lastGameAtom } from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
+import logger from '../logging/logger'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { getCurrentMapPool } from './action-creators'
 import {
@@ -45,6 +46,9 @@ type EventToActionMap = {
 
 const eventToAction: EventToActionMap = {
   matchFound: (matchmakingType, event) => {
+    logger.debug(
+      `Match found, showing accept dialog. Waiting for ${event.numPlayers} players to accept.`,
+    )
     ipcRenderer.send('userAttentionRequired')
     audioManager.playSound(AvailableSound.MatchFound)
     ipcRenderer.send('rallyPointRefreshPings')
@@ -66,6 +70,7 @@ const eventToAction: EventToActionMap = {
   },
 
   draftStarted: (matchmakingType, event) => (dispatch, getState) => {
+    logger.debug(`Draft started`)
     dispatch(closeDialog(DialogType.AcceptMatch))
 
     dispatch({
@@ -139,15 +144,18 @@ const eventToAction: EventToActionMap = {
   },
 
   playerAccepted: (matchmakingType, event) => {
+    logger.debug(`Player accepted, ${event.acceptedPlayers} players now ready`)
     jotaiStore.set(acceptedPlayersAtom, event.acceptedPlayers)
   },
 
   acceptTimeout: (matchmakingType, event) => dispatch => {
+    logger.debug(`Timed out accepting match, showing failure dialog`)
     dispatch(closeDialog(DialogType.AcceptMatch))
     dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
   },
 
   startSearch: (matchmakingType, event) => {
+    logger.debug(`Matchmaking search started`)
     audioManager.playSound(AvailableSound.EnteredQueue)
     jotaiStore.set(currentSearchInfoAtom, {
       matchmakingType: event.matchmakingType,
@@ -157,12 +165,14 @@ const eventToAction: EventToActionMap = {
   },
 
   requeue: (matchmakingType, event) => {
+    logger.debug(`Re-entered matchmaking queue`)
     audioManager.playSound(AvailableSound.EnteredQueue)
 
     jotaiStore.set(foundMatchAtom, undefined)
   },
 
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
+    logger.debug(`Match is now ready, closing accept dialog`)
     dispatch(closeDialog(DialogType.AcceptMatch))
     resetDraftState(jotaiStore)
 
@@ -172,6 +182,7 @@ const eventToAction: EventToActionMap = {
   },
 
   cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
+    logger.debug(`Match loading canceled`)
     resetDraftState(jotaiStore)
     jotaiStore.set(matchLaunchingAtom, false)
     dispatch(closeDialog(DialogType.LaunchingGame))
@@ -186,6 +197,7 @@ const eventToAction: EventToActionMap = {
   },
 
   gameStarted: (matchmakingType, event) => (dispatch, getState) => {
+    logger.debug(`Match started successfully`)
     clearMatchmakingState(jotaiStore)
     dispatch(closeDialog(DialogType.LaunchingGame))
     // TODO(tec27): Delete this event type after we get rid of active-game-reducer
@@ -196,6 +208,9 @@ const eventToAction: EventToActionMap = {
   },
 
   queueStatus: (matchmakingType, event) => {
+    logger.debug(
+      `Matchmaking queue status received: ${event.matchmaking ? JSON.stringify(event.matchmaking) : 'Not in queue'}`,
+    )
     if (!event.matchmaking) {
       clearMatchmakingState(jotaiStore)
     }

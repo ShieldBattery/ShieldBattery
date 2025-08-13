@@ -12,7 +12,11 @@ export interface OpenDialog {
 
 export interface CloseDialog {
   type: '@dialogs/close'
-  payload: {
-    dialogType: DialogType | 'all'
-  }
+  payload:
+    | {
+        dialogType: DialogType | 'all'
+      }
+    | {
+        id: string
+      }
 }

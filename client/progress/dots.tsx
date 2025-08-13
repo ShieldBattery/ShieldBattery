@@ -1,4 +1,5 @@
 import styled, { css, keyframes } from 'styled-components'
+import { blue70 } from '../styles/colors'
 
 const bounce = keyframes`
   0%, 80%, 100% {
@@ -28,7 +29,7 @@ const delayedShowCss = css`
 const Root = styled.div<{ $showImmediately?: boolean }>`
   height: 24px;
   padding: 4px 8px;
-  color: var(--color-blue70);
+  color: ${blue70}; /* NOTE: This can show before our themes are attached to the DOM */
 
   ${props => (!props.$showImmediately ? delayedShowCss : '')};
 `
