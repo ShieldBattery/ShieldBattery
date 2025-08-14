@@ -10,7 +10,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderName, Request, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::{Router, middleware};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_prometheus::PrometheusMetricLayer;
@@ -166,7 +166,7 @@ pub async fn create_app(
 
     Ok(Router::new()
         .route("/healthcheck", get(health_check))
-        .route("/gql", post(graphql_handler))
+        .route("/gql", get(graphql_handler).post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .nest("/users/names", names_router)
         .layer(
