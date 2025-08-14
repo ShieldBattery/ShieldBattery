@@ -346,18 +346,30 @@ export class GameLoader {
             return
           }
 
+          const unloaded = []
+          if (loadingData.finishedPlayers.size >= Math.floor(loadingData.players.size / 2)) {
+            // If at least half the players have finished loading, mark the rest of them as failed
+            // since that can only really happen if some players failed to report a status or
+            // crashed on game start.
+            for (const p of loadingData.players) {
+              if (p.userId && !loadingData.finishedPlayers.has(p.userId)) {
+                unloaded.push(p.userId)
+              }
+            }
+          }
+
           this.maybeCancelLoadingFromSystem(
             gameId,
             new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
               data: {
-                // TODO(tec27): Determine who is at fault here. Currently we don't get enough
+                // TODO(tec27): Better determine who is at fault here. Currently we don't get enough
                 // information from clients about their loading state (just that their game is
-                // started or errored) so timeouts tend to always result in all players being seen
+                // started or errored) so timeouts often result in all players being seen
                 // as at fault. We should send all the intermediate statuses from the game
                 // (configuring, setting up, etc.) so that we can see who is behind the rest and
                 // put the blame on them. (There we still likely be a lot of cases where no one
                 // in particular is to blame, though)
-                unloaded: [],
+                unloaded,
               },
             }),
           )
@@ -454,6 +466,8 @@ export class GameLoader {
     if (!this.loadingGames.has(gameId)) {
       return false
     }
+
+    log.info({ err: reason }, `cancelling game load for ${gameId}: ${reason.message}`)
 
     const loadingData = this.loadingGames.get(gameId)!
     this.loadingGames = this.loadingGames.delete(gameId)
