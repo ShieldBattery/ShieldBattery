@@ -47,4 +47,5 @@ export interface BaseMenuItemProps {
   trailingContent?: React.ReactNode
   testName?: string
   onClick?: (event: React.MouseEvent | KeyboardEvent) => void
+  onKeyDown?: (event: React.KeyboardEvent) => void
 }

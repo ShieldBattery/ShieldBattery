@@ -995,7 +995,7 @@ function DraftChat({
   )
   const mentionable = teammates
     .filter(([_id, name]) => name !== undefined)
-    .map(([id, name]) => ({ id, name: name! }))
+    .map(([id, name]) => ({ id, name: name!, online: true }))
 
   return (
     <StyledChat

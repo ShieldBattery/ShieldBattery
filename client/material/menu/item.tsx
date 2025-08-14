@@ -56,10 +56,11 @@ export function MenuItem({
   disabled,
   trailingContent,
   onClick,
+  onKeyDown,
   className,
   testName,
 }: MenuItemProps) {
-  const [buttonProps, rippleRef] = useButtonState({ onClick, disabled })
+  const [buttonProps, rippleRef] = useButtonState({ onClick, onKeyDown, disabled })
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {

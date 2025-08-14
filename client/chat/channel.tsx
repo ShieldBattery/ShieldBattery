@@ -163,23 +163,30 @@ export function ConnectedChatChannel({
     areUserEntriesEqual,
   )
 
-  const mentionableUsers = useMemo(
-    () =>
-      sortedActiveUserEntries
-        .concat(sortedIdleUserEntries)
-        .concat(sortedOfflineUserEntries)
-        .filter(([id, username]) => username !== undefined)
-        .map(([id, username]) => ({ id, name: username! })),
-    [sortedActiveUserEntries, sortedIdleUserEntries, sortedOfflineUserEntries],
-  )
+  const mentionableUsers = useMemo(() => {
+    const onlineUsers = sortedActiveUserEntries
+      .concat(sortedIdleUserEntries)
+      .filter(([_, username]) => username !== undefined)
+      .map(([id, username]) => ({ id, name: username!, online: true }))
+    const offlineUsers = sortedOfflineUserEntries
+      .filter(([_, username]) => username !== undefined)
+      .map(([id, username]) => ({ id, name: username!, online: false }))
 
-  const baseMentionableUsers = useMemo(
-    () =>
-      sortedRecentChattersEntries
-        .filter(([id, username]) => username !== undefined)
-        .map(([id, username]) => ({ id, name: username! })),
-    [sortedRecentChattersEntries],
-  )
+    return onlineUsers.concat(offlineUsers)
+  }, [sortedActiveUserEntries, sortedIdleUserEntries, sortedOfflineUserEntries])
+
+  const baseMentionableUsers = useMemo(() => {
+    const onlineRecentChatters = sortedRecentChattersEntries
+      .filter(([id]) => channelUsers?.active.has(id) || channelUsers?.idle.has(id))
+      .filter(([_, username]) => username !== undefined)
+      .map(([id, username]) => ({ id, name: username!, online: true }))
+    const offlineRecentChatters = sortedRecentChattersEntries
+      .filter(([id]) => channelUsers?.offline.has(id))
+      .filter(([_, username]) => username !== undefined)
+      .map(([id, username]) => ({ id, name: username!, online: false }))
+
+    return onlineRecentChatters.concat(offlineRecentChatters)
+  }, [channelUsers?.active, channelUsers?.idle, channelUsers?.offline, sortedRecentChattersEntries])
 
   const sortedActiveUserIds = useMemo(
     () => sortedActiveUserEntries.map(([id]) => id),
