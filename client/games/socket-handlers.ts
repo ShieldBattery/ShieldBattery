@@ -41,6 +41,7 @@ export default function ({
               await fetchJson<void>(apiUrl`games/${gameId}/results2`, {
                 method: 'POST',
                 body: JSON.stringify(requestBody),
+                signal: AbortSignal.timeout(5000),
               })
               logger.verbose('Game result resent successfully')
               return

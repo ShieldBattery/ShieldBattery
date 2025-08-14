@@ -481,8 +481,12 @@ export class GameLoader {
     return true
   }
 
-  isLoading(gameId: string) {
+  isLoadingOrRecentlyLoaded(gameId: string) {
     return this.loadingGames.has(gameId) || this.recentlyLoadedGames.has(gameId)
+  }
+
+  isLoading(gameId: string) {
+    return this.loadingGames.has(gameId)
   }
 
   private doGameLoad({

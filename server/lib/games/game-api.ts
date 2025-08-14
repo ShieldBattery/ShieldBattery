@@ -118,6 +118,8 @@ function convertGameResultServiceErrors(err: unknown) {
       throw asHttpError(400, err)
     case GameResultErrorCode.InvalidClient:
       throw asHttpError(400, err)
+    case GameResultErrorCode.NotLoaded:
+      throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
   }
@@ -236,7 +238,7 @@ export class GameApi {
     if (
       ((status >= GameStatus.Launching && status <= GameStatus.Playing) ||
         status === GameStatus.Error) &&
-      !this.gameLoader.isLoading(gameId)
+      !this.gameLoader.isLoadingOrRecentlyLoaded(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
     }
@@ -287,6 +289,13 @@ export class GameApi {
           .required(),
       }).required(),
     })
+
+    if (this.gameLoader.isLoading(gameId)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.NotLoaded,
+        'Game is still loading, try again later',
+      )
+    }
 
     await this.gameResultService.submitGameResults({
       gameId,
