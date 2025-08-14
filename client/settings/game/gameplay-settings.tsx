@@ -21,7 +21,7 @@ import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
 const BonusSkinsCheckBox = styled(CheckBox)`
   margin-bottom: 8px;
@@ -129,7 +129,7 @@ export function GameplaySettings() {
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
-        <div>
+        <SectionContainer>
           <Select
             {...bindCustom('unitPortraits')}
             label={t('settings.game.gameplay.unitPortraits.title', 'Portraits')}
@@ -168,8 +168,8 @@ export function GameplaySettings() {
               <SelectOption key={fog} value={fog} text={getStartingFogLabel(fog, t)} />
             ))}
           </Select>
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <SectionOverline>
             {t('settings.game.gameplay.skinsInfo', 'Skins (must be purchased from Blizzard)')}
           </SectionOverline>
@@ -199,8 +199,8 @@ export function GameplaySettings() {
               <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin, t)} />
             ))}
           </Select>
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('gameTimerOn')}
             label={t('settings.game.gameplay.gameTimer', 'Game timer')}
@@ -221,8 +221,8 @@ export function GameplaySettings() {
             label={t('settings.game.gameplay.latency', 'Show latency')}
             inputProps={{ tabIndex: 0 }}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <SectionOverline>
             {t('settings.game.gameplay.apmAlertHeader', 'APM alert')}
           </SectionOverline>
@@ -251,9 +251,9 @@ export function GameplaySettings() {
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('apmAlertOn')}
           />
-        </div>
+        </SectionContainer>
         {DEV_INDICATOR ? (
-          <div>
+          <SectionContainer>
             <SectionOverline>
               {t('settings.game.gameplay.devOnlySettings', 'Dev-only settings')}
             </SectionOverline>
@@ -262,7 +262,7 @@ export function GameplaySettings() {
               label={t('settings.game.gameplay.visualizeNetworkStalls', 'Visualize network stalls')}
               inputProps={{ tabIndex: 0 }}
             />
-          </div>
+          </SectionContainer>
         ) : null}
       </FormContainer>
     </form>

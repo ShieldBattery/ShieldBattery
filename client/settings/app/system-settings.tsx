@@ -4,7 +4,7 @@ import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { CheckBox } from '../../material/check-box'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -52,7 +52,7 @@ export function AppSystemSettings() {
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
-        <div>
+        <SectionContainer>
           <SectionOverline>{t('settings.app.system.filesOverline', 'Files')}</SectionOverline>
           <CheckBox
             {...bindCheckable('quickOpenReplays')}
@@ -62,8 +62,8 @@ export function AppSystemSettings() {
             )}
             inputProps={{ tabIndex: 0 }}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <SectionOverline>{t('settings.app.system.startupOverline', 'Startup')}</SectionOverline>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
@@ -76,7 +76,7 @@ export function AppSystemSettings() {
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('runAppAtSystemStart')}
           />
-        </div>
+        </SectionContainer>
       </FormContainer>
     </form>
   )

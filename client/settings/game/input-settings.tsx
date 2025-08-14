@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import { bodyMedium, LabelMedium } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
 const ExplanationText = styled.div`
   ${bodyMedium};
@@ -122,7 +122,7 @@ export function GameInputSettings() {
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
-        <div>
+        <SectionContainer>
           <Slider
             {...bindCustom('keyboardScrollSpeed')}
             label={t('settings.game.input.keyboardScrollSpeed', 'Keyboard scroll speed')}
@@ -139,8 +139,8 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('mouseSensitivityOn')}
             label={t('settings.game.input.customMouseSensitivity', 'Custom mouse sensitivity')}
@@ -156,8 +156,8 @@ export function GameInputSettings() {
             disabled={!getInputValue('mouseSensitivityOn')}
             showTicks={false}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('mouseConfineOn')}
             label={t('settings.game.input.lockCursor', 'Lock cursor to window')}
@@ -225,8 +225,8 @@ export function GameInputSettings() {
               </Tooltip>
             </ItemWithTooltip>
           </SubSettings>
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <SectionOverline>
             {t('settings.game.input.legacySettingsHeader', 'Legacy settings')}
           </SectionOverline>
@@ -243,7 +243,7 @@ export function GameInputSettings() {
             inputProps={{ tabIndex: 0 }}
             disabled={getInputValue('hardwareCursorOn')}
           />
-        </div>
+        </SectionContainer>
       </FormContainer>
     </form>
   )

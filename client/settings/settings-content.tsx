@@ -13,3 +13,8 @@ export const SectionOverline = styled.div`
   ${labelMedium};
   color: var(--theme-on-surface-variant);
 `
+
+export const SectionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`

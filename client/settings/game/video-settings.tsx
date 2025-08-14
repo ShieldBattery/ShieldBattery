@@ -16,7 +16,7 @@ import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+import { FormContainer, SectionContainer } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -140,7 +140,7 @@ export function GameVideoSettings() {
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
-        <div>
+        <SectionContainer>
           <Select
             {...bindCustom('displayMode')}
             label={t('settings.game.video.displayMode.title', 'Display mode')}
@@ -172,8 +172,8 @@ export function GameVideoSettings() {
               ))}
             </Select>
           ) : null}
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <Slider
             {...bindCustom('sdGraphicsFilter')}
             label={t('settings.game.video.sdGraphicsFilter', 'SD graphics filter')}
@@ -182,8 +182,8 @@ export function GameVideoSettings() {
             max={3}
             step={1}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('fpsLimitOn')}
             label={t('settings.game.video.customFpsLimit', 'Custom FPS limit')}
@@ -199,8 +199,8 @@ export function GameVideoSettings() {
             disabled={!getInputValue('fpsLimitOn')}
             showTicks={false}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <VsyncCheckBox
             {...bindCustom('vsyncOn')}
             label={t('settings.game.video.enableVerticalSync', 'Enable vertical sync')}
@@ -241,7 +241,7 @@ export function GameVideoSettings() {
             label={t('settings.game.video.showFps', 'Show FPS')}
             inputProps={{ tabIndex: 0 }}
           />
-        </div>
+        </SectionContainer>
       </FormContainer>
     </form>
   )

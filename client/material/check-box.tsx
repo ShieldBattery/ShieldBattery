@@ -7,13 +7,15 @@ const BOX_WIDTH = 18
 const BOX_HEIGHT = 18
 
 const Root = styled.div<{ $disabled?: boolean }>`
+  align-self: flex-start; /* Avoid checkboxes taking up full container width */
+
   position: relative;
   height: auto;
   min-width: ${BOX_WIDTH}px;
   min-height: ${BOX_HEIGHT + 2}px;
-  padding: 8px 0 8px 2px;
+  padding: 8px 16px 8px 2px;
 
-  display: flex;
+  display: inline-flex;
   align-items: center;
 
   contain: layout style;

@@ -13,7 +13,7 @@ import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { labelMedium } from '../../styles/typography'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
+import { FormContainer, SectionContainer } from '../settings-content'
 
 const AnnouncerOverline = styled.div`
   ${labelMedium};
@@ -74,7 +74,7 @@ export function GameSoundSettings() {
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
-        <div>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('musicOn')}
             label={t('settings.game.sound.music', 'Music')}
@@ -90,8 +90,8 @@ export function GameSoundSettings() {
             disabled={!getInputValue('musicOn')}
             showTicks={false}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('soundOn')}
             label={t('settings.game.sound.gameSounds', 'Game sounds')}
@@ -107,8 +107,8 @@ export function GameSoundSettings() {
             disabled={!getInputValue('soundOn')}
             showTicks={false}
           />
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <AnnouncerOverline>
             {t('settings.game.sound.announcer.info', 'Packs (must be purchased from Blizzard)')}
           </AnnouncerOverline>
@@ -125,8 +125,8 @@ export function GameSoundSettings() {
               />
             ))}
           </Select>
-        </div>
-        <div>
+        </SectionContainer>
+        <SectionContainer>
           <CheckBox
             {...bindCheckable('unitSpeechOn')}
             label={t('settings.game.sound.unitSpeech', 'Unit speech')}
@@ -162,7 +162,7 @@ export function GameSoundSettings() {
             label={t('settings.game.sound.originalVoiceOvers', 'Original unit voice overs')}
             inputProps={{ tabIndex: 0 }}
           />
-        </div>
+        </SectionContainer>
       </FormContainer>
     </form>
   )

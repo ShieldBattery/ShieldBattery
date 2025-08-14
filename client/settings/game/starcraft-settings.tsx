@@ -17,7 +17,7 @@ import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import { selectableTextContainer } from '../../styles/text-selection'
 import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer, SectionOverline } from '../settings-content'
+import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -225,7 +225,7 @@ export function StarcraftSettings() {
             onClick={onBrowseClick}
           />
           {DEV_INDICATOR ? (
-            <div>
+            <SectionContainer>
               <SectionOverline>
                 {t('settings.game.starcraft.devOnlySettings', 'Dev-only settings')}
               </SectionOverline>
@@ -242,7 +242,7 @@ export function StarcraftSettings() {
                 label={t('settings.game.starcraft.launch64Bit', 'Launch 64-bit executable')}
                 inputProps={{ tabIndex: 0 }}
               />
-            </div>
+            </SectionContainer>
           ) : null}
         </Layout>
       </FormContainer>
