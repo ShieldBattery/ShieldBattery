@@ -369,7 +369,6 @@
       "player": "Player",
       "player1": "Player 1",
       "player2": "Player 2",
-      "reportBy": "Report by ",
       "reportedAPM": "APM",
       "reportedAt": "Reported At",
       "reportedPlayer": "Player",
@@ -377,6 +376,7 @@
       "reportedResult": "Result",
       "reportedResults": "Individual Reports Summary",
       "reportedTime": "Reported Time",
+      "reportTitle": "Report from <1></1>:",
       "routes": "Network Routes",
       "server": "Server",
       "title": "Debug Information"

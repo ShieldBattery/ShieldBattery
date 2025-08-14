@@ -4,7 +4,7 @@ import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -1075,8 +1075,9 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                 .map(report => (
                   <div key={report.userId} style={{ marginBottom: '16px' }}>
                     <ReportTitle>
-                      {t('gameDetails.debugInfo.reportBy', 'Report by ')}
-                      <ConnectedUsername userId={report.userId} />:
+                      <Trans t={t} i18nKey='gameDetails.debugInfo.reportTitle'>
+                        Report from <ConnectedUsername userId={report.userId} />:
+                      </Trans>
                     </ReportTitle>
                     <DebugTableContainer>
                       <DebugTable>
