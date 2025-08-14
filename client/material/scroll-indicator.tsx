@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import styled from 'styled-components'
 
 const ScrollObserved = styled.div`
-  width: 0px;
+  width: 1px;
   height: 0px;
 `
 
