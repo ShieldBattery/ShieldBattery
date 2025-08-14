@@ -15,6 +15,7 @@ import {
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
+import { playRandomTickSound } from '../audio/tick-sounds'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar, ConnectedAvatar } from '../avatars/avatar'
 import { useOverflowingElement } from '../dom/overflowing-element'
@@ -44,21 +45,6 @@ import { changeDraftRace, lockInDraftRace, sendDraftChatMessage } from './action
 import { draftChatMessagesAtom, draftPickTimeStartAtom, draftStateAtom } from './draft-atoms'
 
 const DRAFT_PICK_TIME_SECS = DRAFT_PICK_TIME_MS / 1000
-
-const TICK_SOUNDS: ReadonlyArray<AvailableSound> = [
-  AvailableSound.Tick1,
-  AvailableSound.Tick2,
-  AvailableSound.Tick3,
-  AvailableSound.Tick4,
-  AvailableSound.Tick5,
-  AvailableSound.Tick6,
-  AvailableSound.Tick7,
-]
-
-function playRandomTickSound() {
-  const index = Math.floor(Math.random() * TICK_SOUNDS.length)
-  return audioManager.playFadeableSound(TICK_SOUNDS[index])
-}
 
 const Container = styled.div`
   width: 100%;

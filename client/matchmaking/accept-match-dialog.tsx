@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingServiceErrorCode,
 } from '../../common/matchmaking'
 import { range } from '../../common/range'
+import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
+import { playRandomTickSound } from '../audio/tick-sounds'
 import { Avatar } from '../avatars/avatar'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -25,6 +28,8 @@ import {
   foundMatchAtom,
   hasAcceptedAtom,
 } from './matchmaking-atoms'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -152,6 +157,27 @@ function AcceptingStateView({ close }: { close: () => void }) {
     return () => clearInterval(interval)
   }, [acceptStart, acceptTimeTotal])
 
+  // A value that never goes below 4 because the countdown sound covers all 5 ticks below that
+  const soundTimeLeft = Math.max(4, secondsLeft)
+  useEffect(() => {
+    if (hasAccepted) {
+      return () => {}
+    }
+
+    let sound: FadeableSound | undefined
+    if (soundTimeLeft === 4) {
+      sound = audioManager.playFadeableSound(AvailableSound.Countdown)
+      ipcRenderer.send('userAttentionRequired')
+    } else if (soundTimeLeft && soundTimeLeft > 4 && soundTimeLeft <= 10) {
+      sound = playRandomTickSound()
+      ipcRenderer.send('userAttentionRequired')
+    }
+
+    return () => {
+      sound?.fadeOut()
+    }
+  }, [soundTimeLeft, hasAccepted])
+
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (event.code === ENTER || event.code === ENTER_NUMPAD) {
@@ -226,7 +252,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
       <TimerBarContainer>
         <FilledTimerBar
           animate={{ scaleX: (secondsLeft / acceptTimeTotal) * 1000 }}
-          transition={{ type: 'spring', mass: 30, stiffness: 600, damping: 180 }}
+          transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
         />
       </TimerBarContainer>
     </div>
