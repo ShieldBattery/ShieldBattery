@@ -1002,8 +1002,8 @@
         "startingFog": {
           "legacy": "Legacy",
           "showResources": "Show resources",
-          "title": "Starting fog of war",
-          "transparent": "Transparent"
+          "showTerrainAndResources": "Show terrain and resources",
+          "title": "Starting fog of war"
         },
         "title": "Gameplay",
         "unitPortraits": {

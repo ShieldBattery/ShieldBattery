@@ -271,7 +271,7 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
 
     if (!settings.version || settings.version < 12) {
       log.verbose('Found settings version 11, migrating to version 12')
-      newSettings.startingFog = StartingFog.Transparent
+      newSettings.startingFog = StartingFog.ShowTerrainAndResources
     }
 
     if (!settings.version || settings.version < 13) {

@@ -14,7 +14,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinWidth: undefined,
   gameWinHeight: undefined,
   quickOpenReplays: false,
-  startingFog: StartingFog.Transparent,
+  startingFog: StartingFog.ShowTerrainAndResources,
   legacyCursorSizing: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,

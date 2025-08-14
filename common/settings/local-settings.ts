@@ -16,7 +16,7 @@ export interface ShieldBatteryAppSettings {
 }
 
 export enum StartingFog {
-  Transparent = 'transparent',
+  ShowTerrainAndResources = 'transparent',
   ShowResources = 'showResources',
   Legacy = 'legacy',
 }
@@ -25,8 +25,11 @@ export const ALL_STARTING_FOG: Readonly<StartingFog[]> = Object.values(StartingF
 
 export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   switch (fog) {
-    case StartingFog.Transparent:
-      return t('settings.game.gameplay.startingFog.transparent', 'Transparent')
+    case StartingFog.ShowTerrainAndResources:
+      return t(
+        'settings.game.gameplay.startingFog.showTerrainAndResources',
+        'Show terrain and resources',
+      )
     case StartingFog.ShowResources:
       return t('settings.game.gameplay.startingFog.showResources', 'Show resources')
     case StartingFog.Legacy:
