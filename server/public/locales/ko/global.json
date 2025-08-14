@@ -92,7 +92,7 @@
                     "legacy": "오리지널",
                     "showResources": "자원 표시",
                     "title": "초기 안개 설정",
-                    "transparent": "반투명"
+                    "showTerrainAndResources": "지형 및 자원 표시"
                 },
                 "apmAlertHeader": "APM 경고"
             },
@@ -465,7 +465,8 @@
                 "loadingRank": "현재 등급 정보를 불러오는 데 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
-                "searchAgainError": "경기 검색 중 문제가 발생했습니다"
+                "searchAgainError": "경기 검색 중 문제가 발생했습니다",
+                "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결하고 시도해 주세요."
             },
             "mapPool": "맵 풀",
             "points": "점수",
@@ -1137,7 +1138,6 @@
             "latency": "지연 시간 (ms)",
             "player1": "플레이어 1",
             "player2": "플레이어 2",
-            "reportBy": "보고자 ",
             "reportedAt": "보고 시간",
             "reportedResult": "결과",
             "reportedResults": "개인 보고서 요약",

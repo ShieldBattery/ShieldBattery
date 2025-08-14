@@ -137,7 +137,7 @@
                     "legacy": "Legado",
                     "showResources": "Mostrar recursos",
                     "title": "Comienza la niebla de guerra",
-                    "transparent": "Transparente"
+                    "showTerrainAndResources": "Mostrar terreno y recursos"
                 }
             },
             "input": {
@@ -469,7 +469,8 @@
                 "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :(",
-                "searchAgainError": "Hubo un problema al buscar un partido"
+                "searchAgainError": "Hubo un problema al buscar un partido",
+                "userOffline": "Tu conexión al servidor se interrumpió, por favor reconéctate e inténtalo de nuevo."
             },
             "mapPool": "Grupo de mapas",
             "points": "Puntos",
@@ -739,7 +740,6 @@
             "latency": "Latencia (ms)",
             "player1": "Jugador 1",
             "player2": "Jugador 2",
-            "reportBy": "Informe de ",
             "reportedAt": "Informado A",
             "reportedResult": "Resultado",
             "reportedTime": "Hora del Informe",
@@ -920,6 +920,9 @@
         "passwordField": {
             "hide": "Ocultar contraseña",
             "show": "Mostrar contraseña"
+        },
+        "datetimeTextField": {
+            "pickerButtonLabel": "Mostrar selector"
         }
     },
     "navigation": {
@@ -1079,6 +1082,11 @@
                 "spam": "Spam",
                 "toxicity": "Toxicidad"
             }
+        },
+        "admin": {
+            "ipAddresses": "Direcciones IP",
+            "permissions": "Permisos",
+            "punishments": "Castigos"
         }
     },
     "lobbies": {

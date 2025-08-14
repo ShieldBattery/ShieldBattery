@@ -95,8 +95,7 @@
                 "startingFog": {
                     "legacy": "原版",
                     "showResources": "显示资源",
-                    "title": "初始战争迷雾",
-                    "transparent": "透明"
+                    "title": "初始战争迷雾"
                 }
             },
             "input": {
@@ -1001,7 +1000,6 @@
             "latency": "延迟 (毫秒)",
             "player1": "玩家 1",
             "player2": "玩家 2",
-            "reportBy": "报告者 ",
             "reportedAt": "报告时间",
             "title": "调试信息",
             "clientResult": {

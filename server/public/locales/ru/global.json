@@ -97,7 +97,7 @@
                     "legacy": "Классический",
                     "showResources": "Показать ресурсы",
                     "title": "Начальный туман войны",
-                    "transparent": "Прозрачный"
+                    "showTerrainAndResources": "Показать местность и ресурсы"
                 }
             },
             "sound": {
@@ -436,7 +436,8 @@
                 "matchmakingDisabled": "Матчмейкинг сейчас отключён",
                 "somethingWentWrong": "Что-то пошло не так :(",
                 "dialogTitle": "Ошибка при поиске матча",
-                "searchAgainError": "Возникла проблема с поиском матча"
+                "searchAgainError": "Возникла проблема с поиском матча",
+                "userOffline": "Ваше соединение с сервером было прервано, пожалуйста, переподключитесь и попробуйте снова."
             },
             "action": "Найти матч",
             "bonusPool": "Бонусный пул",
@@ -728,7 +729,6 @@
         "statusLive": "В реальном времени",
         "debugInfo": {
             "latency": "Задержка (мс)",
-            "reportBy": "Отчет от ",
             "reportedResult": "Результат",
             "reportedResults": "Сводка индивидуальных отчетов",
             "clientResult": {

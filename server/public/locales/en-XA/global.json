@@ -93,7 +93,7 @@
                     "showResources": "$🗡Show resources🗡!",
                     "legacy": "$🗡Legacy🗡!",
                     "title": "$🗡Starting fog of war🗡!",
-                    "transparent": "$🗡Transparent🗡!"
+                    "showTerrainAndResources": "$🗡Show terrain and resources🗡!"
                 },
                 "apmAlertHeader": "$🗡APM alert🗡!"
             },
@@ -477,7 +477,8 @@
                 "loadingRank": "$🗡There was a problem loading your current rank.🗡!",
                 "somethingWentWrong": "$🗡Something went wrong :(🗡!",
                 "matchmakingDisabled": "$🗡Matchmaking is currently disabled🗡!",
-                "searchAgainError": "$🗡There was a problem searching for a match🗡!"
+                "searchAgainError": "$🗡There was a problem searching for a match🗡!",
+                "userOffline": "$🗡Your connection to the server was interrupted, please reconnect and try again.🗡!"
             },
             "mapPool": "$🗡Map pool🗡!",
             "points": "$🗡Points🗡!",
@@ -729,7 +730,6 @@
                 "disconnected": "$🗡Disconnected🗡!"
             },
             "player2": "$🗡Player 2🗡!",
-            "reportBy": "$🗡Report by 🗡! ",
             "reportedAPM": "$🗡APM🗡!",
             "reportedAt": "$🗡Reported At🗡!",
             "reportedPlayer": "$🗡Player🗡!",
