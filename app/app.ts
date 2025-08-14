@@ -517,14 +517,14 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
 
     const zip = archiver('zip')
-    const result = new Promise<Uint8Array>((resolve, reject) => {
+    const result = new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
       pipeline(
         zip,
         new BufferListStream((err, data) => {
           if (err) {
             reject(err)
           } else {
-            resolve(data)
+            resolve(new Uint8Array(data))
           }
         }),
       ).catch((err: Error) => reject(err))
@@ -648,8 +648,11 @@ function setupCspProtocol(curSession: Session) {
     try {
       if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
         const contents = await readFile(path.join(__dirname, pathname))
+        // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
+        // happy with to pass to Response?
+        const data = new Uint8Array(contents)
         // TODO(tec27): ideally this would probably set a reasonable content type?
-        return new Response(contents)
+        return new Response(data)
       } else {
         const contents = await readFile(path.join(__dirname, 'index.html'), 'utf8')
         const nonce = crypto.randomBytes(16).toString('base64')
