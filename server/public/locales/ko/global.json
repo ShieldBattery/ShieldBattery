@@ -1144,7 +1144,8 @@
             "player": "플레이어",
             "reportedAPM": "APM",
             "reportedPlayer": "플레이어",
-            "reportedRace": "종족"
+            "reportedRace": "종족",
+            "reportTitle": "<1></1>의 보고:"
         },
         "buttonCopyGameId": "ID 복사"
     },

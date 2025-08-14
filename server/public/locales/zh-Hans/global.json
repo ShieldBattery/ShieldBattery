@@ -95,7 +95,8 @@
                 "startingFog": {
                     "legacy": "原版",
                     "showResources": "显示资源",
-                    "title": "初始战争迷雾"
+                    "title": "初始战争迷雾",
+                    "showTerrainAndResources": "显示地形和资源"
                 }
             },
             "input": {
@@ -469,7 +470,8 @@
                 "matchmakingDisabled": "目前已禁用匹配功能",
                 "somethingWentWrong": "出错了 :(",
                 "dialogTitle": "匹配时遇到错误",
-                "searchAgainError": "搜索比赛时出现问题"
+                "searchAgainError": "搜索比赛时出现问题",
+                "userOffline": "与服务器的连接已中断，请重新连接并重试。"
             },
             "race": "种族",
             "rating": "评分",
@@ -1016,7 +1018,8 @@
             "player": "玩家",
             "reportedAPM": "APM",
             "reportedPlayer": "玩家",
-            "reportedRace": "种族"
+            "reportedRace": "种族",
+            "reportTitle": "来自<1></1>的报告："
         },
         "buttonCopyGameId": "复制ID"
     },
@@ -1107,6 +1110,11 @@
                 "spam": "垃圾信息",
                 "toxicity": "有害言行"
             }
+        },
+        "admin": {
+            "ipAddresses": "IP地址",
+            "permissions": "权限",
+            "punishments": "惩罚"
         }
     },
     "whispers": {
@@ -1139,6 +1147,9 @@
         "passwordField": {
             "hide": "隐藏密码",
             "show": "显示密码"
+        },
+        "datetimeTextField": {
+            "pickerButtonLabel": "显示选择器"
         }
     },
     "messaging": {

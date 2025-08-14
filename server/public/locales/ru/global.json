@@ -749,7 +749,8 @@
             "player": "Игрок",
             "reportedAPM": "APM",
             "reportedPlayer": "Игрок",
-            "reportedRace": "Раса"
+            "reportedRace": "Раса",
+            "reportTitle": "Отчет от <1></1>:"
         },
         "buttonCopyGameId": "Скопировать ID"
     },

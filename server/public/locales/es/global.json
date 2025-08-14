@@ -749,7 +749,8 @@
             "player": "Jugador",
             "reportedAPM": "APM",
             "reportedPlayer": "Jugador",
-            "reportedRace": "Raza"
+            "reportedRace": "Raza",
+            "reportTitle": "Informe de <1></1>:"
         },
         "buttonCopyGameId": "Copiar ID"
     },

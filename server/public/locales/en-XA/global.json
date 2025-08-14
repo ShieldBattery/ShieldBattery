@@ -744,7 +744,8 @@
             "player1": "$🗡Player 1🗡!",
             "reportedTime": "$🗡Reported Time🗡!",
             "routes": "$🗡Network Routes🗡!",
-            "title": "$🗡Debug Information🗡!"
+            "title": "$🗡Debug Information🗡!",
+            "reportTitle": "$🗡Report from <1></1>:🗡!"
         },
         "buttonCopyGameId": "$🗡Copy ID🗡!"
     },
