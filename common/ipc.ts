@@ -53,6 +53,11 @@ export interface FsStats {
 
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
+  /**
+   * Clears the current game config (e.g. cancels a game launch) provided the current game is
+   * `gameId`.
+   */
+  activeGameClearConfig: (gameId: string) => void
   activeGameStartWhenReady: (gameId: string) => void
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void

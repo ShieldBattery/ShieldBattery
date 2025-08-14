@@ -71,6 +71,9 @@ export default function ({
     startWhenReady(_, { gameId }) {
       ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
     },
+    cancelLoading(_, { gameId }) {
+      ipcRenderer.invoke('activeGameClearConfig', gameId)?.catch(swallowNonBuiltins)
+    },
   }
 
   siteSocket.registerRoute(
@@ -128,9 +131,9 @@ export default function ({
                       'Quitting current game due to error reporting game status to server: ' +
                         err.message,
                     )
-                    // TODO(tec27): This feels kinda dangerous because this request might not have been
-                    // for the current game even... We should probably rework this API a bit.
-                    ipcRenderer.invoke('activeGameSetConfig', {})?.catch(swallowNonBuiltins)
+                    ipcRenderer
+                      .invoke('activeGameClearConfig', status.id)
+                      ?.catch(swallowNonBuiltins)
                   }
                 }
               },

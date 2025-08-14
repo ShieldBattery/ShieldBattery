@@ -91,7 +91,7 @@ export class LobbyApi {
   lobbyClients = Map<ClientSocketsGroup, string>()
   lobbyBannedUsers = Map<string, Set<SbUserId>>()
   lobbyCountdowns = Map<string, Countdown>()
-  loadingLobbies = Set<string>()
+  loadingLobbies = Map<string, AbortController>()
   subscribedSockets = Map<string, ListSubscription>()
 
   constructor(
@@ -812,13 +812,15 @@ export class LobbyApi {
     try {
       await countdownTimer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-      this.loadingLobbies = this.loadingLobbies.add(lobbyName)
+      const abortController = new AbortController()
+      this.loadingLobbies = this.loadingLobbies.set(lobbyName, abortController)
 
       const gameLoadResult = await this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
+        signal: abortController.signal,
       })
 
       if (gameLoadResult.isError()) {
@@ -867,6 +869,7 @@ export class LobbyApi {
       return
     }
 
+    this.loadingLobbies.get(lobby.name)!.abort()
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelLoading',

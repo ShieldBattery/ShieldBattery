@@ -105,6 +105,17 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.serverPort = port
   }
 
+  clearGameConfig(gameId: string) {
+    if (this.activeGame?.id === gameId) {
+      log.verbose(`Got clearGameConfig for ${gameId}, quitting`)
+      this.emit('gameCommand', gameId, 'quit')
+      this.setStatus(GameStatus.Unknown)
+      this.activeGame = null
+    } else {
+      log.verbose(`Got clearGameConfig for ${gameId}, but it is not the active game`)
+    }
+  }
+
   /**
    * Sets the current game configuration. If this differs from the previous one, a new game client
    * will be launched.

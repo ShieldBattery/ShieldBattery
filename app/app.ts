@@ -455,6 +455,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),
   )
+  ipcMain.handle('activeGameClearConfig', (event, gameId) =>
+    activeGameManager.clearGameConfig(gameId),
+  )
   ipcMain.handle('activeGameSetConfig', (event, config) => {
     try {
       return activeGameManager.setGameConfig(config)

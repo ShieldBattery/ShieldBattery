@@ -1,6 +1,15 @@
 import { GameRoute, GameSetup } from './game-launch-config'
 
-export type GameLoaderEvent = SetGameConfigEvent | SetRoutesEvent | StartWhenReadyEvent
+export type GameLoaderEvent =
+  | CancelLoading
+  | SetGameConfigEvent
+  | SetRoutesEvent
+  | StartWhenReadyEvent
+
+export interface CancelLoading {
+  type: 'cancelLoading'
+  gameId: string
+}
 
 export interface SetGameConfigEvent {
   type: 'setGameConfig'

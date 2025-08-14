@@ -224,10 +224,6 @@ const eventToAction: EventToActionMap = {
     clearCountdownTimer()
 
     dispatch({
-      type: '@active-game/launch',
-      payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
-    })
-    dispatch({
       type: LOBBY_UPDATE_LOADING_CANCELED,
       payload: { usersAtFault: event.usersAtFault },
     } as any)

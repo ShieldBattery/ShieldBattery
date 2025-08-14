@@ -191,10 +191,6 @@ const eventToAction: EventToActionMap = {
     jotaiStore.set(matchLaunchingAtom, false)
     dispatch(closeDialog(DialogType.LaunchingGame))
 
-    dispatch({
-      type: '@active-game/launch',
-      payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
-    })
     externalShowSnackbar(
       i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
     )
