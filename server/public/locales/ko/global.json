@@ -466,7 +466,7 @@
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
                 "searchAgainError": "경기 검색 중 문제가 발생했습니다",
-                "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결하고 시도해 주세요."
+                "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
             },
             "mapPool": "맵 풀",
             "points": "점수",
@@ -1040,7 +1040,7 @@
         "admin": {
             "ipAddresses": "IP 주소",
             "permissions": "권한",
-            "punishments": "처벌"
+            "punishments": "제재"
         }
     },
     "policy": {
@@ -1125,22 +1125,22 @@
         "debugInfo": {
             "clientResult": {
                 "defeat": "패배",
-                "playing": "게임 중",
+                "playing": "진행 중",
                 "victory": "승리",
                 "disconnected": "연결 끊김"
             },
-            "detailedResults": "상세 개인 결과",
-            "reportedTime": "보고된 시간",
+            "detailedResults": "개별 상세 결과",
+            "reportedTime": "보고 시간",
             "routes": "네트워크 경로",
             "server": "서버",
             "title": "디버그 정보",
-            "hasReport": "보고 있음",
+            "hasReport": "보고함",
             "latency": "지연 시간 (ms)",
             "player1": "플레이어 1",
             "player2": "플레이어 2",
-            "reportedAt": "보고 시간",
+            "reportedAt": "보고 시각",
             "reportedResult": "결과",
-            "reportedResults": "개인 보고서 요약",
+            "reportedResults": "개별 보고 요약",
             "player": "플레이어",
             "reportedAPM": "APM",
             "reportedPlayer": "플레이어",

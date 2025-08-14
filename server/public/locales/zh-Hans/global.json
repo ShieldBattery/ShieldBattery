@@ -471,7 +471,7 @@
                 "somethingWentWrong": "出错了 :(",
                 "dialogTitle": "匹配时遇到错误",
                 "searchAgainError": "搜索比赛时出现问题",
-                "userOffline": "与服务器的连接已中断，请重新连接并重试。"
+                "userOffline": "与服务器的连接中断，请重新连接后重试。"
             },
             "race": "种族",
             "rating": "评分",
@@ -997,29 +997,29 @@
         "tabStats": "统计数据",
         "tabSummary": "概要",
         "debugInfo": {
-            "detailedResults": "详细个人结果",
-            "hasReport": "有报告",
-            "latency": "延迟 (毫秒)",
+            "detailedResults": "个人详细战绩",
+            "hasReport": "已提交",
+            "latency": "延迟（毫秒）",
             "player1": "玩家 1",
             "player2": "玩家 2",
-            "reportedAt": "报告时间",
+            "reportedAt": "提交时间",
             "title": "调试信息",
             "clientResult": {
-                "defeat": "失败",
+                "defeat": "战败",
                 "playing": "游戏中",
                 "victory": "胜利",
-                "disconnected": "已断开连接"
+                "disconnected": "已掉线"
             },
             "reportedResult": "结果",
-            "reportedResults": "个人报告摘要",
-            "reportedTime": "报告时间",
-            "routes": "网络路由",
+            "reportedResults": "个人报告概览",
+            "reportedTime": "上报时长",
+            "routes": "网络路线",
             "server": "服务器",
             "player": "玩家",
             "reportedAPM": "APM",
             "reportedPlayer": "玩家",
             "reportedRace": "种族",
-            "reportTitle": "来自<1></1>的报告："
+            "reportTitle": "来自 <1></1> 的报告："
         },
         "buttonCopyGameId": "复制ID"
     },
@@ -1149,7 +1149,7 @@
             "show": "显示密码"
         },
         "datetimeTextField": {
-            "pickerButtonLabel": "显示选择器"
+            "pickerButtonLabel": "打开选择器"
         }
     },
     "messaging": {

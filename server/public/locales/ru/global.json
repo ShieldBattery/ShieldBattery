@@ -437,7 +437,7 @@
                 "somethingWentWrong": "Что-то пошло не так :(",
                 "dialogTitle": "Ошибка при поиске матча",
                 "searchAgainError": "Возникла проблема с поиском матча",
-                "userOffline": "Ваше соединение с сервером было прервано, пожалуйста, переподключитесь и попробуйте снова."
+                "userOffline": "Соединение с сервером прервано. Пожалуйста, переподключитесь и попробуйте снова."
             },
             "action": "Найти матч",
             "bonusPool": "Бонусный пул",
@@ -733,19 +733,19 @@
             "reportedResults": "Сводка индивидуальных отчетов",
             "clientResult": {
                 "defeat": "Поражение",
-                "playing": "Игра",
+                "playing": "В игре",
                 "victory": "Победа",
-                "disconnected": "Отключено"
+                "disconnected": "Отключен"
             },
-            "detailedResults": "Подробные индивидуальные результаты",
+            "detailedResults": "Подробные результаты по каждому игроку",
             "hasReport": "Есть отчет",
             "player1": "Игрок 1",
             "player2": "Игрок 2",
-            "reportedAt": "Отчет создан",
-            "reportedTime": "Время отчета",
+            "reportedAt": "Отправлено",
+            "reportedTime": "Указанное время",
             "routes": "Сетевые маршруты",
             "server": "Сервер",
-            "title": "Информация для отладки",
+            "title": "Отладочная информация",
             "player": "Игрок",
             "reportedAPM": "APM",
             "reportedPlayer": "Игрок",
@@ -1228,7 +1228,7 @@
             "show": "Показать пароль"
         },
         "datetimeTextField": {
-            "pickerButtonLabel": "Показать выбор"
+            "pickerButtonLabel": "Показать выбор даты"
         }
     },
     "rootErrorBoundary": {

@@ -470,7 +470,7 @@
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :(",
                 "searchAgainError": "Hubo un problema al buscar un partido",
-                "userOffline": "Tu conexión al servidor se interrumpió, por favor reconéctate e inténtalo de nuevo."
+                "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
             },
             "mapPool": "Grupo de mapas",
             "points": "Puntos",
@@ -730,19 +730,19 @@
         "debugInfo": {
             "clientResult": {
                 "defeat": "Derrota",
-                "playing": "Jugando",
+                "playing": "En partida",
                 "victory": "Victoria",
                 "disconnected": "Desconectado"
             },
             "detailedResults": "Resultados Individuales Detallados",
-            "hasReport": "Tiene Informe",
+            "hasReport": "Ha reportado",
             "reportedResults": "Resumen de Informes Individuales",
             "latency": "Latencia (ms)",
             "player1": "Jugador 1",
             "player2": "Jugador 2",
-            "reportedAt": "Informado A",
+            "reportedAt": "Reportado el",
             "reportedResult": "Resultado",
-            "reportedTime": "Hora del Informe",
+            "reportedTime": "Duración informada",
             "routes": "Rutas de Red",
             "server": "Servidor",
             "title": "Información de Depuración",
@@ -1087,7 +1087,7 @@
         "admin": {
             "ipAddresses": "Direcciones IP",
             "permissions": "Permisos",
-            "punishments": "Castigos"
+            "punishments": "Sanciones"
         }
     },
     "lobbies": {
