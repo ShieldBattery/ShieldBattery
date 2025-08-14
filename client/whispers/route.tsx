@@ -1,5 +1,6 @@
 import { useRoute } from 'wouter'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { useRequireLogin } from '../auth/auth-utils'
 import { replace } from '../navigation/routing'
 import { ConnectedWhisper } from './whisper'
 
@@ -8,7 +9,9 @@ export function WhisperRouteComponent(props: { params: any }) {
     '/whispers/:targetId/:username',
   )
 
-  if (!matches) {
+  const isRedirecting = useRequireLogin()
+
+  if (isRedirecting || !matches) {
     return null
   }
   const targetIdNum = Number(params!.targetId)
