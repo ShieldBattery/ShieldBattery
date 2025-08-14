@@ -51,6 +51,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   DisplaySmall,
   bodyLarge,
@@ -944,6 +945,14 @@ const DEBUG_CLOSE_TRANSITION: Transition = {
   damping: 100,
 }
 
+const SubmittedIcon = styledWithAttrs(MaterialIcon, { icon: 'check' })`
+  color: var(--theme-positive);
+`
+
+const NotSubmittedIcon = styledWithAttrs(MaterialIcon, { icon: 'close' })`
+  color: var(--theme-negative);
+`
+
 function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfoJson> }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -1052,7 +1061,7 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                         )}
                       </td>
                       <HasReportCell $hasReport={!!report.reportedResults}>
-                        {report.reportedResults ? 'Yes' : 'No'}
+                        {report.reportedResults ? <SubmittedIcon /> : <NotSubmittedIcon />}
                       </HasReportCell>
                       <td>
                         {report.reportedResults
