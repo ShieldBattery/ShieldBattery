@@ -120,13 +120,13 @@ impl NewsMutation {
         let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
-        if let Some(author_id) = post.author_id {
-            if author_id != user.id {
-                return Err(graphql_error(
-                    "BAD_REQUEST",
-                    "author_id must be the same as the current user if present",
-                ));
-            }
+        if let Some(author_id) = post.author_id
+            && author_id != user.id
+        {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                "author_id must be the same as the current user if present",
+            ));
         }
 
         let repo = ctx.data::<NewsPostRepo>()?;

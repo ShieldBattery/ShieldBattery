@@ -79,10 +79,10 @@ impl RequiredPermission {
 
 impl Guard for RequiredPermission {
     async fn check(&self, ctx: &Context<'_>) -> async_graphql::Result<()> {
-        if let Some(user) = ctx.data::<Option<CurrentUser>>()? {
-            if self.has_permission(&user.permissions) {
-                return Ok(());
-            }
+        if let Some(user) = ctx.data::<Option<CurrentUser>>()?
+            && self.has_permission(&user.permissions)
+        {
+            return Ok(());
         }
 
         Err(graphql_error("FORBIDDEN", "Forbidden"))

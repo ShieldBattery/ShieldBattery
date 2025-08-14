@@ -117,10 +117,10 @@ impl IsCurrentUser {
 
 impl Guard for IsCurrentUser {
     async fn check(&self, ctx: &Context<'_>) -> Result<()> {
-        if let Some(user) = ctx.data::<Option<CurrentUser>>()? {
-            if user.id == self.0 {
-                return Ok(());
-            }
+        if let Some(user) = ctx.data::<Option<CurrentUser>>()?
+            && user.id == self.0
+        {
+            return Ok(());
         }
 
         Err(graphql_error("FORBIDDEN", "Forbidden"))
@@ -288,45 +288,45 @@ impl UsersMutation {
         {
             let mut query = query.separated(", ");
 
-            if let Some(email) = changes.email {
-                if email != user.email {
-                    emails.push(MailgunMessage {
-                        to: user.email.clone(),
-                        template: MailgunTemplate::EmailChange(EmailChangeData {
-                            username: user.name.clone(),
-                        }),
-                    });
-                    let code = gen_random_code();
-                    let ip: IpNetwork = ctx.data::<ClientIp>()?.0.into();
-                    email_verification = Some(sqlx::query!(
-                        r#"
+            if let Some(email) = changes.email
+                && email != user.email
+            {
+                emails.push(MailgunMessage {
+                    to: user.email.clone(),
+                    template: MailgunTemplate::EmailChange(EmailChangeData {
+                        username: user.name.clone(),
+                    }),
+                });
+                let code = gen_random_code();
+                let ip: IpNetwork = ctx.data::<ClientIp>()?.0.into();
+                email_verification = Some(sqlx::query!(
+                    r#"
                             INSERT INTO email_verifications
                             (user_id, email, verification_code, request_ip)
                             VALUES
                             ($1, $2, $3, $4)
                         "#,
-                        user.id as _,
-                        email.clone(),
+                    user.id as _,
+                    email.clone(),
+                    code,
+                    ip,
+                ));
+                emails.push(MailgunMessage {
+                    to: email.clone(),
+                    template: MailgunTemplate::EmailVerification(EmailVerificationData {
+                        username: user.name.clone(),
                         code,
-                        ip,
-                    ));
-                    emails.push(MailgunMessage {
-                        to: email.clone(),
-                        template: MailgunTemplate::EmailVerification(EmailVerificationData {
-                            username: user.name.clone(),
-                            code,
-                        }),
-                    });
-                    published_messages.push(PublishedUserMessage::EmailChanged {
-                        user_id: user.id,
-                        email: email.clone(),
-                    });
+                    }),
+                });
+                published_messages.push(PublishedUserMessage::EmailChanged {
+                    user_id: user.id,
+                    email: email.clone(),
+                });
 
-                    has_update = true;
+                has_update = true;
 
-                    query.push("email_verified = FALSE, email = ");
-                    query.push_bind_unseparated(email);
-                }
+                query.push("email_verified = FALSE, email = ");
+                query.push_bind_unseparated(email);
             }
         }
 
@@ -494,13 +494,13 @@ impl UsersMutation {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
         };
 
-        if kind == RestrictedNameKind::Regex {
-            if let Err(e) = create_case_insensitive_regex(&pattern) {
-                return Err(graphql_error(
-                    "INVALID_REGEX",
-                    format!("Invalid regex: {e}"),
-                ));
-            }
+        if kind == RestrictedNameKind::Regex
+            && let Err(e) = create_case_insensitive_regex(&pattern)
+        {
+            return Err(graphql_error(
+                "INVALID_REGEX",
+                format!("Invalid regex: {e}"),
+            ));
         }
 
         let restriction = ctx
