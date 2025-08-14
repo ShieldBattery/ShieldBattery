@@ -47,7 +47,9 @@ type EventToActionMap = {
 const eventToAction: EventToActionMap = {
   matchFound: (matchmakingType, event) => {
     logger.debug(
-      `Match found, showing accept dialog. Waiting for ${event.numPlayers} players to accept.`,
+      `Match found, showing accept dialog. ${event.acceptTimeLeftMillis}ms left, ` +
+        `${event.acceptedPlayers} / ${event.numPlayers} accepted. ` +
+        `Self accepted: ${event.hasAccepted}`,
     )
     ipcRenderer.send('userAttentionRequired')
     audioManager.playSound(AvailableSound.MatchFound)
@@ -56,10 +58,12 @@ const eventToAction: EventToActionMap = {
     jotaiStore.set(foundMatchAtom, {
       matchmakingType: event.matchmakingType,
       numPlayers: event.numPlayers,
-      acceptStart: window.performance.now(),
+      acceptStart:
+        window.performance.now() - (event.acceptTimeTotalMillis - event.acceptTimeLeftMillis),
+      acceptTimeTotalMillis: event.acceptTimeTotalMillis,
 
-      acceptedPlayers: 0,
-      hasAccepted: false,
+      acceptedPlayers: event.acceptedPlayers,
+      hasAccepted: event.hasAccepted,
     })
 
     // We clear out this state so that we don't e.g. show the user a dialog about their previous

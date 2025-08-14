@@ -19,6 +19,8 @@ export interface FoundMatch {
   numPlayers: number
   /** The time when the accept process started (as returned by `window.performance.now()`). */
   acceptStart: number
+  /** How long the "match accept" period lasts for (in milliseconds) */
+  acceptTimeTotalMillis: number
 
   acceptedPlayers: number
   hasAccepted: boolean

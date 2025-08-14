@@ -774,10 +774,17 @@ export interface StartSearchEvent {
   race: RaceChar
 }
 
+/** A match has been found and players must ready accept it within a timeout. */
 export interface MatchFoundEvent {
   type: 'matchFound'
   matchmakingType: MatchmakingType
   numPlayers: number
+  acceptedPlayers: number
+
+  acceptTimeTotalMillis: number
+  acceptTimeLeftMillis: number
+
+  hasAccepted: boolean
 }
 
 export interface PlayerAcceptedEvent {

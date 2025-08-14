@@ -103,6 +103,12 @@ export function findMatch<M extends MatchmakingType>(
               'You are already in a game, searching for a match, or in a custom lobby',
             )
             break
+          case MatchmakingServiceErrorCode.UserOffline:
+            message = i18n.t(
+              'matchmaking.findMatch.errors.userOffline',
+              'Your connection to the server was interrupted, please reconnect and try again.',
+            )
+            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,

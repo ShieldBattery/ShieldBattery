@@ -1,4 +1,5 @@
 import { useAtomValue, useStore } from 'jotai'
+import * as m from 'motion/react-m'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -57,17 +58,14 @@ const TimerBarContainer = styled.div`
   background-color: var(--theme-container-highest);
 `
 
-const FilledTimerBar = styled.div`
+const FilledTimerBar = styled(m.div)`
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 8px;
   background-color: var(--theme-amber);
-  transform: scaleX(var(--sb-timer-scale-x, 0));
   transform-origin: 0% 50%;
-  transition: transform 1000ms linear;
-  will-change: transform;
 `
 
 export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
@@ -128,10 +126,11 @@ function AcceptingStateView({ close }: { close: () => void }) {
   const hasAccepted = useAtomValue(hasAcceptedAtom)
   const foundMatch = useAtomValue(foundMatchAtom)
 
+  const acceptTimeTotal = foundMatch?.acceptTimeTotalMillis ?? MATCHMAKING_ACCEPT_MATCH_TIME_MS
   const acceptStart = foundMatch?.acceptStart ?? window.performance.now()
   const [secondsLeft, setSecondsLeft] = useState(() => {
     const elapsed = (window.performance.now() - acceptStart) / 1000
-    return Math.max(Math.ceil(MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000 - elapsed), 0)
+    return Math.max(Math.ceil(acceptTimeTotal / 1000 - elapsed), 0)
   })
 
   const acceptButtonRef = useRef<HTMLButtonElement>(null)
@@ -141,7 +140,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
   useEffect(() => {
     const update = () => {
       const elapsed = (window.performance.now() - acceptStart) / 1000
-      setSecondsLeft(Math.max(Math.ceil(MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000 - elapsed), 0))
+      setSecondsLeft(Math.max(Math.ceil(acceptTimeTotal / 1000 - elapsed), 0))
     }
 
     const interval = setInterval(() => {
@@ -151,7 +150,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
     update()
 
     return () => clearInterval(interval)
-  }, [acceptStart])
+  }, [acceptStart, acceptTimeTotal])
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -226,11 +225,8 @@ function AcceptingStateView({ close }: { close: () => void }) {
       </CenteredContainer>
       <TimerBarContainer>
         <FilledTimerBar
-          style={
-            {
-              '--sb-timer-scale-x': (secondsLeft / MATCHMAKING_ACCEPT_MATCH_TIME_MS) * 1000,
-            } as any
-          }
+          animate={{ scaleX: (secondsLeft / acceptTimeTotal) * 1000 }}
+          transition={{ type: 'spring', mass: 30, stiffness: 600, damping: 180 }}
         />
       </TimerBarContainer>
     </div>

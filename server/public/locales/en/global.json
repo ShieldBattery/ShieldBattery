@@ -795,7 +795,8 @@
         "loadingRank": "There was a problem loading your current rank.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
         "searchAgainError": "There was a problem searching for a match",
-        "somethingWentWrong": "Something went wrong :("
+        "somethingWentWrong": "Something went wrong :(",
+        "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
       "goToLobby": "Go to lobby",
       "lobbyDisabledText": "You can't use matchmaking while in a lobby.",

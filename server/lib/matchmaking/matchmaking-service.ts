@@ -58,6 +58,7 @@ import {
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Clock } from '../time/clock'
+import { monotonicNow } from '../time/monotonic-now'
 import { ClientIdentifierString } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
@@ -84,6 +85,7 @@ interface MatchmakerCallbacks {
 }
 
 class Match {
+  private acceptTimeStart: number
   private acceptPromises = new Map<SbUserId, Deferred<void>>()
   private acceptTimeout: Promise<void>
   private clearAcceptTimeout: (reason?: any) => void
@@ -110,6 +112,7 @@ class Match {
       }
     }
 
+    this.acceptTimeStart = monotonicNow()
     ;[this.acceptTimeout, this.clearAcceptTimeout] = timeoutPromise(
       MATCHMAKING_ACCEPT_MATCH_TIME_MS + ACCEPT_MATCH_LATENCY,
     )
@@ -133,6 +136,10 @@ class Match {
     )
   }
 
+  get acceptTimeLeftMillis(): number {
+    return this.acceptTimeStart + MATCHMAKING_ACCEPT_MATCH_TIME_MS - monotonicNow()
+  }
+
   *players(): Generator<Immutable<MatchmakingPlayerData>> {
     for (const entities of this.teams) {
       for (const entity of entities) {
@@ -149,6 +156,10 @@ class Match {
 
   get numAccepted(): number {
     return this.totalPlayers - this.acceptPromises.size
+  }
+
+  hasPlayerAccepted(userId: SbUserId) {
+    return !this.acceptPromises.has(userId)
   }
 
   registerAccept(userId: SbUserId) {
@@ -320,11 +331,6 @@ export class MatchmakingService {
           for (const p of getPlayersFromEntity(entity)) {
             const queueEntry = this.queueEntries.get(p.id)!
             queueEntry.matchId = matchInfo.id
-            this.publishToActiveClient(p.id, {
-              type: 'matchFound',
-              matchmakingType: matchInfo.type,
-              numPlayers: matchInfo.totalPlayers,
-            })
           }
         }
       }
@@ -472,7 +478,6 @@ export class MatchmakingService {
     >,
   ): Promise<void> {
     const { matchmakingType: type, race, mapSelections, data: preferenceData } = preferences
-    const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
@@ -506,7 +511,7 @@ export class MatchmakingService {
       registeredId: userId,
     })
 
-    this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, race)
+    this.subscribeUserToQueueUpdates(clientSockets, type, race)
     this.matchesRequestedMetric.labels(type, '1').inc()
   }
 
@@ -661,7 +666,6 @@ export class MatchmakingService {
   }
 
   private subscribeUserToQueueUpdates(
-    userSockets: UserSocketsGroup,
     clientSockets: ClientSocketsGroup,
     matchmakingType: MatchmakingType,
     race: RaceChar,
@@ -688,12 +692,24 @@ export class MatchmakingService {
         const client = this.activityRegistry.getClientForUser(p.id)
         if (!client) {
           // Client disconnected before we got here
-          // NOTE(tec27): `match.acceptStateChanged` will immediately throw below after this
+          // NOTE(tec27): `match.acceptStateChanged` will immediately throw after this (below)
           match.registerDecline(p.id)
           continue
         }
         activeClients.set(p.id, client)
-        client.subscribe<MatchmakingEvent>(getMatchPath(match.id))
+        client.subscribe<MatchmakingEvent>(getMatchPath(match.id), sockets => {
+          return {
+            type: 'matchFound',
+            matchmakingType: match.type,
+            numPlayers: match.totalPlayers,
+            acceptedPlayers: match.numAccepted,
+
+            acceptTimeTotalMillis: MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+            acceptTimeLeftMillis: match.acceptTimeLeftMillis,
+
+            hasAccepted: match.hasPlayerAccepted(sockets.userId),
+          }
+        })
       }
 
       const mapPromise = pickMap(match.type, match.teams.flat())
@@ -701,12 +717,10 @@ export class MatchmakingService {
       while (match.numAccepted < match.totalPlayers) {
         await match.acceptStateChanged
 
-        for (const p of match.players()) {
-          this.publishToActiveClient(p.id, {
-            type: 'playerAccepted',
-            acceptedPlayers: match.numAccepted,
-          })
-        }
+        this.publishToMatch(match, {
+          type: 'playerAccepted',
+          acceptedPlayers: match.numAccepted,
+        })
       }
 
       const mapInfo = await mapPromise
@@ -1112,5 +1126,9 @@ export class MatchmakingService {
     } else {
       return false
     }
+  }
+
+  private publishToMatch(match: Match, data?: ReadonlyDeep<MatchmakingEvent>) {
+    this.publisher.publish(getMatchPath(match.id), data)
   }
 }

@@ -1,4 +1,6 @@
 import createNydus, { NydusClientOptions } from 'nydus-client'
+import { getErrorStack } from '../../common/errors'
+import logger from '../logging/logger'
 import { clientId } from './client-id'
 import { CREDENTIAL_STORAGE, UNAUTHORIZED_EMITTER } from './fetch'
 import { makeServerUrl } from './server-url'
@@ -21,8 +23,12 @@ const options = {
 
 const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`, options)
 
-siteSocket.on('unauthorized', () => {
-  UNAUTHORIZED_EMITTER.emit('unauthorized', 'websocket')
-})
+siteSocket
+  .on('unauthorized', () => {
+    UNAUTHORIZED_EMITTER.emit('unauthorized', 'websocket')
+  })
+  .on('error', err => {
+    logger.error(`Site socket error: ${getErrorStack(err)}`)
+  })
 
 export default siteSocket
