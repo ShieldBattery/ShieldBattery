@@ -29,7 +29,7 @@ const StyledForm = styled.form`
 const Field = styled.div`
   width: 100%;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 4px;
 `
 
@@ -126,6 +126,9 @@ export function Login() {
       <StyledForm noValidate={true} onSubmit={submit}>
         <SubmitOnEnter />
         <Field>
+          <FieldRecoveryLink href='/recover-username'>
+            {t('auth.login.forgotUsername', 'Recover username')}
+          </FieldRecoveryLink>
           <TextField
             {...bindInput('username')}
             label={t('auth.login.username', 'Username')}
@@ -138,12 +141,12 @@ export function Login() {
             }}
             disabled={isLoading}
           />
-          <FieldRecoveryLink href='/recover-username'>
-            {t('auth.login.forgotUsername', 'Recover username')}
-          </FieldRecoveryLink>
         </Field>
 
         <Field>
+          <FieldRecoveryLink href='/forgot-password'>
+            {t('auth.login.forgotPassword', 'Reset password')}
+          </FieldRecoveryLink>
           <PasswordTextField
             {...bindInput('password')}
             label={t('auth.login.password', 'Password')}
@@ -156,9 +159,6 @@ export function Login() {
             }}
             disabled={isLoading}
           />
-          <FieldRecoveryLink href='/forgot-password'>
-            {t('auth.login.forgotPassword', 'Reset password')}
-          </FieldRecoveryLink>
         </Field>
 
         <RememberAndSubmit>
