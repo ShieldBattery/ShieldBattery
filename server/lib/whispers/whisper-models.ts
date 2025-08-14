@@ -10,10 +10,14 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUse
   const { client, done } = await db()
   try {
     const result = await client.query<{ id: SbUserId }>(sql`
-      SELECT target_user_id AS id
-      FROM whisper_sessions
-      WHERE user_id = ${userId}
-      ORDER BY start_date;
+      SELECT ws.target_user_id as id, MAX(wm.sent) AS last_message_date
+      FROM whisper_sessions ws
+      LEFT JOIN whisper_messages wm
+        ON ws.target_user_id = wm.from_id
+        OR ws.target_user_id = wm.to_id
+      WHERE ws.user_id = ${userId}
+      GROUP BY ws.target_user_id
+      ORDER BY last_message_date DESC NULLS LAST;
     `)
     return result.rows.map(row => row.id)
   } finally {
