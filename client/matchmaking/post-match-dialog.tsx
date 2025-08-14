@@ -6,6 +6,7 @@ import {
   Transition,
   useAnimate,
   useMotionValue,
+  usePageInView,
   useTransform,
   Variants,
 } from 'motion/react'
@@ -28,7 +29,7 @@ import {
   POINTS_FOR_RATING_TARGET_FACTOR,
   PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
-import { audioManager, AvailableSound } from '../audio/audio-manager'
+import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'
@@ -241,6 +242,7 @@ function RatedUserContent({
   leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
   const { t } = useTranslation()
+  const pageInView = usePageInView()
   const divisionTransitions = useMemo(() => {
     const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
     const startingPoints = mmrChange.points - mmrChange.pointsChange
@@ -302,7 +304,7 @@ function RatedUserContent({
     }
   }, [])
 
-  const scoreSoundRef = useRef<AudioBufferSourceNode>(undefined)
+  const scoreSoundRef = useRef<FadeableSound | undefined>(undefined)
 
   const [pointsAnimScope, pointsAnimate] = useAnimate()
   const [animatingPoints, setAnimatingPoints] = useState(false)
@@ -323,9 +325,11 @@ function RatedUserContent({
   const currentTransition =
     divisionTransitions.length > divisionIndex ? divisionTransitions[divisionIndex] : undefined
   useEffect(() => {
-    if (!animatingPoints || !currentTransition) {
+    if (!animatingPoints || !currentTransition || !pageInView) {
       return () => {}
     }
+
+    let canceled = false
 
     Promise.resolve()
       .then(async () => {
@@ -336,11 +340,8 @@ function RatedUserContent({
         // Wait for division icon change animation to complete
         await pointsAnimate(0, 1, { duration: divisionIndex > 0 ? 0.75 : 0.25 })
 
-        scoreSoundRef.current?.stop()
-        if (Math.round(Math.abs(to - from)) >= 1) {
-          scoreSoundRef.current = audioManager.playSound(AvailableSound.ScoreCount, {
-            loop: true,
-          })
+        if (canceled) {
+          return
         }
 
         const minPointAnimationTime = 0.75
@@ -351,6 +352,7 @@ function RatedUserContent({
         )
 
         try {
+          let playedSound: FadeableSound | undefined
           await Promise.all([
             pointsAnimate(startPercent, endPercent, {
               ease: 'easeInOut',
@@ -360,6 +362,27 @@ function RatedUserContent({
             pointsAnimate(from, to, {
               ease: 'easeInOut',
               duration: pointAnimationTime,
+              onPlay: () => {
+                scoreSoundRef.current?.fadeOut(0.1)
+                if (Math.round(Math.abs(to - from)) >= 1) {
+                  playedSound = scoreSoundRef.current = audioManager.playFadeableSound(
+                    AvailableSound.ScoreCount,
+                    {
+                      loop: true,
+                    },
+                  )
+                }
+              },
+              onComplete: () => {
+                if (playedSound) {
+                  playedSound.loop = false
+                }
+              },
+              onStop: () => {
+                if (playedSound) {
+                  playedSound.loop = false
+                }
+              },
               onUpdate: p => points.set(p),
             }),
           ])
@@ -374,6 +397,7 @@ function RatedUserContent({
       .catch(err => logger.warning(`Error while animating points: ${getErrorStack(err)}`))
 
     return () => {
+      canceled = true
       if (scoreSoundRef.current) {
         scoreSoundRef.current.loop = false
       }
@@ -386,6 +410,7 @@ function RatedUserContent({
     divPercent,
     divisionTransitions,
     divisionIndex,
+    pageInView,
   ])
 
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()

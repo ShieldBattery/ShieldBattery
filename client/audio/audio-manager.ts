@@ -128,17 +128,26 @@ export class AudioManager {
   /**
    * Plays a sound that can be faded in/out using a GainNode.
    */
-  playFadeableSound(soundId: AvailableSound): FadeableSound | undefined {
+  playFadeableSound(
+    soundId: AvailableSound,
+    options?: Partial<{
+      loop: boolean
+      when: number
+    }>,
+  ): FadeableSound | undefined {
     if (!IS_ELECTRON) {
       return undefined
     }
 
     const source = this.getBufferSource(soundId)
+    if (options?.loop) {
+      source.loop = true
+    }
     const gainNode = this.context.createGain()
 
     source.connect(gainNode)
     gainNode.connect(this.nodes.masterGain)
-    source.start()
+    source.start(options?.when ? this.context.currentTime + options.when : 0)
     return new FadeableSound(source, gainNode)
   }
 }
@@ -153,6 +162,14 @@ export class FadeableSound {
   fadeOut(duration = 0.3) {
     this.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + duration)
     this.source.stop(audioManager.currentTime + duration + 0.1)
+  }
+
+  get loop(): boolean {
+    return this.source.loop
+  }
+
+  set loop(value: boolean) {
+    this.source.loop = value
   }
 }
 
