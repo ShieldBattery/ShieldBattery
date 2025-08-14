@@ -28,7 +28,7 @@ import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
-const GAME_LOAD_TIMEOUT = 90 * 1000
+const GAME_LOAD_TIMEOUT = 75 * 1000
 
 // NOTE(tec27): It's important that these are sorted low -> high
 const POTENTIAL_TURN_RATES: ReadonlyArray<BwTurnRate> = [12, 14, 16, 20, 24]
