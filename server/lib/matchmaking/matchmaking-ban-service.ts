@@ -21,10 +21,16 @@ const DAYS = 24 * HOURS
 const BAN_LEVELS: ReadonlyDeep<Array<[banDuration: number, clearDuration: number]>> = [
   // First level is a warning
   [0, 4 * HOURS],
-  [15 * MINUTES, 8 * HOURS],
-  [1 * HOURS, 1 * DAYS],
+  [15 * MINUTES, 4 * HOURS],
+  [30 * MINUTES, 4 * HOURS],
+  [45 * MINUTES, 8 * HOURS],
+  [1 * HOURS, 8 * HOURS],
+  [2 * HOURS, 8 * HOURS],
+  [2 * HOURS, 1 * DAYS + 12 * HOURS],
+  [3 * HOURS, 1 * DAYS + 12 * HOURS],
+  [4 * HOURS, 1 * DAYS + 12 * HOURS],
+  [4 * HOURS, 2 * DAYS],
   [4 * HOURS, 3 * DAYS],
-  [1 * DAYS, 7 * DAYS],
 ]
 
 function getNextBanLevel(unclearedBan?: MatchmakingBanRow): {
@@ -40,8 +46,13 @@ function getNextBanLevel(unclearedBan?: MatchmakingBanRow): {
       clearDuration,
     }
   } else {
-    const currentBanLevel = unclearedBan.banLevel
-    const nextBanLevel = Math.min(currentBanLevel + 1, BAN_LEVELS.length - 1)
+    let currentBanLevel = Math.min(unclearedBan.banLevel, BAN_LEVELS.length - 1)
+    const [, currentBanClearDuration] = BAN_LEVELS[currentBanLevel]
+    if (Number(unclearedBan.clearsAt) - Date.now() <= currentBanClearDuration / 2) {
+      // If the user has served half their clear time, we keep them at the current level
+      currentBanLevel -= 1
+    }
+    const nextBanLevel = Math.max(Math.min(currentBanLevel + 1, BAN_LEVELS.length - 1), 0)
     const [banDuration, clearDuration] = BAN_LEVELS[nextBanLevel]
     return {
       banLevel: nextBanLevel,
