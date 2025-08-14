@@ -12,10 +12,10 @@ import {
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { RestrictionKind } from '../../common/users/restrictions'
-import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'
@@ -31,6 +31,12 @@ import { useAppSelector } from '../redux-hooks'
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
 // user anyway.
 export const MAX_MENTIONED_USERS = 10
+
+export interface MentionableUser {
+  id: SbUserId
+  name: string
+  online: boolean
+}
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -57,9 +63,29 @@ const StyledMenuList = styled(MenuList)`
   max-height: none;
 `
 
-const StyledAvatar = styled(ConnectedAvatar)`
+const StyledMenuItem = styled(MenuItem)<{ $faded?: boolean }>`
+  ${props => {
+    if (props.$faded) {
+      return css`
+        color: var(--theme-on-surface-variant);
+      `
+    }
+    return ''
+  }}
+`
+
+const StyledAvatar = styled(ConnectedAvatar)<{ $faded?: boolean }>`
   width: 24px;
   height: 24px;
+
+  ${props => {
+    if (props.$faded) {
+      return css`
+        opacity: var(--theme-disabled-opacity);
+      `
+    }
+    return ''
+  }}
 `
 
 /** A Map to store the message input contents for each chat instance. */
@@ -110,12 +136,12 @@ export interface MessageInputProps {
    * input will display a popover with all matching users when the user starts typing something
    * *after* the @ character and there's a match.
    */
-  mentionableUsers?: SbUser[]
+  mentionableUsers?: MentionableUser[]
   /**
    * Similar to the `mentionableUsers` property above, except this list will be used when the user
    * has only typed the @ character and nothing else after it.
    */
-  baseMentionableUsers?: SbUser[]
+  baseMentionableUsers?: MentionableUser[]
 }
 
 export interface MessageInputHandle {
@@ -145,7 +171,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
     const [userMentionStartIndex, setUserMentionStartIndex] = useState<number>(-1)
     const [userMentionMatchedText, setUserMentionMatchedText] = useState<string>('')
-    const [matchedUsers, setMatchedUsers] = useState<SbUser[]>([])
+    const [matchedUsers, setMatchedUsers] = useState<MentionableUser[]>([])
 
     const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
@@ -291,6 +317,30 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       }),
     })
 
+    const onMentionSelect = (user: MentionableUser) => {
+      closeUserMentions()
+
+      if (userMentionStartIndex > -1 && userMentionMatchedText) {
+        setMessage(
+          message.slice(0, userMentionStartIndex) +
+            `@${user.name} ` +
+            message.slice(userMentionStartIndex + userMentionMatchedText.length),
+        )
+      }
+
+      if (!inputRef.current) {
+        return
+      }
+
+      inputRef.current.focus()
+      // Setting the caret position immediately after the focus doesn't work for some
+      // reason, so we need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = userMentionStartIndex + user.name.length + 2
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
+    }
+
     let label = t('messaging.sendMessage', 'Send a message')
     if (chatRestriction) {
       // TODO(tec27): Once RelativeDuration has been out longer than a few months, use that instead
@@ -338,34 +388,19 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           // keep typing.
           focusOnMount={false}>
           <StyledMenuList dense={true}>
-            {matchedUsers.map((user, i) => (
-              <MenuItem
+            {matchedUsers.map(user => (
+              <StyledMenuItem
                 key={user.id}
                 text={user.name}
-                icon={<StyledAvatar userId={user.id} />}
-                onClick={() => {
-                  closeUserMentions()
-
-                  if (userMentionStartIndex > -1 && userMentionMatchedText) {
-                    setMessage(
-                      message.slice(0, userMentionStartIndex) +
-                        `@${user.name} ` +
-                        message.slice(userMentionStartIndex + userMentionMatchedText.length),
-                    )
+                $faded={!user.online}
+                icon={<StyledAvatar userId={user.id} $faded={!user.online} />}
+                onKeyDown={event => {
+                  if (event.code === 'Tab') {
+                    event.preventDefault()
+                    onMentionSelect(user)
                   }
-
-                  if (!inputRef.current) {
-                    return
-                  }
-
-                  inputRef.current.focus()
-                  // Setting the caret position immediately after the focus doesn't work for some reason, so we
-                  // need to wait a tick first.
-                  queueMicrotask(() => {
-                    const newCaretPosition = userMentionStartIndex + user.name.length + 2
-                    inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
-                  })
                 }}
+                onClick={() => onMentionSelect(user)}
               />
             ))}
           </StyledMenuList>
