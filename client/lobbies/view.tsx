@@ -6,7 +6,7 @@ import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { urlPath } from '../../common/urls'
-import { redirectToLogin, useIsLoggedIn, useSelfUser } from '../auth/auth-utils'
+import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -55,7 +55,6 @@ export interface LobbyViewProps {
 
 export function LobbyView(props: LobbyViewProps) {
   const dispatch = useAppDispatch()
-  const isLoggedIn = useIsLoggedIn()
   const routeLobby = decodeURIComponent(props.params.lobby)
   const inLobby = useAppSelector(s => s.lobby.inLobby)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
@@ -112,8 +111,8 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [dispatch, inLobby, routeLobby, isConnected])
 
-  if (!isLoggedIn) {
-    redirectToLogin()
+  const isRedirecting = useRequireLogin()
+  if (isRedirecting) {
     return undefined
   }
 

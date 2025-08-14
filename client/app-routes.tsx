@@ -1,4 +1,3 @@
-import { AnimatePresence } from 'motion/react'
 import * as React from 'react'
 import { Route } from 'wouter'
 import { useIsAdmin } from './admin/admin-permissions'
@@ -44,39 +43,37 @@ export function AppRoutes({
   const isAdmin = useIsAdmin()
 
   return (
-    <AnimatePresence>
-      <AnimatedSwitch container={container} fallback={<MainLayoutLoadingDotsArea />}>
-        <Route path='/faq' component={Faq} />
-        <Route path='/download' component={DownloadPage} />
-        <Route path='/acceptable-use' component={AcceptableUsePage} />
-        <Route path='/privacy' component={PrivacyPolicyPage} />
-        <Route path='/terms-of-service' component={TermsOfServicePage} />
+    <AnimatedSwitch container={container} fallback={<MainLayoutLoadingDotsArea />}>
+      <Route path='/faq' component={Faq} />
+      <Route path='/download' component={DownloadPage} />
+      <Route path='/acceptable-use' component={AcceptableUsePage} />
+      <Route path='/privacy' component={PrivacyPolicyPage} />
+      <Route path='/terms-of-service' component={TermsOfServicePage} />
 
-        <Route path='/forgot-password' component={ForgotPassword} />
-        <Route path='/recover-username' component={RecoverUsername} />
-        <Route path='/login' component={Login} />
-        <Route path='/reset-password' component={ResetPassword} />
-        <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
-        <Route
-          path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
-          component={Signup}
-        />
+      <Route path='/forgot-password' component={ForgotPassword} />
+      <Route path='/recover-username' component={RecoverUsername} />
+      <Route path='/login' component={Login} />
+      <Route path='/reset-password' component={ResetPassword} />
+      <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
+      <Route
+        path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
+        component={Signup}
+      />
 
-        {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
+      {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
 
-        <Route path='/chat/*?' component={ChannelRouteComponent} />
-        <Route path='/games/*?' component={GamesRouteComponent} />
-        <Route path='/ladder/*?' component={LadderRouteComponent} />
-        <Route path='/leagues/*?' component={LeagueRoot} />
-        {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
-        <Route path='/maps/*?' component={MapsRoot} />
-        <Route path='/play/*?' component={PlayRoot} />
-        <Route path='/replays/*?' component={ReplaysRoot} />
-        <Route path='/static-news/*?' component={StaticNewsRoute} />
-        <Route path='/users/*?' component={ProfileRouteComponent} />
-        <Route path='/whispers/*?' component={WhisperRouteComponent} />
-        <Route component={Home} />
-      </AnimatedSwitch>
-    </AnimatePresence>
+      <Route path='/chat/*?' component={ChannelRouteComponent} />
+      <Route path='/games/*?' component={GamesRouteComponent} />
+      <Route path='/ladder/*?' component={LadderRouteComponent} />
+      <Route path='/leagues/*?' component={LeagueRoot} />
+      {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
+      <Route path='/maps/*?' component={MapsRoot} />
+      <Route path='/play/*?' component={PlayRoot} />
+      <Route path='/replays/*?' component={ReplaysRoot} />
+      <Route path='/static-news/*?' component={StaticNewsRoute} />
+      <Route path='/users/*?' component={ProfileRouteComponent} />
+      <Route path='/whispers/*?' component={WhisperRouteComponent} />
+      <Route component={Home} />
+    </AnimatedSwitch>
   )
 }

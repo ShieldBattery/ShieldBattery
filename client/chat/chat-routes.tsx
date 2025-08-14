@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Route, Switch } from 'wouter'
 import { useHasAnyPermission } from '../admin/admin-permissions'
-import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
+import { useRequireLogin } from '../auth/auth-utils'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { LoadingDotsArea } from '../progress/dots'
 import { ConnectedChatChannel } from './channel'
@@ -14,11 +14,10 @@ const LoadableChatAdminComponent = lazy(async () => ({
 }))
 
 export function ChannelRouteComponent(props: { params: any }) {
-  const isLoggedIn = useIsLoggedIn()
+  const isRedirecting = useRequireLogin()
   const isAdmin = useHasAnyPermission('moderateChatChannels')
 
-  if (!isLoggedIn) {
-    redirectToLogin()
+  if (isRedirecting) {
     return undefined
   }
 

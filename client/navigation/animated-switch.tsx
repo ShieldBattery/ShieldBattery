@@ -1,4 +1,3 @@
-import { AnimatePresence } from 'motion/react'
 import * as React from 'react'
 import { cloneElement, Fragment, isValidElement, Suspense } from 'react'
 import { Match, matchRoute, RouteProps, useLocation, useRouter } from 'wouter'
@@ -15,7 +14,7 @@ function flattenChildren(children: React.ReactNode): Iterable<React.ReactNode> {
     : [children]
 }
 
-// A modified version of wouter's Switch that lets us render an animated container
+/** A modified version of wouter's Switch that lets us render an animated container. */
 export function AnimatedSwitch({
   children,
   container,
@@ -36,11 +35,7 @@ export function AnimatedSwitch({
     if (match[0]) {
       const contents = cloneElement(element, { match })
       const children = <Suspense fallback={fallback}>{contents}</Suspense>
-      return (
-        <AnimatePresence key='--presence--' initial={false}>
-          {cloneElement(container, { key: String(element.props.path ?? ''), children })}
-        </AnimatePresence>
-      )
+      return cloneElement(container, { key: String(element.props.path ?? ''), children })
     }
   }
 

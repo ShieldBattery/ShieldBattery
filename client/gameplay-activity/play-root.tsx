@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
-import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
+import { useRequireLogin } from '../auth/auth-utils'
 import { OnlyInApp } from '../download/only-in-app'
 import { CreateLobby } from '../lobbies/create-lobby'
 import JoinLobby from '../lobbies/join-lobby'
@@ -47,14 +47,9 @@ function tabToLabel(t: TFunction, tab: PlayTab, lobbyCount: number): string {
 }
 
 export function PlayRoot() {
-  const isLoggedIn = useIsLoggedIn()
+  const isRedirecting = useRequireLogin()
   const [routeMatches, routeParams] = useRoute('/play/:tab?/*?')
-  if (!routeMatches) {
-    return undefined
-  }
-
-  if (!isLoggedIn) {
-    redirectToLogin()
+  if (!routeMatches || isRedirecting) {
     return undefined
   }
 
