@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 
 const ScrollObserved = styled.div`
@@ -77,59 +77,78 @@ export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStatePr
   bottomElem: React.ReactNode,
 ] {
   const observerRef = useRef<IntersectionObserver>(undefined)
-  const topElemRef = useRef<HTMLDivElement>(null)
-  const bottomElemRef = useRef<HTMLDivElement>(null)
+
+  const [topElem, setTopElem] = useState<HTMLDivElement | null>(null)
+  const [bottomElem, setBottomElem] = useState<HTMLDivElement | null>(null)
 
   const [isAtTop, setIsAtTop] = useState(true)
   const [isAtBottom, setIsAtBottom] = useState(true)
 
-  const startObserving = useCallback(() => {
-    if (!observerRef.current) {
-      return
-    }
+  useLayoutEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.target instanceof HTMLDivElement) {
+          if (entry.target.dataset.top) {
+            setIsAtTop(entry.isIntersecting)
+          } else if (entry.target.dataset.bottom) {
+            setIsAtBottom(entry.isIntersecting)
+          }
+        }
+      }
+    })
+    observerRef.current = observer
 
-    const observer = observerRef.current
-    if (topElemRef.current) {
-      observer.observe(topElemRef.current)
-    }
-    if (bottomElemRef.current) {
-      observer.observe(bottomElemRef.current)
-    }
-  }, [])
-
-  const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    for (const entry of entries) {
-      switch (entry.target) {
-        case topElemRef.current:
-          setIsAtTop(entry.isIntersecting)
-          break
-        case bottomElemRef.current:
-          setIsAtBottom(entry.isIntersecting)
-          break
+    return () => {
+      observer.disconnect()
+      if (observerRef.current === observer) {
+        observerRef.current = undefined
       }
     }
   }, [])
 
-  useLayoutEffect(() => {
-    observerRef.current = new IntersectionObserver(onIntersection)
-    startObserving()
+  useEffect(() => {
+    const observer = observerRef.current
+    if (!observer) {
+      return () => {}
+    }
+
+    observer.disconnect()
+
+    if (topElem) {
+      observer.observe(topElem)
+    }
+    if (bottomElem) {
+      observer.observe(bottomElem)
+    }
 
     return () => {
-      observerRef.current?.disconnect()
-      observerRef.current = undefined
+      observer.disconnect()
     }
-  }, [onIntersection, startObserving])
-
-  useEffect(() => {
-    observerRef.current?.disconnect()
-    startObserving()
-  }, [refreshToken, startObserving])
+  }, [bottomElem, refreshToken, topElem])
 
   const id = useId()
   const [topNode, bottomNode] = useMemo(() => {
     return [
-      <ScrollObserved ref={topElemRef} key={id + 'top'} />,
-      <ScrollObserved ref={bottomElemRef} key={id + 'bottom'} />,
+      <ScrollObserved
+        ref={elem => {
+          setTopElem(elem)
+          if (!elem) {
+            setIsAtTop(true)
+          }
+        }}
+        key={id + 'top'}
+        data-top
+      />,
+      <ScrollObserved
+        ref={elem => {
+          setBottomElem(elem)
+          if (!elem) {
+            setIsAtBottom(true)
+          }
+        }}
+        key={id + 'bottom'}
+        data-bottom
+      />,
     ]
   }, [id])
 
