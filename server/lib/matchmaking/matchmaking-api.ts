@@ -126,7 +126,7 @@ export class MatchmakingApi {
           ctx.session!.user.id,
           false /* allowPartial */,
         ).required(),
-        identifiers: joiClientIdentifiers().required(),
+        identifiers: joiClientIdentifiers(ctx).required(),
       }),
     })
     const { clientId, preferences, identifiers } = body

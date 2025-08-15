@@ -58,6 +58,9 @@ importers:
       '@koa/router':
         specifier: ^12.0.2
         version: 12.0.2
+      '@ladjs/koa-views':
+        specifier: ^9.0.0
+        version: 9.0.0(@babel/core@7.28.0)(@types/koa@3.0.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       babel-plugin-const-enum:
         specifier: ^1.2.0
         version: 1.2.0(@babel/core@7.28.0)
@@ -151,9 +154,6 @@ importers:
       koa-static:
         specifier: ^5.0.0
         version: 5.0.0
-      koa-views:
-        specifier: ^8.1.0
-        version: 8.1.0(@babel/core@7.28.0)(@types/koa@3.0.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       mailgun.js:
         specifier: ^12.0.3
         version: 12.0.3
@@ -3134,6 +3134,15 @@ packages:
       walrus:
         optional: true
       whiskers:
+        optional: true
+
+  '@ladjs/koa-views@9.0.0':
+    resolution: {integrity: sha512-/nzUN3HhB7SIxrE4c2MXCLARXMwgoy7xJogyX8lNJo4VBxM6dVQ47iZWjOoHxTBKGFNAv2OTQ0rWI7HYpiv8kg==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@types/koa': ^3.0.0
+    peerDependenciesMeta:
+      '@types/koa':
         optional: true
 
   '@leeoniya/ufuzzy@1.0.18':
@@ -8059,15 +8068,6 @@ packages:
 
   koa-unless@1.0.7:
     resolution: {integrity: sha512-NKiz+nk4KxSJFskiJMuJvxeA41Lcnx3d8Zy+8QETgifm4ab4aOeGD3RgR6bIz0FGNWwo3Fz0DtnK77mEIqHWxA==}
-
-  koa-views@8.1.0:
-    resolution: {integrity: sha512-sIkZeplf7YKg1+OjYuzxU5zQvzbfdwFKzD8XNLKFHRMFZXWBTW+S/WQwQ32fzZiJp1lPxz0QlzNJkkGu0NVIdg==}
-    deprecated: This package is deprecated, please use the new fork @ladjs/koa-views. Maintenance is supported by Forward Email at https://forwardemail.net ; follow/watch https://github.com/ladjs/koa-views for updates and release changelog
-    peerDependencies:
-      '@types/koa': ^3.0.0
-    peerDependenciesMeta:
-      '@types/koa':
-        optional: true
 
   koa@3.0.1:
     resolution: {integrity: sha512-oDxVkRwPOHhGlxKIDiDB2h+/l05QPtefD7nSqRgDfZt8P+QVYFWjfeK8jANf5O2YXjk8egd7KntvXKYx82wOag==}
@@ -14561,6 +14561,68 @@ snapshots:
       react: 19.1.1
       react-dom: 19.1.1(react@19.1.1)
 
+  '@ladjs/koa-views@9.0.0(@babel/core@7.28.0)(@types/koa@3.0.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@ladjs/consolidate': 1.0.4(@babel/core@7.28.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      debug: 4.4.1
+      get-paths: 0.0.7
+      koa-send: 5.0.1
+      mz: 2.7.0
+      pretty: 2.0.0
+      resolve-path: 1.4.0
+    optionalDependencies:
+      '@types/koa': 3.0.0
+    transitivePeerDependencies:
+      - '@babel/core'
+      - arc-templates
+      - atpl
+      - bracket-template
+      - coffee-script
+      - dot
+      - dust
+      - dustjs-helpers
+      - dustjs-linkedin
+      - eco
+      - ect
+      - ejs
+      - haml-coffee
+      - hamlet
+      - hamljs
+      - handlebars
+      - hogan.js
+      - htmling
+      - jazz
+      - jqtpl
+      - just
+      - liquid-node
+      - liquor
+      - lodash
+      - mote
+      - mustache
+      - nunjucks
+      - plates
+      - pug
+      - qejs
+      - ractive
+      - react
+      - react-dom
+      - slm
+      - supports-color
+      - swig
+      - swig-templates
+      - teacup
+      - templayed
+      - then-pug
+      - tinyliquid
+      - toffee
+      - twig
+      - twing
+      - underscore
+      - vash
+      - velocityjs
+      - walrus
+      - whiskers
+
   '@leeoniya/ufuzzy@1.0.18': {}
 
   '@leichtgewicht/ip-codec@2.0.5': {}
@@ -20441,68 +20503,6 @@ snapshots:
       - supports-color
 
   koa-unless@1.0.7: {}
-
-  koa-views@8.1.0(@babel/core@7.28.0)(@types/koa@3.0.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
-    dependencies:
-      '@ladjs/consolidate': 1.0.4(@babel/core@7.28.0)(ejs@3.1.10)(handlebars@4.7.8)(lodash@4.17.21)(pug@3.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      debug: 4.4.1
-      get-paths: 0.0.7
-      koa-send: 5.0.1
-      mz: 2.7.0
-      pretty: 2.0.0
-      resolve-path: 1.4.0
-    optionalDependencies:
-      '@types/koa': 3.0.0
-    transitivePeerDependencies:
-      - '@babel/core'
-      - arc-templates
-      - atpl
-      - bracket-template
-      - coffee-script
-      - dot
-      - dust
-      - dustjs-helpers
-      - dustjs-linkedin
-      - eco
-      - ect
-      - ejs
-      - haml-coffee
-      - hamlet
-      - hamljs
-      - handlebars
-      - hogan.js
-      - htmling
-      - jazz
-      - jqtpl
-      - just
-      - liquid-node
-      - liquor
-      - lodash
-      - mote
-      - mustache
-      - nunjucks
-      - plates
-      - pug
-      - qejs
-      - ractive
-      - react
-      - react-dom
-      - slm
-      - supports-color
-      - swig
-      - swig-templates
-      - teacup
-      - templayed
-      - then-pug
-      - tinyliquid
-      - toffee
-      - twig
-      - twing
-      - underscore
-      - vash
-      - velocityjs
-      - walrus
-      - whiskers
 
   koa@3.0.1:
     dependencies:

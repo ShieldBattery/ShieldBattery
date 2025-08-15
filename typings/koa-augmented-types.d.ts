@@ -27,9 +27,6 @@ declare module 'koa' {
     /** Deletes the current session, updating the `session` field to match. */
     deleteSession(): Promise<void>
 
-    // for koa-views
-    render(viewPath: string, locals?: any): Promise<void>
-
     /**
      * Marks that this request as not needing session cookies. This should generally be used on
      * things like EventSource routes where we need to flush headers prior to the session middleware
