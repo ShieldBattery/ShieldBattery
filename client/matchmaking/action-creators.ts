@@ -19,7 +19,7 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { apiUrl } from '../../common/urls'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
+import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -336,4 +336,12 @@ export function sendDraftChatMessage(
       }),
     })
   })
+}
+
+export function openAcceptMatchDialog() {
+  return openDialog({ type: DialogType.AcceptMatch, keepOnTop: true })
+}
+
+export function closeAcceptMatchDialog() {
+  return closeDialog(DialogType.AcceptMatch)
 }

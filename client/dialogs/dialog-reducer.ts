@@ -7,6 +7,11 @@ export interface DialogState<T extends DialogType = DialogType> {
   type: T
   id: string
   initData?: (DialogPayload & { type: T })['initData']
+  /**
+   * If true, this dialog will always stay on top of any dialogs that don't have this set. Use
+   * sparingly :)
+   */
+  keepOnTop?: boolean
 }
 
 export interface DialogHistoryState {
@@ -19,7 +24,7 @@ const DEFAULT_DIALOG_HISTORY_STATE: Immutable<DialogHistoryState> = {
 
 export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
   ['@dialogs/open'](state, action) {
-    const { type, initData } = action.payload
+    const { type, initData, keepOnTop } = action.payload
 
     // Close any dialogs of the same type (open effectively brings this dialog type to the front)
     // TODO(tec27): This doesn't feel totally safe to do, especially given that we have fairly
@@ -31,7 +36,19 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
       state.history.splice(dialogIndex, 1)
     }
 
-    state.history.push({ type, initData, id: action.meta.id })
+    const dialog: DialogState = { type, initData, id: action.meta.id, keepOnTop }
+    if (
+      !keepOnTop &&
+      state.history.length > 0 &&
+      state.history[state.history.length - 1].keepOnTop
+    ) {
+      // Find the last dialog that doesn't have keepOnTop set and insert it just after that
+      const lastNonTopDialogIndex = findLastIndex(state.history, h => !h.keepOnTop)
+      state.history.splice(lastNonTopDialogIndex + 1, 0, dialog)
+    } else {
+      // Otherwise we just push it at the end
+      state.history.push(dialog)
+    }
   },
 
   ['@dialogs/close'](state, action) {
@@ -62,6 +79,8 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
     }
   },
 
+  // TODO(tec27): This doesn't make much sense now, there are plenty of dialogs that don't depend
+  // on network state
   ['@network/disconnect']() {
     return DEFAULT_DIALOG_HISTORY_STATE
   },

@@ -1,7 +1,7 @@
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useRef } from 'react'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { Tagged } from 'type-fest'
 import { Link, LinkProps, useRoute } from 'wouter'
@@ -81,7 +81,7 @@ export interface NavigationMenuOverlayProps {
   onClose: () => void
   children: React.ReactNode
   className?: string
-  focusableRef?: React.RefObject<HTMLElement | null>
+  focusableElem?: HTMLElement | null
 }
 
 export function NavigationMenuOverlay({
@@ -89,9 +89,9 @@ export function NavigationMenuOverlay({
   onClose,
   children,
   className,
-  focusableRef,
+  focusableElem,
 }: NavigationMenuOverlayProps) {
-  const internalFocusableRef = useRef<HTMLSpanElement>(null)
+  const [internalFocusableElem, setInternalFocusableElem] = useState<HTMLSpanElement | null>(null)
 
   return (
     <AnimatePresence>
@@ -134,9 +134,9 @@ export function NavigationMenuOverlay({
               duration: 0.4,
               bounce: 0,
             }}>
-            <FocusTrap focusableRef={focusableRef ?? internalFocusableRef}>
+            <FocusTrap focusableElem={focusableElem ?? internalFocusableElem}>
               <ScrollableContent>
-                {focusableRef ? null : <span ref={internalFocusableRef} tabIndex={-1} />}
+                {focusableElem ? null : <span ref={setInternalFocusableElem} tabIndex={-1} />}
                 {children}
               </ScrollableContent>
             </FocusTrap>

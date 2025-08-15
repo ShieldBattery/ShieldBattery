@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useRef } from 'react'
+import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { LaunchingGameDialog } from '../active-game/launching-game-dialog'
@@ -182,7 +182,7 @@ function DialogDisplay({
   const { type: dialogType, id } = dialogState
   const { component: DialogComponent, modal } = getDialog(dialogType)
 
-  const focusableRef = useRef<HTMLSpanElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
 
   return (
     <>
@@ -201,8 +201,8 @@ function DialogDisplay({
       </AnimatePresence>
 
       <KeyListenerBoundary active={isTopDialog} key='dialog-content'>
-        <FocusTrap focusableRef={focusableRef}>
-          <span ref={focusableRef} tabIndex={-1}>
+        <FocusTrap focusableElem={focusableElem} focusOnMount={isTopDialog}>
+          <span ref={setFocusableElem} tabIndex={-1}>
             <DialogContext.Provider value={{ isTopDialog }}>
               <DialogComponent
                 key={dialogState.id}

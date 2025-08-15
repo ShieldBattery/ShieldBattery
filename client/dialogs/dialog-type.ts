@@ -36,8 +36,8 @@ export enum DialogType {
 }
 
 type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
-  ? { type: D; initData?: undefined }
-  : { type: D; initData: DataType }
+  ? { type: D; initData?: undefined; keepOnTop?: boolean }
+  : { type: D; initData: DataType; keepOnTop?: boolean }
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>

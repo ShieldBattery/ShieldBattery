@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { isAbortError, raceAbort } from '../../common/async/abort-signals'
 import { waitForActiveGame } from '../active-game/wait-for-active-game'
-import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
@@ -24,7 +23,7 @@ export interface ReplayLoadDialogProps extends CommonDialogProps {
   gameId: string
 }
 
-export function ReplayLoadDialog({ onCancel, gameId }: ReplayLoadDialogProps) {
+export function ReplayLoadDialog({ onCancel, gameId, close }: ReplayLoadDialogProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
   const [error, setError] = useState<Error>()
@@ -32,43 +31,28 @@ export function ReplayLoadDialog({ onCancel, gameId }: ReplayLoadDialogProps) {
   useEffect(() => {
     let canceled = false
 
-    Promise.race([
-      waitForActiveGame(gameId),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timed out waiting for game to load')), 60 * 1000)
-      }),
-    ]).then(
+    raceAbort(AbortSignal.timeout(60 * 1000), waitForActiveGame(gameId)).then(
       () => {
         if (canceled) return
-        dispatch(closeDialog(DialogType.ReplayLoad))
+        close()
       },
       err => {
         if (canceled) return
-        setError(err)
+        setError(isAbortError(err) ? new Error('Timed out waiting for game to load') : err)
       },
     )
 
     return () => {
       canceled = true
     }
-  }, [gameId, dispatch])
+  }, [gameId, dispatch, close])
 
   return (
     <StyledDialog
       onCancel={onCancel}
       title={t('replays.loading.dialogTitle', 'Loading replay…')}
       showCloseButton={false}
-      buttons={
-        error
-          ? [
-              <TextButton
-                key='close'
-                label='Close'
-                onClick={() => dispatch(closeDialog(DialogType.ReplayLoad))}
-              />,
-            ]
-          : undefined
-      }>
+      buttons={error ? [<TextButton key='close' label='Close' onClick={close} />] : undefined}>
       {error ? (
         <ErrorText>
           {t('replays.loading.errorGeneric', 'Something went wrong while loading the replay.')}

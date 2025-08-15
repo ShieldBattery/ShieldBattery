@@ -16,7 +16,6 @@ import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useRefreshToken } from '../network/refresh-token'
 import { assignRef } from '../react/refs'
-import { useStableCallback } from '../react/state-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { Portal } from './portal'
 import { elevationPlus3 } from './shadows'
@@ -214,7 +213,7 @@ export const DEFAULT_TRANSITION: Transition = {
  * to ensure the stay within the usable area of the screen.
  */
 export function Popover(props: PopoverProps) {
-  const focusableRef = useRef<HTMLDivElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLDivElement | null>(null)
   const {
     open,
     onDismiss,
@@ -227,21 +226,12 @@ export function Popover(props: PopoverProps) {
     ...restProps
   } = props
 
-  const onAnimationComplete = useStableCallback((state: VariantLabels) => {
-    if (state === motionAnimate && focusableRef.current) {
-      window.dispatchEvent(new Event('resize'))
-      if (focusOnMount) {
-        focusableRef.current.focus()
-      }
-    }
-  })
-
   return (
     <AnimatePresence>
       {open && (
         <Portal onDismiss={onDismiss} open={open}>
           <KeyListenerBoundary>
-            <FocusTrap focusableRef={focusableRef} focusOnMount={focusOnMount}>
+            <FocusTrap focusableElem={focusableElem} focusOnMount={focusOnMount}>
               <PopoverContent
                 {...restProps}
                 onDismiss={onDismiss}
@@ -250,8 +240,15 @@ export function Popover(props: PopoverProps) {
                 motionAnimate={motionAnimate}
                 motionExit={motionExit}
                 motionTransition={motionTransition}
-                onAnimationComplete={onAnimationComplete}>
-                <Card ref={focusableRef} tabIndex={-1}>
+                onAnimationComplete={state => {
+                  if (state === motionAnimate && focusableElem) {
+                    window.dispatchEvent(new Event('resize'))
+                    if (focusOnMount) {
+                      focusableElem.focus()
+                    }
+                  }
+                }}>
+                <Card ref={setFocusableElem} tabIndex={-1}>
                   {props.children}
                 </Card>
               </PopoverContent>

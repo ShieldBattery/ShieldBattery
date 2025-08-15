@@ -1,7 +1,7 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -51,7 +51,7 @@ export function UpdateOverlay() {
   const [hasDownloadError, setHasDownloadError] = useState(false)
   const [readyToInstall, setReadyToInstall] = useState(false)
   const [progress, setProgress] = useState<UpdateProgress>()
-  const focusableRef = useRef<HTMLSpanElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
 
   const changeHandler = useCallback<UpdateStateChangeHandler>(state => {
     setHasUpdate(state.hasUpdate)
@@ -71,9 +71,9 @@ export function UpdateOverlay() {
 
   useEffect(() => {
     if (hasUpdate) {
-      focusableRef.current?.focus()
+      focusableElem?.focus()
     }
-  }, [hasUpdate])
+  }, [hasUpdate, focusableElem])
 
   return (
     <AnimatePresence>
@@ -87,8 +87,8 @@ export function UpdateOverlay() {
             transition={scrimTransition}
           />
 
-          <FocusTrap focusableRef={focusableRef}>
-            <span ref={focusableRef} tabIndex={-1}>
+          <FocusTrap focusableElem={focusableElem}>
+            <span ref={setFocusableElem} tabIndex={-1}>
               <UpdateDialog
                 hasUpdate={hasUpdate}
                 hasDownloadError={hasDownloadError}

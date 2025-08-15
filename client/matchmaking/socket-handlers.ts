@@ -17,7 +17,7 @@ import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { getCurrentMapPool } from './action-creators'
+import { closeAcceptMatchDialog, getCurrentMapPool, openAcceptMatchDialog } from './action-creators'
 import {
   addDraftChatMessage,
   completeDraft,
@@ -70,12 +70,12 @@ const eventToAction: EventToActionMap = {
     // match that prevents them from accepting the new match.
     jotaiStore.set(lastGameAtom, undefined)
 
-    dispatch(openDialog({ type: DialogType.AcceptMatch }))
+    dispatch(openAcceptMatchDialog())
   },
 
   draftStarted: (matchmakingType, event) => (dispatch, getState) => {
     logger.debug(`Draft started`)
-    dispatch(closeDialog(DialogType.AcceptMatch))
+    dispatch(closeAcceptMatchDialog())
 
     dispatch({
       type: '@maps/loadMapInfo',
@@ -154,7 +154,7 @@ const eventToAction: EventToActionMap = {
 
   acceptTimeout: (matchmakingType, event) => dispatch => {
     logger.debug(`Timed out accepting match, showing failure dialog`)
-    dispatch(closeDialog(DialogType.AcceptMatch))
+    dispatch(closeAcceptMatchDialog())
     dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
   },
 
@@ -177,7 +177,7 @@ const eventToAction: EventToActionMap = {
 
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
     logger.debug(`Match is now ready, closing accept dialog`)
-    dispatch(closeDialog(DialogType.AcceptMatch))
+    dispatch(closeAcceptMatchDialog())
     resetDraftState(jotaiStore)
 
     jotaiStore.set(foundMatchAtom, undefined)

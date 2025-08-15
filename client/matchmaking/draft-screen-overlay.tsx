@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai'
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
-import { lazy, Suspense, useRef } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { FocusTrap } from '../dom/focus-trap'
@@ -34,7 +34,7 @@ const NAVIGATION_TRAP_KEY = 'DRAFT_SCREEN_NAV_TRAP'
 
 export function DraftScreenOverlay() {
   const inDraft = useAtomValue(isInDraftAtom)
-  const focusableRef = useRef<HTMLSpanElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
   const portalRef = useExternalElementRef()
 
   useNavigationTrap(NAVIGATION_TRAP_KEY, inDraft)
@@ -43,8 +43,8 @@ export function DraftScreenOverlay() {
     <AnimatePresence>
       {inDraft ? (
         <KeyListenerBoundary>
-          <FocusTrap focusableRef={focusableRef}>
-            <span ref={focusableRef} tabIndex={-1}>
+          <FocusTrap focusableElem={focusableElem}>
+            <span ref={setFocusableElem} tabIndex={-1}>
               <Root
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

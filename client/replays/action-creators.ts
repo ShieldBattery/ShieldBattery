@@ -75,7 +75,12 @@ export function startReplay({
       gameId => {
         if (gameId) {
           dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
-          setGameRoutes(gameId)
+          // NOTE(tec27): This is just to give time for the dialog to open/run its effects to start
+          // waiting for this game to launch to avoid a race here. This is pretty dumb and should
+          // probably be handled in a different way.
+          setTimeout(() => {
+            setGameRoutes(gameId)
+          }, 250)
         }
       },
       err => {

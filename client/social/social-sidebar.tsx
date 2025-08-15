@@ -2,7 +2,7 @@ import keycode from 'keycode'
 import { AnimatePresence } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useLocation } from 'wouter'
@@ -169,7 +169,7 @@ export function SocialSidebar({
   const [activeTab, setActiveTab] = useState(SocialTab.Chat)
   const [windowWidth] = useWindowSize()
 
-  const focusableRef = useRef<HTMLSpanElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
 
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendCount = useMemo(() => {
@@ -322,7 +322,7 @@ export function SocialSidebar({
         </TabsContainer>
         <ScrollDivider $showAt='bottom' $show={!isAtTop} />
       </TabsAndPin>
-      <span ref={focusableRef} tabIndex={-1} />
+      <span ref={setFocusableElem} tabIndex={-1} />
       {activeTab === SocialTab.Chat ? (
         <ChatContainer>
           {topElem}
@@ -389,7 +389,7 @@ export function SocialSidebar({
                 duration: 0.4,
                 bounce: 0,
               }}>
-              <FocusTrap focusableRef={focusableRef}>{content}</FocusTrap>
+              <FocusTrap focusableElem={focusableElem}>{content}</FocusTrap>
             </RootOverlay>
           </>
         ) : null}

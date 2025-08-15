@@ -1,7 +1,7 @@
 import { useAtom } from 'jotai'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useRef } from 'react'
+import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -65,15 +65,15 @@ export function ConnectedSettings() {
   )
   const [healthy] = useAtom(starcraftHealthy)
 
-  const focusableRef = useRef<HTMLSpanElement>(null)
+  const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
   const portalRef = useExternalElementRef()
 
   return ReactDOM.createPortal(
     <AnimatePresence>
       {isOpen && (
         <KeyListenerBoundary>
-          <FocusTrap focusableRef={focusableRef}>
-            <span ref={focusableRef} tabIndex={-1}>
+          <FocusTrap focusableElem={focusableElem}>
+            <span ref={setFocusableElem} tabIndex={-1}>
               <Settings
                 page={page}
                 isStarcraftHealthy={healthy}

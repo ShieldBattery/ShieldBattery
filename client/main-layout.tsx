@@ -1,6 +1,6 @@
 import keycode from 'keycode'
 import * as m from 'motion/react-m'
-import React, { useId, useLayoutEffect, useRef, useState } from 'react'
+import React, { useId, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -590,7 +590,7 @@ function AppBar({
   const [breakpointRef, breakpoint] = useBreakpoint(APP_BAR_BREAKPOINTS, AppBarBreakpoint.Normal)
   const [onLoginPage] = useRoute('/login')
   const [appMenuOpen, onOpenAppMenu, onCloseAppMenu] = useNavigationMenuState('mainLayout.appMenu')
-  const appMenuFocusable = useRef<HTMLAnchorElement>(null)
+  const [appMenuFocusable, setAppMenuFocusable] = useState<HTMLAnchorElement | null>(null)
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const [profileEntryElem, setProfileEntryElem] = useState<HTMLButtonElement | null>(null)
@@ -780,14 +780,14 @@ function AppBar({
       <NavigationMenuOverlay
         open={appMenuOpen}
         onClose={onCloseAppMenu}
-        focusableRef={appMenuFocusable}>
+        focusableElem={appMenuFocusable}>
         <NavigationMenuItem
           href='/'
           routePattern='/'
           icon={<MaterialIcon icon='home' />}
           text={t('navigation.bar.home', 'Home')}
           showPip={homeHasPip}
-          ref={appMenuFocusable}
+          ref={setAppMenuFocusable}
         />
         <NavigationMenuItem
           href='/games/'
