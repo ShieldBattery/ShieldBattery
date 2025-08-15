@@ -2107,6 +2107,12 @@ impl BwScr {
         *c = Some(time);
     }
 
+    /// Returns whether the game has started. This is thread-safe.
+    pub fn has_game_started(&self) -> bool {
+        self.game_started.load(Ordering::Acquire)
+    }
+
+    /// Sets that the game has started. This is thread-safe.
     pub fn set_game_started(&self) {
         self.game_started.store(true, Ordering::Release);
     }

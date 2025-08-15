@@ -50,7 +50,6 @@ pub struct GameState {
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
     can_start_game: AwaitableTaskState,
-    game_started: bool,
 }
 
 enum AwaitableTaskState<T = ()> {
@@ -490,7 +489,6 @@ impl GameState {
         let local_user = init_state.local_user.clone();
         let server_config = init_state.server_config.clone();
         let info = init_state.setup_info.clone();
-        self.game_started = true;
 
         let ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
@@ -653,7 +651,7 @@ impl GameState {
                 tokio::spawn(task);
             }
             QuitIfNotStarted => {
-                if !self.game_started {
+                if !get_bw().has_game_started() {
                     debug!("Exiting since game has not started");
                     // Not cleaning up (that is, saving user settings or anything)
                     // since we didn't start in the first place
@@ -1548,7 +1546,6 @@ pub async fn create_future(
         running_game: None,
         async_stop,
         can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
-        game_started: false,
     };
     loop {
         let message = select! {

@@ -478,15 +478,15 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             game_requests_send,
         );
         if !cfg!(debug_assertions) {
-            // Send a quit-if-not-in-game 60 seconds from now.
+            // Send a quit-if-not-in-game 120 seconds from now.
             // (Gets ignored if the game starts correctly)
-            // Usually the server should timeout 30 seconds in and send the quit
+            // Usually the server should timeout 75 seconds in and send the quit
             // command another way, but have this as a backup if the server just
             // decides to not do anything.
             // Not doing this in debug builds since it can interrupt debugging.
             let game_state_send = game_state_send.clone();
             let launch_timeout_quit = async move {
-                tokio::time::sleep(Duration::from_millis(60000)).await;
+                tokio::time::sleep(Duration::from_millis(120000)).await;
                 let _ = game_state_send
                     .send(GameStateMessage::QuitIfNotStarted)
                     .await;
