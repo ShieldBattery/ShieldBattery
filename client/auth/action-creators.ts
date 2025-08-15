@@ -19,7 +19,6 @@ import {
   encodeBodyAsParams,
   fetchJson,
 } from '../network/fetch'
-import { getBrowserprint } from './browserprint'
 
 const typedIpc = new TypedIpcRenderer()
 
@@ -28,7 +27,7 @@ async function getExtraSessionData() {
   if (IS_ELECTRON) {
     extraData = { clientIds: (await typedIpc.invoke('securityGetClientIds')) ?? [] }
   } else {
-    extraData = { clientIds: [[0, await getBrowserprint()]] }
+    extraData = { clientIds: [] }
   }
 
   return extraData

@@ -69,23 +69,15 @@ export async function upsertUserIdentifiers(
 export async function findConnectedUsers(
   userId: SbUserId,
   minSameIdentifiers: number,
-  filterBrowserprint = true,
   withClient?: DbClient,
 ): Promise<SbUserId[]> {
   const { client, done } = await db(withClient)
   try {
-    let query = sql`
+    const result = await client.query<{ id: SbUserId }>(sql`
       SELECT user_id as "id"
       FROM user_identifiers ui
       WHERE ui.user_id != ${userId}
-    `
-    if (filterBrowserprint) {
-      query = query.append(sql`
-        AND ui.identifier_type != 0
-      `)
-    }
-
-    query = query.append(sql`
+      AND ui.identifier_type != 0
       AND (ui.identifier_type, ui.identifier_hash) IN (
         SELECT identifier_type, identifier_hash
         FROM user_identifiers ui2
@@ -94,8 +86,6 @@ export async function findConnectedUsers(
       GROUP BY ui.user_id
       HAVING COUNT(DISTINCT identifier_type) >= ${minSameIdentifiers}
     `)
-
-    const result = await client.query<{ id: SbUserId }>(query)
     return result.rows.map(r => r.id)
   } finally {
     done()
@@ -109,7 +99,6 @@ export async function findConnectedUsers(
 export async function findUsersWithIdentifiers(
   identifiers: ReadonlyArray<ClientIdentifierBuffer>,
   minSameIdentifiers: number,
-  filterBrowserprint = true,
   withClient?: DbClient,
 ): Promise<SbUserId[]> {
   const { client, done } = await db(withClient)
@@ -118,12 +107,8 @@ export async function findUsersWithIdentifiers(
       SELECT user_id as "id"
       FROM user_identifiers ui
       WHERE
+        ui.identifier_type != 0 AND (
     `
-    if (filterBrowserprint) {
-      query = query.append(sql`
-        ui.identifier_type != 0 AND
-      `)
-    }
 
     query = query.append(
       sqlConcat(
@@ -135,6 +120,7 @@ export async function findUsersWithIdentifiers(
     )
 
     query = query.append(sql`
+      )
       GROUP BY ui.user_id
       HAVING COUNT(DISTINCT identifier_type) >= ${minSameIdentifiers}
     `)
@@ -147,13 +133,12 @@ export async function findUsersWithIdentifiers(
 
 export async function countBannedUserIdentifiers(
   userId: SbUserId,
-  filterBrowserprint = true,
   withClient?: DbClient,
 ): Promise<[count: number, latestBanEnd: Date | undefined]> {
   const { client, done } = await db(withClient)
 
   try {
-    let query = sql`
+    const result = await client.query<{ matches: string; latest: Date | null }>(sql`
       SELECT COUNT(DISTINCT identifier_type) as "matches",
              MAX(banned_until) as "latest"
       FROM user_identifier_bans uib
@@ -163,15 +148,9 @@ export async function countBannedUserIdentifiers(
         WHERE ui.user_id = ${userId}
       )
       AND banned_until > NOW()
-    `
+      AND uib.identifier_type != 0
+    `)
 
-    if (filterBrowserprint) {
-      query = query.append(sql`
-        AND uib.identifier_type != 0
-      `)
-    }
-
-    const result = await client.query<{ matches: string; latest: Date | null }>(query)
     if (result.rows.length > 0) {
       const matches = Number(result.rows[0].matches)
       const latestBanEnd = result.rows[0].latest ?? undefined
@@ -221,19 +200,17 @@ export async function banAllIdentifiers(
     users,
     timeBanned = new Date(),
     bannedUntil,
-    filterBrowserprint = true,
   }: {
     users: ReadonlyArray<SbUserId>
     timeBanned?: Date
     bannedUntil: Date
-    filterBrowserprint?: boolean
   },
   withClient?: DbClient,
 ): Promise<void> {
   const { client, done } = await db(withClient)
 
   try {
-    let query = sql`
+    await client.query(sql`
       INSERT INTO user_identifier_bans AS uib (
         identifier_type, identifier_hash, time_banned, banned_until, first_user_id
       )
@@ -245,20 +222,10 @@ export async function banAllIdentifiers(
         user_id
       FROM user_identifiers
       WHERE user_id = ANY(${users})
-    `
-
-    if (filterBrowserprint) {
-      query = query.append(sql`
-        AND identifier_type != 0
-      `)
-    }
-
-    query = query.append(sql`
+      AND identifier_type != 0
       ON CONFLICT (identifier_type, identifier_hash)
       DO UPDATE SET banned_until = GREATEST(uib.banned_until, EXCLUDED.banned_until)
     `)
-
-    await client.query(query)
   } finally {
     done()
   }

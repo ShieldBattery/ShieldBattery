@@ -65,7 +65,7 @@ export class UserIdentifierManager {
    * were banned.
    */
   async banUserIfNeeded(userId: SbUserId, withClient?: DbClient): Promise<boolean> {
-    const [count, latestBanEnd] = await countBannedUserIdentifiers(userId, true, withClient)
+    const [count, latestBanEnd] = await countBannedUserIdentifiers(userId, withClient)
 
     const currentBanLengthHours = latestBanEnd
       ? (latestBanEnd.getTime() - Date.now()) / (1000 * 60 * 60)
@@ -123,6 +123,6 @@ export class UserIdentifierManager {
     withClient?: DbClient,
   ): Promise<SbUserId[]> {
     const convertedIds = convertStringIds(identifiers)
-    return findUsersWithIdentifiers(convertedIds, MIN_IDENTIFIER_MATCHES, true, withClient)
+    return findUsersWithIdentifiers(convertedIds, MIN_IDENTIFIER_MATCHES, withClient)
   }
 }

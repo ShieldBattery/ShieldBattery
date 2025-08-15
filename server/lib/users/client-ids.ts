@@ -1,7 +1,9 @@
 import Joi from 'joi'
+import { Context } from 'koa'
 import isDev from '../env/is-dev'
+import { isElectronClient } from '../network/electron-clients'
 
-export function joiClientIdentifiers() {
+export function joiClientIdentifiers(ctx: Context) {
   return Joi.array()
     .items(
       Joi.array().ordered(
@@ -9,7 +11,7 @@ export function joiClientIdentifiers() {
         Joi.string().min(0).max(64).required(),
       ),
     )
-    .min(1)
+    .min(isElectronClient(ctx) ? 1 : 0)
 }
 
 export type ClientIdentifierString = [type: number, hashStr: string]

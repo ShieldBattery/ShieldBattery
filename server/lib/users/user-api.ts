@@ -264,7 +264,7 @@ export class UserApi {
         username: joiUsername().required(),
         password: Joi.string().min(PASSWORD_MINLENGTH).required(),
         email: joiEmail().trim().required(),
-        clientIds: joiClientIdentifiers().required(),
+        clientIds: joiClientIdentifiers(ctx).required(),
         locale: joiLocale(),
       }),
     })

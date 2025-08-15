@@ -49,9 +49,6 @@ importers:
       '@babel/register':
         specifier: ^7.27.1
         version: 7.27.1(@babel/core@7.28.0)
-      '@fingerprintjs/fingerprintjs':
-        specifier: ^3.4.2
-        version: 3.4.2
       '@google-cloud/vision':
         specifier: ^5.3.3
         version: 5.3.3
@@ -61,9 +58,6 @@ importers:
       '@koa/router':
         specifier: ^12.0.2
         version: 12.0.2
-      abort-controller:
-        specifier: ^3.0.0
-        version: 3.0.0
       babel-plugin-const-enum:
         specifier: ^1.2.0
         version: 1.2.0(@babel/core@7.28.0)
@@ -2420,9 +2414,6 @@ packages:
 
   '@fastify/busboy@3.1.1':
     resolution: {integrity: sha512-5DGmA8FTdB2XbDeEwc/5ZXBl6UbBAyBOOLlPuBnZ/N1SwdH9Ii+cOX3tBROlDgcTXxjOYnLMVoKk9+FXAw0CJw==}
-
-  '@fingerprintjs/fingerprintjs@3.4.2':
-    resolution: {integrity: sha512-3Ncze6JsJpB7BpYhqIgvBpfvEX1jsEKrad5hQBpyRQxtoAp6hx3+R46zqfsuQG4D9egQZ+xftQ0u4LPFMB7Wmg==}
 
   '@floating-ui/core@1.7.3':
     resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
@@ -13798,10 +13789,6 @@ snapshots:
       levn: 0.4.1
 
   '@fastify/busboy@3.1.1': {}
-
-  '@fingerprintjs/fingerprintjs@3.4.2':
-    dependencies:
-      tslib: 2.8.1
 
   '@floating-ui/core@1.7.3':
     dependencies:

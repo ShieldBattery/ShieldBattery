@@ -37,12 +37,7 @@ export class BanEnacter {
       // we enact the ban (below), we wouldn't ban them. I don't think this is very likely to
       // happen, though, and they would get banned shortly after anyway (because of the checks
       // on login and matchmaking, etc.).
-      const connectedUsers = await findConnectedUsers(
-        targetId,
-        MIN_IDENTIFIER_MATCHES,
-        true /* filterBrowserPrint */,
-        client,
-      )
+      const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
       const users = connectedUsers.concat(targetId)
 
       const bannedUntil = new Date()

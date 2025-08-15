@@ -269,12 +269,7 @@ export default class ChatService {
   ): Promise<boolean> {
     const count = await countBannedIdentifiersForChannel({ channelId, targetId }, client)
     if (count >= MIN_IDENTIFIER_MATCHES) {
-      const connectedUsers = await findConnectedUsers(
-        targetId,
-        MIN_IDENTIFIER_MATCHES,
-        false,
-        client,
-      )
+      const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
       await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
       await banAllIdentifiersFromChannel({ channelId, targetId }, client)
       return true

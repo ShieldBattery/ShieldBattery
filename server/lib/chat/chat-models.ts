@@ -591,18 +591,16 @@ export async function countBannedIdentifiersForChannel(
   {
     channelId,
     targetId,
-    filterBrowserprint = true,
   }: {
     channelId: SbChannelId
     targetId: SbUserId
-    filterBrowserprint?: boolean
   },
   withClient?: DbClient,
 ): Promise<number> {
   const { client, done } = await db(withClient)
 
   try {
-    let query = sql`
+    const result = await client.query<{ matches: string }>(sql`
       SELECT COUNT(DISTINCT identifier_type) as "matches"
       FROM channel_identifier_bans cib
       WHERE cib.channel_id = ${channelId}
@@ -611,15 +609,9 @@ export async function countBannedIdentifiersForChannel(
         FROM user_identifiers ui
         WHERE ui.user_id = ${targetId}
       )
-    `
+      AND cib.identifier_type != 0
+    `)
 
-    if (filterBrowserprint) {
-      query = query.append(sql`
-        AND cib.identifier_type != 0
-      `)
-    }
-
-    const result = await client.query<{ matches: string }>(query)
     return result.rows.length > 0 ? Number(result.rows[0].matches) : 0
   } finally {
     done()
@@ -683,19 +675,17 @@ export async function banAllIdentifiersFromChannel(
     channelId,
     targetId,
     timeBanned = new Date(),
-    filterBrowserprint = true,
   }: {
     channelId: SbChannelId
     targetId: SbUserId
     timeBanned?: Date
-    filterBrowserprint?: boolean
   },
   withClient?: DbClient,
 ): Promise<void> {
   const { client, done } = await db(withClient)
 
   try {
-    let query = sql`
+    await client.query(sql`
       INSERT INTO channel_identifier_bans (
         channel_id, identifier_type, identifier_hash, time_banned, first_user_id
       )
@@ -707,20 +697,10 @@ export async function banAllIdentifiersFromChannel(
         user_id
       FROM user_identifiers
       WHERE user_id = ${targetId}
-    `
-
-    if (filterBrowserprint) {
-      query = query.append(sql`
         AND identifier_type != 0
-      `)
-    }
-
-    query = query.append(sql`
       ON CONFLICT (channel_id, identifier_type, identifier_hash)
       DO NOTHING
     `)
-
-    await client.query(query)
   } finally {
     done()
   }

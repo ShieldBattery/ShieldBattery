@@ -16,6 +16,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
+import { isElectronClient } from '../network/electron-clients'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { Clock } from '../time/clock'
@@ -115,7 +116,7 @@ export class SessionApi {
           .required(),
         password: Joi.string().min(PASSWORD_MINLENGTH).required(),
         remember: Joi.boolean(),
-        clientIds: joiClientIdentifiers().required(),
+        clientIds: joiClientIdentifiers(ctx).required(),
         locale: joiLocale(),
       }),
     })
@@ -132,7 +133,7 @@ export class SessionApi {
       throw new UserApiError(UserErrorCode.InvalidCredentials, 'Incorrect username or password')
     }
 
-    if (clientIds) {
+    if (clientIds && isElectronClient(ctx)) {
       await this.userIdentifierManager.upsert(user.id, clientIds)
     }
 

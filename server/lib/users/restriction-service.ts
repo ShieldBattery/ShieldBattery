@@ -83,12 +83,7 @@ export class RestrictionService {
     adminNotes?: string
   }) {
     const restrictionEntries = await transact(async client => {
-      const connectedUsers = await findConnectedUsers(
-        targetId,
-        MIN_IDENTIFIER_MATCHES,
-        true /* filterBrowserPrint */,
-        client,
-      )
+      const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
       const users = connectedUsers.concat(targetId)
 
       const startTime = new Date(this.clock.now())
