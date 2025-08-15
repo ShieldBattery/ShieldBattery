@@ -105,7 +105,7 @@ function createRoutes(players: ISet<Slot>): Promise<RouteResult[]> {
   const matchGen: Array<[Slot, ISet<Slot>]> = []
   let rest = players
   while (!rest.isEmpty()) {
-    const first = rest.first<Slot>()
+    const first = rest.first<Slot | undefined>(undefined)!
     rest = rest.rest()
     if (!rest.isEmpty()) {
       matchGen.push([first, rest])
@@ -778,7 +778,7 @@ export class GameLoader {
         })
       }
       if (!hasMultipleHumans) {
-        const human = players.first<Slot>().userId!
+        const human = players.first<Slot | undefined>(undefined)!.userId!
         this.publisher.publish(gameUserPath(gameId, human), {
           type: 'setRoutes',
           gameId,

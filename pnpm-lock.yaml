@@ -113,8 +113,8 @@ importers:
         specifier: ^10.1.1
         version: 10.1.1
       immutable:
-        specifier: ^4.3.7
-        version: 4.3.7
+        specifier: ^5.1.3
+        version: 5.1.3
       ioredis:
         specifier: ^5.7.0
         version: 5.7.0
@@ -167,8 +167,8 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^5.1.0
-        version: 5.1.0
+        specifier: ^5.2.0
+        version: 5.2.0
       nydus-client:
         specifier: ^5.1.0
         version: 5.1.0
@@ -7402,6 +7402,9 @@ packages:
   immutable@4.3.7:
     resolution: {integrity: sha512-1hqclzwYwjRDFLjcFxOM5AYkkG0rpFPpr1RLPMEuGczoS7YA8gLhy8SWXYRAA/XwfEHpfo3cw5JGioS32fnMRw==}
 
+  immutable@5.1.3:
+    resolution: {integrity: sha512-+chQdDfvscSF1SJqv2gn4SRO2ZyS3xL3r7IW/wWEEzrzLisnOlKiQu5ytC/BVNcS15C39WT2Hg/bjKjDMcu+zg==}
+
   implode-decoder@1.0.2:
     resolution: {integrity: sha512-Cqkx+E+nfT84AtvKgSbBL0n+2k/diyXJASvoCLyowZ3NC8s6sgTsE5h0qzUgZkCohWawBD0qFL7xF6rcHZSfMw==}
 
@@ -8820,8 +8823,8 @@ packages:
     resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
     engines: {node: '>=22.0.0'}
 
-  nydus@5.1.0:
-    resolution: {integrity: sha512-pSNEBGvv0TmiYPj4LOJEc85LgGZK5y3r6M2RTY0YHL9mvf/cTEIcw8ZMFTy++wBs4jnpnf6JC9IbNjtCtKKPgg==}
+  nydus@5.2.0:
+    resolution: {integrity: sha512-ovHmA3WZDSWdXCzqi6o4DFBQEpL/aUrT1s9DTg4O8y9u3aDsEnPt7BRM4PowjgShHzCkRRYtLkUotIVbLtK89A==}
 
   nypm@0.6.0:
     resolution: {integrity: sha512-mn8wBFV9G9+UFHIrq+pZ2r2zL4aPau/by3kJb3cM7+5tQHMt6HGQB8FDIeKFYp8o0D2pnH6nVsO88N4AmUxIWg==}
@@ -19830,6 +19833,8 @@ snapshots:
 
   immutable@4.3.7: {}
 
+  immutable@5.1.3: {}
+
   implode-decoder@1.0.2:
     dependencies:
       inherits: 2.0.4
@@ -21345,11 +21350,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  nydus@5.1.0:
+  nydus@5.2.0:
     dependencies:
       backo2: 1.0.2
       engine.io: 6.6.4
-      immutable: 4.3.7
+      immutable: 5.1.3
       nanoid: 5.1.5
       nydus-protocol: 3.0.0
       ruta3: 2.0.1
