@@ -266,7 +266,7 @@ export class UserApi {
         email: joiEmail().trim().required(),
         clientIds: joiClientIdentifiers(ctx).required(),
         locale: joiLocale(),
-      }),
+      }).required(),
     })
 
     const { username, password, email, clientIds, locale } = body
@@ -361,7 +361,7 @@ export class UserApi {
           .max(USERNAME_MAXLENGTH)
           .pattern(USERNAME_PATTERN)
           .required(),
-      }),
+      }).required(),
     })
 
     const available = await isUsernameAvailable(username)
@@ -386,7 +386,7 @@ export class UserApi {
     } = validateRequest(ctx, {
       body: Joi.object<RecoverUsernameRequest>({
         email: joiEmail().required().trim(),
-      }),
+      }).required(),
     })
 
     const users = await findAllUsersWithEmail(email)
@@ -422,7 +422,7 @@ export class UserApi {
       body: Joi.object<RequestPasswordResetRequest>({
         username: joiUsername().required(),
         email: joiEmail().required().trim(),
-      }),
+      }).required(),
     })
 
     const user = await findUserByName(username)
@@ -469,7 +469,7 @@ export class UserApi {
       body: Joi.object<ResetPasswordRequest>({
         code: Joi.string().regex(RANDOM_EMAIL_CODE_PATTERN).required(),
         password: Joi.string().min(PASSWORD_MINLENGTH).required(),
-      }),
+      }).required(),
     })
 
     await transact(async client => {
@@ -492,7 +492,7 @@ export class UserApi {
     const { query } = validateRequest(ctx, {
       query: Joi.object<{ u: SbUserId[] }>({
         u: Joi.array().items(joiUserId()).single().min(1).max(20),
-      }),
+      }).required(),
     })
 
     const userIds = query.u
@@ -511,7 +511,7 @@ export class UserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(params.id)
@@ -620,7 +620,7 @@ export class UserApi {
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
       query: Joi.object<{ q?: string; offset: number }>({
         q: Joi.string().allow(''),
         offset: Joi.number().min(0),
@@ -673,7 +673,7 @@ export class UserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(params.id)
@@ -730,7 +730,7 @@ export class UserApi {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
       body: Joi.object<AcceptPoliciesRequest>({
         policies: Joi.array()
           .items(
@@ -740,7 +740,7 @@ export class UserApi {
           )
           .min(1)
           .required(),
-      }),
+      }).required(),
     })
 
     if (params.id !== ctx.session!.user.id) {
@@ -779,10 +779,10 @@ export class UserApi {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
       body: Joi.object<ChangeLanguageRequest>({
         language: Joi.valid(...ALL_TRANSLATION_LANGUAGES).required(),
-      }),
+      }).required(),
     })
 
     if (params.id !== ctx.session!.user.id) {
@@ -807,7 +807,7 @@ export class UserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().valid(ctx.session!.user.id).required(),
-      }),
+      }).required(),
     })
 
     const user = await findSelfById(params.id)
@@ -846,10 +846,10 @@ export class UserApi {
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().valid(ctx.session!.user.id).required(),
-      }),
+      }).required(),
       body: Joi.object<{ code: string }>({
         code: Joi.string().required(),
-      }),
+      }).required(),
     })
 
     const user = await findSelfById(params.id)
@@ -882,7 +882,7 @@ export class UserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().valid(ctx.session!.user.id).required(),
-      }),
+      }).required(),
     })
 
     const summary = await this.userRelationshipService.getRelationshipSummary(params.id)
@@ -907,7 +907,7 @@ export class UserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(params.id)
@@ -935,7 +935,7 @@ export class UserApi {
       params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
         toId: joiUserId().required(),
         fromId: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     if (toId !== ctx.session!.user.id && fromId !== ctx.session!.user.id) {
@@ -965,7 +965,7 @@ export class UserApi {
       params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
         toId: joiUserId().valid(ctx.session!.user.id).required(),
         fromId: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(fromId)
@@ -990,7 +990,7 @@ export class UserApi {
       params: Joi.object<{ removerId: SbUserId; targetId: SbUserId }>({
         removerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(targetId)
@@ -1015,7 +1015,7 @@ export class UserApi {
       params: Joi.object<{ blockerId: SbUserId; targetId: SbUserId }>({
         blockerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(targetId)
@@ -1040,7 +1040,7 @@ export class UserApi {
       params: Joi.object<{ unblockerId: SbUserId; targetId: SbUserId }>({
         unblockerId: joiUserId().valid(ctx.session!.user.id).required(),
         targetId: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const user = await findUserById(targetId)
@@ -1068,7 +1068,7 @@ export class AdminUserApi {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
-      }),
+      }).required(),
     })
 
     const [user, banHistory] = await Promise.all([

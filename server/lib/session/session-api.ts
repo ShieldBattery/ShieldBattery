@@ -74,7 +74,7 @@ export class SessionApi {
       query: { locale },
     } = validateRequest(ctx, {
       query: Joi.object<{ date: number; locale?: string }>({
-        date: Joi.number().required(),
+        date: Joi.number(),
         locale: joiLocale(),
       }),
     })
@@ -118,7 +118,7 @@ export class SessionApi {
         remember: Joi.boolean(),
         clientIds: joiClientIdentifiers(ctx).required(),
         locale: joiLocale(),
-      }),
+      }).required(),
     })
 
     const { username, password, remember, clientIds, locale } = body
