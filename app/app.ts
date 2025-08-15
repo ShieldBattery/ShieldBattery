@@ -813,6 +813,7 @@ async function createWindow() {
     minHeight: 640,
 
     acceptFirstMouse: true,
+    accentColor: '#123a86', // This is used for the border of the window on Win 11
     backgroundColor: '#10151e', // NOTE(tec27): This should always match the background in root CSS
     frame: false,
     transparent: false,
