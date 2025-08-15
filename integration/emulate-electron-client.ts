@@ -23,6 +23,10 @@ export async function emulateElectronClient(page: Page): Promise<void> {
   })
 }
 
+const FAKE_IDENTIFIER = globalThis.crypto.subtle
+  .digest('SHA-256', new TextEncoder().encode(String(Date.now())))
+  .then(buf => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join(''))
+
 /**
  * Emulate an Electron client for a specific route. This is a lower-level version of
  * `emulateElectronClient` that allows you to handle the response and headers yourself, in case you
@@ -41,7 +45,19 @@ export async function emulateElectronClientForRoute(
     origin: 'shieldbattery://app',
   }
 
-  const response = await route.fetch({ headers: reqHeaders })
+  const fetchOptions: Parameters<Route['fetch']>[0] = { headers: reqHeaders }
+  if (
+    route.request().method().toUpperCase() === 'POST' &&
+    (route.request().url().endsWith('/api/1/users') ||
+      route.request().url().endsWith('/api/1/sessions'))
+  ) {
+    // Add client identifiers
+    const body = JSON.parse(route.request().postData() ?? '{}')
+    body.clientIds = [[1, await FAKE_IDENTIFIER]]
+    fetchOptions.postData = JSON.stringify(body)
+  }
+
+  const response = await route.fetch(fetchOptions)
   const actualOrigin = new URL(pageUrl).origin
   const resHeaders = {
     ...response.headers(),
