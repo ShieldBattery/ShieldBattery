@@ -174,14 +174,14 @@ export function adminGetUserBanHistory(
 }
 
 export function adminBanUser(
-  { userId, banLengthHours, reason }: { userId: SbUserId; banLengthHours: number; reason?: string },
+  { userId, endTime, reason }: { userId: SbUserId; endTime: number; reason?: string },
   spec: RequestHandlingSpec<AdminBanUserResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const res = await fetchJson<AdminBanUserResponse>(apiUrl`admin/users/${userId}/bans`, {
       method: 'POST',
       body: encodeBodyAsParams<AdminBanUserRequest>({
-        banLengthHours,
+        endTime,
         reason,
       }),
       signal: spec.signal,

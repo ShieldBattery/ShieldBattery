@@ -23,12 +23,12 @@ export class BanEnacter {
   async enactBan({
     targetId,
     bannedBy,
-    banLengthHours,
+    endTime,
     reason,
   }: {
     targetId: SbUserId
     bannedBy?: SbUserId
-    banLengthHours: number
+    endTime: Date
     reason?: string
   }): Promise<UserBanRow> {
     return await transact(async client => {
@@ -40,18 +40,16 @@ export class BanEnacter {
       const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
       const users = connectedUsers.concat(targetId)
 
-      const bannedUntil = new Date()
-      bannedUntil.setHours(bannedUntil.getHours() + banLengthHours)
       const banEntries = await banUsers(
         {
           users,
           bannedBy,
-          banLengthHours,
+          endTime,
           reason,
         },
         client,
       )
-      await banAllIdentifiers({ users, bannedUntil }, client)
+      await banAllIdentifiers({ users, bannedUntil: endTime }, client)
 
       // Delete all the active sessions and close any sockets they have open, so that they're forced
       // to log in again and we don't need to ban check on every operation

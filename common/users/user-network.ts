@@ -146,7 +146,7 @@ export interface AdminGetBansResponse {
 }
 
 export interface AdminBanUserRequest {
-  banLengthHours: number
+  endTime: number
   reason?: string
 }
 

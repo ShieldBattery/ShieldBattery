@@ -55,20 +55,19 @@ export async function banUsers(
   {
     users,
     bannedBy,
-    banLengthHours,
+    endTime,
     reason,
   }: {
     users: ReadonlyArray<SbUserId>
     bannedBy?: SbUserId
-    banLengthHours: number
+    endTime: Date
     reason?: string
   },
   withClient?: DbClient,
 ): Promise<UserBanRow[]> {
   const { client, done } = await db(withClient)
   const startDate = new Date()
-  const endDate = new Date()
-  endDate.setHours(endDate.getHours() + banLengthHours)
+  const endDate = endTime
 
   try {
     const result = await client.query(sql`

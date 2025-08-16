@@ -77,9 +77,11 @@ export class UserIdentifierManager {
     )
 
     if (count >= MIN_IDENTIFIER_MATCHES) {
+      const endTime = new Date()
+      endTime.setHours(endTime.getHours() + newBanLengthHours)
       await this.banEnacter.enactBan({
         targetId: userId,
-        banLengthHours: newBanLengthHours,
+        endTime,
         reason: 'ban evasion',
       })
 

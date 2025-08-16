@@ -1101,7 +1101,7 @@ export class AdminUserApi {
         id: joiUserId().required(),
       }),
       body: Joi.object<AdminBanUserRequest>({
-        banLengthHours: Joi.number().required(),
+        endTime: Joi.date().timestamp().min(Date.now()).required(),
         reason: Joi.string(),
       }).required(),
     })
@@ -1119,7 +1119,7 @@ export class AdminUserApi {
       this.banEnacter.enactBan({
         targetId: user.id,
         bannedBy: ctx.session!.user.id,
-        banLengthHours: body.banLengthHours,
+        endTime: new Date(body.endTime),
         reason: body.reason,
       }),
       await findUserById(ctx.session!.user.id),

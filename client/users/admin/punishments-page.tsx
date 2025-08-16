@@ -89,7 +89,7 @@ const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 interface BanFormModel {
-  banLengthHours: number
+  endTime: string
   reason?: string
 }
 
@@ -101,7 +101,7 @@ interface RestrictionFormModel {
 }
 
 const BAN_FORM_DEFAULTS: BanFormModel = {
-  banLengthHours: 3,
+  endTime: '',
   reason: undefined,
 }
 
@@ -171,7 +171,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
           onSubmit={model => {
             dispatch(
               adminBanUser(
-                { userId, banLengthHours: model.banLengthHours, reason: model.reason },
+                { userId, endTime: Date.parse(model.endTime), reason: model.reason },
                 {
                   onSuccess: response => {
                     setBanHistory(history => {
@@ -246,7 +246,14 @@ function BanUserForm({
   model: BanFormModel
   onSubmit: (model: ReadonlyDeep<BanFormModel>) => void
 }) {
-  const { submit, bindInput, bindCustom, form } = useForm<BanFormModel>(model, {})
+  const { submit, bindInput, form } = useForm<BanFormModel>(model, {
+    endTime: value => {
+      if (!value || Date.parse(value) <= Date.now()) {
+        return 'End time must be in the future'
+      }
+      return undefined
+    },
+  })
 
   useFormCallbacks(form, {
     onSubmit,
@@ -255,13 +262,12 @@ function BanUserForm({
   return (
     <form noValidate={true} onSubmit={submit}>
       <TitleLarge>Ban user</TitleLarge>
-      <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
-        <SelectOption value={3} text='3 Hours' />
-        <SelectOption value={24} text='1 Day' />
-        <SelectOption value={24 * 7} text='1 Week' />
-        <SelectOption value={24 * 7 * 4} text='1 Month' />
-        <SelectOption value={24 * 365 * 999} text='Permanent!' />
-      </Select>
+      <DateTimeTextField
+        {...bindInput('endTime')}
+        label='End time'
+        floatingLabel={true}
+        inputProps={{ tabIndex: 0 }}
+      />
       <BodyMedium>This reason will be visible to the user!</BodyMedium>
       <TextField
         {...bindInput('reason')}

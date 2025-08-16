@@ -53,9 +53,11 @@ test('banned user can see message', async ({ page, baseURL }) => {
   const banReason = 'I need to ban you to test something!'
 
   const adminContext = await adminRequestContext()
+  const endTime = new Date()
+  endTime.setHours(endTime.getHours() + 9001)
   const response = await adminContext.post(`/api/1/admin/users/${userId}/bans`, {
     data: {
-      banLengthHours: 9001,
+      endTime: Number(endTime),
       reason: banReason,
     } satisfies AdminBanUserRequest,
     headers: {
