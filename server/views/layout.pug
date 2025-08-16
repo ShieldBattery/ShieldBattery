@@ -12,7 +12,8 @@ html(lang='en')
     script(type='text/javascript', nonce=cspNonce).
       window.SB_CSP_NONCE=!{JSON.stringify(cspNonce)}
     block headScripts
-    script(type='text/javascript', src='/scripts/client.js', defer, async, nonce=cspNonce)
+    each asset in jsAssets
+      script(type='text/javascript', src=asset, defer, nonce=cspNonce, crossorigin)
     link(href=fontsUrl, rel='stylesheet', type='text/css', nonce=cspNonce)
     link(href=iconsUrl, rel='stylesheet', type='text/css', nonce=cspNonce)
     link(rel='icon', type='image/x-icon', href='/images/favicon.ico')

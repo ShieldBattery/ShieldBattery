@@ -167,8 +167,8 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.2.1
+        version: 5.2.1
       nydus-client:
         specifier: ^5.1.0
         version: 5.1.0
@@ -698,6 +698,9 @@ importers:
       webpack:
         specifier: ^5.101.2
         version: 5.101.2(@swc/core@1.13.3(@swc/helpers@0.5.15))(esbuild@0.25.9)(webpack-cli@6.0.1)
+      webpack-assets-manifest:
+        specifier: ^6.2.2
+        version: 6.2.2(webpack@5.101.2)
       webpack-cli:
         specifier: ^6.0.1
         version: 6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.2)
@@ -710,6 +713,9 @@ importers:
       webpack-hot-middleware:
         specifier: ^2.26.1
         version: 2.26.1
+      webpack-manifest-plugin:
+        specifier: ^5.0.1
+        version: 5.0.1(webpack@5.101.2)
       wonka:
         specifier: ^6.3.5
         version: 6.3.5
@@ -8138,6 +8144,9 @@ packages:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
 
+  lockfile@1.0.4:
+    resolution: {integrity: sha512-cvbTwETRfsFh4nHsL1eGWapU1XFi5Ot9E85sWAwia7Y7EgB7vfqcZhTKZ+l7hCGxSPoushMv5GKhT5PdLv03WA==}
+
   lodash-es@4.17.21:
     resolution: {integrity: sha512-mKnC+QJ9pWVzv+C4/U3rRsHapFfHvQFoFB92e52xeyGMcX6/OlIl78je1u8vePzYZSkkogMPJ2yjxxsb89cxyw==}
 
@@ -8823,8 +8832,8 @@ packages:
     resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
     engines: {node: '>=22.0.0'}
 
-  nydus@5.2.0:
-    resolution: {integrity: sha512-ovHmA3WZDSWdXCzqi6o4DFBQEpL/aUrT1s9DTg4O8y9u3aDsEnPt7BRM4PowjgShHzCkRRYtLkUotIVbLtK89A==}
+  nydus@5.2.1:
+    resolution: {integrity: sha512-Ybmfpe2Dug/ZBUV+itO+WTO2hBRnlC7Vu5+Q/bUVwoaALtkIvpas35bVnqcs6zp5srsshhzZSz4F2HetBzsNQA==}
 
   nypm@0.6.0:
     resolution: {integrity: sha512-mn8wBFV9G9+UFHIrq+pZ2r2zL4aPau/by3kJb3cM7+5tQHMt6HGQB8FDIeKFYp8o0D2pnH6nVsO88N4AmUxIWg==}
@@ -9410,8 +9419,8 @@ packages:
     resolution: {integrity: sha512-AnMIfnoK2Ml3F/ZVl5PxcwIoefMxj4U/lomJ5/B2eIGdxw4UkbV1YamtsMQsEkZATdMCKMbnI1iG9RQaJbxBGw==}
     engines: {node: '>=18'}
 
-  protobufjs@7.5.3:
-    resolution: {integrity: sha512-sildjKwVqOI2kmFDiXQ6aEB0fjYTafpEvIBs8tOR8qI4spuL9OPROLVu2qZqi/xgCfsHIwVqlaF8JBjWFHnKbw==}
+  protobufjs@7.5.4:
+    resolution: {integrity: sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg==}
     engines: {node: '>=12.0.0'}
 
   proxy-addr@2.0.7:
@@ -10250,6 +10259,9 @@ packages:
   sort-keys@5.1.0:
     resolution: {integrity: sha512-aSbHV0DaBcr7u0PVHXzM6NbZNAtrr9sF6+Qfs9UUVG7Ll3jQ6hHi8F/xqIIcn2rvIVbr0v/2zyjSdwSV47AgLQ==}
     engines: {node: '>=12'}
+
+  source-list-map@2.0.1:
+    resolution: {integrity: sha512-qnQ7gVMxGNxsiL4lEuJwe/To8UnK7fAnmbGEEH8RpLouuKbeEm0lhbQVFIrNSuB+G7tVrAlVsZgETT5nljf+Iw==}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -11184,6 +11196,12 @@ packages:
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
+  webpack-assets-manifest@6.2.2:
+    resolution: {integrity: sha512-oiOnBxCf5rkwAZfslP/oTNnKaNx3mpMZCOS+rkl5vNY5o3qkMhunlpD3ORcKmVe4v5h78o/e+hM6kAvPxgBolg==}
+    engines: {node: '>=20.10.0'}
+    peerDependencies:
+      webpack: ^5.61.0
+
   webpack-cli@6.0.1:
     resolution: {integrity: sha512-MfwFQ6SfwinsUVi0rNJm7rHZ31GyTcpVE5pgVA3hwFRb7COD4TzjUUwhGWKfO50+xdc2MQPuEBBJoqIMGt3JDw==}
     engines: {node: '>=18.12.0'}
@@ -11223,9 +11241,19 @@ packages:
   webpack-hot-middleware@2.26.1:
     resolution: {integrity: sha512-khZGfAeJx6I8K9zKohEWWYN6KDlVw2DHownoe+6Vtwj1LP9WFgegXnVMSkZ/dBEBtXFwrkkydsaPFlB7f8wU2A==}
 
+  webpack-manifest-plugin@5.0.1:
+    resolution: {integrity: sha512-xTlX7dC3hrASixA2inuWFMz6qHsNi6MT3Uiqw621sJjRTShtpMjbDYhPPZBwWUKdIYKIjSq9em6+uzWayf38aQ==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      webpack: ^5.75.0
+
   webpack-merge@6.0.1:
     resolution: {integrity: sha512-hXXvrjtx2PLYx4qruKl+kyRSLc52V+cCvMxRjmKwoA+CBbbF5GfIBtR6kCvl0fYGqTUPKB+1ktVmTHqMOzgCBg==}
     engines: {node: '>=18.0.0'}
+
+  webpack-sources@2.3.1:
+    resolution: {integrity: sha512-y9EI9AO42JjEcrTJFOYmVywVZdKVUfOvDUPsJea5GIr1JOEGFVqwlY2K098fFoIjOkDzHn2AjRvM8dsBZu+gCA==}
+    engines: {node: '>=10.13.0'}
 
   webpack-sources@3.3.3:
     resolution: {integrity: sha512-yd1RBzSGanHkitROoPFd6qsrxt+oFhg/129YzheDGqeustzX0vTZJZsSsQjVQC4yzBQ56K55XU8gaNCtIzOnTg==}
@@ -14307,14 +14335,14 @@ snapshots:
     dependencies:
       lodash.camelcase: 4.3.0
       long: 5.3.2
-      protobufjs: 7.5.3
+      protobufjs: 7.5.4
       yargs: 17.7.2
 
   '@grpc/proto-loader@0.8.0':
     dependencies:
       lodash.camelcase: 4.3.0
       long: 5.3.2
-      protobufjs: 7.5.3
+      protobufjs: 7.5.4
       yargs: 17.7.2
 
   '@gulpjs/to-absolute-glob@4.0.0':
@@ -19404,7 +19432,7 @@ snapshots:
       node-fetch: 3.3.2
       object-hash: 3.0.0
       proto3-json-serializer: 3.0.2
-      protobufjs: 7.5.3
+      protobufjs: 7.5.4
       retry-request: 8.0.2
     transitivePeerDependencies:
       - supports-color
@@ -20591,6 +20619,10 @@ snapshots:
     dependencies:
       p-locate: 5.0.0
 
+  lockfile@1.0.4:
+    dependencies:
+      signal-exit: 3.0.7
+
   lodash-es@4.17.21: {}
 
   lodash.camelcase@4.3.0: {}
@@ -21350,7 +21382,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  nydus@5.2.0:
+  nydus@5.2.1:
     dependencies:
       backo2: 1.0.2
       engine.io: 6.6.4
@@ -22018,9 +22050,9 @@ snapshots:
 
   proto3-json-serializer@3.0.2:
     dependencies:
-      protobufjs: 7.5.3
+      protobufjs: 7.5.4
 
-  protobufjs@7.5.3:
+  protobufjs@7.5.4:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/base64': 1.1.2
@@ -23112,6 +23144,8 @@ snapshots:
     dependencies:
       is-plain-obj: 4.1.0
 
+  source-list-map@2.0.1: {}
+
   source-map-js@1.2.1: {}
 
   source-map-support@0.5.21:
@@ -24150,6 +24184,14 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
+  webpack-assets-manifest@6.2.2(webpack@5.101.2):
+    dependencies:
+      deepmerge: 4.3.1
+      lockfile: 1.0.4
+      schema-utils: 4.3.2
+      tapable: 2.2.2
+      webpack: 5.101.2(@swc/core@1.13.3(@swc/helpers@0.5.15))(esbuild@0.25.9)(webpack-cli@6.0.1)
+
   webpack-cli@6.0.1(webpack-dev-server@5.2.2)(webpack@5.101.2):
     dependencies:
       '@discoveryjs/json-ext': 0.6.3
@@ -24225,11 +24267,22 @@ snapshots:
       html-entities: 2.6.0
       strip-ansi: 6.0.1
 
+  webpack-manifest-plugin@5.0.1(webpack@5.101.2):
+    dependencies:
+      tapable: 2.2.2
+      webpack: 5.101.2(@swc/core@1.13.3(@swc/helpers@0.5.15))(esbuild@0.25.9)(webpack-cli@6.0.1)
+      webpack-sources: 2.3.1
+
   webpack-merge@6.0.1:
     dependencies:
       clone-deep: 4.0.1
       flat: 5.0.2
       wildcard: 2.0.1
+
+  webpack-sources@2.3.1:
+    dependencies:
+      source-list-map: 2.0.1
+      source-map: 0.6.1
 
   webpack-sources@3.3.3: {}
 

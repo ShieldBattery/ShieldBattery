@@ -34,6 +34,7 @@ import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
+import { getElectronWebpackAssets } from './webpack-manifest-reader'
 
 // Allow accessing __WEBPACK_ENV in development, since webpack adds it in production
 if (!(global as any).__WEBPACK_ENV) {
@@ -659,11 +660,20 @@ function setupCspProtocol(curSession: Session) {
         const isHot = !!process.env.SB_HOT
         const hasReactDevTools = !!process.env.SB_REACT_DEV
         const analyticsId = process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID ?? ''
-        const result = contents
-          .replace(
-            /%SCRIPT_URL%/g,
-            isHot ? 'http://localhost:5566/dist/bundle.js' : '/dist/bundle.js',
+
+        const scriptUrls = isHot
+          ? ['http://localhost:5566/dist/bundle.js']
+          : await getElectronWebpackAssets()
+
+        const scriptTags = scriptUrls
+          .map(
+            url =>
+              `<script type="text/javascript" src="${url}" nonce="${nonce}" crossorigin></script>`,
           )
+          .join('\n')
+
+        const result = contents
+          .replace(/%SCRIPT_TAGS%/g, scriptTags)
           .replace(/%CSP_NONCE%/g, nonce)
           .replace(/%ANALYTICS_ID%/g, analyticsId)
           .replace(

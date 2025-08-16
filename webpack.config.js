@@ -14,8 +14,9 @@ const webWebpackOpts = {
     bundle: './client/index.jsx',
   },
   output: {
-    chunkFilename: '[name].chunk.js',
-    filename: '[name].js',
+    chunkFilename:
+      process.env.NODE_ENV === 'production' ? '[name].[contenthash:8].chunk.js' : '[name].chunk.js',
+    filename: process.env.NODE_ENV === 'production' ? '[name].[contenthash:8].js' : '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: process.env.NODE_ENV !== 'production' ? 'http://localhost:5566/dist/' : '/dist/',
     crossOriginLoading: 'anonymous',
@@ -24,6 +25,18 @@ const webWebpackOpts = {
     // For whatever reason, `import type { ... } from 'electron'` isn't being removed by
     // babel/preset-typescript, so we just ignore them instead.
     new webpack.IgnorePlugin({ checkResource: resource => resource === 'electron' }),
+    ...(process.env.NODE_ENV === 'production'
+      ? [
+          new webpack.optimize.ModuleConcatenationPlugin(),
+          new (require('webpack-assets-manifest').WebpackAssetsManifest)({
+            output: 'manifest.json',
+            publicPath: '/dist/',
+            writeToDisk: true,
+            entrypoints: true,
+            entrypointsUseAssets: true,
+          }),
+        ]
+      : []),
   ],
 }
 

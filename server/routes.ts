@@ -19,6 +19,7 @@ import { NewsService } from './lib/news/news-service'
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
+import { getWebpackAssets } from './lib/webpack/manifest-reader'
 import { WebsocketServer } from './websockets'
 
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
@@ -136,6 +137,7 @@ export default function applyRoutes(
         session:
           ctx.session && ctx.state.jwtData ? { ...ctx.session, jwt: await getJwt(ctx) } : undefined,
       }
+      const webpackAssets = await getWebpackAssets()
       await ctx.render('index', {
         initData,
         cspNonce: getCspNonce(ctx),
@@ -147,6 +149,9 @@ export default function applyRoutes(
         // We add the version to these URLs to cache bust
         fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css?${packageJson.version}`,
         iconsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/icons.css?${packageJson.version}`,
+        // These have unique names based on contents so they naturally cache bust (we do strip
+        // the first / though since the public assets URL always ends in one)
+        jsAssets: webpackAssets.js.map(f => `${publicAssetsConfig.publicAssetsUrl}${f.slice(1)}`),
       })
     },
   )
