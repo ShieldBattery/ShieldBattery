@@ -80,7 +80,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
   const selfPermissions = useSelfPermissions()
 
   const [matches, params] = useRoute<{ adminSubPage?: string }>(
-    `/users/${user.id}/${user.name}/admin/:adminSubPage?`,
+    `/users/:id/:name/admin/:adminSubPage?`,
   )
 
   const subPageUrl = (subPage: AdminSubPage) =>
