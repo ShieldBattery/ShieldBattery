@@ -166,7 +166,7 @@ pub async fn jwt_middleware(
                 error!("error deleting session from Redis: {e:?}");
             }
         } else if let Err(e) = redis
-            .expire::<_, bool>(key, settings.session_ttl.as_secs() as usize)
+            .expire::<_, bool>(key, settings.session_ttl.as_secs() as i64)
             .await
         {
             error!("error setting new session expiration: {e:?}");

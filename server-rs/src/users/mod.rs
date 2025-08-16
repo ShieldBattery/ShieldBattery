@@ -707,7 +707,7 @@ impl CurrentUserRepo {
             .set_ex::<_, _, ()>(
                 CurrentUserRepo::user_cache_key(user_id),
                 serde_json::to_string(&cached_user).wrap_err("Failed to serialize cached user")?,
-                CurrentUserRepo::USER_CACHE_TIME.as_secs() as usize,
+                CurrentUserRepo::USER_CACHE_TIME.as_secs(),
             )
             .await
             .wrap_err("Failed to save cached user")?;
