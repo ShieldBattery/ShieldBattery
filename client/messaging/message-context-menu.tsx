@@ -154,14 +154,14 @@ function MessageContextMenuContents({
     )
   }
 
-  return items.size > 0 ? (
+  return (
     <MessageMenu
       messageId={messageId}
       items={items}
       onMenuClose={onDismiss}
       MenuComponent={MessageContextMenuList}
     />
-  ) : null
+  )
 }
 
 function MessageContextMenuList({
@@ -184,9 +184,9 @@ function MessageContextMenuList({
     return elems
   }, [])
 
-  return (
+  return orderedMenuItems.length > 0 ? (
     <MessageMenuContext.Provider value={{ messageId, onMenuClose }}>
       <MenuList dense={true}>{orderedMenuItems}</MenuList>
     </MessageMenuContext.Provider>
-  )
+  ) : null
 }
