@@ -102,14 +102,14 @@ interface RestrictionFormModel {
 
 const BAN_FORM_DEFAULTS: BanFormModel = {
   endTime: '',
-  reason: undefined,
+  reason: '',
 }
 
 const RESTRICTION_FORM_DEFAULTS: RestrictionFormModel = {
   kind: RestrictionKind.Chat,
   endTime: '',
   reason: RestrictionReason.Spam,
-  adminNotes: undefined,
+  adminNotes: '',
 }
 
 export interface AdminPunishmentsPageProps {
@@ -171,7 +171,11 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
           onSubmit={model => {
             dispatch(
               adminBanUser(
-                { userId, endTime: Date.parse(model.endTime), reason: model.reason },
+                {
+                  userId,
+                  endTime: Date.parse(model.endTime),
+                  reason: model.reason?.length ? model.reason : undefined,
+                },
                 {
                   onSuccess: response => {
                     setBanHistory(history => {
@@ -340,7 +344,7 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
                   kind: model.kind,
                   endTime: Date.parse(model.endTime),
                   reason: model.reason,
-                  adminNotes: model.adminNotes?.slice(0, 500),
+                  adminNotes: model.adminNotes?.length ? model.adminNotes.slice(0, 500) : undefined,
                 },
                 {
                   onSuccess: response => {
