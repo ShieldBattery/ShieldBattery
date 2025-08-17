@@ -340,7 +340,7 @@ impl UsersMutation {
         let mut emails = Vec::new();
         let mut published_messages = Vec::new();
 
-        let get_password_query = changes.new_password.map(|new_password| {
+        let update_password_query = changes.new_password.map(|new_password| {
             emails.push(MailgunMessage {
                 to: user.email.clone(),
                 template: MailgunTemplate::PasswordChange(PasswordChangeData {
@@ -479,7 +479,7 @@ impl UsersMutation {
         query.push(" WHERE id = ");
         query.push_bind(user.id);
 
-        if !has_update && get_password_query.is_none() {
+        if !has_update && update_password_query.is_none() {
             return Ok(user.clone());
         }
 
@@ -489,60 +489,30 @@ impl UsersMutation {
             .await
             .wrap_err("Failed to start transaction")?;
 
-        let update_sessions = match (has_update, get_password_query) {
-            (false, None) => false,
-            (false, Some(get_password_query)) => {
-                get_password_query
-                    .await?
-                    .execute(&mut *tx)
-                    .await
-                    .wrap_err("Failed to update password")?;
-                // Changing the password doesn't change anything in the session data
-                false
-            }
-            (true, None) => {
-                // Set audit context before the update
-                let client_ip = ctx.data::<ClientIp>()?;
-                let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
-                set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
+        if let Some(query) = update_password_query {
+            query
+                .await?
+                .execute(&mut *tx)
+                .await
+                .wrap_err("Failed to update password")?;
+        }
+        if has_update {
+            // Set audit context before the update
+            let client_ip = ctx.data::<ClientIp>()?;
+            let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
+            set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
 
-                query
-                    .build()
-                    .execute(&mut *tx)
+            query
+                .build()
+                .execute(&mut *tx)
+                .await
+                .wrap_err("Failed to update user data")?;
+            if let Some(q) = email_verification {
+                q.execute(&mut *tx)
                     .await
-                    .wrap_err("Failed to update user data")?;
-                if let Some(q) = email_verification {
-                    q.execute(&mut *tx)
-                        .await
-                        .wrap_err("Failed to insert email verification")?;
-                }
-                true
+                    .wrap_err("Failed to insert email verification")?;
             }
-            (true, Some(get_password_query)) => {
-                // Set audit context before the update
-                let client_ip = ctx.data::<ClientIp>()?;
-                let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
-                set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
-
-                query
-                    .build()
-                    .execute(&mut *tx)
-                    .await
-                    .wrap_err("Failed to update user data")?;
-                if let Some(q) = email_verification {
-                    q.execute(&mut *tx)
-                        .await
-                        .wrap_err("Failed to insert email verification")?;
-                }
-                get_password_query
-                    .await?
-                    .execute(&mut *tx)
-                    .await
-                    .wrap_err("Failed to update password")?;
-
-                true
-            }
-        };
+        }
 
         tx.commit().await.wrap_err("Failed to commit transaction")?;
 
@@ -565,7 +535,7 @@ impl UsersMutation {
             });
         }
 
-        if update_sessions {
+        if has_update {
             let user = ctx
                 .data::<CurrentUserRepo>()?
                 .load_cached_user(user.id, CacheBehavior::ForceRefresh)
