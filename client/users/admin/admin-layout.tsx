@@ -4,6 +4,7 @@ import { useRoute } from 'wouter'
 import { urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { useSelfPermissions } from '../../auth/auth-utils'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../../material/button'
 import { LinkButton } from '../../material/link-button'
 import { Tooltip } from '../../material/tooltip'
@@ -57,6 +58,8 @@ const AdminNavLink = styled(LinkButton)<{ $active: boolean }>`
 `
 
 const AdminNavIconButton = styled(IconButton)`
+  width: 56px;
+  height: 56px;
   color: var(--_icon-color);
 `
 
@@ -90,10 +93,6 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
 
   const canEditPermissions = !!selfPermissions?.editPermissions
   const canBanUsers = !!selfPermissions?.banUsers
-
-  if (!canEditPermissions && !canBanUsers) {
-    return <LoadingError>Access denied.</LoadingError>
-  }
 
   let adminSubPage =
     matches &&
@@ -146,57 +145,60 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
   return (
     <AdminLayoutRoot>
       <AdminNavigation>
-        {canEditPermissions && (
-          <Tooltip
-            text={t('users.admin.permissions.title', 'Permissions')}
-            position='bottom'
-            tabIndex={-1}>
-            <AdminNavLink
-              $active={adminSubPage === AdminSubPage.Permissions}
-              href={subPageUrl(AdminSubPage.Permissions)}>
-              <AdminNavIconButton icon='shield_toggle' styledAs='div' />
-            </AdminNavLink>
-          </Tooltip>
-        )}
-        {canBanUsers && (
-          <Tooltip
-            text={t('users.admin.punishments.title', 'Punishments')}
-            position='bottom'
-            tabIndex={-1}>
-            <AdminNavLink
-              data-test='punishments-button'
-              $active={adminSubPage === AdminSubPage.Punishments}
-              href={subPageUrl(AdminSubPage.Punishments)}>
-              <AdminNavIconButton icon='bomb' styledAs='div' />
-            </AdminNavLink>
-          </Tooltip>
-        )}
-        {canBanUsers && (
-          <Tooltip
-            text={t('users.admin.ipAddresses.title', 'IP addresses')}
-            position='bottom'
-            tabIndex={-1}>
-            <AdminNavLink
-              $active={adminSubPage === AdminSubPage.IpAddresses}
-              href={subPageUrl(AdminSubPage.IpAddresses)}>
-              <AdminNavIconButton icon='bring_your_own_ip' styledAs='div' />
-            </AdminNavLink>
-          </Tooltip>
-        )}
-        {canBanUsers && (
-          <Tooltip
-            text={t('users.admin.nameHistory.title', 'Name history')}
-            position='bottom'
-            tabIndex={-1}>
-            <AdminNavLink
-              $active={adminSubPage === AdminSubPage.NameHistory}
-              href={subPageUrl(AdminSubPage.NameHistory)}>
-              <AdminNavIconButton icon='badge' styledAs='div' />
-            </AdminNavLink>
-          </Tooltip>
-        )}
+        <AdminNavItem
+          title={t('users.admin.permissions.title', 'Permissions')}
+          icon='shield_toggle'
+          url={subPageUrl(AdminSubPage.Permissions)}
+          show={canEditPermissions}
+          active={adminSubPage === AdminSubPage.Permissions}
+        />
+        <AdminNavItem
+          title={t('users.admin.punishments.title', 'Punishments')}
+          icon='bomb'
+          url={subPageUrl(AdminSubPage.Punishments)}
+          show={canBanUsers}
+          active={adminSubPage === AdminSubPage.Punishments}
+        />
+        <AdminNavItem
+          title={t('users.admin.ipAddresses.title', 'IP addresses')}
+          icon='bring_your_own_ip'
+          url={subPageUrl(AdminSubPage.IpAddresses)}
+          show={canBanUsers}
+          active={adminSubPage === AdminSubPage.IpAddresses}
+        />
+        <AdminNavItem
+          title={t('users.admin.nameHistory.title', 'Name history')}
+          icon='badge'
+          url={subPageUrl(AdminSubPage.NameHistory)}
+          show={canBanUsers}
+          active={adminSubPage === AdminSubPage.NameHistory}
+        />
       </AdminNavigation>
       <AdminContent>{content ?? <LoadingDotsArea />}</AdminContent>
     </AdminLayoutRoot>
+  )
+}
+
+function AdminNavItem({
+  title,
+  icon,
+  url,
+  show,
+  active,
+}: {
+  title: string
+  icon: string
+  url: string
+  show: boolean
+  active: boolean
+}) {
+  if (!show) return null
+
+  return (
+    <Tooltip text={title} position='bottom' tabIndex={-1}>
+      <AdminNavLink $active={active} href={url}>
+        <AdminNavIconButton icon={<MaterialIcon icon={icon} size={32} />} styledAs='div' />
+      </AdminNavLink>
+    </Tooltip>
   )
 }
