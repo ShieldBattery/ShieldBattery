@@ -13,6 +13,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Router, middleware};
 use axum_client_ip::{ClientIp, ClientIpSource};
+use axum_extra::{TypedHeader, headers::UserAgent};
 use axum_prometheus::PrometheusMetricLayer;
 use color_eyre::eyre::{self, Context};
 use jsonwebtoken::DecodingKey;
@@ -53,6 +54,7 @@ async fn health_check() -> impl IntoResponse {
 
 async fn graphql_handler(
     ip: ClientIp,
+    user_agent: Option<TypedHeader<UserAgent>>,
     session: SbSession,
     current_user: Option<CurrentUser>,
     State(app_state): State<AppState>,
@@ -60,7 +62,13 @@ async fn graphql_handler(
 ) -> GraphQLResponse {
     app_state
         .graphql_schema
-        .execute(req.into_inner().data(ip).data(session).data(current_user))
+        .execute(
+            req.into_inner()
+                .data(ip)
+                .data(user_agent)
+                .data(session)
+                .data(current_user),
+        )
         .await
         .into()
 }

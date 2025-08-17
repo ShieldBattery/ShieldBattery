@@ -15,6 +15,13 @@
     "preview": "Thank you for signing up to ShieldBattery! Please confirm your email address by entering the code in the account settings.",
     "title": "ShieldBattery Email Verification"
   },
+  "loginNameChange": {
+    "details": "Your login name has been changed from <2>{{oldLoginName}}</2> to <5>{{newLoginName}}</5>.",
+    "intro": "You are receiving this email because the login name for <2>{{username}}</2> on ShieldBattery has been changed.",
+    "preview": "You are receiving this email because the login name for {{username}} on ShieldBattery has been changed.",
+    "security": "If you did not request this change, please contact support immediately.",
+    "title": "ShieldBattery Login Name Changed"
+  },
   "passwordChange": {
     "body": "If you did not request this change, you can reset your password by visiting <2>this link</2>.",
     "intro": "You are receiving this email because the password for <2>{{username}}</2> on ShieldBattery has been changed.",

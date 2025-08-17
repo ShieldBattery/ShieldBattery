@@ -151,6 +151,7 @@
     "@playwright/test": "^1.54.2",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.6.1",
     "@react-email/components": "^0.5.0",
+    "@react-email/preview-server": "4.2.8",
     "@react-email/render": "^1.2.0",
     "@redux-devtools/core": "^4.1.1",
     "@redux-devtools/dock-monitor": "^4.1.1",

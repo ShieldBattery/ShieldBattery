@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                user_id as \"user_id: SbUserId\",\n                old_login_name,\n                new_login_name,\n                changed_at,\n                changed_by_user_id as \"changed_by_user_id: _\",\n                change_reason,\n                ip_address,\n                user_agent\n            FROM user_login_name_audit\n            WHERE user_id = $1\n            ORDER BY changed_at DESC\n            LIMIT $2\n            OFFSET $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id: SbUserId",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "old_login_name",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "new_login_name",
+        "type_info": {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "changed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "changed_by_user_id: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "change_reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "ip_address",
+        "type_info": "Inet"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_agent",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "be673344d2b8c0e9ee20468e0ef94fc69db6b0d26beebf9318650903307bea61"
+}

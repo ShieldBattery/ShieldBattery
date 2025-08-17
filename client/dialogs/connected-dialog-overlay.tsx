@@ -32,7 +32,11 @@ import {
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ReplayInfoDialog } from '../replays/replay-info-display'
 import { ReplayLoadDialog } from '../replays/replay-load-dialog'
-import { ChangeEmailDialog, ChangePasswordDialog } from '../settings/user/account-settings'
+import {
+  ChangeEmailDialog,
+  ChangeLoginNameDialog,
+  ChangePasswordDialog,
+} from '../settings/user/account-settings'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import { StarcraftHealthCheckupDialog } from '../starcraft/starcraft-health'
 import { dialogScrimOpacity } from '../styles/colors'
@@ -71,6 +75,8 @@ function getDialog(dialogType: DialogType): {
       return { component: BugReportDialog }
     case DialogType.ChangeEmail:
       return { component: ChangeEmailDialog }
+    case DialogType.ChangeLoginName:
+      return { component: ChangeLoginNameDialog }
     case DialogType.ChangePassword:
       return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:

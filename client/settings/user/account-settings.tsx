@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
@@ -8,14 +8,20 @@ import {
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../../common/constants'
+import { getErrorStack } from '../../../common/errors'
+import { apiUrl } from '../../../common/urls'
+import { LOGIN_NAME_CHANGE_COOLDOWN_MS } from '../../../common/users/sb-user'
+import { UsernameAvailableResponse } from '../../../common/users/user-network'
+import { usernameValidator } from '../../auth/auth-form-validators'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
-import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import {
   composeValidators,
+  debounceValidator,
   matchesOther,
   maxLength,
   minLength,
@@ -32,16 +38,17 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
+import { fetchJson } from '../../network/fetch'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import {
   BodyLarge,
-  BodyMedium,
-  TitleMedium,
   bodyLarge,
+  BodyMedium,
   labelMedium,
   titleLarge,
+  TitleMedium,
 } from '../../styles/typography'
 
 const Root = styled.div`
@@ -110,6 +117,7 @@ const CurrentUserFragment = graphql(/* GraphQL */ `
     loginName
     email
     emailVerified
+    lastLoginNameChange
   }
 `)
 
@@ -174,7 +182,23 @@ export function AccountSettings() {
               </EditableOverline>
               <TitleMedium>{currentUser.loginName}</TitleMedium>
             </EditableContent>
-            <FilledButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <FilledButton
+              label={t('common.actions.edit', 'Edit')}
+              onClick={() => {
+                dispatch(
+                  openDialog({
+                    type: DialogType.ChangeLoginName,
+                    initData: {
+                      currentLoginName: currentUser.loginName ?? '',
+                      lastChange: currentUser.lastLoginNameChange
+                        ? new Date(currentUser.lastLoginNameChange)
+                        : undefined,
+                    },
+                  }),
+                )
+              }}
+              testName='edit-login-name-button'
+            />
           </EditableItem>
 
           <EditableItem>
@@ -570,6 +594,218 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
         <TextField
           {...bindInput('email')}
           label={t('settings.user.account.email', 'Email')}
+          inputProps={TEXT_INPUT_PROPS}
+          floatingLabel={true}
+          disabled={fetching}
+        />
+      </form>
+    </StyledDialog>
+  )
+}
+
+const ChangeLoginNameMutation = graphql(/* GraphQL */ `
+  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {
+    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {
+      ...AccountSettings_CurrentUser
+    }
+  }
+`)
+
+interface ChangeLoginNameFormModel {
+  currentPassword: string
+  loginName: string
+}
+
+export interface ChangeLoginNameDialogProps extends CommonDialogProps {
+  currentLoginName: string
+  lastChange?: Date
+}
+
+export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
+  const snackbarController = useSnackbarController()
+  const { t } = useTranslation()
+  const [{ fetching }, changeLoginName] = useMutation(ChangeLoginNameMutation)
+  const [errorMessage, setErrorMessage] = useState<string>()
+  const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
+
+  const { onCancel, lastChange } = props
+
+  const isChangeAllowed =
+    !lastChange || Date.now() - Number(lastChange) >= LOGIN_NAME_CHANGE_COOLDOWN_MS
+  const daysRemaining = lastChange
+    ? Math.max(
+        0,
+        Math.ceil(
+          (LOGIN_NAME_CHANGE_COOLDOWN_MS - (Date.now() - Number(lastChange))) /
+            (24 * 60 * 60 * 1000),
+        ),
+      )
+    : 0
+
+  const nameAvailable = useMemo<Validator<string, ChangeLoginNameFormModel>>(() => {
+    let lastValidatedName: string | undefined
+
+    return debounceValidator(async (username, _model, _dirty, t) => {
+      if (username === lastValidatedName) {
+        return undefined
+      }
+
+      try {
+        const result = await fetchJson<UsernameAvailableResponse>(
+          apiUrl`users/username-available/${username}`,
+          {
+            method: 'POST',
+          },
+        )
+        if (result.available) {
+          lastValidatedName = username
+          return undefined
+        }
+      } catch (ignored) {
+        lastValidatedName = undefined
+        return t(
+          'auth.usernameValidator.error',
+          'There was a problem checking username availability',
+        )
+      }
+
+      lastValidatedName = username
+      return t('settings.user.account.loginNameUnavailable', 'Login name is not available')
+    }, 350)
+  }, [])
+
+  const { submit, bindInput, setInputError, form } = useForm<ChangeLoginNameFormModel>(
+    { currentPassword: '', loginName: props.currentLoginName },
+    {
+      currentPassword: currentPasswordValidator,
+      loginName: composeValidators(usernameValidator, nameAvailable),
+    },
+  )
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setErrorMessage(undefined)
+      changeLoginName({
+        currentPassword: model.currentPassword,
+        loginName: model.loginName,
+      })
+        .then(result => {
+          if (result.error) {
+            if (result.error.networkError) {
+              setErrorMessage(
+                t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
+                  errorMessage: result.error.networkError.message,
+                }),
+              )
+            } else if (result.error.graphQLErrors?.length) {
+              for (const error of result.error.graphQLErrors) {
+                if (error.extensions?.code === 'INVALID_PASSWORD') {
+                  setInputError(
+                    'currentPassword',
+                    t(
+                      'settings.user.account.invalidCurrentPassword',
+                      'Current password is incorrect',
+                    ),
+                  )
+                  return
+                } else if (error.extensions?.code === 'LOGIN_NAME_UNAVAILABLE') {
+                  setInputError(
+                    'loginName',
+                    t('settings.user.account.loginNameUnavailable', 'Login name is not available'),
+                  )
+                  return
+                } else if (error.extensions?.code === 'RATE_LIMITED') {
+                  setErrorMessage(
+                    t(
+                      'settings.user.account.rateLimited',
+                      'You can only change your login name once every 30 days.',
+                    ),
+                  )
+                  return
+                }
+              }
+
+              setErrorMessage(
+                t(
+                  'settings.user.account.unknownError',
+                  'Something went wrong, please try again later.',
+                ),
+              )
+            }
+          } else {
+            snackbarController.showSnackbar(
+              t(
+                'settings.user.account.changeLoginName.success',
+                'Login name changed successfully.',
+              ),
+            )
+            onCancel()
+          }
+        })
+        .catch(err => {
+          logger.error(`Error changing login name: ${getErrorStack(err)}`)
+        })
+    },
+  })
+
+  const buttons = [
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      onClick={onCancel}
+      disabled={fetching}
+    />,
+    <TextButton
+      label={t('common.actions.save', 'Save')}
+      key='save'
+      onClick={submit}
+      disabled={fetching}
+      testName='save-button'
+    />,
+  ]
+
+  return (
+    <StyledDialog
+      title={t('settings.user.account.changeLoginName.dialogTitle', 'Change login name')}
+      onCancel={onCancel}
+      showCloseButton={true}
+      buttons={buttons}
+      testName='change-login-name-dialog'>
+      {errorMessage ? (
+        <>
+          <ErrorMessage>{errorMessage}</ErrorMessage>
+          <FormSpacer />
+        </>
+      ) : null}
+      {!errorMessage && !isChangeAllowed && daysRemaining ? (
+        <>
+          <ErrorMessage>
+            {t(
+              'settings.user.account.loginNameCooldown',
+              'You have changed your name too recently. You can change your login name again in ' +
+                '{{count}} days.',
+              { count: daysRemaining },
+            )}
+          </ErrorMessage>
+          <FormSpacer />
+        </>
+      ) : null}
+      <form noValidate={true} onSubmit={submit}>
+        <SubmitOnEnter />
+        <PasswordTextField
+          {...bindInput('currentPassword')}
+          ref={autoFocusRef}
+          label={t('settings.user.account.currentPassword', 'Current password')}
+          inputProps={TEXT_INPUT_PROPS}
+          floatingLabel={true}
+          disabled={fetching}
+        />
+
+        <FormSpacer />
+
+        <TextField
+          {...bindInput('loginName')}
+          label={t('settings.user.account.loginName', 'Login name')}
           inputProps={TEXT_INPUT_PROPS}
           floatingLabel={true}
           disabled={fetching}

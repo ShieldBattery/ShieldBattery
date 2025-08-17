@@ -1106,6 +1106,10 @@
           "requiredError": "Enter an email address",
           "success": "Email changed successfully."
         },
+        "changeLoginName": {
+          "dialogTitle": "Change login name",
+          "success": "Login name changed successfully."
+        },
         "changePassword": {
           "dialogTitle": "Change password",
           "success": "Password changed successfully."
@@ -1121,6 +1125,9 @@
         "invalidCurrentPassword": "Current password is incorrect",
         "label": "Account",
         "loginName": "Login name",
+        "loginNameCooldown_one": "You have changed your name too recently. You can change your login name again in {{count}} day.",
+        "loginNameCooldown_other": "You have changed your name too recently. You can change your login name again in {{count}} days.",
+        "loginNameUnavailable": "Login name is not available",
         "networkError": "Network error: {{errorMessage}}",
         "newPassword": "New password",
         "passwordValidator": {
@@ -1128,6 +1135,7 @@
           "current": "Enter your current password",
           "new": "Enter a new password"
         },
+        "rateLimited": "You can only change your login name once every 30 days.",
         "unknownError": "Something went wrong, please try again later."
       },
       "language": {
@@ -1211,9 +1219,20 @@
   },
   "users": {
     "admin": {
-      "ipAddresses": "IP addresses",
-      "permissions": "Permissions",
-      "punishments": "Punishments"
+      "ipAddresses": {
+        "title": "IP addresses"
+      },
+      "nameHistory": {
+        "noHistory": "No login name changes found.",
+        "title": "Name history",
+        "userHistory": "Login name history for {{name}}"
+      },
+      "permissions": {
+        "title": "Permissions"
+      },
+      "punishments": {
+        "title": "Punishments"
+      }
     },
     "contextMenu": {
       "addFriend": "Add friend",

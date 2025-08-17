@@ -1,12 +1,12 @@
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
 import { ClientRestrictionInfo, RestrictionKind } from '../../common/users/restrictions'
-import { SelfUser } from '../../common/users/sb-user'
+import { SelfUserJson } from '../../common/users/sb-user'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface AuthState {
   self?: {
-    user: SelfUser
+    user: SelfUserJson
     permissions: SbPermissions
     restrictions: Map<RestrictionKind, ClientRestrictionInfo>
   }

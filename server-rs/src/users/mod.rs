@@ -12,6 +12,7 @@ use axum::http::StatusCode;
 use axum::http::request::Parts;
 use axum::{Extension, RequestPartsExt};
 use axum_client_ip::ClientIp;
+use axum_extra::{TypedHeader, headers::UserAgent};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
@@ -27,8 +28,8 @@ use tracing::error;
 use typeshare::typeshare;
 
 use crate::email::{
-    EmailChangeData, EmailVerificationData, MailgunClient, MailgunMessage, MailgunTemplate,
-    PasswordChangeData,
+    EmailChangeData, EmailVerificationData, LoginNameChangeData, MailgunClient, MailgunMessage,
+    MailgunTemplate, PasswordChangeData,
 };
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
@@ -46,6 +47,8 @@ pub mod permissions;
 mod user_id;
 
 pub use user_id::SbUserId;
+
+const LOGIN_NAME_CHANGE_COOLDOWN: Duration = Duration::from_secs(30 * 24 * 60 * 60); // 30 days
 
 pub struct UsersModule {
     db_pool: PgPool,
@@ -140,6 +143,8 @@ pub struct CurrentUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
+    /// When the user last changed their login name (for rate limiting display)
+    pub last_login_name_change: Option<chrono::DateTime<chrono::Utc>>,
 
     pub permissions: SbPermissions,
 }
@@ -203,6 +208,39 @@ pub enum PublishedUserMessage {
     EmailChanged { user_id: SbUserId, email: String },
 }
 
+#[derive(SimpleObject, sqlx::FromRow)]
+#[graphql(complex)]
+pub struct LoginNameAuditEntry {
+    pub id: uuid::Uuid,
+    pub user_id: SbUserId,
+    pub old_login_name: String,
+    pub new_login_name: String,
+    pub changed_at: chrono::DateTime<chrono::Utc>,
+    #[graphql(skip)]
+    pub changed_by_user_id: Option<SbUserId>,
+    pub change_reason: Option<String>,
+    #[graphql(skip)]
+    pub ip_address: Option<IpNetwork>,
+    pub user_agent: Option<String>,
+}
+
+#[ComplexObject]
+impl LoginNameAuditEntry {
+    async fn changed_by_user(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        if let Some(user_id) = self.changed_by_user_id {
+            ctx.data::<DataLoader<UsersLoader>>()?
+                .load_one(user_id)
+                .await
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn ip_address(&self, _ctx: &Context<'_>) -> Result<Option<String>> {
+        Ok(self.ip_address.map(|ip| ip.to_string()))
+    }
+}
+
 #[derive(Default)]
 pub struct UsersQuery;
 
@@ -228,6 +266,46 @@ impl UsersQuery {
     async fn restricted_names(&self, ctx: &Context<'_>) -> Result<Vec<NameRestriction>> {
         let restrictions = ctx.data::<NameChecker>()?.get_all_restrictions().await?;
         Ok(restrictions)
+    }
+
+    #[graphql(guard = RequiredPermission::BanUsers)]
+    async fn user_login_name_audit_history(
+        &self,
+        ctx: &Context<'_>,
+        user_id: SbUserId,
+        limit: Option<i32>,
+        offset: Option<i32>,
+    ) -> Result<Vec<LoginNameAuditEntry>> {
+        let limit = limit.unwrap_or(50).min(100);
+        let offset = offset.unwrap_or(0);
+
+        let entries = sqlx::query_as!(
+            LoginNameAuditEntry,
+            r#"
+            SELECT
+                id,
+                user_id as "user_id: SbUserId",
+                old_login_name,
+                new_login_name,
+                changed_at,
+                changed_by_user_id as "changed_by_user_id: _",
+                change_reason,
+                ip_address,
+                user_agent
+            FROM user_login_name_audit
+            WHERE user_id = $1
+            ORDER BY changed_at DESC
+            LIMIT $2
+            OFFSET $3
+            "#,
+            user_id as _,
+            limit as i64,
+            offset as i64,
+        )
+        .fetch_all(ctx.data::<PgPool>()?)
+        .await?;
+
+        Ok(entries)
     }
 }
 
@@ -287,6 +365,74 @@ impl UsersMutation {
         let mut has_update = false;
         {
             let mut query = query.separated(", ");
+
+            // Handle login name changes
+            if let Some(new_login_name) = changes.login_name.clone()
+                && new_login_name != user.login_name
+            {
+                // Check rate limit
+                if let Some(last_change) = user.last_login_name_change {
+                    let time_since_change = chrono::Utc::now() - last_change;
+                    if time_since_change
+                        < chrono::Duration::from_std(LOGIN_NAME_CHANGE_COOLDOWN).unwrap()
+                    {
+                        let time_remaining = chrono::Duration::from_std(LOGIN_NAME_CHANGE_COOLDOWN)
+                            .unwrap()
+                            - time_since_change;
+                        let days_remaining = time_remaining.num_days();
+                        return Err(graphql_error(
+                            "RATE_LIMITED",
+                            format!(
+                                "Login name can only be changed once every {} days. {} days remaining.",
+                                LOGIN_NAME_CHANGE_COOLDOWN.as_secs() / (24 * 60 * 60),
+                                days_remaining
+                            ),
+                        ));
+                    }
+                }
+
+                // Check against restricted names and existing users
+                if let Some(_restriction) = ctx
+                    .data::<NameChecker>()?
+                    .check_name(&new_login_name)
+                    .await?
+                {
+                    return Err(graphql_error(
+                        "LOGIN_NAME_UNAVAILABLE",
+                        "Login name is not available",
+                    ));
+                }
+
+                let existing = sqlx::query!(
+                    "SELECT id FROM users WHERE login_name = $1 AND id != $2",
+                    new_login_name,
+                    user.id as _
+                )
+                .fetch_optional(ctx.data::<PgPool>()?)
+                .await?;
+
+                if existing.is_some() {
+                    return Err(graphql_error(
+                        "LOGIN_NAME_UNAVAILABLE",
+                        "Login name is not available",
+                    ));
+                }
+
+                // Add email notification for login name change
+                emails.push(MailgunMessage {
+                    to: user.email.clone(),
+                    template: MailgunTemplate::LoginNameChange(LoginNameChangeData {
+                        username: user.name.clone(),
+                        old_login_name: user.login_name.clone(),
+                        new_login_name: new_login_name.clone(),
+                    }),
+                });
+
+                has_update = true;
+                query.push("login_name = ");
+                query.push_bind_unseparated(new_login_name);
+                query.push("last_login_name_change = NOW()");
+            }
 
             if let Some(email) = changes.email
                 && email != user.email
@@ -355,6 +501,11 @@ impl UsersMutation {
                 false
             }
             (true, None) => {
+                // Set audit context before the update
+                let client_ip = ctx.data::<ClientIp>()?;
+                let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
+                set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
+
                 query
                     .build()
                     .execute(&mut *tx)
@@ -368,6 +519,11 @@ impl UsersMutation {
                 true
             }
             (true, Some(get_password_query)) => {
+                // Set audit context before the update
+                let client_ip = ctx.data::<ClientIp>()?;
+                let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
+                set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
+
                 query
                     .build()
                     .execute(&mut *tx)
@@ -560,6 +716,41 @@ pub struct UpdateCurrentUserChanges {
     pub email: Option<String>,
     #[graphql(secret, validator(min_length = 6))]
     pub new_password: Option<String>,
+    #[graphql(validator(
+        min_length = 1,
+        max_length = 16,
+        regex = r"^[A-Za-z0-9`~!$^&*()\[\]\-_+=.{}]+$"
+    ))]
+    pub login_name: Option<String>,
+}
+
+/// Helper function to set audit context before updates
+async fn set_audit_context(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    current_user_id: SbUserId,
+    client_ip: &ClientIp,
+    user_agent: &Option<TypedHeader<UserAgent>>,
+) -> Result<(), sqlx::Error> {
+    let user_agent_string = user_agent
+        .as_ref()
+        .map(|TypedHeader(ua)| ua.as_str())
+        .unwrap_or("unknown");
+
+    sqlx::query!(
+        r#"
+        SELECT
+            set_config('app.current_user_id', $1, true) as current_user_config,
+            set_config('app.client_ip', $2, true) as client_ip_config,
+            set_config('app.user_agent', $3, true) as user_agent_config
+        "#,
+        current_user_id.0.to_string(),
+        client_ip.0.to_string(),
+        user_agent_string
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(())
 }
 
 pub struct UsersLoader {
@@ -670,7 +861,7 @@ impl CurrentUserRepo {
                 r#"
                     SELECT id, name::TEXT as "name!", login_name::TEXT as "login_name!",
                         email, email_verified, accepted_privacy_version, accepted_terms_version,
-                        accepted_use_policy_version, locale
+                        accepted_use_policy_version, locale, last_login_name_change
                     FROM users
                     WHERE id = $1
                 "#,
@@ -728,6 +919,7 @@ struct SelfUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
+    pub last_login_name_change: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -749,6 +941,7 @@ impl From<CachedCurrentUser> for CurrentUser {
             accepted_terms_version: value.user.accepted_terms_version,
             accepted_use_policy_version: value.user.accepted_use_policy_version,
             locale: value.user.locale,
+            last_login_name_change: value.user.last_login_name_change,
 
             permissions: value.permissions,
         }

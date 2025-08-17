@@ -3,7 +3,6 @@ Any of the possible race choices after random has been resolved.
 """
 scalar AssignedRace
 
-
 type CurrentUser {
 	id: SbUserId!
 	"""
@@ -20,6 +19,10 @@ type CurrentUser {
 	acceptedTermsVersion: Int!
 	acceptedUsePolicyVersion: Int!
 	locale: String
+	"""
+	When the user last changed their login name (for rate limiting display)
+	"""
+	lastLoginNameChange: DateTime
 	permissions: SbPermissions!
 }
 
@@ -29,7 +32,6 @@ Implement the DateTime<Utc> scalar
 The input/output is a string in RFC3339 format.
 """
 scalar DateTime
-
 
 type Game {
 	id: UUID!
@@ -78,8 +80,6 @@ The preset game ruleset that was selected (or UMS).
 """
 scalar GameType
 
-
-
 type League {
 	id: UUID!
 	name: String!
@@ -97,6 +97,18 @@ type League {
 type LobbyExtra {
 	turnRate: Int
 	useLegacyLimits: Boolean
+}
+
+type LoginNameAuditEntry {
+	id: UUID!
+	userId: SbUserId!
+	oldLoginName: String!
+	newLoginName: String!
+	changedAt: DateTime!
+	changedByUserId: SbUserId
+	changeReason: String
+	ipAddress: String
+	userAgent: String
 }
 
 type MapFile {
@@ -272,6 +284,7 @@ type Query {
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
 	restrictedNames: [NameRestriction!]!
+	userLoginNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [LoginNameAuditEntry!]!
 }
 
 """
@@ -370,7 +383,6 @@ A user ID in the ShieldBattery system.
 """
 scalar SbUserId
 
-
 """
 A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
 Strings within GraphQL. UUIDs are used to assign unique identifiers to
@@ -379,13 +391,14 @@ entities without requiring a central allocating authority.
 # References
 
 * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
-* [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+* [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
 """
 scalar UUID
 
 input UpdateCurrentUserChanges {
 	email: String
 	newPassword: String
+	loginName: String
 }
 
 type UploadedMap {
@@ -413,8 +426,17 @@ input UrgentMessageInput {
 	message: String!
 }
 
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
 directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
 directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Provides a scalar specification URL for specifying the behavior of custom scalar types.
+"""
 directive @specifiedBy(url: String!) on SCALAR
 schema {
 	query: Query

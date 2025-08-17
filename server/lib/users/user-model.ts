@@ -34,6 +34,7 @@ interface UserInternal {
   acceptedTermsVersion: number
   acceptedPrivacyVersion: number
   locale: string
+  lastLoginNameChange?: Date
 }
 
 type DbUser = Dbify<UserInternal>
@@ -62,6 +63,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     acceptedTermsVersion: dbUser.accepted_terms_version,
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
     locale: dbUser.locale,
+    lastLoginNameChange: dbUser.last_login_name_change,
   }
 }
 
@@ -87,6 +89,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     acceptedTermsVersion: userInternal.acceptedTermsVersion,
     acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
     locale: userInternal.locale,
+    lastLoginNameChange: userInternal.lastLoginNameChange,
   }
 }
 
@@ -167,7 +170,7 @@ export async function createUser({
 /** Fields that can be updated for a user. */
 export type UserUpdatables = Omit<
   UserInternal & UserPrivate,
-  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId' | 'loginName'
+  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId' | 'loginName' | 'lastLoginNameChange'
 >
 
 /**

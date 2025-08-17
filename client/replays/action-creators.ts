@@ -4,7 +4,7 @@ import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
-import { SbUser, SelfUser } from '../../common/users/sb-user'
+import { SbUser, SelfUserJson } from '../../common/users/sb-user'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -16,7 +16,7 @@ import { healthChecked } from '../starcraft/health-checked'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-async function setGameConfig(replay: { name: string; path: string }, user?: SelfUser) {
+async function setGameConfig(replay: { name: string; path: string }, user?: SelfUserJson) {
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,

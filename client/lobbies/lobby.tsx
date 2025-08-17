@@ -19,7 +19,7 @@ import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
-import { SelfUser } from '../../common/users/sb-user'
+import { SelfUserJson } from '../../common/users/sb-user'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { Card } from '../material/card'
@@ -181,7 +181,7 @@ interface LobbyProps {
   lobby: Lobby
   loadingState: LobbyLoadingState
   chat: List<SbMessage>
-  user: ReadonlyDeep<SelfUser>
+  user: ReadonlyDeep<SelfUserJson>
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onAddComputer: (slotId: string) => void

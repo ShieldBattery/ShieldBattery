@@ -7,7 +7,7 @@ import {
   RestrictionKind,
   RestrictionReason,
 } from '../../../common/users/restrictions'
-import { SbUser, SelfUser } from '../../../common/users/sb-user'
+import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { BanHistoryEntryJson, UserRestrictionHistoryJson } from '../../../common/users/user-network'
 import { useSelfUser } from '../../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
@@ -127,7 +127,7 @@ export function AdminPunishmentsPage({ user }: AdminPunishmentsPageProps) {
   )
 }
 
-function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
+function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }) {
   const dispatch = useAppDispatch()
   const [banHistory, setBanHistory] = useState<ReadonlyDeep<BanHistoryEntryJson[]>>()
 
@@ -290,7 +290,7 @@ function BanUserForm({
   )
 }
 
-function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
+function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }) {
   const dispatch = useAppDispatch()
   const [restrictionHistory, setRestrictionHistory] =
     useState<ReadonlyDeep<UserRestrictionHistoryJson[]>>()

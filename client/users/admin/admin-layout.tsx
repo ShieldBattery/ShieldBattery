@@ -10,6 +10,7 @@ import { Tooltip } from '../../material/tooltip'
 import { LoadingDotsArea } from '../../progress/dots'
 import { bodyLarge } from '../../styles/typography'
 import { AdminIpAddressesPage } from './ip-addresses-page'
+import { AdminNameHistoryPage } from './name-history-page'
 import { AdminPermissionsPage } from './permissions-page'
 import { AdminPunishmentsPage } from './punishments-page'
 
@@ -17,6 +18,7 @@ export enum AdminSubPage {
   Permissions = 'permissions',
   Punishments = 'punishments',
   IpAddresses = 'ip-addresses',
+  NameHistory = 'name-history',
 }
 
 export const ALL_ADMIN_SUB_PAGES: ReadonlyArray<AdminSubPage> = Object.values(AdminSubPage)
@@ -128,6 +130,14 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
       }
       break
 
+    case AdminSubPage.NameHistory:
+      if (!canBanUsers) {
+        content = <LoadingError>Access denied.</LoadingError>
+      } else {
+        content = <AdminNameHistoryPage user={user} />
+      }
+      break
+
     default:
       adminSubPage satisfies never
       content = <LoadingError>Invalid admin page.</LoadingError>
@@ -138,7 +148,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
       <AdminNavigation>
         {canEditPermissions && (
           <Tooltip
-            text={t('users.admin.permissions', 'Permissions')}
+            text={t('users.admin.permissions.title', 'Permissions')}
             position='bottom'
             tabIndex={-1}>
             <AdminNavLink
@@ -150,7 +160,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
         )}
         {canBanUsers && (
           <Tooltip
-            text={t('users.admin.punishments', 'Punishments')}
+            text={t('users.admin.punishments.title', 'Punishments')}
             position='bottom'
             tabIndex={-1}>
             <AdminNavLink
@@ -163,13 +173,25 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
         )}
         {canBanUsers && (
           <Tooltip
-            text={t('users.admin.ipAddresses', 'IP addresses')}
+            text={t('users.admin.ipAddresses.title', 'IP addresses')}
             position='bottom'
             tabIndex={-1}>
             <AdminNavLink
               $active={adminSubPage === AdminSubPage.IpAddresses}
               href={subPageUrl(AdminSubPage.IpAddresses)}>
               <AdminNavIconButton icon='bring_your_own_ip' styledAs='div' />
+            </AdminNavLink>
+          </Tooltip>
+        )}
+        {canBanUsers && (
+          <Tooltip
+            text={t('users.admin.nameHistory.title', 'Name history')}
+            position='bottom'
+            tabIndex={-1}>
+            <AdminNavLink
+              $active={adminSubPage === AdminSubPage.NameHistory}
+              href={subPageUrl(AdminSubPage.NameHistory)}>
+              <AdminNavIconButton icon='badge' styledAs='div' />
             </AdminNavLink>
           </Tooltip>
         )}

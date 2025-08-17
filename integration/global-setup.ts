@@ -2,6 +2,7 @@ import { test as setup } from '@playwright/test'
 import { setAdminJwt } from './admin-utils'
 import { EmailVerificationDialogPage } from './pages/email-verification-dialog-page'
 import { LoginPage } from './pages/login-page'
+import { RESTRICTED_TEST_NAME } from './test-constants'
 
 setup('create admin account', async ({ page, request }) => {
   const response = await request.post(`/api/1/users`, {
@@ -45,4 +46,11 @@ setup('create admin account', async ({ page, request }) => {
   await page.click('[data-test=save-permissions-button]')
 
   await page.waitForSelector('[data-test=punishments-button]')
+
+  // Set up a restricted name for testing
+  await page.goto('/admin/restricted-names')
+  await page.fill('input[name="pattern"]', RESTRICTED_TEST_NAME)
+  await page.click('input[name="kind"][value="EXACT"]')
+  await page.click('[data-test=add-restricted-name-button]')
+  await page.waitForSelector('[data-test=added-confirmation]')
 })

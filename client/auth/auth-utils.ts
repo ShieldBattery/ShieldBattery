@@ -2,7 +2,7 @@ import queryString from 'query-string'
 import { useEffect, useLayoutEffect } from 'react'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
-import { SelfUser } from '../../common/users/sb-user'
+import { SelfUserJson } from '../../common/users/sb-user'
 import { makePathString, replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 
@@ -83,7 +83,7 @@ export function useIsLoggedIn(): boolean {
 }
 
 /** A hook that returns the user that is currently logged in to this client. */
-export function useSelfUser(): ReadonlyDeep<SelfUser> | undefined {
+export function useSelfUser(): ReadonlyDeep<SelfUserJson> | undefined {
   return useAppSelector(s => s.auth.self?.user)
 }
 

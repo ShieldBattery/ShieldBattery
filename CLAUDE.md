@@ -165,6 +165,7 @@ pnpm run dist                  # Build Electron app (production distribution)
 - The NodeJS server uses tsyringe to do dependency injection
 - When constructing URLs or paths for URLs, use the `urlPath` tagged template to automatically
   encode any variables you place within it. If it's going to our API server, you can use `apiUrl`.
+- Don't edit translation files (`global.json`) manually, they are generated from the source code.
 
 ### Styling
 

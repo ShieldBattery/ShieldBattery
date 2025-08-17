@@ -1,4 +1,7 @@
+import { Jsonify } from '../json'
 import { SbUserId } from './sb-user-id'
+
+export const LOGIN_NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 /**
  * Information about any user in the system, mainly things that represent the "identity" of the
@@ -31,4 +34,40 @@ export interface SelfUser extends SbUser {
    * since then will have a locale present.
    */
   locale?: string
+  /** When the user last changed their login name (for rate limiting) */
+  lastLoginNameChange?: Date
+}
+
+export type SelfUserJson = Jsonify<SelfUser>
+
+export function toSelfUserJson(user: SelfUser): SelfUserJson {
+  return {
+    id: user.id,
+    name: user.name,
+    loginName: user.loginName,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    acceptedPrivacyVersion: user.acceptedPrivacyVersion,
+    acceptedTermsVersion: user.acceptedTermsVersion,
+    acceptedUsePolicyVersion: user.acceptedUsePolicyVersion,
+    locale: user.locale,
+    lastLoginNameChange: user.lastLoginNameChange ? Number(user.lastLoginNameChange) : undefined,
+  }
+}
+
+export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
+  return {
+    id: userJson.id,
+    name: userJson.name,
+    loginName: userJson.loginName,
+    email: userJson.email,
+    emailVerified: userJson.emailVerified,
+    acceptedPrivacyVersion: userJson.acceptedPrivacyVersion,
+    acceptedTermsVersion: userJson.acceptedTermsVersion,
+    acceptedUsePolicyVersion: userJson.acceptedUsePolicyVersion,
+    locale: userJson.locale,
+    lastLoginNameChange: userJson.lastLoginNameChange
+      ? new Date(userJson.lastLoginNameChange)
+      : undefined,
+  }
 }

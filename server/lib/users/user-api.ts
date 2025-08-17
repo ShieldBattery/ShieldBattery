@@ -31,7 +31,7 @@ import {
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
 import { ALL_RESTRICTION_KINDS, ALL_RESTRICTION_REASONS } from '../../../common/users/restrictions'
-import { SbUser, SelfUser } from '../../../common/users/sb-user'
+import { SbUser, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../../common/users/session'
 import {
@@ -346,7 +346,11 @@ export class UserApi {
       })
       .catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
-    return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
+    return {
+      user: toSelfUserJson(ctx.session!.user),
+      permissions: ctx.session!.permissions,
+      jwt: await getJwt(ctx, this.clock.now()),
+    }
   }
 
   @httpPost('/username-available/:username')
@@ -767,7 +771,7 @@ export class UserApi {
 
     const { user } = await this.userService.updateCurrentUser(params.id, updates, ctx)
 
-    return { user }
+    return { user: toSelfUserJson(user) }
   }
 
   @httpPost('/:id/language')
@@ -795,7 +799,7 @@ export class UserApi {
       ctx,
     )
 
-    return { user }
+    return { user: toSelfUserJson(user) }
   }
 
   @httpPost('/:id/email-verification/send')

@@ -134,9 +134,9 @@ export function Signup() {
         )
       }
 
-      lastValidatedName = undefined
+      lastValidatedName = username
       return t('auth.usernameValidator.notAvailable', 'Username is not available')
-    }, 250)
+    }, 350)
   }, [])
 
   const abortControllerRef = useRef<AbortController>(undefined)

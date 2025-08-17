@@ -8,6 +8,7 @@ import koaStatic from 'koa-static'
 import path from 'path'
 import { container } from 'tsyringe'
 import { ServerConfig } from '../common/server-config'
+import { toSelfUserJson } from '../common/users/sb-user'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
 import isDev from './lib/env/is-dev'
@@ -135,7 +136,13 @@ export default function applyRoutes(
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
         serverConfig,
         session:
-          ctx.session && ctx.state.jwtData ? { ...ctx.session, jwt: await getJwt(ctx) } : undefined,
+          ctx.session && ctx.state.jwtData
+            ? {
+                user: toSelfUserJson(ctx.session.user),
+                permissions: ctx.session.permissions,
+                jwt: await getJwt(ctx),
+              }
+            : undefined,
       }
       const webpackAssets = await getWebpackAssets()
       await ctx.render('index', {

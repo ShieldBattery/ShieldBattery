@@ -1,7 +1,7 @@
 import Koa, { AppSession } from 'koa'
 import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
-import { SelfUser } from '../../../common/users/sb-user'
+import { fromSelfUserJson, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AuthEvent } from '../../../common/users/user-network'
 import logger from '../logging/logger'
@@ -9,7 +9,7 @@ import { getPermissions } from '../models/permissions'
 import { Redis, RedisSubscriber } from '../redis/redis'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
-import { UserUpdatables, findSelfById, updateUser } from './user-model'
+import { findSelfById, updateUser, UserUpdatables } from './user-model'
 
 /**
  * How long to cache user info in redis.
@@ -79,7 +79,8 @@ export class UserService {
     if (cacheBehavior === CacheBehavior.AllowCached) {
       const cachedStr = await this.redis.get(userDataKey(userId))
       if (cachedStr) {
-        return JSON.parse(cachedStr)
+        const cached = JSON.parse(cachedStr)
+        return { user: fromSelfUserJson(cached.user), permissions: cached.permissions }
       }
     }
 
@@ -91,7 +92,8 @@ export class UserService {
     // NOTE(tec27): The Rust side expects SbPermissions to contain this user ID field, so we add it
     // here so it can deserialize things properly.
     const result = { user, permissions: { id: user.id, ...permissions } }
-    await this.redis.setex(userDataKey(userId), USER_CACHE_TIME_SECONDS, JSON.stringify(result))
+    const json = JSON.stringify({ user: toSelfUserJson(user), permissions: result.permissions })
+    await this.redis.setex(userDataKey(userId), USER_CACHE_TIME_SECONDS, json)
 
     return result
   }

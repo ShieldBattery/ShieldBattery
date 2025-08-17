@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT id, name::TEXT as \"name!\", login_name::TEXT as \"login_name!\",\n                        email, email_verified, accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale\n                    FROM users\n                    WHERE id = $1\n                ",
+  "query": "\n                    SELECT id, name::TEXT as \"name!\", login_name::TEXT as \"login_name!\",\n                        email, email_verified, accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale, last_login_name_change\n                    FROM users\n                    WHERE id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -47,6 +47,11 @@
         "ordinal": 8,
         "name": "locale",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_login_name_change",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -63,8 +68,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "526045c4bd70acd66aacc0083760fc625bd8b503679c3efefbe3f40a3fbcecfd"
+  "hash": "bed58b83b3b41fcfdaa2ae383eaf600a34ce6e76f7719d4423841be0cf24bf1e"
 }

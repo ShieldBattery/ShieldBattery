@@ -59,6 +59,14 @@ pub struct PasswordChangeData {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct LoginNameChangeData {
+    pub username: String,
+    pub old_login_name: String,
+    pub new_login_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PasswordResetData {
     pub username: String,
     pub token: String,
@@ -77,6 +85,7 @@ pub enum MailgunTemplate {
     EmailChange(EmailChangeData),
     EmailVerification(EmailVerificationData),
     PasswordChange(PasswordChangeData),
+    LoginNameChange(LoginNameChangeData),
     PasswordReset(PasswordResetData),
     UsernameRecovery(UsernameRecoveryData),
 }
@@ -87,6 +96,7 @@ impl MailgunTemplate {
             MailgunTemplate::EmailChange(_) => "ShieldBattery Email Changed",
             MailgunTemplate::EmailVerification(_) => "ShieldBattery Email Verification",
             MailgunTemplate::PasswordChange(_) => "ShieldBattery Password Changed",
+            MailgunTemplate::LoginNameChange(_) => "ShieldBattery Login Name Changed",
             MailgunTemplate::PasswordReset(_) => "ShieldBattery Password Reset",
             MailgunTemplate::UsernameRecovery(_) => "ShieldBattery Username Recovery",
         }
@@ -97,6 +107,7 @@ impl MailgunTemplate {
             MailgunTemplate::EmailChange(_) => "email-change",
             MailgunTemplate::EmailVerification(_) => "email-verification",
             MailgunTemplate::PasswordChange(_) => "password-change",
+            MailgunTemplate::LoginNameChange(_) => "login-name-change",
             MailgunTemplate::PasswordReset(_) => "password-reset",
             MailgunTemplate::UsernameRecovery(_) => "username-recovery",
         }

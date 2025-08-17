@@ -10,6 +10,7 @@ export enum DialogType {
   AcceptMatch = 'acceptMatch',
   BugReport = 'bugReport',
   ChangeEmail = 'changeEmail',
+  ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
   ChannelSettings = 'channelSettings',
@@ -45,6 +46,10 @@ type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
 type ChangeEmailDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeEmail,
   { currentEmail: string }
+>
+type ChangeLoginNameDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChangeLoginName,
+  { currentLoginName: string; lastChange?: Date }
 >
 type ChangePasswordDialogPayload = BaseDialogPayload<typeof DialogType.ChangePassword>
 type ChannelBanUserDialogPayload = BaseDialogPayload<
@@ -147,6 +152,7 @@ export type DialogPayload =
   | AcceptMatchDialogPayload
   | BugReportDialogPayload
   | ChangeEmailDialogPayload
+  | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
   | ChannelSettingsDialogPayload

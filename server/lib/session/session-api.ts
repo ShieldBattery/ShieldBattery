@@ -8,7 +8,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../../common/constants'
-import { SelfUser } from '../../../common/users/sb-user'
+import { SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { UserErrorCode } from '../../../common/users/user-network'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -101,7 +101,11 @@ export class SessionApi {
       await this.userService.updateCurrentUser(user.id, { locale }, ctx)
     }
 
-    return { ...ctx.session, jwt: await getJwt(ctx, this.clock.now()) }
+    return {
+      user: toSelfUserJson(ctx.session.user),
+      permissions: ctx.session.permissions,
+      jwt: await getJwt(ctx, this.clock.now()),
+    }
   }
 
   @httpPost('/')
@@ -167,7 +171,11 @@ export class SessionApi {
       await this.userService.updateCurrentUser(user.id, { locale }, ctx)
     }
 
-    return { ...ctx.session!, jwt: await getJwt(ctx, this.clock.now()) }
+    return {
+      user: toSelfUserJson(ctx.session!.user),
+      permissions: ctx.session!.permissions,
+      jwt: await getJwt(ctx, this.clock.now()),
+    }
   }
 
   @httpDelete('/')

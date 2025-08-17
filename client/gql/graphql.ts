@@ -49,7 +49,7 @@ export type Scalars = {
    * # References
    *
    * * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
-   * * [RFC4122: A Universally Unique IDentifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
+   * * [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
    */
   UUID: { input: string; output: string }
 }
@@ -62,6 +62,8 @@ export type CurrentUser = {
   email: Scalars['String']['output']
   emailVerified: Scalars['Boolean']['output']
   id: Scalars['SbUserId']['output']
+  /** When the user last changed their login name (for rate limiting display) */
+  lastLoginNameChange?: Maybe<Scalars['DateTime']['output']>
   locale?: Maybe<Scalars['String']['output']>
   /** The name the user logs in with (may differ from their display name). */
   loginName: Scalars['String']['output']
@@ -136,6 +138,19 @@ export type LobbyExtra = {
   __typename?: 'LobbyExtra'
   turnRate?: Maybe<Scalars['Int']['output']>
   useLegacyLimits?: Maybe<Scalars['Boolean']['output']>
+}
+
+export type LoginNameAuditEntry = {
+  __typename?: 'LoginNameAuditEntry'
+  changeReason?: Maybe<Scalars['String']['output']>
+  changedAt: Scalars['DateTime']['output']
+  changedByUserId?: Maybe<Scalars['SbUserId']['output']>
+  id: Scalars['UUID']['output']
+  ipAddress?: Maybe<Scalars['String']['output']>
+  newLoginName: Scalars['String']['output']
+  oldLoginName: Scalars['String']['output']
+  userAgent?: Maybe<Scalars['String']['output']>
+  userId: Scalars['SbUserId']['output']
 }
 
 export type MapFile = {
@@ -317,6 +332,7 @@ export type Query = {
   urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
+  userLoginNameAuditHistory: Array<LoginNameAuditEntry>
 }
 
 export type QueryGameArgs = {
@@ -337,6 +353,12 @@ export type QueryUserArgs = {
 
 export type QueryUserByDisplayNameArgs = {
   name: Scalars['String']['input']
+}
+
+export type QueryUserLoginNameAuditHistoryArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>
+  offset?: InputMaybe<Scalars['Int']['input']>
+  userId: Scalars['SbUserId']['input']
 }
 
 export type ReconciledPlayerResult = {
@@ -424,6 +446,7 @@ export type SbUser = {
 
 export type UpdateCurrentUserChanges = {
   email?: InputMaybe<Scalars['String']['input']>
+  loginName?: InputMaybe<Scalars['String']['input']>
   newPassword?: InputMaybe<Scalars['String']['input']>
 }
 
@@ -673,6 +696,7 @@ export type AccountSettings_CurrentUserFragment = {
   loginName: string
   email: string
   emailVerified: boolean
+  lastLoginNameChange?: string | null
 } & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' }
 
 export type AccountSettingsQueryVariables = Exact<{ [key: string]: never }>
@@ -710,6 +734,39 @@ export type AccountSettingsChangeEmailMutation = {
   userUpdateCurrent: { __typename?: 'CurrentUser' } & {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
+}
+
+export type AccountSettingsChangeLoginNameMutationVariables = Exact<{
+  currentPassword: Scalars['String']['input']
+  loginName: Scalars['String']['input']
+}>
+
+export type AccountSettingsChangeLoginNameMutation = {
+  __typename?: 'Mutation'
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
+
+export type UserLoginNameAuditHistoryQueryVariables = Exact<{
+  userId: Scalars['SbUserId']['input']
+  limit?: InputMaybe<Scalars['Int']['input']>
+  offset?: InputMaybe<Scalars['Int']['input']>
+}>
+
+export type UserLoginNameAuditHistoryQuery = {
+  __typename?: 'Query'
+  userLoginNameAuditHistory: Array<{
+    __typename?: 'LoginNameAuditEntry'
+    id: string
+    oldLoginName: string
+    newLoginName: string
+    changedAt: string
+    changedByUserId?: Types.SbUserId | null
+    changeReason?: string | null
+    ipAddress?: string | null
+    userAgent?: string | null
+  }>
 }
 
 export type AdminUserProfileQueryVariables = Exact<{
@@ -1398,6 +1455,7 @@ export const AccountSettings_CurrentUserFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
         ],
       },
     },
@@ -2025,6 +2083,7 @@ export const AccountSettingsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
         ],
       },
     },
@@ -2107,6 +2166,7 @@ export const AccountSettingsChangePasswordDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
         ],
       },
     },
@@ -2192,6 +2252,7 @@ export const AccountSettingsChangeEmailDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
         ],
       },
     },
@@ -2199,6 +2260,164 @@ export const AccountSettingsChangeEmailDocument = {
 } as unknown as DocumentNode<
   AccountSettingsChangeEmailMutation,
   AccountSettingsChangeEmailMutationVariables
+>
+export const AccountSettingsChangeLoginNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangeLoginName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginName' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'loginName' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'loginName' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangeLoginNameMutation,
+  AccountSettingsChangeLoginNameMutationVariables
+>
+export const UserLoginNameAuditHistoryDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserLoginNameAuditHistory' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'offset' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userLoginNameAuditHistory' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'offset' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'offset' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'oldLoginName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'newLoginName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changedByUserId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changeReason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ipAddress' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userAgent' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  UserLoginNameAuditHistoryQuery,
+  UserLoginNameAuditHistoryQueryVariables
 >
 export const AdminUserProfileDocument = {
   kind: 'Document',

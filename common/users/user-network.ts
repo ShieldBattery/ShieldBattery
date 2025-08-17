@@ -7,7 +7,7 @@ import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking
 import { SbPolicyType } from '../policies/policy-type'
 import { SbPermissions } from '../typeshare'
 import { RestrictionKind, RestrictionReason } from './restrictions'
-import { SbUser, SelfUser } from './sb-user'
+import { SbUser, SelfUserJson } from './sb-user'
 import { SbUserId } from './sb-user-id'
 import { UserStats } from './user-stats'
 
@@ -97,7 +97,7 @@ export interface AcceptPoliciesRequest {
 }
 
 export interface AcceptPoliciesResponse {
-  user: SelfUser
+  user: SelfUserJson
 }
 
 export interface ChangeLanguageRequest {
@@ -105,7 +105,7 @@ export interface ChangeLanguageRequest {
 }
 
 export interface ChangeLanguagesResponse {
-  user: SelfUser
+  user: SelfUserJson
 }
 
 export interface AdminGetPermissionsResponse {

@@ -2,13 +2,11 @@ import { expect, test } from '@playwright/test'
 import { clearLocalState } from '../clear-local-state'
 import { EmailVerificationDialogPage } from '../pages/email-verification-dialog-page'
 import { LoginPage } from '../pages/login-page'
+import { ADMIN_PASSWORD, ADMIN_USERNAME } from '../test-constants'
 import { generateUsername } from '../username-generator'
 import { goToSignup } from './signup/utils'
 
 let loginPage: LoginPage
-
-const ADMIN_USERNAME = 'admin'
-const ADMIN_PASSWORD = 'admin1234'
 
 test.beforeEach(async ({ page }) => {
   loginPage = new LoginPage(page)
