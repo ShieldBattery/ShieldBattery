@@ -151,6 +151,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
           url={subPageUrl(AdminSubPage.Permissions)}
           show={canEditPermissions}
           active={adminSubPage === AdminSubPage.Permissions}
+          testName='permissions-button'
         />
         <AdminNavItem
           title={t('users.admin.punishments.title', 'Punishments')}
@@ -158,6 +159,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
           url={subPageUrl(AdminSubPage.Punishments)}
           show={canBanUsers}
           active={adminSubPage === AdminSubPage.Punishments}
+          testName='punishments-button'
         />
         <AdminNavItem
           title={t('users.admin.ipAddresses.title', 'IP addresses')}
@@ -165,6 +167,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
           url={subPageUrl(AdminSubPage.IpAddresses)}
           show={canBanUsers}
           active={adminSubPage === AdminSubPage.IpAddresses}
+          testName='ip-addresses-button'
         />
         <AdminNavItem
           title={t('users.admin.nameHistory.title', 'Name history')}
@@ -172,6 +175,7 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
           url={subPageUrl(AdminSubPage.NameHistory)}
           show={canBanUsers}
           active={adminSubPage === AdminSubPage.NameHistory}
+          testName='name-history-button'
         />
       </AdminNavigation>
       <AdminContent>{content ?? <LoadingDotsArea />}</AdminContent>
@@ -185,19 +189,25 @@ function AdminNavItem({
   url,
   show,
   active,
+  testName,
 }: {
   title: string
   icon: string
   url: string
   show: boolean
   active: boolean
+  testName?: string
 }) {
   if (!show) return null
 
   return (
     <Tooltip text={title} position='bottom' tabIndex={-1}>
       <AdminNavLink $active={active} href={url}>
-        <AdminNavIconButton icon={<MaterialIcon icon={icon} size={32} />} styledAs='div' />
+        <AdminNavIconButton
+          icon={<MaterialIcon icon={icon} size={32} />}
+          styledAs='div'
+          data-test={testName}
+        />
       </AdminNavLink>
     </Tooltip>
   )
