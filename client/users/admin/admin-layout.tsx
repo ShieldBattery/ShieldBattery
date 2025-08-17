@@ -206,7 +206,7 @@ function AdminNavItem({
         <AdminNavIconButton
           icon={<MaterialIcon icon={icon} size={32} />}
           styledAs='div'
-          data-test={testName}
+          testName={testName}
         />
       </AdminNavLink>
     </Tooltip>
