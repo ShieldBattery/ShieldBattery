@@ -13,6 +13,8 @@ use axum::http::request::Parts;
 use axum::{Extension, RequestPartsExt};
 use axum_client_ip::ClientIp;
 use axum_extra::{TypedHeader, headers::UserAgent};
+use chrono::serde::ts_milliseconds_option;
+use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
 use ipnetwork::IpNetwork;
@@ -144,7 +146,7 @@ pub struct CurrentUser {
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
     /// When the user last changed their login name (for rate limiting display)
-    pub last_login_name_change: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_login_name_change: Option<DateTime<Utc>>,
 
     pub permissions: SbPermissions,
 }
@@ -215,7 +217,7 @@ pub struct LoginNameAuditEntry {
     pub user_id: SbUserId,
     pub old_login_name: String,
     pub new_login_name: String,
-    pub changed_at: chrono::DateTime<chrono::Utc>,
+    pub changed_at: DateTime<Utc>,
     #[graphql(skip)]
     pub changed_by_user_id: Option<SbUserId>,
     pub change_reason: Option<String>,
@@ -372,7 +374,7 @@ impl UsersMutation {
             {
                 // Check rate limit
                 if let Some(last_change) = user.last_login_name_change {
-                    let time_since_change = chrono::Utc::now() - last_change;
+                    let time_since_change = Utc::now() - last_change;
                     if time_since_change
                         < chrono::Duration::from_std(LOGIN_NAME_CHANGE_COOLDOWN).unwrap()
                     {
@@ -889,7 +891,8 @@ struct SelfUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
-    pub last_login_name_change: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(with = "ts_milliseconds_option")]
+    pub last_login_name_change: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
