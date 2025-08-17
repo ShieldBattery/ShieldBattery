@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { SbUser } from '../../../common/users/sb-user'
 import { graphql } from '../../gql'
+import { longTimestamp } from '../../i18n/date-formats'
 import { Card } from '../../material/card'
 import { LoadingDotsArea } from '../../progress/dots'
 import { BodyLarge, BodyMedium, labelMedium, TitleMedium } from '../../styles/typography'
@@ -98,10 +99,6 @@ export function AdminNameHistoryPage({ user }: AdminNameHistoryPageProps) {
     variables: { userId: user.id, limit: 50 },
   })
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
-  }
-
   return (
     <PageRoot>
       <HistoryCard>
@@ -129,7 +126,7 @@ export function AdminNameHistoryPage({ user }: AdminNameHistoryPageProps) {
                   <ArrowIcon>→</ArrowIcon>
                   <BodyLarge>{entry.newLoginName}</BodyLarge>
                 </NameChange>
-                <BodyMedium>{formatDate(entry.changedAt)}</BodyMedium>
+                <BodyMedium>{longTimestamp.format(new Date(entry.changedAt))}</BodyMedium>
               </HistoryHeader>
 
               <MetadataRows>
