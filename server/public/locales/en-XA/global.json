@@ -235,7 +235,15 @@
                 },
                 "unknownError": "$🗡Something went wrong, please try again later.🗡!",
                 "emailUnverified": "$🗡Unverified🗡!",
-                "emailVerified": "$🗡Verified🗡!"
+                "emailVerified": "$🗡Verified🗡!",
+                "loginNameUnavailable": "$🗡Login name is not available🗡!",
+                "rateLimited": "$🗡You can only change your login name once every 30 days.🗡!",
+                "changeLoginName": {
+                    "dialogTitle": "$🗡Change login name🗡!",
+                    "success": "$🗡Login name changed successfully.🗡!"
+                },
+                "loginNameCooldown_one": "$🗡You have changed your name too recently. You can change your login name again in {{count}} day.🗡!",
+                "loginNameCooldown_other": "$🗡You have changed your name too recently. You can change your login name again in {{count}} days.🗡!"
             }
         },
         "activity": {
@@ -1077,6 +1085,22 @@
                 "hate_speech": "$🗡Hate speech🗡!",
                 "other": "$🗡Other🗡!",
                 "spam": "$🗡Spam🗡!"
+            }
+        },
+        "admin": {
+            "ipAddresses": {
+                "title": "$🗡IP addresses🗡!"
+            },
+            "nameHistory": {
+                "noHistory": "$🗡No login name changes found.🗡!",
+                "title": "$🗡Name history🗡!",
+                "userHistory": "$🗡Login name history for {{name}}🗡!"
+            },
+            "permissions": {
+                "title": "$🗡Permissions🗡!"
+            },
+            "punishments": {
+                "title": "$🗡Punishments🗡!"
             }
         }
     },

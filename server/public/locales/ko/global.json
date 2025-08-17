@@ -215,7 +215,14 @@
                 "newPassword": "새 비밀번호",
                 "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
                 "emailUnverified": "미인증",
-                "emailVerified": "인증됨"
+                "emailVerified": "인증됨",
+                "changeLoginName": {
+                    "dialogTitle": "로그인 이름 변경",
+                    "success": "로그인 이름이 성공적으로 변경되었습니다."
+                },
+                "loginNameCooldown_other": "너무 최근에 이름을 변경했습니다. {{count}}일 후에 다시 로그인 이름을 변경할 수 있습니다.",
+                "loginNameUnavailable": "로그인 이름이 사용 불가능합니다.",
+                "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다."
             }
         },
         "activity": {
@@ -1035,6 +1042,22 @@
                 "other": "기타",
                 "spam": "스팸",
                 "toxicity": "악성 행동"
+            }
+        },
+        "admin": {
+            "nameHistory": {
+                "title": "이름 기록",
+                "noHistory": "변경된 로그인 이름이 없습니다.",
+                "userHistory": "{{name}}의 로그인 이름 기록"
+            },
+            "ipAddresses": {
+                "title": "IP 주소"
+            },
+            "permissions": {
+                "title": "권한"
+            },
+            "punishments": {
+                "title": "처벌"
             }
         }
     },

@@ -240,7 +240,16 @@
                 "newPassword": "Новый пароль",
                 "unknownError": "Что-то пошло не так. Пожалуйста, повторите попытку позже.",
                 "emailUnverified": "Не подтверждено",
-                "emailVerified": "Подтверждено"
+                "emailVerified": "Подтверждено",
+                "changeLoginName": {
+                    "dialogTitle": "Изменить имя для входа",
+                    "success": "Имя для входа успешно изменено."
+                },
+                "loginNameUnavailable": "Имя для входа недоступно",
+                "loginNameCooldown_one": "",
+                "loginNameCooldown_few": "",
+                "loginNameCooldown_many": "Вы изменили свое имя слишком недавно. Вы сможете изменить имя для входа снова через {{count}} дней.",
+                "rateLimited": "Вы можете изменить имя для входа только раз в 30 дней."
             }
         }
     },
@@ -1122,6 +1131,22 @@
                 "other": "Прочее",
                 "spam": "Спам",
                 "toxicity": "Токсичность"
+            }
+        },
+        "admin": {
+            "ipAddresses": {
+                "title": "IP-адреса"
+            },
+            "nameHistory": {
+                "noHistory": "Изменений имени для входа не найдено.",
+                "title": "История имен",
+                "userHistory": "История имен для входа {{name}}"
+            },
+            "permissions": {
+                "title": "Разрешения"
+            },
+            "punishments": {
+                "title": "Наказания"
             }
         }
     },

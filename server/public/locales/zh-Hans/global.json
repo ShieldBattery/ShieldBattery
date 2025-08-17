@@ -236,7 +236,14 @@
                 },
                 "unknownError": "遇到错误。请稍后再试。",
                 "emailUnverified": "未验证",
-                "emailVerified": "已验证"
+                "emailVerified": "已验证",
+                "loginNameCooldown_other": "您最近更改了名字。您可以在{{count}}天后再次更改登录名。",
+                "changeLoginName": {
+                    "dialogTitle": "更改登录名",
+                    "success": "登录名更改成功。"
+                },
+                "loginNameUnavailable": "登录名不可用",
+                "rateLimited": "您只能每30天更改一次登录名。"
             }
         }
     },
@@ -1109,6 +1116,22 @@
                 "other": "其他",
                 "spam": "垃圾信息",
                 "toxicity": "有害言行"
+            }
+        },
+        "admin": {
+            "ipAddresses": {
+                "title": "IP地址"
+            },
+            "nameHistory": {
+                "noHistory": "未找到登录名更改记录。",
+                "title": "名字历史",
+                "userHistory": "{{name}}的登录名历史"
+            },
+            "permissions": {
+                "title": "权限"
+            },
+            "punishments": {
+                "title": "惩罚"
             }
         }
     },

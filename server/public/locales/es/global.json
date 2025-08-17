@@ -237,7 +237,16 @@
                 },
                 "unknownError": "Algo salió mal, inténtalo de nuevo más tarde.",
                 "emailUnverified": "No verificado",
-                "emailVerified": "Verificado"
+                "emailVerified": "Verificado",
+                "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Puedes cambiar tu nombre de inicio de sesión nuevamente en {{count}} día.",
+                "loginNameCooldown_many": "",
+                "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Puedes cambiar tu nombre de inicio de sesión nuevamente en {{count}} días.",
+                "loginNameUnavailable": "El nombre de inicio de sesión no está disponible.",
+                "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
+                "changeLoginName": {
+                    "dialogTitle": "Cambiar nombre de inicio de sesión",
+                    "success": "Nombre de inicio de sesión cambiado con éxito."
+                }
             }
         },
         "activity": {
@@ -1082,6 +1091,22 @@
                 "other": "Otros",
                 "spam": "Spam",
                 "toxicity": "Toxicidad"
+            }
+        },
+        "admin": {
+            "nameHistory": {
+                "noHistory": "No se encontraron cambios en el nombre de inicio de sesión.",
+                "title": "Historial de nombres",
+                "userHistory": "Historial de nombres de inicio de sesión para {{name}}"
+            },
+            "permissions": {
+                "title": "Permisos"
+            },
+            "ipAddresses": {
+                "title": "Direcciones IP"
+            },
+            "punishments": {
+                "title": "Castigos"
             }
         }
     },
