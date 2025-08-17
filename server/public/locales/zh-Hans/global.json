@@ -1110,11 +1110,6 @@
                 "spam": "垃圾信息",
                 "toxicity": "有害言行"
             }
-        },
-        "admin": {
-            "ipAddresses": "IP地址",
-            "permissions": "权限",
-            "punishments": "惩罚"
         }
     },
     "whispers": {

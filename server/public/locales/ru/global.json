@@ -1123,11 +1123,6 @@
                 "spam": "Спам",
                 "toxicity": "Токсичность"
             }
-        },
-        "admin": {
-            "ipAddresses": "IP-адреса",
-            "permissions": "Разрешения",
-            "punishments": "Наказания"
         }
     },
     "leagues": {

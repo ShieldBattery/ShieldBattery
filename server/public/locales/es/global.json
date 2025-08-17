@@ -1083,11 +1083,6 @@
                 "spam": "Spam",
                 "toxicity": "Toxicidad"
             }
-        },
-        "admin": {
-            "ipAddresses": "Direcciones IP",
-            "permissions": "Permisos",
-            "punishments": "Sanciones"
         }
     },
     "lobbies": {

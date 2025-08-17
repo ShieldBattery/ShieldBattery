@@ -1036,11 +1036,6 @@
                 "spam": "스팸",
                 "toxicity": "악성 행동"
             }
-        },
-        "admin": {
-            "ipAddresses": "IP 주소",
-            "permissions": "권한",
-            "punishments": "제재"
         }
     },
     "policy": {

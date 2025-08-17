@@ -1078,11 +1078,6 @@
                 "other": "$🗡Other🗡!",
                 "spam": "$🗡Spam🗡!"
             }
-        },
-        "admin": {
-            "ipAddresses": "$🗡IP addresses🗡!",
-            "permissions": "$🗡Permissions🗡!",
-            "punishments": "$🗡Punishments🗡!"
         }
     },
     "lobbies": {
