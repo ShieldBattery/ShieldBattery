@@ -32,7 +32,7 @@ type Documents = {
   '\n  mutation AccountSettingsChangePassword($currentPassword: String!, $newPassword: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { newPassword: $newPassword }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangePasswordDocument
   '\n  mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { email: $email }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeEmailDocument
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeLoginNameDocument
-  '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changedByUserId\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserLoginNameAuditHistoryDocument
+  '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserLoginNameAuditHistoryDocument
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
@@ -74,7 +74,7 @@ const documents: Documents = {
     types.AccountSettingsChangeEmailDocument,
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n':
     types.AccountSettingsChangeLoginNameDocument,
-  '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changedByUserId\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n':
+  '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n':
     types.UserLoginNameAuditHistoryDocument,
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n':
     types.AdminUserProfileDocument,
@@ -210,8 +210,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changedByUserId\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n',
-): (typeof documents)['\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changedByUserId\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n']
+  source: '\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n',
+): (typeof documents)['\n  query UserLoginNameAuditHistory($userId: SbUserId!, $limit: Int, $offset: Int) {\n    userLoginNameAuditHistory(userId: $userId, limit: $limit, offset: $offset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

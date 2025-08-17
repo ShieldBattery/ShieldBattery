@@ -105,10 +105,10 @@ type LoginNameAuditEntry {
 	oldLoginName: String!
 	newLoginName: String!
 	changedAt: DateTime!
-	changedByUserId: SbUserId
 	changeReason: String
-	ipAddress: String
 	userAgent: String
+	changedByUser: SbUser
+	ipAddress: String
 }
 
 type MapFile {

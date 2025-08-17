@@ -79,7 +79,6 @@ const LoginNameHistoryQuery = graphql(/* GraphQL */ `
       oldLoginName
       newLoginName
       changedAt
-      changedByUserId
       changeReason
       ipAddress
       userAgent

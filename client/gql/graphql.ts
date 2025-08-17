@@ -144,7 +144,7 @@ export type LoginNameAuditEntry = {
   __typename?: 'LoginNameAuditEntry'
   changeReason?: Maybe<Scalars['String']['output']>
   changedAt: Scalars['DateTime']['output']
-  changedByUserId?: Maybe<Scalars['SbUserId']['output']>
+  changedByUser?: Maybe<SbUser>
   id: Scalars['UUID']['output']
   ipAddress?: Maybe<Scalars['String']['output']>
   newLoginName: Scalars['String']['output']
@@ -762,7 +762,6 @@ export type UserLoginNameAuditHistoryQuery = {
     oldLoginName: string
     newLoginName: string
     changedAt: string
-    changedByUserId?: Types.SbUserId | null
     changeReason?: string | null
     ipAddress?: string | null
     userAgent?: string | null
@@ -2404,7 +2403,6 @@ export const UserLoginNameAuditHistoryDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'oldLoginName' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'newLoginName' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'changedAt' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'changedByUserId' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'changeReason' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'ipAddress' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'userAgent' } },
