@@ -111,6 +111,7 @@ export async function countRestrictedUserIdentifiers(
       FROM distinct_types dt
       JOIN restrictions r
       ON dt.id = r.id
+      ORDER BY r.end_time DESC
       LIMIT 1
     `)
 
@@ -177,11 +178,17 @@ export async function restrictUsers(
   }
 }
 
+// NOTE(tec27): The identifier restrictrions are basically just the latest restriction, rather than
+// trying to be a log of when restrictions occurred (if you want that, you can use the user table).
+// We do try to combine admin notes, though. Since we know these are all starting in the past, we
+// move the start time to the latest one as well.
 const ON_IDENTIFIER_CONFLICT = sql`
   ON CONFLICT (identifier_type, identifier_hash, kind)
   DO UPDATE SET
-    start_time = LEAST(uir.start_time, EXCLUDED.start_time),
+    start_time = GREATEST(uir.start_time, EXCLUDED.start_time),
     end_time = GREATEST(uir.end_time, EXCLUDED.end_time),
+    reason = EXCLUDED.reason,
+    restricted_by = EXCLUDED.restricted_by,
     admin_notes = CASE
       WHEN EXCLUDED.admin_notes IS NOT NULL AND uir.admin_notes IS NOT NULL THEN
         EXCLUDED.admin_notes || '\n---\n' || uir.admin_notes
