@@ -339,8 +339,7 @@
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
-            "notAvailable": "사용자 이름을 사용할 수 없습니다",
-            "error": "유저네임 사용 가능 여부 확인하는 데 문제가 있었어"
+            "notAvailable": "사용자 이름을 사용할 수 없습니다"
         },
         "language": {
             "changeErrorHeader": "언어 변경 중 오류 발생",
@@ -1047,7 +1046,6 @@
         "admin": {
             "nameHistory": {
                 "title": "이름 기록",
-                "noHistory": "변경된 로그인 이름이 없습니다.",
                 "userHistory": "{{name}}의 로그인 이름 기록"
             },
             "ipAddresses": {

@@ -342,8 +342,7 @@
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
             "required": "$🗡Enter a username🗡!",
-            "notAvailable": "$🗡Username is not available🗡!",
-            "error": "$🗡There was a problem checking username availability🗡!"
+            "notAvailable": "$🗡Username is not available🗡!"
         },
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",
@@ -1092,7 +1091,6 @@
                 "title": "$🗡IP addresses🗡!"
             },
             "nameHistory": {
-                "noHistory": "$🗡No login name changes found.🗡!",
                 "title": "$🗡Name history🗡!",
                 "userHistory": "$🗡Login name history for {{name}}🗡!"
             },

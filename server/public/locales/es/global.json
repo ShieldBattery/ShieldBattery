@@ -269,8 +269,7 @@
         "usernameValidator": {
             "pattern": "El nombre de usuario contiene caracteres inválidos",
             "required": "Ingresa un nombre de usuario",
-            "notAvailable": "El nombre de usuario no está disponible",
-            "error": "Hubo un problema al verificar la disponibilidad del nombre de usuario"
+            "notAvailable": "El nombre de usuario no está disponible"
         },
         "emailValidator": {
             "pattern": "Ingresa una dirección de correo electrónico válida",
@@ -1095,7 +1094,6 @@
         },
         "admin": {
             "nameHistory": {
-                "noHistory": "No se encontraron cambios en el nombre de inicio de sesión.",
                 "title": "Historial de nombres",
                 "userHistory": "Historial de nombres de inicio de sesión para {{name}}"
             },

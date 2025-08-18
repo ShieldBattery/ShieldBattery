@@ -376,8 +376,7 @@
         "usernameValidator": {
             "pattern": "此用户名包含不可用的字符",
             "required": "输入用户名",
-            "notAvailable": "此用户名不可用",
-            "error": "检查用户名可用性时出现问题"
+            "notAvailable": "此用户名不可用"
         },
         "restriction": {
             "chat": {
@@ -1123,7 +1122,6 @@
                 "title": "IP地址"
             },
             "nameHistory": {
-                "noHistory": "未找到登录名更改记录。",
                 "title": "名字历史",
                 "userHistory": "{{name}}的登录名历史"
             },
