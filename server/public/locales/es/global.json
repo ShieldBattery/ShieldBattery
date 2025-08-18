@@ -280,7 +280,8 @@
             "pattern": "El nombre de usuario contiene caracteres inválidos",
             "required": "Ingresa un nombre de usuario",
             "notAvailable": "El nombre de usuario no está disponible",
-            "availabilityError": "Hubo un problema al verificar la disponibilidad del nombre de usuario"
+            "availabilityError": "Hubo un problema al verificar la disponibilidad del nombre de usuario",
+            "unavailable": "El nombre de usuario no está disponible"
         },
         "emailValidator": {
             "pattern": "Ingresa una dirección de correo electrónico válida",

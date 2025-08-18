@@ -344,7 +344,7 @@
             "machineBanned": "$🗡This machine is banned from creating new accounts.🗡!",
             "noConnectionErrorMessage": "$🗡Failed to connect to the server. Please check your internet connection and try again.🗡!",
             "sessionExpired": "$🗡Session expired🗡!",
-            "usernameTaken": "$🗡A user with that name already exists or the name is restricted🗡!",
+            "usernameTaken": "$🗡The username is not available.🗡!",
             "accountBanned": "$🗡This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>🗡!",
             "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!"
         },
@@ -352,7 +352,8 @@
             "pattern": "$🗡Username contains invalid characters🗡!",
             "required": "$🗡Enter a username🗡!",
             "notAvailable": "$🗡Username is not available🗡!",
-            "availabilityError": "$🗡There was a problem checking username availability🗡!"
+            "availabilityError": "$🗡There was a problem checking username availability🗡!",
+            "unavailable": "$🗡Username is not available🗡!"
         },
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",

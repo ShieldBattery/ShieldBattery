@@ -385,7 +385,8 @@
             "pattern": "此用户名包含不可用的字符",
             "required": "输入用户名",
             "notAvailable": "此用户名不可用",
-            "availabilityError": "检查用户名可用性时出现问题"
+            "availabilityError": "检查用户名可用性时出现问题",
+            "unavailable": "此用户名不可用"
         },
         "restriction": {
             "chat": {
