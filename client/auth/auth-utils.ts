@@ -1,8 +1,9 @@
-import queryString from 'query-string'
 import { useEffect, useLayoutEffect } from 'react'
 import { ReadonlyDeep } from 'type-fest'
+import { getErrorStack } from '../../common/errors'
 import { SbPermissions } from '../../common/users/permissions'
 import { SelfUserJson } from '../../common/users/sb-user'
+import logger from '../logging/logger'
 import { makePathString, replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 
@@ -17,9 +18,24 @@ export function useRedirectAfterLogin() {
     if (isLoggedIn && !IS_REDIRECTING_AFTER_LOGIN.value) {
       IS_REDIRECTING_AFTER_LOGIN.value = true
 
-      const nextPath =
-        location && location.search ? (queryString.parse(location.search).nextPath ?? '/') : '/'
-      replace(Array.isArray(nextPath) ? (nextPath[0] ?? '/') : nextPath)
+      const params = new URLSearchParams(location.search)
+      let nextPath = params.get('nextPath')
+      // If we have nested nextPaths, get the deepest one
+      while (nextPath) {
+        try {
+          const nextUrl = new URL(nextPath, location.origin)
+          const nextParams = new URLSearchParams(nextUrl.search)
+          if (nextParams.has('nextPath')) {
+            nextPath = nextParams.get('nextPath')
+          } else {
+            break
+          }
+        } catch (err) {
+          logger.error('Error determining next path after login: ' + getErrorStack(err))
+          break
+        }
+      }
+      replace(nextPath ?? '/')
 
       queueMicrotask(() => {
         IS_REDIRECTING_AFTER_LOGIN.value = false
@@ -29,12 +45,15 @@ export function useRedirectAfterLogin() {
 }
 
 function createNextPath(location: Location): string | undefined {
-  return queryString.stringify({
-    nextPath: makePathString({
+  const params = new URLSearchParams()
+  params.append(
+    'nextPath',
+    makePathString({
       pathname: location.pathname,
       search: location.search,
     }),
-  })
+  )
+  return params.toString()
 }
 
 /**
