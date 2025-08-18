@@ -1,6 +1,7 @@
 import pg, { QueryConfigValues } from 'pg'
 import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
+import { monotonicNow } from '../time/monotonic-now'
 import handlePgError from './pg-error-handler'
 
 /**
@@ -63,13 +64,13 @@ export class DbClient {
     values?: QueryConfigValues<I>,
   ): Promise<pg.QueryResult<R>> {
     const queryText = isQueryConfig(queryTextOrConfig) ? queryTextOrConfig.text : queryTextOrConfig
-    const startTime = Date.now()
+    const startTime = monotonicNow()
     try {
       return await this.wrappedClient.query(queryTextOrConfig, values)
     } catch (error) {
       throw handlePgError(queryText, error)
     } finally {
-      const totalTime = Date.now() - startTime
+      const totalTime = monotonicNow() - startTime
       if (totalTime > SLOW_QUERY_TIME_MS) {
         log.warn(`Slow query [${totalTime}ms]:\n${queryText.trim()}`)
       }
