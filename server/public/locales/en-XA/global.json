@@ -243,7 +243,16 @@
                     "success": "$🗡Login name changed successfully.🗡!"
                 },
                 "loginNameCooldown_one": "$🗡You have changed your name too recently. You can change your login name again in {{count}} day.🗡!",
-                "loginNameCooldown_other": "$🗡You have changed your name too recently. You can change your login name again in {{count}} days.🗡!"
+                "loginNameCooldown_other": "$🗡You have changed your name too recently. You can change your login name again in {{count}} days.🗡!",
+                "changeDisplayName": {
+                    "dialogTitle": "$🗡Change display name🗡!",
+                    "success": "$🗡Display name changed successfully.🗡!"
+                },
+                "displayNameChangeInfo": "$🗡Display names can be changed once every 60 days. Capitalization changes are not affected by name change limits.🗡!",
+                "displayNameCooldown_one": "$🗡You have changed your display name too recently. You can change your display name again in {{count}} day.🗡!",
+                "displayNameCooldown_other": "$🗡You have changed your display name too recently. You can change your display name again in {{count}} days.🗡!",
+                "displayNameUnavailable": "$🗡Display name is not available🗡!",
+                "loginNameChangeInfo": "$🗡Login names can be changed once every 30 days.🗡!"
             }
         },
         "activity": {
@@ -342,7 +351,8 @@
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
             "required": "$🗡Enter a username🗡!",
-            "notAvailable": "$🗡Username is not available🗡!"
+            "notAvailable": "$🗡Username is not available🗡!",
+            "availabilityError": "$🗡There was a problem checking username availability🗡!"
         },
         "language": {
             "changeErrorHeader": "$🗡Error changing the language🗡!",
@@ -1092,7 +1102,12 @@
             },
             "nameHistory": {
                 "title": "$🗡Name history🗡!",
-                "userHistory": "$🗡Login name history for {{name}}🗡!"
+                "userHistory": "$🗡Name history🗡!",
+                "displayNameChanges": "$🗡Display Name Changes🗡!",
+                "loginNameChanges": "$🗡Login Name Changes🗡!",
+                "noDisplayNameHistory": "$🗡No display name changes found.🗡!",
+                "noLoginNameHistory": "$🗡No login name changes found.🗡!",
+                "usedToken": "$🗡Used name change token🗡!"
             },
             "permissions": {
                 "title": "$🗡Permissions🗡!"

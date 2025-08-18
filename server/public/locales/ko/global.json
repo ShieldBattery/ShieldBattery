@@ -222,7 +222,15 @@
                 },
                 "loginNameCooldown_other": "너무 최근에 이름을 변경했습니다. {{count}}일 후에 다시 로그인 이름을 변경할 수 있습니다.",
                 "loginNameUnavailable": "로그인 이름이 사용 불가능합니다.",
-                "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다."
+                "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다.",
+                "changeDisplayName": {
+                    "dialogTitle": "표시 이름 변경",
+                    "success": "표시 이름이 성공적으로 변경되었습니다."
+                },
+                "displayNameUnavailable": "표시 이름이 사용 불가능합니다.",
+                "loginNameChangeInfo": "로그인 이름은 30일에 한 번 변경할 수 있습니다.",
+                "displayNameChangeInfo": "표시 이름은 60일에 한 번 변경할 수 있습니다. 대문자 변경은 이름 변경 제한에 영향을 받지 않습니다.",
+                "displayNameCooldown_other": "표시 이름을 너무 최근에 변경했습니다. {{count}}일 후에 다시 변경할 수 있습니다."
             }
         },
         "activity": {
@@ -339,7 +347,8 @@
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
-            "notAvailable": "사용자 이름을 사용할 수 없습니다"
+            "notAvailable": "사용자 이름을 사용할 수 없습니다",
+            "availabilityError": "사용자 이름 가용성 확인 중 문제가 발생했습니다."
         },
         "language": {
             "changeErrorHeader": "언어 변경 중 오류 발생",
@@ -1046,7 +1055,12 @@
         "admin": {
             "nameHistory": {
                 "title": "이름 기록",
-                "userHistory": "{{name}}의 로그인 이름 기록"
+                "userHistory": "{{name}}의 로그인 이름 기록",
+                "displayNameChanges": "표시 이름 변경 내역",
+                "loginNameChanges": "로그인 이름 변경 내역",
+                "noDisplayNameHistory": "변경된 표시 이름 내역이 없습니다.",
+                "noLoginNameHistory": "변경된 로그인 이름이 없습니다.",
+                "usedToken": "사용된 이름 변경 토큰"
             },
             "ipAddresses": {
                 "title": "IP 주소"

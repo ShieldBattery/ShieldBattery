@@ -246,7 +246,17 @@
                 "changeLoginName": {
                     "dialogTitle": "Cambiar nombre de inicio de sesión",
                     "success": "Nombre de inicio de sesión cambiado con éxito."
-                }
+                },
+                "displayNameCooldown_one": "Has cambiado tu nombre de visualización muy recientemente. Puedes cambiar tu nombre de visualización nuevamente en {{count}} día.",
+                "displayNameCooldown_many": "",
+                "displayNameCooldown_other": "Has cambiado tu nombre de visualización muy recientemente. Puedes cambiar tu nombre de visualización nuevamente en {{count}} días.",
+                "changeDisplayName": {
+                    "dialogTitle": "Cambiar nombre de visualización",
+                    "success": "Nombre de visualización cambiado con éxito."
+                },
+                "displayNameChangeInfo": "Los nombres de visualización se pueden cambiar una vez cada 60 días. Los cambios de capitalización no se ven afectados por los límites de cambio de nombre.",
+                "displayNameUnavailable": "El nombre de visualización no está disponible",
+                "loginNameChangeInfo": "Los nombres de inicio de sesión se pueden cambiar una vez cada 30 días."
             }
         },
         "activity": {
@@ -269,7 +279,8 @@
         "usernameValidator": {
             "pattern": "El nombre de usuario contiene caracteres inválidos",
             "required": "Ingresa un nombre de usuario",
-            "notAvailable": "El nombre de usuario no está disponible"
+            "notAvailable": "El nombre de usuario no está disponible",
+            "availabilityError": "Hubo un problema al verificar la disponibilidad del nombre de usuario"
         },
         "emailValidator": {
             "pattern": "Ingresa una dirección de correo electrónico válida",
@@ -1095,7 +1106,12 @@
         "admin": {
             "nameHistory": {
                 "title": "Historial de nombres",
-                "userHistory": "Historial de nombres de inicio de sesión para {{name}}"
+                "userHistory": "Historial de nombres de inicio de sesión para {{name}}",
+                "loginNameChanges": "Cambios en el nombre de inicio de sesión",
+                "noDisplayNameHistory": "No se encontraron cambios en el nombre de visualización.",
+                "displayNameChanges": "Cambios en el nombre de visualización",
+                "noLoginNameHistory": "No se encontraron cambios en el nombre de inicio de sesión.",
+                "usedToken": "Token de cambio de nombre utilizado"
             },
             "permissions": {
                 "title": "Permisos"

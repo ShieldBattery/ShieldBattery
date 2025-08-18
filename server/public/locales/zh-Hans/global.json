@@ -243,7 +243,15 @@
                     "success": "登录名更改成功。"
                 },
                 "loginNameUnavailable": "登录名不可用",
-                "rateLimited": "您只能每30天更改一次登录名。"
+                "rateLimited": "您只能每30天更改一次登录名。",
+                "displayNameCooldown_other": "您最近更改了显示名称。您可以在{{count}}天后再次更改显示名称。",
+                "changeDisplayName": {
+                    "dialogTitle": "更改显示名称",
+                    "success": "显示名称更改成功。"
+                },
+                "displayNameChangeInfo": "显示名称每60天可以更改一次。大写字母的更改不受名称更改限制的影响。",
+                "displayNameUnavailable": "显示名称不可用",
+                "loginNameChangeInfo": "登录名称每30天可以更改一次。"
             }
         }
     },
@@ -376,7 +384,8 @@
         "usernameValidator": {
             "pattern": "此用户名包含不可用的字符",
             "required": "输入用户名",
-            "notAvailable": "此用户名不可用"
+            "notAvailable": "此用户名不可用",
+            "availabilityError": "检查用户名可用性时出现问题"
         },
         "restriction": {
             "chat": {
@@ -1123,7 +1132,12 @@
             },
             "nameHistory": {
                 "title": "名字历史",
-                "userHistory": "{{name}}的登录名历史"
+                "userHistory": "{{name}}的登录名历史",
+                "displayNameChanges": "显示名称更改",
+                "loginNameChanges": "登录名称更改",
+                "noDisplayNameHistory": "未找到显示名称更改记录。",
+                "noLoginNameHistory": "未找到登录名更改记录。",
+                "usedToken": "已使用名称更改令牌"
             },
             "permissions": {
                 "title": "权限"
