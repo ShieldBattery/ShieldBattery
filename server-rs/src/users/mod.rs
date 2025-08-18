@@ -182,9 +182,9 @@ impl CurrentUser {
             return Ok(None);
         }
 
-        return Ok(self
+        Ok(self
             .last_name_change
-            .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN));
+            .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN))
     }
 }
 
@@ -558,21 +558,19 @@ impl UsersMutation {
                 let needs_cooldown_check = !is_capitalization_only && user.name_change_tokens == 0;
 
                 // Check cooldown if not using token and not capitalization-only
-                if needs_cooldown_check {
-                    if let Some(last_change) = user.last_name_change {
-                        let time_since_change = Utc::now() - last_change;
-                        if time_since_change < DISPLAY_NAME_CHANGE_COOLDOWN {
-                            let time_remaining = DISPLAY_NAME_CHANGE_COOLDOWN - time_since_change;
-                            let days_remaining = time_remaining.num_days();
-                            return Err(graphql_error(
-                                "RATE_LIMITED",
-                                format!(
-                                    "Display name can only be changed once every {} days. {} days remaining.",
-                                    DISPLAY_NAME_CHANGE_COOLDOWN.num_days(),
-                                    days_remaining
-                                ),
-                            ));
-                        }
+                if needs_cooldown_check && let Some(last_change) = user.last_name_change {
+                    let time_since_change = Utc::now() - last_change;
+                    if time_since_change < DISPLAY_NAME_CHANGE_COOLDOWN {
+                        let time_remaining = DISPLAY_NAME_CHANGE_COOLDOWN - time_since_change;
+                        let days_remaining = time_remaining.num_days();
+                        return Err(graphql_error(
+                            "RATE_LIMITED",
+                            format!(
+                                "Display name can only be changed once every {} days. {} days remaining.",
+                                DISPLAY_NAME_CHANGE_COOLDOWN.num_days(),
+                                days_remaining
+                            ),
+                        ));
                     }
                 }
 
