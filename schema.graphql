@@ -23,7 +23,17 @@ type CurrentUser {
 	When the user last changed their login name (for rate limiting display)
 	"""
 	lastLoginNameChange: DateTime
+	"""
+	When the user last changed their display name (for rate limiting display)
+	"""
+	lastNameChange: DateTime
+	"""
+	Number of display name change tokens available
+	"""
+	nameChangeTokens: Int!
 	permissions: SbPermissions!
+	canChangeDisplayName: Boolean!
+	nextDisplayNameChangeAllowedAt: DateTime
 }
 
 """
@@ -32,6 +42,20 @@ Implement the DateTime<Utc> scalar
 The input/output is a string in RFC3339 format.
 """
 scalar DateTime
+
+type DisplayNameAuditEntry {
+	id: UUID!
+	userId: SbUserId!
+	oldName: String!
+	newName: String!
+	changedAt: DateTime!
+	changeReason: String
+	userAgent: String
+	sessionId: String
+	usedToken: Boolean!
+	changedByUser: SbUser
+	ipAddress: String
+}
 
 type Game {
 	id: UUID!
@@ -107,6 +131,7 @@ type LoginNameAuditEntry {
 	changedAt: DateTime!
 	changeReason: String
 	userAgent: String
+	sessionId: String
 	changedByUser: SbUser
 	ipAddress: String
 }
@@ -285,6 +310,7 @@ type Query {
 	currentUser: CurrentUser
 	restrictedNames: [NameRestriction!]!
 	userLoginNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [LoginNameAuditEntry!]!
+	userDisplayNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [DisplayNameAuditEntry!]!
 }
 
 """
@@ -399,6 +425,7 @@ input UpdateCurrentUserChanges {
 	email: String
 	newPassword: String
 	loginName: String
+	name: String
 }
 
 type UploadedMap {

@@ -35,6 +35,8 @@ interface UserInternal {
   acceptedPrivacyVersion: number
   locale: string
   lastLoginNameChange?: Date
+  lastNameChange?: Date
+  nameChangeTokens: number
 }
 
 type DbUser = Dbify<UserInternal>
@@ -64,6 +66,8 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
     locale: dbUser.locale,
     lastLoginNameChange: dbUser.last_login_name_change,
+    lastNameChange: dbUser.last_name_change,
+    nameChangeTokens: dbUser.name_change_tokens,
   }
 }
 
@@ -90,6 +94,8 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
     locale: userInternal.locale,
     lastLoginNameChange: userInternal.lastLoginNameChange,
+    lastNameChange: userInternal.lastNameChange,
+    nameChangeTokens: userInternal.nameChangeTokens,
   }
 }
 
@@ -170,7 +176,15 @@ export async function createUser({
 /** Fields that can be updated for a user. */
 export type UserUpdatables = Omit<
   UserInternal & UserPrivate,
-  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId' | 'loginName' | 'lastLoginNameChange'
+  | 'id'
+  | 'name'
+  | 'created'
+  | 'signupIpAddress'
+  | 'userId'
+  | 'loginName'
+  | 'lastLoginNameChange'
+  | 'lastNameChange'
+  | 'nameChangeTokens'
 >
 
 /**
@@ -474,16 +488,35 @@ export async function retrieveUserCreatedDate(userId: SbUserId): Promise<Date> {
   return user!.created
 }
 
-export async function isUsernameAvailable(username: string): Promise<boolean> {
+export async function isUsernameAvailable(
+  username: string,
+  type?: 'login' | 'display',
+): Promise<boolean> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
-      SELECT 1
-      FROM users
-      WHERE name = ${username}
-      OR login_name = ${username}
-    `)
+    let query: SqlTemplate
+    if (type === 'login') {
+      query = sql`
+        SELECT 1
+        FROM users
+        WHERE login_name = ${username}
+      `
+    } else if (type === 'display') {
+      query = sql`
+        SELECT 1
+        FROM users
+        WHERE name = ${username}
+      `
+    } else {
+      query = sql`
+        SELECT 1
+        FROM users
+        WHERE name = ${username}
+        OR login_name = ${username}
+      `
+    }
 
+    const result = await client.query(query)
     return result.rows.length === 0
   } finally {
     done()

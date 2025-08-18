@@ -36,6 +36,10 @@ export interface SelfUser extends SbUser {
   locale?: string
   /** When the user last changed their login name (for rate limiting) */
   lastLoginNameChange?: Date
+  /** When the user last changed their display name (for rate limiting) */
+  lastNameChange?: Date
+  /** Number of display name change tokens available */
+  nameChangeTokens: number
 }
 
 export type SelfUserJson = Jsonify<SelfUser>
@@ -52,6 +56,8 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
     acceptedUsePolicyVersion: user.acceptedUsePolicyVersion,
     locale: user.locale,
     lastLoginNameChange: user.lastLoginNameChange ? Number(user.lastLoginNameChange) : undefined,
+    lastNameChange: user.lastNameChange ? Number(user.lastNameChange) : undefined,
+    nameChangeTokens: user.nameChangeTokens,
   }
 }
 
@@ -69,5 +75,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
     lastLoginNameChange: userJson.lastLoginNameChange
       ? new Date(userJson.lastLoginNameChange)
       : undefined,
+    lastNameChange: userJson.lastNameChange ? new Date(userJson.lastNameChange) : undefined,
+    nameChangeTokens: userJson.nameChangeTokens,
   }
 }

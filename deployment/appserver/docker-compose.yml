@@ -110,6 +110,7 @@ services:
       - SB_JWT_SECRET
       - SB_SESSION_TTL
       - SB_FILE_STORE
+      - SB_DISCORD_WEBHOOK_URL
     networks:
       - frontend
       - backend

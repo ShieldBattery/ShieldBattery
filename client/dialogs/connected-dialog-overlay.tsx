@@ -33,6 +33,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ReplayInfoDialog } from '../replays/replay-info-display'
 import { ReplayLoadDialog } from '../replays/replay-load-dialog'
 import {
+  ChangeDisplayNameDialog,
   ChangeEmailDialog,
   ChangeLoginNameDialog,
   ChangePasswordDialog,
@@ -73,6 +74,8 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptableUseDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
+    case DialogType.ChangeDisplayName:
+      return { component: ChangeDisplayNameDialog }
     case DialogType.ChangeEmail:
       return { component: ChangeEmailDialog }
     case DialogType.ChangeLoginName:

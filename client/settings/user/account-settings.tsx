@@ -9,19 +9,19 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../../common/constants'
 import { getErrorStack } from '../../../common/errors'
-import { apiUrl } from '../../../common/urls'
 import { LOGIN_NAME_CHANGE_COOLDOWN_MS } from '../../../common/users/sb-user'
-import { UsernameAvailableResponse } from '../../../common/users/user-network'
-import { usernameValidator } from '../../auth/auth-form-validators'
+import {
+  createUsernameAvailabilityValidator,
+  usernameValidator,
+} from '../../auth/auth-form-validators'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
-import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import {
   composeValidators,
-  debounceValidator,
   matchesOther,
   maxLength,
   minLength,
@@ -38,7 +38,6 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
-import { fetchJson } from '../../network/fetch'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
@@ -118,6 +117,10 @@ const CurrentUserFragment = graphql(/* GraphQL */ `
     email
     emailVerified
     lastLoginNameChange
+    lastNameChange
+    nameChangeTokens
+    canChangeDisplayName
+    nextDisplayNameChangeAllowedAt
   }
 `)
 
@@ -172,7 +175,27 @@ export function AccountSettings() {
               </EditableOverline>
               <TitleMedium>{currentUser.name}</TitleMedium>
             </EditableContent>
-            <FilledButton label={t('common.actions.edit', 'Edit')} disabled={true} />
+            <FilledButton
+              label={t('common.actions.edit', 'Edit')}
+              onClick={() => {
+                dispatch(
+                  openDialog({
+                    type: DialogType.ChangeDisplayName,
+                    initData: {
+                      currentName: currentUser.name ?? '',
+                      lastChange: currentUser.lastNameChange
+                        ? new Date(currentUser.lastNameChange)
+                        : undefined,
+                      canChangeDisplayName: currentUser.canChangeDisplayName ?? false,
+                      nextDisplayNameChangeAllowedAt: currentUser.nextDisplayNameChangeAllowedAt
+                        ? new Date(currentUser.nextDisplayNameChangeAllowedAt)
+                        : undefined,
+                    },
+                  }),
+                )
+              }}
+              testName='edit-display-name-button'
+            />
           </EditableItem>
 
           <EditableItem>
@@ -603,6 +626,219 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
   )
 }
 
+const ChangeDisplayNameMutation = graphql(/* GraphQL */ `
+  mutation AccountSettingsChangeDisplayName($currentPassword: String!, $name: String!) {
+    userUpdateCurrent(currentPassword: $currentPassword, changes: { name: $name }) {
+      ...AccountSettings_CurrentUser
+    }
+  }
+`)
+
+interface ChangeDisplayNameFormModel {
+  currentPassword: string
+  name: string
+}
+
+export interface ChangeDisplayNameDialogProps extends CommonDialogProps {
+  currentName: string
+  lastChange?: Date
+  canChangeDisplayName: boolean
+  nextDisplayNameChangeAllowedAt?: Date
+}
+
+export function ChangeDisplayNameDialog({
+  onCancel,
+  currentName,
+  canChangeDisplayName,
+  nextDisplayNameChangeAllowedAt,
+}: ChangeDisplayNameDialogProps) {
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const { t } = useTranslation()
+  const [{ fetching }, changeDisplayName] = useMutation(ChangeDisplayNameMutation)
+  const [errorMessage, setErrorMessage] = useState<string>()
+  const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
+
+  const nameAvailable = useMemo(
+    () =>
+      createUsernameAvailabilityValidator<ChangeDisplayNameFormModel>({
+        type: 'display',
+        ignoreName: currentName,
+      }),
+    [currentName],
+  )
+
+  const { submit, bindInput, setInputError, form } = useForm<ChangeDisplayNameFormModel>(
+    { currentPassword: '', name: currentName },
+    {
+      currentPassword: currentPasswordValidator,
+      name: composeValidators(usernameValidator, nameAvailable),
+    },
+  )
+
+  const daysRemaining =
+    nextDisplayNameChangeAllowedAt && !canChangeDisplayName
+      ? Math.max(
+          0,
+          Math.ceil((Number(nextDisplayNameChangeAllowedAt) - Date.now()) / (24 * 60 * 60 * 1000)),
+        )
+      : 0
+
+  useFormCallbacks(form, {
+    onSubmit: model => {
+      setErrorMessage(undefined)
+      changeDisplayName({
+        currentPassword: model.currentPassword,
+        name: model.name,
+      })
+        .then(result => {
+          if (result.error) {
+            if (result.error.networkError) {
+              setErrorMessage(
+                t('settings.user.account.networkError', 'Network error: {{errorMessage}}', {
+                  errorMessage: result.error.networkError.message,
+                }),
+              )
+            } else if (result.error.graphQLErrors?.length) {
+              for (const error of result.error.graphQLErrors) {
+                if (error.extensions?.code === 'INVALID_PASSWORD') {
+                  setInputError(
+                    'currentPassword',
+                    t(
+                      'settings.user.account.invalidCurrentPassword',
+                      'Current password is incorrect',
+                    ),
+                  )
+                  return
+                } else if (error.extensions?.code === 'DISPLAY_NAME_UNAVAILABLE') {
+                  setInputError(
+                    'name',
+                    t(
+                      'settings.user.account.displayNameUnavailable',
+                      'Display name is not available',
+                    ),
+                  )
+                  return
+                } else if (error.extensions?.code === 'RATE_LIMITED') {
+                  setErrorMessage(error.message)
+                  setErrorMessage(
+                    t(
+                      'settings.user.account.displayNameCooldown',
+                      'You have changed your display name too recently. You can change your ' +
+                        'display name again in {{count}} days.',
+                      { count: daysRemaining },
+                    ),
+                  )
+
+                  return
+                }
+              }
+
+              setErrorMessage(
+                t(
+                  'settings.user.account.unknownError',
+                  'Something went wrong, please try again later.',
+                ),
+              )
+            }
+          } else {
+            snackbarController.showSnackbar(
+              t(
+                'settings.user.account.changeDisplayName.success',
+                'Display name changed successfully.',
+              ),
+            )
+            onCancel()
+            dispatch({
+              type: '@auth/displayNameChanged',
+              payload: {
+                newDisplayName: model.name,
+              },
+            })
+          }
+        })
+        .catch(err => {
+          logger.error(`Error changing display name: ${getErrorStack(err)}`)
+        })
+    },
+  })
+
+  const buttons = [
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      onClick={onCancel}
+      disabled={fetching}
+    />,
+    <TextButton
+      label={t('common.actions.save', 'Save')}
+      key='save'
+      onClick={submit}
+      disabled={fetching}
+      testName='save-button'
+    />,
+  ]
+
+  return (
+    <StyledDialog
+      title={t('settings.user.account.changeDisplayName.dialogTitle', 'Change display name')}
+      onCancel={onCancel}
+      showCloseButton={true}
+      buttons={buttons}
+      testName='change-display-name-dialog'>
+      <BodyMedium>
+        {t(
+          'settings.user.account.displayNameChangeInfo',
+          'Display names can be changed once every 60 days. Capitalization changes are not ' +
+            'affected by name change limits.',
+        )}
+      </BodyMedium>
+      <FormSpacer />
+
+      {errorMessage ? (
+        <>
+          <ErrorMessage>{errorMessage}</ErrorMessage>
+          <FormSpacer />
+        </>
+      ) : null}
+      {!fetching && !errorMessage && !canChangeDisplayName && daysRemaining ? (
+        <>
+          <ErrorMessage>
+            {t(
+              'settings.user.account.displayNameCooldown',
+              'You have changed your display name too recently. You can change your display name ' +
+                'again in {{count}} days.',
+              { count: daysRemaining },
+            )}
+          </ErrorMessage>
+          <FormSpacer />
+        </>
+      ) : null}
+      <form noValidate={true} onSubmit={submit}>
+        <SubmitOnEnter disabled={fetching} />
+        <PasswordTextField
+          {...bindInput('currentPassword')}
+          ref={autoFocusRef}
+          label={t('settings.user.account.currentPassword', 'Current password')}
+          inputProps={TEXT_INPUT_PROPS}
+          floatingLabel={true}
+          disabled={fetching}
+        />
+
+        <FormSpacer />
+
+        <TextField
+          {...bindInput('name')}
+          label={t('settings.user.account.displayName', 'Display name')}
+          inputProps={TEXT_INPUT_PROPS}
+          floatingLabel={true}
+          disabled={fetching}
+        />
+      </form>
+    </StyledDialog>
+  )
+}
+
 const ChangeLoginNameMutation = graphql(/* GraphQL */ `
   mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {
     userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {
@@ -642,37 +878,10 @@ export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
       )
     : 0
 
-  const nameAvailable = useMemo<Validator<string, ChangeLoginNameFormModel>>(() => {
-    let lastValidatedName: string | undefined
-
-    return debounceValidator(async (username, _model, _dirty, t) => {
-      if (username === lastValidatedName) {
-        return undefined
-      }
-
-      try {
-        const result = await fetchJson<UsernameAvailableResponse>(
-          apiUrl`users/username-available/${username}`,
-          {
-            method: 'POST',
-          },
-        )
-        if (result.available) {
-          lastValidatedName = username
-          return undefined
-        }
-      } catch (ignored) {
-        lastValidatedName = undefined
-        return t(
-          'auth.usernameValidator.error',
-          'There was a problem checking username availability',
-        )
-      }
-
-      lastValidatedName = username
-      return t('settings.user.account.loginNameUnavailable', 'Login name is not available')
-    }, 350)
-  }, [])
+  const nameAvailable = useMemo(
+    () => createUsernameAvailabilityValidator<ChangeLoginNameFormModel>({ type: 'login' }),
+    [],
+  )
 
   const { submit, bindInput, setInputError, form } = useForm<ChangeLoginNameFormModel>(
     { currentPassword: '', loginName: props.currentLoginName },
@@ -771,6 +980,14 @@ export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
       showCloseButton={true}
       buttons={buttons}
       testName='change-login-name-dialog'>
+      <BodyMedium>
+        {t(
+          'settings.user.account.loginNameChangeInfo',
+          'Login names can be changed once every 30 days.',
+        )}
+      </BodyMedium>
+      <FormSpacer />
+
       {errorMessage ? (
         <>
           <ErrorMessage>{errorMessage}</ErrorMessage>

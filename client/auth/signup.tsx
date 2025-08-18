@@ -4,24 +4,22 @@ import { useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { apiUrl } from '../../common/urls'
-import { UsernameAvailableResponse } from '../../common/users/user-network'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { Validator, useForm, useFormCallbacks } from '../forms/form-hook'
+import { useForm, useFormCallbacks } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import { composeValidators, debounceValidator, requireChecked } from '../forms/validators'
+import { composeValidators, requireChecked } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
 import { FilledButton } from '../material/button'
 import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
 import { PasswordTextField } from '../material/password-text-field'
 import { TextField } from '../material/text-field'
-import { fetchJson } from '../network/fetch'
 import { useAppDispatch } from '../redux-hooks'
 import { signUp } from './action-creators'
 import {
   confirmPasswordValidator,
+  createUsernameAvailabilityValidator,
   emailValidator,
   passwordValidator,
   usernameValidator,
@@ -107,37 +105,7 @@ export function Signup() {
 
   useRedirectAfterLogin()
 
-  const usernameAvailable = useMemo<Validator<string, SignupModel>>(() => {
-    let lastValidatedName: string | undefined
-
-    return debounceValidator(async (username, _model, _dirty, t) => {
-      if (username === lastValidatedName) {
-        return undefined
-      }
-
-      try {
-        const result = await fetchJson<UsernameAvailableResponse>(
-          apiUrl`users/username-available/${username}`,
-          {
-            method: 'POST',
-          },
-        )
-        if (result.available) {
-          lastValidatedName = username
-          return undefined
-        }
-      } catch (ignored) {
-        lastValidatedName = undefined
-        return t(
-          'auth.usernameValidator.error',
-          'There was a problem checking username availability',
-        )
-      }
-
-      lastValidatedName = username
-      return t('auth.usernameValidator.notAvailable', 'Username is not available')
-    }, 350)
-  }, [])
+  const usernameAvailable = useMemo(() => createUsernameAvailabilityValidator<SignupModel>(), [])
 
   const abortControllerRef = useRef<AbortController>(undefined)
 

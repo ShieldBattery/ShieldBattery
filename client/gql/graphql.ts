@@ -59,17 +59,38 @@ export type CurrentUser = {
   acceptedPrivacyVersion: Scalars['Int']['output']
   acceptedTermsVersion: Scalars['Int']['output']
   acceptedUsePolicyVersion: Scalars['Int']['output']
+  canChangeDisplayName: Scalars['Boolean']['output']
   email: Scalars['String']['output']
   emailVerified: Scalars['Boolean']['output']
   id: Scalars['SbUserId']['output']
   /** When the user last changed their login name (for rate limiting display) */
   lastLoginNameChange?: Maybe<Scalars['DateTime']['output']>
+  /** When the user last changed their display name (for rate limiting display) */
+  lastNameChange?: Maybe<Scalars['DateTime']['output']>
   locale?: Maybe<Scalars['String']['output']>
   /** The name the user logs in with (may differ from their display name). */
   loginName: Scalars['String']['output']
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
+  /** Number of display name change tokens available */
+  nameChangeTokens: Scalars['Int']['output']
+  nextDisplayNameChangeAllowedAt?: Maybe<Scalars['DateTime']['output']>
   permissions: SbPermissions
+}
+
+export type DisplayNameAuditEntry = {
+  __typename?: 'DisplayNameAuditEntry'
+  changeReason?: Maybe<Scalars['String']['output']>
+  changedAt: Scalars['DateTime']['output']
+  changedByUser?: Maybe<SbUser>
+  id: Scalars['UUID']['output']
+  ipAddress?: Maybe<Scalars['String']['output']>
+  newName: Scalars['String']['output']
+  oldName: Scalars['String']['output']
+  sessionId?: Maybe<Scalars['String']['output']>
+  usedToken: Scalars['Boolean']['output']
+  userAgent?: Maybe<Scalars['String']['output']>
+  userId: Scalars['SbUserId']['output']
 }
 
 export type Game = {
@@ -149,6 +170,7 @@ export type LoginNameAuditEntry = {
   ipAddress?: Maybe<Scalars['String']['output']>
   newLoginName: Scalars['String']['output']
   oldLoginName: Scalars['String']['output']
+  sessionId?: Maybe<Scalars['String']['output']>
   userAgent?: Maybe<Scalars['String']['output']>
   userId: Scalars['SbUserId']['output']
 }
@@ -332,6 +354,7 @@ export type Query = {
   urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
+  userDisplayNameAuditHistory: Array<DisplayNameAuditEntry>
   userLoginNameAuditHistory: Array<LoginNameAuditEntry>
 }
 
@@ -353,6 +376,12 @@ export type QueryUserArgs = {
 
 export type QueryUserByDisplayNameArgs = {
   name: Scalars['String']['input']
+}
+
+export type QueryUserDisplayNameAuditHistoryArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>
+  offset?: InputMaybe<Scalars['Int']['input']>
+  userId: Scalars['SbUserId']['input']
 }
 
 export type QueryUserLoginNameAuditHistoryArgs = {
@@ -447,6 +476,7 @@ export type SbUser = {
 export type UpdateCurrentUserChanges = {
   email?: InputMaybe<Scalars['String']['input']>
   loginName?: InputMaybe<Scalars['String']['input']>
+  name?: InputMaybe<Scalars['String']['input']>
   newPassword?: InputMaybe<Scalars['String']['input']>
 }
 
@@ -697,6 +727,10 @@ export type AccountSettings_CurrentUserFragment = {
   email: string
   emailVerified: boolean
   lastLoginNameChange?: string | null
+  lastNameChange?: string | null
+  nameChangeTokens: number
+  canChangeDisplayName: boolean
+  nextDisplayNameChangeAllowedAt?: string | null
 } & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' }
 
 export type AccountSettingsQueryVariables = Exact<{ [key: string]: never }>
@@ -736,6 +770,18 @@ export type AccountSettingsChangeEmailMutation = {
   }
 }
 
+export type AccountSettingsChangeDisplayNameMutationVariables = Exact<{
+  currentPassword: Scalars['String']['input']
+  name: Scalars['String']['input']
+}>
+
+export type AccountSettingsChangeDisplayNameMutation = {
+  __typename?: 'Mutation'
+  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
+
 export type AccountSettingsChangeLoginNameMutationVariables = Exact<{
   currentPassword: Scalars['String']['input']
   loginName: Scalars['String']['input']
@@ -748,14 +794,28 @@ export type AccountSettingsChangeLoginNameMutation = {
   }
 }
 
-export type UserLoginNameAuditHistoryQueryVariables = Exact<{
+export type UserNameAuditHistoryQueryVariables = Exact<{
   userId: Scalars['SbUserId']['input']
-  limit?: InputMaybe<Scalars['Int']['input']>
-  offset?: InputMaybe<Scalars['Int']['input']>
+  displayNameLimit?: InputMaybe<Scalars['Int']['input']>
+  displayNameOffset?: InputMaybe<Scalars['Int']['input']>
+  loginNameLimit?: InputMaybe<Scalars['Int']['input']>
+  loginNameOffset?: InputMaybe<Scalars['Int']['input']>
 }>
 
-export type UserLoginNameAuditHistoryQuery = {
+export type UserNameAuditHistoryQuery = {
   __typename?: 'Query'
+  userDisplayNameAuditHistory: Array<{
+    __typename?: 'DisplayNameAuditEntry'
+    id: string
+    oldName: string
+    newName: string
+    changedAt: string
+    changeReason?: string | null
+    ipAddress?: string | null
+    userAgent?: string | null
+    usedToken: boolean
+    changedByUser?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+  }>
   userLoginNameAuditHistory: Array<{
     __typename?: 'LoginNameAuditEntry'
     id: string
@@ -1455,6 +1515,10 @@ export const AccountSettings_CurrentUserFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
           { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
         ],
       },
     },
@@ -2083,6 +2147,10 @@ export const AccountSettingsDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
           { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
         ],
       },
     },
@@ -2166,6 +2234,10 @@ export const AccountSettingsChangePasswordDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
           { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
         ],
       },
     },
@@ -2252,6 +2324,10 @@ export const AccountSettingsChangeEmailDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
           { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
         ],
       },
     },
@@ -2259,6 +2335,96 @@ export const AccountSettingsChangeEmailDocument = {
 } as unknown as DocumentNode<
   AccountSettingsChangeEmailMutation,
   AccountSettingsChangeEmailMutationVariables
+>
+export const AccountSettingsChangeDisplayNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangeDisplayName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'name' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangeDisplayNameMutation,
+  AccountSettingsChangeDisplayNameMutationVariables
 >
 export const AccountSettingsChangeLoginNameDocument = {
   kind: 'Document',
@@ -2338,6 +2504,10 @@ export const AccountSettingsChangeLoginNameDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'email' } },
           { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
           { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
         ],
       },
     },
@@ -2346,13 +2516,13 @@ export const AccountSettingsChangeLoginNameDocument = {
   AccountSettingsChangeLoginNameMutation,
   AccountSettingsChangeLoginNameMutationVariables
 >
-export const UserLoginNameAuditHistoryDocument = {
+export const UserNameAuditHistoryDocument = {
   kind: 'Document',
   definitions: [
     {
       kind: 'OperationDefinition',
       operation: 'query',
-      name: { kind: 'Name', value: 'UserLoginNameAuditHistory' },
+      name: { kind: 'Name', value: 'UserNameAuditHistory' },
       variableDefinitions: [
         {
           kind: 'VariableDefinition',
@@ -2364,18 +2534,70 @@ export const UserLoginNameAuditHistoryDocument = {
         },
         {
           kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameLimit' } },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
         },
         {
           kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'offset' } },
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameOffset' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameLimit' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameOffset' } },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
         },
       ],
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userDisplayNameAuditHistory' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameLimit' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'offset' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameOffset' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'oldName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'newName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changedAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'changedByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'changeReason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ipAddress' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userAgent' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'usedToken' } },
+              ],
+            },
+          },
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'userLoginNameAuditHistory' },
@@ -2388,12 +2610,12 @@ export const UserLoginNameAuditHistoryDocument = {
               {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'limit' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'limit' } },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameLimit' } },
               },
               {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'offset' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'offset' } },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameOffset' } },
               },
             ],
             selectionSet: {
@@ -2413,10 +2635,7 @@ export const UserLoginNameAuditHistoryDocument = {
       },
     },
   ],
-} as unknown as DocumentNode<
-  UserLoginNameAuditHistoryQuery,
-  UserLoginNameAuditHistoryQueryVariables
->
+} as unknown as DocumentNode<UserNameAuditHistoryQuery, UserNameAuditHistoryQueryVariables>
 export const AdminUserProfileDocument = {
   kind: 'Document',
   definitions: [

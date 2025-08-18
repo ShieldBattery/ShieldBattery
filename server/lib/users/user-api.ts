@@ -358,6 +358,7 @@ export class UserApi {
   async checkUsernameAvailable(ctx: RouterContext): Promise<UsernameAvailableResponse> {
     const {
       params: { username },
+      query: { type },
     } = validateRequest(ctx, {
       params: Joi.object<{ username: string }>({
         username: Joi.string()
@@ -366,9 +367,12 @@ export class UserApi {
           .pattern(USERNAME_PATTERN)
           .required(),
       }).required(),
+      query: Joi.object<{ type?: 'login' | 'display' }>({
+        type: Joi.string().valid('login', 'display'),
+      }),
     })
 
-    const available = await isUsernameAvailable(username)
+    const available = await isUsernameAvailable(username, type)
     if (!available) {
       return { available: false }
     }

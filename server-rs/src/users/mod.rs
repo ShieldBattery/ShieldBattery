@@ -50,7 +50,8 @@ mod user_id;
 
 pub use user_id::SbUserId;
 
-const LOGIN_NAME_CHANGE_COOLDOWN: Duration = Duration::from_secs(30 * 24 * 60 * 60); // 30 days
+const LOGIN_NAME_CHANGE_COOLDOWN: chrono::Duration = chrono::Duration::days(30);
+const DISPLAY_NAME_CHANGE_COOLDOWN: chrono::Duration = chrono::Duration::days(60);
 
 pub struct UsersModule {
     db_pool: PgPool,
@@ -133,6 +134,7 @@ impl Guard for IsCurrentUser {
 }
 
 #[derive(SimpleObject, Clone, Debug)]
+#[graphql(complex)]
 pub struct CurrentUser {
     pub id: SbUserId,
     /// The user's display name (may differ from their login name).
@@ -147,8 +149,43 @@ pub struct CurrentUser {
     pub locale: Option<String>,
     /// When the user last changed their login name (for rate limiting display)
     pub last_login_name_change: Option<DateTime<Utc>>,
+    /// When the user last changed their display name (for rate limiting display)
+    pub last_name_change: Option<DateTime<Utc>>,
+    /// Number of display name change tokens available
+    pub name_change_tokens: i32,
 
     pub permissions: SbPermissions,
+}
+
+#[ComplexObject]
+impl CurrentUser {
+    async fn can_change_display_name(&self, _ctx: &Context<'_>) -> Result<bool> {
+        // User can change if they have tokens
+        if self.name_change_tokens > 0 {
+            return Ok(true);
+        }
+
+        // Or if they're not on cooldown
+        if let Some(last_change) = self.last_name_change {
+            let time_since_change = Utc::now() - last_change;
+            Ok(time_since_change >= DISPLAY_NAME_CHANGE_COOLDOWN)
+        } else {
+            Ok(true) // Never changed before
+        }
+    }
+
+    async fn next_display_name_change_allowed_at(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Option<DateTime<Utc>>> {
+        if self.can_change_display_name(ctx).await? {
+            return Ok(None);
+        }
+
+        return Ok(self
+            .last_name_change
+            .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN));
+    }
 }
 
 impl FromRequestParts<AppState> for CurrentUser {
@@ -224,10 +261,46 @@ pub struct LoginNameAuditEntry {
     #[graphql(skip)]
     pub ip_address: Option<IpNetwork>,
     pub user_agent: Option<String>,
+    pub session_id: Option<String>,
 }
 
 #[ComplexObject]
 impl LoginNameAuditEntry {
+    async fn changed_by_user(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        if let Some(user_id) = self.changed_by_user_id {
+            ctx.data::<DataLoader<UsersLoader>>()?
+                .load_one(user_id)
+                .await
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn ip_address(&self, _ctx: &Context<'_>) -> Result<Option<String>> {
+        Ok(self.ip_address.map(|ip| ip.to_string()))
+    }
+}
+
+#[derive(SimpleObject, sqlx::FromRow)]
+#[graphql(complex)]
+pub struct DisplayNameAuditEntry {
+    pub id: uuid::Uuid,
+    pub user_id: SbUserId,
+    pub old_name: String,
+    pub new_name: String,
+    pub changed_at: DateTime<Utc>,
+    #[graphql(skip)]
+    pub changed_by_user_id: Option<SbUserId>,
+    pub change_reason: Option<String>,
+    #[graphql(skip)]
+    pub ip_address: Option<IpNetwork>,
+    pub user_agent: Option<String>,
+    pub session_id: Option<String>,
+    pub used_token: bool,
+}
+
+#[ComplexObject]
+impl DisplayNameAuditEntry {
     async fn changed_by_user(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
         if let Some(user_id) = self.changed_by_user_id {
             ctx.data::<DataLoader<UsersLoader>>()?
@@ -293,8 +366,51 @@ impl UsersQuery {
                 changed_by_user_id as "changed_by_user_id: _",
                 change_reason,
                 ip_address,
-                user_agent
+                user_agent,
+                session_id
             FROM user_login_name_audit
+            WHERE user_id = $1
+            ORDER BY changed_at DESC
+            LIMIT $2
+            OFFSET $3
+            "#,
+            user_id as _,
+            limit as i64,
+            offset as i64,
+        )
+        .fetch_all(ctx.data::<PgPool>()?)
+        .await?;
+
+        Ok(entries)
+    }
+
+    #[graphql(guard = RequiredPermission::BanUsers)]
+    async fn user_display_name_audit_history(
+        &self,
+        ctx: &Context<'_>,
+        user_id: SbUserId,
+        limit: Option<i32>,
+        offset: Option<i32>,
+    ) -> Result<Vec<DisplayNameAuditEntry>> {
+        let limit = limit.unwrap_or(50).min(100);
+        let offset = offset.unwrap_or(0);
+
+        let entries = sqlx::query_as!(
+            DisplayNameAuditEntry,
+            r#"
+            SELECT
+                id,
+                user_id as "user_id: SbUserId",
+                old_name,
+                new_name,
+                changed_at,
+                changed_by_user_id as "changed_by_user_id: _",
+                change_reason,
+                ip_address,
+                user_agent,
+                session_id,
+                used_token
+            FROM user_display_name_audit
             WHERE user_id = $1
             ORDER BY changed_at DESC
             LIMIT $2
@@ -375,18 +491,14 @@ impl UsersMutation {
                 // Check rate limit
                 if let Some(last_change) = user.last_login_name_change {
                     let time_since_change = Utc::now() - last_change;
-                    if time_since_change
-                        < chrono::Duration::from_std(LOGIN_NAME_CHANGE_COOLDOWN).unwrap()
-                    {
-                        let time_remaining = chrono::Duration::from_std(LOGIN_NAME_CHANGE_COOLDOWN)
-                            .unwrap()
-                            - time_since_change;
+                    if time_since_change < LOGIN_NAME_CHANGE_COOLDOWN {
+                        let time_remaining = LOGIN_NAME_CHANGE_COOLDOWN - time_since_change;
                         let days_remaining = time_remaining.num_days();
                         return Err(graphql_error(
                             "RATE_LIMITED",
                             format!(
                                 "Login name can only be changed once every {} days. {} days remaining.",
-                                LOGIN_NAME_CHANGE_COOLDOWN.as_secs() / (24 * 60 * 60),
+                                LOGIN_NAME_CHANGE_COOLDOWN.num_days(),
                                 days_remaining
                             ),
                         ));
@@ -434,6 +546,71 @@ impl UsersMutation {
                 query.push("login_name = ");
                 query.push_bind_unseparated(new_login_name);
                 query.push("last_login_name_change = NOW()");
+            }
+
+            // Handle display name changes
+            if let Some(new_name) = changes.name.clone()
+                && new_name != user.name
+            {
+                // Check if this is capitalization-only change
+                let is_capitalization_only = new_name.to_lowercase() == user.name.to_lowercase();
+                let will_use_token = !is_capitalization_only && user.name_change_tokens > 0;
+                let needs_cooldown_check = !is_capitalization_only && user.name_change_tokens == 0;
+
+                // Check cooldown if not using token and not capitalization-only
+                if needs_cooldown_check {
+                    if let Some(last_change) = user.last_name_change {
+                        let time_since_change = Utc::now() - last_change;
+                        if time_since_change < DISPLAY_NAME_CHANGE_COOLDOWN {
+                            let time_remaining = DISPLAY_NAME_CHANGE_COOLDOWN - time_since_change;
+                            let days_remaining = time_remaining.num_days();
+                            return Err(graphql_error(
+                                "RATE_LIMITED",
+                                format!(
+                                    "Display name can only be changed once every {} days. {} days remaining.",
+                                    DISPLAY_NAME_CHANGE_COOLDOWN.num_days(),
+                                    days_remaining
+                                ),
+                            ));
+                        }
+                    }
+                }
+
+                // Check against restricted names and existing users
+                if let Some(_restriction) = ctx.data::<NameChecker>()?.check_name(&new_name).await?
+                {
+                    return Err(graphql_error(
+                        "DISPLAY_NAME_UNAVAILABLE",
+                        "Display name is not available",
+                    ));
+                }
+
+                let existing = sqlx::query!(
+                    "SELECT id FROM users WHERE name = $1 AND id != $2",
+                    new_name,
+                    user.id as _
+                )
+                .fetch_optional(ctx.data::<PgPool>()?)
+                .await?;
+
+                if existing.is_some() {
+                    return Err(graphql_error(
+                        "DISPLAY_NAME_UNAVAILABLE",
+                        "Display name is not available",
+                    ));
+                }
+
+                has_update = true;
+                query.push("name = ");
+                query.push_bind_unseparated(new_name);
+
+                // Update tokens and/or timestamp based on change type
+                if will_use_token {
+                    query.push("name_change_tokens = name_change_tokens - 1");
+                } else if !is_capitalization_only {
+                    query.push("last_name_change = NOW()");
+                }
+                // Capitalization-only changes don't update tokens or timestamp
             }
 
             if let Some(email) = changes.email
@@ -502,7 +679,12 @@ impl UsersMutation {
             // Set audit context before the update
             let client_ip = ctx.data::<ClientIp>()?;
             let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
-            set_audit_context(&mut tx, user.id, client_ip, user_agent).await?;
+            let session_id = match ctx.data::<SbSession>()? {
+                SbSession::Authenticated(auth_session) => Some(auth_session.session_id.as_str()),
+                _ => None,
+            };
+
+            set_audit_context(&mut tx, user.id, client_ip, user_agent, session_id).await?;
 
             query
                 .build()
@@ -688,12 +870,20 @@ pub struct UpdateCurrentUserChanges {
     pub email: Option<String>,
     #[graphql(secret, validator(min_length = 6))]
     pub new_password: Option<String>,
+    // TODO(tec27): Implement custom username validator that combines these
+    // things
     #[graphql(validator(
         min_length = 1,
         max_length = 16,
-        regex = r"^[A-Za-z0-9`~!$^&*()\[\]\-_+=.{}]+$"
+        regex = r"^[A-Za-z0-9`~!$^&*()\[\]\-_+=.{}]+$",
     ))]
     pub login_name: Option<String>,
+    #[graphql(validator(
+        min_length = 1,
+        max_length = 16,
+        regex = r"^[A-Za-z0-9`~!$^&*()\[\]\-_+=.{}]+$",
+    ))]
+    pub name: Option<String>,
 }
 
 /// Helper function to set audit context before updates
@@ -702,6 +892,7 @@ async fn set_audit_context(
     current_user_id: SbUserId,
     client_ip: &ClientIp,
     user_agent: &Option<TypedHeader<UserAgent>>,
+    session_id: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     let user_agent_string = user_agent
         .as_ref()
@@ -713,11 +904,13 @@ async fn set_audit_context(
         SELECT
             set_config('app.current_user_id', $1, true) as current_user_config,
             set_config('app.client_ip', $2, true) as client_ip_config,
-            set_config('app.user_agent', $3, true) as user_agent_config
+            set_config('app.user_agent', $3, true) as user_agent_config,
+            set_config('app.session_id', $4, true) as session_id_config
         "#,
         current_user_id.0.to_string(),
         client_ip.0.to_string(),
-        user_agent_string
+        user_agent_string,
+        session_id,
     )
     .fetch_one(&mut **tx)
     .await?;
@@ -833,7 +1026,8 @@ impl CurrentUserRepo {
                 r#"
                     SELECT id, name::TEXT as "name!", login_name::TEXT as "login_name!",
                         email, email_verified, accepted_privacy_version, accepted_terms_version,
-                        accepted_use_policy_version, locale, last_login_name_change
+                        accepted_use_policy_version, locale, last_login_name_change,
+                        last_name_change, name_change_tokens
                     FROM users
                     WHERE id = $1
                 "#,
@@ -893,6 +1087,9 @@ struct SelfUser {
     pub locale: Option<String>,
     #[serde(with = "ts_milliseconds_option")]
     pub last_login_name_change: Option<DateTime<Utc>>,
+    #[serde(with = "ts_milliseconds_option")]
+    pub last_name_change: Option<DateTime<Utc>>,
+    pub name_change_tokens: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -915,6 +1112,8 @@ impl From<CachedCurrentUser> for CurrentUser {
             accepted_use_policy_version: value.user.accepted_use_policy_version,
             locale: value.user.locale,
             last_login_name_change: value.user.last_login_name_change,
+            last_name_change: value.user.last_name_change,
+            name_change_tokens: value.user.name_change_tokens,
 
             permissions: value.permissions,
         }

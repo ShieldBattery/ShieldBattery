@@ -391,6 +391,7 @@ function SettingsContent({
             ariaLabel={closeLabel}
             icon={<MaterialIcon icon='close' />}
             onClick={onCloseSettings}
+            testName='close-settings'
           />
         </Tooltip>
         <span>ESC</span>

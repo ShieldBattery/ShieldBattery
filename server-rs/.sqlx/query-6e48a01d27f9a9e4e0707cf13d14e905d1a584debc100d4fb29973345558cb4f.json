@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            set_config('app.current_user_id', $1, true) as current_user_config,\n            set_config('app.client_ip', $2, true) as client_ip_config,\n            set_config('app.user_agent', $3, true) as user_agent_config,\n            set_config('app.session_id', $4, true) as session_id_config\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "current_user_config",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "client_ip_config",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_agent_config",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "session_id_config",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6e48a01d27f9a9e4e0707cf13d14e905d1a584debc100d4fb29973345558cb4f"
+}

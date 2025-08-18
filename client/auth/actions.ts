@@ -19,6 +19,7 @@ export type AuthActions =
   | RestrictionsChanged
   | SessionUnauthorized
   | ClearRestriction
+  | DisplayNameChanged
 
 export interface LogOut {
   type: '@auth/logOut'
@@ -91,6 +92,14 @@ export interface ClearRestriction {
   type: '@auth/clearRestriction'
   payload: {
     restriction: ClientRestrictionInfo
+  }
+  error?: false
+}
+
+export interface DisplayNameChanged {
+  type: '@auth/displayNameChanged'
+  payload: {
+    newDisplayName: string
   }
   error?: false
 }
