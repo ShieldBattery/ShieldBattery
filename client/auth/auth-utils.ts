@@ -46,7 +46,7 @@ export function useRedirectAfterLogin() {
 
 function createNextPath(location: Location): string | undefined {
   const params = new URLSearchParams()
-  params.append(
+  params.set(
     'nextPath',
     makePathString({
       pathname: location.pathname,

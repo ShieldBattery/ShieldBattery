@@ -1,4 +1,3 @@
-import queryString from 'query-string'
 import * as React from 'react'
 import { useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -108,7 +107,8 @@ export function Signup() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const queryModel: { username?: string } = queryString.parse(window.location.search)
+  const searchParams = new URLSearchParams(window.location.search)
+  const queryModel: { username?: string } = { username: searchParams.get('username') ?? undefined }
   const { submit, bindInput, bindCheckable, form } = useForm<SignupModel>(
     {
       username: queryModel.username ?? '',

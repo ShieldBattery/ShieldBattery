@@ -259,7 +259,6 @@
     "prettier": "^3.6.2",
     "prettier-plugin-organize-imports": "^4.2.0",
     "pretty-bytes": "^7.0.1",
-    "query-string": "^9.2.2",
     "rally-point-player": "^3.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

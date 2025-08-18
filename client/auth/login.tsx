@@ -1,4 +1,3 @@
-import queryString from 'query-string'
 import { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -69,7 +68,8 @@ export function Login() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const queryModel: { username?: string } = queryString.parse(window.location.search)
+  const searchParams = new URLSearchParams(window.location.search)
+  const queryModel: { username?: string } = { username: searchParams.get('username') ?? undefined }
   const { submit, bindInput, bindCheckable, getInputValue, form } = useForm<LoginModel>(
     {
       username: queryModel.username ?? '',
@@ -111,13 +111,11 @@ export function Login() {
   })
 
   const curUsername = getInputValue('username')
-  const signupSearch = curUsername
-    ? '?' +
-      queryString.stringify({
-        ...queryString.parse(location.search),
-        username: curUsername,
-      })
-    : location.search
+  const signupSearchParams = new URLSearchParams(location.search)
+  if (curUsername) {
+    signupSearchParams.set('username', curUsername)
+  }
+  const signupSearch = signupSearchParams.toString() ? '?' + signupSearchParams.toString() : ''
 
   return (
     <AuthLayout title={t('auth.login.title', 'Log in to ShieldBattery')}>
