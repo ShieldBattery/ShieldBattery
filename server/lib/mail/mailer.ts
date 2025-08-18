@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import formData from 'form-data'
 import Mailgun from 'mailgun.js'
 import { MailgunMessageData } from 'mailgun.js/definitions'
-import log from '../logging/logger'
+import { default as log, default as logger } from '../logging/logger'
 
 const enabled = !!process.env.SB_MAILGUN_KEY
 
@@ -57,6 +57,7 @@ export async function sendMailTemplate({
     try {
       return await mailgunClient?.messages.create(DOMAIN!, mailData)
     } catch (err) {
+      logger.error({ err }, `mailgun error`)
       // We wrap the error because otherwise it will set the response status itself and we don't
       // want to propagate mailgun response statuses
       throw new Error('Could not send email', { cause: err })
