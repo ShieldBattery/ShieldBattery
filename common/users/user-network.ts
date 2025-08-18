@@ -57,6 +57,7 @@ export enum UserErrorCode {
   SessionExpired = 'sessionExpired',
   UsernameTakenOrRestricted = 'usernameTaken',
   MachineBanned = 'machineBanned',
+  TooManyAccounts = 'tooManyAccounts',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */

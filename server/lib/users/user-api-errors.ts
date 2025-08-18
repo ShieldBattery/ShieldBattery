@@ -29,6 +29,8 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(409, err)
     case UserErrorCode.MachineBanned:
       throw asHttpError(403, err)
+    case UserErrorCode.TooManyAccounts:
+      throw asHttpError(403, err)
 
     default:
       assertUnreachable(err.code)

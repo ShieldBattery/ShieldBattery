@@ -80,6 +80,16 @@ function UserError({ error }: { error: FetchError }) {
           )}
         </span>
       )
+    case UserErrorCode.TooManyAccounts:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.tooManyAccounts',
+            'This machine has reached the limit of created accounts. If you have a signup code, ' +
+              ' you can enter it to bypass this limit.',
+          )}
+        </span>
+      )
 
     default:
       return (

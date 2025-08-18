@@ -95,6 +95,7 @@
       "machineBanned": "This machine is banned from creating new accounts.",
       "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
       "sessionExpired": "Session expired",
+      "tooManyAccounts": "This machine has reached the limit of created accounts. If you have a signup code,  you can enter it to bypass this limit.",
       "usernameTaken": "The username is not available."
     },
     "usernameValidator": {

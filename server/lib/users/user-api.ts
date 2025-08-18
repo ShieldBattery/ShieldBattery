@@ -65,6 +65,7 @@ import {
 import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
+import isDev from '../env/is-dev'
 import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
@@ -122,6 +123,9 @@ import { UserRelationshipService } from './user-relationship-service'
 import { UserService } from './user-service'
 import { getUserStats } from './user-stats-model'
 import { joiEmail, joiUserId, joiUsername } from './user-validators'
+
+/** How many accounts 1 machine is allowed to create. */
+const MAX_ACCOUNTS_PER_MACHINE = 5
 
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
@@ -290,6 +294,19 @@ export class UserApi {
         throw new UserApiError(
           UserErrorCode.MachineBanned,
           'This machine is banned from creating new accounts',
+        )
+      }
+    }
+
+    // NOTE(tec27): We don't check this in dev because it is very likely we have created a ton of
+    // accounts with the same session ID. It is separate from the throttling disable, however,
+    // because we do want to be able to integration test it
+    if (!isDev) {
+      const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
+      if (usersWithIds.length > MAX_ACCOUNTS_PER_MACHINE) {
+        throw new UserApiError(
+          UserErrorCode.TooManyAccounts,
+          'This machine has reached the limit of created accounts.',
         )
       }
     }
