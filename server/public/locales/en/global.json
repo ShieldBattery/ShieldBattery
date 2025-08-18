@@ -95,13 +95,14 @@
       "machineBanned": "This machine is banned from creating new accounts.",
       "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
       "sessionExpired": "Session expired",
-      "usernameTaken": "A user with that name already exists or the name is restricted"
+      "usernameTaken": "The username is not available."
     },
     "usernameValidator": {
       "availabilityError": "There was a problem checking username availability",
       "notAvailable": "Username is not available",
       "pattern": "Username contains invalid characters",
-      "required": "Enter a username"
+      "required": "Enter a username",
+      "unavailable": "Username is not available"
     }
   },
   "bugReport": {

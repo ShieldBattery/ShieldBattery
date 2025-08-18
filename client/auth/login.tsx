@@ -4,7 +4,6 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { detectedLocale } from '../i18n/i18next'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -124,7 +123,6 @@ export function Login() {
     <AuthLayout title={t('auth.login.title', 'Log in to ShieldBattery')}>
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
         <Field>
           <FieldRecoveryLink href='/recover-username'>
             {t('auth.login.forgotUsername', 'Recover username')}
@@ -169,6 +167,7 @@ export function Login() {
             disabled={isLoading}
           />
           <SubmitButton
+            type='submit'
             label={t('auth.login.logIn', 'Log in')}
             onClick={submit}
             tabIndex={0}

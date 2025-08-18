@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { FilledButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
@@ -86,7 +85,6 @@ export function RecoverUsername() {
         </SuccessMessage>
       ) : (
         <StyledForm noValidate={true} onSubmit={submit}>
-          <SubmitOnEnter />
           <Explanation>
             {t(
               'auth.forgot.user.enterEmail',

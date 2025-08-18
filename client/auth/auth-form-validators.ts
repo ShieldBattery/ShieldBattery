@@ -49,12 +49,15 @@ export function createUsernameAvailabilityValidator<T>({
   ignoreName,
 }: { type?: 'login' | 'display'; ignoreName?: string } = {}): Validator<string, T> {
   let lastValidatedName: string | undefined
+  let lastAvailable = true
 
-  return debounceValidator(async (username, _model, _dirty, t, _signal) => {
-    if (
-      username === lastValidatedName ||
-      (ignoreName && username.toLowerCase() === ignoreName.toLowerCase())
-    ) {
+  return debounceValidator(async (username, _model, _dirty, t, signal) => {
+    if (username === lastValidatedName) {
+      return lastAvailable
+        ? undefined
+        : t('auth.usernameValidator.unavailable', 'Username is not available')
+    }
+    if (ignoreName && username.toLowerCase() === ignoreName.toLowerCase()) {
       return undefined
     }
 
@@ -63,10 +66,12 @@ export function createUsernameAvailabilityValidator<T>({
         apiUrl`users/username-available/${username}` + (type ? urlPath`?type=${type}` : ''),
         {
           method: 'POST',
+          signal,
         },
       )
       if (result.available) {
         lastValidatedName = username
+        lastAvailable = true
         return undefined
       }
     } catch (ignored) {
@@ -78,6 +83,7 @@ export function createUsernameAvailabilityValidator<T>({
     }
 
     lastValidatedName = username
+    lastAvailable = false
     return t('auth.usernameValidator.notAvailable', 'Username is not available')
   }, 350)
 }

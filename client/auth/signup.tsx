@@ -7,7 +7,6 @@ import { Link } from 'wouter'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, requireChecked } from '../forms/validators'
 import { detectedLocale } from '../i18n/i18next'
 import { FilledButton } from '../material/button'
@@ -169,7 +168,6 @@ export function Signup() {
     <AuthLayout title={t('auth.signup.title', 'Create account')}>
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
         <TextField
           {...bindInput('username')}
           inputProps={textInputProps}
@@ -223,6 +221,7 @@ export function Signup() {
         </CheckBoxes>
 
         <FilledButton
+          type='submit'
           label={t('auth.signup.createAccount', 'Create account')}
           onClick={submit}
           tabIndex={0}

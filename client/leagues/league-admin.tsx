@@ -19,7 +19,6 @@ import {
 } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
 import { FormHook, useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
@@ -340,8 +339,6 @@ function CreateLeague() {
       {error ? <ErrorText>{error.message}</ErrorText> : null}
       <LeagueFormAndPreview>
         <LeagueForm noValidate={true} onSubmit={onSubmit}>
-          <SubmitOnEnter />
-
           <div>
             <FieldLabel htmlFor={`${baseId}-image`}>
               Image ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}px recommended)
@@ -416,7 +413,7 @@ function CreateLeague() {
             inputProps={{ tabIndex: 0 }}
           />
 
-          <FilledButton label='Create league' onClick={onSubmit} />
+          <FilledButton type='submit' label='Create league' onClick={onSubmit} />
         </LeagueForm>
         <LeaguePreview>
           {previewLeague ? (
@@ -639,8 +636,6 @@ function EditLeagueForm({
 
   return (
     <LeagueForm noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
-
       <div>
         <FieldLabel htmlFor={`${baseId}-image`}>
           Image ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}px recommended)
@@ -724,7 +719,7 @@ function EditLeagueForm({
         inputProps={{ tabIndex: 0 }}
       />
 
-      <FilledButton label='Save league' onClick={submit} />
+      <FilledButton type='submit' label='Save league' onClick={submit} />
     </LeagueForm>
   )
 }

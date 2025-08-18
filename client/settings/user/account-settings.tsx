@@ -19,7 +19,7 @@ import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import SubmitOnEnter from '../../forms/submit-on-enter'
+import { SubmitOnEnter } from '../../forms/submit-on-enter'
 import {
   composeValidators,
   matchesOther,
@@ -454,7 +454,7 @@ export function ChangePasswordDialog(props: CommonDialogProps) {
       testName='change-password-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
+        <SubmitOnEnter disabled={fetching} />
         <PasswordTextField
           {...bindInput('currentPassword')}
           ref={autoFocusRef}
@@ -602,7 +602,7 @@ export function ChangeEmailDialog(props: ChangeEmailDialogProps) {
       testName='change-email-dialog'>
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
       <form noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
+        <SubmitOnEnter disabled={fetching} />
         <PasswordTextField
           {...bindInput('currentPassword')}
           ref={autoFocusRef}
@@ -1008,7 +1008,7 @@ export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
         </>
       ) : null}
       <form noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
+        <SubmitOnEnter disabled={fetching} />
         <PasswordTextField
           {...bindInput('currentPassword')}
           ref={autoFocusRef}

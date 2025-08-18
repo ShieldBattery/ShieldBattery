@@ -69,12 +69,7 @@ function UserError({ error }: { error: FetchError }) {
       )
     case UserErrorCode.UsernameTakenOrRestricted:
       return (
-        <span>
-          {t(
-            'auth.userErrorDisplay.usernameTaken',
-            'A user with that name already exists or the name is restricted',
-          )}
-        </span>
+        <span>{t('auth.userErrorDisplay.usernameTaken', 'The username is not available.')}</span>
       )
     case UserErrorCode.InvalidCode:
       return (

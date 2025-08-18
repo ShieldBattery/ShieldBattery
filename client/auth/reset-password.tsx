@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { Link } from 'wouter'
 import { RANDOM_EMAIL_CODE_PATTERN } from '../../common/users/user-network'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, regex, required } from '../forms/validators'
 import { FilledButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
@@ -119,7 +118,6 @@ export function ResetPassword() {
       ) : (
         <>
           <StyledForm noValidate={true} onSubmit={submit} data-test='reset-password-form'>
-            <SubmitOnEnter />
             <Explanation>
               {t(
                 'auth.forgot.reset.explanationText',

@@ -10,7 +10,6 @@ import {
 } from '../../common/rally-point'
 import { apiUrl } from '../../common/urls'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -122,7 +121,6 @@ export function AddServerRow(props: {
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
-      <SubmitOnEnter />
       <Row $editable={true}>
         <EnabledContent $editable={true} />
         <DescriptionContent>
@@ -167,6 +165,7 @@ export function AddServerRow(props: {
             onClick={props.onCancel}
           />
           <ButtonWithIcon
+            type='submit'
             label={
               <>
                 <MaterialIcon icon='check' />
@@ -264,7 +263,6 @@ export function EditServerRow({
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
-      <SubmitOnEnter />
       <Row $editable={true}>
         <EnabledContent $editable={true}>
           <CheckBox {...bindCheckable('enabled')} inputProps={{ tabIndex: 0, title: 'Enabled' }} />
@@ -307,6 +305,7 @@ export function EditServerRow({
             onClick={onCancel}
           />
           <ButtonWithIcon
+            type='submit'
             iconStart={<MaterialIcon icon='check' />}
             label='Save'
             onClick={onSubmit}

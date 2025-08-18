@@ -260,7 +260,7 @@ function CreateLobbyForm(props: CreateLobbyFormProps) {
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SubmitOnEnter />
+      <SubmitOnEnter disabled={disabled} />
       <TextField
         {...bindInput('name')}
         ref={autoFocusRef}

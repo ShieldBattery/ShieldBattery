@@ -1,6 +1,10 @@
 import styled from 'styled-components'
 
-/** Place inside a form to make pressing enter on inputs submit the form. */
+/**
+ * Place inside a form to make pressing enter on inputs submit the form. Note that if your form
+ * already contains another button that triggers submission, it is better to set that button's
+ * type to "submit" instead (which will have the same effect).
+ */
 export const SubmitOnEnter = styled.button.attrs({ type: 'submit', value: 'Submit' })`
   position: absolute;
   top: -10000px;
@@ -13,5 +17,3 @@ export const SubmitOnEnter = styled.button.attrs({ type: 'submit', value: 'Submi
   outline: none;
   visibility: hidden;
 `
-
-export default SubmitOnEnter

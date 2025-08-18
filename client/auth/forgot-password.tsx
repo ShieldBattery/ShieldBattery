@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { FilledButton } from '../material/button'
 import { TextField } from '../material/text-field'
 import { replace } from '../navigation/routing'
@@ -68,7 +67,6 @@ export function ForgotPassword() {
     <AuthLayout title={t('auth.forgot.password.title', 'Request password reset')}>
       {error ? <UserErrorDisplay error={error} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
         <BodyLarge>
           {t(
             'auth.forgot.password.explanationText',

@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { ChatServiceErrorCode } from '../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import logger from '../logging/logger'
 import { useAutoFocusRef } from '../material/auto-focus'
@@ -98,8 +97,6 @@ export function CreateChannel() {
       <Title>{t('chat.createChannel.title', 'Create channel')}</Title>
       {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
       <form noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
-
         <TextField
           {...bindInput('channel')}
           label={t('chat.createChannel.channelName', 'Channel name')}
@@ -114,6 +111,7 @@ export function CreateChannel() {
         />
 
         <FilledButton
+          type='submit'
           label={t('chat.createChannel.createAction', 'Create channel')}
           onClick={submit}
         />

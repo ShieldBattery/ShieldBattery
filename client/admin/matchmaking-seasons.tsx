@@ -9,7 +9,6 @@ import {
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton, TextButton } from '../material/button'
@@ -150,7 +149,6 @@ function AddSeasonForm({ onSubmit }: { onSubmit: (model: AddSeasonModel) => void
       <FormTitle>Add new season</FormTitle>
 
       <form noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
         <TextField
           {...bindInput('name')}
           label='Season name'
@@ -160,7 +158,7 @@ function AddSeasonForm({ onSubmit }: { onSubmit: (model: AddSeasonModel) => void
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
         <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
 
-        <FilledButton label='Submit' onClick={submit} />
+        <FilledButton type='submit' label='Submit' onClick={submit} />
       </form>
     </FormContainer>
   )
