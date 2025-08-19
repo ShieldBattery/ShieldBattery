@@ -14,6 +14,7 @@ const isProd = nodeEnv === 'production'
 export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
+  splitChunks = true,
   mainEntry,
   globalDefines = {},
   envDefines = {},
@@ -94,31 +95,32 @@ export default function ({
     },
     optimization: {
       minimizer: isProd ? [new TerserWebpackPlugin()] : [],
-      splitChunks: isProd
-        ? {
-            chunks: 'all',
-            cacheGroups: {
-              vendor: {
-                test: /[\\/]node_modules[\\/]/,
-                name: 'vendor',
-                chunks: 'initial',
-                priority: -10,
+      splitChunks:
+        isProd && splitChunks
+          ? {
+              chunks: 'all',
+              cacheGroups: {
+                vendor: {
+                  test: /[\\/]node_modules[\\/]/,
+                  name: 'vendor',
+                  chunks: 'initial',
+                  priority: -10,
+                },
+                react: {
+                  test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+                  name: 'react',
+                  chunks: 'all',
+                  priority: 30,
+                },
+                state: {
+                  test: /[\\/]node_modules[\\/](immer|immutable|jotai|redux|react-redux|@reduxjs)[\\/]/,
+                  name: 'state',
+                  chunks: 'all',
+                  priority: 25,
+                },
               },
-              react: {
-                test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-                name: 'react',
-                chunks: 'all',
-                priority: 30,
-              },
-              state: {
-                test: /[\\/]node_modules[\\/](immer|immutable|jotai|redux|react-redux|@reduxjs)[\\/]/,
-                name: 'state',
-                chunks: 'all',
-                priority: 25,
-              },
-            },
-          }
-        : undefined,
+            }
+          : undefined,
     },
     plugins: [
       new webpack.DefinePlugin({

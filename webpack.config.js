@@ -14,9 +14,8 @@ const webWebpackOpts = {
     bundle: './client/index.jsx',
   },
   output: {
-    chunkFilename:
-      process.env.NODE_ENV === 'production' ? '[name].[contenthash:8].chunk.js' : '[name].chunk.js',
-    filename: process.env.NODE_ENV === 'production' ? '[name].[contenthash:8].js' : '[name].js',
+    chunkFilename: '[name].chunk.js',
+    filename: '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: process.env.NODE_ENV !== 'production' ? 'http://localhost:5566/dist/' : '/dist/',
     crossOriginLoading: 'anonymous',
@@ -49,7 +48,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '35.0' },
+        targets: { electron: '37' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -149,7 +148,7 @@ const mainBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '35.0' },
+        targets: { electron: '37' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -167,6 +166,7 @@ const mainBabelOpts = {
 const electronMain = makeConfig({
   webpack: mainWebpackOpts,
   babel: mainBabelOpts,
+  splitChunks: false,
   mainEntry: 'index',
   globalDefines: {
     IS_ELECTRON: true,
@@ -198,6 +198,7 @@ const electronMain = makeConfig({
 const electronPreload = makeConfig({
   webpack: preloadWebpackOpts,
   babel: mainBabelOpts,
+  splitChunks: false,
   mainEntry: 'preload',
   globalDefines: {
     IS_ELECTRON: true,

@@ -21,7 +21,7 @@ let manifestCache: WebpackAssetsManifest | null = null
 let assetsCache: string[] | null = null
 
 function getManifestPath(): string {
-  return path.join(__dirname, 'manifest.json')
+  return path.join(__dirname, 'dist', 'manifest.json')
 }
 
 /**
