@@ -9,12 +9,12 @@ type DbBugReport = Dbify<BugReport>
 function convertFromDb(row: DbBugReport): BugReport {
   return {
     id: row.id,
-    submitterId: row.submitter_id,
+    submitterId: row.submitter_id ?? undefined,
     details: row.details,
     logsDeleted: row.logs_deleted,
     createdAt: row.created_at,
-    resolvedAt: row.resolved_at,
-    resolverId: row.resolver_id,
+    resolvedAt: row.resolved_at ?? undefined,
+    resolverId: row.resolver_id ?? undefined,
   }
 }
 

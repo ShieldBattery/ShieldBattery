@@ -23,8 +23,8 @@ function convertLeagueFromDb(props: DbLeague): League {
     endAt: props.end_at,
     imagePath: props.image_path ? getUrl(props.image_path) : undefined,
     badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
-    rulesAndInfo: props.rules_and_info,
-    link: props.link,
+    rulesAndInfo: props.rules_and_info ?? undefined,
+    link: props.link ?? undefined,
   }
 }
 
@@ -277,7 +277,7 @@ function convertLeagueUserFromDb(dbUser: DbLeagueUser): LeagueUser {
   return {
     leagueId: dbUser.league_id,
     userId: dbUser.user_id,
-    lastPlayedDate: dbUser.last_played_date,
+    lastPlayedDate: dbUser.last_played_date ?? undefined,
     points: dbUser.points,
     pointsConverged: dbUser.points_converged,
     wins: dbUser.wins,

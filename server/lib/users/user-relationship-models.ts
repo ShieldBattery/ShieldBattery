@@ -70,8 +70,8 @@ function convertFromDb(dbRelationship: DbMutualUserRelationship): MutualUserRela
     userLow: dbRelationship.user_low,
     userHigh: dbRelationship.user_high,
     kind: dbRelationship.kind,
-    lowCreatedAt: dbRelationship.low_created_at,
-    highCreatedAt: dbRelationship.high_created_at,
+    lowCreatedAt: dbRelationship.low_created_at ?? undefined,
+    highCreatedAt: dbRelationship.high_created_at ?? undefined,
   }
 }
 

@@ -14,14 +14,14 @@ export interface UserBanRow {
 
 type DbUserBanRow = Dbify<UserBanRow>
 
-export function toUserBanRow(dbRow: DbUserBanRow) {
+export function toUserBanRow(dbRow: DbUserBanRow): UserBanRow {
   return {
     id: dbRow.id,
     userId: dbRow.user_id,
     startTime: dbRow.start_time,
     endTime: dbRow.end_time,
     bannedBy: dbRow.banned_by !== null ? dbRow.banned_by : undefined,
-    reason: dbRow.reason,
+    reason: dbRow.reason ?? undefined,
   }
 }
 

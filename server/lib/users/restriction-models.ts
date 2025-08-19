@@ -32,10 +32,10 @@ function toUserIdentifierRestriction(
     kind: fromDb.kind,
     startTime: fromDb.start_time,
     endTime: fromDb.end_time,
-    restrictedBy: fromDb.restricted_by,
-    firstUserId: fromDb.first_user_id,
+    restrictedBy: fromDb.restricted_by ?? undefined,
+    firstUserId: fromDb.first_user_id ?? undefined,
     reason: fromDb.reason,
-    adminNotes: fromDb.admin_notes,
+    adminNotes: fromDb.admin_notes ?? undefined,
   }
 }
 
@@ -59,9 +59,9 @@ function toUserRestriction(fromDb: DbUserRestriction): UserRestriction {
     kind: fromDb.kind,
     startTime: fromDb.start_time,
     endTime: fromDb.end_time,
-    restrictedBy: fromDb.restricted_by,
+    restrictedBy: fromDb.restricted_by ?? undefined,
     reason: fromDb.reason,
-    adminNotes: fromDb.admin_notes,
+    adminNotes: fromDb.admin_notes ?? undefined,
   }
 }
 

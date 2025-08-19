@@ -691,7 +691,7 @@ function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): Matchma
   return {
     id: result.id,
     startDate: result.start_date,
-    endDate: result.end_date,
+    endDate: result.end_date ?? undefined,
     name: result.name,
     resetMmr: result.reset_mmr,
   }

@@ -176,9 +176,9 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     private: props.private,
     official: props.official,
     userCount: props.user_count,
-    ownerId: props.owner_id,
-    topic: props.topic,
-    description: props.description,
+    ownerId: props.owner_id ?? undefined,
+    topic: props.topic ?? undefined,
+    description: props.description ?? undefined,
     bannerPath: props.banner_path ? getUrl(props.banner_path) : undefined,
     badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
   }
