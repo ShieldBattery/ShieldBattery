@@ -25,6 +25,7 @@ use names::{
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use sqlx::{PgPool, QueryBuilder};
 use tracing::{error, warn};
 use typeshare::typeshare;
@@ -1211,6 +1212,7 @@ impl CurrentUserRepo {
     }
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 struct SelfUser {
@@ -1223,9 +1225,9 @@ struct SelfUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
-    #[serde(with = "ts_milliseconds_option", default)]
+    #[serde(default, with = "ts_milliseconds_option")]
     pub last_login_name_change: Option<DateTime<Utc>>,
-    #[serde(with = "ts_milliseconds_option", default)]
+    #[serde(default, with = "ts_milliseconds_option")]
     pub last_name_change: Option<DateTime<Utc>>,
     pub name_change_tokens: i32,
 }
@@ -1255,5 +1257,154 @@ impl From<CachedCurrentUser> for CurrentUser {
 
             permissions: value.permissions,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use super::*;
+
+    #[test]
+    fn self_user_deserialization_all_fields() {
+        let json = r#"
+        {
+            "id": 1,
+            "name": "User_Name",
+            "loginName": "user_login",
+            "email": "user@example.com",
+            "emailVerified": true,
+            "acceptedPrivacyVersion": 1,
+            "acceptedTermsVersion": 1,
+            "acceptedUsePolicyVersion": 1,
+            "locale": "en-US",
+            "lastLoginNameChange": 1755642889407,
+            "lastNameChange": 1755642889407,
+            "nameChangeTokens": 0
+        }
+        "#;
+
+        let user: SelfUser = serde_json::from_str(json).unwrap();
+
+        assert_eq!(user.id, SbUserId(1));
+        assert_eq!(user.name, "User_Name");
+        assert_eq!(user.login_name, "user_login");
+        assert_eq!(user.email, "user@example.com");
+        assert!(user.email_verified);
+        assert_eq!(user.accepted_privacy_version, 1);
+        assert_eq!(user.accepted_terms_version, 1);
+        assert_eq!(user.accepted_use_policy_version, 1);
+        assert_eq!(user.locale, Some("en-US".into()));
+        assert_eq!(
+            user.last_login_name_change,
+            Some(
+                DateTime::from_timestamp_millis(1755642889407)
+                    .unwrap()
+                    .with_timezone(&Utc)
+            )
+        );
+        assert_eq!(
+            user.last_name_change,
+            Some(
+                DateTime::from_timestamp_millis(1755642889407)
+                    .unwrap()
+                    .with_timezone(&Utc)
+            )
+        );
+        assert_eq!(user.name_change_tokens, 0);
+    }
+
+    #[test]
+    fn self_user_deserialization_optional_nulls() {
+        let json = r#"
+        {
+            "id": 1,
+            "name": "User_Name",
+            "loginName": "user_login",
+            "email": "user@example.com",
+            "emailVerified": true,
+            "acceptedPrivacyVersion": 1,
+            "acceptedTermsVersion": 1,
+            "acceptedUsePolicyVersion": 1,
+            "locale": null,
+            "lastLoginNameChange": null,
+            "lastNameChange": null,
+            "nameChangeTokens": 0
+        }
+        "#;
+
+        let user: SelfUser = serde_json::from_str(json).unwrap();
+
+        assert_eq!(user.id, SbUserId(1));
+        assert_eq!(user.name, "User_Name");
+        assert_eq!(user.login_name, "user_login");
+        assert_eq!(user.email, "user@example.com");
+        assert!(user.email_verified);
+        assert_eq!(user.accepted_privacy_version, 1);
+        assert_eq!(user.accepted_terms_version, 1);
+        assert_eq!(user.accepted_use_policy_version, 1);
+        assert!(user.locale.is_none());
+        assert!(user.last_login_name_change.is_none());
+        assert!(user.last_name_change.is_none());
+        assert_eq!(user.name_change_tokens, 0);
+    }
+
+    #[test]
+    fn self_user_deserialization_optional_missing() {
+        // Test that SelfUser deserializes with all its optional fields missing
+        let json = r#"
+        {
+            "id": 1,
+            "name": "User_Name",
+            "loginName": "user_login",
+            "email": "user@example.com",
+            "emailVerified": true,
+            "acceptedPrivacyVersion": 1,
+            "acceptedTermsVersion": 1,
+            "acceptedUsePolicyVersion": 1,
+            "nameChangeTokens": 0
+        }
+        "#;
+
+        let user: SelfUser = serde_json::from_str(json).unwrap();
+
+        assert_eq!(user.id, SbUserId(1));
+        assert_eq!(user.name, "User_Name");
+        assert_eq!(user.login_name, "user_login");
+        assert_eq!(user.email, "user@example.com");
+        assert!(user.email_verified);
+        assert_eq!(user.accepted_privacy_version, 1);
+        assert_eq!(user.accepted_terms_version, 1);
+        assert_eq!(user.accepted_use_policy_version, 1);
+        assert!(user.locale.is_none());
+        assert!(user.last_login_name_change.is_none());
+        assert!(user.last_name_change.is_none());
+        assert_eq!(user.name_change_tokens, 0);
+    }
+
+    #[test]
+    fn self_user_serialization_skips_nones() {
+        let user = SelfUser {
+            id: SbUserId(1),
+            name: "User_Name".into(),
+            login_name: "user_login".into(),
+            email: "user@example.com".into(),
+            email_verified: true,
+            accepted_privacy_version: 1,
+            accepted_terms_version: 1,
+            accepted_use_policy_version: 1,
+            locale: None,
+            last_login_name_change: None,
+            last_name_change: None,
+            name_change_tokens: 0,
+        };
+
+        let json = serde_json::to_string(&user).unwrap();
+        let parsed: Value = serde_json::from_str(&json).unwrap();
+
+        assert!(parsed.get("locale").is_none());
+        assert!(parsed.get("lastLoginNameChange").is_none());
+        assert!(parsed.get("lastNameChange").is_none());
     }
 }

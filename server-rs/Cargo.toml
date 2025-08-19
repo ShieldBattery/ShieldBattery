@@ -67,6 +67,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 typeshare = "1.0"
 url = { version = "2.5" }
 uuid = { version = "1.16", features = ["v4"] }
+serde_with = "3.14.0"
 
 [dependencies.sqlx]
 version = "0.8"
