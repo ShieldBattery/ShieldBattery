@@ -20,10 +20,12 @@ export function getCspNonce(ctx: Koa.Context): string {
   // If hot-reloading is on, we have to allow eval so it can work
   const scriptEvalPolicy = isDev ? "'unsafe-eval'" : ''
 
+  const cdnRule = !isFileSystem ? publicAssetsConfig.origin : ''
+
   const policy =
-    `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
-    `style-src 'self' 'nonce-${nonce}' ${!isFileSystem ? publicAssetsConfig.origin : ''};` +
-    `font-src 'self' ${!isFileSystem ? publicAssetsConfig.origin : ''} ${isDev ? 'data:' : ''};` +
+    `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy} ${cdnRule};` +
+    `style-src 'self' 'nonce-${nonce}' ${cdnRule};` +
+    `font-src 'self' ${cdnRule} ${isDev ? 'data:' : ''};` +
     "object-src 'none';" +
     "form-action 'none';"
 
