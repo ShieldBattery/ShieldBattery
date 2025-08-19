@@ -20,6 +20,7 @@ import {
   createUsernameAvailabilityValidator,
   emailValidator,
   passwordValidator,
+  randomCodeValidator,
   usernameValidator,
 } from './auth-form-validators'
 import { AuthLayout } from './auth-layout'
@@ -132,6 +133,7 @@ export function Signup() {
       confirmPassword: confirmPasswordValidator,
       ageConfirmation: requireChecked(),
       policyAgreement: requireChecked(),
+      signupCode: randomCodeValidator,
     },
   )
 

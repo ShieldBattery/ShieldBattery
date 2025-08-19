@@ -6,7 +6,6 @@
     },
     "emailVerification": {
       "codeLabel": "Verification code",
-      "codePattern": "Invalid code. It should look like {{example}}.",
       "codeRequired": "Enter your verification code",
       "explanation": "Your email address has not been verified. Verifying your email helps us keep your account secure and allows us to assist you if you forget your login information.",
       "instructions": "Enter the verification code sent to <2>{{email}}</2>.",
@@ -68,6 +67,9 @@
       "required": "Enter a password",
       "resetCode": "Enter your password reset code",
       "resetCodePattern": "Invalid code. It should look like {{example}}."
+    },
+    "randomCodeValidator": {
+      "codePattern": "Invalid code. It should look like {{example}}."
     },
     "restriction": {
       "chat": {

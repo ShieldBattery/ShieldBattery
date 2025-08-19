@@ -8,7 +8,10 @@ import {
   USERNAME_PATTERN,
 } from '../../common/constants'
 import { apiUrl, urlPath } from '../../common/urls'
-import { UsernameAvailableResponse } from '../../common/users/user-network'
+import {
+  RANDOM_EMAIL_CODE_PATTERN,
+  UsernameAvailableResponse,
+} from '../../common/users/user-network'
 import { Validator } from '../forms/form-hook'
 import {
   composeValidators,
@@ -87,3 +90,12 @@ export function createUsernameAvailabilityValidator<T>({
     return t('auth.usernameValidator.notAvailable', 'Username is not available')
   }, 350)
 }
+
+const CODE_EXAMPLE = 'XXXXX-XXXXX'
+
+export const randomCodeValidator = regex(RANDOM_EMAIL_CODE_PATTERN, t =>
+  t('auth.randomCodeValidator.codePattern', {
+    defaultValue: 'Invalid code. It should look like {{example}}.',
+    example: CODE_EXAMPLE,
+  }),
+)

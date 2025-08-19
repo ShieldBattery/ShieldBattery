@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { RANDOM_EMAIL_CODE_PATTERN } from '../../common/users/user-network'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import { composeValidators, regex, required } from '../forms/validators'
+import { composeValidators, required } from '../forms/validators'
 import { TransInterpolation } from '../i18n/i18next'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -12,6 +11,7 @@ import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, BodyLarge, bodyMedium, titleMedium } from '../styles/typography'
 import { sendVerificationEmail, verifyEmail } from './action-creators'
+import { randomCodeValidator } from './auth-form-validators'
 import { useSelfUser } from './auth-utils'
 
 const StyledDialog = styled(Dialog)`
@@ -50,8 +50,6 @@ const ResentMsg = styled.span`
   color: var(--theme-success);
 `
 
-const CODE_EXAMPLE = 'XXXXX-XXXXX'
-
 interface EmailVerificationDialogProps extends CommonDialogProps {
   showExplanation?: boolean
 }
@@ -77,12 +75,7 @@ export function EmailVerificationDialog({
     {
       code: composeValidators(
         required(t => t('auth.emailVerification.codeRequired', 'Enter your verification code')),
-        regex(RANDOM_EMAIL_CODE_PATTERN, t =>
-          t('auth.emailVerification.codePattern', {
-            defaultValue: 'Invalid code. It should look like {{example}}.',
-            example: CODE_EXAMPLE,
-          }),
-        ),
+        randomCodeValidator,
       ),
     },
   )

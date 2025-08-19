@@ -181,7 +181,8 @@ test.describe('Signup Codes', () => {
       username,
       password: 'password123',
       email,
-      signupCode: 'INVALID-CODE-123',
+      // Hopefully we don't get unlucky and randomly gen this :)
+      signupCode: 'BBBBB-BBBBB',
     })
 
     await expect(page.locator('[data-test="invalid-code-text"]')).toBeVisible()

@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { RANDOM_EMAIL_CODE_PATTERN } from '../../common/users/user-network'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import { composeValidators, regex, required } from '../forms/validators'
+import { composeValidators, required } from '../forms/validators'
 import { FilledButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { PasswordTextField } from '../material/password-text-field'
@@ -12,7 +11,11 @@ import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { resetPassword } from './action-creators'
-import { confirmPasswordValidator, passwordValidator } from './auth-form-validators'
+import {
+  confirmPasswordValidator,
+  passwordValidator,
+  randomCodeValidator,
+} from './auth-form-validators'
 import { AuthLayout } from './auth-layout'
 import { UserErrorDisplay } from './user-error-display'
 
@@ -41,8 +44,6 @@ interface ResetPasswordModel {
   confirmPassword: string
 }
 
-const RESET_CODE_EXAMPLE = 'XXXXX-XXXXX'
-
 export function ResetPassword() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -59,12 +60,7 @@ export function ResetPassword() {
     {
       code: composeValidators(
         required(t => t('auth.passwordValidator.resetCode', 'Enter your password reset code')),
-        regex(RANDOM_EMAIL_CODE_PATTERN, t =>
-          t('auth.passwordValidator.resetCodePattern', {
-            defaultValue: 'Invalid code. It should look like {{example}}.',
-            example: RESET_CODE_EXAMPLE,
-          }),
-        ),
+        randomCodeValidator,
       ),
       password: passwordValidator,
       confirmPassword: confirmPasswordValidator,

@@ -90,12 +90,16 @@ export function maxLength(length: number): Validator<any, any> {
   }
 }
 
+/**
+ * Validates that a string matches a pattern. Will not validate if the string is empty
+ * (combine it with `required()` to validate that).
+ */
 export function regex(
   regex: RegExp,
   msg: string | ((t: TFunction) => string),
 ): Validator<any, any> {
   return (val, _model, _dirty, t) => {
-    if (val === undefined || val === null || regex.test(String(val))) {
+    if (val === undefined || val === null || val === '' || regex.test(String(val))) {
       return undefined
     }
 
