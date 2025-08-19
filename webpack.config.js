@@ -26,7 +26,6 @@ const webWebpackOpts = {
     new webpack.IgnorePlugin({ checkResource: resource => resource === 'electron' }),
     ...(process.env.NODE_ENV === 'production'
       ? [
-          new webpack.optimize.ModuleConcatenationPlugin(),
           new (require('webpack-assets-manifest').WebpackAssetsManifest)({
             output: 'manifest.json',
             publicPath: '/dist/',

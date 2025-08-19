@@ -20,6 +20,7 @@ const webpackOpts = {
     filename: isProd ? '[name].[contenthash:8].js' : '[name].js',
     path: path.join(__dirname, 'public', 'scripts'),
     publicPath: 'auto',
+    crossOriginLoading: 'anonymous',
   },
   plugins: [
     ...(isProd

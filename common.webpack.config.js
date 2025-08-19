@@ -109,13 +109,13 @@ export default function ({
                 react: {
                   test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
                   name: 'react',
-                  chunks: 'all',
+                  chunks: 'initial',
                   priority: 30,
                 },
                 state: {
                   test: /[\\/]node_modules[\\/](immer|immutable|jotai|redux|react-redux|@reduxjs)[\\/]/,
                   name: 'state',
-                  chunks: 'all',
+                  chunks: 'initial',
                   priority: 25,
                 },
               },
