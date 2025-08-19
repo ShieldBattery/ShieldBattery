@@ -303,7 +303,6 @@
             "submitError": "验证您的电子邮件时出现问题。请稍后再试。",
             "verify": "验证",
             "codeLabel": "验证码",
-            "codePattern": "验证码无效。格式应为 {{example}}。",
             "codeRequired": "请输入验证码"
         },
         "login": {
@@ -323,8 +322,7 @@
             "confirm": "确认密码",
             "matching": "两次输入的密码必须相同",
             "required": "输入密码",
-            "resetCode": "输入您的密码重置验证码",
-            "resetCodePattern": "验证码无效，应为 {{example}} 的格式。"
+            "resetCode": "输入您的密码重置验证码"
         },
         "signup": {
             "title": "创建账号",
@@ -335,7 +333,9 @@
             "emailAddress": "电子邮箱地址",
             "password": "密码",
             "username": "用户名",
-            "readAndAgree": "我已阅读并同意<2>服务条款</2>、<5>可接受使用</5>和<8>隐私</8>政策"
+            "readAndAgree": "我已阅读并同意<2>服务条款</2>、<5>可接受使用</5>和<8>隐私</8>政策",
+            "haveSignupCodeLink": "有注册代码吗？",
+            "signupCode": "注册代码（可选）"
         },
         "userErrorDisplay": {
             "accountBanned": "此账号已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>账号将于{{expireTime}}解封。</2>",
@@ -347,7 +347,8 @@
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
             "sessionExpired": "会话已过期",
             "usernameTaken": "该用户名已被使用或该名称受限",
-            "invalidCode": "提供的验证码无效，可能已过期。"
+            "invalidCode": "提供的验证码无效，可能已过期。",
+            "tooManyAccounts": "此机器已达到创建账户的上限。如果您有注册代码，可以输入它以绕过此限制。"
         },
         "forgot": {
             "backToLogin": "返回登录界面",
@@ -392,6 +393,9 @@
             "chat": {
                 "notification": "<0>你的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
             }
+        },
+        "randomCodeValidator": {
+            "codePattern": "验证码无效，应为 {{example}} 的格式。"
         }
     },
     "clientDownload": {

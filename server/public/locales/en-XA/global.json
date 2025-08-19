@@ -267,7 +267,6 @@
         "emailVerification": {
             "title": "$🗡Verify your email🗡!",
             "codeLabel": "$🗡Verification code🗡!",
-            "codePattern": "$🗡Invalid code. It should look like {{example}}.🗡!",
             "resent": "$🗡Verification email resent!🗡!",
             "submitError": "$🗡There was a problem verifying your email. Please try again later.🗡!",
             "verify": "$🗡Verify🗡!",
@@ -322,8 +321,7 @@
             "confirm": "$🗡Confirm your password🗡!",
             "matching": "$🗡Enter a matching password🗡!",
             "resetCode": "$🗡Enter your password reset code🗡!",
-            "required": "$🗡Enter a password🗡!",
-            "resetCodePattern": "$🗡Invalid code. It should look like {{example}}.🗡!"
+            "required": "$🗡Enter a password🗡!"
         },
         "signup": {
             "ageConfirmation": "$🗡I certify that I am 13 years of age or older🗡!",
@@ -334,7 +332,9 @@
             "createAccount": "$🗡Create account🗡!",
             "username": "$🗡Username🗡!",
             "emailAddress": "$🗡Email address🗡!",
-            "password": "$🗡Password🗡!"
+            "password": "$🗡Password🗡!",
+            "haveSignupCodeLink": "$🗡Have a signup code?🗡!",
+            "signupCode": "$🗡Signup code (optional)🗡!"
         },
         "userErrorDisplay": {
             "banWithoutReason": "$🗡No reason specified🗡!",
@@ -346,7 +346,8 @@
             "sessionExpired": "$🗡Session expired🗡!",
             "usernameTaken": "$🗡The username is not available.🗡!",
             "accountBanned": "$🗡This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>🗡!",
-            "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!"
+            "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!",
+            "tooManyAccounts": "$🗡This machine has reached the limit of created accounts. If you have a signup code,  you can enter it to bypass this limit.🗡!"
         },
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",
@@ -363,6 +364,9 @@
             "chat": {
                 "notification": "$🗡<0>Your account has been restricted from sending chat messages for the following reason:</0><1>{{reasonLabel}}</1><2>This restriction will end on:</2><3>{{endText}}</3>🗡!"
             }
+        },
+        "randomCodeValidator": {
+            "codePattern": "$🗡Invalid code. It should look like {{example}}.🗡!"
         }
     },
     "landing": {

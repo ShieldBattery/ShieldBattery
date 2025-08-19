@@ -238,25 +238,25 @@
                 "unknownError": "Algo salió mal, inténtalo de nuevo más tarde.",
                 "emailUnverified": "No verificado",
                 "emailVerified": "Verificado",
-                "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Puedes cambiar tu nombre de inicio de sesión nuevamente en {{count}} día.",
-                "loginNameCooldown_many": "",
-                "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Puedes cambiar tu nombre de inicio de sesión nuevamente en {{count}} días.",
-                "loginNameUnavailable": "El nombre de inicio de sesión no está disponible.",
+                "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} día.",
+                "loginNameCooldown_many": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
+                "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
+                "loginNameUnavailable": "El nombre de inicio de sesión no está disponible",
                 "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
                 "changeLoginName": {
                     "dialogTitle": "Cambiar nombre de inicio de sesión",
                     "success": "Nombre de inicio de sesión cambiado con éxito."
                 },
-                "displayNameCooldown_one": "Has cambiado tu nombre de visualización muy recientemente. Puedes cambiar tu nombre de visualización nuevamente en {{count}} día.",
-                "displayNameCooldown_many": "",
-                "displayNameCooldown_other": "Has cambiado tu nombre de visualización muy recientemente. Puedes cambiar tu nombre de visualización nuevamente en {{count}} días.",
+                "displayNameCooldown_one": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en 1 día.",
+                "displayNameCooldown_many": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en {{count}} días.",
+                "displayNameCooldown_other": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en {{count}} días.",
                 "changeDisplayName": {
-                    "dialogTitle": "Cambiar nombre de visualización",
-                    "success": "Nombre de visualización cambiado con éxito."
+                    "dialogTitle": "Cambiar nombre visible",
+                    "success": "Nombre visible cambiado con éxito."
                 },
-                "displayNameChangeInfo": "Los nombres de visualización se pueden cambiar una vez cada 60 días. Los cambios de capitalización no se ven afectados por los límites de cambio de nombre.",
-                "displayNameUnavailable": "El nombre de visualización no está disponible",
-                "loginNameChangeInfo": "Los nombres de inicio de sesión se pueden cambiar una vez cada 30 días."
+                "displayNameChangeInfo": "Puedes cambiar tu nombre visible solo cada 60 días. Cambios de mayúsculas/minúsculas no cuentan.",
+                "displayNameUnavailable": "El nombre visible no está disponible",
+                "loginNameChangeInfo": "El nombre de inicio de sesión solo se puede cambiar cada 30 días."
             }
         },
         "activity": {
@@ -271,10 +271,11 @@
             "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
             "noConnectionErrorMessage": "No se pudo conectar al servidor. Revisa tu conexión a internet y vuelve a intentarlo.",
             "sessionExpired": "Sesión expirada",
-            "usernameTaken": "Ya existe un usuario con ese nombre o el nombre está restringido",
+            "usernameTaken": "El nombre de usuario no está disponible.",
             "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
             "banWithoutReason": "Sin razón especificada",
-            "invalidCode": "El código proporcionado es inválido. Puede que haya expirado."
+            "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
+            "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para eludir este límite."
         },
         "usernameValidator": {
             "pattern": "El nombre de usuario contiene caracteres inválidos",
@@ -290,7 +291,6 @@
         "emailVerification": {
             "title": "Verifica tu correo electrónico.",
             "codeLabel": "Código de verificación",
-            "codePattern": "Código inválido. Debería verse como {{example}}.",
             "codeRequired": "Ingresa tu código de verificación",
             "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo nos ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
             "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
@@ -345,8 +345,7 @@
             "confirm": "Confirma tu contraseña",
             "matching": "Ingresa una contraseña que coincida",
             "required": "Ingresa una contraseña",
-            "resetCode": "Ingresa tu código de reinicio de contraseña",
-            "resetCodePattern": "Código inválido. Debería verse como {{example}}."
+            "resetCode": "Ingresa tu código de reinicio de contraseña"
         },
         "signup": {
             "ageConfirmation": "Certifico que tengo 13 años o más",
@@ -357,7 +356,9 @@
             "title": "Crea cuenta",
             "emailAddress": "Dirección de correo electrónico",
             "password": "Contraseña",
-            "username": "Nombre de usuario"
+            "username": "Nombre de usuario",
+            "haveSignupCodeLink": "¿Tienes un código de registro?",
+            "signupCode": "Código de registro (opcional)"
         },
         "language": {
             "changeErrorHeader": "Error al cambiar el idioma",
@@ -367,6 +368,9 @@
             "chat": {
                 "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
             }
+        },
+        "randomCodeValidator": {
+            "codePattern": "Código inválido. Debería verse como {{example}}."
         }
     },
     "landing": {
@@ -1107,12 +1111,12 @@
         "admin": {
             "nameHistory": {
                 "title": "Historial de nombres",
-                "userHistory": "Historial de nombres de inicio de sesión para {{name}}",
-                "loginNameChanges": "Cambios en el nombre de inicio de sesión",
-                "noDisplayNameHistory": "No se encontraron cambios en el nombre de visualización.",
-                "displayNameChanges": "Cambios en el nombre de visualización",
-                "noLoginNameHistory": "No se encontraron cambios en el nombre de inicio de sesión.",
-                "usedToken": "Token de cambio de nombre utilizado"
+                "userHistory": "Historial de nombres",
+                "loginNameChanges": "Cambios de nombre de inicio de sesión",
+                "noDisplayNameHistory": "No se encontraron cambios de nombre visible.",
+                "displayNameChanges": "Cambios de nombre visible",
+                "noLoginNameHistory": "No se encontraron cambios de nombre de inicio de sesión.",
+                "usedToken": "Token de cambio de nombre usado"
             },
             "permissions": {
                 "title": "Permisos"
@@ -1121,7 +1125,7 @@
                 "title": "Direcciones IP"
             },
             "punishments": {
-                "title": "Castigos"
+                "title": "Sanciones"
             }
         }
     },

@@ -301,13 +301,11 @@
             "confirm": "비밀번호를 확인하세요",
             "matching": "매칭 비밀번호를 입력하세요",
             "required": "비밀번호를 입력하세요",
-            "resetCode": "비밀번호 재설정 코드를 입력하세요",
-            "resetCodePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요."
+            "resetCode": "비밀번호 재설정 코드를 입력하세요"
         },
         "emailVerification": {
             "title": "이메일 확인",
             "codeLabel": "인증 코드",
-            "codePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요.",
             "codeRequired": "인증 코드를 입력하세요",
             "explanation": "이메일 주소가 확인되지 않았습니다. 이메일을 확인하면 계정을 안전하게 유지하고 로그인 정보를 잊어버렸을 때 도움을 받을 수 있습니다.",
             "instructions": "<2>{{email}}</2>에 전송된 인증 코드를 입력하세요.",
@@ -330,7 +328,9 @@
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
             "password": "비밀번호",
-            "username": "사용자 이름"
+            "username": "사용자 이름",
+            "haveSignupCodeLink": "가입 코드가 있나요?",
+            "signupCode": "가입 코드 (선택 사항)"
         },
         "userErrorDisplay": {
             "accountBanned": "이 계정은 정지되었습니다.<1><0>사유:</0><1>{{banReason}}</1></1><2>정지는 {{expireTime}}에 만료됩니다.</2>",
@@ -342,7 +342,8 @@
             "noConnectionErrorMessage": "서버에 연결 실패. 인터넷 연결을 확인하고 다시 시도해봐.",
             "sessionExpired": "세션이 만료됐어요",
             "usernameTaken": "그 이름은 이미 존재하거나 제한된 이름이에요",
-            "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다."
+            "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",
+            "tooManyAccounts": "이 기기는 생성된 계정 수의 한계에 도달했습니다. 가입 코드가 있다면 입력하여 이 한계를 우회할 수 있습니다."
         },
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
@@ -359,6 +360,9 @@
             "chat": {
                 "notification": "<0>채팅 메시지 전송이 다음 사유로 제한되었습니다:</0><1>{{reasonLabel}}</1><2>제한은 다음 날짜에 해제됩니다:</2><3>{{endText}}</3>"
             }
+        },
+        "randomCodeValidator": {
+            "codePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요."
         }
     },
     "landing": {
