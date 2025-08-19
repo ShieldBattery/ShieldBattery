@@ -705,6 +705,39 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
 
     `,
   },
+  {
+    date: 1755591122914,
+    title: 'Update 10.2.0',
+    summary: 'The Anti-Smurfing Smurfing Update',
+    contents: `
+      For this update, we've focused on reducing the amount of smurfing on ShieldBattery. While we
+      already had measures in place to ensure that MMR transfers between accounts of the same user,
+      there have still been a number of users with 10s or even 100s of accounts, and this isn't
+      great for the overall environment of the server.
+
+      So, with that in mind, we are now imposing a **limit of 5 accounts per user**. If you already
+      have more than 5 accounts, you will be unable to create more, but we will not currently be
+      removing any existing accounts. We may revisit that decision in the future, but we will
+      provide a good amount of notice before any action is taken.
+
+      Since we don't want you to be stuck with a name you don't like if you already have the maximum
+      number of accounts, we've also added **display** and **login name changes**. Display names
+      may be changed once every 60 days, and login names may be changed once every 30 days. Changing
+      the capitalization of your display name (e.g. CoolGuy -> COOLGUY) is always allowed,
+      regardless of your name change cooldown.
+
+      ## TL;DR:
+
+      - 5 accounts per user
+      - Display names can be changed once every 60 days. Capitalization changes are always allowed.
+      - Login names can be changed once every 30 days
+
+      Check the account settings page within ShieldBattery to change your names!
+
+      We hope you enjoy the new features and changes. If you'd like to support further development
+      of ShieldBattery, please check out the donation links at the top of the home page!
+    `,
+  },
 ]
 
 export const newsDateFormatter = new Intl.DateTimeFormat(navigator.language, {

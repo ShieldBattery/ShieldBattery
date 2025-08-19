@@ -65,8 +65,7 @@
       "confirm": "Confirm your password",
       "matching": "Enter a matching password",
       "required": "Enter a password",
-      "resetCode": "Enter your password reset code",
-      "resetCodePattern": "Invalid code. It should look like {{example}}."
+      "resetCode": "Enter your password reset code"
     },
     "randomCodeValidator": {
       "codePattern": "Invalid code. It should look like {{example}}."

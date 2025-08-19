@@ -58,7 +58,7 @@ const Root = styled.div`
 
   b,
   strong {
-    font-weight: 500;
+    font-weight: 700;
   }
 
   p {
