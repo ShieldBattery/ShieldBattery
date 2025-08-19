@@ -35,6 +35,10 @@ const StyledForm = styled.form`
   gap: 12px;
 `
 
+const SignupCodeLink = styled.a`
+  margin-bottom: 8px;
+`
+
 const DialogLinkElem = styled.a`
   position: relative;
   pointer-events: auto;
@@ -92,12 +96,14 @@ interface SignupModel {
   confirmPassword: string
   ageConfirmation: boolean
   policyAgreement: boolean
+  signupCode?: string
 }
 
 export function Signup() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
+  const [showCodeInput, setShowCodeInput] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [lastError, setLastError] = useState<Error>()
 
@@ -117,6 +123,7 @@ export function Signup() {
       confirmPassword: '',
       ageConfirmation: false,
       policyAgreement: false,
+      signupCode: '',
     },
     {
       username: composeValidators(usernameValidator, usernameAvailable),
@@ -143,6 +150,7 @@ export function Signup() {
             email: model.email,
             password: model.password,
             locale: detectedLocale.getValue(),
+            signupCode: model.signupCode,
           },
           {
             onSuccess: () => {},
@@ -168,6 +176,22 @@ export function Signup() {
     <AuthLayout title={t('auth.signup.title', 'Create account')}>
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
+        {showCodeInput ? (
+          <TextField
+            {...bindInput('signupCode')}
+            inputProps={textInputProps}
+            label={t('auth.signup.signupCode', 'Signup code (optional)')}
+            floatingLabel
+            disabled={isLoading}
+          />
+        ) : (
+          <SignupCodeLink
+            href='#'
+            onClick={() => setShowCodeInput(true)}
+            data-test='have-signup-code-link'>
+            {t('auth.signup.haveSignupCodeLink', 'Have a signup code?')}
+          </SignupCodeLink>
+        )}
         <TextField
           {...bindInput('username')}
           inputProps={textInputProps}

@@ -19,4 +19,5 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   manageNews: false,
   manageBugReports: false,
   manageRestrictedNames: false,
+  manageSignupCodes: false,
 }

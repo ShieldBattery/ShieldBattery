@@ -15,6 +15,7 @@ import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
+import { incrementSignupCodeUsage, validateAndLockSignupCode } from './signup-code-models'
 import { createUserStats } from './user-stats-model'
 
 /**
@@ -118,6 +119,7 @@ export async function createUser({
   ipAddress,
   createdDate = new Date(),
   locale,
+  signupCode,
   completeCreationFn,
 }: {
   name: string
@@ -126,6 +128,7 @@ export async function createUser({
   ipAddress: string
   createdDate?: Date
   locale?: string
+  signupCode?: string
   completeCreationFn: (
     userId: SbUserId,
     client: DbClient,
@@ -137,11 +140,19 @@ export async function createUser({
 
   try {
     const transactionResult = await transact(async client => {
+      // Validate and lock signup code if provided
+      let signupCodeId: string | undefined
+      if (signupCode) {
+        signupCodeId = await validateAndLockSignupCode(signupCode, client)
+      }
+
       const result = await client.query<DbUser>(sql`
       INSERT INTO users (name, login_name, email, created, signup_ip_address, email_verified,
-        locale, accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
+        locale, accepted_privacy_version, accepted_terms_version, accepted_use_policy_version,
+        signup_code_used)
       VALUES (${name}, ${name}, ${email}, ${createdDate}, ${ipAddress}, false, ${locale},
-        ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
+        ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION},
+        ${signupCodeId})
       RETURNING *
     `)
 
@@ -159,8 +170,10 @@ export async function createUser({
       const [permissions] = await Promise.all([
         createPermissions(client, userInternal.id),
         createUserStats(client, userInternal.id),
-        completeCreationFn(userInternal.id, client, transactionCompleted),
+        signupCodeId ? incrementSignupCodeUsage(signupCodeId, client) : Promise.resolve(),
       ])
+
+      await completeCreationFn(userInternal.id, client, transactionCompleted)
 
       return { user: convertToExternalSelf(userInternal), permissions }
     })

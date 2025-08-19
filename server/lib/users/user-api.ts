@@ -99,6 +99,8 @@ import { PasswordResetCleanupJob } from './password-reset-cleanup'
 import { addPasswordResetCode, usePasswordResetCode } from './password-reset-model'
 import { genRandomCode } from './random-code'
 import { RestrictionService } from './restriction-service'
+import { SignupCodeCleanupJob } from './signup-code-cleanup'
+import { InvalidSignupCodeError } from './signup-code-models'
 import {
   convertUserApiErrors,
   convertUserRelationshipServiceErrors,
@@ -125,7 +127,7 @@ import { getUserStats } from './user-stats-model'
 import { joiEmail, joiUserId, joiUsername } from './user-validators'
 
 /** How many accounts 1 machine is allowed to create. */
-const MAX_ACCOUNTS_PER_MACHINE = 5
+const MAX_ACCOUNTS_PER_MACHINE = isDev ? Number.MAX_SAFE_INTEGER : 5
 
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
@@ -236,6 +238,7 @@ interface SignupRequestBody {
   email: string
   clientIds: [type: number, hash: string][]
   locale?: string
+  signupCode?: string
 }
 
 @httpApi('/users')
@@ -252,6 +255,7 @@ export class UserApi {
     private chatService: ChatService,
   ) {
     container.resolve(PasswordResetCleanupJob)
+    container.resolve(SignupCodeCleanupJob)
     container.resolve(UserIdentifierCleanupJob)
     container.resolve(UserIpsCleanupJob)
   }
@@ -270,10 +274,11 @@ export class UserApi {
         email: joiEmail().trim().required(),
         clientIds: joiClientIdentifiers(ctx).required(),
         locale: joiLocale(),
+        signupCode: Joi.string().min(1).max(100).empty(''),
       }).required(),
     })
 
-    const { username, password, email, clientIds, locale } = body
+    const { username, password, email, clientIds, locale, signupCode } = body
 
     const { allowed } = await got
       .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
@@ -298,17 +303,20 @@ export class UserApi {
       }
     }
 
+    let useSignupCode = false
     // NOTE(tec27): We don't check this in dev because it is very likely we have created a ton of
     // accounts with the same session ID. It is separate from the throttling disable, however,
     // because we do want to be able to integration test it
-    if (!isDev) {
-      const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
-      if (usersWithIds.length > MAX_ACCOUNTS_PER_MACHINE) {
+    const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
+    if (usersWithIds.length >= MAX_ACCOUNTS_PER_MACHINE) {
+      if (!signupCode) {
         throw new UserApiError(
           UserErrorCode.TooManyAccounts,
           'This machine has reached the limit of created accounts.',
         )
       }
+      // Code will be validated in createUser
+      useSignupCode = true
     }
 
     const hashedPassword = await hashPass(password)
@@ -321,19 +329,28 @@ export class UserApi {
         hashedPassword,
         ipAddress: ctx.ip,
         locale,
-        completeCreationFn: (userId, client, transactionCompleted) => {
-          return Promise.all([
+        signupCode: useSignupCode ? signupCode : undefined,
+        completeCreationFn: async (userId, client, transactionCompleted) => {
+          await Promise.all([
             this.chatService.joinInitialChannel(userId, client, transactionCompleted),
-          ]).then(() => {})
+          ])
         },
       })
     } catch (err: any) {
+      if (err instanceof InvalidSignupCodeError) {
+        throw new UserApiError(
+          UserErrorCode.InvalidCode,
+          'The provided signup code is invalid. It may be expired.',
+        )
+      }
+
       if (err.code && err.code === UNIQUE_VIOLATION) {
         throw new UserApiError(
           UserErrorCode.UsernameTakenOrRestricted,
           'A user with that name already exists or the name is not allowed',
         )
       }
+
       throw err
     }
 

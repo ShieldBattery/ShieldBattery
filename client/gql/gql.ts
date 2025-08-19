@@ -18,6 +18,8 @@ type Documents = {
   '\n  mutation DeleteRestrictedName($id: Int!) {\n    userDeleteRestrictedName(id: $id)\n  }\n': typeof types.DeleteRestrictedNameDocument
   '\n  mutation AddRestrictedName(\n    $pattern: String!\n    $kind: RestrictedNameKind!\n    $reason: RestrictedNameReason!\n  ) {\n    userAddRestrictedName(pattern: $pattern, kind: $kind, reason: $reason) {\n      id\n      pattern\n      kind\n      reason\n      createdAt\n      createdBy {\n        id\n      }\n    }\n  }\n': typeof types.AddRestrictedNameDocument
   '\n  mutation TestRestrictedName($name: String!) {\n    userTestRestrictedName(name: $name) {\n      id\n      pattern\n      kind\n      reason\n    }\n  }\n': typeof types.TestRestrictedNameDocument
+  '\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.SignupCodesDocument
+  '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.CreateSignupCodeDocument
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n': typeof types.SetUrgentMessageDocument
   '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_HomeFeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
@@ -35,7 +37,7 @@ type Documents = {
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeLoginNameDocument
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserNameAuditHistoryDocument
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
-  '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
+  '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
 }
 const documents: Documents = {
@@ -47,6 +49,10 @@ const documents: Documents = {
     types.AddRestrictedNameDocument,
   '\n  mutation TestRestrictedName($name: String!) {\n    userTestRestrictedName(name: $name) {\n      id\n      pattern\n      kind\n      reason\n    }\n  }\n':
     types.TestRestrictedNameDocument,
+  '\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n':
+    types.SignupCodesDocument,
+  '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n':
+    types.CreateSignupCodeDocument,
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n':
     types.SetUrgentMessageDocument,
   '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_HomeFeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n':
@@ -81,7 +87,7 @@ const documents: Documents = {
     types.UserNameAuditHistoryDocument,
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n':
     types.AdminUserProfileDocument,
-  '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n    }\n  }\n':
+  '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n':
     types.AdminUserProfile_PermissionsFragmentDoc,
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
     types.AdminUpdateUserPermissionsDocument,
@@ -125,6 +131,18 @@ export function graphql(
 export function graphql(
   source: '\n  mutation TestRestrictedName($name: String!) {\n    userTestRestrictedName(name: $name) {\n      id\n      pattern\n      kind\n      reason\n    }\n  }\n',
 ): (typeof documents)['\n  mutation TestRestrictedName($name: String!) {\n    userTestRestrictedName(name: $name) {\n      id\n      pattern\n      kind\n      reason\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n',
+): (typeof documents)['\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n',
+): (typeof documents)['\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -231,8 +249,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n    }\n  }\n',
-): (typeof documents)['\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n    }\n  }\n']
+  source: '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n',
+): (typeof documents)['\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

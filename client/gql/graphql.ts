@@ -54,6 +54,12 @@ export type Scalars = {
   UUID: { input: string; output: string }
 }
 
+export type CreateSignupCodeInput = {
+  expiresAt: Scalars['DateTime']['input']
+  maxUses?: InputMaybe<Scalars['Int']['input']>
+  notes?: InputMaybe<Scalars['String']['input']>
+}
+
 export type CurrentUser = {
   __typename?: 'CurrentUser'
   acceptedPrivacyVersion: Scalars['Int']['output']
@@ -237,6 +243,7 @@ export type MatchmakingExtra2V2Data = MatchmakingExtra & {
 
 export type Mutation = {
   __typename?: 'Mutation'
+  createSignupCode: SignupCode
   newsCreatePost: NewsPost
   /** Sets (or clears, if message is not provided) the urgent message at the top of the home page. */
   newsSetUrgentMessage: Scalars['Boolean']['output']
@@ -245,6 +252,10 @@ export type Mutation = {
   userTestRestrictedName?: Maybe<NameRestriction>
   userUpdateCurrent: CurrentUser
   userUpdatePermissions: SbUser
+}
+
+export type MutationCreateSignupCodeArgs = {
+  input: CreateSignupCodeInput
 }
 
 export type MutationNewsCreatePostArgs = {
@@ -351,6 +362,7 @@ export type Query = {
   newsPosts: NewsPostConnection
   pastLeagues: Array<League>
   restrictedNames: Array<NameRestriction>
+  signupCodes: Array<SignupCode>
   urgentMessage?: Maybe<UrgentMessage>
   user?: Maybe<SbUser>
   userByDisplayName?: Maybe<SbUser>
@@ -368,6 +380,10 @@ export type QueryNewsPostsArgs = {
   first?: InputMaybe<Scalars['Int']['input']>
   includeUnpublished?: InputMaybe<Scalars['Boolean']['input']>
   last?: InputMaybe<Scalars['Int']['input']>
+}
+
+export type QuerySignupCodesArgs = {
+  includeExhausted?: InputMaybe<Scalars['Boolean']['input']>
 }
 
 export type QueryUserArgs = {
@@ -439,6 +455,7 @@ export type SbPermissions = {
   manageNews: Scalars['Boolean']['output']
   manageRallyPointServers: Scalars['Boolean']['output']
   manageRestrictedNames: Scalars['Boolean']['output']
+  manageSignupCodes: Scalars['Boolean']['output']
   massDeleteMaps: Scalars['Boolean']['output']
   moderateChatChannels: Scalars['Boolean']['output']
 }
@@ -461,6 +478,7 @@ export type SbPermissionsInput = {
   manageNews: Scalars['Boolean']['input']
   manageRallyPointServers: Scalars['Boolean']['input']
   manageRestrictedNames: Scalars['Boolean']['input']
+  manageSignupCodes: Scalars['Boolean']['input']
   massDeleteMaps: Scalars['Boolean']['input']
   moderateChatChannels: Scalars['Boolean']['input']
 }
@@ -471,6 +489,19 @@ export type SbUser = {
   /** The user's display name (may differ from their login name). */
   name: Scalars['String']['output']
   permissions: SbPermissions
+}
+
+export type SignupCode = {
+  __typename?: 'SignupCode'
+  code: Scalars['String']['output']
+  createdAt: Scalars['DateTime']['output']
+  createdByUser?: Maybe<SbUser>
+  exhausted: Scalars['Boolean']['output']
+  expiresAt: Scalars['DateTime']['output']
+  id: Scalars['UUID']['output']
+  maxUses?: Maybe<Scalars['Int']['output']>
+  notes?: Maybe<Scalars['String']['output']>
+  uses: Scalars['Int']['output']
 }
 
 export type UpdateCurrentUserChanges = {
@@ -561,6 +592,46 @@ export type TestRestrictedNameMutation = {
     kind: RestrictedNameKind
     reason: RestrictedNameReason
   } | null
+}
+
+export type SignupCodesQueryVariables = Exact<{
+  includeExhausted?: InputMaybe<Scalars['Boolean']['input']>
+}>
+
+export type SignupCodesQuery = {
+  __typename?: 'Query'
+  signupCodes: Array<{
+    __typename?: 'SignupCode'
+    id: string
+    code: string
+    createdAt: string
+    expiresAt: string
+    maxUses?: number | null
+    uses: number
+    exhausted: boolean
+    notes?: string | null
+    createdByUser?: { __typename?: 'SbUser'; id: Types.SbUserId; name: string } | null
+  }>
+}
+
+export type CreateSignupCodeMutationVariables = Exact<{
+  input: CreateSignupCodeInput
+}>
+
+export type CreateSignupCodeMutation = {
+  __typename?: 'Mutation'
+  createSignupCode: {
+    __typename?: 'SignupCode'
+    id: string
+    code: string
+    createdAt: string
+    expiresAt: string
+    maxUses?: number | null
+    uses: number
+    exhausted: boolean
+    notes?: string | null
+    createdByUser?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+  }
 }
 
 export type SetUrgentMessageMutationVariables = Exact<{
@@ -864,6 +935,7 @@ export type AdminUserProfile_PermissionsFragment = {
     manageNews: boolean
     manageBugReports: boolean
     manageRestrictedNames: boolean
+    manageSignupCodes: boolean
   }
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
@@ -1556,6 +1628,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],
             },
           },
@@ -1762,6 +1835,120 @@ export const TestRestrictedNameDocument = {
     },
   ],
 } as unknown as DocumentNode<TestRestrictedNameMutation, TestRestrictedNameMutationVariables>
+export const SignupCodesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'SignupCodes' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'includeExhausted' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'signupCodes' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'includeExhausted' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'includeExhausted' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'code' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'expiresAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxUses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'uses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'exhausted' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'notes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<SignupCodesQuery, SignupCodesQueryVariables>
+export const CreateSignupCodeDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'CreateSignupCode' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'CreateSignupCodeInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'createSignupCode' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'code' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'expiresAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxUses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'uses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'exhausted' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'notes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CreateSignupCodeMutation, CreateSignupCodeMutationVariables>
 export const SetUrgentMessageDocument = {
   kind: 'Document',
   definitions: [
@@ -2733,6 +2920,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],
             },
           },
@@ -2826,6 +3014,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],
             },
           },

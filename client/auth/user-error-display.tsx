@@ -23,7 +23,10 @@ export interface UserErrorDisplayProps {
 function UserError({ error }: { error: FetchError }) {
   const { t } = useTranslation()
 
-  switch (error.code) {
+  // Cast is just for checking we've handle all the cases
+  const _error = error as FetchError & { code: UserErrorCode }
+
+  switch (_error.code) {
     case UserErrorCode.InvalidCredentials:
       return (
         <span>
@@ -82,7 +85,7 @@ function UserError({ error }: { error: FetchError }) {
       )
     case UserErrorCode.TooManyAccounts:
       return (
-        <span>
+        <span data-test='too-many-accounts'>
           {t(
             'auth.userErrorDisplay.tooManyAccounts',
             'This machine has reached the limit of created accounts. If you have a signup code, ' +
@@ -91,15 +94,20 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
 
+    case UserErrorCode.NotAllowedOnSelf:
+    case UserErrorCode.NotFound:
+      break
     default:
-      return (
-        <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.defaultError'>
-            An error occurred: {{ status: error.status }} {{ statusText: error.statusText }}
-          </Trans>
-        </span>
-      )
+      _error.code satisfies never
   }
+
+  return (
+    <span>
+      <Trans t={t} i18nKey='auth.userErrorDisplay.defaultError'>
+        An error occurred: {{ status: error.status }} {{ statusText: error.statusText }}
+      </Trans>
+    </span>
+  )
 }
 
 export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {

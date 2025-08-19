@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT user_id as \"id\", edit_permissions, debug, ban_users, manage_leagues,\n                        manage_maps, manage_map_pools, manage_matchmaking_seasons,\n                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,\n                        moderate_chat_channels, manage_news, manage_bug_reports,\n                        manage_restricted_names\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
+  "query": "\n                    SELECT user_id as \"id\", edit_permissions, debug, ban_users, manage_leagues,\n                        manage_maps, manage_map_pools, manage_matchmaking_seasons,\n                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,\n                        moderate_chat_channels, manage_news, manage_bug_reports,\n                        manage_restricted_names, manage_signup_codes\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -77,6 +77,11 @@
         "ordinal": 14,
         "name": "manage_restricted_names",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "manage_signup_codes",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -99,8 +104,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "1e2c685da77f52b467565fc52eab4b490a99e1fbf6987814a9fe1f4c9ab4c552"
+  "hash": "7594e24ffa244ec01fb980c80f49aa12a08a7166df25420d739fef80d1358c01"
 }

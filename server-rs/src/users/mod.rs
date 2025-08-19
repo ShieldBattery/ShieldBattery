@@ -425,6 +425,44 @@ impl UsersQuery {
 
         Ok(entries)
     }
+
+    #[graphql(guard = RequiredPermission::ManageSignupCodes)]
+    async fn signup_codes(
+        &self,
+        ctx: &Context<'_>,
+        include_exhausted: Option<bool>,
+    ) -> Result<Vec<SignupCode>> {
+        let include_exhausted = include_exhausted.unwrap_or(false);
+
+        let codes = if include_exhausted {
+            sqlx::query_as!(
+                SignupCode,
+                r#"
+                SELECT id, code, created_at, created_by as "created_by: _", expires_at, max_uses,
+                    uses, exhausted, notes
+                FROM user_signup_codes
+                ORDER BY expires_at DESC
+                "#
+            )
+            .fetch_all(ctx.data::<PgPool>()?)
+            .await?
+        } else {
+            sqlx::query_as!(
+                SignupCode,
+                r#"
+                SELECT id, code, created_at, created_by as "created_by: _", expires_at, max_uses,
+                    uses, exhausted, notes
+                FROM user_signup_codes
+                WHERE NOT exhausted
+                ORDER BY expires_at DESC
+                "#
+            )
+            .fetch_all(ctx.data::<PgPool>()?)
+            .await?
+        };
+
+        Ok(codes)
+    }
 }
 
 #[derive(Default)]
@@ -753,7 +791,8 @@ impl UsersMutation {
                     moderate_chat_channels = $12,
                     manage_news = $13,
                     manage_bug_reports = $14,
-                    manage_restricted_names = $15
+                    manage_restricted_names = $15,
+                    manage_signup_codes = $16
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -771,6 +810,7 @@ impl UsersMutation {
             permissions.manage_news,
             permissions.manage_bug_reports,
             permissions.manage_restricted_names,
+            permissions.manage_signup_codes,
         )
         .execute(ctx.data::<PgPool>()?)
         .await?;
@@ -860,6 +900,71 @@ impl UsersMutation {
 
         Ok(result)
     }
+
+    #[graphql(guard = RequiredPermission::ManageSignupCodes)]
+    async fn create_signup_code(
+        &self,
+        ctx: &Context<'_>,
+        input: CreateSignupCodeInput,
+    ) -> Result<SignupCode> {
+        let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
+            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
+        };
+
+        // Check expiry date is in the future
+        if input.expires_at <= Utc::now() {
+            return Err(graphql_error(
+                "INVALID_EXPIRY_DATE",
+                "Expiry date must be in the future",
+            ));
+        }
+
+        // Generate a unique code
+        let mut attempts = 0;
+        const MAX_ATTEMPTS: i32 = 10;
+
+        loop {
+            let generated_code = gen_random_code();
+
+            // Check if this code already exists
+            let existing = sqlx::query!(
+                "SELECT id FROM user_signup_codes WHERE code = $1 AND NOT exhausted",
+                generated_code
+            )
+            .fetch_optional(ctx.data::<PgPool>()?)
+            .await?;
+
+            if existing.is_none() {
+                // Code is unique, create the signup code
+                let code = sqlx::query_as!(
+                    SignupCode,
+                    r#"
+                    INSERT INTO user_signup_codes (code, created_by, expires_at, max_uses, notes)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING id, code, created_at, created_by as "created_by: _", expires_at,
+                        max_uses, uses, exhausted, notes
+                    "#,
+                    generated_code,
+                    user.id as _,
+                    input.expires_at,
+                    input.max_uses,
+                    input.notes,
+                )
+                .fetch_one(ctx.data::<PgPool>()?)
+                .await?;
+
+                return Ok(code);
+            }
+
+            attempts += 1;
+            if attempts >= MAX_ATTEMPTS {
+                return Err(graphql_error(
+                    "CODE_GENERATION_FAILED",
+                    "Failed to generate a unique signup code after multiple attempts",
+                ));
+            }
+        }
+    }
 }
 
 #[derive(Clone, Default, Eq, PartialEq, InputObject)]
@@ -882,6 +987,41 @@ pub struct UpdateCurrentUserChanges {
         regex = r"^[A-Za-z0-9`~!$^&*()\[\]\-_+=.{}]+$",
     ))]
     pub name: Option<String>,
+}
+
+#[derive(SimpleObject, sqlx::FromRow, Clone, Debug)]
+#[graphql(complex)]
+pub struct SignupCode {
+    pub id: uuid::Uuid,
+    pub code: String,
+    pub created_at: DateTime<Utc>,
+    #[graphql(skip)]
+    pub created_by: Option<SbUserId>,
+    pub expires_at: DateTime<Utc>,
+    pub max_uses: Option<i32>,
+    pub uses: i32,
+    pub exhausted: bool,
+    pub notes: Option<String>,
+}
+
+#[ComplexObject]
+impl SignupCode {
+    async fn created_by_user(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        if let Some(user_id) = self.created_by {
+            ctx.data::<DataLoader<UsersLoader>>()?
+                .load_one(user_id)
+                .await
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[derive(InputObject)]
+pub struct CreateSignupCodeInput {
+    pub expires_at: DateTime<Utc>,
+    pub max_uses: Option<i32>,
+    pub notes: Option<String>,
 }
 
 /// Helper function to set audit context before updates
@@ -1039,7 +1179,7 @@ impl CurrentUserRepo {
                         manage_maps, manage_map_pools, manage_matchmaking_seasons,
                         manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
                         moderate_chat_channels, manage_news, manage_bug_reports,
-                        manage_restricted_names
+                        manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = $1
                 "#,

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE permissions\n                SET\n                    edit_permissions = $2,\n                    debug = $3,\n                    ban_users = $4,\n                    manage_leagues = $5,\n                    manage_maps = $6,\n                    manage_map_pools = $7,\n                    manage_matchmaking_seasons = $8,\n                    manage_matchmaking_times = $9,\n                    manage_rally_point_servers = $10,\n                    mass_delete_maps = $11,\n                    moderate_chat_channels = $12,\n                    manage_news = $13,\n                    manage_bug_reports = $14,\n                    manage_restricted_names = $15,\n                    manage_signup_codes = $16\n                WHERE user_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "80ffde5769fcc45df4d66edab5fbf82020d2cb70503f7ac54092431890be6712"
+}

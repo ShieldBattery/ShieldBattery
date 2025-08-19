@@ -3,6 +3,12 @@ Any of the possible race choices after random has been resolved.
 """
 scalar AssignedRace
 
+input CreateSignupCodeInput {
+	expiresAt: DateTime!
+	maxUses: Int
+	notes: String
+}
+
 type CurrentUser {
 	id: SbUserId!
 	"""
@@ -216,6 +222,7 @@ type Mutation {
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
 	userDeleteRestrictedName(id: Int!): Int!
 	userTestRestrictedName(name: String!): NameRestriction
+	createSignupCode(input: CreateSignupCodeInput!): SignupCode!
 }
 
 type NameRestriction {
@@ -311,6 +318,7 @@ type Query {
 	restrictedNames: [NameRestriction!]!
 	userLoginNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [LoginNameAuditEntry!]!
 	userDisplayNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [DisplayNameAuditEntry!]!
+	signupCodes(includeExhausted: Boolean): [SignupCode!]!
 }
 
 """
@@ -371,6 +379,7 @@ type SbPermissions {
 	manageNews: Boolean!
 	manageBugReports: Boolean!
 	manageRestrictedNames: Boolean!
+	manageSignupCodes: Boolean!
 }
 
 input SbPermissionsInput {
@@ -393,6 +402,7 @@ input SbPermissionsInput {
 	manageNews: Boolean!
 	manageBugReports: Boolean!
 	manageRestrictedNames: Boolean!
+	manageSignupCodes: Boolean!
 }
 
 type SbUser {
@@ -408,6 +418,18 @@ type SbUser {
 A user ID in the ShieldBattery system.
 """
 scalar SbUserId
+
+type SignupCode {
+	id: UUID!
+	code: String!
+	createdAt: DateTime!
+	expiresAt: DateTime!
+	maxUses: Int
+	uses: Int!
+	exhausted: Boolean!
+	notes: String
+	createdByUser: SbUser
+}
 
 """
 A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as

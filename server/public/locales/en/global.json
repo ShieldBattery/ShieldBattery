@@ -80,8 +80,10 @@
       "confirmPassword": "Confirm password",
       "createAccount": "Create account",
       "emailAddress": "Email address",
+      "haveSignupCodeLink": "Have a signup code?",
       "password": "Password",
       "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <5>Acceptable Use</5>, and <8>Privacy</8> policies",
+      "signupCode": "Signup code (optional)",
       "title": "Create account",
       "username": "Username"
     },

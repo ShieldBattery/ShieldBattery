@@ -35,6 +35,7 @@ pub struct SbPermissions {
     pub manage_news: bool,
     pub manage_bug_reports: bool,
     pub manage_restricted_names: bool,
+    pub manage_signup_codes: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -54,6 +55,7 @@ pub enum RequiredPermission {
     ManageNews,
     ManageBugReports,
     ManageRestrictedNames,
+    ManageSignupCodes,
 }
 
 impl RequiredPermission {
@@ -73,6 +75,7 @@ impl RequiredPermission {
             Self::ManageNews => permissions.manage_news,
             Self::ManageBugReports => permissions.manage_bug_reports,
             Self::ManageRestrictedNames => permissions.manage_restricted_names,
+            Self::ManageSignupCodes => permissions.manage_signup_codes,
         }
     }
 }
@@ -106,10 +109,11 @@ impl Loader<SbUserId> for PermissionsLoader {
     async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
         Ok(sqlx::query!(
             r#"
-                    SELECT user_id as "user_id: SbUserId", edit_permissions, debug, ban_users, manage_leagues, manage_maps,
-                        manage_map_pools, manage_matchmaking_seasons, manage_matchmaking_times,
-                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
-                        manage_news, manage_bug_reports, manage_restricted_names
+                    SELECT user_id as "user_id: SbUserId", edit_permissions, debug, ban_users,
+                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking_seasons,
+                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
+                        moderate_chat_channels, manage_news, manage_bug_reports,
+                        manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -135,6 +139,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                     manage_news: r.manage_news,
                     manage_bug_reports: r.manage_bug_reports,
                     manage_restricted_names: r.manage_restricted_names,
+                    manage_signup_codes: r.manage_signup_codes,
                 },
             )
         })

@@ -27,6 +27,7 @@ export interface SbPermissions {
   manageNews: boolean
   manageBugReports: boolean
   manageRestrictedNames: boolean
+  manageSignupCodes: boolean
 }
 
 export interface UrgentMessage {

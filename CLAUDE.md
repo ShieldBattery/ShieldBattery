@@ -44,9 +44,8 @@ pnpm run test-ui         # Test UI with coverage
 pnpm run test:integration # Integration tests (Playwright)
 
 # Quality checks
-pnpm run lint            # ESLint
-pnpm run typecheck       # TypeScript type checking
 pnpm run lint --fix      # ESLint autofix (can fix formatting with prettier)
+pnpm run typecheck       # TypeScript type checking
 ```
 
 ### Code Generation
@@ -145,6 +144,7 @@ pnpm run dist                  # Build Electron app (production distribution)
   number (e.g. `NOTE(#1337):`)
 - When writing code to replace older code, never leave the older code around. Delete files that
   become unused as the result of refactoring.
+- The GraphQL schema is generated from the server-rs code and should not be edited by hand
 
 ### TypeScript
 

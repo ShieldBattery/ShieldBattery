@@ -2,10 +2,34 @@ import { APIResponse, Page, Route } from '@playwright/test'
 
 const hookedPages = new WeakSet<Page>()
 
+const pageIdentifiers = new WeakMap<Page, Promise<string>>()
+
+async function getIdentifier(): Promise<string> {
+  const buf = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(String(Date.now())),
+  )
+  return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Marks the page as needing consistent user identifiers throughout the test. This should be used
+ * before any API calls that would need them.
+ */
+export function useConsistentIdentifiersForPage(page: Page) {
+  if (!pageIdentifiers.has(page)) {
+    pageIdentifiers.set(page, getIdentifier())
+  }
+}
+
 /**
  * Cause a page to seem like an Electron client to the server. Note that this won't pull in any
  * Electron-specific code for the client, just allow it to make requests that are normally limited
  * to Electron clients.
+ *
+ * If `useConsistentIdentifiers` is true, the same client identifiers will be used for every hooked
+ * request made by this page. (This may cause issues if you need to create more than 5 accounst in
+ * a single test and don't want the account limit to trigger)
  */
 export async function emulateElectronClient(page: Page): Promise<void> {
   if (hookedPages.has(page)) {
@@ -14,7 +38,7 @@ export async function emulateElectronClient(page: Page): Promise<void> {
   hookedPages.add(page)
 
   await page.route(/(\/api\/)|(\/gql\/?$)/, async route => {
-    const [response, headers] = await emulateElectronClientForRoute(route, page.url())
+    const [response, headers] = await emulateElectronClientForRoute(route, page.url(), page)
 
     await route.fulfill({
       response,
@@ -22,10 +46,6 @@ export async function emulateElectronClient(page: Page): Promise<void> {
     })
   })
 }
-
-const FAKE_IDENTIFIER = globalThis.crypto.subtle
-  .digest('SHA-256', new TextEncoder().encode(String(Date.now())))
-  .then(buf => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join(''))
 
 /**
  * Emulate an Electron client for a specific route. This is a lower-level version of
@@ -39,6 +59,7 @@ const FAKE_IDENTIFIER = globalThis.crypto.subtle
 export async function emulateElectronClientForRoute(
   route: Route,
   pageUrl: string,
+  page?: Page,
 ): Promise<[response: APIResponse, headers: Record<string, string>]> {
   const reqHeaders = {
     ...route.request().headers(),
@@ -51,9 +72,16 @@ export async function emulateElectronClientForRoute(
     (route.request().url().endsWith('/api/1/users') ||
       route.request().url().endsWith('/api/1/sessions'))
   ) {
-    // Add client identifiers
+    // Add client identifiers - using the same identifier for types 1, 2, 3, 4 to trigger
+    // account limits after 5 accounts (need 4+ matching identifiers for limit to apply)
     const body = JSON.parse(route.request().postData() ?? '{}')
-    body.clientIds = [[1, await FAKE_IDENTIFIER]]
+    const identifier = await ((page ? pageIdentifiers.get(page) : undefined) ?? getIdentifier())
+    body.clientIds = [
+      [1, identifier],
+      [2, identifier],
+      [3, identifier],
+      [4, identifier],
+    ]
     fetchOptions.postData = JSON.stringify(body)
   }
 

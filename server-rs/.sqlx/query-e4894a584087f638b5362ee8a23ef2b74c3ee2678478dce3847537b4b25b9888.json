@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO user_signup_codes (code, created_by, expires_at, max_uses, notes)\n                    VALUES ($1, $2, $3, $4, $5)\n                    RETURNING id, code, created_at, created_by as \"created_by: _\", expires_at,\n                        max_uses, uses, exhausted, notes\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_by: _",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "max_uses",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "uses",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "exhausted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "notes",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Timestamptz",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "e4894a584087f638b5362ee8a23ef2b74c3ee2678478dce3847537b4b25b9888"
+}

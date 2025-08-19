@@ -25,6 +25,9 @@ const LoadableRallyPoint = React.lazy(async () => ({
 const LoadableRestrictedNames = React.lazy(async () => ({
   default: (await import('./restricted-names')).RestrictedNames,
 }))
+const LoadableSignupCodes = React.lazy(async () => ({
+  default: (await import('./signup-codes')).SignupCodes,
+}))
 const LoadableUrgentMessage = React.lazy(async () => ({
   default: (await import('./urgent-message')).AdminUrgentMessage,
 }))
@@ -72,6 +75,7 @@ export default function AdminPanel() {
       LoadableRestrictedNames,
       'Manage restricted names',
     ],
+    ['/admin/signup-codes', perms?.manageSignupCodes, LoadableSignupCodes, 'Manage signup codes'],
     ['/admin/urgent-message', perms?.manageNews, LoadableUrgentMessage, 'Set urgent message'],
   ]
 

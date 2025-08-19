@@ -8,9 +8,25 @@ export async function goToSignup(page: Page): Promise<void> {
 
 export async function signupWith(
   page: Page,
-  { username, email, password }: { username: string; email: string; password: string },
+  {
+    username,
+    email,
+    password,
+    signupCode,
+  }: {
+    username: string
+    email: string
+    password: string
+    signupCode?: string
+  },
 ) {
   await emulateElectronClient(page)
+
+  // If signup code is provided, show the signup code input field
+  if (signupCode) {
+    await page.click('[data-test=have-signup-code-link]')
+    await page.fill('input[name="signupCode"]', signupCode)
+  }
 
   await page.fill('input[name="username"]', username)
   await page.fill('input[name="email"]', email)

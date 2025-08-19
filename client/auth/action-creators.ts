@@ -137,7 +137,8 @@ export function signUp(
     email,
     password,
     locale,
-  }: { username: string; email: string; password: string; locale?: string },
+    signupCode,
+  }: { username: string; email: string; password: string; locale?: string; signupCode?: string },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -149,6 +150,7 @@ export function signUp(
         email,
         password,
         locale,
+        signupCode: signupCode?.trim(),
       }),
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
