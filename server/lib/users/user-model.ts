@@ -34,7 +34,7 @@ interface UserInternal {
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
   acceptedPrivacyVersion: number
-  locale: string
+  locale?: string
   lastLoginNameChange?: Date
   lastNameChange?: Date
   nameChangeTokens: number
@@ -60,14 +60,14 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     loginName: dbUser.login_name,
     email: dbUser.email,
     created: dbUser.created,
-    signupIpAddress: dbUser.signup_ip_address,
+    signupIpAddress: dbUser.signup_ip_address ?? undefined,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
-    locale: dbUser.locale,
-    lastLoginNameChange: dbUser.last_login_name_change,
-    lastNameChange: dbUser.last_name_change,
+    locale: dbUser.locale ?? undefined,
+    lastLoginNameChange: dbUser.last_login_name_change ?? undefined,
+    lastNameChange: dbUser.last_name_change ?? undefined,
     nameChangeTokens: dbUser.name_change_tokens,
   }
 }
