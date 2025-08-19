@@ -708,7 +708,7 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
   {
     date: 1755591122914,
     title: 'Update 10.2.0',
-    summary: 'The Anti-Smurfing Smurfing Update',
+    summary: 'The Anti-smurfing smurfing update.',
     contents: `
       For this update, we've focused on reducing the amount of smurfing on ShieldBattery. While we
       already had measures in place to ensure that MMR transfers between accounts of the same user,
