@@ -26,7 +26,7 @@ use names::{
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
-use tracing::error;
+use tracing::{error, warn};
 use typeshare::typeshare;
 
 use crate::email::{
@@ -1146,7 +1146,7 @@ impl CurrentUserRepo {
                                 return Ok(user.into());
                             }
                             Err(e) => {
-                                error!("Failed to deserialize cached user: {e:?}");
+                                warn!("Failed to deserialize cached user: {e:?}");
                             }
                         }
                     }
@@ -1223,9 +1223,9 @@ struct SelfUser {
     pub accepted_terms_version: i32,
     pub accepted_use_policy_version: i32,
     pub locale: Option<String>,
-    #[serde(with = "ts_milliseconds_option")]
+    #[serde(with = "ts_milliseconds_option", default)]
     pub last_login_name_change: Option<DateTime<Utc>>,
-    #[serde(with = "ts_milliseconds_option")]
+    #[serde(with = "ts_milliseconds_option", default)]
     pub last_name_change: Option<DateTime<Utc>>,
     pub name_change_tokens: i32,
 }
