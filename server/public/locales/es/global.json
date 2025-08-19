@@ -247,15 +247,15 @@
                     "dialogTitle": "Cambiar nombre de inicio de sesión",
                     "success": "Nombre de inicio de sesión cambiado con éxito."
                 },
-                "displayNameCooldown_one": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en 1 día.",
-                "displayNameCooldown_many": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en {{count}} días.",
-                "displayNameCooldown_other": "Has cambiado tu nombre visible muy recientemente. Podrás cambiarlo de nuevo en {{count}} días.",
+                "displayNameCooldown_one": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} día.",
+                "displayNameCooldown_many": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
+                "displayNameCooldown_other": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
                 "changeDisplayName": {
-                    "dialogTitle": "Cambiar nombre visible",
-                    "success": "Nombre visible cambiado con éxito."
+                    "dialogTitle": "Cambiar nombre para mostrar",
+                    "success": "Nombre para mostrar cambiado con éxito."
                 },
-                "displayNameChangeInfo": "Puedes cambiar tu nombre visible solo cada 60 días. Cambios de mayúsculas/minúsculas no cuentan.",
-                "displayNameUnavailable": "El nombre visible no está disponible",
+                "displayNameChangeInfo": "Los nombres para mostrar se pueden cambiar una vez cada 60 días. Los cambios de mayúsculas no cuentan para el límite de cambios de nombre.",
+                "displayNameUnavailable": "El nombre para mostrar no está disponible",
                 "loginNameChangeInfo": "El nombre de inicio de sesión solo se puede cambiar cada 30 días."
             }
         },
@@ -275,7 +275,7 @@
             "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
             "banWithoutReason": "Sin razón especificada",
             "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
-            "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para eludir este límite."
+            "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite."
         },
         "usernameValidator": {
             "pattern": "El nombre de usuario contiene caracteres inválidos",
@@ -370,7 +370,7 @@
             }
         },
         "randomCodeValidator": {
-            "codePattern": "Código inválido. Debería verse como {{example}}."
+            "codePattern": "Código inválido. Debe tener este formato: {{example}}."
         }
     },
     "landing": {
@@ -1113,8 +1113,8 @@
                 "title": "Historial de nombres",
                 "userHistory": "Historial de nombres",
                 "loginNameChanges": "Cambios de nombre de inicio de sesión",
-                "noDisplayNameHistory": "No se encontraron cambios de nombre visible.",
-                "displayNameChanges": "Cambios de nombre visible",
+                "noDisplayNameHistory": "No se encontraron cambios de nombre para mostrar.",
+                "displayNameChanges": "Cambios de nombre para mostrar",
                 "noLoginNameHistory": "No se encontraron cambios de nombre de inicio de sesión.",
                 "usedToken": "Token de cambio de nombre usado"
             },

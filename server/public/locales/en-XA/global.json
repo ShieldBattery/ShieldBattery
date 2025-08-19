@@ -347,7 +347,7 @@
             "usernameTaken": "$🗡The username is not available.🗡!",
             "accountBanned": "$🗡This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>🗡!",
             "invalidCode": "$🗡The provided code is invalid. It may have expired.🗡!",
-            "tooManyAccounts": "$🗡This machine has reached the limit of created accounts. If you have a signup code,  you can enter it to bypass this limit.🗡!"
+            "tooManyAccounts": "$🗡This machine has reached the limit of created accounts. If you have a signup code, you can enter it to bypass this limit.🗡!"
         },
         "usernameValidator": {
             "pattern": "$🗡Username contains invalid characters🗡!",

@@ -220,17 +220,17 @@
                     "dialogTitle": "로그인 이름 변경",
                     "success": "로그인 이름이 성공적으로 변경되었습니다."
                 },
-                "loginNameCooldown_other": "너무 최근에 이름을 변경했습니다. {{count}}일 후에 다시 로그인 이름을 변경할 수 있습니다.",
-                "loginNameUnavailable": "로그인 이름이 사용 불가능합니다.",
-                "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다.",
+                "loginNameCooldown_other": "이름을 너무 최근에 변경했습니다. 로그인 이름은 {{count}}일 후에 다시 변경할 수 있습니다.",
+                "loginNameUnavailable": "로그인 이름을 사용할 수 없습니다.",
+                "rateLimited": "로그인 이름은 30일마다 한 번 변경할 수 있어요.",
                 "changeDisplayName": {
                     "dialogTitle": "표시 이름 변경",
                     "success": "표시 이름이 성공적으로 변경되었습니다."
                 },
-                "displayNameUnavailable": "표시 이름이 사용 불가능합니다.",
-                "loginNameChangeInfo": "로그인 이름은 30일에 한 번 변경할 수 있습니다.",
-                "displayNameChangeInfo": "표시 이름은 60일에 한 번 변경할 수 있습니다. 대문자 변경은 이름 변경 제한에 영향을 받지 않습니다.",
-                "displayNameCooldown_other": "표시 이름을 너무 최근에 변경했습니다. {{count}}일 후에 다시 변경할 수 있습니다."
+                "displayNameUnavailable": "표시 이름을 사용할 수 없습니다",
+                "loginNameChangeInfo": "로그인 이름은 30일마다 한 번 변경할 수 있어요.",
+                "displayNameChangeInfo": "표시 이름은 60일에 한 번만 변경할 수 있습니다. 대소문자 변경은 이름 변경 제한에 포함되지 않습니다.",
+                "displayNameCooldown_other": "표시 이름을 최근에 변경하셨습니다. {{count}}일 후에 다시 변경할 수 있습니다."
             }
         },
         "activity": {
@@ -329,7 +329,7 @@
             "emailAddress": "이메일 주소",
             "password": "비밀번호",
             "username": "사용자 이름",
-            "haveSignupCodeLink": "가입 코드가 있나요?",
+            "haveSignupCodeLink": "가입 코드가 있으신가요?",
             "signupCode": "가입 코드 (선택 사항)"
         },
         "userErrorDisplay": {
@@ -341,15 +341,15 @@
             "machineBanned": "이 기기에서는 새로운 계정을 만드는 것이 금지되어 있습니다.",
             "noConnectionErrorMessage": "서버에 연결 실패. 인터넷 연결을 확인하고 다시 시도해봐.",
             "sessionExpired": "세션이 만료됐어요",
-            "usernameTaken": "그 이름은 이미 존재하거나 제한된 이름이에요",
+            "usernameTaken": "해당 사용자 이름은 사용할 수 없습니다.",
             "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",
-            "tooManyAccounts": "이 기기는 생성된 계정 수의 한계에 도달했습니다. 가입 코드가 있다면 입력하여 이 한계를 우회할 수 있습니다."
+            "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다."
         },
         "usernameValidator": {
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
             "required": "사용자 이름을 입력하세요",
             "notAvailable": "사용자 이름을 사용할 수 없습니다",
-            "availabilityError": "사용자 이름 가용성 확인 중 문제가 발생했습니다.",
+            "availabilityError": "사용자 이름 사용 가능 여부를 확인하는 중 문제가 발생했습니다",
             "unavailable": "사용자 이름을 사용할 수 없습니다"
         },
         "language": {
@@ -1059,13 +1059,13 @@
         },
         "admin": {
             "nameHistory": {
-                "title": "이름 기록",
-                "userHistory": "{{name}}의 로그인 이름 기록",
+                "title": "이름 변경 기록",
+                "userHistory": "이름 변경 기록",
                 "displayNameChanges": "표시 이름 변경 내역",
                 "loginNameChanges": "로그인 이름 변경 내역",
-                "noDisplayNameHistory": "변경된 표시 이름 내역이 없습니다.",
-                "noLoginNameHistory": "변경된 로그인 이름이 없습니다.",
-                "usedToken": "사용된 이름 변경 토큰"
+                "noDisplayNameHistory": "표시 이름 변경 내역이 없습니다.",
+                "noLoginNameHistory": "로그인 이름 변경 내역이 없습니다.",
+                "usedToken": "이름 변경 토큰 사용됨"
             },
             "ipAddresses": {
                 "title": "IP 주소"
@@ -1074,7 +1074,7 @@
                 "title": "권한"
             },
             "punishments": {
-                "title": "처벌"
+                "title": "제재"
             }
         }
     },

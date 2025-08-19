@@ -237,21 +237,21 @@
                 "unknownError": "遇到错误。请稍后再试。",
                 "emailUnverified": "未验证",
                 "emailVerified": "已验证",
-                "loginNameCooldown_other": "您最近更改了名字。您可以在{{count}}天后再次更改登录名。",
+                "loginNameCooldown_other": "你刚刚修改过登录名，{{count}} 天后才能再次修改。",
                 "changeLoginName": {
-                    "dialogTitle": "更改登录名",
-                    "success": "登录名更改成功。"
+                    "dialogTitle": "修改登录名",
+                    "success": "登录名修改成功。"
                 },
                 "loginNameUnavailable": "登录名不可用",
-                "rateLimited": "您只能每30天更改一次登录名。",
-                "displayNameCooldown_other": "您最近更改了显示名称。您可以在{{count}}天后再次更改显示名称。",
+                "rateLimited": "你每 30 天只能修改一次登录名。",
+                "displayNameCooldown_other": "你刚刚修改过显示名，{{count}} 天后才能再次修改。",
                 "changeDisplayName": {
-                    "dialogTitle": "更改显示名称",
-                    "success": "显示名称更改成功。"
+                    "dialogTitle": "修改显示名",
+                    "success": "显示名修改成功。"
                 },
-                "displayNameChangeInfo": "显示名称每60天可以更改一次。大写字母的更改不受名称更改限制的影响。",
-                "displayNameUnavailable": "显示名称不可用",
-                "loginNameChangeInfo": "登录名称每30天可以更改一次。"
+                "displayNameChangeInfo": "显示名每 60 天只能修改一次。仅更改大小写不受限制。",
+                "displayNameUnavailable": "显示名不可用",
+                "loginNameChangeInfo": "登录名每 30 天可修改一次。"
             }
         }
     },
@@ -334,8 +334,8 @@
             "password": "密码",
             "username": "用户名",
             "readAndAgree": "我已阅读并同意<2>服务条款</2>、<5>可接受使用</5>和<8>隐私</8>政策",
-            "haveSignupCodeLink": "有注册代码吗？",
-            "signupCode": "注册代码（可选）"
+            "haveSignupCodeLink": "拥有注册码？",
+            "signupCode": "注册码（可选）"
         },
         "userErrorDisplay": {
             "accountBanned": "此账号已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>账号将于{{expireTime}}解封。</2>",
@@ -346,9 +346,9 @@
             "machineBanned": "您的机器被禁止注册新帐号。",
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
             "sessionExpired": "会话已过期",
-            "usernameTaken": "该用户名已被使用或该名称受限",
+            "usernameTaken": "用户名不可用。",
             "invalidCode": "提供的验证码无效，可能已过期。",
-            "tooManyAccounts": "此机器已达到创建账户的上限。如果您有注册代码，可以输入它以绕过此限制。"
+            "tooManyAccounts": "该设备已达到创建账户的上限。如有注册码，可输入以绕过限制。"
         },
         "forgot": {
             "backToLogin": "返回登录界面",
@@ -395,7 +395,7 @@
             }
         },
         "randomCodeValidator": {
-            "codePattern": "验证码无效，应为 {{example}} 的格式。"
+            "codePattern": "无效的代码，格式应为 {{example}}。"
         }
     },
     "clientDownload": {
@@ -1136,13 +1136,13 @@
                 "title": "IP地址"
             },
             "nameHistory": {
-                "title": "名字历史",
-                "userHistory": "{{name}}的登录名历史",
-                "displayNameChanges": "显示名称更改",
-                "loginNameChanges": "登录名称更改",
-                "noDisplayNameHistory": "未找到显示名称更改记录。",
+                "title": "名称历史",
+                "userHistory": "名称历史",
+                "displayNameChanges": "显示名更改记录",
+                "loginNameChanges": "登录名更改记录",
+                "noDisplayNameHistory": "未找到显示名更改记录。",
                 "noLoginNameHistory": "未找到登录名更改记录。",
-                "usedToken": "已使用名称更改令牌"
+                "usedToken": "已使用改名道具"
             },
             "permissions": {
                 "title": "权限"
