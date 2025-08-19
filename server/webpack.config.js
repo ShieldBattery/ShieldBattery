@@ -19,7 +19,7 @@ const webpackOpts = {
     chunkFilename: isProd ? '[name].[contenthash:8].chunk.js' : '[name].chunk.js',
     filename: isProd ? '[name].[contenthash:8].js' : '[name].js',
     path: path.join(__dirname, 'public', 'scripts'),
-    publicPath: '/scripts/',
+    publicPath: 'auto',
   },
   plugins: [
     ...(isProd
