@@ -148,11 +148,11 @@ export type GameRoute = {
 
 export type League = {
   __typename?: 'League'
-  badgePath?: Maybe<Scalars['String']['output']>
+  badgeUrl?: Maybe<Scalars['String']['output']>
   description: Scalars['String']['output']
   endAt: Scalars['DateTime']['output']
   id: Scalars['UUID']['output']
-  imagePath?: Maybe<Scalars['String']['output']>
+  imageUrl?: Maybe<Scalars['String']['output']>
   link?: Maybe<Scalars['String']['output']>
   matchmakingType: Scalars['MatchmakingType']['output']
   name: Scalars['String']['output']
@@ -665,6 +665,12 @@ export type UrgentMessage_HomeDisplayFragmentFragment = {
   message: string
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
+export type Leagues_LeagueBadgeFragmentFragment = {
+  __typename?: 'League'
+  name: string
+  badgeUrl?: string | null
+} & { ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment' }
+
 export type Leagues_HomeFeedFragmentFragment = {
   __typename?: 'Query'
   activeLeagues: Array<
@@ -683,15 +689,16 @@ export type Leagues_HomeFeedFragmentFragment = {
   >
 } & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' }
 
-export type Leagues_HomeFeedEntryFragmentFragment = {
+export type Leagues_HomeFeedEntryFragmentFragment = ({
   __typename?: 'League'
   id: string
   name: string
   matchmakingType: Types.MatchmakingType
   startAt: string
   endAt: string
-  badgePath?: string | null
-} & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
+} & {
+  ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
+}) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
 export type LiveGames_HomeFeedFragmentFragment = {
   __typename?: 'Query'
@@ -972,6 +979,23 @@ export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<UrgentMessage_HomeDisplayFragmentFragment, unknown>
+export const Leagues_LeagueBadgeFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_LeagueBadgeFragmentFragment, unknown>
 export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -987,7 +1011,19 @@ export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
         ],
       },
     },
@@ -1036,6 +1072,18 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
     },
     {
       kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
       name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
       selectionSet: {
@@ -1046,7 +1094,7 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
         ],
       },
     },
@@ -2208,6 +2256,18 @@ export const HomePageContentDocument = {
     },
     {
       kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
       name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
       selectionSet: {
@@ -2218,7 +2278,7 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'badgePath' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
         ],
       },
     },

@@ -13,7 +13,7 @@ import { Tooltip } from '../material/tooltip'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
 import { urlForLeague } from './action-creators'
-import { LeagueBadge } from './league-badge'
+import { GqlLeagueBadge } from './league-badge'
 
 export const Leagues_HomeFeedFragment = graphql(/* GraphQL */ `
   fragment Leagues_HomeFeedFragment on Query {
@@ -86,7 +86,7 @@ export const Leagues_HomeFeedEntryFragment = graphql(/* GraphQL */ `
     matchmakingType
     startAt
     endAt
-    badgePath
+    ...Leagues_LeagueBadgeFragment
   }
 `)
 
@@ -101,7 +101,7 @@ const LeagueEntryRoot = styled(LinkButton)`
   contain: content;
 `
 
-const StyledLeagueBadge = styled(LeagueBadge)`
+const StyledLeagueBadge = styled(GqlLeagueBadge)`
   flex-grow: 0;
   flex-shrink: 0;
   margin-block: 2px;
@@ -153,7 +153,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
 
   return (
     <LeagueEntryRoot {...buttonProps} href={url}>
-      <StyledLeagueBadge league={league} />
+      <StyledLeagueBadge query={league} />
       <Info>
         <LeagueName>{league.name}</LeagueName>
         <LeagueTypeAndDates>

@@ -120,8 +120,8 @@ type League {
 	endAt: DateTime!
 	rulesAndInfo: String
 	link: String
-	imagePath: String
-	badgePath: String
+	imageUrl: String
+	badgeUrl: String
 }
 
 type LobbyExtra {

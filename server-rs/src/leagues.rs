@@ -17,8 +17,8 @@ impl LeaguesQuery {
             League,
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
-                    signups_after, start_at, end_at, badge_path as badge_path_internal,
-                    image_path as image_path_internal, rules_and_info, link
+                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
+                    link
                 FROM leagues
                 WHERE start_at <= NOW() AND end_at > NOW()
                 ORDER BY start_at DESC
@@ -35,8 +35,8 @@ impl LeaguesQuery {
             League,
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
-                    signups_after, start_at, end_at, badge_path as badge_path_internal,
-                    image_path as image_path_internal, rules_and_info, link
+                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
+                    link
                 FROM leagues
                 WHERE end_at > NOW() AND start_at > NOW() and signups_after <= NOW()
                 ORDER BY start_at DESC
@@ -53,8 +53,8 @@ impl LeaguesQuery {
             League,
             r#"
                 SELECT id, name, matchmaking_type as "matchmaking_type: _", description,
-                    signups_after, start_at, end_at, badge_path as badge_path_internal,
-                    image_path as image_path_internal, rules_and_info, link
+                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,
+                    link
                 FROM leagues
                 WHERE end_at <= NOW()
                 ORDER BY end_at DESC
@@ -77,31 +77,34 @@ pub struct League {
     pub start_at: DateTime<Utc>,
     pub end_at: DateTime<Utc>,
     #[graphql(skip)]
-    pub badge_path_internal: Option<String>,
+    pub badge_path: Option<String>,
     #[graphql(skip)]
-    pub image_path_internal: Option<String>,
+    pub image_path: Option<String>,
     pub rules_and_info: Option<String>,
     pub link: Option<String>,
 }
 
 #[ComplexObject]
 impl League {
-    async fn image_path(&self, ctx: &async_graphql::Context<'_>) -> async_graphql::Result<Option<String>> {
-        let Some(image_path_internal) = &self.image_path_internal else {
-            return Ok(None);
-        };
-        let file_store = ctx.data::<FileStore>()?;
-        Ok(Some((file_store.url(image_path_internal)?).to_string()))
-    }
-
-    async fn badge_path(
+    async fn image_url(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<Option<String>> {
-        let Some(badge_path_internal) = &self.badge_path_internal else {
+        let Some(image_path) = &self.image_path else {
             return Ok(None);
         };
         let file_store = ctx.data::<FileStore>()?;
-        Ok(Some((file_store.url(badge_path_internal)?).to_string()))
+        Ok(Some((file_store.url(image_path)?).to_string()))
+    }
+
+    async fn badge_url(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Option<String>> {
+        let Some(badge_path) = &self.badge_path else {
+            return Ok(None);
+        };
+        let file_store = ctx.data::<FileStore>()?;
+        Ok(Some((file_store.url(badge_path)?).to_string()))
     }
 }
