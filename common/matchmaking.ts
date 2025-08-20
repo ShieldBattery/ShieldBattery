@@ -212,22 +212,22 @@ type MatchmakingDivisionWithBoundsAndBonusFactor = [
 // the upper divisions as the season goes on. (It is divided into a low and high factor to ensure
 // the division bounds are continuous)
 const DIVISIONS_TO_POINTS: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
-  [MatchmakingDivision.Bronze1, -Infinity, 750, 0, 0],
-  [MatchmakingDivision.Bronze2, 750, 1500, 0, 0],
-  [MatchmakingDivision.Bronze3, 1500, 2250, 0, 0],
-  [MatchmakingDivision.Silver1, 2250, 3000, 0, 0.3],
-  [MatchmakingDivision.Silver2, 3000, 3750, 0.3, 0.3],
-  [MatchmakingDivision.Silver3, 3750, 4500, 0.3, 0.3],
-  [MatchmakingDivision.Gold1, 4500, 5250, 0.3, 0.6],
-  [MatchmakingDivision.Gold2, 5250, 6000, 0.6, 0.6],
-  [MatchmakingDivision.Gold3, 6000, 6750, 0.6, 0.6],
-  [MatchmakingDivision.Platinum1, 6750, 7070, 0.6, 1],
-  [MatchmakingDivision.Platinum2, 7070, 7390, 1, 1],
-  [MatchmakingDivision.Platinum3, 7390, 7710, 1, 1],
-  [MatchmakingDivision.Diamond1, 7710, 8030, 1, 1],
-  [MatchmakingDivision.Diamond2, 8030, 8350, 1, 1],
-  [MatchmakingDivision.Diamond3, 8350, 9600, 1, 1],
-  [MatchmakingDivision.Champion, 9600, Infinity, 1, 1],
+  [MatchmakingDivision.Bronze1, -Infinity, 800, 0, 0],
+  [MatchmakingDivision.Bronze2, 800, 1520, 0, 0],
+  [MatchmakingDivision.Bronze3, 1520, 2240, 0, 0],
+  [MatchmakingDivision.Silver1, 2240, 2960, 0, 0.3],
+  [MatchmakingDivision.Silver2, 2960, 3680, 0.3, 0.3],
+  [MatchmakingDivision.Silver3, 3680, 4400, 0.3, 0.3],
+  [MatchmakingDivision.Gold1, 4400, 5120, 0.3, 0.6],
+  [MatchmakingDivision.Gold2, 5120, 5840, 0.6, 0.6],
+  [MatchmakingDivision.Gold3, 5840, 6560, 0.6, 0.6],
+  [MatchmakingDivision.Platinum1, 6560, 6800, 0.6, 1],
+  [MatchmakingDivision.Platinum2, 6800, 7040, 1, 1],
+  [MatchmakingDivision.Platinum3, 7040, 7280, 1, 1],
+  [MatchmakingDivision.Diamond1, 7280, 7520, 1, 1],
+  [MatchmakingDivision.Diamond2, 7520, 7760, 1, 1],
+  [MatchmakingDivision.Diamond3, 7760, 8000, 1, 1],
+  [MatchmakingDivision.Champion, 8000, Infinity, 1, 1],
 ]
 
 const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
@@ -368,11 +368,11 @@ export function getDivisionColor(division: MatchmakingDivision) {
  * the value listed here.
  */
 const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
-  [960, 100],
-  [1200, 150],
-  [1440, 200],
-  [1680, 250],
-  [1920, 300],
+  [1100, 100],
+  [1280, 150],
+  [1460, 200],
+  [1640, 250],
+  [1820, 300],
 ]
 
 function getRatingConvergenceBucket(rating: number) {
