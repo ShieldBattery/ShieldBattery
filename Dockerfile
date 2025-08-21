@@ -7,9 +7,6 @@ RUN apk add --no-cache git
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
 RUN git clone --depth 1 https://github.com/vishnubob/wait-for-it.git
-# Clone the `s3cmd` repository which contains a script we'll copy over to our final image, and use
-# it to sync our public assets to the cloud
-RUN git clone --depth 1 https://github.com/s3tools/s3cmd.git
 
 # Install dependencies in a separate stage for better caching
 FROM node:22-alpine AS deps
@@ -79,8 +76,6 @@ COPY --chown=node:node --from=rust-tools /usr/local/bin/sqlx tools/sqlx
 
 # Copy the installed dependencies from the external-tools stage
 COPY --chown=node:node --from=external-tools /wait-for-it/wait-for-it.sh tools/wait-for-it.sh
-COPY --chown=node:node --from=external-tools /s3cmd/s3cmd tools/s3cmd/s3cmd
-COPY --chown=node:node --from=external-tools /s3cmd/S3 tools/s3cmd/S3
 
 # Copy just the sources the server needs
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
@@ -90,6 +85,8 @@ COPY --chown=node:node --from=builder /shieldbattery/migrations ./migrations
 COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
 COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
+
+RUN apk --no-cache add s3cmd
 
 # Allow the various scripts to be run
 RUN chmod +x ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
