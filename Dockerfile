@@ -53,7 +53,7 @@ ENV SB_PREBUILT_ASSETS=true
 # Since we're executing some bash scripts (eg. `wait-for-it.sh`) before running the containers using
 # this image, we need to install it explicitly because alpine-based images don't have it by default.
 # Also, we need python to execute some python scripts (e.g. `s3cmd`).
-RUN apk add --no-cache bash logrotate jq python3 py-pip
+RUN apk add --no-cache bash logrotate jq python3 py-pip s3cmd
 
 # Install the dependencies of the `s3cmd` python script (--break-system-packages because otherwise
 # we'd need a virtualenv, which is overkill since we're not using python for anything else)
@@ -85,8 +85,6 @@ COPY --chown=node:node --from=builder /shieldbattery/migrations ./migrations
 COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
 COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
-
-RUN apk --no-cache add s3cmd
 
 # Allow the various scripts to be run
 RUN chmod +x ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
