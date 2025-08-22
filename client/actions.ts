@@ -1,15 +1,5 @@
 // Every possible dispatched action in the app should be included here, sorted semi-alphabetically
 
-export const ADMIN_MAP_POOL_CLEAR_SEARCH = 'ADMIN_MAP_POOL_CLEAR_SEARCH'
-export const ADMIN_MAP_POOL_CREATE_BEGIN = 'ADMIN_MAP_POOL_CREATE_BEGIN'
-export const ADMIN_MAP_POOL_CREATE = 'ADMIN_MAP_POOL_CREATE'
-export const ADMIN_MAP_POOL_DELETE_BEGIN = 'ADMIN_MAP_POOL_DELETE_BEGIN'
-export const ADMIN_MAP_POOL_DELETE = 'ADMIN_MAP_POOL_DELETE'
-export const ADMIN_MAP_POOL_GET_HISTORY_BEGIN = 'ADMIN_MAP_POOL_GET_HISTORY_BEGIN'
-export const ADMIN_MAP_POOL_GET_HISTORY = 'ADMIN_MAP_POOL_GET_HISTORY'
-export const ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN = 'ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN'
-export const ADMIN_MAP_POOL_SEARCH_MAPS = 'ADMIN_MAP_POOL_SEARCH_MAPS'
-
 // The AudioManager has finished initializing and is ready to play sounds
 export const AUDIO_MANAGER_INITIALIZED = 'AUDIO_MANAGER_INITIALIZED'
 

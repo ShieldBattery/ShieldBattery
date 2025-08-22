@@ -1,13 +1,10 @@
 import { Immutable } from 'immer'
-import {
-  fromMatchmakingMapPoolJson,
-  MatchmakingMapPool,
-  MatchmakingType,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapPoolState {
-  byType: Map<MatchmakingType, MatchmakingMapPool>
+  byType: Map<MatchmakingType, MatchmakingMapPoolJson>
   isRequestingByType: Map<MatchmakingType, boolean>
   lastErrorByType: Map<MatchmakingType, Error>
 }
@@ -39,7 +36,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { meta, payload } = action
     state.isRequestingByType.set(meta.type, false)
     state.lastErrorByType.delete(meta.type)
-    state.byType.set(meta.type, fromMatchmakingMapPoolJson(payload.pool))
+    state.byType.set(meta.type, payload.pool)
   },
 
   ['@network/connect']() {

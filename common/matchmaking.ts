@@ -630,34 +630,6 @@ export function toPublicMatchmakingRatingChangeJson(
   }
 }
 
-/**
- * Describes a map pool that is used in a matchmaking.
- */
-export interface MatchmakingMapPool {
-  id: number
-  matchmakingType: MatchmakingType
-  startDate: Date
-  maps: SbMapId[]
-  maxVetoCount: number
-}
-
-export type MatchmakingMapPoolJson = Jsonify<MatchmakingMapPool>
-
-export function fromMatchmakingMapPoolJson(pool: MatchmakingMapPoolJson): MatchmakingMapPool {
-  return {
-    id: pool.id,
-    matchmakingType: pool.matchmakingType,
-    startDate: new Date(pool.startDate),
-    maps: pool.maps,
-    maxVetoCount: pool.maxVetoCount,
-  }
-}
-
-export interface GetMatchmakingMapPoolBody {
-  pool: MatchmakingMapPoolJson
-  mapInfos: MapInfoJson[]
-}
-
 export interface MatchmakingPreferencesData1v1 {
   /**
    * A flag indicating whether the user has selected to use the alternate race in mirror matchups.

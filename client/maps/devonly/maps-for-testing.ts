@@ -67,8 +67,8 @@ export const FightingSpirit: MapInfoJson = {
 export function loadMapsForTesting(): ThunkAction {
   return dispatch => {
     dispatch({
-      type: '@maps/loadMapInfo',
-      payload: FightingSpirit,
+      type: '@maps/loadMapInfos',
+      payload: [FightingSpirit],
     })
   }
 }

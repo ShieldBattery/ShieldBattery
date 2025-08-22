@@ -21,7 +21,7 @@ export type MapsActions =
   | AddToFavorites
   | RemoveFromFavorites
   | UpdateMapSuccess
-  | LoadMapInfo
+  | LoadMapInfos
 
 /**
  * The server has returned the map that was uploaded.
@@ -83,10 +83,10 @@ export interface UpdateMapSuccess {
 }
 
 /**
- * Loads a map's info directly. Useful if map info is received from a source that doesn't dispatch
- * through redux.
+ * Loads multiple map infos directly. Useful if map infos are received from a source that doesn't
+ * dispatch through redux.
  */
-export interface LoadMapInfo {
-  type: '@maps/loadMapInfo'
-  payload: MapInfoJson
+export interface LoadMapInfos {
+  type: '@maps/loadMapInfos'
+  payload: MapInfoJson[]
 }

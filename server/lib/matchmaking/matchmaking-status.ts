@@ -8,8 +8,8 @@ import {
   toMatchmakingStatusJson,
 } from '../../../common/matchmaking'
 import log from '../logging/logger'
-import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 import { ClientSocketsManager } from '../websockets/socket-groups'
+import { getCurrentMatchmakingTime, getMatchmakingSchedule } from './matchmaking-times-models'
 
 @singleton()
 export default class MatchmakingStatusService {
