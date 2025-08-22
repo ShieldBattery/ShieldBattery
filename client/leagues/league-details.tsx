@@ -386,7 +386,7 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
 
   return (
     <InfoRoot>
-      <InfoBadge league={league} />
+      <InfoBadge leagueName={league.name} badgeUrl={league.badgePath} />
       <TitleAndSummary>
         <TitleRow>
           <Title>{league.name}</Title>

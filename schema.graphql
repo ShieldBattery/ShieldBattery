@@ -118,10 +118,10 @@ type League {
 	signupsAfter: DateTime!
 	startAt: DateTime!
 	endAt: DateTime!
-	badgePath: String
-	imagePath: String
 	rulesAndInfo: String
 	link: String
+	imageUrl: String
+	badgeUrl: String
 }
 
 type LobbyExtra {

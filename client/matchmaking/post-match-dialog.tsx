@@ -601,7 +601,7 @@ function LeagueDelta({
           hasPlayedSound.current = true
         }
       }}>
-      <LeagueBadge league={league} />
+      <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} />
       {roundedValue < 0 ? '' : '+'}
       {roundedValue}
     </LeagueDeltaRoot>

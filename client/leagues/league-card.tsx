@@ -145,7 +145,7 @@ export function LeagueCard({
         <LeagueImageAndBadge>
           {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
           <LeagueCardBadge>
-            <LeagueBadge league={league} />
+            <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} />
           </LeagueCardBadge>
         </LeagueImageAndBadge>
         <LeagueName>{league.name}</LeagueName>

@@ -1,10 +1,10 @@
-use async_graphql::{Context, Object, Result, SimpleObject};
+use async_graphql::{ComplexObject, Context, Object, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::Context as _;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::matchmaking::MatchmakingType;
+use crate::{file_store::FileStore, matchmaking::MatchmakingType};
 
 #[derive(Default)]
 pub struct LeaguesQuery;
@@ -67,6 +67,7 @@ impl LeaguesQuery {
 }
 
 #[derive(SimpleObject, Debug, Clone, sqlx::FromRow)]
+#[graphql(complex)]
 pub struct League {
     pub id: Uuid,
     pub name: String,
@@ -75,8 +76,35 @@ pub struct League {
     pub signups_after: DateTime<Utc>,
     pub start_at: DateTime<Utc>,
     pub end_at: DateTime<Utc>,
+    #[graphql(skip)]
     pub badge_path: Option<String>,
+    #[graphql(skip)]
     pub image_path: Option<String>,
     pub rules_and_info: Option<String>,
     pub link: Option<String>,
+}
+
+#[ComplexObject]
+impl League {
+    async fn image_url(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Option<String>> {
+        let Some(image_path) = &self.image_path else {
+            return Ok(None);
+        };
+        let file_store = ctx.data::<FileStore>()?;
+        Ok(Some((file_store.url(image_path)?).to_string()))
+    }
+
+    async fn badge_url(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Option<String>> {
+        let Some(badge_path) = &self.badge_path else {
+            return Ok(None);
+        };
+        let file_store = ctx.data::<FileStore>()?;
+        Ok(Some((file_store.url(badge_path)?).to_string()))
+    }
 }

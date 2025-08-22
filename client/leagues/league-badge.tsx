@@ -1,7 +1,7 @@
 import styled, { css } from 'styled-components'
-import { ReadonlyDeep, Simplify } from 'type-fest'
-import { LeagueId, LeagueJson } from '../../common/leagues/leagues'
+import { LeagueId } from '../../common/leagues/leagues'
 import { randomColorForString } from '../avatars/colors'
+import { FragmentType, graphql, useFragment } from '../gql'
 import { useAppSelector } from '../redux-hooks'
 import { pickTextColor } from '../styles/colors'
 import { headlineLarge } from '../styles/typography'
@@ -40,23 +40,24 @@ const LeagueBadgeImage = styled.img`
 `
 
 export interface LeagueBadgeProps {
-  league: Simplify<ReadonlyDeep<Pick<LeagueJson, 'badgePath' | 'name'>>>
+  leagueName: string
+  badgeUrl?: string
   className?: string
 }
 
-export function LeagueBadge({ league, className }: LeagueBadgeProps) {
-  if (league.badgePath) {
+export function LeagueBadge({ leagueName, badgeUrl, className }: LeagueBadgeProps) {
+  if (badgeUrl) {
     return (
       <LeagueBadgeImage
-        src={league.badgePath}
+        src={badgeUrl}
         className={className}
-        alt={`${league.name} badge`}
+        alt={`${leagueName} badge`}
         draggable={false}
       />
     )
   }
 
-  const badgeColor = randomColorForString(league.name)
+  const badgeColor = randomColorForString(leagueName)
   const textColor = pickTextColor(badgeColor)
 
   return (
@@ -74,14 +75,14 @@ export function LeagueBadge({ league, className }: LeagueBadgeProps) {
       }>
       <foreignObject width='100%' height='100%'>
         <PlaceholderTextContainer>
-          <PlaceholderText>{(league.name[0] ?? '-').toUpperCase()}</PlaceholderText>
+          <PlaceholderText>{(leagueName[0] ?? '-').toUpperCase()}</PlaceholderText>
         </PlaceholderTextContainer>
       </foreignObject>
     </LeagueBadgePlaceholder>
   )
 }
 
-export function ConnectedLeagueBadge({
+export function ReduxLeagueBadge({
   leagueId,
   className,
 }: {
@@ -95,5 +96,29 @@ export function ConnectedLeagueBadge({
     return null
   }
 
-  return <LeagueBadge league={league} className={className} />
+  return <LeagueBadge leagueName={league.name} badgeUrl={league.badgePath} className={className} />
+}
+
+const Leagues_LeagueBadgeFragment = graphql(/* GraphQL */ `
+  fragment Leagues_LeagueBadgeFragment on League {
+    name
+    badgeUrl
+  }
+`)
+
+export function GqlLeagueBadge({
+  query,
+  className,
+}: {
+  query: FragmentType<typeof Leagues_LeagueBadgeFragment>
+  className?: string
+}) {
+  const league = useFragment(Leagues_LeagueBadgeFragment, query)
+  return (
+    <LeagueBadge
+      leagueName={league.name}
+      badgeUrl={league.badgeUrl ?? undefined}
+      className={className}
+    />
+  )
 }
