@@ -71,11 +71,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@maps/loadMapInfo'](state, { payload: map, system: { monotonicTime } }) {
-    state.byId.set(map.id, map)
-    state.lastRetrieved.set(map.id, monotonicTime)
-  },
-
   ['@maps/loadMapInfos'](state, { payload: maps, system: { monotonicTime } }) {
     for (const map of maps) {
       state.byId.set(map.id, map)

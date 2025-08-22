@@ -69,8 +69,8 @@ const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.AcceptMatch))
 
     dispatch({
-      type: '@maps/loadMapInfo',
-      payload: event.mapInfo,
+      type: '@maps/loadMapInfos',
+      payload: [event.mapInfo],
     })
 
     resetDraftState(jotaiStore)
