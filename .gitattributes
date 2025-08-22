@@ -1,5 +1,5 @@
 # Force unix style line endings for everything
-* text eol=lf
+* text=auto eol=lf
 
 *.ico binary
 *.png binary
