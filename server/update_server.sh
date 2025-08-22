@@ -28,7 +28,7 @@ echo "DO Spaces Name: $SPACE_NAME"
 
 if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" ]] && [[ ! -z "$SPACE_NAME" ]]; then
   echo "Syncing public assets to the cloud"
-  python3 ./tools/s3cmd/s3cmd sync \
+  s3cmd sync \
     --access_key="$ACCESS_KEY" \
     --secret_key="$SECRET_KEY" \
     --host="$HOST_BASE" \

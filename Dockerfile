@@ -7,9 +7,6 @@ RUN apk add --no-cache git
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
 RUN git clone --depth 1 https://github.com/vishnubob/wait-for-it.git
-# Clone the `s3cmd` repository which contains a script we'll copy over to our final image, and use
-# it to sync our public assets to the cloud
-RUN git clone --depth 1 https://github.com/s3tools/s3cmd.git
 
 # Install dependencies in a separate stage for better caching
 FROM node:22-alpine AS deps
@@ -56,7 +53,7 @@ ENV SB_PREBUILT_ASSETS=true
 # Since we're executing some bash scripts (eg. `wait-for-it.sh`) before running the containers using
 # this image, we need to install it explicitly because alpine-based images don't have it by default.
 # Also, we need python to execute some python scripts (e.g. `s3cmd`).
-RUN apk add --no-cache bash logrotate jq python3 py-pip
+RUN apk add --no-cache bash logrotate jq python3 py-pip s3cmd
 
 # Install the dependencies of the `s3cmd` python script (--break-system-packages because otherwise
 # we'd need a virtualenv, which is overkill since we're not using python for anything else)
@@ -79,8 +76,6 @@ COPY --chown=node:node --from=rust-tools /usr/local/bin/sqlx tools/sqlx
 
 # Copy the installed dependencies from the external-tools stage
 COPY --chown=node:node --from=external-tools /wait-for-it/wait-for-it.sh tools/wait-for-it.sh
-COPY --chown=node:node --from=external-tools /s3cmd/s3cmd tools/s3cmd/s3cmd
-COPY --chown=node:node --from=external-tools /s3cmd/S3 tools/s3cmd/S3
 
 # Copy just the sources the server needs
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
