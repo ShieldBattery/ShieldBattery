@@ -19,7 +19,6 @@ import {
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Carousel, CarouselInfiniteListProps } from '../lists/carousel'
@@ -447,6 +446,7 @@ const CreateNewForm = styled.form`
 
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
 `
 
@@ -583,8 +583,6 @@ function CreateMapPoolForm({
       {getMapsError ? <ErrorText>Error: {getMapsError.message}</ErrorText> : null}
 
       <CreateNewForm noValidate={true} onSubmit={submit}>
-        <SubmitOnEnter />
-
         <MapSelect
           {...bindCustom('selectedMaps')}
           mapIds={foundMapIds}
@@ -636,9 +634,9 @@ function CreateMapPoolForm({
             inputProps={{ tabIndex: 0 }}
           />
         </CreateNewOptionsContainer>
-      </CreateNewForm>
 
-      <CreateButton label='Create' onClick={submit} />
+        <CreateButton type='submit' label='Create' onClick={submit} />
+      </CreateNewForm>
     </CreateNewCard>
   )
 }
