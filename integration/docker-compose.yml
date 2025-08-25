@@ -126,7 +126,7 @@ services:
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
-    command: ['./server/deployment_files/wait.sh', '--endpoint db:5432:15', '--endpoint redis:6379:15', 'bash', '-c', './server/update_server.sh']
+    command: ['./server/deployment_files/wait.sh', '--endpoint', 'db:5432:15', '--endpoint', 'redis:6379:15', 'bash', '-c', './server/update_server.sh']
     depends_on:
       - _app-server-build
       - db
