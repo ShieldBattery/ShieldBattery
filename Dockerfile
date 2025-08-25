@@ -1,13 +1,6 @@
 # Get sqlx-cli so we can run migrations (Linux version needs to match what we run on below)
 FROM ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools AS rust-tools
 
-# Clone external tools in a separate stage for better caching
-FROM node:22-alpine AS external-tools
-RUN apk add --no-cache git
-# Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
-# use it to control our services startup order
-RUN git clone --depth 1 https://github.com/vishnubob/wait-for-it.git
-
 # Install dependencies in a separate stage for better caching
 FROM node:22-alpine AS deps
 RUN corepack enable
@@ -50,8 +43,6 @@ ENV NODE_ENV=production
 # Tell the server not to try and run webpack
 ENV SB_PREBUILT_ASSETS=true
 
-# Since we're executing some bash scripts (eg. `wait-for-it.sh`) before running the containers using
-# this image, we need to install it explicitly because alpine-based images don't have it by default.
 # Also, we need python to execute some python scripts (e.g. `s3cmd`).
 RUN apk add --no-cache bash logrotate jq python3 py-pip s3cmd
 
@@ -73,9 +64,6 @@ WORKDIR /home/node/shieldbattery
 
 # Copy sqlx binary for migrations
 COPY --chown=node:node --from=rust-tools /usr/local/bin/sqlx tools/sqlx
-
-# Copy the installed dependencies from the external-tools stage
-COPY --chown=node:node --from=external-tools /wait-for-it/wait-for-it.sh tools/wait-for-it.sh
 
 # Copy just the sources the server needs
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules

@@ -155,9 +155,6 @@ location you uploaded it to.
 
 Docker offers a way for one service to wait for another service before starting. However, their mechanism doesn't wait for other services to actually be "ready" before starting a service that depends on those services, because the "ready" state is subjective to each service.
 
-In the current version of our `docker-compose.yml` file, we've utilized a
-[third party script](https://github.com/vishnubob/wait-for-it) to wait for the service that contains the database to actually be ready before running the server migrations. Perhaps we should extend this to other services as well, eg. actually wait for `redis` service to be ready before starting the server. However, I have not noticed any problems so far so it might be an overkill.
-
 ### Healthcheck
 
 Docker also offers a way to perform a health check when trying to run a container which can make it easier to spot when a service falls down. Not sure what we could be testing here off the top of my head, but it's good to have an option and be mindful of it in future.
