@@ -15,8 +15,8 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUse
       LEFT JOIN LATERAL (
         SELECT wm.sent
         FROM whisper_messages wm
-        WHERE wm.user_low  = LEAST(${userId}, ws.target_user_id)
-          AND wm.user_high = GREATEST(${userId}, ws.target_user_id)
+        WHERE wm.user_low  = LEAST(${userId}, ws.target_user_id)::int4
+          AND wm.user_high = GREATEST(${userId}, ws.target_user_id)::int4
         ORDER BY wm.sent DESC
         LIMIT 1
       ) wm ON TRUE
@@ -162,10 +162,8 @@ export async function getMessagesForWhisperSession(
       FROM whisper_messages AS m
       INNER JOIN users AS u_from ON m.from_id = u_from.id
       INNER JOIN users AS u_to ON m.to_id = u_to.id
-      WHERE (
-        (m.from_id = ${userId1} AND m.to_id = ${userId2}) OR
-        (m.from_id = ${userId2} AND m.to_id = ${userId1})
-      ) `
+      WHERE m.user_low  = LEAST(${userId1}, ${userId2})::int4
+        AND m.user_high = GREATEST(${userId1}, ${userId2})::int4 `
 
   if (beforeDate !== undefined) {
     query = query.append(sql`AND m.sent < ${beforeDate}`)
