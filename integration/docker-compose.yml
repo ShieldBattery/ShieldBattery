@@ -9,7 +9,7 @@ services:
   # app_server and migration
   _app-server-build:
     image: app_server
-    build: 
+    build:
       context: '../'
       cache_from:
         - type=gha
@@ -60,7 +60,7 @@ services:
       - redis
 
   server-rs:
-    build: 
+    build:
       context: '../server-rs/'
       cache_from:
         - type=gha
@@ -126,11 +126,7 @@ services:
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
-    # TODO(tec27): These scripts also touch redis so we should probably wait for it as well, but
-    # it's kind of a pain with this script so I haven't. General assumption is that by the time we
-    # get to that point, redis will be ready anyway (or the redis library will wait properly), but
-    # I guess we'll see?
-    command: ['./tools/wait-for-it.sh', 'db:5432', '--', 'bash', '-c', './server/update_server.sh']
+    command: ['./server/deployment_files/wait.sh', '--endpoint db:5432:15', '--endpoint redis:6379:15', 'bash', '-c', './server/update_server.sh']
     depends_on:
       - _app-server-build
       - db
