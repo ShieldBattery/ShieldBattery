@@ -155,6 +155,8 @@ export async function getMessagesForWhisperSession(
 ): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
+  const [userLow, userHigh] = [userId1, userId2].sort()
+
   let query = sql`
     WITH messages AS (
       SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
@@ -162,8 +164,8 @@ export async function getMessagesForWhisperSession(
       FROM whisper_messages AS m
       INNER JOIN users AS u_from ON m.from_id = u_from.id
       INNER JOIN users AS u_to ON m.to_id = u_to.id
-      WHERE m.user_low  = LEAST(${userId1}, ${userId2})::int4
-        AND m.user_high = GREATEST(${userId1}, ${userId2})::int4 `
+      WHERE m.user_low  = ${userLow}::int4
+        AND m.user_high = ${userHigh}::int4 `
 
   if (beforeDate !== undefined) {
     query = query.append(sql`AND m.sent < ${beforeDate}`)

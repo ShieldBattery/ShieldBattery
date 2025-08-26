@@ -105,7 +105,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     })
 
     // Reorder the sessions to put the one that got the message on top of the list
-    state.sessions.delete(target)
     state.sessions = new Set([target, ...state.sessions])
 
     return updateMessages(state, target, true, m => {
