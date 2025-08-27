@@ -215,6 +215,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
               dispatch(
                 acceptMatch({
                   signal: AbortSignal.timeout(3000),
+                  callbackOnAbort: true,
                   onSuccess: () => {
                     logger.debug(`Accepted match successfully`)
                     setAcceptInProgress(false)

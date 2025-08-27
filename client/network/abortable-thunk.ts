@@ -22,6 +22,12 @@ export interface RequestHandlingSpec<T = void> {
    * to `AbortError`s).
    */
   onError: (err: Error) => void
+
+  /**
+   * If true, onSuccess/onError will be called even if the provided AbortSignal has been aborted.
+   * Defaults to false.
+   */
+  callbackOnAbort?: boolean
 }
 
 /**
@@ -45,20 +51,20 @@ export interface RequestHandlingSpec<T = void> {
  * }
  */
 export function abortableThunk<ResultType, T extends ReduxAction>(
-  { signal, onSuccess, onError }: RequestHandlingSpec<ResultType>,
+  { signal, onSuccess, onError, callbackOnAbort }: RequestHandlingSpec<ResultType>,
   thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<ResultType>,
 ): ThunkAction<T> {
   return (dispatch, getState) => {
     thunkFn(dispatch, getState)
       .then(result => {
-        if (signal?.aborted) {
+        if (!callbackOnAbort && signal?.aborted) {
           return
         }
 
         onSuccess(result)
       })
       .catch((err: Error) => {
-        if (signal?.aborted || (signal && err.name === 'AbortError')) {
+        if (!callbackOnAbort && (signal?.aborted || (signal && err.name === 'AbortError'))) {
           return
         }
 
