@@ -82,7 +82,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@whispers/initSession'](state, action) {
     const { target } = action.payload
     state.byId.set(target, defaultWhisperSession(target))
-    state.sessions.add(target)
+    state.sessions = new Set([target, ...state.sessions])
   },
 
   ['@whispers/closeSession'](state, action) {
@@ -103,6 +103,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       from: from.id,
       text,
     })
+
+    // Reorder the sessions to put the one that got the message on top of the list
+    state.sessions = new Set([target, ...state.sessions])
 
     return updateMessages(state, target, true, m => {
       m.push(newMessage)

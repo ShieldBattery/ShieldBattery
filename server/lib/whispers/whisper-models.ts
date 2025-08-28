@@ -10,10 +10,18 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUse
   const { client, done } = await db()
   try {
     const result = await client.query<{ id: SbUserId }>(sql`
-      SELECT target_user_id AS id
-      FROM whisper_sessions
-      WHERE user_id = ${userId}
-      ORDER BY start_date;
+      SELECT ws.target_user_id AS id, COALESCE(wm.sent, ws.start_date) AS last_sent
+      FROM whisper_sessions ws
+      LEFT JOIN LATERAL (
+        SELECT wm.sent
+        FROM whisper_messages wm
+        WHERE wm.user_low  = LEAST(${userId}, ws.target_user_id)::int4
+          AND wm.user_high = GREATEST(${userId}, ws.target_user_id)::int4
+        ORDER BY wm.sent DESC
+        LIMIT 1
+      ) wm ON TRUE
+      WHERE ws.user_id = ${userId}
+      ORDER BY last_sent DESC;
     `)
     return result.rows.map(row => row.id)
   } finally {
@@ -147,6 +155,8 @@ export async function getMessagesForWhisperSession(
 ): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
+  const [userLow, userHigh] = [userId1, userId2].sort()
+
   let query = sql`
     WITH messages AS (
       SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
@@ -154,10 +164,8 @@ export async function getMessagesForWhisperSession(
       FROM whisper_messages AS m
       INNER JOIN users AS u_from ON m.from_id = u_from.id
       INNER JOIN users AS u_to ON m.to_id = u_to.id
-      WHERE (
-        (m.from_id = ${userId1} AND m.to_id = ${userId2}) OR
-        (m.from_id = ${userId2} AND m.to_id = ${userId1})
-      ) `
+      WHERE m.user_low  = ${userLow}::int4
+        AND m.user_high = ${userHigh}::int4 `
 
   if (beforeDate !== undefined) {
     query = query.append(sql`AND m.sent < ${beforeDate}`)
