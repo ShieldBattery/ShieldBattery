@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { POINTS_FOR_RATING_TARGET_FACTOR } from '../../../common/matchmaking'
+import { MatchmakingType, POINTS_FOR_RATING_TARGET_FACTOR } from '../../../common/matchmaking'
 import { RankIcon, UnratedIcon } from '../rank-icon'
 
 const Container = styled.div`
@@ -47,46 +47,125 @@ export function RankIconsTest() {
         </Row>
 
         <Row>
-          <RankIcon points={1} bonusPool={0} />
-          <RankIcon points={150 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={300 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={400 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon matchmakingType={MatchmakingType.Match1v1} points={1} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={150 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={300 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={400 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
         </Row>
 
         <Row>
-          <RankIcon points={600 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={900 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1100 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={600 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={900 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1000 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
         </Row>
 
         <Row>
-          <RankIcon points={1200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1400 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1600 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1200 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1400 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1600 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
         </Row>
 
         <Row>
-          <RankIcon points={1700 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1800 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={1900 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1650 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1750 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1800 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
         </Row>
 
         <Row>
-          <RankIcon points={1980 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2050 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2200 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
-          <RankIcon points={2800 * POINTS_FOR_RATING_TARGET_FACTOR} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1850 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1900 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1950 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={2800 * POINTS_FOR_RATING_TARGET_FACTOR}
+            bonusPool={0}
+          />
         </Row>
       </Column>
       <Column>
         <Row>
-          <TinyIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={22} bonusPool={0} />
+          <TinyIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
+            size={22}
+            bonusPool={0}
+          />
         </Row>
         <Row>
-          <SmallIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={44} bonusPool={0} />
+          <SmallIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
+            size={44}
+            bonusPool={0}
+          />
         </Row>
         <Row>
-          <LargeIcon points={2500 * POINTS_FOR_RATING_TARGET_FACTOR} size={176} bonusPool={0} />
+          <LargeIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
+            size={176}
+            bonusPool={0}
+          />
         </Row>
       </Column>
     </Container>
