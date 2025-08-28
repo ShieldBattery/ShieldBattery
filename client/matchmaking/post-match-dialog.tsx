@@ -21,6 +21,7 @@ import {
   getDivisionColor,
   getDivisionsForPointsChange,
   getTotalBonusPoolForSeason,
+  isSoloType,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
@@ -246,7 +247,12 @@ function RatedUserContent({
   const divisionTransitions = useMemo(() => {
     const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
     const startingPoints = mmrChange.points - mmrChange.pointsChange
-    const divisions = getDivisionsForPointsChange(startingPoints, mmrChange.points, bonusPool)
+    const divisions = getDivisionsForPointsChange(
+      isSoloType(mmrChange.matchmakingType),
+      startingPoints,
+      mmrChange.points,
+      bonusPool,
+    )
 
     const isNegative = mmrChange.pointsChange < 0
 

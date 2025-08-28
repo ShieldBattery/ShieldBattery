@@ -42,6 +42,14 @@ export function hasVetoes(type: MatchmakingType): boolean {
 }
 
 /**
+ * Returns whether the matchmaking type is a 1v1 mode (which we have different division handling
+ * for).
+ */
+export function isSoloType(type: MatchmakingType): boolean {
+  return type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest
+}
+
+/**
  * The factor we use to determine the "target" points for a player of a given rating. For example, a
  * player with rating `R` would be expected to achieve about `R * POINTS_FOR_RATING_TARGET_FACTOR`
  * points.
@@ -211,23 +219,42 @@ type MatchmakingDivisionWithBoundsAndBonusFactor = [
 // rate through the lower divisions throughout the season but makes it harder to progress through
 // the upper divisions as the season goes on. (It is divided into a low and high factor to ensure
 // the division bounds are continuous)
-const DIVISIONS_TO_POINTS: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
-  [MatchmakingDivision.Bronze1, -Infinity, 750, 0, 0],
-  [MatchmakingDivision.Bronze2, 750, 1500, 0, 0],
-  [MatchmakingDivision.Bronze3, 1500, 2250, 0, 0],
-  [MatchmakingDivision.Silver1, 2250, 3000, 0, 0.3],
-  [MatchmakingDivision.Silver2, 3000, 3750, 0.3, 0.3],
-  [MatchmakingDivision.Silver3, 3750, 4500, 0.3, 0.3],
-  [MatchmakingDivision.Gold1, 4500, 5250, 0.3, 0.6],
-  [MatchmakingDivision.Gold2, 5250, 6000, 0.6, 0.6],
-  [MatchmakingDivision.Gold3, 6000, 6750, 0.6, 0.6],
-  [MatchmakingDivision.Platinum1, 6750, 7070, 0.6, 1],
-  [MatchmakingDivision.Platinum2, 7070, 7390, 1, 1],
-  [MatchmakingDivision.Platinum3, 7390, 7710, 1, 1],
-  [MatchmakingDivision.Diamond1, 7710, 8030, 1, 1],
-  [MatchmakingDivision.Diamond2, 8030, 8350, 1, 1],
-  [MatchmakingDivision.Diamond3, 8350, 9600, 1, 1],
-  [MatchmakingDivision.Champion, 9600, Infinity, 1, 1],
+const DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+  [MatchmakingDivision.Bronze1, -Infinity, 800, 0, 0],
+  [MatchmakingDivision.Bronze2, 800, 1520, 0, 0],
+  [MatchmakingDivision.Bronze3, 1520, 2240, 0, 0],
+  [MatchmakingDivision.Silver1, 2240, 2960, 0, 0.3],
+  [MatchmakingDivision.Silver2, 2960, 3680, 0.3, 0.3],
+  [MatchmakingDivision.Silver3, 3680, 4400, 0.3, 0.3],
+  [MatchmakingDivision.Gold1, 4400, 5120, 0.3, 0.6],
+  [MatchmakingDivision.Gold2, 5120, 5840, 0.6, 0.6],
+  [MatchmakingDivision.Gold3, 5840, 6560, 0.6, 0.6],
+  [MatchmakingDivision.Platinum1, 6560, 6800, 0.6, 1],
+  [MatchmakingDivision.Platinum2, 6800, 7040, 1, 1],
+  [MatchmakingDivision.Platinum3, 7040, 7280, 1, 1],
+  [MatchmakingDivision.Diamond1, 7280, 7520, 1, 1],
+  [MatchmakingDivision.Diamond2, 7520, 7760, 1, 1],
+  [MatchmakingDivision.Diamond3, 7760, 8000, 1, 1],
+  [MatchmakingDivision.Champion, 8000, Infinity, 1, 1],
+]
+
+const DIVISIONS_TO_POINTS_TEAM: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+  [MatchmakingDivision.Bronze1, -Infinity, 700, 0, 0],
+  [MatchmakingDivision.Bronze2, 700, 1400, 0, 0],
+  [MatchmakingDivision.Bronze3, 1400, 2100, 0, 0],
+  [MatchmakingDivision.Silver1, 2100, 2800, 0, 0.3],
+  [MatchmakingDivision.Silver2, 2800, 3500, 0.3, 0.3],
+  [MatchmakingDivision.Silver3, 3500, 4200, 0.3, 0.3],
+  [MatchmakingDivision.Gold1, 4200, 4900, 0.3, 0.6],
+  [MatchmakingDivision.Gold2, 4900, 5600, 0.6, 0.6],
+  [MatchmakingDivision.Gold3, 5600, 6300, 0.6, 0.6],
+  [MatchmakingDivision.Platinum1, 6300, 6500, 0.6, 1],
+  [MatchmakingDivision.Platinum2, 6500, 6700, 1, 1],
+  [MatchmakingDivision.Platinum3, 6700, 6900, 1, 1],
+  [MatchmakingDivision.Diamond1, 6900, 7100, 1, 1],
+  [MatchmakingDivision.Diamond2, 7100, 7300, 1, 1],
+  [MatchmakingDivision.Diamond3, 7300, 7500, 1, 1],
+  [MatchmakingDivision.Champion, 7500, Infinity, 1, 1],
 ]
 
 const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
@@ -236,9 +263,9 @@ const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
   Infinity,
 ]
 
-function binarySearchPoints(points: number, bonusPool: number): number {
+function binarySearchPoints(solo: boolean, points: number, bonusPool: number): number {
   return binarySearch(
-    DIVISIONS_TO_POINTS,
+    solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM,
     points,
     ([_, low, high, bonusFactorLow, bonusFactorHigh], points) => {
       if (low + bonusPool * bonusFactorLow > points) {
@@ -271,11 +298,13 @@ function addBonusPoolToDivisionBounds(
 
 /** Converts a given points value into a matching `MatchmakingDivision`. */
 export function pointsToMatchmakingDivision(
+  solo: boolean,
   points: number,
   bonusPool: number,
 ): MatchmakingDivision {
-  const index = binarySearchPoints(points, bonusPool)
-  return index >= 0 ? DIVISIONS_TO_POINTS[index][0] : MatchmakingDivision.Unrated
+  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
+  const index = binarySearchPoints(solo, points, bonusPool)
+  return index >= 0 ? divisionsToPoints[index][0] : MatchmakingDivision.Unrated
 }
 
 /**
@@ -283,12 +312,14 @@ export function pointsToMatchmakingDivision(
  * the low (inclusive) and high (exclusive) points bound for the division.
  */
 export function pointsToMatchmakingDivisionAndBounds(
+  solo: boolean,
   points: number,
   bonusPool: number,
 ): Readonly<MatchmakingDivisionWithBounds> {
-  const index = binarySearchPoints(points, bonusPool)
+  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
+  const index = binarySearchPoints(solo, points, bonusPool)
   return index >= 0
-    ? addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[index], bonusPool)
+    ? addBonusPoolToDivisionBounds(divisionsToPoints[index], bonusPool)
     : UNRATED_BOUNDS
 }
 
@@ -299,35 +330,35 @@ export function pointsToMatchmakingDivisionAndBounds(
  * is last.
  */
 export function getDivisionsForPointsChange(
+  solo: boolean,
   startingPoints: number,
   endingPoints: number,
   bonusPool: number,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const startingIndex = binarySearchPoints(startingPoints, bonusPool)
-  const endingIndex = binarySearchPoints(endingPoints, bonusPool)
+  const startingIndex = binarySearchPoints(solo, startingPoints, bonusPool)
+  const endingIndex = binarySearchPoints(solo, endingPoints, bonusPool)
+  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
 
   if (startingIndex === -1 && endingIndex === -1) {
     return [UNRATED_BOUNDS]
   } else if (startingIndex === -1) {
-    return [
-      UNRATED_BOUNDS,
-      addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[endingIndex], bonusPool),
-    ]
+    return [UNRATED_BOUNDS, addBonusPoolToDivisionBounds(divisionsToPoints[endingIndex], bonusPool)]
   } else if (endingIndex === -1) {
     return [
       UNRATED_BOUNDS,
-      addBonusPoolToDivisionBounds(DIVISIONS_TO_POINTS[startingIndex], bonusPool),
+      addBonusPoolToDivisionBounds(divisionsToPoints[startingIndex], bonusPool),
     ]
   }
 
   if (startingIndex > endingIndex) {
-    return DIVISIONS_TO_POINTS.slice(endingIndex, startingIndex + 1)
+    return divisionsToPoints
+      .slice(endingIndex, startingIndex + 1)
       .reverse()
       .map(b => addBonusPoolToDivisionBounds(b, bonusPool))
   } else {
-    return DIVISIONS_TO_POINTS.slice(startingIndex, endingIndex + 1).map(b =>
-      addBonusPoolToDivisionBounds(b, bonusPool),
-    )
+    return divisionsToPoints
+      .slice(startingIndex, endingIndex + 1)
+      .map(b => addBonusPoolToDivisionBounds(b, bonusPool))
   }
 }
 
@@ -368,11 +399,11 @@ export function getDivisionColor(division: MatchmakingDivision) {
  * the value listed here.
  */
 const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
-  [960, 100],
-  [1200, 150],
-  [1440, 200],
-  [1680, 250],
-  [1920, 300],
+  [1100, 100],
+  [1280, 150],
+  [1460, 200],
+  [1640, 250],
+  [1820, 300],
 ]
 
 function getRatingConvergenceBucket(rating: number) {

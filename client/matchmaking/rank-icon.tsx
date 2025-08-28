@@ -2,8 +2,10 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder/ladder'
 import {
+  isSoloType,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
+  MatchmakingType,
   pointsToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { makePublicAssetUrl } from '../network/server-url'
@@ -11,6 +13,7 @@ import { makePublicAssetUrl } from '../network/server-url'
 export interface RankIconProps {
   points: number
   bonusPool: number
+  matchmakingType: MatchmakingType
   className?: string
   /** The pixel size the icon will be displayed at. Defaults to 88px. */
   size?: number
@@ -27,8 +30,14 @@ const StyledImage = styled.img`
   height: auto;
 `
 
-export function RankIcon({ points, bonusPool, className, size = 88 }: RankIconProps) {
-  const division = pointsToMatchmakingDivision(points, bonusPool)
+export function RankIcon({
+  points,
+  bonusPool,
+  matchmakingType,
+  className,
+  size = 88,
+}: RankIconProps) {
+  const division = pointsToMatchmakingDivision(isSoloType(matchmakingType), points, bonusPool)
   return <DivisionIcon className={className} size={size} division={division} />
 }
 
@@ -87,7 +96,13 @@ export function LadderPlayerIcon({ player, bonusPool, className, size }: LadderP
     return <UnratedIcon className={className} size={size} />
   } else {
     return (
-      <RankIcon points={player.points} bonusPool={bonusPool} className={className} size={size} />
+      <RankIcon
+        points={player.points}
+        bonusPool={bonusPool}
+        matchmakingType={player.matchmakingType}
+        className={className}
+        size={size}
+      />
     )
   }
 }
