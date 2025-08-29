@@ -4,6 +4,7 @@ import * as m from 'motion/react-m'
 import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { isAbortError } from '../../common/async/abort-signals'
 import { getErrorStack } from '../../common/errors'
 import {
   AnonymizedDraftPlayer,
@@ -182,6 +183,8 @@ export function DraftScreen({
               lockInDraftRace(
                 { race },
                 {
+                  signal: AbortSignal.timeout(2000),
+                  callbackOnAbort: true,
                   onSuccess: resolve,
                   onError: reject,
                 },
@@ -193,7 +196,11 @@ export function DraftScreen({
       .then(
         () => {},
         err => {
-          logger.error(`Error locking in draft race: ${getErrorStack(err)}`)
+          if (isAbortError(err)) {
+            logger.error(`Locking in draft race timed out`)
+          } else {
+            logger.error(`Error locking in draft race: ${getErrorStack(err)}`)
+          }
           snackbarController.showSnackbar(
             t('matchmaking.draftScreen.lockInError', "Couldn't lock in race"),
           )
