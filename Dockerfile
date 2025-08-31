@@ -18,7 +18,7 @@ ENV SB_SERVER_ONLY=1
 # Copy package files first for better caching
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile
 
 # Build the server scripts (Linux version needs to match what we run on below)
 FROM deps AS builder
@@ -75,7 +75,7 @@ COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldba
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run
-RUN chmod +x ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
+RUN chmod +x ./server/deployment_files/wait.sh ./server/update_server.sh ./server/testing/run_mailgun.sh ./server/testing/run_google_cloud.sh /entrypoint.sh
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)
