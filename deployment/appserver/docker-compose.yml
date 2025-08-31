@@ -222,7 +222,10 @@ services:
       - SB_REDIS_PORT=6379
       - SB_FILE_STORE=${SB_FILE_STORE}
       - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB:-shieldbattery}
-    command: ['./server/deployment_files/wait.sh', '--endpoint db:5432:15', '--endpoint redis:6379:15', 'bash', '-c', './server/update_server.sh']
+    command: ['./server/deployment_files/wait.sh',
+      '--endpoint', 'db:5432:15',
+      '--endpoint', 'redis:6379:15',
+      'bash', '-c', './server/update_server.sh']
     networks:
       - backend
     depends_on:
