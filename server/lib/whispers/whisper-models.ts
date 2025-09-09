@@ -155,7 +155,7 @@ export async function getMessagesForWhisperSession(
 ): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
-  const [userLow, userHigh] = [userId1, userId2].sort()
+  const [userLow, userHigh] = [userId1, userId2].sort((a, b) => a - b)
 
   let query = sql`
     WITH messages AS (
