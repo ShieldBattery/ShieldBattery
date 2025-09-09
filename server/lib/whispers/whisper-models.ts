@@ -153,35 +153,27 @@ export async function getMessagesForWhisperSession(
   limit = 50,
   beforeDate?: Date,
 ): Promise<WhisperMessage[]> {
+  const [userLow, userHigh] = userId1 < userId2 ? [userId1, userId2] : [userId2, userId1]
   const { client, done } = await db()
 
-  const [userLow, userHigh] = [userId1, userId2].sort((a, b) => a - b)
-
-  let query = sql`
-    WITH messages AS (
-      SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
-        u_to.name AS to_name, m.sent, m.data
-      FROM whisper_messages AS m
-      INNER JOIN users AS u_from ON m.from_id = u_from.id
-      INNER JOIN users AS u_to ON m.to_id = u_to.id
-      WHERE m.user_low  = ${userLow}::int4
-        AND m.user_high = ${userHigh}::int4 `
-
-  if (beforeDate !== undefined) {
-    query = query.append(sql`AND m.sent < ${beforeDate}`)
-  }
-
-  query = query.append(sql`
-      ORDER BY m.sent DESC
-      LIMIT ${limit}
-    )
-    SELECT *
-    FROM messages
-    ORDER BY sent ASC;
-  `)
-
   try {
-    const result = await client.query<DbWhisperMessage>(query)
+    const result = await client.query<DbWhisperMessage>(sql`
+      WITH messages AS (
+        SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
+          u_to.name AS to_name, m.sent, m.data
+        FROM whisper_messages AS m
+        INNER JOIN users AS u_from ON m.from_id = u_from.id
+        INNER JOIN users AS u_to ON m.to_id = u_to.id
+        WHERE m.user_low  = ${userLow}::int4
+          AND m.user_high = ${userHigh}::int4
+          ${beforeDate !== undefined ? sql`AND m.sent < ${beforeDate}` : sql``}
+        ORDER BY m.sent DESC
+        LIMIT ${limit}
+      )
+      SELECT *
+      FROM messages
+      ORDER BY sent ASC;
+    `)
 
     return result.rows.map(row => convertMessageFromDb(row))
   } finally {
