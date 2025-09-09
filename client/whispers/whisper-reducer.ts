@@ -27,7 +27,6 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
 }
 
 export interface WhisperState {
-  // TODO(tec27): Allow user reordering of these
   sessions: Set<SbUserId>
   byId: Map<SbUserId, WhisperSession>
 }
@@ -92,11 +91,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.byId.delete(target)
   },
 
-  ['@whispers/updateMessage'](state, action) {
-    const {
-      message: { id, time, from, to, text },
-    } = action.payload
-    const target = state.sessions.has(from.id) ? from.id : to.id
+  ['@whispers/updateMessage'](
+    state,
+    {
+      payload: {
+        message: { id, time, from, text },
+      },
+      meta: { target },
+    },
+  ) {
     const newMessage = new TextMessageRecord({
       id,
       time,

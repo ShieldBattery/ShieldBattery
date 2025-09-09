@@ -33,9 +33,14 @@ const eventToAction: EventToActionMap = {
   message(event): ThunkAction {
     return (dispatch, getState) => {
       const {
+        auth: { self },
         relationships: { blocks },
-        whispers: { sessions, byId: whispersById },
+        whispers: { byId: whispersById },
       } = getState()
+
+      if (!self) {
+        return
+      }
 
       const isBlocked = blocks.has(event.message.from.id)
       if (!isBlocked) {
@@ -45,15 +50,15 @@ const eventToAction: EventToActionMap = {
         })
       }
 
+      const { from, to } = event.message
+      const target = self.user.id === to.id ? from.id : to.id
       dispatch({
         type: '@whispers/updateMessage',
         payload: event,
-        meta: { fromId: event.message.from.id },
+        meta: { target },
       })
 
-      const { from, to } = event.message
-      const sessionId = sessions.has(from.id) ? from.id : to.id
-      const session = whispersById.get(sessionId)
+      const session = whispersById.get(target)
       if (!session) {
         return
       }

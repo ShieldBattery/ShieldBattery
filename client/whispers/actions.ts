@@ -84,5 +84,8 @@ export interface WhisperSessionClose {
 export interface WhisperMessageUpdate {
   type: '@whispers/updateMessage'
   payload: WhisperMessageEvent
-  meta: { fromId: SbUserId }
+  meta: {
+    /** The other user involved in this whisper (not the one logged in on this client). */
+    target: SbUserId
+  }
 }
