@@ -42,7 +42,11 @@ impl ApmStats {
 
     pub fn new_frame(&mut self) {
         self.shared.total_frames = self.shared.total_frames.saturating_add(1);
-        if self.shared.total_frames % RECENT_ACTIONS_BLOCK_SIZE as u32 == 0 {
+        if self
+            .shared
+            .total_frames
+            .is_multiple_of(RECENT_ACTIONS_BLOCK_SIZE as u32)
+        {
             self.shared.recent_actions_pos += 1;
             if self.shared.recent_actions_pos > RECENT_ACTIONS_BLOCKS {
                 self.shared.recent_actions_pos = 0;
