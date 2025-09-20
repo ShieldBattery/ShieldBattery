@@ -35,6 +35,7 @@ services:
       - SB_ROUTE_CREATOR_PORT=14099
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
       - SB_MAP_PARSER_MAX_CONCURRENT=1
+      - SB_REPLAY_WORKER_CONCURRENCY=1
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
       - SB_DISABLE_THROTTLING=true

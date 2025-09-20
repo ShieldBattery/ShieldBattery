@@ -15,6 +15,7 @@ import { ResolvedRallyPointServer } from './rally-point'
 import { ReplayShieldBatteryData } from './replays'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
+import { SbUserId } from './users/sb-user-id'
 
 const IS_RENDERER = typeof process === 'undefined' || !process || process.type === 'renderer'
 const ipcRenderer =
@@ -70,6 +71,7 @@ interface IpcInvokeables {
   // TODO(tec27): Add types for options + returning a string if encoding is specified?
   fsReadFile: (filePath: string) => Promise<ArrayBuffer>
   fsStat: (filePath: string) => Promise<FsStats>
+  fsUnlink: (filePath: string) => Promise<void>
 
   logMessage: (level: string, message: string) => void
 
@@ -137,6 +139,17 @@ interface IpcMainSendables {
    * this system, so using the network stack outside the renderer also tends to fail.
    */
   activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
+  /**
+   * Used if uploading a replay from the game fails for some reason. We pass this off to the
+   * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
+   * this system, so using the network stack outside the renderer also tends to fail.
+   */
+  activeGameResendReplay: (request: {
+    gameId: string
+    userId: SbUserId
+    resultCode: string
+    replayPath: string
+  }) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void

@@ -259,6 +259,9 @@ pub struct GameThreadResults {
     pub local_player_lose_type: Option<PlayerLoseType>,
     /// The length of the game
     pub time: Duration,
+    /// Path to a temporary replay file that was saved for upload purposes.
+    /// This file should be cleaned up after upload completes.
+    pub replay_path: Option<PathBuf>,
 }
 
 unsafe fn game_results() -> GameThreadResults {
@@ -320,6 +323,9 @@ unsafe fn game_results() -> GameThreadResults {
             })
             .collect::<HashMap<_, _>>();
 
+        // Save the replay to a temporary path for uploading
+        let replay_path = save_replay_for_upload(bw);
+
         GameThreadResults {
             game_type: (*bw.game_data()).game_type(),
             player_results,
@@ -327,7 +333,34 @@ unsafe fn game_results() -> GameThreadResults {
             local_player_lose_type: (*game).player_lose_type.try_into().ok(),
             // Assuming fastest speed
             time: Duration::from_millis(((*game).frame_count as u64).saturating_mul(42)),
+            replay_path,
         }
+    }
+}
+
+/// Saves a replay to a temporary location for upload purposes.
+/// Returns the path if successful, None otherwise.
+fn save_replay_for_upload(bw: &BwScr) -> Option<PathBuf> {
+    let args = crate::parse_args();
+    let replay_path = args
+        .user_data_path
+        .join(format!("replays/temp/{}.rep", args.game_id));
+
+    // Ensure the replays/temp directory exists
+    if let Some(parent) = replay_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        error!("Failed to create replay directory: {}", e);
+        return None;
+    }
+
+    let path_str = replay_path.to_str()?;
+    if bw.save_replay(path_str) {
+        debug!("Replay saved to {} for upload", path_str);
+        Some(replay_path)
+    } else {
+        error!("Failed to save replay to {}", path_str);
+        None
     }
 }
 

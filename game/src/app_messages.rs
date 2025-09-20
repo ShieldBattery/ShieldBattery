@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::path::PathBuf;
 
 use atomic_enum::atomic_enum;
 use hashbrown::HashMap;
@@ -120,13 +121,27 @@ pub struct NetworkStallInfo {
     pub median: u32,
 }
 
-#[derive(Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone)]
 pub struct GameResults {
-    #[serde(rename = "time")]
     pub time_ms: u64,
     pub results: HashMap<SbUserId, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
+    /// Path to the temporary replay file saved for upload.
+    /// This file should be cleaned up after upload completes.
+    pub replay_path: Option<PathBuf>,
+}
+
+/// Version of GameResults that gets sent to the Electron app via websocket.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameResultsMessage<'a> {
+    #[serde(rename = "time")]
+    pub time: u64,
+    pub results: &'a HashMap<SbUserId, GamePlayerResult>,
+    pub network_stalls: &'a NetworkStallInfo,
+    /// Path to the temporary replay file saved for upload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temp_replay_path: Option<&'a str>,
 }
 
 #[derive(Serialize)]

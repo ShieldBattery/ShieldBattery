@@ -56,7 +56,9 @@ reqwest = { version = "0.12", features = [
   "deflate",
   "gzip",
   "json",
+  "multipart",
   "rustls-tls",
+  "stream",
 ] }
 scopeguard = "1.1"
 serde = { version = "1.0", features = ["derive", "rc"] }

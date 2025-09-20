@@ -97,7 +97,12 @@ export class GameServer {
         this.activeGameManager.handleGameStart(gameId)
         break
       case '/game/result':
-        this.activeGameManager.handleGameResult(gameId, payload.results, payload.time)
+        this.activeGameManager.handleGameResult(
+          gameId,
+          payload.results,
+          payload.time,
+          payload.tempReplayPath,
+        )
         break
       case '/game/resultSent':
         this.activeGameManager.handleGameResultSent(gameId)
@@ -107,6 +112,9 @@ export class GameServer {
         break
       case '/game/replaySaved':
         this.activeGameManager.handleReplaySaved(gameId, payload.path)
+        break
+      case '/game/replayUploaded':
+        this.activeGameManager.handleReplayUploaded(gameId)
         break
       case '/game/windowMove':
         {

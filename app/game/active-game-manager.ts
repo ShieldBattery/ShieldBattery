@@ -52,12 +52,28 @@ interface ActiveGameInfo {
    * Whether or not the game result was successfully reported to the server by the game process.
    */
   resultSent?: boolean
+  /**
+   * The path to the temporary replay file that is pending upload. This is the path used by the
+   * game DLL when saving a replay for upload purposes.
+   */
+  tempReplayPath?: string
+  /**
+   * Whether or not the replay was successfully uploaded to the server by the game process.
+   */
+  replayUploaded?: boolean
 }
 
 function isGameConfig(
   possibleConfig: GameLaunchConfig | Record<string, never>,
 ): possibleConfig is GameLaunchConfig {
   return !!(possibleConfig as any).setup
+}
+
+export interface ResendReplayRequest {
+  gameId: string
+  userId: SbUserId
+  resultCode: string
+  replayPath: string
 }
 
 export type ActiveGameManagerEvents = {
@@ -72,6 +88,7 @@ export type ActiveGameManagerEvents = {
   gameStatus: (statusInfo: ReportedGameStatus) => void
   replaySaved: (gameId: string, path: string) => void
   resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
+  resendReplay: (request: ResendReplayRequest) => void
 }
 
 @singleton()
@@ -296,7 +313,12 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.setStatus(GameStatus.Playing)
   }
 
-  handleGameResult(gameId: string, result: Record<SbUserId, GameClientPlayerResult>, time: number) {
+  handleGameResult(
+    gameId: string,
+    result: Record<SbUserId, GameClientPlayerResult>,
+    time: number,
+    tempReplayPath?: string,
+  ) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
@@ -306,6 +328,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.activeGame = {
       ...this.activeGame,
       result: { result, time },
+      tempReplayPath,
     }
     this.setStatus(GameStatus.HasResult)
 
@@ -340,6 +363,18 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
 
     log.verbose(`Replay saved to: ${path}`)
     this.emit('replaySaved', gameId, path)
+  }
+
+  handleReplayUploaded(gameId: string) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    log.verbose(`Replay uploaded successfully for game ${gameId}`)
+    this.activeGame = {
+      ...this.activeGame,
+      replayUploaded: true,
+    }
   }
 
   handleGameExit(id: string, exitCode: number) {
@@ -401,6 +436,22 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       }
 
       this.emit('resendResults', this.activeGame.id, submission)
+    }
+
+    // Check if we need to retry uploading the replay
+    if (
+      status >= GameStatus.Playing &&
+      this.activeGame.config?.setup.resultCode &&
+      this.activeGame.tempReplayPath &&
+      !this.activeGame.replayUploaded
+    ) {
+      const config = this.activeGame.config!
+      this.emit('resendReplay', {
+        gameId: this.activeGame.id,
+        userId: config.localUser.id,
+        resultCode: config.setup.resultCode!,
+        replayPath: this.activeGame.tempReplayPath,
+      })
     }
 
     this.activeGame = null

@@ -16,9 +16,9 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo,
-    LobbyPlayerId, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, SbUser, SbUserId,
-    ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
+    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, SbUser,
+    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -800,6 +800,13 @@ async fn expect_quit(async_stop: &SharedCanceler) {
     async_stop.cancel();
 }
 
+/// Returns the common headers needed for API server requests.
+fn api_request_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
+    headers
+}
+
 async fn send_game_result(
     results: &GameResults,
     info: &GameSetupInfo,
@@ -809,27 +816,63 @@ async fn send_game_result(
 ) {
     // Send results to the app.
     // If the app is closed, ignore the error and try to still send results to server.
-    let _ = app_socket::send_message(ws_send, "/game/result", &results).await;
+    let results_message = GameResultsMessage {
+        time: results.time_ms,
+        results: &results.results,
+        network_stalls: &results.network_stalls,
+        temp_replay_path: results.replay_path.as_ref().and_then(|p| p.to_str()),
+    };
+    let _ = app_socket::send_message(ws_send, "/game/result", &results_message).await;
 
     if info.result_code.is_none() {
-        debug!("Had no result code, skipping sending results");
+        debug!("Had no result code, skipping sending results and replay");
         return;
     }
 
-    // Attempt to send results to the server, if this fails, we expect
-    // the app to retry in the future
+    let result_code = info.result_code.clone().unwrap();
+
+    // Run result submission and replay upload in parallel, waiting for both to complete
+    let results_future = send_results_to_server(
+        results,
+        info,
+        local_user,
+        &result_code,
+        server_config,
+        ws_send,
+    );
+
+    if let Some(replay_path) = &results.replay_path {
+        let replay_future = send_replay(
+            replay_path,
+            &info.game_id,
+            local_user.id,
+            &result_code,
+            server_config,
+            ws_send,
+        );
+        tokio::join!(results_future, replay_future);
+    } else {
+        results_future.await;
+    }
+}
+
+async fn send_results_to_server(
+    results: &GameResults,
+    info: &GameSetupInfo,
+    local_user: &SbUser,
+    result_code: &str,
+    server_config: &ServerConfig,
+    ws_send: &app_socket::SendMessages,
+) {
     let client = reqwest::Client::new();
     let result_url = format!(
         "{}/api/1/games/{}/results2",
         server_config.server_url, info.game_id
     );
 
-    let mut result_headers = HeaderMap::new();
-    result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
-
     let result_body = GameResultsReport {
         user_id: local_user.id,
-        result_code: info.result_code.clone().unwrap(),
+        result_code: result_code.to_string(),
         time: results.time_ms,
         player_results: results
             .results
@@ -838,11 +881,12 @@ async fn send_game_result(
             .collect(),
     };
 
+    let headers = api_request_headers();
     for _ in 0u8..3 {
         let result = client
             .post(&result_url)
             .timeout(Duration::from_secs(30))
-            .headers(result_headers.clone())
+            .headers(headers.clone())
             .json(&result_body)
             .send()
             .await;
@@ -858,6 +902,79 @@ async fn send_game_result(
             }
         };
     }
+}
+
+/// Uploads a replay file to the server.
+async fn send_replay(
+    replay_path: &Path,
+    game_id: &str,
+    user_id: SbUserId,
+    result_code: &str,
+    server_config: &ServerConfig,
+    ws_send: &app_socket::SendMessages,
+) {
+    let client = reqwest::Client::new();
+    let headers = api_request_headers();
+    let replay_url = format!(
+        "{}/api/1/games/{}/replay",
+        server_config.server_url, game_id
+    );
+
+    // Read the replay file
+    let replay_data = match tokio::fs::read(replay_path).await {
+        Ok(data) => data,
+        Err(err) => {
+            error!(
+                "Failed to read replay file {}: {}",
+                replay_path.display(),
+                err
+            );
+            return;
+        }
+    };
+
+    let file_name = replay_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("replay.rep")
+        .to_string();
+
+    for attempt in 0u8..3 {
+        let file_part = reqwest::multipart::Part::bytes(replay_data.clone())
+            .file_name(file_name.clone())
+            .mime_str("application/octet-stream")
+            .unwrap();
+
+        let form = reqwest::multipart::Form::new()
+            .text("userId", user_id.0.to_string())
+            .text("resultCode", result_code.to_string())
+            .part("replay", file_part);
+
+        let result = client
+            .post(&replay_url)
+            .timeout(Duration::from_secs(60))
+            .headers(headers.clone())
+            .multipart(form)
+            .send()
+            .await;
+
+        match result.and_then(|r| r.error_for_status()) {
+            Ok(_) => {
+                debug!("Replay uploaded successfully");
+                // Clean up the temporary replay file
+                if let Err(err) = tokio::fs::remove_file(replay_path).await {
+                    warn!("Failed to delete temporary replay file: {}", err);
+                }
+                let _ = app_socket::send_message(ws_send, "/game/replayUploaded", ()).await;
+                return;
+            }
+            Err(err) => {
+                error!("Error uploading replay (attempt {}): {}", attempt + 1, err);
+            }
+        };
+    }
+
+    warn!("Failed to upload replay after 3 attempts, leaving file for potential retry");
 }
 
 struct InitInProgress {
@@ -1150,6 +1267,7 @@ impl InitInProgress {
         debug!("Got results from game thread: {game_results:#?}");
 
         let time_ms = game_results.time.as_millis() as u64;
+        let replay_path = game_results.replay_path.clone();
         let results = determine_game_results(game_results, &self.joined_players, &self.local_user);
 
         self.stall_durations.sort_unstable();
@@ -1172,6 +1290,7 @@ impl InitInProgress {
                 min: stall_min as u32,
                 max: stall_max as u32,
             },
+            replay_path,
         });
         for send in self.waiting_for_result.drain(..) {
             let _ = send.send(message.clone());
@@ -2009,6 +2128,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent],
             &local_user,
@@ -2093,6 +2213,7 @@ mod tests {
                 network_results: make_standard_network_results(2),
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent],
             &local_user,
@@ -2179,6 +2300,7 @@ mod tests {
                 network_results: make_standard_network_results(2),
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent],
             &local_user,
@@ -2269,6 +2391,7 @@ mod tests {
                 },
                 local_player_lose_type: Some(PlayerLoseType::TargetedDisconnect),
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent],
             &local_user,
@@ -2393,6 +2516,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -2529,6 +2653,7 @@ mod tests {
                 network_results: make_standard_network_results(4),
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -2669,6 +2794,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -2804,6 +2930,7 @@ mod tests {
                 network_results: make_standard_network_results(4),
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -2952,6 +3079,7 @@ mod tests {
                 },
                 local_player_lose_type: Some(PlayerLoseType::MassDisconnect),
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -3099,6 +3227,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, ally, opponent1, opponent2],
             &local_user,
@@ -3220,6 +3349,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent, third],
             &local_user,
@@ -3366,6 +3496,7 @@ mod tests {
                 },
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local, opponent1, opponent2],
             &local_user,
@@ -3460,6 +3591,7 @@ mod tests {
                 network_results: make_standard_network_results(1),
                 local_player_lose_type: None,
                 time: Duration::from_millis(27270),
+                replay_path: None,
             },
             &[local],
             &local_user,

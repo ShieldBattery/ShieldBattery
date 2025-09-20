@@ -158,11 +158,13 @@ export class LobbyApi {
 
 ### Other Patterns
 
-- **DI (tsyringe):** `@singleton()`, `@inject()`, `delay(() => Dep)` for circular deps
+- **DI (tsyringe):** `@singleton()`, `@inject()` (rarely needed: `delay(() => Dep)` for circular deps)
 - **Sockets:** `ClientSocketsManager`, `UserSocketsManager` with `.subscribe(path)`
-- **Database:** `withDbClient()`, `transact()` for transactions
+- **Database:** `withDbClient()`, `transact()` for transactions; use `Dbify<T>` from `server/lib/db/types.ts` for query result types (converts camelCase interfaces to snake_case DB columns)
+- **Models organization:** Functions that update a table belong in that table's models file, not the new feature's models
 - **Redis:** Session storage, pub/sub between server and server-rs
 - **Errors:** `CodedError` with `makeErrorConverterMiddleware()` for HTTP mapping
+- **Types:** Colocate types with the code that uses them; don't create separate `types.ts` files unless there are circular dependency issues
 
 ## Server-RS (Rust GraphQL)
 
@@ -173,13 +175,24 @@ export class LobbyApi {
 - Run `pnpm sqlx-prepare` after changing queries
 - `#[typeshare]` generates to `common/typeshare.ts`
 
+## Game Runtime Architecture
+
+During gameplay, two processes work together:
+
+1. **Electron App (`app/`)** - Launches StarCraft, injects the game DLL, manages game lifecycle
+2. **Game DLL (`game/`)** - Injected into StarCraft process, handles in-game networking and server communication
+
+The game DLL is the primary actor for in-game operations (result reporting, replay uploads). The Electron app acts as a fallback if the DLL fails or the game exits unexpectedly. They communicate via IPC.
+
 ## Game DLL (Rust)
 
 Two code paths:
-- **Async** (Tokio): `async_thread` entry, networking/app communication
+- **Async** (Tokio): `async_thread` entry, networking/server communication
 - **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
 
 Build: 32-bit default, 64-bit via `game\build.bat x86_64`
+
+Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
 
 ## Electron App
 

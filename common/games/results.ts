@@ -96,3 +96,12 @@ export interface SubmitGameResultsRequest {
   /** Each player's result. */
   playerResults: [playerId: SbUserId, result: GameClientPlayerResult][]
 }
+
+export interface SubmitGameReplayRequest {
+  /** The ID of the user submitting the replay. */
+  userId: SbUserId
+  /** The secret code the user was given to submit results with. */
+  resultCode: string
+  // NOTE(tec27): This request must also contain `replay`, but this is a file that will be accessed
+  // separately
+}

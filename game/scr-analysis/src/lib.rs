@@ -661,4 +661,8 @@ impl<'e> Analysis<'e> {
     pub fn sc_main(&mut self) -> Option<VirtualAddress> {
         self.0.sc_main()
     }
+
+    pub fn save_replay(&mut self) -> Option<VirtualAddress> {
+        self.0.save_replay()
+    }
 }

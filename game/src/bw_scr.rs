@@ -1,5 +1,5 @@
 use std::cell::Cell;
-use std::ffi::{CStr, OsString};
+use std::ffi::{CStr, CString, OsString};
 use std::marker::PhantomData;
 use std::mem;
 use std::os::windows::ffi::OsStringExt;
@@ -194,6 +194,7 @@ pub struct BwScr {
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
+    save_replay: unsafe extern "C" fn(*const i8) -> u32,
     sc_main: Option<VirtualAddress>,
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
@@ -747,6 +748,7 @@ impl BwScr {
         let step_replay_commands = analysis
             .step_replay_commands()
             .ok_or("step_replay_commands")?;
+        let save_replay = analysis.save_replay().ok_or("save_replay")?;
         let order_harvest_gas = analysis.order_harvest_gas().ok_or("order_harvest_gas")?;
 
         let prism_pixel_shaders = analysis
@@ -1029,6 +1031,7 @@ impl BwScr {
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
             print_text: unsafe { mem::transmute(print_text_addr.0) },
+            save_replay: unsafe { mem::transmute(save_replay.0) },
             load_snp_list,
             start_udp_server,
             sc_main,
@@ -2583,6 +2586,28 @@ impl BwScr {
     /// caller.
     pub fn trigger_game_results_sent(&self) -> bool {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
+    }
+
+    /// Saves a replay to the specified path. The path should be a valid filesystem path.
+    /// Returns true if the replay was saved successfully.
+    pub fn save_replay(&self, path: &str) -> bool {
+        let Ok(path) = CString::new(path) else {
+            error!("Replay path contained null byte");
+            return false;
+        };
+        unsafe {
+            // At this point, the replay header doesn't have the correct end frame set, so we have
+            // to set that ourselves. This matches what SC:R does to save replays for crash dumps.
+            let game = self.game();
+            let replay_header = self.replay_header();
+            let old_frame_count = (*replay_header).replay_end_frame;
+            (*replay_header).replay_end_frame = (*game).frame_count;
+
+            let result = (self.save_replay)(path.as_ptr());
+
+            (*replay_header).replay_end_frame = old_frame_count;
+            result != 0
+        }
     }
 
     pub fn set_use_legacy_cursor_sizing(&self, use_legacy: bool) {

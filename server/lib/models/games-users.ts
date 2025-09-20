@@ -8,6 +8,7 @@ import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
+import { Dbify } from '../db/types'
 import { ResultSubmission } from '../games/results'
 
 export interface GameUserReportedResults {
@@ -31,7 +32,7 @@ export interface ReportedResultsData {
   }
 }
 
-export interface DbGameUser {
+export interface GameUserRecord {
   userId: SbUserId
   gameId: string
   startTime: Date
@@ -42,10 +43,13 @@ export interface DbGameUser {
   assignedRace: AssignedRaceChar | null
   result: ReconciledResult | null
   apm: number | null
+  replayFileId: string | null
 }
 
+type DbGameUser = Dbify<GameUserRecord>
+
 export type CreateGameUserRecordData = Pick<
-  DbGameUser,
+  GameUserRecord,
   'userId' | 'gameId' | 'startTime' | 'selectedRace' | 'resultCode'
 >
 
@@ -90,11 +94,11 @@ export async function deleteUserRecordsForGame(gameId: string): Promise<void> {
 export async function getUserGameRecord(
   userId: SbUserId,
   gameId: string,
-): Promise<DbGameUser | null> {
+): Promise<GameUserRecord | null> {
   const { client, done } = await db()
 
   try {
-    const result = await client.query(
+    const result = await client.query<DbGameUser>(
       sql`SELECT * FROM games_users WHERE user_id = ${userId} AND game_id = ${gameId}`,
     )
     if (!result.rowCount) {
@@ -111,9 +115,10 @@ export async function getUserGameRecord(
       resultCode: row.result_code,
       reportedResults: row.reported_results,
       reportedAt: row.reported_at,
-      assignedRace: row.assignedRace,
+      assignedRace: row.assigned_race,
       result: row.result,
       apm: row.apm,
+      replayFileId: row.replay_file_id,
     }
   } finally {
     done()
@@ -192,6 +197,26 @@ export async function setUserReconciledResult(
       apm = ${result.apm}
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
+}
+
+/**
+ * Links a replay file to a user's game record.
+ */
+export async function setReplayFileId(
+  userId: SbUserId,
+  gameId: string,
+  replayFileId: string,
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games_users
+      SET replay_file_id = ${replayFileId}
+      WHERE user_id = ${userId} AND game_id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
 }
 
 /**

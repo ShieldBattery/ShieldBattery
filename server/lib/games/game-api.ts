@@ -15,17 +15,21 @@ import {
 import {
   ALL_GAME_CLIENT_RESULTS,
   GameResultErrorCode,
+  SubmitGameReplayRequest,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
+import { parseReplay } from '../../workers/replays/replays'
 import { asHttpError } from '../errors/error-with-payload'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
-import { getGameReportedResults } from '../models/games-users'
+import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { UpsertUserIp } from '../network/user-ips-type'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -35,6 +39,9 @@ import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
 import { countCompletedGames, getGameRoutes } from './game-models'
 import GameResultService, { GameResultServiceError } from './game-result-service'
+
+/** Maximum size of a replay file that we allow to be uploaded. */
+const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
 
 const throttle = createThrottle('games', {
   rate: 20,
@@ -140,6 +147,7 @@ export class GameApi {
     private gameResultService: GameResultService,
     @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
     private gameLoader: GameLoader,
+    private replayService: ReplayService,
   ) {}
 
   @httpGet('/:gameId')
@@ -310,6 +318,62 @@ export class GameApi {
     // to do so won't have run
     this.upsertUserIp(userId, ctx.ip).catch(err => {
       logger.error({ err }, 'error upserting user IP')
+    })
+
+    ctx.status = 204
+  }
+
+  // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
+  // the body is intended to be secret per user and authenticate that they are the one who sent it.
+  @httpPost('/:gameId/replay')
+  @httpBefore(
+    throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)),
+    handleMultipartFiles(MAX_REPLAY_SIZE_BYTES),
+  )
+  async submitGameReplay(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      body: { userId, resultCode },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<SubmitGameReplayRequest>().keys({
+        userId: Joi.number().min(0).required(),
+        resultCode: Joi.string().required(),
+      }),
+    })
+
+    if (this.gameLoader.isLoading(gameId)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.NotLoaded,
+        'Game is still loading, try again later',
+      )
+    }
+
+    // Validate resultCode matches what's stored for this user/game
+    const gameUserRecord = await getUserGameRecord(userId, gameId)
+    if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    // Only accept the first replay upload for a user/game
+    if (gameUserRecord.replayFileId) {
+      ctx.status = 204
+      return
+    }
+
+    const replayFile = ctx.request.files?.replay
+    if (!replayFile || Array.isArray(replayFile)) {
+      throw new httpErrors.BadRequest('exactly one replay file must be uploaded')
+    }
+
+    const parseResult = await parseReplay(replayFile.filepath)
+    if (parseResult.error) {
+      throw new httpErrors.BadRequest('failed to parse replay file')
+    }
+
+    await this.replayService.storeReplay(replayFile.filepath, parseResult.value, {
+      gameId,
+      userId,
     })
 
     ctx.status = 204

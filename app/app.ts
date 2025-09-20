@@ -452,6 +452,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     .on('replaySaved', (gameId, replayPath) => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySaved', gameId, replayPath)
     })
+    .on('resendReplay', request => {
+      // Pass to renderer process since its network stack is more reliable
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
+    })
 
   ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),
@@ -578,6 +582,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       ctime: result.ctime,
       birthtime: result.birthtime,
     }
+  })
+  ipcMain.handle('fsUnlink', async (_, filePath) => {
+    await fsPromises.unlink(filePath)
   })
 
   const mapStore = container.resolve(MapStore)
