@@ -224,7 +224,9 @@ const rallyPointInitPromise = rallyPointService.initialize(
       webpackMiddleware({
         compiler: getWebpackCompiler(),
         devMiddleware: {
-          publicPath: require('./webpack.config.js').output.publicPath,
+          // We use 'auto' for publicPath in production so it can use a CDN path, but in dev we need
+          // it to be a specific path so it gets handled by the dev middleware
+          publicPath: '/scripts/',
         },
       }),
     )
