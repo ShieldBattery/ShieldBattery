@@ -89,6 +89,7 @@ interface RadioButtonProps<T> {
    * not be passed directly.
    */
   dense?: boolean
+  testName?: string
 }
 
 const RadioButtonContainer = styled.div`
@@ -191,6 +192,7 @@ export const RadioButton = React.memo(
     name,
     selected,
     dense,
+    testName,
   }: RadioButtonProps<T>) => {
     const id = useId()
 
@@ -216,7 +218,7 @@ export const RadioButton = React.memo(
         <Label htmlFor={id} $disabled={disabled}>
           {label}
         </Label>
-        <input {...inputProps} {...internalInputProps} />
+        <input {...inputProps} {...internalInputProps} data-test={testName} />
       </RadioButtonContainer>
     )
   },
