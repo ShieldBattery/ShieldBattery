@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { bodyMedium, singleLine } from '../styles/typography'
 import { FilledButton } from './button'
 import { InputError } from './input-error'
 
@@ -13,9 +14,19 @@ function isValueAndFileListSame(value: File | File[], fileList: FileList): boole
   }
 }
 
+const FileInputContainer = styled.div`
+  min-width: 0;
+
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+`
+
 const InputContainer = styled.div`
   position: relative;
   display: flex;
+  align-items: center;
+  gap: 8px;
 
   & input {
     position: absolute;
@@ -33,10 +44,29 @@ const InputContainer = styled.div`
   }
 `
 
+const StyledFilledButton = styled(FilledButton)`
+  flex-shrink: 0;
+`
+
+const FileName = styled.span`
+  ${singleLine};
+  ${bodyMedium};
+`
+
+const NoFileSelected = styled.span`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const StyledInputError = styled(InputError)`
+  padding-left: 4px;
+`
+
 interface FileInputProps {
   value?: File | File[] | '' | null
   label?: string
   disabled?: boolean
+  showFileName?: boolean
   allowErrors?: boolean
   errorText?: string
   className?: string
@@ -51,6 +81,7 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
       value,
       label,
       disabled,
+      showFileName = false,
       allowErrors = false,
       errorText,
       className,
@@ -95,20 +126,36 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
       onChange: onInputChange,
     }
 
+    let fileName = ''
+    if (value) {
+      if (Array.isArray(value)) {
+        fileName = value.map(v => v.name).join(', ')
+      } else {
+        fileName = value.name
+      }
+    }
+
     return (
-      <div className={className}>
+      <FileInputContainer className={className}>
         <InputContainer>
-          <FilledButton
+          <StyledFilledButton
             $as='div'
             label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
             disabled={disabled}
             tabIndex={-1}>
             <input ref={inputRef} data-test={testName} {...internalInputProps} />
-          </FilledButton>
+          </StyledFilledButton>
+
+          {showFileName && fileName && <FileName>{fileName}</FileName>}
+          {showFileName && !fileName && (
+            <NoFileSelected>
+              {t('forms.fileInput.noFileSelected', 'No file selected')}
+            </NoFileSelected>
+          )}
         </InputContainer>
 
-        {allowErrors ? <InputError error={errorText} /> : null}
-      </div>
+        {allowErrors ? <StyledInputError error={errorText} /> : null}
+      </FileInputContainer>
     )
   },
 )

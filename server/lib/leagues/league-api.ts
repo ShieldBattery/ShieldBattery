@@ -3,6 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -32,7 +33,7 @@ import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
-import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../files/images'
+import { createImagePath, resizeImage } from '../files/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -215,7 +216,7 @@ export class LeagueAdminApi {
   }
 
   @httpPost('/')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
   async addLeague(ctx: RouterContext): Promise<AdminAddLeagueResponse> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<ServerAdminAddLeagueRequest & { image: any; badge: any }>({
@@ -299,7 +300,7 @@ export class LeagueAdminApi {
   }
 
   @httpPatch('/:leagueId')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
   async editLeague(ctx: RouterContext): Promise<AdminEditLeagueResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const originalLeague = await adminGetLeague(leagueId)

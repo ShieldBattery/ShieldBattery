@@ -1,9 +1,6 @@
 import { nanoid } from 'nanoid'
 import sharp, { FitEnum, FormatEnum } from 'sharp'
 
-/** Maximum image size that we allow to be uploaded. */
-export const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-
 /**
  * Creates an image path that is used to save this image to our server/CDN given the root folder and
  * the image extension.

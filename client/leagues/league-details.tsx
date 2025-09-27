@@ -368,9 +368,10 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
 
 export interface LeagueDetailsHeaderProps {
   league: ReadonlyDeep<LeagueJson>
+  previewBadgeUrl?: string
 }
 
-export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
+export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHeaderProps) {
   const { t } = useTranslation()
   // TODO(tec27): Handle cases where year differs to smartly show that info
   const dateText = t('leagues.leagueDetails.dateText', {
@@ -386,7 +387,7 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
 
   return (
     <InfoRoot>
-      <InfoBadge leagueName={league.name} badgeUrl={league.badgePath} />
+      <InfoBadge leagueName={league.name} badgeUrl={previewBadgeUrl ?? league.badgePath} />
       <TitleAndSummary>
         <TitleRow>
           <Title>{league.name}</Title>
@@ -412,14 +413,16 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
 
 export interface LeagueDetailsInfoProps {
   league: ReadonlyDeep<LeagueJson>
+  previewImageUrl?: string
 }
 
-export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
+export function LeagueDetailsInfo({ league, previewImageUrl }: LeagueDetailsInfoProps) {
   const { t } = useTranslation()
+  const imageUrl = previewImageUrl ?? league.imagePath
   return (
     <>
       <LeagueImageContainer>
-        {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+        {imageUrl ? <LeagueImage src={imageUrl} /> : <LeaguePlaceholderImage />}
       </LeagueImageContainer>
       <InfoSection>
         <InfoSectionHeader>{t('leagues.leagueDetails.about', 'About')}</InfoSectionHeader>

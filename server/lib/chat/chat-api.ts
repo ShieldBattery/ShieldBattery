@@ -24,11 +24,11 @@ import {
   UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
-import { MAX_IMAGE_SIZE } from '../files/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -198,7 +198,7 @@ export class ChatApi {
   }
 
   @httpPatch('/:channelId')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE), throttleEditChannel)
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES), throttleEditChannel)
   async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
