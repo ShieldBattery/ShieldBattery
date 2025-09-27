@@ -56,6 +56,7 @@ export function UserLanguageSettings() {
                 key={language}
                 value={language}
                 label={translationLanguageToLabel(language)}
+                testName={`${language}-button`}
               />
             ))}
           </RadioGroup>
