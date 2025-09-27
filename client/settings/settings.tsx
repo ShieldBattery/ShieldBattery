@@ -181,6 +181,7 @@ function Settings({
         isActive={page === s}
         disabled={disabled}
         hasError={hasError}
+        testName={`${s}-nav-entry`}
         onChangePage={onChangePage}
       />
     )
@@ -285,18 +286,20 @@ function NavEntry({
   isActive,
   disabled,
   hasError,
+  testName,
   onChangePage,
 }: {
   page: SettingsPage
   isActive: boolean
   disabled?: boolean
   hasError?: boolean
+  testName?: string
   onChangePage: (page: SettingsPage) => void
 }) {
   const [buttonProps, rippleRef] = useButtonState({ disabled, onClick: () => onChangePage(page) })
 
   return (
-    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0}>
+    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0} data-test={testName}>
       {hasError ? (
         <>
           <ErrorIcon />

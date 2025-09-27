@@ -47,8 +47,13 @@ export function changeUserLanguage(
         auth: { self },
       } = getState()
 
+      if (!self) {
+        dispatch(maybeChangeLanguageLocally(language))
+        return
+      }
+
       const result = await fetchJson<ChangeLanguagesResponse>(
-        apiUrl`users/${self!.user.id}/language`,
+        apiUrl`users/${self.user.id}/language`,
         {
           method: 'POST',
           body: encodeBodyAsParams<ChangeLanguageRequest>({ language }),
