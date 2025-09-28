@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
@@ -8,13 +8,12 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
 import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
-import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppSelector } from '../redux-hooks'
 import { BodyMedium, bodyLarge, singleLine, titleSmall } from '../styles/typography'
 
 const MatchHistoryRoot = styled.div`
@@ -231,7 +230,7 @@ const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
   );
 `
 
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   height: auto;
 `
 
@@ -241,32 +240,16 @@ export interface ConnectedGamePreviewProps {
 }
 
 export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewProps) {
-  const dispatch = useAppDispatch()
   const { t } = useTranslation()
 
   const gameId = game?.id
   const mapId = game?.mapId
-  const map = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
-
-  const onMapPreview = useCallback(() => {
-    if (!map) {
-      return
-    }
-
-    dispatch(openMapPreviewDialog(map.id))
-  }, [map, dispatch])
 
   const onViewDetails = useCallback(() => {
     if (gameId) {
       navigateToGameResults(gameId)
     }
   }, [gameId])
-
-  useEffect(() => {
-    if (mapId) {
-      dispatch(batchGetMapInfo(mapId))
-    }
-  }, [dispatch, mapId])
 
   if (!game) {
     return (
@@ -281,9 +264,7 @@ export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewPr
   return (
     <GamePreviewRoot>
       <GamePreviewDetails>
-        {map ? (
-          <StyledMapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} />
-        ) : null}
+        {mapId ? <StyledMapThumbnail key={mapId} mapId={mapId} size={256} showMapName /> : null}
         <StyledGamePlayersDisplay game={game} forUserId={forUserId} />
       </GamePreviewDetails>
       <TextButton

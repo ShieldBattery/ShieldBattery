@@ -18,7 +18,7 @@ import { useOverflowingElement } from '../dom/overflowing-element'
 import { viewGame } from '../games/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { MapNoImage } from '../maps/map-image'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { elevationPlus1 } from '../material/shadows'
@@ -110,7 +110,7 @@ const ReplayInfoContainer = styled.div`
   justify-content: flex-start;
 `
 
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
 `
 
@@ -265,7 +265,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
       <InfoContainer>
         <ReplayInfoContainer>
           {mapInfo ? (
-            <StyledMapThumbnail map={mapInfo} />
+            <StyledMapThumbnail mapId={mapInfo.id} showMapName />
           ) : (
             <MapNoImageContainer>
               <MapNoImage />

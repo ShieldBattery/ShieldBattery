@@ -16,7 +16,7 @@ import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, bodyMedium, headlineMedium, singleLine } from '../styles/typography'
 import { batchGetMapInfo, updateMap } from './action-creators'
-import { MapThumbnail } from './map-thumbnail'
+import { ReduxMapThumbnail } from './map-thumbnail'
 
 const ESCAPE = 'Escape'
 
@@ -85,7 +85,7 @@ const MapDataItem = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   flex-shrink: 0;
   width: 220px;
   height: 220px;
@@ -331,7 +331,7 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
             </MapDataItem>
           </MapData>
         </MapInfo>
-        <StyledMapThumbnail map={map} />
+        <StyledMapThumbnail mapId={map.id} hasMapPreviewAction={false} hasFavoriteAction={false} />
       </Container>
     )
   }
