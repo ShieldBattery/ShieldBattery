@@ -2,9 +2,7 @@ import slug from 'slug'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import {
   AdminAddLeagueRequest,
-  AdminAddLeagueResponse,
   AdminEditLeagueRequest,
-  AdminEditLeagueResponse,
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
   GetLeagueByIdResponse,
@@ -125,26 +123,40 @@ export function adminGetLeague(
   })
 }
 
-export function adminAddLeague(
-  league: AdminAddLeagueRequest & { image?: Blob; badge?: Blob },
-  spec: RequestHandlingSpec<AdminAddLeagueResponse>,
-): ThunkAction {
+export function adminAddLeague({
+  leagueData,
+  leagueImage,
+  leagueBadge,
+  spec,
+}: {
+  leagueData: AdminAddLeagueRequest
+  leagueImage?: File
+  leagueBadge?: File
+  spec: RequestHandlingSpec<void>
+}): ThunkAction {
   return abortableThunk(spec, async () => {
+    if (
+      Object.values(leagueData).filter(c => c !== undefined).length === 0 &&
+      !leagueImage &&
+      !leagueBadge
+    ) {
+      return
+    }
+
     const formData = new FormData()
-    for (const [key, value] of Object.entries(league)) {
-      if (value !== undefined) {
-        formData.append(key, String(value))
-      }
+    formData.append(
+      'leagueData',
+      JSON.stringify(leagueData, (_, value) => (value === '' ? null : value)),
+    )
+
+    if (leagueImage) {
+      formData.append('image', leagueImage)
+    }
+    if (leagueBadge) {
+      formData.append('badge', leagueBadge)
     }
 
-    if (league.image) {
-      formData.append('image', league.image)
-    }
-    if (league.badge) {
-      formData.append('badge', league.badge)
-    }
-
-    return await fetchJson(apiUrl`admin/leagues/`, {
+    await fetchJson(apiUrl`admin/leagues/`, {
       method: 'POST',
       signal: spec.signal,
       body: formData,
@@ -152,27 +164,42 @@ export function adminAddLeague(
   })
 }
 
-export function adminUpdateLeague(
-  id: LeagueId,
-  leagueChanges: AdminEditLeagueRequest & { image?: Blob; badge?: Blob },
-  spec: RequestHandlingSpec<AdminEditLeagueResponse>,
-): ThunkAction {
+export function adminUpdateLeague({
+  id,
+  leagueChanges,
+  leagueImage,
+  leagueBadge,
+  spec,
+}: {
+  id: LeagueId
+  leagueChanges: AdminEditLeagueRequest
+  leagueImage?: File
+  leagueBadge?: File
+  spec: RequestHandlingSpec<void>
+}): ThunkAction {
   return abortableThunk(spec, async () => {
+    if (
+      Object.values(leagueChanges).filter(c => c !== undefined).length === 0 &&
+      !leagueImage &&
+      !leagueBadge
+    ) {
+      return
+    }
+
     const formData = new FormData()
-    for (const [key, value] of Object.entries(leagueChanges)) {
-      if (value !== undefined) {
-        formData.append(key, String(value === '' ? null : value))
-      }
+    formData.append(
+      'leagueChanges',
+      JSON.stringify(leagueChanges, (_, value) => (value === '' ? null : value)),
+    )
+
+    if (leagueImage) {
+      formData.append('image', leagueImage)
+    }
+    if (leagueBadge) {
+      formData.append('badge', leagueBadge)
     }
 
-    if (leagueChanges.image) {
-      formData.append('image', leagueChanges.image)
-    }
-    if (leagueChanges.badge) {
-      formData.append('badge', leagueChanges.badge)
-    }
-
-    return await fetchJson(apiUrl`admin/leagues/${id}/`, {
+    await fetchJson(apiUrl`admin/leagues/${id}/`, {
       method: 'PATCH',
       signal: spec.signal,
       body: formData,

@@ -302,8 +302,8 @@ function CreateLeague() {
   useFormCallbacks(form, {
     onSubmit: model => {
       dispatch(
-        adminAddLeague(
-          {
+        adminAddLeague({
+          leagueData: {
             name: model.name,
             matchmakingType: model.matchmakingType,
             description: model.description,
@@ -312,10 +312,10 @@ function CreateLeague() {
             endAt: Date.parse(model.endAt),
             rulesAndInfo: model.rulesAndInfo,
             link: model.link,
-            image: model.image as File,
-            badge: model.badge as File,
           },
-          {
+          leagueImage: model.image,
+          leagueBadge: model.badge,
+          spec: {
             onSuccess: () => {
               setError(undefined)
               adminContext.triggerRefresh()
@@ -325,7 +325,7 @@ function CreateLeague() {
               setError(err)
             },
           },
-        ),
+        }),
       )
     },
     onValidatedChange: model => {
@@ -339,8 +339,8 @@ function CreateLeague() {
         endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
         rulesAndInfo: model.rulesAndInfo,
         link: model.link,
-        imagePath: undefined, // TODO(tec27): We could make a blob URL for this
-        badgePath: undefined, // TODO(tec27): We could make a blob URL for this
+        imagePath: undefined,
+        badgePath: undefined,
       })
     },
   })
@@ -499,7 +499,9 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                 : ''
               const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
 
-              const patch: AdminEditLeagueRequest & { image?: Blob; badge?: Blob } = {
+              console.log(model.rulesAndInfo, originalLeague?.rulesAndInfo)
+              console.log(model.link, originalLeague?.link)
+              const patch: AdminEditLeagueRequest = {
                 name: model.name !== originalLeague?.name ? model.name : undefined,
                 matchmakingType:
                   model.matchmakingType !== originalLeague?.matchmakingType
@@ -518,21 +520,25 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                     ? model.rulesAndInfo
                     : undefined,
                 link: model.link !== originalLeague?.link ? model.link : undefined,
-                image: model.deleteImage ? undefined : (model.image as File),
                 deleteImage: model.deleteImage ? true : undefined,
-                badge: model.deleteBadge ? undefined : (model.badge as File),
                 deleteBadge: model.deleteBadge ? true : undefined,
               }
 
               dispatch(
-                adminUpdateLeague(id, patch, {
-                  onSuccess: () => {
-                    setError(undefined)
-                    adminContext.triggerRefresh()
-                    history.back()
-                  },
-                  onError: err => {
-                    setError(err)
+                adminUpdateLeague({
+                  id,
+                  leagueChanges: patch,
+                  leagueImage: model.deleteImage ? undefined : model.image,
+                  leagueBadge: model.deleteBadge ? undefined : model.badge,
+                  spec: {
+                    onSuccess: () => {
+                      setError(undefined)
+                      adminContext.triggerRefresh()
+                      history.back()
+                    },
+                    onError: err => {
+                      setError(err)
+                    },
                   },
                 }),
               )
@@ -608,14 +614,14 @@ function EditLeagueForm({
 
   const { submit, bindInput, bindCustom, bindCheckable, form } = useForm<EditLeagueModel>(
     {
-      name: originalLeague?.name ?? '',
-      matchmakingType: originalLeague?.matchmakingType ?? MatchmakingType.Match1v1,
-      description: originalLeague?.description ?? '',
-      signupsAfter: originalLeague ? asDatetimeLocalValue(originalLeague.signupsAfter) : '',
-      startAt: originalLeague ? asDatetimeLocalValue(originalLeague.startAt) : '',
-      endAt: originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : '',
-      rulesAndInfo: originalLeague?.rulesAndInfo ?? '',
-      link: originalLeague?.link ?? '',
+      name: originalLeague.name,
+      matchmakingType: originalLeague.matchmakingType,
+      description: originalLeague.description,
+      signupsAfter: asDatetimeLocalValue(originalLeague.signupsAfter),
+      startAt: asDatetimeLocalValue(originalLeague.startAt),
+      endAt: asDatetimeLocalValue(originalLeague.endAt),
+      rulesAndInfo: originalLeague.rulesAndInfo,
+      link: originalLeague.link,
       deleteImage: false,
       deleteBadge: false,
     },
@@ -694,6 +700,12 @@ function EditLeagueForm({
       <CheckBox
         {...bindCheckable('deleteImage')}
         label='Delete current image'
+        inputProps={{ tabIndex: 0 }}
+      />
+
+      <CheckBox
+        {...bindCheckable('deleteBadge')}
+        label='Delete current badge'
         inputProps={{ tabIndex: 0 }}
       />
 
