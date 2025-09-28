@@ -11,7 +11,6 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../common/chat'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { matchLinks } from '../../common/text/links'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
@@ -242,18 +241,16 @@ export function ChannelHeader({
       />,
     )
   }
-  if (basicChannelInfo.id !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-    if (actions.length > 0) {
-      actions.push(<Divider key='divider' />)
-    }
-    actions.push(
-      <DestructiveMenuItem
-        key='leave-channel'
-        text={t('chat.channelHeader.actionItems.leaveChannel', 'Leave channel')}
-        onClick={onLeaveChannelClick}
-      />,
-    )
+  if (actions.length > 0) {
+    actions.push(<Divider key='divider' />)
   }
+  actions.push(
+    <DestructiveMenuItem
+      key='leave-channel'
+      text={t('chat.channelHeader.actionItems.leaveChannel', 'Leave channel')}
+      onClick={onLeaveChannelClick}
+    />,
+  )
 
   return (
     <ChannelHeaderRoot $hasActions={actions.length === 0}>

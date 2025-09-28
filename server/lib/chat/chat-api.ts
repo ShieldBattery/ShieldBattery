@@ -24,7 +24,6 @@ import {
   UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
-import { CHANNEL_BANNERS } from '../../../common/flags'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { asHttpError } from '../errors/error-with-payload'
@@ -128,8 +127,6 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
     case ChatServiceErrorCode.CannotModerateYourself:
-    case ChatServiceErrorCode.CannotLeaveShieldBattery:
-    case ChatServiceErrorCode.CannotModerateShieldBattery:
     case ChatServiceErrorCode.InappropriateImage:
     case ChatServiceErrorCode.NoInitialChannelData:
       throw asHttpError(400, err)
@@ -219,9 +216,6 @@ export class ChatApi {
 
     const bannerFile = ctx.request.files?.banner
     const badgeFile = ctx.request.files?.badge
-    if (!CHANNEL_BANNERS && (bannerFile || badgeFile)) {
-      throw new httpErrors.BadRequest('banner/badge upload is not supported')
-    }
     if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
       throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
     }

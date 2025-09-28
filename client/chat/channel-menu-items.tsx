@@ -2,7 +2,6 @@ import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -44,7 +43,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
 
   const menuItems = new Map(items)
   if (user && selfPermissions && joinedChannelInfo && channelSelfPermissions) {
-    if (user.id !== selfUserId && (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)) {
+    if (user.id !== selfUserId) {
       const channelUserProfile = channelUserProfiles?.get(user.id)
 
       const isSelfServerModerator =

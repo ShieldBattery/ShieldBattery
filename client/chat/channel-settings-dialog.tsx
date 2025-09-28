@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { ChatServiceErrorCode, EditChannelRequest } from '../../common/chat'
-import { CHANNEL_BANNERS } from '../../common/flags'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
@@ -193,53 +192,51 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
         <Content>
           <FormContainer>
             <StyledForm noValidate={true} onSubmit={submit}>
-              {CHANNEL_BANNERS ? (
-                <BannerButtonsContainer>
-                  <SingleFileInput
-                    {...bindCustom('banner')}
-                    label={bannerUrl ? 'Change banner' : 'Upload banner'}
+              <BannerButtonsContainer>
+                <SingleFileInput
+                  {...bindCustom('banner')}
+                  label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                  disabled={isSaving}
+                  inputProps={{ accept: 'image/*' }}
+                  testName='channel-settings-banner-input'
+                />
+
+                {bannerUrl ? (
+                  <TextButton
+                    label='Remove banner'
                     disabled={isSaving}
-                    inputProps={{ accept: 'image/*' }}
-                    testName='channel-settings-banner-input'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBannerPath', undefined)
+                      setInputValue('banner', undefined)
+                    }}
                   />
+                ) : (
+                  <div></div>
+                )}
 
-                  {bannerUrl ? (
-                    <TextButton
-                      label='Remove banner'
-                      disabled={isSaving}
-                      iconStart={<MaterialIcon icon='clear' />}
-                      onClick={() => {
-                        setInputValue('uploadedBannerPath', undefined)
-                        setInputValue('banner', undefined)
-                      }}
-                    />
-                  ) : (
-                    <div></div>
-                  )}
+                <SingleFileInput
+                  {...bindCustom('badge')}
+                  label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                  disabled={isSaving}
+                  inputProps={{ accept: 'image/*' }}
+                  testName='channel-settings-badge-input'
+                />
 
-                  <SingleFileInput
-                    {...bindCustom('badge')}
-                    label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                {badgeUrl ? (
+                  <TextButton
+                    label='Remove badge'
                     disabled={isSaving}
-                    inputProps={{ accept: 'image/*' }}
-                    testName='channel-settings-badge-input'
+                    iconStart={<MaterialIcon icon='clear' />}
+                    onClick={() => {
+                      setInputValue('uploadedBadgePath', undefined)
+                      setInputValue('badge', undefined)
+                    }}
                   />
-
-                  {badgeUrl ? (
-                    <TextButton
-                      label='Remove badge'
-                      disabled={isSaving}
-                      iconStart={<MaterialIcon icon='clear' />}
-                      onClick={() => {
-                        setInputValue('uploadedBadgePath', undefined)
-                        setInputValue('badge', undefined)
-                      }}
-                    />
-                  ) : (
-                    <div></div>
-                  )}
-                </BannerButtonsContainer>
-              ) : null}
+                ) : (
+                  <div></div>
+                )}
+              </BannerButtonsContainer>
 
               <TextField
                 {...bindInput('description')}

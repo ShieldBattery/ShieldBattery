@@ -13,7 +13,6 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
-import * as flags from '../../../common/flags'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser } from '../../../common/users/sb-user'
@@ -63,8 +62,6 @@ import {
   UserChannelEntry,
 } from './chat-models'
 import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
-
-const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 
 vi.mock('../../../common/flags', () => ({
   __esModule: true,
@@ -922,50 +919,7 @@ describe('chat/chat-service', () => {
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to leave it]`)
     })
 
-    describe('when in ShieldBattery channel', () => {
-      beforeEach(async () => {
-        await joinUserToChannel(
-          user1,
-          shieldBatteryChannel,
-          user1ShieldBatteryChannelEntry,
-          joinUser1ShieldBatteryChannelMessage,
-        )
-        await joinUserToChannel(
-          user2,
-          shieldBatteryChannel,
-          user2ShieldBatteryChannelEntry,
-          joinUser2ShieldBatteryChannelMessage,
-        )
-      })
-
-      test("should throw if it's not allowed", async () => {
-        flagsMock.CAN_LEAVE_SHIELDBATTERY_CHANNEL = false
-
-        await expect(
-          chatService.leaveChannel(shieldBatteryChannel.id, user1.id),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't leave ShieldBattery channel]`)
-      })
-
-      test("works when it's allowed", async () => {
-        flagsMock.CAN_LEAVE_SHIELDBATTERY_CHANNEL = true
-
-        await chatService.leaveChannel(shieldBatteryChannel.id, user1.id)
-
-        expect(removeUserFromChannelMock).toHaveBeenCalledWith(user1.id, shieldBatteryChannel.id)
-        expect(client2.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-          action: 'leave2',
-          userId: user1.id,
-          newOwnerId: undefined,
-        })
-
-        await expectMessageWasNotReceived(user2, shieldBatteryChannel, client1)
-        expect(client1.unsubscribe).toHaveBeenCalledWith(
-          getChannelUserPath(shieldBatteryChannel.id, user1.id),
-        )
-      })
-    })
-
-    test('works when in non-ShieldBattery channel', async () => {
+    test('works when in channel', async () => {
       await joinUserToChannel(
         user1,
         testChannel,
@@ -1070,79 +1024,7 @@ describe('chat/chat-service', () => {
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't moderate yourself]`)
     })
 
-    describe('when moderating ShieldBattery channel', () => {
-      beforeEach(async () => {
-        await joinUserToChannel(
-          user1,
-          shieldBatteryChannel,
-          user1ShieldBatteryChannelEntry,
-          joinUser1ShieldBatteryChannelMessage,
-        )
-        await joinUserToChannel(
-          user2,
-          shieldBatteryChannel,
-          user2ShieldBatteryChannelEntry,
-          joinUser2ShieldBatteryChannelMessage,
-        )
-
-        asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
-        asMockedFunction(getPermissions).mockResolvedValue({
-          ...userPermissions,
-          moderateChatChannels: true,
-        })
-        asMockedFunction(getUserChannelEntryForUser).mockImplementation(
-          async (userId: SbUserId, channelId: SbChannelId) => {
-            if (userId === user1.id && channelId === shieldBatteryChannel.id) {
-              return user1ShieldBatteryChannelEntry
-            } else if (userId === user2.id && channelId === shieldBatteryChannel.id) {
-              return user2ShieldBatteryChannelEntry
-            }
-            return null
-          },
-        )
-      })
-
-      test("should throw if it's not allowed", async () => {
-        flagsMock.CAN_LEAVE_SHIELDBATTERY_CHANNEL = false
-
-        await expect(
-          chatService.moderateUser(
-            shieldBatteryChannel.id,
-            user1.id,
-            user2.id,
-            ChannelModerationAction.Kick,
-          ),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(
-          `[Error: Can't moderate users in the ShieldBattery channel]`,
-        )
-      })
-
-      test("works when it's allowed", async () => {
-        flagsMock.CAN_LEAVE_SHIELDBATTERY_CHANNEL = true
-
-        await chatService.moderateUser(
-          shieldBatteryChannel.id,
-          user1.id,
-          user2.id,
-          ChannelModerationAction.Kick,
-        )
-
-        expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, shieldBatteryChannel.id)
-        expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-          action: ChannelModerationAction.Kick,
-          targetId: user2.id,
-          channelName: shieldBatteryChannel.name,
-          newOwnerId: undefined,
-        })
-
-        await expectMessageWasNotReceived(user1, shieldBatteryChannel, client2)
-        expect(client2.unsubscribe).toHaveBeenCalledWith(
-          getChannelUserPath(shieldBatteryChannel.id, user2.id),
-        )
-      })
-    })
-
-    describe('when moderating non-ShieldBattery channel', () => {
+    describe('when moderating channel', () => {
       const expectItWorks = async () => {
         expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, testChannel.id)
         expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {

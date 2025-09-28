@@ -28,10 +28,8 @@ export function makeSbChannelId(id: number): SbChannelId {
 export enum ChatServiceErrorCode {
   CannotChangeChannelOwner = 'CannotChangeChannelOwner',
   CannotEditChannel = 'CannotEditChannel',
-  CannotLeaveShieldBattery = 'CannotLeaveShieldBattery',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
-  CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
   InappropriateImage = 'InappropriateImage',
