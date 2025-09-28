@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
 import path from 'path'
-import { CHANNEL_BANNERS } from '../../../common/flags'
 import { ChatPage } from '../../pages/chat-page'
 import { EmailVerificationDialogPage } from '../../pages/email-verification-dialog-page'
 import { HomePage } from '../../pages/home-page'
@@ -31,10 +30,6 @@ test.afterEach(async ({ page }) => {
 })
 
 test('changing channel banner', async ({ page }) => {
-  if (!CHANNEL_BANNERS) {
-    expect(true).toBe(true)
-    return
-  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   await homePage.goToJoinedChatChannel('ShieldBattery')
@@ -54,10 +49,6 @@ test('changing channel banner', async ({ page }) => {
 })
 
 test('changing inappropriate channel banner', async ({ page }) => {
-  if (!CHANNEL_BANNERS) {
-    expect(true).toBe(true)
-    return
-  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   await homePage.goToJoinedChatChannel('ShieldBattery')
@@ -72,10 +63,6 @@ test('changing inappropriate channel banner', async ({ page }) => {
 })
 
 test('changing channel badge', async ({ page }) => {
-  if (!CHANNEL_BANNERS) {
-    expect(true).toBe(true)
-    return
-  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   await homePage.goToJoinedChatChannel('ShieldBattery')
@@ -95,10 +82,6 @@ test('changing channel badge', async ({ page }) => {
 })
 
 test('changing inappropriate channel badge', async ({ page }) => {
-  if (!CHANNEL_BANNERS) {
-    expect(true).toBe(true)
-    return
-  }
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
   await homePage.goToJoinedChatChannel('ShieldBattery')

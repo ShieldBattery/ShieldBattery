@@ -9,7 +9,6 @@ import {
   SbChannelId,
   makeSbChannelId,
 } from '../../../common/chat'
-import { CHANNEL_BANNERS } from '../../../common/flags'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
 import { ThunkAction } from '../../dispatch-registry'
@@ -327,20 +326,16 @@ export function AdminChannelView({
 
             <FlexSpacer />
 
-            {CHANNEL_BANNERS ? (
-              <>
-                <FilledButton
-                  label='Remove banner'
-                  disabled={isRemovingBanner}
-                  onClick={onRemoveBannerClick}
-                />
-                <FilledButton
-                  label='Remove badge'
-                  disabled={isRemovingBadge}
-                  onClick={onRemoveBadgeClick}
-                />
-              </>
-            ) : null}
+            <FilledButton
+              label='Remove banner'
+              disabled={isRemovingBanner}
+              onClick={onRemoveBannerClick}
+            />
+            <FilledButton
+              label='Remove badge'
+              disabled={isRemovingBadge}
+              onClick={onRemoveBadgeClick}
+            />
           </ChannelHeaderContainer>
 
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>

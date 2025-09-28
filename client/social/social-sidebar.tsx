@@ -8,7 +8,6 @@ import styled, { css } from 'styled-components'
 import { Link, useLocation } from 'wouter'
 import { SbChannelId } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
 import { urlPath } from '../../common/urls'
 import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -541,7 +540,7 @@ function ChannelEntry({
       link={urlPath`/chat/${channelId}/${basicInfo?.name}`}
       needsAttention={hasUnread}
       title={basicInfo ? `#${basicInfo.name}` : undefined}
-      button={channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL ? button : null}
+      button={button}
       icon={<ConnectedChannelBadge channelId={channelId} />}
       onClick={event => {
         if (!event.defaultPrevented) {

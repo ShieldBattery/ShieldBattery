@@ -33,7 +33,6 @@ import {
   toChatUserProfileJson,
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
-import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
 import { Patch } from '../../../common/patch'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
@@ -551,12 +550,6 @@ export default class ChatService {
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
     const userSockets = this.getUserSockets(userId)
-    if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.CannotLeaveShieldBattery,
-        "Can't leave ShieldBattery channel",
-      )
-    }
     if (
       !this.state.users.has(userSockets.userId) ||
       !this.state.users.get(userSockets.userId)!.has(channelId)
@@ -610,12 +603,6 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateYourself,
         "Can't moderate yourself",
-      )
-    }
-    if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.CannotModerateShieldBattery,
-        "Can't moderate users in the ShieldBattery channel",
       )
     }
 

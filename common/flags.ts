@@ -6,15 +6,12 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const OFF = () => false
 const DEV = () => process.env.NODE_ENV !== 'production'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ON = () => true
 
 /** Special error handling for local development */
 export const DEV_ERROR = DEV()
 /** Show the "dev mode" indicator on the site (don't move this past dev mode). */
 export const DEV_INDICATOR = DEV()
-/** Allows users to leave the ShieldBattery chat channel. */
-export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = ON()
 /** Add a news/landing/home page. */
 export const NEWS_PAGE = DEV()
-/** Allow users to upload channel banners (and badges). */
-export const CHANNEL_BANNERS = ON()
