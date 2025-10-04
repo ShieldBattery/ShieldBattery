@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import * as React from 'react'
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapInfoJson, SbMapId } from '../../common/maps'
@@ -8,11 +8,9 @@ import { MatchmakingPreferences } from '../../common/matchmaking'
 import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { batchGetMapInfo } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { elevationPlus1 } from '../material/shadows'
 import { useValueAsRef } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
 
@@ -70,7 +68,7 @@ export const MapSelections = styled.div`
   grid-template-columns: repeat(auto-fill, ${MAP_THUMB_SIZE_PX}px);
 `
 
-export const SelectableMap = styled.div<{ $selected?: boolean; $disabled?: boolean }>`
+export const SelectableMapContainer = styled.div<{ $selected?: boolean; $disabled?: boolean }>`
   ${elevationPlus1};
 
   --sb-selectable-map-border: ${props =>
@@ -120,41 +118,33 @@ interface ConnectedSelectableMapProps {
   disabled?: boolean
 }
 
-function ConnectedSelectableMap({
+function SelectableMap({
   mapId,
   isSelected: isVetoed,
   onClick,
   disabled,
   selectedIcon,
 }: ConnectedSelectableMapProps) {
-  const dispatch = useAppDispatch()
-  const map = useAppSelector(s => s.maps.byId.get(mapId))
   const handleClick = useCallback(() => {
     if (!disabled) {
       onClick(mapId)
     }
   }, [mapId, onClick, disabled])
 
-  useEffect(() => {
-    dispatch(batchGetMapInfo(mapId))
-  }, [dispatch, mapId])
-
   // TODO(tec27): allow these to be keyboard focused and vetoed via keypress
 
   return (
-    <SelectableMap $selected={isVetoed} $disabled={disabled}>
-      {map ? (
-        <MapThumbnail
-          map={map}
-          showMapName={true}
-          forceAspectRatio={1}
-          size={MAP_THUMB_SIZE_PX}
-          isSelected={isVetoed}
-          onClick={handleClick}
-          selectedIcon={selectedIcon}
-        />
-      ) : null}
-    </SelectableMap>
+    <SelectableMapContainer $selected={isVetoed} $disabled={disabled}>
+      <ReduxMapThumbnail
+        mapId={mapId}
+        showInfoLayer={true}
+        forceAspectRatio={1}
+        size={MAP_THUMB_SIZE_PX}
+        isSelected={isVetoed}
+        onClick={handleClick}
+        selectedIcon={selectedIcon}
+      />
+    </SelectableMapContainer>
   )
 }
 
@@ -203,7 +193,7 @@ export function MapVetoesControl({
       <MapSelections
         style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-negative)' } as any}>
         {mapPool?.maps.map(id => (
-          <ConnectedSelectableMap
+          <SelectableMap
             key={id}
             mapId={id}
             isSelected={value?.includes(id) ?? false}
@@ -297,7 +287,7 @@ export function MapSelectionControl({
       <MapSelections
         style={{ '--sb-map-thumbnail-selected-color': 'var(--theme-positive)' } as any}>
         {mapPool?.maps.map(id => (
-          <ConnectedSelectableMap
+          <SelectableMap
             key={id}
             mapId={id}
             isSelected={value?.includes(id) ?? false}

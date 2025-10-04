@@ -190,7 +190,7 @@ export function MapSelect({
             mapId={id}
             forceAspectRatio={1}
             size={256}
-            showMapName={true}
+            showInfoLayer={true}
             isSelected={id === value?.mapId}
             isFocused={isFocused && focusedIndex === i}
             selectedIcon={<StyledSelectedIcon />}

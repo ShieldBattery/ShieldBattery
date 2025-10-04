@@ -36,7 +36,7 @@ import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.s
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton, IconButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -429,15 +429,9 @@ const MapContainer = styled.div`
   text-align: center;
 `
 
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
   height: auto;
-`
-
-const MapName = styled.div`
-  ${titleLarge};
-  ${singleLine};
-  margin-top: 8px;
 `
 
 const PlayerListContainer = styled.div`
@@ -577,8 +571,7 @@ function SummaryPage({
         <PlayerListCard>{playerListItems}</PlayerListCard>
       </PlayerListContainer>
       <MapContainer>
-        {map ? <StyledMapThumbnail map={map} size={MAP_SIZE} /> : null}
-        {map ? <MapName>{map.name}</MapName> : null}
+        {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
       </MapContainer>
 
       {hasDebugPermission && debugInfo ? <DebugInfoDisplay debugInfo={debugInfo} /> : null}

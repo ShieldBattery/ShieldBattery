@@ -356,7 +356,7 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
                     mapId={mapId}
                     forceAspectRatio={1}
                     size={196}
-                    showMapName={true}
+                    showInfoLayer={true}
                   />
                 ))}
               </MapsListContainer>
@@ -604,7 +604,7 @@ function CreateMapPoolForm({
                   mapId={id}
                   forceAspectRatio={1}
                   size={256}
-                  showMapName={true}
+                  showInfoLayer={true}
                   isSelected={true}
                   selectedIcon={<StyledSelectedIcon />}
                   onClick={() => {
@@ -679,7 +679,7 @@ function MapSelect({
               mapId={mapId}
               forceAspectRatio={1}
               size={256}
-              showMapName={true}
+              showInfoLayer={true}
               isSelected={value.includes(mapId)}
               selectedIcon={<StyledSelectedIcon />}
               onClick={() => {

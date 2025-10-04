@@ -187,7 +187,7 @@ export interface MapThumbnailProps {
   style?: React.CSSProperties
   forceAspectRatio?: number
   size?: number
-  showMapName?: boolean
+  showInfoLayer?: boolean
   isFavorited?: boolean
   isSelected?: boolean
   isFocused?: boolean
@@ -208,7 +208,7 @@ export function MapThumbnail({
   style,
   forceAspectRatio,
   size,
-  showMapName,
+  showInfoLayer,
   isFavorited,
   isSelected,
   isFocused,
@@ -279,9 +279,9 @@ export function MapThumbnail({
         <Overlay
           $isSelected={isSelected}
           $isFocused={isFocused}
-          $textProtection={showMapName}
+          $textProtection={showInfoLayer}
           onClick={onClick}>
-          <SelectedIcon $isSelected={isSelected} $textProtection={showMapName}>
+          <SelectedIcon $isSelected={isSelected} $textProtection={showInfoLayer}>
             {selectedIcon}
           </SelectedIcon>
         </Overlay>
@@ -306,7 +306,7 @@ export function MapThumbnail({
           }
         />
       ) : null}
-      {showMapName ? (
+      {showInfoLayer ? (
         <TextProtection>
           <MapName title={map.name}>{map.name}</MapName>
           {actions.length ? (

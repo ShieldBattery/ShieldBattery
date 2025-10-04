@@ -9,7 +9,7 @@ import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
@@ -85,7 +85,15 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
         </BodyMedium>
       </Info>
       <MapPreview>
-        <MapThumbnail map={lobby.map!} showMapName={true} />
+        <ReduxMapThumbnail
+          mapId={lobby.map!.id}
+          showInfoLayer={true}
+          hasMapDetailsAction={false}
+          hasDownloadAction={false}
+          hasFavoriteAction={false}
+          hasMapPreviewAction={false}
+          hasRegenMapImageAction={false}
+        />
       </MapPreview>
     </ListEntryRoot>
   )

@@ -9,7 +9,7 @@ import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
@@ -214,7 +214,7 @@ const GameType = styled.div`
   text-align: right;
 `
 
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
   width: 64px;
   height: 64px;
@@ -292,7 +292,14 @@ function MatchHistoryEntry({ forUserId, game }: { forUserId: SbUserId; game: Gam
         </MapNameAndGameTypeContainer>
 
         {map ? (
-          <StyledMapThumbnail key={map.hash} map={map} size={64} forceAspectRatio={1} />
+          <StyledMapThumbnail
+            key={map.hash}
+            mapId={map.id}
+            size={64}
+            forceAspectRatio={1}
+            hasMapPreviewAction={false}
+            hasFavoriteAction={false}
+          />
         ) : (
           <MapNoImageContainer>
             <MapNoImageIcon />
