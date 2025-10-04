@@ -176,6 +176,8 @@
     },
     "channelSettings": {
       "general": {
+        "badgeMaxFileSizeErrorMessage": "The maximum badge file size is {{fileSize}}.",
+        "bannerMaxFileSizeErrorMessage": "The maximum banner file size is {{fileSize}}.",
         "descriptionLabel": "Description",
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
         "saveErrorMessage": "Something went wrong while saving the settings",
@@ -304,7 +306,8 @@
   },
   "forms": {
     "fileInput": {
-      "chooseFile": "Choose file"
+      "chooseFile": "Choose file",
+      "noFileSelected": "No file selected"
     }
   },
   "game": {

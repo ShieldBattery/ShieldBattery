@@ -124,3 +124,16 @@ export function requireChecked(): Validator<boolean, any> {
   return (val, _model, _dirty, t) =>
     val === true ? undefined : t('common.validators.required', 'Required')
 }
+
+export function maxFileSize(
+  maxSize: number,
+  msg: string | ((t: TFunction) => string),
+): Validator<File | undefined | null, any> {
+  return (value, _model, _dirty, t) => {
+    if (value === undefined || value === null || value.size <= maxSize) {
+      return undefined
+    }
+
+    return typeof msg === 'function' ? msg(t) : msg
+  }
+}

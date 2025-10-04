@@ -1,8 +1,10 @@
+import prettyBytes from 'pretty-bytes'
 import { createContext, useContext, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Route, RouteComponentProps, Switch } from 'wouter'
+import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
 import {
   AdminEditLeagueRequest,
   LEAGUE_BADGE_HEIGHT,
@@ -18,12 +20,13 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
+import { useObjectUrl } from '../dom/use-object-url'
 import { FormHook, useForm, useFormCallbacks } from '../forms/form-hook'
-import { required } from '../forms/validators'
+import { maxFileSize, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
-import { FileInput } from '../material/file-input'
+import { SingleFileInput } from '../material/file-input'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
@@ -230,8 +233,8 @@ interface LeagueModel {
   endAt: string
   rulesAndInfo?: string
   link?: string
-  image?: File | File[]
-  badge?: File | File[]
+  image?: File
+  badge?: File
 }
 
 function CreateLeague() {
@@ -250,6 +253,7 @@ function CreateLeague() {
     submit: onSubmit,
     bindInput,
     bindCustom,
+    getInputValue,
     form,
   } = useForm<LeagueModel>(
     {
@@ -285,13 +289,21 @@ function CreateLeague() {
           return 'If provided, link must be a valid URL'
         }
       },
+      image: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        `The maximum image file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+      ),
+      badge: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        `The maximum badge file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+      ),
     },
   )
   useFormCallbacks(form, {
     onSubmit: model => {
       dispatch(
-        adminAddLeague(
-          {
+        adminAddLeague({
+          leagueData: {
             name: model.name,
             matchmakingType: model.matchmakingType,
             description: model.description,
@@ -300,10 +312,10 @@ function CreateLeague() {
             endAt: Date.parse(model.endAt),
             rulesAndInfo: model.rulesAndInfo,
             link: model.link,
-            image: model.image as File,
-            badge: model.badge as File,
           },
-          {
+          leagueImage: model.image,
+          leagueBadge: model.badge,
+          spec: {
             onSuccess: () => {
               setError(undefined)
               adminContext.triggerRefresh()
@@ -313,7 +325,7 @@ function CreateLeague() {
               setError(err)
             },
           },
-        ),
+        }),
       )
     },
     onValidatedChange: model => {
@@ -327,11 +339,14 @@ function CreateLeague() {
         endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
         rulesAndInfo: model.rulesAndInfo,
         link: model.link,
-        imagePath: undefined, // TODO(tec27): We could make a blob URL for this
-        badgePath: undefined, // TODO(tec27): We could make a blob URL for this
+        imagePath: undefined,
+        badgePath: undefined,
       })
     },
   })
+
+  const imageUrl = useObjectUrl(getInputValue('image'))
+  const badgeUrl = useObjectUrl(getInputValue('badge'))
 
   return (
     <CreateLeagueRoot>
@@ -343,8 +358,10 @@ function CreateLeague() {
             <FieldLabel htmlFor={`${baseId}-image`}>
               Image ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}px recommended)
             </FieldLabel>
-            <FileInput
+            <SingleFileInput
               {...bindCustom('image')}
+              showFileName={true}
+              allowErrors={true}
               inputProps={{ id: `${baseId}-image`, accept: 'image/*', multiple: false }}
             />
           </div>
@@ -352,8 +369,10 @@ function CreateLeague() {
             <FieldLabel htmlFor={`${baseId}-badge`}>
               Badge ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}px recommended)
             </FieldLabel>
-            <FileInput
+            <SingleFileInput
               {...bindCustom('badge')}
+              showFileName={true}
+              allowErrors={true}
               inputProps={{ id: `${baseId}-badge`, accept: 'image/*', multiple: false }}
             />
           </div>
@@ -418,8 +437,8 @@ function CreateLeague() {
         <LeaguePreview>
           {previewLeague ? (
             <>
-              <LeagueDetailsHeader league={previewLeague} />
-              <LeagueDetailsInfo league={previewLeague} />
+              <LeagueDetailsHeader league={previewLeague} previewBadgeUrl={badgeUrl} />
+              <LeagueDetailsInfo league={previewLeague} previewImageUrl={imageUrl} />
             </>
           ) : undefined}
         </LeaguePreview>
@@ -434,6 +453,8 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
   const dispatch = useAppDispatch()
   const [originalLeague, setOriginalLeague] = useState<LeagueJson>()
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
+  const [previewImage, setPreviewImage] = useState<File>()
+  const [previewBadge, setPreviewBadge] = useState<File>()
   const [error, setError] = useState<Error>()
   const adminContext = useContext(LeagueAdminContext)
 
@@ -458,6 +479,9 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
     return () => controller.abort()
   }, [id, dispatch])
 
+  const imageUrl = useObjectUrl(previewImage)
+  const badgeUrl = useObjectUrl(previewBadge)
+
   return (
     <div>
       <Title>Edit league</Title>
@@ -475,7 +499,7 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                 : ''
               const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
 
-              const patch: AdminEditLeagueRequest & { image?: Blob; badge?: Blob } = {
+              const patch: AdminEditLeagueRequest = {
                 name: model.name !== originalLeague?.name ? model.name : undefined,
                 matchmakingType:
                   model.matchmakingType !== originalLeague?.matchmakingType
@@ -494,21 +518,25 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                     ? model.rulesAndInfo
                     : undefined,
                 link: model.link !== originalLeague?.link ? model.link : undefined,
-                image: model.deleteImage ? undefined : (model.image as File),
                 deleteImage: model.deleteImage ? true : undefined,
-                badge: model.deleteBadge ? undefined : (model.badge as File),
                 deleteBadge: model.deleteBadge ? true : undefined,
               }
 
               dispatch(
-                adminUpdateLeague(id, patch, {
-                  onSuccess: () => {
-                    setError(undefined)
-                    adminContext.triggerRefresh()
-                    history.back()
-                  },
-                  onError: err => {
-                    setError(err)
+                adminUpdateLeague({
+                  id,
+                  leagueChanges: patch,
+                  leagueImage: model.deleteImage ? undefined : model.image,
+                  leagueBadge: model.deleteBadge ? undefined : model.badge,
+                  spec: {
+                    onSuccess: () => {
+                      setError(undefined)
+                      adminContext.triggerRefresh()
+                      history.back()
+                    },
+                    onError: err => {
+                      setError(err)
+                    },
                   },
                 }),
               )
@@ -524,11 +552,11 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                 endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
                 rulesAndInfo: model.rulesAndInfo,
                 link: model.link,
-                // TODO(tec27): We could make a blob URL for this
                 imagePath: model.image || model.deleteImage ? undefined : originalLeague?.imagePath,
-                // TODO(tec27): We could make a blob URL for this
                 badgePath: model.badge || model.deleteBadge ? undefined : originalLeague?.badgePath,
               })
+              setPreviewImage(model.deleteImage ? undefined : model.image)
+              setPreviewBadge(model.deleteBadge ? undefined : model.badge)
             }}
           />
         ) : (
@@ -537,8 +565,8 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
         <LeaguePreview>
           {previewLeague ? (
             <>
-              <LeagueDetailsHeader league={previewLeague} />
-              <LeagueDetailsInfo league={previewLeague} />
+              <LeagueDetailsHeader league={previewLeague} previewBadgeUrl={badgeUrl} />
+              <LeagueDetailsInfo league={previewLeague} previewImageUrl={imageUrl} />
             </>
           ) : undefined}
         </LeaguePreview>
@@ -584,14 +612,14 @@ function EditLeagueForm({
 
   const { submit, bindInput, bindCustom, bindCheckable, form } = useForm<EditLeagueModel>(
     {
-      name: originalLeague?.name ?? '',
-      matchmakingType: originalLeague?.matchmakingType ?? MatchmakingType.Match1v1,
-      description: originalLeague?.description ?? '',
-      signupsAfter: originalLeague ? asDatetimeLocalValue(originalLeague.signupsAfter) : '',
-      startAt: originalLeague ? asDatetimeLocalValue(originalLeague.startAt) : '',
-      endAt: originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : '',
-      rulesAndInfo: originalLeague?.rulesAndInfo ?? '',
-      link: originalLeague?.link ?? '',
+      name: originalLeague.name,
+      matchmakingType: originalLeague.matchmakingType,
+      description: originalLeague.description,
+      signupsAfter: asDatetimeLocalValue(originalLeague.signupsAfter),
+      startAt: asDatetimeLocalValue(originalLeague.startAt),
+      endAt: asDatetimeLocalValue(originalLeague.endAt),
+      rulesAndInfo: originalLeague.rulesAndInfo,
+      link: originalLeague.link,
       deleteImage: false,
       deleteBadge: false,
     },
@@ -630,6 +658,14 @@ function EditLeagueForm({
           return 'If provided, link must be a valid URL'
         }
       },
+      image: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        `The maximum image file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+      ),
+      badge: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        `The maximum badge file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+      ),
     },
   )
   useFormCallbacks(form, { onSubmit, onValidatedChange })
@@ -640,8 +676,10 @@ function EditLeagueForm({
         <FieldLabel htmlFor={`${baseId}-image`}>
           Image ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}px recommended)
         </FieldLabel>
-        <FileInput
+        <SingleFileInput
           {...bindCustom('image')}
+          showFileName={true}
+          allowErrors={true}
           inputProps={{ id: `${baseId}-image`, accept: 'image/*', multiple: false }}
         />
       </div>
@@ -649,8 +687,10 @@ function EditLeagueForm({
         <FieldLabel htmlFor={`${baseId}-badge`}>
           Badge ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}px recommended)
         </FieldLabel>
-        <FileInput
+        <SingleFileInput
           {...bindCustom('badge')}
+          showFileName={true}
+          allowErrors={true}
           inputProps={{ id: `${baseId}-badge`, accept: 'image/*', multiple: false }}
         />
       </div>
@@ -658,6 +698,12 @@ function EditLeagueForm({
       <CheckBox
         {...bindCheckable('deleteImage')}
         label='Delete current image'
+        inputProps={{ tabIndex: 0 }}
+      />
+
+      <CheckBox
+        {...bindCheckable('deleteBadge')}
+        label='Delete current badge'
         inputProps={{ tabIndex: 0 }}
       />
 

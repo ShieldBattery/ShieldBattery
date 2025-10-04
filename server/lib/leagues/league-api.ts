@@ -3,6 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -32,7 +33,7 @@ import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
-import { MAX_IMAGE_SIZE, createImagePath, resizeImage } from '../files/images'
+import { createImagePath, resizeImage } from '../files/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -40,6 +41,7 @@ import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
+import { json } from '../validation/json-validator'
 import { getLeaderboard } from './leaderboard'
 import {
   LeagueUser,
@@ -215,26 +217,28 @@ export class LeagueAdminApi {
   }
 
   @httpPost('/')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
   async addLeague(ctx: RouterContext): Promise<AdminAddLeagueResponse> {
-    const { body } = validateRequest(ctx, {
-      body: Joi.object<ServerAdminAddLeagueRequest & { image: any; badge: any }>({
-        name: Joi.string().required(),
-        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-        description: Joi.string().required(),
-        signupsAfter: Joi.date().timestamp().min(Date.now()).required(),
-        startAt: Joi.date().timestamp().min(Date.now()).required(),
-        endAt: Joi.date().timestamp().min(Date.now()).required(),
-        rulesAndInfo: Joi.string(),
-        link: Joi.string().uri({ scheme: ['http', 'https'] }),
-        image: Joi.any(),
-        badge: Joi.any(),
+    const {
+      body: { leagueData },
+    } = validateRequest(ctx, {
+      body: Joi.object<{ leagueData: ServerAdminAddLeagueRequest }>({
+        leagueData: json.object({
+          name: Joi.string().required(),
+          matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+          description: Joi.string().required(),
+          signupsAfter: Joi.date().timestamp().min(Date.now()).required(),
+          startAt: Joi.date().timestamp().min(Date.now()).required(),
+          endAt: Joi.date().timestamp().min(Date.now()).required(),
+          rulesAndInfo: Joi.string(),
+          link: Joi.string().uri({ scheme: ['http', 'https'] }),
+        }),
       }),
     })
 
-    if (body.signupsAfter > body.startAt) {
+    if (leagueData.signupsAfter > leagueData.startAt) {
       throw new httpErrors.BadRequest('signupsAfter must be before startAt')
-    } else if (body.startAt > body.endAt) {
+    } else if (leagueData.startAt > leagueData.endAt) {
       throw new httpErrors.BadRequest('startAt must be before endAt')
     }
 
@@ -262,7 +266,7 @@ export class LeagueAdminApi {
 
       const league = await createLeague(
         {
-          ...body,
+          ...leagueData,
           imagePath,
           badgePath,
         },
@@ -299,7 +303,7 @@ export class LeagueAdminApi {
   }
 
   @httpPatch('/:leagueId')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
   async editLeague(ctx: RouterContext): Promise<AdminEditLeagueResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const originalLeague = await adminGetLeague(leagueId)
@@ -308,47 +312,42 @@ export class LeagueAdminApi {
       throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
     }
 
-    const { body } = validateRequest(ctx, {
-      body: Joi.object<ServerAdminEditLeagueRequest & { image: any; badge: any }>({
-        name: Joi.string(),
-        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES),
-        description: Joi.string(),
-        signupsAfter: Joi.date().timestamp(),
-        startAt: Joi.date().timestamp(),
-        endAt: Joi.date().timestamp(),
-        rulesAndInfo: Joi.string().allow(null),
-        link: Joi.string().allow(null),
-        image: Joi.any(),
-        deleteImage: Joi.boolean(),
-        badge: Joi.any(),
-        deleteBadge: Joi.boolean(),
+    const {
+      body: { leagueChanges },
+    } = validateRequest(ctx, {
+      body: Joi.object<{ leagueChanges: ServerAdminEditLeagueRequest }>({
+        leagueChanges: json.object({
+          name: Joi.string(),
+          matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES),
+          description: Joi.string(),
+          signupsAfter: Joi.date().timestamp(),
+          startAt: Joi.date().timestamp(),
+          endAt: Joi.date().timestamp(),
+          rulesAndInfo: Joi.string().allow(null),
+          link: Joi.string().allow(null),
+          deleteImage: Joi.boolean(),
+          deleteBadge: Joi.boolean(),
+        }),
       }),
     })
 
     const now = new Date()
 
-    // Sure would be nice if Joi handled this well =/
-    if (body.rulesAndInfo === 'null') {
-      body.rulesAndInfo = null
-    } else if (body.link === 'null') {
-      body.link = null
-    }
-
-    if (body.signupsAfter && originalLeague.signupsAfter <= now) {
+    if (leagueChanges.signupsAfter && originalLeague.signupsAfter <= now) {
       throw new httpErrors.BadRequest('cannot change signupsAfter once signups have started')
-    } else if (body.signupsAfter && body.signupsAfter <= now) {
+    } else if (leagueChanges.signupsAfter && leagueChanges.signupsAfter <= now) {
       throw new httpErrors.BadRequest('cannot change signupsAfter to a time in the past')
     }
 
-    if (body.startAt && originalLeague.startAt <= now) {
+    if (leagueChanges.startAt && originalLeague.startAt <= now) {
       throw new httpErrors.BadRequest('cannot change startAt once the league has started')
-    } else if (body.startAt && body.startAt <= now) {
+    } else if (leagueChanges.startAt && leagueChanges.startAt <= now) {
       throw new httpErrors.BadRequest('cannot change startAt to a time in the past')
     }
 
-    if (body.endAt && originalLeague.endAt <= now) {
+    if (leagueChanges.endAt && originalLeague.endAt <= now) {
       throw new httpErrors.BadRequest('cannot change endAt once the league has ended')
-    } else if (body.endAt && body.endAt <= now) {
+    } else if (leagueChanges.endAt && leagueChanges.endAt <= now) {
       throw new httpErrors.BadRequest('cannot change endAt to a time in the past')
     }
 
@@ -375,19 +374,19 @@ export class LeagueAdminApi {
       }
 
       const updatedLeague: Patch<Omit<League, 'id'>> = {
-        ...body,
+        ...leagueChanges,
       }
       delete (updatedLeague as any).image
       delete (updatedLeague as any).deleteImage
       delete (updatedLeague as any).badge
       delete (updatedLeague as any).deleteBadge
 
-      if (body.deleteImage) {
+      if (leagueChanges.deleteImage) {
         updatedLeague.imagePath = null
       } else if (imagePath) {
         updatedLeague.imagePath = imagePath
       }
-      if (body.deleteBadge) {
+      if (leagueChanges.deleteBadge) {
         updatedLeague.badgePath = null
       } else if (badgePath) {
         updatedLeague.badgePath = badgePath

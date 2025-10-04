@@ -1,13 +1,16 @@
+import prettyBytes from 'pretty-bytes'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { ChatServiceErrorCode, EditChannelRequest } from '../../common/chat'
+import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { ChannelSettingsDialogPayload, DialogType } from '../dialogs/dialog-type'
 import { useObjectUrl } from '../dom/use-object-url'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
+import { maxFileSize } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -54,15 +57,23 @@ const FormContainer = styled.div`
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 4px;
 `
 
 const BannerButtonsContainer = styled.div`
-  width: fit-content;
+  width: 100%;
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto min-content;
   grid-column-gap: 16px;
-  grid-row-gap: 24px;
+  grid-row-gap: 4px;
+  align-items: flex-start;
+  justify-content: space-between;
+`
+
+const TextFieldContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 `
 
 const ErrorText = styled.span`
@@ -81,6 +92,10 @@ const DisabledOverlay = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
+`
+
+const StyledChannelCardRoot = styled(ChannelCardRoot)`
+  flex-shrink: 0;
 `
 
 interface ChannelSettingsModel {
@@ -112,7 +127,22 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
         uploadedBannerPath: detailedChannelInfo.bannerPath,
         uploadedBadgePath: detailedChannelInfo.badgePath,
       },
-      {},
+      {
+        banner: maxFileSize(
+          MAX_IMAGE_SIZE_BYTES,
+          t('chat.channelSettings.general.bannerMaxFileSizeErrorMessage', {
+            defaultValue: 'The maximum banner file size is {{fileSize}}.',
+            fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
+          }),
+        ),
+        badge: maxFileSize(
+          MAX_IMAGE_SIZE_BYTES,
+          t('chat.channelSettings.general.badgeMaxFileSizeErrorMessage', {
+            defaultValue: 'The maximum badge file size is {{fileSize}}.',
+            fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
+          }),
+        ),
+      },
     )
 
   useFormCallbacks(form, {
@@ -196,6 +226,8 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
                 <SingleFileInput
                   {...bindCustom('banner')}
                   label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                  showFileName={true}
+                  allowErrors={true}
                   disabled={isSaving}
                   inputProps={{ accept: 'image/*' }}
                   testName='channel-settings-banner-input'
@@ -218,6 +250,8 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
                 <SingleFileInput
                   {...bindCustom('badge')}
                   label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                  showFileName={true}
+                  allowErrors={true}
                   disabled={isSaving}
                   inputProps={{ accept: 'image/*' }}
                   testName='channel-settings-badge-input'
@@ -238,27 +272,29 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
                 )}
               </BannerButtonsContainer>
 
-              <TextField
-                {...bindInput('description')}
-                label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
-                disabled={isSaving}
-                allowErrors={false}
-                floatingLabel={true}
-                multiline={true}
-                rows={4}
-                maxRows={4}
-                inputProps={{ tabIndex: 0 }}
-                testName='channel-settings-description-input'
-              />
-              <TextField
-                {...bindInput('topic')}
-                label={t('chat.channelSettings.general.topicLabel', 'Topic')}
-                disabled={isSaving}
-                allowErrors={false}
-                floatingLabel={true}
-                inputProps={{ tabIndex: 0 }}
-                testName='channel-settings-topic-input'
-              />
+              <TextFieldContainer>
+                <TextField
+                  {...bindInput('description')}
+                  label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
+                  disabled={isSaving}
+                  allowErrors={false}
+                  floatingLabel={true}
+                  multiline={true}
+                  rows={4}
+                  maxRows={4}
+                  inputProps={{ tabIndex: 0 }}
+                  testName='channel-settings-description-input'
+                />
+                <TextField
+                  {...bindInput('topic')}
+                  label={t('chat.channelSettings.general.topicLabel', 'Topic')}
+                  disabled={isSaving}
+                  allowErrors={false}
+                  floatingLabel={true}
+                  inputProps={{ tabIndex: 0 }}
+                  testName='channel-settings-topic-input'
+                />
+              </TextFieldContainer>
             </StyledForm>
 
             {isSaving ? (
@@ -268,7 +304,7 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
             ) : null}
           </FormContainer>
 
-          <ChannelCardRoot>
+          <StyledChannelCardRoot>
             <ChannelBannerAndBadge>
               {bannerUrl ? (
                 <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
@@ -296,7 +332,7 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
             <ChannelActions>
               <div />
             </ChannelActions>
-          </ChannelCardRoot>
+          </StyledChannelCardRoot>
         </Content>
       </Root>
     </StyledDialog>
