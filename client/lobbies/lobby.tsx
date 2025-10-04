@@ -372,7 +372,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           />
           <StyledMapThumbnail
             mapId={(lobby.map as unknown as Immutable<MapInfoJson>).id}
-            showMapName
+            showInfoLayer
           />
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>

@@ -264,7 +264,7 @@ export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewPr
   return (
     <GamePreviewRoot>
       <GamePreviewDetails>
-        {mapId ? <StyledMapThumbnail key={mapId} mapId={mapId} size={256} showMapName /> : null}
+        {mapId ? <StyledMapThumbnail key={mapId} mapId={mapId} size={256} showInfoLayer /> : null}
         <StyledGamePlayersDisplay game={game} forUserId={forUserId} />
       </GamePreviewDetails>
       <TextButton

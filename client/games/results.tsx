@@ -571,7 +571,7 @@ function SummaryPage({
         <PlayerListCard>{playerListItems}</PlayerListCard>
       </PlayerListContainer>
       <MapContainer>
-        {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showMapName /> : null}
+        {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
       </MapContainer>
 
       {hasDebugPermission && debugInfo ? <DebugInfoDisplay debugInfo={debugInfo} /> : null}

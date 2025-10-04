@@ -137,7 +137,7 @@ function SelectableMap({
     <SelectableMapContainer $selected={isVetoed} $disabled={disabled}>
       <ReduxMapThumbnail
         mapId={mapId}
-        showMapName={true}
+        showInfoLayer={true}
         forceAspectRatio={1}
         size={MAP_THUMB_SIZE_PX}
         isSelected={isVetoed}

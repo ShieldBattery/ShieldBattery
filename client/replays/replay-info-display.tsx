@@ -265,7 +265,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
       <InfoContainer>
         <ReplayInfoContainer>
           {mapInfo ? (
-            <StyledMapThumbnail mapId={mapInfo.id} showMapName />
+            <StyledMapThumbnail mapId={mapInfo.id} showInfoLayer />
           ) : (
             <MapNoImageContainer>
               <MapNoImage />

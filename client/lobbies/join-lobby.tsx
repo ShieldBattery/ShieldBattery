@@ -87,7 +87,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
       <MapPreview>
         <ReduxMapThumbnail
           mapId={lobby.map!.id}
-          showMapName={true}
+          showInfoLayer={true}
           hasMapDetailsAction={false}
           hasDownloadAction={false}
           hasFavoriteAction={false}
