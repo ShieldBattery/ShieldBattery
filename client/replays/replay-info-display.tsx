@@ -114,6 +114,10 @@ const StyledMapThumbnail = styled(MapThumbnail)`
   ${elevationPlus1};
 `
 
+const MapNameTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+`
+
 const MapName = styled.div`
   ${titleLarge};
   ${singleLine};
@@ -271,9 +275,9 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
               <MapNoImage />
             </MapNoImageContainer>
           )}
-          <Tooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
+          <MapNameTooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
             <MapName ref={mapNameRef}>{mapName}</MapName>
-          </Tooltip>
+          </MapNameTooltip>
           <TextInfoContainer>
             <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
               <ReplayInfoText ref={gameTypeRef}>
