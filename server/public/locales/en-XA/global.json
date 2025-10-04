@@ -660,7 +660,9 @@
                 "descriptionLabel": "$🗡Description🗡!",
                 "topicLabel": "$🗡Topic🗡!",
                 "saveErrorMessage": "$🗡Something went wrong while saving the settings🗡!",
-                "inappropriateImageErrorMessage": "$🗡The selected image is inappropriate. Please select a different image.🗡!"
+                "inappropriateImageErrorMessage": "$🗡The selected image is inappropriate. Please select a different image.🗡!",
+                "badgeMaxFileSizeErrorMessage": "$🗡The maximum badge file size is {{fileSize}}.🗡!",
+                "bannerMaxFileSizeErrorMessage": "$🗡The maximum banner file size is {{fileSize}}.🗡!"
             }
         },
         "whispers": {
@@ -1269,7 +1271,8 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "$🗡Choose file🗡!"
+            "chooseFile": "$🗡Choose file🗡!",
+            "noFileSelected": "$🗡No file selected🗡!"
         }
     },
     "bugReport": {

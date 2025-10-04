@@ -787,7 +787,9 @@
                 "descriptionLabel": "설명",
                 "topicLabel": "주제",
                 "saveErrorMessage": "설정 저장하는 중에 뭔가 잘못됐어",
-                "inappropriateImageErrorMessage": "선택한 이미지는 부적절해요. 다른 이미지를 선택해 주세요."
+                "inappropriateImageErrorMessage": "선택한 이미지는 부적절해요. 다른 이미지를 선택해 주세요.",
+                "badgeMaxFileSizeErrorMessage": "배지 파일의 최대 크기는 {{fileSize}}입니다.",
+                "bannerMaxFileSizeErrorMessage": "배너 파일의 최대 크기는 {{fileSize}}입니다."
             }
         },
         "whispers": {
@@ -1261,7 +1263,8 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "파일 선택"
+            "chooseFile": "파일 선택",
+            "noFileSelected": "선택된 파일이 없습니다."
         }
     },
     "bugReport": {

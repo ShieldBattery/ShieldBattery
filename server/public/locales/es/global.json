@@ -667,7 +667,9 @@
                 "descriptionLabel": "Descripción",
                 "topicLabel": "Tema",
                 "saveErrorMessage": "Algo salió mal al guardar la configuración",
-                "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente."
+                "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
+                "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de insignia es {{fileSize}}.",
+                "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo de banner es {{fileSize}}."
             }
         },
         "whispers": {
@@ -1277,7 +1279,8 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "Elige archivo"
+            "chooseFile": "Elige archivo",
+            "noFileSelected": "Ningún archivo seleccionado"
         }
     },
     "bugReport": {

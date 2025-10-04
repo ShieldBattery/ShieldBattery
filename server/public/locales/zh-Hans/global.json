@@ -703,7 +703,9 @@
                 "descriptionLabel": "描述",
                 "topicLabel": "话题",
                 "saveErrorMessage": "保存设置时出错了",
-                "inappropriateImageErrorMessage": "选的图片不合适，请换一张。"
+                "inappropriateImageErrorMessage": "选的图片不合适，请换一张。",
+                "badgeMaxFileSizeErrorMessage": "徽章文件的最大大小为 {{fileSize}}。",
+                "bannerMaxFileSizeErrorMessage": "横幅文件的最大大小为 {{fileSize}}。"
             }
         },
         "whispers": {
@@ -1261,7 +1263,8 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "选择文件"
+            "chooseFile": "选择文件",
+            "noFileSelected": "未选择文件"
         }
     },
     "bugReport": {

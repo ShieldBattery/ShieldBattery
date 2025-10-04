@@ -950,7 +950,9 @@
                 "descriptionLabel": "Описание",
                 "topicLabel": "Тема",
                 "saveErrorMessage": "Что-то пошло не так при сохранении настроек",
-                "inappropriateImageErrorMessage": "Выбранное изображение неприемлемо. Пожалуйста, выберите другое."
+                "inappropriateImageErrorMessage": "Выбранное изображение неприемлемо. Пожалуйста, выберите другое.",
+                "badgeMaxFileSizeErrorMessage": "Максимальный размер файла значка составляет {{fileSize}}.",
+                "bannerMaxFileSizeErrorMessage": "Максимальный размер файла баннера составляет {{fileSize}}."
             }
         },
         "whispers": {
@@ -1277,7 +1279,8 @@
     },
     "forms": {
         "fileInput": {
-            "chooseFile": "Выберите файл"
+            "chooseFile": "Выберите файл",
+            "noFileSelected": "Файл не выбран"
         }
     },
     "bugReport": {
