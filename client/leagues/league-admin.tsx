@@ -291,11 +291,11 @@ function CreateLeague() {
       },
       image: maxFileSize(
         MAX_IMAGE_SIZE_BYTES,
-        `The maximum image's file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+        `The maximum image file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
       ),
       badge: maxFileSize(
         MAX_IMAGE_SIZE_BYTES,
-        `The maximum badge's file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+        `The maximum badge file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
       ),
     },
   )
@@ -499,8 +499,6 @@ function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: strin
                 : ''
               const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
 
-              console.log(model.rulesAndInfo, originalLeague?.rulesAndInfo)
-              console.log(model.link, originalLeague?.link)
               const patch: AdminEditLeagueRequest = {
                 name: model.name !== originalLeague?.name ? model.name : undefined,
                 matchmakingType:
@@ -662,11 +660,11 @@ function EditLeagueForm({
       },
       image: maxFileSize(
         MAX_IMAGE_SIZE_BYTES,
-        `The maximum image's file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+        `The maximum image file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
       ),
       badge: maxFileSize(
         MAX_IMAGE_SIZE_BYTES,
-        `The maximum badge's file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
+        `The maximum badge file size is ${prettyBytes(MAX_IMAGE_SIZE_BYTES)}.`,
       ),
     },
   )

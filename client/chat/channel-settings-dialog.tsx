@@ -131,14 +131,14 @@ export function ChannelSettingsDialog({ onCancel, channelId }: ChannelSettingsDi
         banner: maxFileSize(
           MAX_IMAGE_SIZE_BYTES,
           t('chat.channelSettings.general.bannerMaxFileSizeErrorMessage', {
-            defaultValue: "The maximum banner's file size is {{fileSize}}.",
+            defaultValue: 'The maximum banner file size is {{fileSize}}.',
             fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
           }),
         ),
         badge: maxFileSize(
           MAX_IMAGE_SIZE_BYTES,
           t('chat.channelSettings.general.badgeMaxFileSizeErrorMessage', {
-            defaultValue: "The maximum badge's file size is {{fileSize}}.",
+            defaultValue: 'The maximum badge file size is {{fileSize}}.',
             fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
           }),
         ),
