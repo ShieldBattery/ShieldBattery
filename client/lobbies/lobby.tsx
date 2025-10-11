@@ -1,4 +1,3 @@
-import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
 import { WithTranslation, withTranslation } from 'react-i18next'
@@ -16,7 +15,6 @@ import {
   Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import { MapInfoJson } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
@@ -370,10 +368,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
           />
-          <StyledMapThumbnail
-            mapId={(lobby.map as unknown as Immutable<MapInfoJson>).id}
-            showInfoLayer
-          />
+          <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
