@@ -505,11 +505,7 @@ function MapSection({
               mapId={mapId}
               forceAspectRatio={1}
               size={layout.columnCount === 2 ? 512 : 256}
-              showMapName={true}
-              hasMapDetailsAction={true}
-              hasFavoriteAction={true}
-              hasMapPreviewAction={true}
-              hasRegenMapImageAction={true}
+              showInfoLayer={true}
               onClick={onMapClick ? () => onMapClick(mapId) : undefined}
               onAddToFavorites={onAddToFavorites}
               onRemoveFromFavorites={onRemoveFromFavorites}

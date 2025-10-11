@@ -1,4 +1,3 @@
-import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
 import { WithTranslation, withTranslation } from 'react-i18next'
@@ -16,18 +15,17 @@ import {
   Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import { MapInfoJson } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
-import { MapThumbnail } from '../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
-import { headlineMedium, labelLarge, labelMedium, titleLarge } from '../styles/typography'
+import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
 import { ClosedSlot } from './closed-slot'
 import { LobbyUserMenu } from './lobby-menu-items'
 import {
@@ -93,12 +91,7 @@ const Info = styled.div`
   flex-shrink: 0;
 `
 
-const MapName = styled.div`
-  ${titleLarge};
-  margin: 24px 0 0;
-`
-
-const StyledMapThumbnail = styled(MapThumbnail)`
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
   width: 256px;
   height: auto;
@@ -335,7 +328,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   }
 
   override render() {
-    const { lobby, onLeaveLobbyClick, onSendChatMessage, onMapPreview, t } = this.props
+    const { lobby, onLeaveLobbyClick, onSendChatMessage, t } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -375,11 +368,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
           />
-          <MapName>{(lobby.map as unknown as Immutable<MapInfoJson>).name}</MapName>
-          <StyledMapThumbnail
-            map={lobby.map as unknown as Immutable<MapInfoJson>}
-            onPreview={onMapPreview}
-          />
+          <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
