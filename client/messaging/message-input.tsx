@@ -123,6 +123,7 @@ function useStorageSyncedState(
 export interface MessageInputProps {
   className?: string
   showDivider?: boolean
+  maxRows?: number
   onSendChatMessage: (msg: string) => void
   /**
    * A key to store the current message input contents under (in a global Map). If provided, the
@@ -154,6 +155,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     {
       className,
       showDivider,
+      maxRows = 20,
       storageKey,
       mentionableUsers,
       baseMentionableUsers,
@@ -203,7 +205,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
     useEffect(() => {
       const onSelectionChange = (event: Event) => {
-        if (event.target instanceof HTMLInputElement) {
+        if (event.target instanceof HTMLTextAreaElement) {
           // This logic looks for the caret moving within a message that starts with @, while
           // ignoring any cases where the user has made an actual selection.
 
@@ -282,8 +284,14 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       setMessage(message)
     })
 
-    const onEnterKeyDown = useStableCallback(() => {
-      if (message) {
+    const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.shiftKey) {
+        return
+      }
+
+      event.preventDefault()
+
+      if (message.trim().length > 0) {
         onSendChatMessage(message)
         setMessage('')
       }
@@ -359,6 +367,9 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           className={className}
           label={label}
           value={message}
+          multiline={true}
+          rows={1}
+          maxRows={maxRows}
           floatingLabel={false}
           allowErrors={false}
           showDivider={showDivider}
