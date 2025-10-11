@@ -1008,6 +1008,7 @@ function DraftChat({
     <StyledChat
       listProps={{ messages, showEmptyState: false }}
       inputProps={{
+        maxRows: 10,
         mentionableUsers: mentionable,
         baseMentionableUsers: mentionable,
         onSendChatMessage,
