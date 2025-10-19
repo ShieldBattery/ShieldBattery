@@ -1,13 +1,13 @@
 import { Link, Route, Switch } from 'wouter'
 import { ButtonsTest } from './buttons-test'
-import { MenuTest as DevMenu } from './menu-test'
+import { MenuTest } from './menu-test'
 import DevPopover from './popover-test'
 import { RadioTest } from './radio-test'
-import DevSelects from './selects-test'
-import DevSliders from './slider-test'
+import { SelectsTest } from './selects-test'
+import { SliderTest } from './slider-test'
 import { SnackbarTest } from './snackbar-test'
 import { TabsTest } from './tabs-test'
-import DevTextFields from './text-field-test'
+import { TextFieldTest } from './text-field-test'
 import { TooltipTest } from './tooltip-test'
 
 const BASE_URL = '/dev/material'
@@ -53,14 +53,14 @@ export default function DevMaterialRoutes() {
   return (
     <Switch>
       <Route path={`${BASE_URL}/button`} component={ButtonsTest} />
-      <Route path={`${BASE_URL}/menu`} component={DevMenu as any} />
+      <Route path={`${BASE_URL}/menu`} component={MenuTest} />
       <Route path={`${BASE_URL}/popover`} component={DevPopover} />
       <Route path={`${BASE_URL}/radio`} component={RadioTest} />
-      <Route path={`${BASE_URL}/select`} component={DevSelects as any} />
-      <Route path={`${BASE_URL}/slider`} component={DevSliders as any} />
+      <Route path={`${BASE_URL}/select`} component={SelectsTest} />
+      <Route path={`${BASE_URL}/slider`} component={SliderTest} />
       <Route path={`${BASE_URL}/snackbar`} component={SnackbarTest} />
       <Route path={`${BASE_URL}/tabs`} component={TabsTest} />
-      <Route path={`${BASE_URL}/textfield`} component={DevTextFields as any} />
+      <Route path={`${BASE_URL}/textfield`} component={TextFieldTest} />
       <Route path={`${BASE_URL}/tooltip`} component={TooltipTest} />
       <Route>
         <DevMaterialDashboard />
