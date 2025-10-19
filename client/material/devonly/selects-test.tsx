@@ -20,49 +20,23 @@ const StyledCard = styled(Card)`
 export function SelectsTest() {
   const [value1, setValue1] = useState(2)
   const [value2, setValue2] = useState(5)
-  const [value3, setValue3] = useState<number | undefined>(undefined)
+  const [value3, setValue3] = useState<number>()
   const [value4, setValue4] = useState(1)
   const [value5, setValue5] = useState(1)
   const [value6, setValue6] = useState(1)
   const [value7, setValue7] = useState(1)
   const [dense, setDense] = useState(false)
 
-  const onChange = (key: number, value: number) => {
-    switch (key) {
-      case 1:
-        setValue1(value)
-        break
-      case 2:
-        setValue2(value)
-        break
-      case 3:
-        setValue3(value)
-        break
-      case 4:
-        setValue4(value)
-        break
-      case 5:
-        setValue5(value)
-        break
-      case 6:
-        setValue6(value)
-        break
-      case 7:
-        setValue7(value)
-        break
-    }
-  }
-
-  const onDenseChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setDense(event.target.checked)
-  }
-
   return (
     <Container>
       <StyledCard>
-        <CheckBox checked={dense} label='Dense' onChange={onDenseChange} />
+        <CheckBox
+          checked={dense}
+          label='Dense'
+          onChange={event => setDense(event.target.checked)}
+        />
         <h3>Select some things</h3>
-        <Select dense={dense} value={value1} label='First' onChange={value => onChange(1, value)}>
+        <Select dense={dense} value={value1} label='First' onChange={value => setValue1(value)}>
           <SelectOption value={1} text='Menu option 1' />
           <SelectOption value={2} text='Menu option 2' />
           <SelectOption value={3} text='Menu option 3' />
@@ -78,7 +52,7 @@ export function SelectsTest() {
           value={value2}
           disabled={true}
           label='Disabled'
-          onChange={value => onChange(2, value)}>
+          onChange={value => setValue2(value)}>
           <SelectOption value={1} text='Menu option 1' />
           <SelectOption value={2} text='Menu option 2' />
           <SelectOption value={3} text='Menu option 3' />
@@ -93,14 +67,14 @@ export function SelectsTest() {
           dense={dense}
           value={value3}
           label='No default value'
-          onChange={value => onChange(3, value)}>
+          onChange={value => setValue3(value)}>
           <SelectOption value={1} text='Menu option 1' />
           <SelectOption value={2} text='Menu option 2' />
           <SelectOption value={3} text='Menu option 3' />
           <SelectOption value={4} text='Menu option 4' />
         </Select>
 
-        <Select dense={dense} value={value4} onChange={value => onChange(4, value)}>
+        <Select dense={dense} value={value4} onChange={value => setValue4(value)}>
           <SelectOption value={1} text='No label' />
           <SelectOption value={2} text='Menu option 2' />
         </Select>
@@ -109,7 +83,7 @@ export function SelectsTest() {
           dense={dense}
           value={value5}
           allowErrors={false}
-          onChange={value => onChange(5, value)}>
+          onChange={value => setValue5(value)}>
           <SelectOption value={1} text='No label, no allow errors' />
           <SelectOption value={2} text='Menu option 2' />
         </Select>
@@ -119,7 +93,7 @@ export function SelectsTest() {
           value={value6}
           label='No allow errors'
           allowErrors={false}
-          onChange={value => onChange(6, value)}>
+          onChange={value => setValue6(value)}>
           <SelectOption value={1} text='Menu option 1' />
           <SelectOption value={2} text='Menu option 2' />
         </Select>
@@ -129,7 +103,7 @@ export function SelectsTest() {
           value={value7}
           label='With errors'
           errorText='Hi mom'
-          onChange={value => onChange(7, value)}>
+          onChange={value => setValue7(value)}>
           <SelectOption value={1} text='Menu option 1' />
           <SelectOption value={2} text='Menu option 2' />
           <SelectOption value={3} text='Menu option 3' />

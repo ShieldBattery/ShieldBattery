@@ -32,6 +32,7 @@ export function TextFieldTest() {
   const [value3, setValue3] = useState('')
   const [value4, setValue4] = useState('')
   const [value5, setValue5] = useState('')
+  const [value6, setValue6] = useState('')
   const [value7, setValue7] = useState('')
   const [value8, setValue8] = useState('')
   const [value9, setValue9] = useState('')
@@ -48,90 +49,22 @@ export function TextFieldTest() {
   const [changeError, setChangeError] = useState<string>()
   const [dense, setDense] = useState(false)
 
-  const onDenseChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setDense(event.target.checked)
-  }
-
-  const onChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { value } = event.target
-    const name = event.currentTarget.getAttribute('name')
-
-    switch (name) {
-      case '1':
-        setValue1(value)
-        break
-      case '2':
-        setValue2(value)
-        break
-      case '3':
-        setValue3(value)
-        break
-      case '4':
-        setValue4(value)
-        setChangeError(value ? 'Omg error' : undefined)
-        break
-      case '5':
-      case 'very-long-error':
-        setValue5(value)
-        break
-      case '7':
-        setValue7(value)
-        break
-      case '8':
-        setValue8(value)
-        break
-      case '9':
-        setValue9(value)
-        break
-      case '10':
-        setValue10(value)
-        break
-      case '11':
-        setValue11(value)
-        break
-      case '12':
-        setValue12(value)
-        break
-      case '13':
-        setValue13(value)
-        break
-      case '14':
-        setValue14(value)
-        break
-      case '15':
-        setValue15(value)
-        break
-      case '16':
-        setValue16(value)
-        break
-      case '17':
-        setValue17(value)
-        break
-      case '18':
-        setValue18(value)
-        break
-      case '19':
-        setValue19(value)
-        break
-    }
-  }
-
-  const onActionClick = () => {
-    console.log('Action clicked')
-  }
-
   return (
     <Container>
       <StyledCard>
         <h3>Type some things</h3>
-        <CheckBox checked={dense} label='Dense' onChange={onDenseChange} />
+        <CheckBox
+          checked={dense}
+          label='Dense'
+          onChange={event => setDense(event.target.checked)}
+        />
         <TextField
           name='1'
           value={value1}
           floatingLabel={true}
           dense={dense}
           label='Label'
-          onChange={onChange}
+          onChange={event => setValue1(event.target.value)}
         />
         <TextField
           name='2'
@@ -140,7 +73,7 @@ export function TextFieldTest() {
           dense={dense}
           label='Disabled'
           disabled={true}
-          onChange={onChange}
+          onChange={event => setValue2(event.target.value)}
         />
         <TextField
           name='3'
@@ -148,7 +81,7 @@ export function TextFieldTest() {
           floatingLabel={false}
           dense={dense}
           label='No float'
-          onChange={onChange}
+          onChange={event => setValue3(event.target.value)}
         />
         <TextField
           name='4'
@@ -157,7 +90,10 @@ export function TextFieldTest() {
           dense={dense}
           label='Error on change'
           errorText={changeError}
-          onChange={onChange}
+          onChange={event => {
+            setValue4(event.target.value)
+            setChangeError(event.target.value ? 'Omg error' : undefined)
+          }}
         />
         <TextField
           name='5'
@@ -166,11 +102,11 @@ export function TextFieldTest() {
           dense={dense}
           label='Permanent error'
           errorText='hi'
-          onChange={onChange}
+          onChange={event => setValue5(event.target.value)}
         />
         <TextField
           name='very-long-error'
-          value={value5}
+          value={value6}
           floatingLabel={true}
           dense={dense}
           label='Permanent long error'
@@ -178,7 +114,7 @@ export function TextFieldTest() {
             'hello this is a very long error message that extends across multiple ' +
             'lines so that we can make sure you can still see the whole thing properly.'
           }
-          onChange={onChange}
+          onChange={event => setValue6(event.target.value)}
         />
         <TextField
           name='6'
@@ -187,7 +123,6 @@ export function TextFieldTest() {
           dense={dense}
           label='Disabled with value'
           disabled={true}
-          onChange={onChange}
         />
         <TextField
           name='7'
@@ -197,7 +132,7 @@ export function TextFieldTest() {
           label='Disabled with error'
           disabled={true}
           errorText={'hi'}
-          onChange={onChange}
+          onChange={event => setValue7(event.target.value)}
         />
         <TextField
           name='8'
@@ -206,7 +141,7 @@ export function TextFieldTest() {
           dense={dense}
           label='With leading icon'
           leadingIcons={[<MaterialIcon icon='view_list' key='view' />]}
-          onChange={onChange}
+          onChange={event => setValue8(event.target.value)}
         />
         <TextField
           name='9'
@@ -220,13 +155,13 @@ export function TextFieldTest() {
                   <DenseIconButton
                     icon={<MaterialIcon icon='view_list' />}
                     title='Leading action 1'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='1'
                   />,
                   <DenseIconButton
                     icon={<MaterialIcon icon='view_list' />}
                     title='Leading action 2'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='2'
                   />,
                 ]
@@ -234,18 +169,18 @@ export function TextFieldTest() {
                   <IconButton
                     icon={<MaterialIcon icon='view_list' />}
                     title='Leading action 1'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='1'
                   />,
                   <IconButton
                     icon={<MaterialIcon icon='view_list' />}
                     title='Leading action 2'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='2'
                   />,
                 ]
           }
-          onChange={onChange}
+          onChange={event => setValue9(event.target.value)}
         />
         <TextField
           name='10'
@@ -254,7 +189,7 @@ export function TextFieldTest() {
           dense={dense}
           label='With trailing icon'
           trailingIcons={[<MaterialIcon icon='local_pizza' key='pizza' />]}
-          onChange={onChange}
+          onChange={event => setValue10(event.target.value)}
         />
         <TextField
           name='11'
@@ -268,13 +203,13 @@ export function TextFieldTest() {
                   <DenseIconButton
                     icon={<MaterialIcon icon='local_pizza' />}
                     title='Trailing action 1'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='1'
                   />,
                   <DenseIconButton
                     icon={<MaterialIcon icon='magic_button' />}
                     title='Trailing action 2'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='2'
                   />,
                 ]
@@ -282,18 +217,18 @@ export function TextFieldTest() {
                   <IconButton
                     icon={<MaterialIcon icon='local_pizza' />}
                     title='Trailing action 1'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='1'
                   />,
                   <IconButton
                     icon={<MaterialIcon icon='magic_button' />}
                     title='Trailing action 2'
-                    onClick={onActionClick}
+                    onClick={() => {}}
                     key='2'
                   />,
                 ]
           }
-          onChange={onChange}
+          onChange={event => setValue11(event.target.value)}
         />
         <TextField
           name='12'
@@ -302,7 +237,7 @@ export function TextFieldTest() {
           dense={dense}
           label='No errors'
           allowErrors={false}
-          onChange={onChange}
+          onChange={event => setValue12(event.target.value)}
         />
         <TextField
           name='13'
@@ -311,7 +246,7 @@ export function TextFieldTest() {
           dense={dense}
           label='No errors, no float'
           allowErrors={false}
-          onChange={onChange}
+          onChange={event => setValue13(event.target.value)}
         />
         <PasswordTextField
           name='14'
@@ -319,7 +254,7 @@ export function TextFieldTest() {
           floatingLabel={true}
           dense={dense}
           label='Password text field'
-          onChange={onChange}
+          onChange={event => setValue14(event.target.value)}
         />
         <TextField
           name='15'
@@ -329,7 +264,7 @@ export function TextFieldTest() {
           label='Multi-line'
           multiline={true}
           maxRows={4}
-          onChange={onChange}
+          onChange={event => setValue15(event.target.value)}
         />
         <TextField
           name='16'
@@ -340,7 +275,7 @@ export function TextFieldTest() {
           multiline={true}
           rows={4}
           maxRows={4}
-          onChange={onChange}
+          onChange={event => setValue16(event.target.value)}
         />
         <TextField
           name='17'
@@ -350,7 +285,7 @@ export function TextFieldTest() {
           label='Multi-line, no float'
           multiline={true}
           maxRows={4}
-          onChange={onChange}
+          onChange={event => setValue17(event.target.value)}
         />
         <TextField
           name='18'
@@ -361,7 +296,7 @@ export function TextFieldTest() {
           multiline={true}
           rows={4}
           maxRows={4}
-          onChange={onChange}
+          onChange={event => setValue18(event.target.value)}
         />
         <TextField
           name='19'
@@ -370,7 +305,7 @@ export function TextFieldTest() {
           hasClearButton={true}
           dense={dense}
           label='With clear button'
-          onChange={onChange}
+          onChange={event => setValue19(event.target.value)}
         />
       </StyledCard>
     </Container>
