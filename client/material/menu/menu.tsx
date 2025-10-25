@@ -57,6 +57,17 @@ export interface MenuListProps {
   children: React.ReactNode
   className?: string
   dense?: boolean
+  /**
+   * If true, focused menu items only show visual focus styling without receiving actual DOM focus.
+   * This is useful when you want to maintain focus elsewhere (e.g. in an input field) while
+   * still showing keyboard navigation in the menu.
+   */
+  virtualFocus?: boolean
+  /**
+   * Callback that fires when the active menu item index changes. Useful when using virtualFocus
+   * to track which item is visually focused for keyboard selection.
+   */
+  onActiveIndexChange?: (index: number) => void
 }
 
 /**
@@ -66,8 +77,14 @@ export interface MenuListProps {
  * reason for this separation is so we can create menus that run certain hooks (e.g. connect to the
  * store) which will be rendered only when the popover is open.
  */
-export function MenuList({ children, className, dense }: MenuListProps) {
-  const [activeIndex, setActiveIndex] = useState(-1)
+export function MenuList({
+  children,
+  className,
+  dense,
+  virtualFocus,
+  onActiveIndexChange,
+}: MenuListProps) {
+  const [activeIndex, setActiveIndex] = useState(virtualFocus ? 0 : -1)
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const menuItems = useMemo(() => {
@@ -87,6 +104,7 @@ export function MenuList({ children, className, dense }: MenuListProps) {
 
     if (newIndex !== activeIndex) {
       setActiveIndex(newIndex)
+      onActiveIndexChange?.(newIndex)
     }
 
     const itemHeight = dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT
@@ -138,6 +156,7 @@ export function MenuList({ children, className, dense }: MenuListProps) {
     const elem = React.cloneElement(child, {
       dense,
       focused: index === activeIndex,
+      virtualFocus,
     })
     i++
 
