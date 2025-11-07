@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useEffect, useRef } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { buttonReset } from '../button-reset'
@@ -8,7 +8,7 @@ import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
-const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
+const Item = styled.button<{ $dense?: boolean; $virtualFocus?: boolean; $focused?: boolean }>`
   ${buttonReset};
   position: relative;
   width: auto;
@@ -22,6 +22,18 @@ const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
 
   border-radius: 4px;
   text-align: left;
+
+  ${props => {
+    if (!props.$virtualFocus || !props.$focused) {
+      return ''
+    }
+
+    return css`
+      background-color: rgb(from var(--theme-on-surface) r g b / 0.1);
+      outline: 3px solid var(--theme-grey-blue);
+      outline-offset: 2px;
+    `
+  }}
 
   &:disabled,
   &[disabled] {
@@ -46,6 +58,12 @@ const ItemIcon = styled.span`
 
 export interface MenuItemProps extends BaseMenuItemProps {
   icon?: React.ReactNode
+  /**
+   * If true, the focused state only affects visual styling without moving actual DOM focus.
+   * This is useful when you want to maintain focus elsewhere (e.g. in an input field) while
+   * still showing keyboard navigation in the menu.
+   */
+  virtualFocus?: boolean
 }
 
 export function MenuItem({
@@ -59,25 +77,30 @@ export function MenuItem({
   onKeyDown,
   className,
   testName,
+  virtualFocus,
 }: MenuItemProps) {
   const [buttonProps, rippleRef] = useButtonState({ onClick, onKeyDown, disabled })
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (focused) {
-      buttonRef.current?.focus()
-    } else {
-      buttonRef.current?.blur()
+    if (!virtualFocus) {
+      if (focused) {
+        buttonRef.current?.focus()
+      } else {
+        buttonRef.current?.blur()
+      }
     }
-  }, [focused])
+  }, [focused, virtualFocus])
 
   return (
     <Item
       ref={buttonRef}
       className={className}
-      $dense={dense}
       data-test={testName}
-      {...buttonProps}>
+      {...buttonProps}
+      $dense={dense}
+      $virtualFocus={virtualFocus}
+      $focused={focused}>
       {icon ? <ItemIcon>{icon}</ItemIcon> : null}
       <ItemText>{text}</ItemText>
       {trailingContent}

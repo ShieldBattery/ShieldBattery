@@ -48,4 +48,5 @@ export interface BaseMenuItemProps {
   testName?: string
   onClick?: (event: React.MouseEvent | KeyboardEvent) => void
   onKeyDown?: (event: React.KeyboardEvent) => void
+  virtualFocus?: boolean
 }
