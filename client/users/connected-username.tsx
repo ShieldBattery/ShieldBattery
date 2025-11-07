@@ -85,6 +85,13 @@ export function ConnectedUsername({
     UserMenu,
   })
 
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick(e as any)
+    }
+  }
+
   const username = user?.name ?? (
     <LoadingName aria-label={'Username loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
@@ -98,6 +105,7 @@ export function ConnectedUsername({
       className={className}
       onClick={interactive ? onClick : undefined}
       onContextMenu={interactive ? onContextMenu : undefined}
+      onKeyDown={interactive ? onKeyDown : undefined}
       tabIndex={interactive ? 0 : undefined}>
       {prefix}
       {username}

@@ -62,6 +62,13 @@ export function ConnectedChannelName({
     refreshAnchorPos,
   })
 
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      openChannelInfoCard()
+    }
+  }
+
   if (isChannelDeleted) {
     return <span>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>
   }
@@ -87,6 +94,7 @@ export function ConnectedChannelName({
           className={className}
           ref={anchor}
           onClick={interactive ? openChannelInfoCard : undefined}
+          onKeyDown={interactive ? onKeyDown : undefined}
           tabIndex={interactive ? 0 : undefined}
           $interactive={interactive}>
           #{basicChannelInfo.name}
