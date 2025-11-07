@@ -44,7 +44,7 @@ export interface ConnectedUsernameProps {
    * was handled by the callback, it should return `true` to indicate the normal behavior should
    * not occur.
    */
-  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+  filterClick?: (userId: SbUserId, e: React.MouseEvent | React.KeyboardEvent) => boolean
   UserMenu?: UserMenuComponent
   /** Whether the username can be interacted with (clicked, focused, etc.). Defaults to true. */
   interactive?: boolean
@@ -85,6 +85,13 @@ export function ConnectedUsername({
     UserMenu,
   })
 
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick(e)
+    }
+  }
+
   const username = user?.name ?? (
     <LoadingName aria-label={'Username loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
@@ -98,6 +105,7 @@ export function ConnectedUsername({
       className={className}
       onClick={interactive ? onClick : undefined}
       onContextMenu={interactive ? onContextMenu : undefined}
+      onKeyDown={interactive ? onKeyDown : undefined}
       tabIndex={interactive ? 0 : undefined}>
       {prefix}
       {username}
