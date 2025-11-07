@@ -14,14 +14,14 @@ export interface UserOverlaysProps {
   profileOriginY?: OriginY
   profileOffsetX?: number
   profileOffsetY?: number
-  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+  filterClick?: (userId: SbUserId, e: React.MouseEvent | React.KeyboardEvent) => boolean
   UserMenu?: UserMenuComponent
 }
 
 export interface UserOverlays {
   profileOverlayProps: ConnectedUserProfileOverlayProps
   contextMenuProps: ConnectedUserContextMenuProps
-  onClick: (event: React.MouseEvent) => void
+  onClick: (event: React.MouseEvent | React.KeyboardEvent) => void
   onContextMenu: (event: React.MouseEvent) => void
   isOverlayOpen: boolean
 }

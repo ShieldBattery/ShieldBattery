@@ -65,7 +65,7 @@ export function ConnectedChannelName({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      openChannelInfoCard()
+      openChannelInfoCard(e)
     }
   }
 

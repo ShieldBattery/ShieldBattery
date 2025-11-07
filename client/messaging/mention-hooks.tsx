@@ -8,7 +8,10 @@ import { ChatContext } from './chat-context'
  * things that use it, such as ConnectedUsername). The resulting method will filter any clicks that
  * should be forward to the ChatContext instead of opening a user overlay.
  */
-export function useMentionFilterClick(): (userId: SbUserId, e: React.MouseEvent) => boolean {
+export function useMentionFilterClick(): (
+  userId: SbUserId,
+  e: React.MouseEvent | React.KeyboardEvent,
+) => boolean {
   const chatContext = useContext(ChatContext)
   return useCallback(
     (userId, e) => {
