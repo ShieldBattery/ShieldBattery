@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiplexRef } from '../react/refs'
@@ -233,21 +233,6 @@ export function TextField({
 
   const multiplexedRef = useMultiplexRef(inputRef, ref)
 
-  const autoSize = useCallback((elem: HTMLInputElement | HTMLTextAreaElement) => {
-    // Needed in order to lower the height when deleting text
-    elem.style.height = 'auto'
-    elem.style.height = `${elem.scrollHeight}px`
-    // Textarea doesn't scroll completely to the end when adding a new line, just to the
-    // baseline of the added text it seems, so we scroll manually to the end here
-    elem.scrollTop = elem.scrollHeight
-  }, [])
-
-  useLayoutEffect(() => {
-    if (multiline && inputRef.current) {
-      autoSize(inputRef.current)
-    }
-  }, [autoSize, inputRef, multiline])
-
   const onInputBlur = useCallback(
     (event: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(false)
@@ -266,13 +251,9 @@ export function TextField({
 
   const onInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (multiline) {
-        autoSize(event.target)
-      }
-
       onChange?.(event)
     },
-    [autoSize, multiline, onChange],
+    [onChange],
   )
 
   const onInputKeyDown = useCallback(
