@@ -5,17 +5,21 @@
 use std::marker::PhantomData;
 use std::mem;
 
-#[cfg_attr(target_arch = "x86_64", allow(unused_imports))]
+#[cfg(target_arch = "x86")]
 use byteorder::{ByteOrder, LittleEndian};
+#[cfg(target_arch = "x86")]
 use lazy_static::lazy_static;
-#[cfg_attr(target_arch = "x86_64", allow(unused_imports))]
+#[cfg(target_arch = "x86")]
 use winapi::um::heapapi::{HeapAlloc, HeapCreate};
+#[cfg(target_arch = "x86")]
 use winapi::um::winnt::HEAP_CREATE_ENABLE_EXECUTE;
 
+#[cfg(target_arch = "x86")]
 lazy_static! {
     static ref EXEC_HEAP: usize = init_exec_heap();
 }
 
+#[cfg(target_arch = "x86")]
 fn init_exec_heap() -> usize {
     unsafe {
         let result = HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0) as usize;
