@@ -1114,6 +1114,10 @@ impl BwScr {
                 // Just used for checking if documents path is somehow unaccessible,
                 // as this is right after BW does it's own checks for it.
                 // mainmenu_entry_hook is further into this same function.
+                //
+                // Update: Now that we hook SHGetFolderPathW anyway maybe this hook
+                // is pretty redundant, probably should be deleted once we're sure it
+                // won't give any extra information.
                 let address = sc_main.0 as usize - base;
                 exe.hook_closure_address(
                     ScMain,
@@ -1725,6 +1729,9 @@ impl BwScr {
                 "GetFileAttributesW", GetFileAttributesW, get_file_attributes_closure;
                 "GetTickCount", GetTickCount, get_tick_count_hook;
                 "GetSystemTimePreciseAsFileTime", GetSystemTimePreciseAsFileTime, get_system_time_precise_as_file_time_hook;
+            );
+            hook_winapi_exports!(&mut active_patcher, "shell32",
+                "SHGetFolderPathW", SHGetFolderPathW, sh_get_folder_path_w_hook;
             );
 
             // SCR wants to update gamepad state every frame, but in the end it
@@ -3961,6 +3968,7 @@ mod hooks {
         !0 => GetFileAttributesW(*const u16) -> u32;
         !0 => XInputGetState(u32, *mut c_void) -> u32;
         !0 => GetSystemTimePreciseAsFileTime(*mut FILETIME);
+        !0 => SHGetFolderPathW(*mut c_void, i32, *mut c_void, u32, *mut u16) -> i32;
     );
 
     thiscall_hooks!(
@@ -4131,5 +4139,74 @@ unsafe fn check_documents_starcraft_path_accessibility() {
         warn!("BW documents path '{path:?}' is not usable: {error}");
     } else if result & FILE_ATTRIBUTE_DIRECTORY == 0 {
         warn!("BW documents path '{path:?}' is not a directory, file attributes are {result:08x}");
+    }
+}
+
+fn sh_get_folder_path_w_hook(
+    hwnd: *mut c_void,
+    csidl: i32,
+    token: *mut c_void,
+    flags: u32,
+    out_path: *mut u16,
+    orig: unsafe extern "C" fn(*mut c_void, i32, *mut c_void, u32, *mut u16) -> i32,
+) -> i32 {
+    #[cold]
+    fn write_dir_out(out: &mut [u16], path: &Path) {
+        warn!("Fallback SHGetFolderPathW set to {}", path.display());
+        let mut u16_path = windows::winapi_str(path);
+        // Sanity check that there is null terminator
+        assert!(*u16_path.last().unwrap() == 0);
+        // Remove trailing slash / backslash, if it exists,
+        // since SHGetFolderPathW documents it not being included
+        while let Some(&last) = u16_path.get(u16_path.len() - 2) {
+            if last == b'/' as u16 || last == b'\\' as u16 {
+                u16_path.pop();
+                *u16_path.last_mut().unwrap() = 0;
+            } else {
+                break;
+            }
+        }
+        if u16_path.len() > out.len() {
+            // Shouldn't happen, as the buffer must be MAX_PATH (260) characters long
+            panic!("Documents dir path too long");
+        }
+        out[..u16_path.len()].copy_from_slice(&u16_path);
+    }
+
+    unsafe {
+        use winapi::um::shlobj::CSIDL_PERSONAL;
+        let ret = orig(hwnd, csidl, token, flags, out_path);
+        // Bw uses SHGetFolderPathW to figure out documents dir and has unfortunate
+        // fallbacks where it creates maps directory next to starcraft.exe if it fails
+        // So if we detect the arguments that bw uses, and the function fails, we try to
+        // find the result from another way.
+        if ret != 0 && csidl == CSIDL_PERSONAL && hwnd.is_null() && token.is_null() && flags == 0 {
+            let out = std::slice::from_raw_parts_mut(out_path, 260);
+            warn!(
+                "SHGetFolderPathW(CSIDL_PERSONAL) failed: {ret:x}; trying directories crate fallback"
+            );
+            // Not sure if the directories crate gives any different results; it still
+            // calls SHGetKnownFolderPath without any user tokens or such,
+            // so unless it has different results it would fail as well.
+            if let Some(dirs) = directories::UserDirs::new()
+                && let Some(documents) = dirs.document_dir()
+            {
+                write_dir_out(out, documents);
+                return 0;
+            }
+            warn!("directories crate fallback failed; trying std::env::home_dir");
+            if let Some(home_dir) = std::env::home_dir() {
+                let documents = home_dir.join("Documents");
+                if documents.is_dir() {
+                    write_dir_out(out, &documents);
+                    return 0;
+                } else {
+                    warn!("{} is not a directory", documents.display());
+                }
+            } else {
+                warn!("std::env::home_dir failed");
+            }
+        }
+        ret
     }
 }
