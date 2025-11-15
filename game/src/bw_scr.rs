@@ -20,6 +20,7 @@ use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::um::fileapi::INVALID_FILE_ATTRIBUTES;
 use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::winnt::FILE_ATTRIBUTE_DIRECTORY;
 
 use scr_analysis::{DatType, VirtualAddress, scarf};
 use sdf_cache::{InitSdfCache, SdfCache};
@@ -3433,6 +3434,20 @@ fn get_file_attributes_hook(
     filename: *const u16,
     orig: unsafe extern "C" fn(*const u16) -> u32,
 ) -> u32 {
+    // Using functions that call orig to both not trigger more hooks
+    // and avoid the fact that rust Path functions actually call CreateFileW which
+    // may be slightly different.
+    // This matches what bw does.
+    let is_dir = move |path: &Path| {
+        let buf = windows::winapi_str(path);
+        let ret = unsafe { orig(buf.as_ptr()) };
+        ret != INVALID_FILE_ATTRIBUTES && ret & FILE_ATTRIBUTE_DIRECTORY != 0
+    };
+    let is_file = move |path: &Path| {
+        let buf = windows::winapi_str(path);
+        let ret = unsafe { orig(buf.as_ptr()) };
+        ret != INVALID_FILE_ATTRIBUTES && ret & FILE_ATTRIBUTE_DIRECTORY == 0
+    };
     unsafe {
         if !filename.is_null() {
             let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
@@ -3469,11 +3484,11 @@ fn get_file_attributes_hook(
                 // which causes game to fallback into using exe dir as documents path, creating
                 // Maps directory there.
                 let mut path = PathBuf::from(OsString::from_wide(filename));
-                if path.is_dir() {
+                if is_dir(&path) {
                     path.set_file_name("StarCraft.exe");
-                    if path.is_file() {
+                    if is_file(&path) {
                         path.set_file_name(".build.info");
-                        if !path.is_file() {
+                        if !is_file(&path) {
                             warn!("Maps dir found relative to game exe");
                             return INVALID_FILE_ATTRIBUTES;
                         }
@@ -4111,7 +4126,6 @@ unsafe fn step_game_logic_hook(
 unsafe fn check_documents_starcraft_path_accessibility() {
     use winapi::um::fileapi::GetFileAttributesW;
     use winapi::um::shlobj::{CSIDL_PERSONAL, SHGetFolderPathW};
-    use winapi::um::winnt::FILE_ATTRIBUTE_DIRECTORY;
     // Using same functions what BW uses to see if something weird goes wrong there.
     let mut buffer = [0u16; 0x104];
     let result = SHGetFolderPathW(
