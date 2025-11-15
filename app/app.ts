@@ -498,15 +498,15 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.warning('Error copying CASC log: ' + getErrorStack(err))
     }
 
-    for (const crashdump_file of ['latest_crash.dmp', 'crash_stack.bin']) {
+    for (const crashdumpFile of ['latest_crash.dmp', 'crash_stack.bin']) {
       try {
-        const dumpPath = path.join(logsDir, crashdump_file)
+        const dumpPath = path.join(logsDir, crashdumpFile)
         const stats = await fsPromises.stat(dumpPath)
         const dayAgo = Number(Date.now() - 24 * 60 * 60 * 1000)
         if (stats.mtimeMs >= dayAgo) {
-          const filePath = path.join(tempDir, crashdump_file)
-          await copyFile(path.join(logsDir, crashdump_file), filePath)
-          collectedFiles.push({ name: crashdump_file, filePath })
+          const filePath = path.join(tempDir, crashdumpFile)
+          await copyFile(path.join(logsDir, crashdumpFile), filePath)
+          collectedFiles.push({ name: crashdumpFile, filePath })
         }
       } catch (err) {
         if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
