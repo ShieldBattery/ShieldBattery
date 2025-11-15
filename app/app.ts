@@ -498,18 +498,20 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       logger.warning('Error copying CASC log: ' + getErrorStack(err))
     }
 
-    try {
-      const dumpPath = path.join(logsDir, 'latest_crash.dmp')
-      const stats = await fsPromises.stat(dumpPath)
-      const dayAgo = Number(Date.now() - 24 * 60 * 60 * 1000)
-      if (stats.mtimeMs >= dayAgo) {
-        const filePath = path.join(tempDir, 'latest_crash.dmp')
-        await copyFile(path.join(logsDir, 'latest_crash.dmp'), filePath)
-        collectedFiles.push({ name: 'latest_crash.dmp', filePath })
-      }
-    } catch (err) {
-      if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
-        logger.warning('Error copying crash dump: ' + getErrorStack(err))
+    for (crashdump_file of ['latest_crash.dmp', 'crash_stack.bin']) {
+      try {
+        const dumpPath = path.join(logsDir, crashdump_file)
+        const stats = await fsPromises.stat(dumpPath)
+        const dayAgo = Number(Date.now() - 24 * 60 * 60 * 1000)
+        if (stats.mtimeMs >= dayAgo) {
+          const filePath = path.join(tempDir, crashdump_file)
+          await copyFile(path.join(logsDir, crashdump_file), filePath)
+          collectedFiles.push({ name: crashdump_file, filePath })
+        }
+      } catch (err) {
+        if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
+          logger.warning('Error copying crash dump: ' + getErrorStack(err))
+        }
       }
     }
 

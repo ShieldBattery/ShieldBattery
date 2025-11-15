@@ -96,6 +96,7 @@ features = [
   "stringapiset",
   "synchapi",
   "sysinfoapi",
+  "tlhelp32",
   "unknwnbase",
   "windef",
   "wingdi",
