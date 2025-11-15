@@ -1,7 +1,8 @@
 use std::cell::Cell;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsString};
 use std::marker::PhantomData;
 use std::mem;
+use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
@@ -17,6 +18,7 @@ use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
 use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::{GetLastError, SetLastError};
+use winapi::um::fileapi::INVALID_FILE_ATTRIBUTES;
 use winapi::um::libloaderapi::GetModuleHandleW;
 
 use scr_analysis::{DatType, VirtualAddress, scarf};
@@ -3436,8 +3438,40 @@ fn get_file_attributes_hook(
                     debug!("Mapping CSettings.json GetFileAttributesW call to {replacement}");
                     return orig(windows::winapi_str(&*replacement).as_ptr());
                 }
-            } else if check_filename(filename, b"Battle.net") {
+            } else if check_dir_filename(filename, b"Battle.net") {
                 stop_precise_system_time_hook();
+            } else if check_dir_filename(filename, b"Maps") {
+                // SC:R determines location of CASC data by first finding a directory
+                // which has either
+                //      - subdirectory "Maps"
+                //      - file ".build.info"
+                // The lookup order , where "." is exe directory, is:
+                // 1) "."
+                // 2) ".."
+                // 3) "../Data"
+                // 4) "../../Data"
+                // 5) "../../../Data"
+                // Since exe is in x86/ or x86_64/ subdir, 1) is something that is not supposed
+                // to match, and if it does then the game won't find the actual data that
+                // is supposed to be in 2).
+                //
+                // If for some(*) reason, there is a directory that contains Maps, StarCraft.exe,
+                // but not .build.info, we will just say that such directory doesn't exist at all.
+                //
+                // (*) SHGetFolderPathW may fail for some users for reasons not understood,
+                // which causes game to fallback into using exe dir as documents path, creating
+                // Maps directory there.
+                let mut path = PathBuf::from(OsString::from_wide(filename));
+                if path.is_dir() {
+                    path.set_file_name("StarCraft.exe");
+                    if path.is_file() {
+                        path.set_file_name(".build.info");
+                        if !path.is_file() {
+                            warn!("Maps dir found relative to game exe");
+                            return INVALID_FILE_ATTRIBUTES;
+                        }
+                    }
+                }
             }
         }
 
@@ -3601,6 +3635,17 @@ fn check_filename(filename: &[u16], compare: &[u8]) -> bool {
             && ascii_compare_u16_u8_casei(&ending[1..], compare)
     } else {
         ascii_compare_u16_u8_casei(filename, compare)
+    }
+}
+
+/// check_filename but ignores trailing slash / backslash
+fn check_dir_filename(filename: &[u16], compare: &[u8]) -> bool {
+    if let Some((&last, rest)) = filename.split_last()
+        && (last == b'/' as u16 || last == b'\\' as u16)
+    {
+        check_filename(rest, compare)
+    } else {
+        check_filename(filename, compare)
     }
 }
 
