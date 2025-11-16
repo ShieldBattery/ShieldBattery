@@ -12,7 +12,9 @@ import {
 import {
   ALL_STARTING_FOG,
   getStartingFogLabel,
+  getUnitPortraitsLabel,
   StartingFog,
+  UnitPortraits,
 } from '../../../common/settings/local-settings'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { CheckBox } from '../../material/check-box'
@@ -39,7 +41,7 @@ interface GameplaySettingsModel {
   minimapPosition: boolean
   showBonusSkins: boolean
   selectedSkin: IngameSkin
-  unitPortraits: number
+  unitPortraits: UnitPortraits
   showTurnRate: boolean
   startingFog: StartingFog
   // Dev-only settings
@@ -135,16 +137,16 @@ export function GameplaySettings() {
             label={t('settings.game.gameplay.unitPortraits.title', 'Portraits')}
             tabIndex={0}>
             <SelectOption
-              value={2}
-              text={t('settings.game.gameplay.unitPortraits.animated', 'Animated')}
+              value={UnitPortraits.Animated}
+              text={getUnitPortraitsLabel(UnitPortraits.Animated, t)}
             />
             <SelectOption
-              value={1}
-              text={t('settings.game.gameplay.unitPortraits.still', 'Still')}
+              value={UnitPortraits.Still}
+              text={getUnitPortraitsLabel(UnitPortraits.Still, t)}
             />
             <SelectOption
-              value={0}
-              text={t('settings.game.gameplay.unitPortraits.disabled', 'Disabled')}
+              value={UnitPortraits.Disabled}
+              text={getUnitPortraitsLabel(UnitPortraits.Disabled, t)}
             />
           </Select>
           <Select

@@ -1,6 +1,12 @@
 import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin } from './blizz-settings'
-import { LocalSettings, ScrSettings, ShieldBatteryAppSettings, StartingFog } from './local-settings'
+import {
+  LocalSettings,
+  ScrSettings,
+  ShieldBatteryAppSettings,
+  StartingFog,
+  UnitPortraits,
+} from './local-settings'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
@@ -58,7 +64,7 @@ export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = 
   // Gameplay settings
   gameTimerOn: false,
   colorCyclingOn: true,
-  unitPortraits: 0,
+  unitPortraits: UnitPortraits.Disabled,
   minimapPosition: false,
   apmDisplayOn: false,
   apmAlertOn: false,

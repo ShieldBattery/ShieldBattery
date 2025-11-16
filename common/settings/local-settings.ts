@@ -39,6 +39,29 @@ export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   }
 }
 
+export enum UnitPortraits {
+  Disabled = 0,
+  Still = 1,
+  Animated = 2,
+}
+
+export const ALL_UNIT_PORTRAITS: Readonly<UnitPortraits[]> = Object.values(UnitPortraits).filter(
+  v => typeof v === 'number',
+) as UnitPortraits[]
+
+export function getUnitPortraitsLabel(portraits: UnitPortraits, t: TFunction): string {
+  switch (portraits) {
+    case UnitPortraits.Disabled:
+      return t('settings.game.gameplay.unitPortraits.disabled', 'Disabled')
+    case UnitPortraits.Still:
+      return t('settings.game.gameplay.unitPortraits.still', 'Still')
+    case UnitPortraits.Animated:
+      return t('settings.game.gameplay.unitPortraits.animated', 'Animated')
+    default:
+      return assertUnreachable(portraits)
+  }
+}
+
 export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
@@ -101,7 +124,7 @@ export interface ScrSettings {
   pillarboxOn: boolean
   gameTimerOn: boolean
   colorCyclingOn: boolean
-  unitPortraits: number // TODO(tec27): type this more narrowly/use an enum
+  unitPortraits: UnitPortraits
   minimapPosition: boolean
   apmDisplayOn: boolean
   apmAlertOn: boolean
