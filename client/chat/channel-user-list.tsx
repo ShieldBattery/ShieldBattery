@@ -128,6 +128,7 @@ interface UserListEntryProps {
 }
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
+  const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
 
@@ -158,7 +159,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         {user ? (
           <UserListName>{user.name}</UserListName>
         ) : (
-          <LoadingName aria-label='Username loading…' />
+          <LoadingName aria-label={t('common.loading.username', 'Username loading…')} />
         )}
       </UserListEntryItem>
     </div>

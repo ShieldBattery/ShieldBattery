@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useOverflowingElement } from '../dom/overflowing-element'
@@ -66,6 +67,7 @@ export function ConnectedUsername({
   // TODO(tec27): We could probably make this true? Just not sure what layouts it might break
   showTooltipForOverflow,
 }: ConnectedUsernameProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const [nameRef, isNameOverflowing] = useOverflowingElement()
@@ -93,7 +95,7 @@ export function ConnectedUsername({
   }
 
   const username = user?.name ?? (
-    <LoadingName aria-label={'Username loading…'}>
+    <LoadingName aria-label={t('common.loading.username', 'Username loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>
   )

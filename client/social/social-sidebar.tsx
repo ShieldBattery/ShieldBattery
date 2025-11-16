@@ -530,7 +530,7 @@ function ChannelEntry({
   const displayName = basicInfo?.name ? (
     <span>#{basicInfo.name}</span>
   ) : (
-    <LoadingName aria-label={'Channel name loading…'}>
+    <LoadingName aria-label={t('common.loading.channelName', 'Channel name loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>
   )
@@ -594,7 +594,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
   )
 
   const usernameElem = username ?? (
-    <LoadingName aria-label={'Username loading…'}>
+    <LoadingName aria-label={t('common.loading.username', 'Username loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>
   )

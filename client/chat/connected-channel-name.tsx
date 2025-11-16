@@ -100,7 +100,7 @@ export function ConnectedChannelName({
           #{basicChannelInfo.name}
         </ChannelName>
       ) : (
-        <LoadingChannelName aria-label={'Channel name loading…'}>
+        <LoadingChannelName aria-label={t('common.loading.channelName', 'Channel name loading…')}>
           &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
         </LoadingChannelName>
       )}
