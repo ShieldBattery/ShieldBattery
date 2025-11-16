@@ -41,6 +41,10 @@
         },
         "lists": {
             "empty": "볼 것이 없다"
+        },
+        "loading": {
+            "channelName": "채널 이름 로딩 중…",
+            "username": "사용자 이름 불러오는 중…"
         }
     },
     "settings": {

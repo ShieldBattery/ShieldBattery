@@ -41,6 +41,9 @@
         },
         "lists": {
             "empty": "这里什么都没有"
+        },
+        "loading": {
+            "username": "用户名加载中……"
         }
     },
     "settings": {

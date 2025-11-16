@@ -43,6 +43,10 @@
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
+        },
+        "loading": {
+            "channelName": "$🗡Channel name loading…🗡!",
+            "username": "$🗡Username loading…🗡!"
         }
     },
     "settings": {

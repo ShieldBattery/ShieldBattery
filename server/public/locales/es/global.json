@@ -45,6 +45,9 @@
         },
         "lists": {
             "empty": "Nada que ver aquí"
+        },
+        "loading": {
+            "username": "Cargando nombre de usuario…"
         }
     },
     "settings": {
