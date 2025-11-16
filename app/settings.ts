@@ -1,7 +1,6 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import debounce from 'lodash/debounce'
-import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
