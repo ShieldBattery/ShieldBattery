@@ -5,7 +5,12 @@ import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
-import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
+import {
+  LocalSettings,
+  ScrSettings,
+  StartingFog,
+  UnitPortraits,
+} from '../common/settings/local-settings'
 import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
@@ -473,7 +478,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
         'displayMode',
         'fpsLimit',
         'sdGraphicsFilter',
-        'unitPortraits',
         'apmAlertValue',
       ]
       for (const setting of intSettings) {
@@ -481,6 +485,13 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
         if (oldSetting !== undefined && oldSetting < 0) {
           newSettings[setting] = 0
         }
+      }
+      if (
+        newSettings.unitPortraits !== undefined &&
+        (newSettings.unitPortraits < 0 ||
+          !Object.values(UnitPortraits).includes(newSettings.unitPortraits))
+      ) {
+        newSettings.unitPortraits = UnitPortraits.Disabled
       }
       newSettings.version = 2
     }
