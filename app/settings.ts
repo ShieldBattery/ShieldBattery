@@ -16,7 +16,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 15
-const SCR_VERSION = 6
+const SCR_VERSION = 5
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -469,28 +469,23 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     const newSettings = { ...settings }
     if (!newSettings.version || newSettings.version < 2) {
       // Fix integer settings to not be negative
-      const intSettings: Array<ConditionalKeys<ScrSettings, number>> = [
+      const intSettings = [
         'keyboardScrollSpeed',
         'mouseScrollSpeed',
         'mouseSensitivity',
         'musicVolume',
         'soundVolume',
+        'displayMode',
         'fpsLimit',
         'sdGraphicsFilter',
+        'unitPortraits',
         'apmAlertValue',
-      ]
+      ] as const
       for (const setting of intSettings) {
         const oldSetting = newSettings[setting]
         if (oldSetting !== undefined && oldSetting < 0) {
-          newSettings[setting] = 0
+          newSettings[setting] = 0 as any
         }
-      }
-      // Handle enum settings separately
-      if (newSettings.displayMode !== undefined && newSettings.displayMode < 0) {
-        newSettings.displayMode = 0
-      }
-      if (newSettings.unitPortraits !== undefined && newSettings.unitPortraits < 0) {
-        newSettings.unitPortraits = 0
       }
       newSettings.version = 2
     }
@@ -533,16 +528,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       newSettings.showFps = blizzSettings.showFps
       newSettings.showTurnRate = blizzSettings.showTurnRate
       newSettings.version = 5
-    }
-    if (newSettings.version < 6) {
-      // Validate unitPortraits enum value
-      if (
-        newSettings.unitPortraits !== undefined &&
-        !Object.values(UnitPortraits).includes(newSettings.unitPortraits)
-      ) {
-        newSettings.unitPortraits = UnitPortraits.Disabled
-      }
-      newSettings.version = 6
     }
 
     newSettings.version = SCR_VERSION
