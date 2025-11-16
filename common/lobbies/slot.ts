@@ -1,5 +1,6 @@
 import { Record } from 'immutable'
 import { nanoid } from 'nanoid'
+import { BwSlotType } from '../maps'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
 
@@ -23,7 +24,7 @@ export class Slot extends Record({
   controlledBy: undefined as string | undefined,
   hasForcedRace: false,
   playerId: 0,
-  typeId: 0,
+  typeId: BwSlotType.Inactive,
 }) {}
 
 export type SlotJson = ReturnType<Slot['toJSON']>
@@ -36,7 +37,7 @@ export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId
     // These last three fields are used in UMS
     hasForcedRace,
     playerId,
-    typeId: 6,
+    typeId: BwSlotType.Open,
   })
 }
 
@@ -48,7 +49,7 @@ export function createClosed(race: RaceChar = 'r', hasForcedRace = false, player
     // These last three fields are used in UMS
     hasForcedRace,
     playerId,
-    typeId: 6,
+    typeId: BwSlotType.Open,
   })
 }
 
@@ -67,7 +68,7 @@ export function createHuman(
     // These last three fields are used in UMS
     hasForcedRace,
     playerId,
-    typeId: 6,
+    typeId: BwSlotType.Open,
   })
 }
 
@@ -106,7 +107,7 @@ export function createControlledClosed(race: RaceChar, controllerId: string): Sl
 // Creates a computer slot that is used in UMS lobbies. Computers in UMS lobbies can't be removed
 // from the lobby and their race can't be changed. TypeId is the exact type (regular computer,
 // rescueable, neutral, etc) which needs to be passed to bw but can otherwise be ignored.
-export function createUmsComputer(race: RaceChar, playerId: number, typeId: number): Slot {
+export function createUmsComputer(race: RaceChar, playerId: number, typeId: BwSlotType): Slot {
   return new Slot({
     type: SlotType.UmsComputer,
     race,

@@ -104,11 +104,22 @@ export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
 export type MapForcePlayerRace = 'any' | RaceChar
 
+export enum BwSlotType {
+  Inactive = 0,
+  Occupied = 1,
+  Human = 2,
+  Rescuable = 3,
+  Neutral = 4,
+  Computer = 5,
+  Open = 6,
+  NeutralComputer = 7,
+  Closed = 8,
+}
+
 export interface MapForcePlayer {
   id: number
   race: MapForcePlayerRace
-  // TODO(tec27): Make an enum for these types
-  typeId: number
+  typeId: BwSlotType
   computer: boolean
 }
 

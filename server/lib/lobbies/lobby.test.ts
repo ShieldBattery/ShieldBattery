@@ -9,7 +9,14 @@ import {
   Team,
 } from '../../../common/lobbies'
 import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
-import { makeSbMapId, MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
+import {
+  BwSlotType,
+  makeSbMapId,
+  MapInfo,
+  MapVisibility,
+  Tileset,
+  toMapInfoJson,
+} from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import {
@@ -851,23 +858,23 @@ const UMS_MAP_1: MapInfo = {
         name: 'Force Player',
         teamId: 1,
         players: [
-          { id: 0, race: 'z', typeId: 6, computer: false },
-          { id: 1, race: 'z', typeId: 6, computer: false },
-          { id: 2, race: 'z', typeId: 6, computer: false },
-          { id: 3, race: 'z', typeId: 6, computer: false },
-          { id: 4, race: 'z', typeId: 6, computer: false },
-          { id: 5, race: 'z', typeId: 6, computer: false },
+          { id: 0, race: 'z', typeId: BwSlotType.Open, computer: false },
+          { id: 1, race: 'z', typeId: BwSlotType.Open, computer: false },
+          { id: 2, race: 'z', typeId: BwSlotType.Open, computer: false },
+          { id: 3, race: 'z', typeId: BwSlotType.Open, computer: false },
+          { id: 4, race: 'z', typeId: BwSlotType.Open, computer: false },
+          { id: 5, race: 'z', typeId: BwSlotType.Open, computer: false },
         ],
       },
       {
         name: 'Force Computer',
         teamId: 2,
-        players: [{ id: 7, race: 'z', typeId: 5, computer: true }],
+        players: [{ id: 7, race: 'z', typeId: BwSlotType.Computer, computer: true }],
       },
       {
         name: 'Force Computer',
         teamId: 3,
-        players: [{ id: 6, race: 'z', typeId: 5, computer: true }],
+        players: [{ id: 6, race: 'z', typeId: BwSlotType.Computer, computer: true }],
       },
     ],
     width: 256,
@@ -896,24 +903,24 @@ const UMS_MAP_2: MapInfo = {
       {
         name: 'tappavat',
         teamId: 1,
-        players: [{ id: 1, race: 't', typeId: 6, computer: false }],
+        players: [{ id: 1, race: 't', typeId: BwSlotType.Open, computer: false }],
       },
       {
         name: 'tapettavat',
         teamId: 2,
         players: [
-          { id: 0, race: 't', typeId: 5, computer: true },
-          { id: 3, race: 'z', typeId: 5, computer: true },
-          { id: 4, race: 'z', typeId: 5, computer: true },
-          { id: 5, race: 'z', typeId: 5, computer: true },
-          { id: 6, race: 't', typeId: 5, computer: true },
-          { id: 7, race: 'z', typeId: 5, computer: true },
+          { id: 0, race: 't', typeId: BwSlotType.Computer, computer: true },
+          { id: 3, race: 'z', typeId: BwSlotType.Computer, computer: true },
+          { id: 4, race: 'z', typeId: BwSlotType.Computer, computer: true },
+          { id: 5, race: 'z', typeId: BwSlotType.Computer, computer: true },
+          { id: 6, race: 't', typeId: BwSlotType.Computer, computer: true },
+          { id: 7, race: 'z', typeId: BwSlotType.Computer, computer: true },
         ],
       },
       {
         name: 'portitossi',
         teamId: 4,
-        players: [{ id: 2, race: 'p', typeId: 5, computer: true }],
+        players: [{ id: 2, race: 'p', typeId: BwSlotType.Computer, computer: true }],
       },
     ],
     width: 128,
@@ -943,16 +950,16 @@ const UMS_MAP_3: MapInfo = {
         name: 'Players',
         teamId: 1,
         players: [
-          { id: 0, race: 'any', typeId: 6, computer: false },
-          { id: 1, race: 'any', typeId: 6, computer: false },
+          { id: 0, race: 'any', typeId: BwSlotType.Open, computer: false },
+          { id: 1, race: 'any', typeId: BwSlotType.Open, computer: false },
         ],
       },
       {
         name: 'Observers',
         teamId: 2,
         players: [
-          { id: 2, race: 'p', typeId: 6, computer: false },
-          { id: 3, race: 't', typeId: 6, computer: false },
+          { id: 2, race: 'p', typeId: BwSlotType.Open, computer: false },
+          { id: 3, race: 't', typeId: BwSlotType.Open, computer: false },
         ],
       },
     ],
@@ -983,29 +990,29 @@ const UMS_MAP_4: MapInfo = {
         name: 'Team I',
         teamId: 1,
         players: [
-          { id: 0, race: 't', typeId: 6, computer: false },
-          { id: 1, race: 't', typeId: 6, computer: false },
-          { id: 2, race: 't', typeId: 6, computer: false },
+          { id: 0, race: 't', typeId: BwSlotType.Open, computer: false },
+          { id: 1, race: 't', typeId: BwSlotType.Open, computer: false },
+          { id: 2, race: 't', typeId: BwSlotType.Open, computer: false },
         ],
       },
       {
         name: 'Team II',
         teamId: 2,
         players: [
-          { id: 3, race: 't', typeId: 6, computer: false },
-          { id: 4, race: 't', typeId: 6, computer: false },
-          { id: 5, race: 't', typeId: 6, computer: false },
+          { id: 3, race: 't', typeId: BwSlotType.Open, computer: false },
+          { id: 4, race: 't', typeId: BwSlotType.Open, computer: false },
+          { id: 5, race: 't', typeId: BwSlotType.Open, computer: false },
         ],
       },
       {
         name: 'Map by Cygnus',
         teamId: 3,
-        players: [{ id: 6, race: 't', typeId: 7, computer: true }],
+        players: [{ id: 6, race: 't', typeId: BwSlotType.NeutralComputer, computer: true }],
       },
       {
         name: 'Force 4',
         teamId: 4,
-        players: [{ id: 7, race: 't', typeId: 7, computer: true }],
+        players: [{ id: 7, race: 't', typeId: BwSlotType.NeutralComputer, computer: true }],
       },
     ],
     width: 256,

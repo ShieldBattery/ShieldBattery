@@ -30,7 +30,14 @@ import {
   createOpen,
   createUmsComputer,
 } from '../../../common/lobbies/slot'
-import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../../common/maps'
+import {
+  BwSlotType,
+  MapForce,
+  MapInfo,
+  getTeamNames,
+  numTeams,
+  toMapInfoJson,
+} from '../../../common/maps'
 import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -197,7 +204,8 @@ function createInitialTeams(
       let teamId
       if (isUms(gameType)) {
         // Player type 5 means regular computer and 6 means human
-        const isHiddenSlot = (player: Slot) => player.typeId !== 5 && player.typeId !== 6
+        const isHiddenSlot = (player: Slot) =>
+          player.typeId !== BwSlotType.Computer && player.typeId !== BwSlotType.Open
         teamId = map.mapData.umsForces[teamIndex].teamId
         hiddenSlots = teamSlots.filter(isHiddenSlot)
         teamSlots = teamSlots.filterNot(isHiddenSlot)

@@ -1,5 +1,5 @@
 import { SlotType } from '../lobbies/slot'
-import { MapInfoJson } from '../maps'
+import { BwSlotType, MapInfoJson } from '../maps'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
 import { ResolvedRallyPointServer } from '../rally-point/index'
@@ -25,7 +25,7 @@ export interface PlayerInfo {
   /** The type of this slot. */
   type: SlotType
   /** The BW id of the type of this slot. */
-  typeId: number
+  typeId: BwSlotType
 }
 
 export interface ReplayMapInfo {

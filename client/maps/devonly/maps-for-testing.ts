@@ -1,4 +1,5 @@
 import {
+  BwSlotType,
   makeSbMapId,
   MapForcePlayer,
   MapInfoJson,
@@ -33,7 +34,7 @@ export const FightingSpirit: MapInfoJson = {
           (i: number): MapForcePlayer => ({
             id: i,
             race: 'any',
-            typeId: 5,
+            typeId: BwSlotType.Computer,
             computer: false,
           }),
         ),

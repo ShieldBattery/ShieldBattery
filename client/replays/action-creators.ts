@@ -4,6 +4,7 @@ import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { BwSlotType } from '../../common/maps'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
@@ -19,7 +20,7 @@ const ipcRenderer = new TypedIpcRenderer()
 async function setGameConfig(replay: { name: string; path: string }, user?: SelfUserJson) {
   const player: PlayerInfo = {
     type: SlotType.Human,
-    typeId: 6,
+    typeId: BwSlotType.Open,
     id: nanoid(),
     teamId: 0,
     userId: user?.id ?? makeSbUserId(0),
