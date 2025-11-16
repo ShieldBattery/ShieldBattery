@@ -291,6 +291,10 @@
     "lists": {
       "empty": "Nothing to see here"
     },
+    "loading": {
+      "channelName": "Channel name loading…",
+      "username": "Username loading…"
+    },
     "validators": {
       "maxLength_one": "Enter at most {{count}} character",
       "maxLength_other": "Enter at most {{count}} characters",

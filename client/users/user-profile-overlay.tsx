@@ -247,7 +247,7 @@ export function UserProfileOverlayContents({
           {user ? (
             <Username>{user.name}</Username>
           ) : (
-            <LoadingUsername aria-label='Username loading…' />
+            <LoadingUsername aria-label={t('common.loading.username', 'Username loading…')} />
           )}
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
