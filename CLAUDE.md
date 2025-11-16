@@ -17,6 +17,17 @@ ShieldBattery is a modern platform for playing StarCraft: Brood War/Remastered. 
 
 ## Common Development Commands
 
+### Dependencies Installation
+
+**IMPORTANT**: Before running any pnpm commands, always check if `node_modules` exists in the project root. If it doesn't exist or you encounter errors about missing dependencies:
+
+```bash
+# Check if node_modules exists and install if needed
+ls node_modules || pnpm install
+```
+
+This step is critical when working in web environments where the repository may be freshly cloned without dependencies installed.
+
 ### Development Servers
 
 ```bash
