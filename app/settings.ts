@@ -16,7 +16,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 15
-const SCR_VERSION = 5
+const SCR_VERSION = 6
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -475,7 +475,6 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
         'mouseSensitivity',
         'musicVolume',
         'soundVolume',
-        'displayMode',
         'fpsLimit',
         'sdGraphicsFilter',
         'apmAlertValue',
@@ -486,12 +485,12 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
           newSettings[setting] = 0
         }
       }
-      if (
-        newSettings.unitPortraits !== undefined &&
-        (newSettings.unitPortraits < 0 ||
-          !Object.values(UnitPortraits).includes(newSettings.unitPortraits))
-      ) {
-        newSettings.unitPortraits = UnitPortraits.Disabled
+      // Handle enum settings separately
+      if (newSettings.displayMode !== undefined && newSettings.displayMode < 0) {
+        newSettings.displayMode = 0
+      }
+      if (newSettings.unitPortraits !== undefined && newSettings.unitPortraits < 0) {
+        newSettings.unitPortraits = 0
       }
       newSettings.version = 2
     }
@@ -534,6 +533,16 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       newSettings.showFps = blizzSettings.showFps
       newSettings.showTurnRate = blizzSettings.showTurnRate
       newSettings.version = 5
+    }
+    if (newSettings.version < 6) {
+      // Validate unitPortraits enum value
+      if (
+        newSettings.unitPortraits !== undefined &&
+        !Object.values(UnitPortraits).includes(newSettings.unitPortraits)
+      ) {
+        newSettings.unitPortraits = UnitPortraits.Disabled
+      }
+      newSettings.version = 6
     }
 
     newSettings.version = SCR_VERSION
