@@ -43,7 +43,8 @@
             "empty": "这里什么都没有"
         },
         "loading": {
-            "username": "用户名加载中……"
+            "username": "用户名加载中……",
+            "channelName": "频道名称加载中…"
         }
     },
     "settings": {
