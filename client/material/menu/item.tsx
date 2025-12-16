@@ -8,7 +8,7 @@ import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
-const Item = styled.button<{ $dense?: boolean; $virtualFocus?: boolean; $focused?: boolean }>`
+const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   ${buttonReset};
   position: relative;
   width: auto;
@@ -24,10 +24,13 @@ const Item = styled.button<{ $dense?: boolean; $virtualFocus?: boolean; $focused
   text-align: left;
 
   ${props => {
-    if (!props.$virtualFocus || !props.$focused) {
+    if (!props.$focused) {
       return ''
     }
 
+    // NOTE(2Pac): This styling is only applied if the menu item is virtually focused. For regularly
+    // focused items, the focus styling is applied through the button (:focus-visible pseudo class)
+    // and ripple.
     return css`
       background-color: rgb(from var(--theme-on-surface) r g b / 0.1);
       outline: 3px solid var(--theme-grey-blue);
@@ -99,8 +102,7 @@ export function MenuItem({
       data-test={testName}
       {...buttonProps}
       $dense={dense}
-      $virtualFocus={virtualFocus}
-      $focused={focused}>
+      $focused={focused && virtualFocus}>
       {icon ? <ItemIcon>{icon}</ItemIcon> : null}
       <ItemText>{text}</ItemText>
       {trailingContent}

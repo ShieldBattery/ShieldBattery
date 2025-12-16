@@ -410,7 +410,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             dense={true}
             virtualFocus={true}
             onActiveIndexChange={setVirtuallyFocusedMentionIndex}>
-            {matchedUsers.map((user, index) => (
+            {matchedUsers.map(user => (
               <StyledMenuItem
                 key={user.id}
                 text={user.name}
