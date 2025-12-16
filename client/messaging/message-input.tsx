@@ -172,6 +172,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const [userMentionStartIndex, setUserMentionStartIndex] = useState<number>(-1)
     const [userMentionMatchedText, setUserMentionMatchedText] = useState<string>('')
     const [matchedUsers, setMatchedUsers] = useState<MentionableUser[]>([])
+    const [virtuallyFocusedMentionIndex, setVirtuallyFocusedMentionIndex] = useState<number>(0)
 
     const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
@@ -283,6 +284,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     })
 
     const onEnterKeyDown = useStableCallback(() => {
+      if (userMentionsOpen && matchedUsers.length > 0) {
+        onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+        setVirtuallyFocusedMentionIndex(0)
+        return
+      }
+
       if (message) {
         onSendChatMessage(message)
         setMessage('')
@@ -373,13 +380,25 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               }
             },
           }}
+          onKeyDown={event => {
+            if (event.key === 'Tab') {
+              if (userMentionsOpen && matchedUsers.length > 0) {
+                event.preventDefault()
+                onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+                setVirtuallyFocusedMentionIndex(0)
+              }
+            }
+          }}
           onEnterKeyDown={onEnterKeyDown}
           onChange={onChange}
         />
 
         <Popover
           open={userMentionsOpen}
-          onDismiss={closeUserMentions}
+          onDismiss={() => {
+            setVirtuallyFocusedMentionIndex(0)
+            closeUserMentions()
+          }}
           anchorX={anchorX ?? 0}
           anchorY={(anchorY ?? 0) - 8}
           originX='left'
@@ -387,19 +406,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           // Keep the focus in the message input when user mentions popover opens so the user can
           // keep typing.
           focusOnMount={false}>
-          <StyledMenuList dense={true}>
+          <StyledMenuList
+            dense={true}
+            virtualFocus={true}
+            onActiveIndexChange={setVirtuallyFocusedMentionIndex}>
             {matchedUsers.map(user => (
               <StyledMenuItem
                 key={user.id}
                 text={user.name}
                 $faded={!user.online}
                 icon={<StyledAvatar userId={user.id} $faded={!user.online} />}
-                onKeyDown={event => {
-                  if (event.code === 'Tab') {
-                    event.preventDefault()
-                    onMentionSelect(user)
-                  }
-                }}
                 onClick={() => onMentionSelect(user)}
               />
             ))}
