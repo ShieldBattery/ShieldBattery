@@ -43,6 +43,7 @@ const Text = styled.span`
   word-wrap: break-word;
   overflow-wrap: break-word;
   overflow: hidden;
+  white-space: pre-wrap;
 `
 
 const MentionedUsername = styled(ConnectedUsername)`
