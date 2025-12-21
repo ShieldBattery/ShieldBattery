@@ -68,7 +68,7 @@ export function LeagueHomeFeed({
         <ListButtonContainer>
           <LinkButton href='/leagues'>
             <OutlinedButton
-              $as='div'
+              styledAs='div'
               label={t('leagues.list.viewAll', 'View all leagues')}
               tabIndex={0}
             />

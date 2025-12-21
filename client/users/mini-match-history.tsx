@@ -40,6 +40,10 @@ const EmptyListText = styled.div`
   margin-left: 16px;
 `
 
+const ViewFullHistoryLink = styled(LinkButton)`
+  display: flex;
+`
+
 const ViewFullHistoryButton = styled(TextButton)`
   width: 100%;
 `
@@ -77,12 +81,14 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
           <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
         ) : null}
         {games.length > 0 ? (
-          <LinkButton
+          <ViewFullHistoryLink
             href={urlPath`/users/${forUserId}/${username}/${UserProfileSubPage.MatchHistory}`}>
             <ViewFullHistoryButton
+              styledAs='div'
               label={t('user.miniMatchHistory.viewFullHistory', 'View full match history')}
+              tabIndex={0}
             />
-          </LinkButton>
+          </ViewFullHistoryLink>
         ) : null}
       </GameList>
       <ConnectedGamePreview game={activeGame} forUserId={forUserId} />

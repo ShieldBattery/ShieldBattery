@@ -399,10 +399,10 @@ export interface FilledButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
-  $as?: string | React.ComponentType<any>
   children?: React.ReactNode
   testName?: string
   ref?: React.Ref<HTMLButtonElement>
+  styledAs?: WebTarget
 }
 
 /**
@@ -423,10 +423,10 @@ export function FilledButton({
   title,
   type = 'button',
   name,
-  $as = 'button',
   children,
   testName,
   ref,
+  styledAs,
 }: FilledButtonProps) {
   const [buttonProps, rippleRef] = useButtonState({
     disabled,
@@ -439,9 +439,9 @@ export function FilledButton({
 
   return (
     <FilledButtonRoot
+      as={styledAs}
       $hasIcon={!!iconStart}
       ref={ref}
-      as={$as}
       className={className}
       tabIndex={tabIndex}
       title={title}
@@ -553,6 +553,7 @@ export interface TextButtonProps {
   name?: string
   testName?: string
   ref?: React.Ref<HTMLButtonElement>
+  styledAs?: WebTarget
 }
 
 /**
@@ -575,6 +576,7 @@ export function TextButton({
   name,
   testName,
   ref,
+  styledAs,
 }: TextButtonProps) {
   const [buttonProps, rippleRef] = useButtonState({
     disabled,
@@ -587,6 +589,7 @@ export function TextButton({
 
   return (
     <TextButtonRoot
+      as={styledAs}
       $hasIcon={!!iconStart}
       ref={ref}
       className={className}
