@@ -25,7 +25,6 @@ export const InputBase = styled.div<{
   line-height: inherit;
   -ms-flex-preferred-size: inherit;
   user-select: inherit;
-  field-sizing: content;
 
   &:focus {
     outline: none;

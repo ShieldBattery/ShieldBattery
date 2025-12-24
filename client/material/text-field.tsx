@@ -25,6 +25,7 @@ const TextFieldContainer = styled.div<{
   $disabled?: boolean
   $floatingLabel?: boolean
   $focused?: boolean
+  $rows?: number
   $maxRows?: number
   $multiline?: boolean
 }>`
@@ -52,10 +53,14 @@ const TextFieldContainer = styled.div<{
   pointer-events: ${props => (props.$disabled ? 'none' : 'unset')};
 
   ${props => {
-    const spacing = props.$floatingLabel ? 34 : 28 /* textfield padding + input margin */
-    const height = props.$dense ? 40 : 56
+    if (!props.$multiline) return ''
 
-    return `max-height: ${props.$maxRows ? props.$maxRows * 20 + spacing : height}px;`
+    const padding = props.$floatingLabel ? 37 : 31 /* textfield padding + input padding */
+
+    return `
+      min-height: ${props.$rows ? `${props.$rows * 20 + padding}px` : 'auto'};
+      max-height: ${props.$maxRows ? `${props.$maxRows * 20 + padding}px` : 'auto'};
+    `
   }}
 
   ${props => {
@@ -103,6 +108,10 @@ const TextFieldContainer = styled.div<{
     &::-webkit-calendar-picker-indicator {
       display: none;
     }
+  }
+
+  & textarea {
+    field-sizing: content;
   }
 `
 
@@ -366,6 +375,7 @@ export function TextField({
         $floatingLabel={floatingLabel}
         $dense={dense}
         $multiline={multiline}
+        $rows={rows}
         $maxRows={maxRows}
         onClick={() => inputRef.current?.focus()}>
         {renderLabel}

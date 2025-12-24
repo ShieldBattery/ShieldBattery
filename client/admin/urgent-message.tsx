@@ -33,6 +33,7 @@ const FormArea = styled.div`
 
 const Form = styled.form`
   flex-grow: 1;
+  min-width: 0;
 
   display: flex;
   flex-direction: column;
