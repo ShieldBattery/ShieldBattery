@@ -20,3 +20,5 @@ electron-builder.env
 
 CLAUDE.local.md
 .claude-scratch/
+
+.beads/
