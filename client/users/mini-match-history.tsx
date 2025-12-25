@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledResult, getResultLabel } from '../../common/games/results'
+import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
 import { GamePlayersDisplay } from '../games/game-players-display'
@@ -11,10 +12,12 @@ import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
+import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 import { BodyMedium, bodyLarge, singleLine, titleSmall } from '../styles/typography'
+import { UserProfileSubPage } from './user-profile-sub-page'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;
@@ -37,6 +40,14 @@ const EmptyListText = styled.div`
   margin-left: 16px;
 `
 
+const ViewFullHistoryLink = styled(LinkButton)`
+  display: flex;
+`
+
+const ViewFullHistoryButton = styled(TextButton)`
+  width: 100%;
+`
+
 export interface MiniMatchHistoryProps {
   forUserId: SbUserId
   games: Immutable<GameRecordJson[]>
@@ -44,6 +55,7 @@ export interface MiniMatchHistoryProps {
 
 export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
   const { t } = useTranslation()
+  const username = useAppSelector(s => s.users.byId.get(forUserId)?.name)
   const [activeGameId, setActiveGameId] = useState(games.length > 0 ? games[0].id : undefined)
   const activeGame = useMemo(() => {
     if (!activeGameId) {
@@ -67,6 +79,16 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
         ))}
         {games.length === 0 ? (
           <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
+        ) : null}
+        {games.length > 0 ? (
+          <ViewFullHistoryLink
+            href={urlPath`/users/${forUserId}/${username}/${UserProfileSubPage.MatchHistory}`}>
+            <ViewFullHistoryButton
+              styledAs='div'
+              label={t('user.miniMatchHistory.viewFullHistory', 'View full match history')}
+              tabIndex={0}
+            />
+          </ViewFullHistoryLink>
         ) : null}
       </GameList>
       <ConnectedGamePreview game={activeGame} forUserId={forUserId} />

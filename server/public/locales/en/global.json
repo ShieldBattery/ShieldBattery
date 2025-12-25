@@ -1231,7 +1231,8 @@
     },
     "miniMatchHistory": {
       "noGameSelected": "No game selected",
-      "viewDetails": "View details"
+      "viewDetails": "View details",
+      "viewFullHistory": "View full match history"
     },
     "seasons": {
       "noMatchingGames": "{{user}} has played no games in previous seasons.",
