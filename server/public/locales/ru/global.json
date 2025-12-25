@@ -1069,7 +1069,8 @@
     "user": {
         "miniMatchHistory": {
             "viewDetails": "Посмотреть детали",
-            "noGameSelected": "Игра не выбрана"
+            "noGameSelected": "Игра не выбрана",
+            "viewFullHistory": "Просмотреть полную историю матчей"
         },
         "matchHistory": {
             "noMatchingGames": "Нет подходящих игр.",

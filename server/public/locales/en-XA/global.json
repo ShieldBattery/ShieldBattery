@@ -822,7 +822,8 @@
     "user": {
         "miniMatchHistory": {
             "noGameSelected": "$🗡No game selected🗡!",
-            "viewDetails": "$🗡View details🗡!"
+            "viewDetails": "$🗡View details🗡!",
+            "viewFullHistory": "$🗡View full match history🗡!"
         },
         "matchHistory": {
             "retrievingError": "$🗡There was an error retrieving the match history.🗡!",

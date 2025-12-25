@@ -1124,7 +1124,8 @@
     "user": {
         "miniMatchHistory": {
             "viewDetails": "자세히 보기",
-            "noGameSelected": "선택된 게임이 없습니다"
+            "noGameSelected": "선택된 게임이 없습니다",
+            "viewFullHistory": "전체 경기 기록 보기"
         },
         "matchHistory": {
             "noMatchingGames": "일치하는 게임이 없습니다.",

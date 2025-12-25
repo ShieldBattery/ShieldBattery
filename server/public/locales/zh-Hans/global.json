@@ -1052,7 +1052,8 @@
     "user": {
         "miniMatchHistory": {
             "noGameSelected": "没有选择游戏",
-            "viewDetails": "查看详情"
+            "viewDetails": "查看详情",
+            "viewFullHistory": "查看完整比赛历史"
         },
         "matchHistory": {
             "noMatchingGames": "没有符合条件的对局。",

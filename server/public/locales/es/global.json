@@ -829,7 +829,8 @@
     "user": {
         "miniMatchHistory": {
             "noGameSelected": "Ningún juego seleccionado",
-            "viewDetails": "Ver detalles"
+            "viewDetails": "Ver detalles",
+            "viewFullHistory": "Ver historial completo de partidos"
         },
         "matchHistory": {
             "noMatchingGames": "Nada de juegos de combinación.",
