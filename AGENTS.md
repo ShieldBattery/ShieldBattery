@@ -4,222 +4,201 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ShieldBattery is a modern platform for playing StarCraft: Brood War/Remastered. It's a complex multi-language project consisting of:
+ShieldBattery is a modern platform for playing StarCraft: Brood War/Remastered. It's a multi-language project:
 
-- **client/**: React web application (TypeScript, Redux, Styled Components)
-- **server/**: Node.js backend server (Koa.js, PostgreSQL, Redis, WebSockets)
-- **app/**: Electron desktop application (TypeScript, native OS integration)
-- **common/**: Shared TypeScript code and types used across components
-- **server-rs/**: Rust GraphQL server (Axum, async-graphql, SQLx)
-- **game/**: Rust DLL for StarCraft integration, injected into StarCraft (Windows API, egui)
+| Directory    | Description                      | Stack                                       |
+| ------------ | -------------------------------- | ------------------------------------------- |
+| `client/`    | React web application            | TypeScript, Redux, Jotai, styled-components |
+| `server/`    | Node.js backend server           | Koa.js, PostgreSQL, Redis, WebSockets       |
+| `app/`       | Electron desktop application     | TypeScript, native OS integration           |
+| `common/`    | Shared TypeScript code           | Types, utilities, IPC definitions           |
+| `server-rs/` | Rust GraphQL server              | Axum, async-graphql, SQLx                   |
+| `game/`      | Rust DLL injected into StarCraft | Windows API, egui                           |
 
-**Architecture Rule**: `client/`, `server/`, and `app/` directories must not depend on each other. All can depend on `common/`.
+**Architecture Rule**: `client/`, `server/`, and `app/` must not depend on each other. All can depend on `common/`.
+
+## Quick Reference
+
+| Task                | Pattern                                          | Location                                |
+| ------------------- | ------------------------------------------------ | --------------------------------------- |
+| Add HTTP endpoint   | `@httpApi` class + `@httpGet`/`@httpPost` method | `server/lib/<feature>/<feature>-api.ts` |
+| Add WebSocket route | `@Mount` + `@Api` decorators                     | `server/lib/wsapi/`                     |
+| Add Redux state     | `immerKeyedReducer` + actions                    | `client/<feature>/<feature>-reducer.ts` |
+| Add local UI state  | Jotai atom                                       | `client/<feature>/<feature>-atoms.ts`   |
+| Add shared type     | Interface in `common/`                           | Use typeshare if coming from Rust       |
+| Add GraphQL query   | Resolver in server-rs + `pnpm gen-graphql`       | `server-rs/src/`                        |
+| Test component      | Create devonly page                              | `client/<feature>/devonly/`             |
+
+### Key File Locations
+
+```
+client/redux-hooks.ts                - useAppDispatch, useAppSelector (use instead of base hooks)
+client/jotai-store.ts                - Global Jotai store instance
+client/dispatch-registry.ts          - Global dispatch for non-React code
+client/styles/colors.ts              - Theme CSS custom properties
+client/material/                     - UI component library
+client/gql/                          - Generated GraphQL types
+common/urls.ts                       - urlPath, apiUrl tagged templates (auto-encode URLs)
+common/ipc.ts                        - Electron IPC type definitions
+server/lib/http/http-api.ts          - @httpApi decorator
+server/lib/websockets/api-decorators.ts - WebSocket decorators
+```
 
 ## Common Development Commands
 
-### Dependencies Installation
-
-**IMPORTANT**: Before running any pnpm commands, always check if `node_modules` exists in the project root. If it doesn't exist or you encounter errors about missing dependencies:
-
 ```bash
-# Check if node_modules exists and install if needed
-ls node_modules || pnpm install
+pnpm run local-dev             # Run all dev services together (recommended)
+pnpm run test                  # Unit tests (Vitest)
+pnpm run test:integration      # Integration tests (Playwright)
+pnpm run lint --fix            # ESLint + Prettier autofix
+pnpm run typecheck             # TypeScript type checking
+
+# Code generation (run after changing relevant source)
+pnpm run gen-graphql           # Generate GraphQL types from schema
+pnpm run gen-typeshare         # Generate Rust->TypeScript types
+pnpm run gen-translations      # Generate translation files
+
+# Database
+pnpm run migrate:run           # Run migrations
+pnpm run sqlx-prepare          # Update SQLx query metadata for Rust
+
+# Rust game DLL
+game\build.bat                 # Debug 32-bit
+game\build.bat x86_64          # Debug 64-bit
 ```
 
-This step is critical when working in web environments where the repository may be freshly cloned without dependencies installed.
+## File Naming Conventions
 
-### Development Servers
-
-```bash
-# Run all development services together (recommended)
-pnpm run local-dev
-
-# Individual components
-pnpm run start-server     # Node.js backend server
-pnpm run dev             # Webpack dev server for client
-pnpm run app             # Electron desktop app
-
-# Build Rust game DLL
-game\build.bat                # Debug 32-bit build
-game\built.bat x86_64         # Debug 64-bit build
-game\build.bat release        # Release 32-bit build
-game\build.bat x86_64 release # Release 64-bit build
-```
-
-### Testing
-
-```bash
-pnpm run test            # Unit tests (Vitest)
-pnpm run test --watch    # Watch mode for tests
-pnpm run test-ui         # Test UI with coverage
-pnpm run test:integration # Integration tests (Playwright)
-
-# Quality checks
-pnpm run lint --fix      # ESLint autofix (can fix formatting with prettier)
-pnpm run typecheck       # TypeScript type checking
-```
-
-### Code Generation
-
-```bash
-pnpm run gen-graphql     # Generate GraphQL types from schema
-pnpm run gen-emails      # Generate email templates
-pnpm run gen-translations # Generate translation files
-pnpm run gen-typeshare   # Generate Rust->TypeScript types
-```
-
-### Database
-
-```bash
-pnpm run migrate:run     # Run database migrations
-pnpm run migrate:create  # Create new migration
-pnpm run sqlx-prepare    # Update SQLx query metadata for Rust
-```
-
-### Building & Distribution
-
-```bash
-pnpm run build-app-client      # Build Electron app client code
-pnpm run build-web-client      # Build web client code
-pnpm run pack                  # Build Electron app (dev distribution)
-pnpm run dist                  # Build Electron app (production distribution)
-```
-
-## Architecture & Development Patterns
-
-### Multi-Language Structure
-
-- **TypeScript**: Client, server, app, and common code
-- **Rust**: Game integration DLL and GraphQL server
-- **PostgreSQL**: Primary database with Redis for caching/sessions
-- **Electron**: Desktop app wrapper with IPC communication
-
-### Real-time Communication
-
-- WebSocket connections via Nydus library between client and Node.js server
-- IPC between Electron main and renderer processes
-- Custom networking protocols for game coordination via rally point system
-
-### State Management
-
-- **Client**: Redux for global state/caches, Jotai for state that only concerns individual features
-- **React**: Version 19 with modern hooks and concurrent features, using react-compiler.
-  useMemo/useCallback/useStableCallback are generally unnecessary now because of react-compiler, but
-  you may still see them in the codebase in older code.
-- **Styling**: styled-components with CSS-in-JS patterns
-
-### Code Organization
-
-- Component boundaries strictly enforced between major directories
-- Shared business logic lives in `common/`
-- Generated code marked clearly (don't edit generated files directly)
-- Type safety maintained across TypeScript and Rust boundaries via typeshare
-
-### Development Workflow
-
-- Hot reloading for client development via Webpack dev server
-- Docker Compose provides PostgreSQL and Redis for local development
-- Concurrent servers during development (use `local-dev` command)
-- Automatic code generation for GraphQL schemas and type definitions
-- Many client folders have `devonly` folders inside of them that contain pages purely for testing
-  out components/flows during development. You can feel free to develop your own, just add the page
-  to the routes inside that folder. These are linked inside `client/dev.tsx`. You can access that
-  page at `/dev` on the local server.
-
-### Build System
-
-- **Client**: Webpack with React Refresh for development
-- **Server**: Direct TypeScript compilation
-- **Game**: Cargo build system for Rust DLL (targets 32-bit Windows)
-- **Desktop**: Electron Builder for packaging and distribution
-
-### Database Patterns
-
-- SQLx for type-safe database queries in Rust server
-- Traditional SQL migrations for schema changes
-- PostgreSQL 17 features available (use TIMESTAMPTZ over TIMESTAMP)
-- Redis for session storage and real-time features, communication between server-rs and server (PUBSUB)
+| Pattern              | Purpose                  |
+| -------------------- | ------------------------ |
+| `*-reducer.ts`       | Redux reducer            |
+| `*-atoms.ts`         | Jotai atoms              |
+| `*-api.ts`           | HTTP API class           |
+| `*-service.ts`       | Business logic service   |
+| `socket-handlers.ts` | WebSocket event handlers |
+| `devonly/`           | Development test pages   |
 
 ## Key Development Guidelines
 
 ### General
 
-- Text-based files should use unix style line endings (LF only)
-- NEVER include comments in code that doesn't add any understanding over what the code already says.
-  ONLY include comments when code needs further explanation or is particularly tricky. Doc comments
-  over methods are helpful if they are not self-explanatory, but you can elide them otherwise.
-- DO NOT remove TODO comments unless the TODO has been completed. Leave them unmodified, including
-  any thing inside `TODO()` e.g. `TODO(tec27):` or `TODO(#1337):`.
-- `NOTE` and `TODO` comments should have context in parentheses, usually either the name
-  of the user who had the context when it was written (e.g. `TODO(tec27)`) or a relevant issue
-  number (e.g. `NOTE(#1337):`)
-- When writing code to replace older code, never leave the older code around. Delete files that
-  become unused as the result of refactoring.
-- The GraphQL schema is generated from the server-rs code and should not be edited by hand
+- Preserve `TODO(context)` and `NOTE(context)` comments unless completing the TODO
+- Delete unused code during refactoring
+- The GraphQL schema (`schema.graphql`) is generated from server-rs - don't edit manually
+- Don't edit translation files (`global.json`) manually - run `pnpm run gen-translations`
 
-### TypeScript
+### Project-Specific Patterns
 
-- Use specific types, avoid `any`
-- Prefer `const` for immutable variables
-- Use type-fest types where appropriate, like ReadonlyDeep for objects that don't need to be modifiable
-- Use `useAppDispatch` and `useAppSelector` for Redux (not base hooks)
-- Single quotes for strings, backticks for template literals
-- Prefer `for..of` to `forEach()
-- Our HTTP APIs are defined via a custom decorator-based system, so HTTP methods, route- or
-  service-specific middleware, etc. are defined via decorators, e.g. `@httpGet`. Our setup allows
-  us to declare return object types, so that we can have type safety on these routes. Request and
-  response types are usually put in `common` files to share between client and server.
-- Websocket broadcasting is done via a subscription system, usually either for all of the sockets
-  from a particular client or from a particular user. See `ClientSocketsManager` and
-  `UserSocketsManager`. The server decides which specific paths each client gets subscribed to, and
-  in the client code, we register routes by pattern to match against the messages we receive.
-- The NodeJS server uses tsyringe to do dependency injection
-- When constructing URLs or paths for URLs, use the `urlPath` tagged template to automatically
-  encode any variables you place within it. If it's going to our API server, you can use `apiUrl`.
-- Don't edit translation files (`global.json`) manually, they are generated from the source code.
+- Use `urlPath` or `apiUrl` tagged templates for URL construction (auto-encodes variables)
+- Use `ReadonlyDeep` from type-fest for immutable objects
+- IDs use Tagged types: `SbUserId`, `SbChannelId`, `SbMapId`
+- Events use discriminated unions with `action` field as discriminator
+- `Jsonify<T>` for JSON serialization types, `Patch<T>` for partial updates
 
-### Styling
+## Client Architecture
 
-- Use styled-components exclusively for CSS-in-JS
-- Avoid inline styles for normal CSS properties. If you need to change some value based on JS state,
-  use styled-components props if it has only a few possible values, or if it has many possible
-  values, set CSS custom properties with inline styles and adjust the styled CSS based on those.
-- Group CSS properties: layout → display → appearance → misc
-- Follow property ordering convention in CSS rules
-- Use react-i18next for all user-facing text translations
-- Use the motion library or basic CSS transitions for animations
-- Use UI component library under `client/material` as basis for most UIs
-- The `client/styles` directory has common styling we use everywhere, such as typography and colors.
-  We use a theming system based on CSS custom properties, which you can see in `client/styles/colors.ts`
+### State Management
 
-### Rust
+**Redux** for global/persistent state (auth, chat, users, games):
+- Use `immerKeyedReducer` - maps action types to handler functions
+- Action naming: `@feature/actionName` (e.g., `@chat/updateJoin`)
+- Access dispatch outside React via `dispatch-registry.ts`
 
-- Avoid unsafe code when possible
-- Target 32-bit Windows for game DLL (i686-pc-windows-msvc)
-- Use SQLx for database interactions with compile-time query validation
+**Jotai** for feature-local/transient state (matchmaking, UI state):
+- Access outside React via `jotaiStore.get(atom)` / `jotaiStore.set(atom, value)`
 
-### SQL
+### React & Styling
 
-- Use PostgreSQL 17 syntax and features
-- Always use `TIMESTAMPTZ` over `TIMESTAMP`
-- Prefer `kind` over `type` for column names (avoid SQL keywords)
+- React 19 with `react-compiler` - `useMemo`/`useCallback` generally unnecessary
+- Custom hooks in `client/react/`: `useValueAsRef`, `useStableCallback`, `usePrevious`
+- Use `$`-prefixed props for styled-components: `$disabled`, `$focused`
+- Theme in `client/styles/colors.ts`, typography in `client/styles/typography.ts`
+- Use `motion` library for animations, `react-i18next` for translations
+- Development test pages in `devonly/` folders (accessible at `/dev`)
 
-### Testing
+### GraphQL (URQL)
 
-- Unit tests with Vitest alongside implementation files (.test.ts)
-- Integration tests with Playwright in `integration/tests/`
-- Mock service dependencies in unit tests when appropriate (e.g. if using the real dependency is too
-  complex in tests)
-- Use isolated test data in integration tests (separate users/channels)
+- Fragment colocation with `graphql()` and `useFragment()`
+- Generated types in `client/gql/` via `pnpm gen-graphql`
+- Custom scalars mapped in `graphql-codegen.ts`
+
+### Network
+
+- HTTP: `fetchJson()` from `client/network/fetch.ts`
+- WebSocket: Nydus client with handlers in `socket-handlers.ts`
+
+## Server Architecture (Node.js)
+
+### HTTP API Decorators
+
+```typescript
+@httpApi('/chat') // Registers at /api/1/chat, implies @singleton()
+export class ChatApi {
+  constructor(private chatService: ChatService) {} // tsyringe DI
+
+  @httpGet('/channels/:channelId')
+  @httpBefore(ensureLoggedIn, checkChannelPermissions)
+  async getChannel(ctx: RouterContext): Promise<ChannelResponse> { ... }
+}
+```
+
+**Decorators:** `@httpApi`, `@httpGet/Post/Put/Delete/Patch`, `@httpBefore`, `@httpBeforeAll`
+
+**Common Middleware:** `ensureLoggedIn`, `checkAllPermissions()`, `throttleMiddleware()`, `handleMultipartFiles()`, `convertXxxErrors`
+
+### WebSocket API
+
+```typescript
+@Mount('/lobbies')
+export class LobbyApi {
+  @Api('/subscribe')
+  async subscribe(data, next) { ... }
+}
+```
+
+### Other Patterns
+
+- **DI (tsyringe):** `@singleton()`, `@inject()`, `delay(() => Dep)` for circular deps
+- **Sockets:** `ClientSocketsManager`, `UserSocketsManager` with `.subscribe(path)`
+- **Database:** `withDbClient()`, `transact()` for transactions
+- **Redis:** Session storage, pub/sub between server and server-rs
+- **Errors:** `CodedError` with `makeErrorConverterMiddleware()` for HTTP mapping
+
+## Server-RS (Rust GraphQL)
+
+- `#[SimpleObject]` for basic types, `#[ComplexObject]` for custom resolvers
+- `#[graphql(guard = "...")]` for authorization
+- DataLoader pattern for N+1 prevention
+- SQLx with `as "column: Type"` for custom type mapping
+- Run `pnpm sqlx-prepare` after changing queries
+- `#[typeshare]` generates to `common/typeshare.ts`
+
+## Game DLL (Rust)
+
+Two code paths:
+- **Async** (Tokio): `async_thread` entry, networking/app communication
+- **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
+
+Build: 32-bit default, 64-bit via `game\build.bat x86_64`
+
+## Electron App
+
+- Typed IPC in `common/ipc.ts`: `invoke` (request-response), `send/on` (fire-and-forget)
+- Types: `IpcInvokeables`, `IpcRendererSendables`, `IpcMainSendables`
+- Key files: `app/app.ts`, `app/settings.ts`, `app/game/active-game-manager.ts`
+
+## Testing
+
+- **Unit (Vitest):** Colocated `.test.ts` files, `asMockedFunction()` from `common/testing/mocks.ts`
+- **Test utilities:** `FakeClock`, `FakeNydusServer`, `FakeNotificationService`
+- **Integration (Playwright):** `integration/tests/`, Page Object pattern in `integration/pages/`
+
+## SQL
+
+- PostgreSQL 17, always `TIMESTAMPTZ` over `TIMESTAMP`
+- Prefer `kind` over `type` for column names
 
 ## Important Notes
 
-- Many directories contain generated code - check README files before editing
-- The game DLL must target 32-bit architecture for StarCraft compatibility
-- Component isolation is critical - maintain strict boundaries between major directories
-- Use existing translation strings when possible for internationalization, provided they are for
-  similar context
-- You can feel free to add files to the `.claude-scratch/` directory in the root of this repository
-  if you need to remember things. This is your personal directory and the files in it are your own.
-  For instance if you come up with a plan of action, you could write it down in
-  `.claude-scratch/TODOS.md` to remember it for later.
+- Check README files before editing - some directories contain generated code
+- `.claude-scratch/` directory available for your notes and plans
