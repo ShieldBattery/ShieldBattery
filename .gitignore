@@ -16,7 +16,7 @@ stats.json
 electron-builder.env
 *.afdesign~lock~
 
-.claude/
+.claude/settings.local.json
 
 CLAUDE.local.md
 .claude-scratch/
