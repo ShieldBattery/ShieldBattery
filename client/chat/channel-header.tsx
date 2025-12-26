@@ -13,8 +13,6 @@ import {
 } from '../../common/chat'
 import { matchLinks } from '../../common/text/links'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -31,6 +29,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
+import { openChannelSettings } from './channel-settings/channel-settings-action-creators'
 
 export const CHANNEL_HEADER_HEIGHT = 72
 
@@ -188,14 +187,7 @@ export function ChannelHeader({
 
   const onChannelSettingsClick = useStableCallback(() => {
     closeOverflowMenu()
-    dispatch(
-      openDialog({
-        type: DialogType.ChannelSettings,
-        initData: {
-          channelId: basicChannelInfo.id,
-        },
-      }),
-    )
+    dispatch(openChannelSettings())
   })
   const onHideBannerClick = useStableCallback(() => {
     dispatch(

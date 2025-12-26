@@ -182,6 +182,9 @@
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
         "saveErrorMessage": "Something went wrong while saving the settings",
         "topicLabel": "Topic"
+      },
+      "tabs": {
+        "general": "General"
       }
     },
     "channelValidator": {
@@ -275,6 +278,7 @@
       "read": "Read",
       "refresh": "Refresh",
       "remove": "Remove",
+      "reset": "Reset",
       "reveal": "Reveal",
       "save": "Save",
       "search": "Search",
