@@ -58,6 +58,8 @@ This is a platform for competitive StarCraft players. The UI should feel like it
 
 **Crafted, not generic.** A ShieldBattery feature should feel like it belongs to ShieldBattery, not like it was pulled from a template.
 
+**Cohesive, not cobbled.** Every visual element—icons, colors, typography—comes from the design system. No emoji, no mismatched icon sets, no borrowed aesthetics.
+
 ## Making Bold Decisions
 
 You have permission to:
@@ -69,6 +71,12 @@ You have permission to:
 **Establish visual hierarchy ruthlessly.** Not everything is equally important. Make the important things big, bold, and obvious. Let secondary information recede. If you're not sure what's most important, that's a design problem to solve before coding.
 
 **Let the content breathe.** Generous spacing isn't wasted space—it's emphasis. Dense UIs have their place, but know when you're building a cockpit vs. a gallery.
+
+## What to Avoid
+
+**Emoji as UI elements.** Never use emoji (🎮 ✅ ⚠️ etc.) for icons, status indicators, or decorative elements. They clash with the crafted, professional aesthetic. Reach for `MaterialIcon` instead—there's a symbol for virtually every concept.
+
+**Generic placeholder aesthetics.** Don't fall back on common patterns just because they're easy. A checkbox list with emoji bullets isn't ShieldBattery—it's a to-do app.
 
 ## Asking the Right Questions
 
@@ -89,6 +97,7 @@ The design system provides the vocabulary. Use it:
 - **Components**: `client/material/` — buttons, dialogs, inputs, menus (extend, don't recreate)
 - **Animation**: `motion/react` with spring physics, `client/material/curves.ts` for CSS transitions
 - **Icons**: `MaterialIcon` component with [Material Symbols](https://fonts.google.com/icons)
+  - **Never use emoji** in the UI. Use MaterialIcon for visual indicators. Emoji break visual consistency and feel out of place in a competitive gaming platform.
 
 For patterns, look at existing features:
 
