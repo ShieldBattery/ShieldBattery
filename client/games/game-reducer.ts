@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { GameDebugInfoJson, GameRecordJson } from '../../common/games/games'
+import { GameDebugInfoJson, GameRecordJson, GameReplayInfo } from '../../common/games/games'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -9,12 +9,15 @@ export interface GameState {
   byId: Map<string, GameRecordJson>
   mmrChangesById: Map<string, Map<SbUserId, PublicMatchmakingRatingChangeJson>>
   debugInfoById: Map<string, GameDebugInfoJson>
+  /** A map of game ID -> replay info (if available and user has access). */
+  replayInfoById: Map<string, GameReplayInfo>
 }
 
 const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   byId: new Map(),
   mmrChangesById: new Map(),
   debugInfoById: new Map(),
+  replayInfoById: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -30,9 +33,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@games/getGameRecord'](state, { payload: { game, mmrChanges, debugInfo } }) {
+  ['@games/getGameRecord'](state, { payload: { game, mmrChanges, replay, debugInfo } }) {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
+    if (replay) {
+      state.replayInfoById.set(game.id, replay)
+    }
     if (debugInfo) {
       state.debugInfoById.set(game.id, debugInfo)
     }

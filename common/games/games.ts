@@ -49,6 +49,21 @@ export interface GameDebugInfo {
       playerResults: Array<[SbUserId, GameClientPlayerResult]>
     }
   }>
+  /** All replays uploaded for this game. */
+  replays?: GameReplayDebugInfo[]
+}
+
+export interface GameReplayDebugInfo {
+  /** The replay file ID. */
+  id: string
+  /** The user who uploaded this replay (from games_users, not replay_files.uploaded_by). */
+  uploadedByUserId: SbUserId
+  /** Signed URL for downloading this replay. */
+  url: string
+  /** SHA-256 hash of the replay file (hex-encoded), used for cache verification. */
+  hash: string
+  /** Duration in frames from replay header. */
+  frames: number | null
 }
 
 export type GameDebugInfoJson = Jsonify<GameDebugInfo>
@@ -61,6 +76,7 @@ export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson
       reportedAt: result.reportedAt ? Number(result.reportedAt) : undefined,
       reportedResults: result.reportedResults,
     })),
+    replays: debugInfo.replays,
   }
 }
 
@@ -92,12 +108,24 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>, t: TFunction):
   return assertUnreachable(game.config)
 }
 
+/** Info about a replay file available for download/watching. */
+export interface GameReplayInfo {
+  /** Unique replay file ID, used as the cache key. */
+  id: string
+  /** Signed URL for downloading the replay. */
+  url: string
+  /** SHA-256 hash of the replay file (hex-encoded), used for cache verification. */
+  hash: string
+}
+
 export interface GetGameResponse {
   game: GameRecordJson
   /** Can be undefined if the map could not be found (e.g. if it has been deleted). */
   map: MapInfoJson | undefined
   users: SbUser[]
   mmrChanges: PublicMatchmakingRatingChangeJson[]
+  /** Replay info for the best replay (if available and user has access). */
+  replay?: GameReplayInfo
   debugInfo?: GameDebugInfoJson
 }
 

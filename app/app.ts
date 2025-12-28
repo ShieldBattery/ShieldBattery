@@ -27,6 +27,7 @@ import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
+import { ReplayStore } from './game/replay-store'
 import logger from './logger'
 import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
@@ -588,9 +589,17 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   const mapStore = container.resolve(MapStore)
+  const replayStore = container.resolve(ReplayStore)
 
   ipcMain.handle('mapStoreDownloadMap', (event, mapHash, mapFormat, mapUrl) =>
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
+  )
+
+  ipcMain.handle('replayStoreGetPath', (event, id, expectedHash) =>
+    replayStore.getPathIfExists(id, expectedHash),
+  )
+  ipcMain.handle('replayStoreStoreReplay', (event, id, expectedHash, data) =>
+    replayStore.storeReplay(id, expectedHash, data),
   )
 
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
@@ -993,6 +1002,10 @@ app.on('ready', () => {
       const mapDirPath = path.join(app.getPath('userData'), 'maps')
       const mapStore = new MapStore(mapDirPath)
       container.register(MapStore, { useValue: mapStore })
+
+      const replayDirPath = path.join(app.getPath('userData'), 'replays')
+      const replayStore = new ReplayStore(replayDirPath)
+      container.register(ReplayStore, { useValue: replayStore })
 
       setupIpc(localSettings, scrSettings)
       setupCspProtocol(currentSession())

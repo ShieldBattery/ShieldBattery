@@ -83,6 +83,18 @@ interface IpcInvokeables {
     replayPath: string,
   ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
+  /**
+   * Checks if a replay with the given ID exists in the cache with the correct hash.
+   * Returns the file path if it exists and has correct hash, null otherwise.
+   */
+  replayStoreGetPath: (id: string, expectedHash: string) => Promise<string | null>
+
+  /**
+   * Stores replay data in the cache. Verifies the hash matches before storing.
+   * Returns the file path where the replay was stored.
+   */
+  replayStoreStoreReplay: (id: string, expectedHash: string, data: ArrayBuffer) => Promise<string>
+
   securityGetClientIds: () => Promise<[number, string][]>
 
   settingsLocalGet: () => Promise<Partial<LocalSettings>>

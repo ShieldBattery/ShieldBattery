@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
+import { GameReplayInfo } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
@@ -11,6 +12,8 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { fetchRaw } from '../network/fetch'
 import { makeServerUrl } from '../network/server-url'
 import { healthChecked } from '../starcraft/health-checked'
 
@@ -102,4 +105,43 @@ export function startReplay({
 
 export function showReplayInfo(filePath: string) {
   return openDialog({ type: DialogType.ReplayInfo, initData: { filePath } })
+}
+
+/**
+ * Downloads a replay from the server (if not already cached) and starts watching it.
+ */
+export function watchReplayFromUrl(
+  replayInfo: GameReplayInfo,
+  gameId: string,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    // Check if replay is already cached
+    let replayPath = await ipcRenderer.invoke('replayStoreGetPath', replayInfo.id, replayInfo.hash)
+
+    if (!replayPath) {
+      // Download the replay
+      const response = await fetchRaw(replayInfo.url, { signal: spec.signal })
+      if (!response.ok) {
+        throw new Error(
+          i18n.t('replays.watch.downloadFailed', 'Failed to download replay: {{status}}', {
+            status: response.status,
+          }),
+        )
+      }
+      const data = await response.arrayBuffer()
+
+      // Store in cache
+      replayPath = await ipcRenderer.invoke(
+        'replayStoreStoreReplay',
+        replayInfo.id,
+        replayInfo.hash,
+        data,
+      )
+    }
+
+    if (replayPath) {
+      dispatch(startReplay({ path: replayPath, name: `Replay ${gameId}` }))
+    }
+  })
 }

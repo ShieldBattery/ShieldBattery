@@ -5,7 +5,7 @@ import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ParsedReplay } from '../../workers/replays/messages'
-import { writeFile } from '../files'
+import { getSignedUrl, writeFile } from '../files'
 import logger from '../logging/logger'
 import { setReplayFileId } from '../models/games-users'
 import { replayPath } from './paths'
@@ -102,5 +102,23 @@ export class ReplayService {
     ])
 
     return { hash, size: fileStat.size }
+  }
+
+  /**
+   * Generates a signed URL for downloading a replay file.
+   * @param replayFileId The ID of the replay file
+   * @param filename The filename to use for the download (without extension)
+   * @param expiresIn Expiry time in seconds (default: 24 hours)
+   */
+  async getReplayDownloadUrl(
+    replayFileId: string,
+    filename: string,
+    expiresIn = 24 * 60 * 60,
+  ): Promise<string> {
+    const path = replayPath(replayFileId)
+    return getSignedUrl(path, {
+      expires: expiresIn,
+      contentDisposition: `attachment; filename="${filename}.rep"`,
+    })
   }
 }

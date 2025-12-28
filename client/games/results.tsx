@@ -14,6 +14,7 @@ import { isTeamType } from '../../common/games/game-type'
 import {
   GameDebugInfoJson,
   GameRecordJson,
+  GameReplayDebugInfo,
   getGameDurationString,
   getGameTypeLabel,
 } from '../../common/games/games'
@@ -30,6 +31,7 @@ import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
@@ -38,7 +40,7 @@ import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
-import { FilledButton, IconButton, useButtonState } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
@@ -49,6 +51,7 @@ import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { watchReplayFromUrl } from '../replays/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -183,10 +186,12 @@ export function ConnectedGameResultsPage({
   const selfUser = useSelfUser()
   const hasDebugPermission = !!useSelfPermissions()?.debug
   const game = useAppSelector(s => s.games.byId.get(gameId))
+  const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
   const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
+  const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
 
   const results = game?.results
 
@@ -284,6 +289,33 @@ export function ConnectedGameResultsPage({
     dispatch(searchAgainFromGame(config))
   }, [config, dispatch])
 
+  const onWatchReplay = () => {
+    if (!replayInfo || !IS_ELECTRON) return
+
+    setIsDownloadingReplay(true)
+
+    dispatch(
+      watchReplayFromUrl(replayInfo, gameId, {
+        onSuccess: () => {
+          setIsDownloadingReplay(false)
+        },
+        onError: err => {
+          setIsDownloadingReplay(false)
+          logger.error(`Error watching replay: ${getErrorStack(err)}`)
+          dispatch(
+            openSimpleDialog(
+              t('replays.watch.errorTitle', 'Error loading replay'),
+              t(
+                'replays.watch.errorBody',
+                'There was a problem downloading or loading the replay. Please try again later.',
+              ),
+            ),
+          )
+        },
+      }),
+    )
+  }
+
   let content: React.ReactNode
   switch (subPage) {
     case ResultsSubPage.Summary:
@@ -347,6 +379,30 @@ export function ConnectedGameResultsPage({
             iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}
             onClick={onSearchAgain}
+          />
+        ) : null}
+        {replayInfo && IS_ELECTRON ? (
+          <OutlinedButton
+            label={
+              isDownloadingReplay
+                ? t('gameDetails.buttonWatchReplayLoading', 'Loading…')
+                : t('gameDetails.buttonWatchReplay', 'Watch replay')
+            }
+            iconStart={<MaterialIcon icon='play_circle' />}
+            disabled={isDownloadingReplay}
+            onClick={onWatchReplay}
+          />
+        ) : null}
+        {replayInfo ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonDownloadReplay', 'Download replay')}
+            iconStart={<MaterialIcon icon='download' />}
+            onClick={() => {
+              const a = document.createElement('a')
+              a.href = replayInfo.url
+              a.target = '_blank'
+              a.click()
+            }}
           />
         ) : null}
         <ButtonSpacer />
@@ -952,6 +1008,17 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
 
   const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
 
+  // Map replays by uploadedByUserId for quick lookup
+  const replaysByUserId = useMemo(() => {
+    const map = new Map<SbUserId, ReadonlyDeep<GameReplayDebugInfo>>()
+    if (debugInfo.replays) {
+      for (const replay of debugInfo.replays) {
+        map.set(replay.uploadedByUserId, replay)
+      }
+    }
+    return map
+  }, [debugInfo.replays])
+
   const sortedReports = debugInfo.reportedResults.slice().sort((a, b) => {
     // Sort by reported time - earliest first, undefined/null last
     if (!a.reportedAt && !b.reportedAt) return 0
@@ -1034,35 +1101,59 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                     <th>{t('gameDetails.debugInfo.reportedAt', 'Reported At')}</th>
                     <th>{t('gameDetails.debugInfo.hasReport', 'Has Report')}</th>
                     <th>{t('gameDetails.debugInfo.reportedTime', 'Reported Time')}</th>
+                    <th>{t('gameDetails.debugInfo.replay', 'Replay')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedReports.map(report => (
-                    <tr key={report.userId}>
-                      <td>
-                        <ConnectedUsername userId={report.userId} />
-                      </td>
-                      <td>
-                        {report.reportedAt ? (
-                          <Tooltip
-                            text={longTimestampWithSeconds.format(report.reportedAt)}
-                            position='top'>
-                            {longTimestamp.format(report.reportedAt)}
-                          </Tooltip>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <HasReportCell $hasReport={!!report.reportedResults}>
-                        {report.reportedResults ? <SubmittedIcon /> : <NotSubmittedIcon />}
-                      </HasReportCell>
-                      <td>
-                        {report.reportedResults
-                          ? getGameDurationString(report.reportedResults.time)
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedReports.map(report => {
+                    const replay = replaysByUserId.get(report.userId)
+                    return (
+                      <tr key={report.userId}>
+                        <td>
+                          <ConnectedUsername userId={report.userId} />
+                        </td>
+                        <td>
+                          {report.reportedAt ? (
+                            <Tooltip
+                              text={longTimestampWithSeconds.format(report.reportedAt)}
+                              position='top'>
+                              {longTimestamp.format(report.reportedAt)}
+                            </Tooltip>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <HasReportCell $hasReport={!!report.reportedResults}>
+                          {report.reportedResults ? <SubmittedIcon /> : <NotSubmittedIcon />}
+                        </HasReportCell>
+                        <td>
+                          {report.reportedResults
+                            ? getGameDurationString(report.reportedResults.time)
+                            : '—'}
+                        </td>
+                        <td>
+                          {replay ? (
+                            <Tooltip
+                              text={t('gameDetails.debugInfo.downloadReplay', 'Download replay')}
+                              position='top'>
+                              <IconButton
+                                icon={<MaterialIcon icon='download' />}
+                                title={t('gameDetails.debugInfo.downloadReplay', 'Download replay')}
+                                onClick={() => {
+                                  const a = document.createElement('a')
+                                  a.href = replay.url
+                                  a.target = '_blank'
+                                  a.click()
+                                }}
+                              />
+                            </Tooltip>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </DebugTable>
             </DebugTableContainer>

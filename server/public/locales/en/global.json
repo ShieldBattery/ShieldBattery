@@ -367,7 +367,10 @@
   "gameDetails": {
     "buttonCopyGameId": "Copy ID",
     "buttonCopyLink": "Copy link to game",
+    "buttonDownloadReplay": "Download replay",
     "buttonSearchAgain": "Search again",
+    "buttonWatchReplay": "Watch replay",
+    "buttonWatchReplayLoading": "Loading…",
     "debugInfo": {
       "clientResult": {
         "defeat": "Defeat",
@@ -376,11 +379,13 @@
         "victory": "Victory"
       },
       "detailedResults": "Detailed Individual Results",
+      "downloadReplay": "Download replay",
       "hasReport": "Has Report",
       "latency": "Latency (ms)",
       "player": "Player",
       "player1": "Player 1",
       "player2": "Player 2",
+      "replay": "Replay",
       "reportedAPM": "APM",
       "reportedAt": "Reported At",
       "reportedPlayer": "Player",

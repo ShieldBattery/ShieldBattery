@@ -110,3 +110,51 @@ export async function insertReplayFile(
     done()
   }
 }
+
+/**
+ * Gets the "best" replay for a game (longest duration based on frame count).
+ */
+export async function getBestReplayForGame(
+  gameId: string,
+  client?: DbClient,
+): Promise<ReplayFile | null> {
+  const { client: dbClient, done } = await db(client)
+  try {
+    const result = await dbClient.query<DbReplayFile>(sql`
+      SELECT rf.*
+      FROM replay_files rf
+      JOIN games_users gu ON gu.replay_file_id = rf.id
+      WHERE gu.game_id = ${gameId}
+      ORDER BY (rf.header->>'frames')::int DESC NULLS LAST
+      LIMIT 1
+    `)
+    return result.rows[0] ? rowToReplayFile(result.rows[0]) : null
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Gets all replays for a game with uploader info (for admin debug view).
+ */
+export async function getAllReplaysForGame(
+  gameId: string,
+  client?: DbClient,
+): Promise<Array<ReplayFile & { uploadedByGameUserId: SbUserId }>> {
+  const { client: dbClient, done } = await db(client)
+  try {
+    const result = await dbClient.query<DbReplayFile & { uploader_user_id: SbUserId }>(sql`
+      SELECT rf.*, gu.user_id as uploader_user_id
+      FROM replay_files rf
+      JOIN games_users gu ON gu.replay_file_id = rf.id
+      WHERE gu.game_id = ${gameId}
+      ORDER BY (rf.header->>'frames')::int DESC NULLS LAST
+    `)
+    return result.rows.map(row => ({
+      ...rowToReplayFile(row),
+      uploadedByGameUserId: row.uploader_user_id,
+    }))
+  } finally {
+    done()
+  }
+}

@@ -5,9 +5,12 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameSource } from '../../../common/games/configuration'
 import { GameStatus } from '../../../common/games/game-status'
 import {
   GameDebugInfo,
+  GameRecord,
+  GameReplayInfo,
   GetGameResponse,
   toGameDebugInfoJson,
   toGameRecordJson,
@@ -20,6 +23,7 @@ import {
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { parseReplay } from '../../workers/replays/replays'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
@@ -29,6 +33,8 @@ import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { UpsertUserIp } from '../network/user-ips-type'
+import { generateReplayFilename } from '../replays/replay-filenames'
+import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-models'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -58,6 +64,28 @@ const gameResultsThrottle = createThrottle('gamesResults', {
 const GAME_ID_PARAM = Joi.object<{ gameId: string }>({
   gameId: Joi.string().required(),
 })
+
+/**
+ * Determines if a user can access replays for a game.
+ * - Matchmaking games: any user can access
+ * - Lobby games: only participants can access
+ */
+function canUserAccessReplay(game: GameRecord, userId: SbUserId | undefined): boolean {
+  if (game.config.gameSource === GameSource.Matchmaking) {
+    return true
+  }
+
+  if (game.config.gameSource === GameSource.Lobby) {
+    if (!userId) {
+      return false
+    }
+    // Check if user was a participant
+    const allPlayers = game.config.teams.flat()
+    return allPlayers.some(p => !p.isComputer && p.id === userId)
+  }
+
+  return false
+}
 
 @singleton()
 class GameCountEmitter {
@@ -170,15 +198,58 @@ export class GameApi {
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])
 
+    const mapName = mapArray[0]?.name ?? 'Unknown Map'
+
+    // Check replay access
+    const currentUserId = ctx.session?.user?.id
+    const canAccessReplay = canUserAccessReplay(game, currentUserId)
+
+    let replay: GameReplayInfo | undefined
+    if (canAccessReplay) {
+      try {
+        const bestReplay = await getBestReplayForGame(gameId)
+        if (bestReplay) {
+          const filename = generateReplayFilename(game, mapName)
+          replay = {
+            id: bestReplay.id,
+            url: await this.replayService.getReplayDownloadUrl(bestReplay.id, filename),
+            hash: bestReplay.hash.toString('hex'),
+          }
+        }
+      } catch (err) {
+        ctx.log.error({ err }, 'Error retrieving replay info for game')
+      }
+    }
+
     // Check for debug permission and add debug info if authorized
     let debugInfo: GameDebugInfo | undefined
     if (ctx.session?.permissions?.debug) {
       try {
-        const [routes, reportedResults] = await Promise.all([
+        const [routes, reportedResults, allReplays] = await Promise.all([
           getGameRoutes(gameId),
           getGameReportedResults(gameId),
+          getAllReplaysForGame(gameId),
         ])
-        debugInfo = { routes, reportedResults }
+
+        const replayDebugInfo = await Promise.all(
+          allReplays.map(async r => ({
+            id: r.id,
+            uploadedByUserId: r.uploadedByGameUserId,
+            // Append uploader user ID to distinguish multiple replays
+            url: await this.replayService.getReplayDownloadUrl(
+              r.id,
+              `${generateReplayFilename(game, mapName)}-${r.uploadedByGameUserId}`,
+            ),
+            hash: r.hash.toString('hex'),
+            frames: r.header?.frames ?? null,
+          })),
+        )
+
+        debugInfo = {
+          routes,
+          reportedResults,
+          replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
+        }
       } catch (err) {
         // Log error but don't fail the request
         ctx.log.error({ err }, 'Error retrieving debug info for game')
@@ -190,6 +261,7 @@ export class GameApi {
       map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
       users: Array.from(users.values()),
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+      replay,
       debugInfo: debugInfo ? toGameDebugInfoJson(debugInfo) : undefined,
     }
   }
