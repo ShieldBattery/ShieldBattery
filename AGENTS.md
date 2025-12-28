@@ -100,17 +100,20 @@ game\build.bat x86_64          # Debug 64-bit
 ### State Management
 
 **Redux** for global/persistent state (auth, chat, users, games):
+
 - Use `immerKeyedReducer` - maps action types to handler functions
 - Action naming: `@feature/actionName` (e.g., `@chat/updateJoin`)
 - Access dispatch outside React via `dispatch-registry.ts`
 
 **Jotai** for feature-local/transient state (matchmaking, UI state):
+
 - Access outside React via `jotaiStore.get(atom)` / `jotaiStore.set(atom, value)`
 
 ### React & Styling
 
-- React 19 with `react-compiler` - `useMemo`/`useCallback` generally unnecessary
-- Custom hooks in `client/react/`: `useValueAsRef`, `useStableCallback`, `usePrevious`
+- React 19 with `react-compiler` - `useMemo`/`useCallback`/`useStableCallback` generally unnecessary
+  - The compiler automatically memoizes as needed
+  - Don't wrap event handlers or inline functions in these hooks
 - Use `$`-prefixed props for styled-components: `$disabled`, `$focused`
 - Theme in `client/styles/colors.ts`, typography in `client/styles/typography.ts`
 - Use `motion` library for animations, `react-i18next` for translations
@@ -126,6 +129,50 @@ game\build.bat x86_64          # Debug 64-bit
 
 - HTTP: `fetchJson()` from `client/network/fetch.ts`
 - WebSocket: Nydus client with handlers in `socket-handlers.ts`
+
+### Async Action Patterns
+
+For async operations in action creators:
+
+```typescript
+// Define request/response types (often in common/)
+interface CreateWidgetRequest {
+  name: string
+  options: WidgetOptions
+}
+
+// Action creator using abortableThunk for cancelable operations
+export function createWidget(request: CreateWidgetRequest, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<WidgetResponse>(apiUrl`widgets`, {
+      method: 'POST',
+      body: encodeBodyAsParams(request),
+      signal: spec.signal,
+    })
+    dispatch({ type: '@widgets/create', payload: result })
+
+    return result.someData
+  })
+}
+
+// Caller handles UI states via callbacks
+dispatch(
+  createWidget(data, {
+    onSuccess: someData => {
+      setLoading(false)
+      setSomeData(someData)
+    },
+    onError: err => {
+      setLoading(false)
+      dispatch(openSimpleDialog('Error', 'Failed to create widget'))
+    },
+  }),
+)
+```
+
+- Use `abortableThunk` from `client/network/abortable-thunk.ts` for cancelable operations
+- Type the response with `fetchJson<ResponseType>()`
+- The caller handles success/error UI (loading states, error dialogs) via callbacks
 
 ## Server Architecture (Node.js)
 
@@ -165,6 +212,7 @@ export class LobbyApi {
 - **Redis:** Session storage, pub/sub between server and server-rs
 - **Errors:** `CodedError` with `makeErrorConverterMiddleware()` for HTTP mapping
 - **Types:** Colocate types with the code that uses them; don't create separate `types.ts` files unless there are circular dependency issues
+- **Standalone functions:** If a class method doesn't use `this`, extract it as a module-level function instead
 
 ## Server-RS (Rust GraphQL)
 
@@ -187,6 +235,7 @@ The game DLL is the primary actor for in-game operations (result reporting, repl
 ## Game DLL (Rust)
 
 Two code paths:
+
 - **Async** (Tokio): `async_thread` entry, networking/server communication
 - **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
 
