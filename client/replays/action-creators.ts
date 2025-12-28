@@ -123,11 +123,7 @@ export function watchReplayFromUrl(
       // Download the replay
       const response = await fetchRaw(replayInfo.url, { signal: spec.signal })
       if (!response.ok) {
-        throw new Error(
-          i18n.t('replays.watch.downloadFailed', 'Failed to download replay: {{status}}', {
-            status: response.status,
-          }),
-        )
+        throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
       }
       const data = await response.arrayBuffer()
 

@@ -950,6 +950,10 @@
     "replayInfoDialog": {
       "title": "Replay info",
       "watch": "Watch"
+    },
+    "watch": {
+      "errorBody": "There was a problem downloading or loading the replay. Please try again later.",
+      "errorTitle": "Error loading replay"
     }
   },
   "rootErrorBoundary": {
