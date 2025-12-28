@@ -778,9 +778,14 @@
             "reportedAPM": "APM",
             "reportedPlayer": "Игрок",
             "reportedRace": "Раса",
-            "reportTitle": "Отчет от <1></1>:"
+            "reportTitle": "Отчет от <1></1>:",
+            "downloadReplay": "Скачать повтор",
+            "replay": "Повтор"
         },
-        "buttonCopyGameId": "Скопировать ID"
+        "buttonCopyGameId": "Скопировать ID",
+        "buttonDownloadReplay": "Скачать повтор",
+        "buttonWatchReplayLoading": "Загрузка…",
+        "buttonWatchReplay": "Посмотреть реплей"
     },
     "navigation": {
         "leftNav": {
@@ -849,7 +854,10 @@
             "watch": "Смотреть"
         },
         "fileDropError": "Не удалось открыть реплей",
-        "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery."
+        "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery.",
+        "watch": {
+            "errorTitle": "Ошибка загрузки реплея"
+        }
     },
     "chat": {
         "banUser": {

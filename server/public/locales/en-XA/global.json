@@ -773,9 +773,14 @@
             "reportedTime": "$🗡Reported Time🗡!",
             "routes": "$🗡Network Routes🗡!",
             "title": "$🗡Debug Information🗡!",
-            "reportTitle": "$🗡Report from <1></1>:🗡!"
+            "reportTitle": "$🗡Report from <1></1>:🗡!",
+            "downloadReplay": "$🗡Download replay🗡!",
+            "replay": "$🗡Replay🗡!"
         },
-        "buttonCopyGameId": "$🗡Copy ID🗡!"
+        "buttonCopyGameId": "$🗡Copy ID🗡!",
+        "buttonDownloadReplay": "$🗡Download replay🗡!",
+        "buttonWatchReplay": "$🗡Watch replay🗡!",
+        "buttonWatchReplayLoading": "$🗡Loading…🗡!"
     },
     "messaging": {
         "blockedMessage": "$🗡Blocked message🗡!",
@@ -817,7 +822,11 @@
             "title": "$🗡Replay info🗡!"
         },
         "fileDropError": "$🗡There was a problem opening the replay file🗡!",
-        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!"
+        "fileDropText": "$🗡Drop replays here to watch them with ShieldBattery.🗡!",
+        "watch": {
+            "errorBody": "$🗡There was a problem downloading or loading the replay. Please try again later.🗡!",
+            "errorTitle": "$🗡Error loading replay🗡!"
+        }
     },
     "user": {
         "miniMatchHistory": {

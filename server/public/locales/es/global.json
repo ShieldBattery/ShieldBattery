@@ -780,9 +780,14 @@
             "reportedAPM": "APM",
             "reportedPlayer": "Jugador",
             "reportedRace": "Raza",
-            "reportTitle": "Informe de <1></1>:"
+            "reportTitle": "Informe de <1></1>:",
+            "downloadReplay": "Descargar repetición",
+            "replay": "Repetición"
         },
-        "buttonCopyGameId": "Copiar ID"
+        "buttonCopyGameId": "Copiar ID",
+        "buttonDownloadReplay": "Descargar repetición",
+        "buttonWatchReplayLoading": "Cargando…",
+        "buttonWatchReplay": "Ver Replay"
     },
     "messaging": {
         "blockedMessage": "Mensaje bloqueado",
@@ -824,7 +829,10 @@
             "watch": "Mirar"
         },
         "fileDropError": "Hubo un problema al abrir el replay",
-        "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery."
+        "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
+        "watch": {
+            "errorTitle": "Error al cargar el replay"
+        }
     },
     "user": {
         "miniMatchHistory": {

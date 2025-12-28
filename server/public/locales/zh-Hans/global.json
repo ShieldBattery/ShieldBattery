@@ -975,7 +975,10 @@
             "watch": "观看"
         },
         "fileDropError": "打开录像文件时出现问题",
-        "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。"
+        "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。",
+        "watch": {
+            "errorTitle": "加载录像时出错"
+        }
     },
     "rootErrorBoundary": {
         "contents": "请在我们的 <2>Discord</2> 服务器上向我们报告此问题。",
@@ -1045,9 +1048,14 @@
             "reportedAPM": "APM",
             "reportedPlayer": "玩家",
             "reportedRace": "种族",
-            "reportTitle": "来自 <1></1> 的报告："
+            "reportTitle": "来自 <1></1> 的报告：",
+            "replay": "回放",
+            "downloadReplay": "下载回放"
         },
-        "buttonCopyGameId": "复制ID"
+        "buttonCopyGameId": "复制ID",
+        "buttonDownloadReplay": "下载回放",
+        "buttonWatchReplayLoading": "加载中…",
+        "buttonWatchReplay": "观看录像"
     },
     "user": {
         "miniMatchHistory": {

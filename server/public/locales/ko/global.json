@@ -939,7 +939,11 @@
             "watch": "관전하기"
         },
         "fileDropError": "리플레이 파일을 여는 데 문제가 발생했습니다",
-        "fileDropText": "리플레이 파일을 여기에 끌어와 ShieldBattery로 감상하세요."
+        "fileDropText": "리플레이 파일을 여기에 끌어와 ShieldBattery로 감상하세요.",
+        "watch": {
+            "errorBody": "리플레이를 다운로드하거나 로드하는 데 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+            "errorTitle": "리플레이 불러오기 오류"
+        }
     },
     "material": {
         "dialog": {
@@ -1187,9 +1191,14 @@
             "reportedAPM": "APM",
             "reportedPlayer": "플레이어",
             "reportedRace": "종족",
-            "reportTitle": "<1></1>의 보고:"
+            "reportTitle": "<1></1>의 보고:",
+            "downloadReplay": "리플레이 다운로드",
+            "replay": "리플레이"
         },
-        "buttonCopyGameId": "ID 복사"
+        "buttonCopyGameId": "ID 복사",
+        "buttonDownloadReplay": "리플레이 다운로드",
+        "buttonWatchReplayLoading": "로딩 중…",
+        "buttonWatchReplay": "리플레이 보기"
     },
     "notifications": {
         "activityButton": {
