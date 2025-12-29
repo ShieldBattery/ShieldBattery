@@ -28,10 +28,9 @@ const sentMessages = new Map<string, SentEmail[]>()
 
 router
   .post('/v3/:domain/messages', async ctx => {
-    const { to, from, subject, template } = ctx.request.body
-    const templateVariables = ctx.request.body['t:variables']
-      ? JSON.parse(ctx.request.body['t:variables'])
-      : undefined
+    const body = (ctx.request.body ?? {}) as Record<string, string>
+    const { to, from, subject, template } = body
+    const templateVariables = body['t:variables'] ? JSON.parse(body['t:variables']) : undefined
     if (!to || !from || !subject || !template || !templateVariables) {
       throw new httpErrors.BadRequest('Missing required fields')
     }

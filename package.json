@@ -56,7 +56,7 @@
     "test": "vitest",
     "test-ui": "pnpm test --ui --coverage.enabled=true",
     "test:integration": "NODE_ENV=production playwright test",
-    "typecheck": "tsc --skipLibCheck false"
+    "typecheck": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --skipLibCheck false"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
@@ -165,6 +165,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/body-parser": "^1.19.6",
     "@types/connect": "^3.4.38",
+    "@types/css-tree": "^2.3.11",
     "@types/d3-time-format": "^4.0.3",
     "@types/deep-equal": "^1.0.4",
     "@types/formidable": "^3.4.6",
@@ -184,7 +185,7 @@
     "@types/lodash": "^4.17.21",
     "@types/lodash-es": "^4.17.12",
     "@types/memory-fs": "^0.3.7",
-    "@types/node": "24.2.1",
+    "@types/node": "24.10.4",
     "@types/pg": "^8.16.0",
     "@types/prismjs": "^1.26.5",
     "@types/prop-types": "^15.7.15",
@@ -211,7 +212,7 @@
     "@vitest/eslint-plugin": "^1.6.4",
     "@vitest/ui": "^4.0.16",
     "babel-loader": "^10.0.0",
-    "babel-plugin-react-compiler": "19.1.0-rc.3",
+    "babel-plugin-react-compiler": "1.0.0",
     "babel-plugin-styled-components": "^2.1.4",
     "concat-stream": "^2.0.0",
     "css-loader": "^7.1.2",
@@ -254,7 +255,7 @@
     "markdown-loader": "^8.0.0",
     "memoize-one": "^6.0.0",
     "mkdirp": "^3.0.1",
-    "motion": "^12.23.26",
+    "motion": "12.23.24",
     "native-addon-loader": "^2.0.1",
     "polished": "^4.3.1",
     "prettier": "^3.7.4",
@@ -302,7 +303,7 @@
   "pnpm": {
     "overrides": {
       "@types/koa": "^3.0.0",
-      "@types/node": "24.2.1",
+      "@types/node": "24.10.4",
       "@types/react": "^19.1.0",
       "@types/react-dom": "^19.1.1",
       "@types/unist": "^3.0.3",
