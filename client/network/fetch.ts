@@ -1,6 +1,6 @@
 import isNetworkError from 'is-network-error'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { TypedEventEmitter } from '../../common/typed-emitter'
+import { EventEmitter } from 'events'
 import { FetchError, FetchNetworkError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
@@ -8,10 +8,10 @@ const fetch = window.fetch
 
 export type UnauthorizedEmitterEvents = {
   /** A request to `url` returned a 401 response. */
-  unauthorized: (url: string) => void
+  unauthorized: [url: string]
 }
 
-export class UnauthorizedEmitter extends TypedEventEmitter<UnauthorizedEmitterEvents> {}
+export class UnauthorizedEmitter extends EventEmitter<UnauthorizedEmitterEvents> {}
 
 /** `EventEmitter` that emits events when a request returns a `401 Unauthorized` response. */
 export const UNAUTHORIZED_EMITTER = new UnauthorizedEmitter()

@@ -1,7 +1,7 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { SetRequired } from 'type-fest'
+import { JsonObject, SetRequired } from 'type-fest'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
@@ -13,6 +13,7 @@ import {
   GetMapsQueryParams,
   GetMapsResponse,
   MAP_LIST_LIMIT,
+  MapExtension,
   MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
@@ -238,15 +239,15 @@ export class MapsApi {
     }
 
     const { filepath } = ctx.request.files!.file
-    const { extension } = ctx.request.body
+    const { extension } = (ctx.request.body ?? { extension: undefined }) as JsonObject
 
     if (!filepath) {
       throw new httpErrors.BadRequest('map file must be specified')
-    } else if (!extension) {
+    } else if (!extension || typeof extension !== 'string') {
       throw new httpErrors.BadRequest('extension must be specified')
     }
 
-    const lowerCaseExtension = extension.toLowerCase()
+    const lowerCaseExtension = extension.toLowerCase() as MapExtension
     if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
@@ -273,15 +274,15 @@ export class MapsApi {
     }
 
     const { filepath } = ctx.request.files!.file
-    const { extension } = ctx.request.body
+    const { extension } = (ctx.request.body ?? { extension: undefined }) as JsonObject
 
     if (!filepath) {
       throw new httpErrors.BadRequest('map file must be specified')
-    } else if (!extension) {
+    } else if (!extension || typeof extension !== 'string') {
       throw new httpErrors.BadRequest('extension must be specified')
     }
 
-    const lowerCaseExtension = extension.toLowerCase()
+    const lowerCaseExtension = extension.toLowerCase() as MapExtension
     if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }

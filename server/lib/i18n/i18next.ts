@@ -3,6 +3,7 @@ import i18next from 'i18next'
 import FsBackend, { FsBackendOptions } from 'i18next-fs-backend'
 import Joi from 'joi'
 import { Next } from 'koa'
+import { JsonObject } from 'type-fest'
 import {
   ALL_TRANSLATION_LANGUAGES,
   ALL_TRANSLATION_NAMESPACES,
@@ -86,8 +87,9 @@ export function handleMissingTranslationKeys(ctx: RouterContext, next: Next) {
   // can see).
   const connector = i18next.services.backendConnector
   if (connector) {
-    for (const key in ctx.request.body) {
-      connector.saveMissing([lng], ns, key, ctx.request.body[key])
+    const body = ctx.request.body as JsonObject
+    for (const [key, value] of Object.entries(body)) {
+      connector.saveMissing([lng], ns, key, value)
     }
   }
 

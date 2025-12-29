@@ -1,8 +1,8 @@
+import { EventEmitter } from 'node:events'
 import RallyPointPlayer from 'rally-point-player'
 import { singleton } from 'tsyringe'
 import { isAbortError, raceAbort } from '../../common/async/abort-signals'
 import { ResolvedRallyPointServer } from '../../common/rally-point'
-import { TypedEventEmitter } from '../../common/typed-emitter'
 import logger from '../logger'
 import { monotonicNow } from '../time/monotonic-now'
 
@@ -19,7 +19,7 @@ interface PingResult {
 }
 
 type RallyPointManagerEvents = {
-  ping: (server: ResolvedRallyPointServer, ping: number) => void
+  ping: [server: ResolvedRallyPointServer, ping: number]
 }
 
 function timeout(timeMillis: number): Promise<void> {
@@ -27,7 +27,7 @@ function timeout(timeMillis: number): Promise<void> {
 }
 
 @singleton()
-export class RallyPointManager extends TypedEventEmitter<RallyPointManagerEvents> {
+export class RallyPointManager extends EventEmitter<RallyPointManagerEvents> {
   private readonly rallyPoint = new RallyPointPlayer('::', 0)
   private readonly boundPromise = this.rallyPoint.bind()
 

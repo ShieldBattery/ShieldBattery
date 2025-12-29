@@ -1,6 +1,7 @@
 import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app, screen } from 'electron'
 import { Set } from 'immutable'
+import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
 import path from 'node:path'
 import { singleton } from 'tsyringe'
@@ -13,7 +14,6 @@ import {
 } from '../../common/games/game-launch-config'
 import { GameStatus, ReportedGameStatus, statusToString } from '../../common/games/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
-import { TypedEventEmitter } from '../../common/typed-emitter'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
@@ -77,22 +77,24 @@ export interface ResendReplayRequest {
 }
 
 export type ActiveGameManagerEvents = {
-  gameCommand: (gameId: string, command: string, ...args: any[]) => void
-  gameResult: (info: {
-    gameId: string
-    /** A mapping of player user ID -> result. */
-    result: Record<SbUserId, GameClientPlayerResult>
-    /** The time the game took in milliseconds. */
-    time: number
-  }) => void
-  gameStatus: (statusInfo: ReportedGameStatus) => void
-  replaySaved: (gameId: string, path: string) => void
-  resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
-  resendReplay: (request: ResendReplayRequest) => void
+  gameCommand: [gameId: string, command: string, ...args: any[]]
+  gameResult: [
+    info: {
+      gameId: string
+      /** A mapping of player user ID -> result. */
+      result: Record<SbUserId, GameClientPlayerResult>
+      /** The time the game took in milliseconds. */
+      time: number
+    },
+  ]
+  gameStatus: [statusInfo: ReportedGameStatus]
+  replaySaved: [gameId: string, path: string]
+  resendResults: [gameId: string, requestBody: SubmitGameResultsRequest]
+  resendReplay: [request: ResendReplayRequest]
 }
 
 @singleton()
-export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents> {
+export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
   private serverPort = 0
 

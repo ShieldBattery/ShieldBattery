@@ -1,4 +1,4 @@
-import { ReadonlyDeep } from 'type-fest/source/readonly-deep'
+import { ReadonlyDeep } from 'type-fest'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql, sqlConcat } from '../db/sql'

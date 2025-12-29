@@ -1,12 +1,12 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import debounce from 'lodash/debounce'
+import { EventEmitter } from 'node:events'
 import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
 import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
-import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
@@ -30,12 +30,12 @@ function jsonify(settings: unknown) {
 }
 
 type SettingsEvents<T> = {
-  change: (settings: Readonly<Partial<T>>) => void
+  change: [settings: Readonly<Partial<T>>]
 }
 
 // A general class that the local settings and SC:R settings can both use to handle their respective
 // logic.
-abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
+abstract class SettingsManager<T> extends EventEmitter<SettingsEvents<T>> {
   protected abstract settings: Partial<T>
   protected initialized: Promise<void>
   protected settingsDirty = false

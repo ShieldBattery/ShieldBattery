@@ -1,7 +1,7 @@
 import { Map, Set } from 'immutable'
+import { EventEmitter } from 'node:events'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
-import { TypedEventEmitter } from '../../../common/typed-emitter'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets'
 import log from '../logging/logger'
@@ -22,11 +22,11 @@ interface SubscriptionInfo<T> {
 const defaultDataGetter: DataGetter<any, any> = () => {}
 
 type SocketGroupEvents<T> = {
-  connection: (group: T, socket: NydusClient) => void
-  close: (group: T) => void
+  connection: [group: T, socket: NydusClient]
+  close: [group: T]
 }
 
-abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
+abstract class SocketGroup<T> extends EventEmitter<SocketGroupEvents<T>> {
   readonly name: string
   readonly userId: SbUserId
   sockets = Set<NydusClient>()
@@ -190,12 +190,12 @@ export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
 }
 
 type UserSocketsManagerEvents = {
-  newUser: (user: UserSocketsGroup) => void
-  userQuit: (userId: SbUserId) => void
+  newUser: [user: UserSocketsGroup]
+  userQuit: [userId: SbUserId]
 }
 
 @singleton()
-export class UserSocketsManager extends TypedEventEmitter<UserSocketsManagerEvents> {
+export class UserSocketsManager extends EventEmitter<UserSocketsManagerEvents> {
   users = Map<number, UserSocketsGroup>()
 
   constructor(
@@ -256,12 +256,12 @@ export class UserSocketsManager extends TypedEventEmitter<UserSocketsManagerEven
 }
 
 type ClientSocketsManagerEvents = {
-  newClient: (client: ClientSocketsGroup) => void
-  clientQuit: (client: ClientSocketsGroup) => void
+  newClient: [client: ClientSocketsGroup]
+  clientQuit: [client: ClientSocketsGroup]
 }
 
 @singleton()
-export class ClientSocketsManager extends TypedEventEmitter<ClientSocketsManagerEvents> {
+export class ClientSocketsManager extends EventEmitter<ClientSocketsManagerEvents> {
   clients = Map<string, ClientSocketsGroup>()
 
   constructor(
