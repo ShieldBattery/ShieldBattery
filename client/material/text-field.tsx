@@ -55,11 +55,13 @@ const TextFieldContainer = styled.div<{
   ${props => {
     if (!props.$multiline) return ''
 
-    const padding = props.$floatingLabel ? 37 : 31 /* textfield padding + input padding */
+    const padding = props.$floatingLabel ? 34 : 28 /* textfield padding + input padding */
 
+    // NOTE(tec27): Chop off a bit from the max height to account for textarea rendering in padding
+    // area + ensure some cut-off in text to show overflow
     return `
-      min-height: ${props.$rows ? `${props.$rows * 20 + padding}px` : 'auto'};
-      max-height: ${props.$maxRows ? `${props.$maxRows * 20 + padding}px` : 'auto'};
+      min-height: ${props.$rows ? `${props.$rows * 20 + padding + 8}px` : 'auto'};
+      max-height: ${props.$maxRows ? `${props.$maxRows * 20 + padding + 8 - 10}px` : 'auto'};
     `
   }}
 
