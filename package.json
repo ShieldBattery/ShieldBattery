@@ -56,7 +56,7 @@
     "test": "vitest",
     "test-ui": "pnpm test --ui --coverage.enabled=true",
     "test:integration": "NODE_ENV=production playwright test",
-    "typecheck": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc --skipLibCheck false"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
@@ -255,7 +255,7 @@
     "markdown-loader": "^8.0.0",
     "memoize-one": "^6.0.0",
     "mkdirp": "^3.0.1",
-    "motion": "12.23.24",
+    "motion": "^12.23.26",
     "native-addon-loader": "^2.0.1",
     "polished": "^4.3.1",
     "prettier": "^3.7.4",
@@ -270,7 +270,7 @@
     "react-redux": "^9.2.0",
     "react-refresh": "^0.18.0",
     "react-svg-loader": "3.0.3",
-    "react-virtuoso": "^4.17.0",
+    "react-virtuoso": "^4.18.0",
     "redux": "^5.0.1",
     "redux-thunk": "^3.1.0",
     "rolldown": "1.0.0-beta.57",
