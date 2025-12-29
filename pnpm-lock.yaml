@@ -170,11 +170,11 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^5.2.1
-        version: 5.2.1
+        specifier: ^5.3.2
+        version: 5.3.2
       nydus-client:
-        specifier: ^5.1.0
-        version: 5.1.0
+        specifier: ^5.3.0
+        version: 5.3.0
       pg:
         specifier: ^8.16.3
         version: 8.16.3
@@ -9237,16 +9237,16 @@ packages:
   nullthrows@1.1.1:
     resolution: {integrity: sha512-2vPPEi+Z7WqML2jZYddDIfy5Dqb0r2fze2zTxNNknZaFpVHU3mFB3R+DWeJWGVx0ecvttSGlJTI+WG+8Z4cDWw==}
 
-  nydus-client@5.1.0:
-    resolution: {integrity: sha512-YG7hD/kmDLPx8DrusefbttbqkeC3VZGq5bVYoqnB5scFs9FoB4OQJIXLTUz6nnPOZ27K4HqjBknlqmQTHQLzcg==}
+  nydus-client@5.3.0:
+    resolution: {integrity: sha512-3UaA0f3BbXZyFJnsQSw+Z3XAoYk5TpXBNjPxgpl2S2xJJkebhCi6BqAVge0Sig+kpTzvnWsa2dxCcpfZyHFr9Q==}
     engines: {node: '>=22.12'}
 
   nydus-protocol@3.0.0:
     resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
     engines: {node: '>=22.0.0'}
 
-  nydus@5.2.1:
-    resolution: {integrity: sha512-Ybmfpe2Dug/ZBUV+itO+WTO2hBRnlC7Vu5+Q/bUVwoaALtkIvpas35bVnqcs6zp5srsshhzZSz4F2HetBzsNQA==}
+  nydus@5.3.2:
+    resolution: {integrity: sha512-9BTYWRKmW2dKR0LATyq3YxV1baGz6lCr1W36trtDKSVcs3yvwOsSN0ri5DTMS62uXGoqPmisPLuBSD+Up1vzoA==}
 
   nypm@0.6.0:
     resolution: {integrity: sha512-mn8wBFV9G9+UFHIrq+pZ2r2zL4aPau/by3kJb3cM7+5tQHMt6HGQB8FDIeKFYp8o0D2pnH6nVsO88N4AmUxIWg==}
@@ -22031,14 +22031,13 @@ snapshots:
 
   nullthrows@1.1.1: {}
 
-  nydus-client@5.1.0:
+  nydus-client@5.3.0:
     dependencies:
       backo2: 1.0.2
       engine.io-client: 6.6.4
       nanoid: 5.1.6
       nydus-protocol: 3.0.0
       ruta3: 2.0.1
-      tiny-typed-emitter: 2.1.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -22050,7 +22049,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  nydus@5.2.1:
+  nydus@5.3.2:
     dependencies:
       backo2: 1.0.2
       engine.io: 6.6.5
@@ -22058,7 +22057,6 @@ snapshots:
       nanoid: 5.1.6
       nydus-protocol: 3.0.0
       ruta3: 2.0.1
-      tiny-typed-emitter: 2.1.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
