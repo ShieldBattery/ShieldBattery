@@ -13,6 +13,8 @@ export interface RequestHandlingSpec<T = void> {
    * cancelable APIs (e.g. `fetch`) that are called by the underlying request code.
    */
   signal?: AbortSignal
+  /** Called when the underlying request starts. Can be used to e.g. set a loading state. */
+  onStart?: () => void
   /**
    * A function that will be called if the underlying request succeeds.
    */
@@ -51,10 +53,14 @@ export interface RequestHandlingSpec<T = void> {
  * }
  */
 export function abortableThunk<ResultType, T extends ReduxAction>(
-  { signal, onSuccess, onError, callbackOnAbort }: RequestHandlingSpec<ResultType>,
+  { signal, onStart, onSuccess, onError, callbackOnAbort }: RequestHandlingSpec<ResultType>,
   thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<ResultType>,
 ): ThunkAction<T> {
   return (dispatch, getState) => {
+    if (!signal?.aborted && onStart) {
+      onStart()
+    }
+
     thunkFn(dispatch, getState)
       .then(result => {
         if (!callbackOnAbort && signal?.aborted) {

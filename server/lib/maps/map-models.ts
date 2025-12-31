@@ -91,13 +91,11 @@ function addImageVersion(url: string | undefined, imageVersion: number): string 
 async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
   const hashString = info.map_hash.toString('hex')
 
-  const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
-    getSignedUrl(mapPath(hashString, info.extension)),
-    getUrl(imagePath(hashString, 256)),
-    getUrl(imagePath(hashString, 512)),
-    getUrl(imagePath(hashString, 1024)),
-    getUrl(imagePath(hashString, 2048)),
-  ])
+  const mapUrl = await getSignedUrl(mapPath(hashString, info.extension))
+  const image256Url = getUrl(imagePath(hashString, 256))
+  const image512Url = getUrl(imagePath(hashString, 512))
+  const image1024Url = getUrl(imagePath(hashString, 1024))
+  const image2048Url = getUrl(imagePath(hashString, 2048))
 
   const imageVersion = info.image_version
 

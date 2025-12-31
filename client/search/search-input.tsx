@@ -1,10 +1,10 @@
 import * as React from 'react'
-import { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
-import { usePrevious, useStableCallback } from '../react/state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
@@ -27,13 +27,16 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
     const [searchFocused, setInputFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const prevSearchQuery = usePrevious(searchQuery)
-    useEffect(() => {
-      // If we were rendered before and the props have changed, update the input value to match
-      if (searchQuery !== prevSearchQuery && prevSearchQuery !== undefined) {
+    const [prevSearchQuery, setPrevSearchQuery] = useState<string>(searchQuery)
+
+    if (searchQuery !== prevSearchQuery) {
+      if (prevSearchQuery !== undefined) {
+        // If we were rendered before and the props have changed, update the input value to match
         setInputValue(searchQuery)
       }
-    }, [searchQuery, prevSearchQuery])
+
+      setPrevSearchQuery(searchQuery)
+    }
 
     useImperativeHandle(ref, () => ({
       clear: () => {

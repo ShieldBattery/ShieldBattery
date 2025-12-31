@@ -32,6 +32,7 @@ import { ExternalLink } from '../navigation/external-link'
 import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
+import { useNow } from '../react/date-hooks'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -216,6 +217,8 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const league = useAppSelector(s => s.leagues.byId.get(id))
   const selfLeagueUser = useAppSelector(s => s.leagues.selfLeagues.get(id))
 
+  const curTime = useNow(60_000)
+
   const [isJoining, setIsJoining] = useState(false)
   const onJoinClick = useStableCallback(() => {
     if (!isLoggedIn) {
@@ -262,12 +265,13 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     const controller = new AbortController()
     const signal = controller.signal
 
-    setError(undefined)
-    setIsFetching(true)
-
     dispatch(
       getLeagueById(id, {
         signal,
+        onStart() {
+          setError(undefined)
+          setIsFetching(true)
+        },
         onSuccess(res) {
           setIsFetching(false)
           setError(undefined)
@@ -309,7 +313,6 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     return <LoadingDotsArea />
   }
 
-  const curTime = Date.now()
   const isJoinable = !selfLeagueUser && league.endAt > curTime
   const isRunningOrEnded = league.startAt <= curTime
 
@@ -620,19 +623,22 @@ function Leaderboard({
   const leaderboardUsers = useAppSelector(s => s.leagues.leaderboardUsers.get(league.id))
 
   const [error, setError] = useState<Error | undefined>(undefined)
+  const [curTime, setCurTime] = useState(() => Date.now())
 
   const id = league.id
   useEffect(() => {
     const controller = new AbortController()
     const signal = controller.signal
 
-    setError(undefined)
-
     dispatch(
       getLeagueLeaderboard(id, {
         signal,
+        onStart() {
+          setError(undefined)
+        },
         onSuccess(res) {
           setError(undefined)
+          setCurTime(Date.now())
         },
         onError(err) {
           setError(err)
@@ -644,10 +650,10 @@ function Leaderboard({
     return () => controller.abort()
   }, [id, dispatch])
 
-  const [leaderboardEntries, curTime] = useMemo(() => {
+  const leaderboardEntries = useMemo(() => {
     const result: LeaderboardEntry[] = []
     if (!leaderboard || !leaderboardUsers) {
-      return [result, Date.now()]
+      return result
     }
 
     let curRank = 1
@@ -659,7 +665,7 @@ function Leaderboard({
       result.push({ rank, leagueUser })
     }
 
-    return [result, Date.now()]
+    return result
   }, [leaderboard, leaderboardUsers])
 
   const [isHeaderUnstuck, , topHeaderNode, bottomHeaderNode] = useScrollIndicatorState({

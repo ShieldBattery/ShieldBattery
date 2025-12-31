@@ -183,6 +183,8 @@ export function SocialSidebar({
   const [doInitialAnim, setDoInitialAnim] = useState(actuallyPinned)
 
   useEffect(() => {
+    // TODO(tec27): Figure out a better way to do this
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDoInitialAnim(!actuallyPinned && !visible)
   }, [actuallyPinned, visible])
 
@@ -227,13 +229,14 @@ export function SocialSidebar({
       return () => {}
     }
 
-    setIsLoadingJoinedChannels(true)
-
     const abortController = new AbortController()
 
     dispatch(
       getJoinedChannels({
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoadingJoinedChannels(true)
+        },
         onSuccess: () => {
           setIsLoadingJoinedChannels(false)
           setLoadingJoinedChannelsError(undefined)
@@ -256,13 +259,14 @@ export function SocialSidebar({
       return () => {}
     }
 
-    setIsLoadingWhisperSessions(true)
-
     const abortController = new AbortController()
 
     dispatch(
       getWhisperSessions({
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoadingWhisperSessions(true)
+        },
         onSuccess: () => {
           setIsLoadingWhisperSessions(false)
           setLoadingWhisperSessionsError(undefined)

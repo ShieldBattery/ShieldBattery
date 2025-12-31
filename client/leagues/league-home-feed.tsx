@@ -10,6 +10,7 @@ import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
+import { useNow } from '../react/date-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
 import { urlForLeague } from './action-creators'
@@ -149,7 +150,7 @@ function LeagueEntry({ query }: { query: FragmentType<typeof Leagues_HomeFeedEnt
 
   const startAt = Number(new Date(league.startAt))
   const endAt = Number(new Date(league.endAt))
-  const curDate = Date.now()
+  const curDate = useNow(60_000)
 
   return (
     <LeagueEntryRoot {...buttonProps} href={url}>

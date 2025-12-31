@@ -156,9 +156,13 @@ export function useElementRect(
   const [element, setElement] = useState<HTMLElement | null>(null)
   const [rect, setRect] = useState<DOMRectReadOnly>()
 
-  // NOTE(tec27): This won't cause an infinite chain of updates because the state will only be
-  // changed if the bounds change (or the element ref changes)
-  useLayoutEffect(() => {
+  const [prevElement, setPrevElement] = useState<HTMLElement | null>(null)
+  const [prevRefreshToken, setPrevRefreshToken] = useState<unknown>(undefined)
+
+  if (element !== prevElement || refreshToken !== prevRefreshToken) {
+    setPrevElement(element)
+    setPrevRefreshToken(refreshToken)
+
     if (element) {
       setRect(rect => {
         const newRect = element.getBoundingClientRect()
@@ -174,12 +178,10 @@ export function useElementRect(
           return newRect
         }
       })
-    } else {
-      if (clearRectOnUnmount) {
-        setRect(undefined)
-      }
+    } else if (clearRectOnUnmount) {
+      setRect(undefined)
     }
-  }, [refreshToken, element, clearRectOnUnmount])
+  }
 
   return [setElement, rect]
 }
@@ -198,12 +200,12 @@ export function useBreakpoint<T extends Element, B>(
   const [ref, rect] = useObservedDimensions()
   // Ensure the breakpoints are sorted from least to greatest
   const sortedBreakpoints = useMemo(() => {
-    return breakpoints.slice().sort((a, b) => a[0] - b[0])
+    const result = breakpoints.slice().sort((a, b) => a[0] - b[0])
+    if (result[0][0] > 0) {
+      result[0][0] = 0
+    }
+    return result
   }, [breakpoints])
-
-  if (sortedBreakpoints[0][0] > 0) {
-    sortedBreakpoints[0][0] = 0
-  }
 
   let breakpoint: B | undefined
   if (rect) {

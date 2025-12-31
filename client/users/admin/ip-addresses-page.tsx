@@ -86,11 +86,13 @@ export function AdminIpAddressesPage({ user }: AdminIpAddressesPageProps) {
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
-    setIps(undefined)
-    setRelatedUsers(undefined)
     dispatch(
       adminGetUserIps(userId, {
         signal: abortController.signal,
+        onStart: () => {
+          setIps(undefined)
+          setRequestError(undefined)
+        },
         onSuccess: response => {
           setIps(response.ips)
           setRelatedUsers(new Map(response.relatedUsers))

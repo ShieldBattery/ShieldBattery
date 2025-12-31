@@ -468,8 +468,7 @@ describe('users/user-relationship-service', () => {
         kind: UserRelationshipKind.FriendRequest,
         createdAt: initialDate,
       })
-      expect(notificationService.addNotification).toHaveBeenCalledOnce()
-      expect(notificationService.addNotification).toHaveBeenCalledWith({
+      expect(notificationService.addNotification).toHaveBeenCalledExactlyOnceWith({
         userId: TO,
         data: {
           type: NotificationType.FriendRequest,
@@ -937,8 +936,7 @@ describe('users/user-relationship-service', () => {
         createdAt: initDate,
       })
 
-      expect(client1.publish).toHaveBeenCalledOnce()
-      expect(client1.publish).toHaveBeenCalledWith(getRelationshipsPath(FROM), {
+      expect(client1.publish).toHaveBeenCalledExactlyOnceWith(getRelationshipsPath(FROM), {
         type: 'upsert',
         relationship: {
           fromId: FROM,
@@ -947,8 +945,7 @@ describe('users/user-relationship-service', () => {
           createdAt: Number(initDate),
         },
       })
-      expect(client2.publish).toHaveBeenCalledOnce()
-      expect(client2.publish).toHaveBeenCalledWith(getRelationshipsPath(TO), {
+      expect(client2.publish).toHaveBeenCalledExactlyOnceWith(getRelationshipsPath(TO), {
         type: 'delete',
         targetUser: FROM,
       })

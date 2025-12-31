@@ -142,9 +142,10 @@ export function GamePlayersDisplay({
     [players],
   )
 
+  const results = game?.results
   const resultsById = useMemo(() => {
-    return new Map(game?.results ?? [])
-  }, [game?.results])
+    return new Map(results ?? [])
+  }, [results])
 
   // TODO(2Pac): Handle game types which can have more than two teams
   let firstTeamElems: React.ReactNode[] = []

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import WindowListener from '../dom/window-listener'
@@ -119,7 +119,9 @@ export function Carousel({ children, infiniteListProps = {}, className }: Carous
     setHasNextItems(hasNextItems)
   }, [translateWidth])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // TODO(tec27): Figure out the right fix for this (or delete this component)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     calcCarouselWidth()
     // Need to re-calculate carousel width when children changes in case they were dynamically added
   }, [calcCarouselWidth, children])

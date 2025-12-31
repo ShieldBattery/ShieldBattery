@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import styled from 'styled-components'
 import i18n from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -55,18 +55,6 @@ export function CopyLinkButton({
       setText(startingText)
     }, 2000)
   })
-
-  useEffect(() => {
-    if (!timeoutRef.current) {
-      setText(startingText)
-    }
-  }, [startingText])
-
-  useEffect(() => {
-    if (timeoutRef.current) {
-      setText(copiedText)
-    }
-  }, [copiedText])
 
   return (
     <Tooltip text={text} position={tooltipPosition}>

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled, { createGlobalStyle, css } from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import CloseIcon from '../icons/codicons/chrome-close.svg'
 import MaximizeIcon from '../icons/codicons/chrome-maximize.svg'
 import MinimizeIcon from '../icons/codicons/chrome-minimize.svg'
@@ -120,7 +120,7 @@ export const SizeRight = styled.div`
 
 export function WindowControls() {
   const { t } = useTranslation()
-  const container = useExternalElementRef(elem => {
+  const container = useExternalElement(elem => {
     elem.classList.add('sb-window-controls')
   })
   const onCloseClick = useCallback(() => {
@@ -160,6 +160,6 @@ export function WindowControls() {
         <MinimizeIcon />
       </MinimizeButton>
     </>,
-    container.current,
+    container,
   )
 }

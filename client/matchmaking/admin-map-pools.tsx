@@ -34,6 +34,7 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
+import { useNow } from '../react/date-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput } from '../search/search-input'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -256,10 +257,11 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
 
   const onLoadMorePools = useCallback(
     (offset: number) => {
-      setIsLoadingPools(true)
-
       dispatch(
         getMapPoolsHistory(activeTab, offset, {
+          onStart: () => {
+            setIsLoadingPools(true)
+          },
           onSuccess: data => {
             setPools(existingPools =>
               concatWithoutDuplicates(existingPools ?? [], data.pools, value => value.id).sort(
@@ -287,6 +289,8 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
 
     return () => abortController.abort()
   }, [onLoadMorePools])
+
+  const now = useNow(10_000)
 
   let poolsContents: React.ReactNode
   if (!pools && isLoadingPools) {
@@ -328,7 +332,7 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
                   }}
                 />
 
-                {pool.startDate > Date.now() && (
+                {pool.startDate > now && (
                   <TextButton
                     label='Delete'
                     onClick={() => {

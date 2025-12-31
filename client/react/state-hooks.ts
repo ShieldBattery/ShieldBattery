@@ -18,18 +18,23 @@ import logger from '../logging/logger'
  *   const prevCount = usePrevious(count)
  *   return <div>Now: {count}, before: {prevCount}</div>
  * }
+ *
+ * @deprecated Violates rules of react, find alternative approaches
  */
 export function usePrevious<T>(value: T): T | undefined {
   const ref = useRef<T>(undefined)
   useEffect(() => {
     ref.current = value
   })
+  // eslint-disable-next-line react-hooks/refs
   return ref.current
 }
 
 /**
  * A hook that returns the last value for a variable that was not `undefined`. If no such value has
  * been seen yet, `undefined` will be returned.
+ *
+ * @deprecated Violates rules of react, find alternative approaches
  */
 export function usePreviousDefined<T>(value: T | undefined): T | undefined {
   const ref = useRef<T>(undefined)
@@ -39,6 +44,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
     }
   })
 
+  // eslint-disable-next-line react-hooks/refs
   return ref.current
 }
 
@@ -53,9 +59,12 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  *   const onClick = useCallback(() => console.log('Count: ' + countRef.current), [])
  *   return <button title='Count' onClick={onClick} />
  * }
+ *
+ * @deprecated Violates rules of react, find alternative approaches
  */
 export function useValueAsRef<T>(value: T): React.RefObject<T> {
   const ref = useRef(value)
+  // eslint-disable-next-line react-hooks/refs
   ref.current = value
 
   return ref
@@ -216,27 +225,27 @@ export function useUserLocalStorageValue<T>(
   }
 
   useEffect(() => {
-    function handleChange() {
+    function doLoad() {
       setValue(load())
     }
 
     function handleStorageEvent(event: StorageEvent) {
       if (event.storageArea === localStorage && event.key === userKey) {
-        setValue(load())
+        doLoad()
       }
     }
 
     window.addEventListener('storage', handleStorageEvent)
-    appendToMultimap(localStorageListeners, userKey, handleChange)
+    appendToMultimap(localStorageListeners, userKey, doLoad)
 
-    setValue(load())
+    doLoad()
 
     return () => {
       window.removeEventListener('storage', handleStorageEvent)
 
       const listeners = localStorageListeners.get(userKey)
       if (listeners) {
-        const index = listeners.indexOf(handleChange)
+        const index = listeners.indexOf(doLoad)
         if (index >= 0) {
           if (listeners.length === 1) {
             localStorageListeners.delete(userKey)

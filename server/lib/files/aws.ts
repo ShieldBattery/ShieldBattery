@@ -18,9 +18,7 @@ import { FileStore, GetSignedUrlOptions } from './store'
 export const FILE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
 
 interface OptionsOutputBase
-  extends GetObjectCommandInput,
-    PutObjectCommandInput,
-    DeleteObjectCommandInput {}
+  extends GetObjectCommandInput, PutObjectCommandInput, DeleteObjectCommandInput {}
 
 type OptionsOutput = Except<OptionsOutputBase, 'Key' | 'Bucket'>
 

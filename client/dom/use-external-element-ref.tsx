@@ -1,4 +1,4 @@
-import { RefObject, useLayoutEffect, useMemo } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useValueAsRef } from '../react/state-hooks'
 
 /**
@@ -8,29 +8,20 @@ import { useValueAsRef } from '../react/state-hooks'
  * @params createCb an optional callback that will be called with the element when it is created
  *   and attached to the document.
  */
-export function useExternalElementRef(
-  createCb?: (elem: HTMLDivElement) => void,
-): RefObject<HTMLDivElement> {
-  // NOTE(tec27): We manually construct a ref object here to that we don't violate the rules of
-  // react and make react-compiler deopt (assigning a ref in render)
-  const elemRef = useMemo<RefObject<HTMLDivElement>>(() => {
-    return {
-      current: document.createElement('div'),
-    }
-  }, [])
+export function useExternalElement(createCb?: (elem: HTMLDivElement) => void): HTMLDivElement {
+  const [elem, _setElem] = useState(() => document.createElement('div'))
 
   const createCbRef = useValueAsRef(createCb)
   useLayoutEffect(() => {
-    const elem = elemRef.current
-    document.body.appendChild(elem!)
+    document.body.appendChild(elem)
     if (createCbRef.current) {
-      createCbRef.current(elem!)
+      createCbRef.current(elem)
     }
 
     return () => {
-      document.body.removeChild(elem!)
+      document.body.removeChild(elem)
     }
-  }, [createCbRef, elemRef])
+  }, [createCbRef, elem])
 
-  return elemRef
+  return elem
 }

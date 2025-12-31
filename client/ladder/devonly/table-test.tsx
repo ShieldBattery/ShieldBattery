@@ -3,6 +3,7 @@ import { LadderPlayer } from '../../../common/ladder/ladder'
 import { makeSeasonId, MatchmakingSeasonJson, MatchmakingType } from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { useNow } from '../../react/date-hooks'
 import { DivisionFilter, LadderTable } from '../ladder'
 
 const SEASON: MatchmakingSeasonJson = {
@@ -90,12 +91,14 @@ export function TableTest() {
     setSearchQuery(searchQuery)
   }, [])
 
+  const now = useNow(60_000)
+
   return (
     <LadderTable
       lastUpdated={NOW}
       players={players}
       usersById={usersById}
-      curTime={Date.now()}
+      curTime={now}
       seasons={new Map([[SEASON.id, SEASON]])}
       season={SEASON}
       onSeasonChange={() => {}}

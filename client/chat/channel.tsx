@@ -340,10 +340,12 @@ function ChannelInfoPage({
   useEffect(() => {
     const abortController = new AbortController()
 
-    setIsLoading(true)
     dispatch(
       getChannelInfo(channelId, {
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoading(true)
+        },
         onSuccess: () => {
           setIsLoading(false)
           setError(undefined)

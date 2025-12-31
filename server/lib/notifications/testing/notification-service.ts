@@ -1,9 +1,10 @@
 import { vi } from 'vitest'
 import NotificationService from '../notification-service'
 
-export class FakeNotificationService
-  implements Omit<NotificationService, 'publisher' | 'clientSocketsManager'>
-{
+export class FakeNotificationService implements Omit<
+  NotificationService,
+  'publisher' | 'clientSocketsManager'
+> {
   retrieveNotifications = vi.fn().mockResolvedValue([])
   addNotification = vi.fn().mockResolvedValue(undefined)
   clearBefore = vi.fn().mockResolvedValue(undefined)

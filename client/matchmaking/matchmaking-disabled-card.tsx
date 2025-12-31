@@ -75,6 +75,7 @@ export function ConnectedMatchmakingDisabledCard({
   const { t } = useTranslation()
   const status = useAppSelector(s => s.matchmakingStatus.byType.get(type))
 
+  const [now, setNow] = useState(() => Date.now())
   const [days, setDays] = useState('00')
   const [hours, setHours] = useState('00')
   const [minutes, setMinutes] = useState('00')
@@ -84,7 +85,10 @@ export function ConnectedMatchmakingDisabledCard({
   const nextEndDate = status?.nextEndDate
   useEffect(() => {
     const calculate = () => {
-      const diff = Number(nextStartDate!) - Date.now()
+      const now = Date.now()
+      const diff = Number(nextStartDate!) - now
+
+      setNow(now)
 
       if (diff < 0) {
         return
@@ -125,7 +129,7 @@ export function ConnectedMatchmakingDisabledCard({
           disabled. The next matchmaking period is:
         </Trans>
       </DisabledText>
-      {nextStartDate && Number(nextStartDate) > Date.now() ? (
+      {nextStartDate && Number(nextStartDate) > now ? (
         <>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <Trans t={t} i18nKey='matchmaking.disabledCard.nextDateRange'>

@@ -11,6 +11,7 @@ import { useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
+import { useNow } from '../react/date-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 
@@ -130,6 +131,8 @@ const OneTeam = styled(Team)`
 function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFeedEntryFragment> }) {
   const game = useFragment(LiveGames_HomeFeedEntryFragment, query)
   const [buttonProps, rippleRef] = useButtonState({})
+  const now = useNow(60_000)
+
   if (game.config.__typename !== 'GameConfigDataMatchmaking') {
     return null
   }
@@ -155,7 +158,6 @@ function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFee
           </Team>
         ))
 
-  const now = Date.now()
   const startTime = new Date(game.startTime)
 
   // NOTE(tec27): We know this map image can never be > 256px which is our smallest size image, so

@@ -33,6 +33,7 @@ import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
+import { useNow } from '../react/date-hooks'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, bodyMedium, headlineMedium } from '../styles/typography'
@@ -610,6 +611,8 @@ function EditLeagueForm({
   const { t } = useTranslation()
   const baseId = useId()
 
+  const now = useNow()
+
   const { submit, bindInput, bindCustom, bindCheckable, form } = useForm<EditLeagueModel>(
     {
       name: originalLeague.name,
@@ -730,21 +733,21 @@ function EditLeagueForm({
       />
 
       {/* TODO(tec27): Show these values as readonly? */}
-      {originalLeague.signupsAfter > Date.now() ? (
+      {originalLeague.signupsAfter > now ? (
         <BadValidatedDateInput
           binds={bindInput('signupsAfter')}
           id={`${baseId}-signupsAfter`}
           label='Signups after'
         />
       ) : undefined}
-      {originalLeague.startAt > Date.now() ? (
+      {originalLeague.startAt > now ? (
         <BadValidatedDateInput
           binds={bindInput('startAt')}
           id={`${baseId}-startAt`}
           label='Start at'
         />
       ) : undefined}
-      {originalLeague.endAt > Date.now() ? (
+      {originalLeague.endAt > now ? (
         <BadValidatedDateInput binds={bindInput('endAt')} id={`${baseId}-endAt`} label='End at' />
       ) : undefined}
 

@@ -41,7 +41,7 @@ export default [
     ],
   },
 
-  reactHooks.configs['recommended-latest'],
+  reactHooks.configs.flat.recommended,
 
   ...fixupConfigRules(
     compat.extends(

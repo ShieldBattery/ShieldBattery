@@ -36,8 +36,7 @@ export interface GetCurrentMapPoolSuccess {
   error?: false
 }
 
-export interface GetCurrentMapPoolFailure
-  extends BaseFetchFailure<'@matchmaking/getCurrentMapPool'> {
+export interface GetCurrentMapPoolFailure extends BaseFetchFailure<'@matchmaking/getCurrentMapPool'> {
   meta: {
     type: MatchmakingType
   }
@@ -60,8 +59,7 @@ export interface UpdatePreferencesSuccess {
   meta: { type: MatchmakingType }
 }
 
-export interface UpdatePreferencesFailure
-  extends BaseFetchFailure<'@matchmaking/updatePreferences'> {
+export interface UpdatePreferencesFailure extends BaseFetchFailure<'@matchmaking/updatePreferences'> {
   meta: { type: MatchmakingType }
 }
 

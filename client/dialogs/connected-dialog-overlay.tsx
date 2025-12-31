@@ -10,7 +10,7 @@ import { BugReportDialog } from '../bugs/bug-report-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
 import { FocusTrap } from '../dom/focus-trap'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { LeagueExplainerDialog } from '../leagues/league-explainer'
@@ -134,7 +134,7 @@ function getDialog(dialogType: DialogType): {
 export const ConnectedDialogOverlay = () => {
   const dispatch = useAppDispatch()
   const dialogHistory = useAppSelector(s => s.dialog.history)
-  const portalRef = useExternalElementRef()
+  const portalElem = useExternalElement()
 
   return ReactDOM.createPortal(
     <DialogOverlayContent
@@ -145,7 +145,7 @@ export const ConnectedDialogOverlay = () => {
         }
       }}
     />,
-    portalRef.current,
+    portalElem,
   )
 }
 function DialogOverlayContent({

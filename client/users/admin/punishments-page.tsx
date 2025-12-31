@@ -17,6 +17,7 @@ import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
+import { useNow } from '../../react/date-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, labelMedium } from '../../styles/typography'
 import {
@@ -137,15 +138,19 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
   const userId = user.id
   const isSelf = userId === selfUser.id
 
+  const now = useNow(60_000)
+
   useEffect(() => {
     cancelLoadRef.current.abort()
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
-    setBanHistory(undefined)
     dispatch(
       adminGetUserBanHistory(userId, {
         signal: abortController.signal,
+        onStart: () => {
+          setBanHistory(undefined)
+        },
         onSuccess: response => {
           setRequestError(undefined)
           setBanHistory(response.bans)
@@ -163,7 +168,11 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
     <AdminSection data-test='ban-history-section'>
       <TitleLarge>Ban history</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
-      {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
+      {banHistory === undefined ? (
+        <LoadingDotsArea />
+      ) : (
+        <BanHistoryList banHistory={banHistory} now={now} />
+      )}
       {!isSelf ? (
         <BanUserForm
           key={`form-${userId}`}
@@ -206,7 +215,13 @@ const UsernameCell = styled.td`
   width: 96px;
 `
 
-function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEntryJson[]> }) {
+function BanHistoryList({
+  banHistory,
+  now,
+}: {
+  banHistory: ReadonlyDeep<BanHistoryEntryJson[]>
+  now: number
+}) {
   return (
     <BanTable>
       <thead>
@@ -220,7 +235,7 @@ function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEnt
       <tbody>
         {banHistory.length ? (
           banHistory.map((b, i) => (
-            <BanRow key={i} $expired={b.startTime <= Date.now() && b.endTime <= Date.now()}>
+            <BanRow key={i} $expired={b.startTime <= now && b.endTime <= now}>
               <TimeCell>{banDateFormat.format(b.startTime)}</TimeCell>
               <TimeCell>{banDateFormat.format(b.endTime)}</TimeCell>
               <UsernameCell>
@@ -301,15 +316,19 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
   const userId = user.id
   const isSelf = userId === selfUser.id
 
+  const now = useNow(60_000)
+
   useEffect(() => {
     cancelLoadRef.current.abort()
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
-    setRestrictionHistory(undefined)
     dispatch(
       adminGetUserRestrictions(userId, {
         signal: abortController.signal,
+        onStart: () => {
+          setRestrictionHistory(undefined)
+        },
         onSuccess: response => {
           setRequestError(undefined)
           setRestrictionHistory(response.restrictions)
@@ -330,7 +349,7 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
       {restrictionHistory === undefined ? (
         <LoadingDotsArea />
       ) : (
-        <RestrictionHistoryList restrictionHistory={restrictionHistory} />
+        <RestrictionHistoryList restrictionHistory={restrictionHistory} now={now} />
       )}
       {!isSelf ? (
         <RestrictUserForm
@@ -378,8 +397,10 @@ const RestrictionReasonCell = styled.td`
 
 function RestrictionHistoryList({
   restrictionHistory,
+  now,
 }: {
   restrictionHistory: ReadonlyDeep<UserRestrictionHistoryJson[]>
+  now: number
 }) {
   return (
     <BanTable>
@@ -396,7 +417,7 @@ function RestrictionHistoryList({
       <tbody>
         {restrictionHistory.length ? (
           restrictionHistory.map((r, i) => (
-            <BanRow key={i} $expired={r.startTime <= Date.now() && r.endTime <= Date.now()}>
+            <BanRow key={i} $expired={r.startTime <= now && r.endTime <= now}>
               <RestrictionKindCell>{r.kind}</RestrictionKindCell>
               <TimeCell>{banDateFormat.format(r.startTime)}</TimeCell>
               <TimeCell>{banDateFormat.format(r.endTime)}</TimeCell>

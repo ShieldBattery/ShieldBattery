@@ -38,6 +38,7 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
+import { useNow } from '../../react/date-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
@@ -659,6 +660,8 @@ export function ChangeDisplayNameDialog({
   const [errorMessage, setErrorMessage] = useState<string>()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
+  const now = useNow(60_000)
+
   const nameAvailable = useMemo(
     () =>
       createUsernameAvailabilityValidator<ChangeDisplayNameFormModel>({
@@ -680,7 +683,7 @@ export function ChangeDisplayNameDialog({
     nextDisplayNameChangeAllowedAt && !canChangeDisplayName
       ? Math.max(
           0,
-          Math.ceil((Number(nextDisplayNameChangeAllowedAt) - Date.now()) / (24 * 60 * 60 * 1000)),
+          Math.ceil((Number(nextDisplayNameChangeAllowedAt) - now) / (24 * 60 * 60 * 1000)),
         )
       : 0
 
@@ -866,14 +869,14 @@ export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
 
   const { onCancel, lastChange } = props
 
-  const isChangeAllowed =
-    !lastChange || Date.now() - Number(lastChange) >= LOGIN_NAME_CHANGE_COOLDOWN_MS
+  const now = useNow(60_000)
+
+  const isChangeAllowed = !lastChange || now - Number(lastChange) >= LOGIN_NAME_CHANGE_COOLDOWN_MS
   const daysRemaining = lastChange
     ? Math.max(
         0,
         Math.ceil(
-          (LOGIN_NAME_CHANGE_COOLDOWN_MS - (Date.now() - Number(lastChange))) /
-            (24 * 60 * 60 * 1000),
+          (LOGIN_NAME_CHANGE_COOLDOWN_MS - (now - Number(lastChange))) / (24 * 60 * 60 * 1000),
         ),
       )
     : 0

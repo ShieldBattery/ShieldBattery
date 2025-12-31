@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { elevationPlus3 } from '../material/shadows'
@@ -169,7 +169,7 @@ export default function NotificationPopups() {
     const notification = idToNotification.get(id)
     return notification && !notification.read && !shownIds.has(id)
   })
-  const portalRef = useExternalElementRef()
+  const portalElem = useExternalElement()
 
   return ReactDOM.createPortal(
     <PopupsContainer>
@@ -183,6 +183,6 @@ export default function NotificationPopups() {
         ))}
       </AnimatePresence>
     </PopupsContainer>,
-    portalRef.current,
+    portalElem,
   )
 }

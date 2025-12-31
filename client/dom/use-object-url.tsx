@@ -7,16 +7,18 @@ import { useEffect, useState } from 'react'
 export function useObjectUrl(file?: Blob): string | undefined {
   const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
 
-  useEffect(() => {
-    const url = file ? URL.createObjectURL(file) : undefined
-    setObjectUrl(url)
+  if (file && !objectUrl) {
+    setObjectUrl(URL.createObjectURL(file))
+  }
 
+  useEffect(() => {
     return () => {
-      if (url) {
-        URL.revokeObjectURL(url)
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+        setObjectUrl(v => (v === objectUrl ? undefined : v))
       }
     }
-  }, [file])
+  }, [objectUrl, file])
 
   return objectUrl
 }

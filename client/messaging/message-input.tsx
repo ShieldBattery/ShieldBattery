@@ -169,7 +169,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
     const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
     const inputRef = useRef<HTMLInputElement>(null)
-    const containerRef = useRef<HTMLDivElement>(null)
+    const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
     const [userMentionStartIndex, setUserMentionStartIndex] = useState<number>(-1)
     const [userMentionMatchedText, setUserMentionMatchedText] = useState<string>('')
@@ -179,7 +179,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
     const [userMentionsOpen, openUserMentions, closeUserMentions] = usePopoverController()
-    const [anchorX, anchorY] = useElemAnchorPosition(containerRef.current, 'left', 'top')
+    const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -285,6 +285,30 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       setMessage(message)
     })
 
+    const onMentionSelect = (user: MentionableUser) => {
+      closeUserMentions()
+
+      if (userMentionStartIndex > -1 && userMentionMatchedText) {
+        setMessage(
+          message.slice(0, userMentionStartIndex) +
+            `@${user.name} ` +
+            message.slice(userMentionStartIndex + userMentionMatchedText.length),
+        )
+      }
+
+      if (!inputRef.current) {
+        return
+      }
+
+      inputRef.current.focus()
+      // Setting the caret position immediately after the focus doesn't work for some
+      // reason, so we need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = userMentionStartIndex + user.name.length + 2
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
+    }
+
     const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
       if (userMentionsOpen && matchedUsers.length > 0) {
         event.preventDefault()
@@ -333,30 +357,6 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       }),
     })
 
-    const onMentionSelect = (user: MentionableUser) => {
-      closeUserMentions()
-
-      if (userMentionStartIndex > -1 && userMentionMatchedText) {
-        setMessage(
-          message.slice(0, userMentionStartIndex) +
-            `@${user.name} ` +
-            message.slice(userMentionStartIndex + userMentionMatchedText.length),
-        )
-      }
-
-      if (!inputRef.current) {
-        return
-      }
-
-      inputRef.current.focus()
-      // Setting the caret position immediately after the focus doesn't work for some
-      // reason, so we need to wait a tick first.
-      queueMicrotask(() => {
-        const newCaretPosition = userMentionStartIndex + user.name.length + 2
-        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
-      })
-    }
-
     let label = t('messaging.sendMessage', 'Send a message')
     if (chatRestriction) {
       // TODO(tec27): Once RelativeDuration has been out longer than a few months, use that instead
@@ -371,7 +371,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       <>
         <StyledTextField
           ref={inputRef}
-          containerRef={containerRef}
+          containerRef={setContainerElem}
           className={className}
           label={label}
           value={message}

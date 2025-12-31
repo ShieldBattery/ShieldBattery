@@ -151,13 +151,15 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
       return () => {
         signal?.removeEventListener('abort', onAbort)
       }
-    } else if (queue.length > 0) {
-      setDisplayedSnackbar(queue[0])
-      setQueue(q => q.slice(1))
     }
 
     return () => {}
   }, [queue, displayedSnackbar])
+
+  if (queue.length > 0 && !displayedSnackbar) {
+    setDisplayedSnackbar(queue[0])
+    setQueue(q => q.slice(1))
+  }
 
   return (
     <SnackbarControllerContext.Provider value={controller}>

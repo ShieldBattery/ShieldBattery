@@ -128,7 +128,6 @@ export function useButtonState({
     [disabled, onClick],
   )
   const handleMouseUp = useCallback(() => {
-    window.removeEventListener('mouseup', handleMouseUp)
     if (mouseUpIsBlur.current) {
       mouseUpIsBlur.current = false
       rippleRef.current?.onBlur()
@@ -137,7 +136,7 @@ export function useButtonState({
   }, [])
   const handleMouseDown = useCallback(
     (event: React.MouseEvent) => {
-      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('mouseup', handleMouseUp, { once: true })
 
       rippleRef.current?.onActivate(event)
 

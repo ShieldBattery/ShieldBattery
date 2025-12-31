@@ -10,6 +10,7 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import logger from '../logging/logger'
 import { LoadingDotsArea } from '../progress/dots'
+import { useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { FlexSpacer } from '../styles/flex-spacer'
@@ -63,11 +64,12 @@ export function LeagueList() {
     const controller = new AbortController()
     const signal = controller.signal
 
-    setIsLoading(true)
-
     dispatch(
       getLeaguesList({
         signal,
+        onStart() {
+          setIsLoading(true)
+        },
         onSuccess(res) {
           setIsLoading(false)
           setError(undefined)
@@ -177,7 +179,7 @@ function LeagueSection({
   type: LeagueSectionType
 }) {
   const { t } = useTranslation()
-  const curDate = Date.now()
+  const curDate = useNow(60_000)
 
   return (
     <SectionRoot>

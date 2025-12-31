@@ -5,7 +5,7 @@ import { lazy, Suspense, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { FocusTrap } from '../dom/focus-trap'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { zIndexDialogScrim } from '../material/zindex'
 import { useNavigationTrap } from '../navigation/navigation-trap'
@@ -35,7 +35,7 @@ const NAVIGATION_TRAP_KEY = 'DRAFT_SCREEN_NAV_TRAP'
 export function DraftScreenOverlay() {
   const inDraft = useAtomValue(isInDraftAtom)
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
-  const portalRef = useExternalElementRef()
+  const portalElem = useExternalElement()
 
   useNavigationTrap(NAVIGATION_TRAP_KEY, inDraft)
 
@@ -59,6 +59,6 @@ export function DraftScreenOverlay() {
         </KeyListenerBoundary>
       ) : undefined}
     </AnimatePresence>,
-    portalRef.current,
+    portalElem,
   )
 }

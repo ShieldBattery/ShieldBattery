@@ -10,7 +10,7 @@ import { CheckBox } from '../material/check-box'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
-import { usePrevious, useStableCallback } from '../react/state-hooks'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
@@ -131,10 +131,12 @@ function AdminBugReportsList() {
   const [error, setError] = useState<Error>()
 
   useEffect(() => {
-    setLoading(true)
-    setError(undefined)
     dispatch(
       adminListBugReports(includeResolved, {
+        onStart: () => {
+          setLoading(true)
+          setError(undefined)
+        },
         onSuccess: response => {
           setLoading(false)
           setBugReports(response.reports)
@@ -235,10 +237,12 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
   const abortControllerRef = useRef<AbortController>(undefined)
 
   const onResolveClick = useStableCallback(() => {
-    setLoading(true)
-    setError(undefined)
     dispatch(
       adminResolveBugReport(reportId, {
+        onStart: () => {
+          setLoading(true)
+          setError(undefined)
+        },
         onSuccess: () => {
           setLoading(false)
           triggerRefresh()
@@ -251,22 +255,17 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
     )
   })
 
-  const prevReportId = usePrevious(reportId)
-  useEffect(() => {
-    if (reportId !== prevReportId) {
-      setBugReport(undefined)
-    }
-  }, [reportId, prevReportId])
-
   useEffect(() => {
     abortControllerRef.current?.abort()
     abortControllerRef.current = new AbortController()
 
-    setLoading(true)
-    setError(undefined)
     dispatch(
       adminGetBugReport(reportId, {
         signal: abortControllerRef.current?.signal,
+        onStart: () => {
+          setLoading(true)
+          setError(undefined)
+        },
         onSuccess: response => {
           setLoading(false)
           setBugReport(response)

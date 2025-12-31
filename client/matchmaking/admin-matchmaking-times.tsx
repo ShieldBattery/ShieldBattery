@@ -301,10 +301,11 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
 
   const onLoadMoreFutureTimes = useCallback(
     (offset: number) => {
-      setIsLoadingFutureTimes(true)
-
       dispatch(
         getMatchmakingTimesFuture(activeTab, offset, {
+          onStart: () => {
+            setIsLoadingFutureTimes(true)
+          },
           onSuccess: data => {
             setFutureTimes(existingFutureTimes =>
               concatWithoutDuplicates(
@@ -468,11 +469,12 @@ function CurrentMatchmakingTime({ activeTab }: { activeTab: MatchmakingType }) {
   useEffect(() => {
     const abortController = new AbortController()
 
-    setIsLoadingCurrentTime(true)
-
     dispatch(
       getCurrentMatchmakingTime(activeTab, {
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoadingCurrentTime(true)
+        },
         onSuccess: data => {
           setCurrentTime(data)
           setIsLoadingCurrentTime(false)
@@ -535,10 +537,11 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
 
   const onLoadMorePastTimes = useCallback(
     (offset: number) => {
-      setIsLoadingPastTimes(true)
-
       dispatch(
         getMatchmakingTimesPast(activeTab, offset, {
+          onStart: () => {
+            setIsLoadingPastTimes(true)
+          },
           onSuccess: data => {
             setPastTimes(existingPastTimes =>
               concatWithoutDuplicates(existingPastTimes, data.pastTimes, value => value.id).sort(

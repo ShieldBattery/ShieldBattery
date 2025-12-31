@@ -604,9 +604,13 @@ const DraftTimerText = styled(m.div)<{ $state?: TimerState }>`
 function DraftTimer() {
   const pickTimeStart = useAtomValue(draftPickTimeStartAtom)
   const [currentTime, setCurrentTime] = useState<number | undefined>(undefined)
+
+  if (!pickTimeStart) {
+    setCurrentTime(undefined)
+  }
+
   useEffect(() => {
     if (!pickTimeStart) {
-      setCurrentTime(undefined)
       return () => {}
     }
 

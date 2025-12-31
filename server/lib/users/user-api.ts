@@ -1164,7 +1164,7 @@ export class AdminUserApi {
         endTime: new Date(body.endTime),
         reason: body.reason,
       }),
-      await findUserById(ctx.session!.user.id),
+      findUserById(ctx.session!.user.id),
     ])
 
     // This would be a really weird occurrence! So we just make sure we do the actual banning before

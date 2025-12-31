@@ -219,8 +219,10 @@ const ItemPip = styled.div`
   border-radius: 50%;
 `
 
-export interface NavigationMenuItemProps
-  extends Omit<LinkProps, 'replace' | 'children' | 'href' | 'to' | 'asChild'> {
+export interface NavigationMenuItemProps extends Omit<
+  LinkProps,
+  'replace' | 'children' | 'href' | 'to' | 'asChild'
+> {
   href: string
   routePattern: string
   icon?: React.ReactNode

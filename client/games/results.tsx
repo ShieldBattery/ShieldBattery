@@ -200,11 +200,12 @@ export function ConnectedGameResultsPage({
     const abortController = new AbortController()
     cancelLoadRef.current = abortController
 
-    setIsLoading(true)
-
     dispatch(
       viewGame(gameId, {
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoading(true)
+        },
         onSuccess: () => {
           setLoadingError(undefined)
           setIsLoading(false)
@@ -258,22 +259,24 @@ export function ConnectedGameResultsPage({
     } else if (
       selfUser &&
       game &&
-      game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser.id))
+      game.config.teams.some(team => team.some(p => !p.isComputer && p.id === selfUser.id))
     ) {
-      for (const [id, result] of game.results!) {
-        if (id === selfUser.id) {
-          switch (result.result) {
-            case 'win':
-              return t('gameDetails.headlineVictory', 'Victory!')
-            case 'loss':
-              return t('gameDetails.headlineDefeat', 'Defeat!')
-            case 'draw':
-            case 'unknown':
-              return t('gameDetails.headlineDraw', 'Draw!')
-            default:
-              return assertUnreachable(result.result)
-          }
-        }
+      const [, result] = game.results?.find(([id]) => id === selfUser.id) ?? []
+      if (!result) {
+        return ''
+      }
+
+      switch (result.result) {
+        case 'win':
+          return t('gameDetails.headlineVictory', 'Victory!')
+        case 'loss':
+          return t('gameDetails.headlineDefeat', 'Defeat!')
+        case 'draw':
+        case 'unknown':
+          return t('gameDetails.headlineDraw', 'Draw!')
+        default:
+          result.result satisfies never
+          return ''
       }
     }
 

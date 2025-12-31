@@ -147,26 +147,31 @@ function updateRecentMaps(
 
 const TURN_RATE_OPTIONS: ReadonlyArray<BwTurnRate> = ALL_TURN_RATES.slice(0).sort((a, b) => b - a)
 
-function CreateLobbyForm(props: CreateLobbyFormProps) {
+function CreateLobbyForm({
+  disabled,
+  model,
+  onSubmit,
+  onValidatedChange,
+  onMapBrowse,
+  ref,
+}: CreateLobbyFormProps) {
   const { t } = useTranslation()
   const { submit, bindInput, bindCustom, bindCheckable, getInputValue, setInputValue, form } =
-    useForm<CreateLobbyModel>(props.model, {
+    useForm<CreateLobbyModel>(model, {
       name: lobbyNameValidator,
       mapSelection: mapSelectionValidator,
     })
 
   useFormCallbacks(form, {
-    onChange: props.onValidatedChange,
-    onSubmit: props.onSubmit,
+    onValidatedChange,
+    onSubmit,
   })
 
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
-  useImperativeHandle(props.ref, () => ({
+  useImperativeHandle(ref, () => ({
     submit,
   }))
-
-  const { disabled, onMapBrowse } = props
 
   const mapSelection = getInputValue('mapSelection')
   const selectedMap = mapSelection.mapId

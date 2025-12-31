@@ -1,6 +1,6 @@
+import { EventEmitter } from 'events'
 import isNetworkError from 'is-network-error'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { EventEmitter } from 'events'
 import { FetchError, FetchNetworkError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 

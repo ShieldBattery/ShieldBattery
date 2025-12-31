@@ -16,6 +16,7 @@ import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
+import { useNow } from '../react/date-hooks'
 import { useStableCallback } from '../react/state-hooks'
 import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
 
@@ -85,6 +86,8 @@ function SeasonRow({
   isCurrent: boolean
   onDeleteClick: (id: SeasonId) => void
 }) {
+  const now = useNow(60_000)
+
   return (
     <Row $current={isCurrent}>
       <StartDate>{longTimestamp.format(season.startDate)}</StartDate>
@@ -92,7 +95,7 @@ function SeasonRow({
         {season.name}
         {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
       </SeasonName>
-      {season.startDate > Date.now() ? (
+      {season.startDate > now ? (
         <IconButton
           icon={<MaterialIcon icon='close' />}
           title='Delete'

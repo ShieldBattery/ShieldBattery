@@ -8,7 +8,7 @@ import styled from 'styled-components'
 import { useHistoryState } from 'wouter/use-browser-location'
 import { useIsLoggedIn } from '../auth/auth-utils'
 import { FocusTrap } from '../dom/focus-trap'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { IconButton, useButtonState } from '../material/button'
@@ -66,7 +66,7 @@ export function ConnectedSettings() {
   const [healthy] = useAtom(starcraftHealthy)
 
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
-  const portalRef = useExternalElementRef()
+  const portalElem = useExternalElement()
 
   return ReactDOM.createPortal(
     <AnimatePresence>
@@ -87,7 +87,7 @@ export function ConnectedSettings() {
         </KeyListenerBoundary>
       )}
     </AnimatePresence>,
-    portalRef.current,
+    portalElem,
   )
 }
 

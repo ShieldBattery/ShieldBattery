@@ -196,6 +196,10 @@ export function Tooltip({
     setIsTooltipHovered(false)
   }, [])
 
+  if (open && (!anchorElem || !isTooltipHovered)) {
+    setOpen(false)
+  }
+
   useEffect(() => {
     if (anchorElem || isTooltipHovered) {
       let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
@@ -209,7 +213,6 @@ export function Tooltip({
         }
       }
     } else {
-      setOpen(false)
       return () => {}
     }
   }, [anchorElem, isTooltipHovered])

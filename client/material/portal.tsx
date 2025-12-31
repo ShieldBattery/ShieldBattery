@@ -2,7 +2,7 @@ import { useIsPresent } from 'motion/react'
 import * as React from 'react'
 import { useContext, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { useExternalElement } from '../dom/use-external-element-ref'
 import { useStableCallback } from '../react/state-hooks'
 import { markEventAsHandledDismissal } from './dismissal-events'
 
@@ -96,11 +96,11 @@ export function Portal({ onDismiss, open, className, children }: PortalProps) {
 
   const parentPortal = useContext(PortalContext)
 
-  const portalRef = useExternalElementRef()
+  const portalElem = useExternalElement()
   const [onCaptureClick, onBubbleClick] = useDismissalClickHandler(onDismiss)
   const [onCaptureContextMenu, onBubbleContextMenu] = useDismissalClickHandler(onDismiss)
 
-  portalRef.current.className = className ?? ''
+  portalElem.className = className ?? ''
 
   const descendantsRef = useRef<PortalContextValue[]>([])
   const containedEventsRef = useRef<WeakMap<MouseEvent, boolean>>(new WeakMap())
@@ -117,7 +117,7 @@ export function Portal({ onDismiss, open, className, children }: PortalProps) {
 
       isEventContained(event) {
         return (
-          portalRef.current?.contains(event.target as Node) ||
+          portalElem.contains(event.target as Node) ||
           descendantsRef.current.some(d => d.isEventContained(event))
         )
       },
@@ -160,7 +160,7 @@ export function Portal({ onDismiss, open, className, children }: PortalProps) {
         onBubbleContextMenu(event)
       },
     }),
-    [onBubbleClick, onBubbleContextMenu, onCaptureClick, onCaptureContextMenu, portalRef],
+    [onBubbleClick, onBubbleContextMenu, onCaptureClick, onCaptureContextMenu, portalElem],
   )
 
   useEffect(() => {
@@ -207,6 +207,6 @@ export function Portal({ onDismiss, open, className, children }: PortalProps) {
 
   return ReactDOM.createPortal(
     <PortalContext.Provider value={contextValue}>{children}</PortalContext.Provider>,
-    portalRef.current,
+    portalElem,
   )
 }

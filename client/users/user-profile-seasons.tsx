@@ -37,17 +37,18 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
 
   const [ranks, setRanks] = useState<LadderPlayer[]>()
 
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error>()
 
   useEffect(() => {
-    setIsLoading(true)
-
     const abortController = new AbortController()
 
     dispatch(
       getUserRankingHistory(user.id, {
         signal: abortController.signal,
+        onStart: () => {
+          setIsLoading(true)
+        },
         onSuccess: data => {
           setIsLoading(false)
           setError(undefined)
