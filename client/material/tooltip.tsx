@@ -196,7 +196,7 @@ export function Tooltip({
     setIsTooltipHovered(false)
   }, [])
 
-  if (open && (!anchorElem || !isTooltipHovered)) {
+  if (open && !(anchorElem || isTooltipHovered)) {
     setOpen(false)
   }
 
