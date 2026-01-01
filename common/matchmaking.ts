@@ -399,11 +399,11 @@ export function getDivisionColor(division: MatchmakingDivision) {
  * the value listed here.
  */
 const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
-  [1100, 100],
-  [1280, 150],
-  [1460, 200],
-  [1640, 250],
-  [1820, 300],
+  [1100, 20],
+  [1280, 40],
+  [1460, 60],
+  [1640, 80],
+  [1820, 100],
 ]
 
 function getRatingConvergenceBucket(rating: number) {
