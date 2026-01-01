@@ -831,7 +831,8 @@
         "fileDropError": "Hubo un problema al abrir el replay",
         "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
         "watch": {
-            "errorTitle": "Error al cargar el replay"
+            "errorTitle": "Error al cargar el replay",
+            "errorBody": "Hubo un problema al descargar o cargar la repetición. Por favor, inténtalo de nuevo más tarde."
         }
     },
     "user": {
