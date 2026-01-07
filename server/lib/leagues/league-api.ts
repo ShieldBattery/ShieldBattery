@@ -27,6 +27,7 @@ import {
 } from '../../../common/leagues/leagues'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { Patch } from '../../../common/patch'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -47,6 +48,7 @@ import {
   LeagueUser,
   adminGetAllLeagues,
   adminGetLeague,
+  banLeagueUser,
   createLeague,
   getAllLeaguesForUser,
   getCurrentLeagues,
@@ -56,6 +58,7 @@ import {
   getManyLeagueUsers,
   getPastLeagues,
   joinLeagueForUser,
+  unbanLeagueUser,
   updateLeague,
 } from './league-models'
 
@@ -421,5 +424,57 @@ export class LeagueAdminApi {
         league: toLeagueJson(league),
       }
     })
+  }
+
+  @httpPatch('/:leagueId/:userId/ban')
+  async banUserFromLeague(ctx: RouterContext): Promise<void> {
+    const {
+      params: { leagueId, userId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ leagueId: LeagueId; userId: SbUserId }>({
+        leagueId: Joi.string().uuid().required(),
+        userId: Joi.number().min(1).required(),
+      }),
+    })
+
+    const league = await adminGetLeague(leagueId)
+
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const leagueUser = await getLeagueUser(leagueId, userId)
+
+    if (!leagueUser) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
+    }
+
+    await banLeagueUser(leagueUser)
+  }
+
+  @httpPatch('/:leagueId/:userId/unban')
+  async unbanUserFromLeague(ctx: RouterContext): Promise<void> {
+    const {
+      params: { leagueId, userId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ leagueId: LeagueId; userId: SbUserId }>({
+        leagueId: Joi.string().uuid().required(),
+        userId: Joi.number().min(1).required(),
+      }),
+    })
+
+    const league = await adminGetLeague(leagueId)
+
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const leagueUser = await getLeagueUser(leagueId, userId)
+
+    if (!leagueUser) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
+    }
+
+    await unbanLeagueUser(leagueUser)
   }
 }
