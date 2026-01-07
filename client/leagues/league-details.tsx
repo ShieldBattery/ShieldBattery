@@ -16,13 +16,18 @@ import {
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
-import { redirectToLogin, useIsLoggedIn } from '../auth/auth-utils'
+import { redirectToLogin, useIsLoggedIn, useSelfPermissions } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { FilledButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
+import { MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { elevationPlus2 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -33,7 +38,7 @@ import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
-import { useStableCallback } from '../react/state-hooks'
+import { useImmerState, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { getRaceColor } from '../styles/colors'
@@ -48,6 +53,8 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import {
+  adminBanUser,
+  adminUnbanUser,
   correctSlugForLeague,
   getLeagueById,
   getLeagueLeaderboard,
@@ -495,7 +502,7 @@ function LeaderboardHeaderRow(props: { context?: unknown }) {
   return <LeaderboardHeaderRowElem {...rest} />
 }
 
-const LeaderboardRowRoot = styled.div`
+const LeaderboardRowRoot = styled.div<{ $isBanned: boolean }>`
   ${bodyLarge};
   position: relative;
   width: 100%;
@@ -504,6 +511,15 @@ const LeaderboardRowRoot = styled.div`
 
   display: flex;
   align-items: center;
+
+  ${props => {
+    if (props.$isBanned) {
+      return `
+        background-color: rgb(from var(--theme-error) r g b / 0.1);
+      `
+    }
+    return ''
+  }}
 
   &::after {
     position: absolute;
@@ -564,6 +580,12 @@ const LastPlayedCell = styled(NumericCell)`
   color: var(--theme-on-surface-variant);
 `
 
+const AdminActionsCell = styled(BaseCell)`
+  width: 96px;
+  padding: 0 16px 0 32px;
+  color: var(--theme-on-surface-variant);
+`
+
 const LeaderboardError = styled(ErrorText)`
   padding: 16px;
   text-align: center;
@@ -592,6 +614,8 @@ function LeaderboardAndMargin({ children }: { children?: React.ReactNode }) {
 
 function LeaderboardHeader() {
   const { t } = useTranslation()
+  const selfPermissions = useSelfPermissions()
+
   return (
     <>
       <RankCell>{t('leagues.leagueDetails.leaderBoardHeader.rank', 'Rank')}</RankCell>
@@ -601,6 +625,7 @@ function LeaderboardHeader() {
       <LastPlayedCell>
         {t('leagues.leagueDetails.leaderBoardHeader.lastPlayed', 'Last played')}
       </LastPlayedCell>
+      {selfPermissions?.manageLeagues ? <AdminActionsCell></AdminActionsCell> : null}
     </>
   )
 }
@@ -619,8 +644,12 @@ function Leaderboard({
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const leaderboard = useAppSelector(s => s.leagues.leaderboard.get(league.id))
-  const leaderboardUsers = useAppSelector(s => s.leagues.leaderboardUsers.get(league.id))
+  const snackbarController = useSnackbarController()
+
+  const [leaderboard, setLeaderboard] = useState<ReadonlyArray<SbUserId>>()
+  const [leaderboardUsers, setLeaderboardUsers] = useImmerState(
+    () => new Map<SbUserId, ClientLeagueUserJson>(),
+  )
 
   const [error, setError] = useState<Error | undefined>(undefined)
   const [curTime, setCurTime] = useState(() => Date.now())
@@ -635,10 +664,14 @@ function Leaderboard({
         signal,
         onStart() {
           setError(undefined)
+          setLeaderboard(undefined)
+          setLeaderboardUsers(() => new Map())
         },
         onSuccess(res) {
           setError(undefined)
           setCurTime(Date.now())
+          setLeaderboard(res.leaderboard)
+          setLeaderboardUsers(new Map(res.leagueUsers.map(u => [u.userId, u])))
         },
         onError(err) {
           setError(err)
@@ -648,7 +681,45 @@ function Leaderboard({
     )
 
     return () => controller.abort()
-  }, [id, dispatch])
+  }, [id, dispatch, setLeaderboardUsers])
+
+  const onBanUserClick = (userId: SbUserId) => {
+    dispatch(
+      adminBanUser(league.id, userId, {
+        onSuccess() {
+          setLeaderboardUsers(draft => {
+            const leagueUser = draft.get(userId)
+            if (leagueUser) {
+              leagueUser.isBanned = true
+            }
+          })
+          snackbarController.showSnackbar('User banned')
+        },
+        onError(err) {
+          snackbarController.showSnackbar('Error banning user')
+        },
+      }),
+    )
+  }
+
+  const onUnbanUserClick = (userId: SbUserId) => {
+    dispatch(
+      adminUnbanUser(league.id, userId, {
+        onSuccess() {
+          setLeaderboardUsers(draft => {
+            const leagueUser = draft.get(userId)
+            if (leagueUser) {
+              leagueUser.isBanned = false
+            }
+          })
+          snackbarController.showSnackbar('User unbanned')
+        },
+        onError(err) {
+          snackbarController.showSnackbar('Error unbanning user')
+        },
+      }),
+    )
+  }
 
   const leaderboardEntries = useMemo(() => {
     const result: LeaderboardEntry[] = []
@@ -673,7 +744,12 @@ function Leaderboard({
   })
 
   const renderRow = useStableCallback((_index: number, entry: LeaderboardEntry) => (
-    <LeaderboardRow entry={entry} curTime={curTime} />
+    <LeaderboardRow
+      entry={entry}
+      curTime={curTime}
+      onBanUserClick={onBanUserClick}
+      onUnbanUserClick={onUnbanUserClick}
+    />
   ))
 
   return (
@@ -745,8 +821,24 @@ const PlayerRace = styled.div<{ $race: RaceChar }>`
 `
 
 const LeaderboardRow = React.memo(
-  ({ entry: { rank, leagueUser }, curTime }: { entry: LeaderboardEntry; curTime: number }) => {
+  ({
+    entry: { rank, leagueUser },
+    curTime,
+    onBanUserClick,
+    onUnbanUserClick,
+  }: {
+    entry: LeaderboardEntry
+    curTime: number
+    onBanUserClick: (userId: SbUserId) => void
+    onUnbanUserClick: (userId: SbUserId) => void
+  }) => {
     const { t } = useTranslation()
+
+    const user = useAppSelector(s => s.users.byId.get(leagueUser.userId))!
+    const selfPermissions = useSelfPermissions()
+
+    const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+    const [overlayOpen, openOverlay, closeOverlay] = usePopoverController({ refreshAnchorPos })
 
     const raceStats: Array<[number, RaceChar]> = [
       [leagueUser.pWins + leagueUser.pLosses, 'p'],
@@ -758,27 +850,71 @@ const LeaderboardRow = React.memo(
     const mostPlayedRace = raceStats[0][1]
 
     return (
-      <LeaderboardRowRoot key={leagueUser.userId}>
-        <RankCell>{rank}</RankCell>
-        <PlayerCell>
-          <StyledAvatar userId={leagueUser.userId} />
-          <PlayerNameAndRace>
-            <PlayerName userId={leagueUser.userId} />
-            <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
-          </PlayerNameAndRace>
-        </PlayerCell>
-        <PointsCell>{Math.round(leagueUser.points)}</PointsCell>
-        <WinLossCell>
-          {leagueUser.wins} &ndash; {leagueUser.losses}
-        </WinLossCell>
-        <LastPlayedCell>
-          <Tooltip text={longTimestamp.format(leagueUser.lastPlayedDate)}>
-            {leagueUser.lastPlayedDate
-              ? narrowDuration.format(leagueUser.lastPlayedDate, curTime)
-              : undefined}
-          </Tooltip>
-        </LastPlayedCell>
-      </LeaderboardRowRoot>
+      <Tooltip
+        text={t('leagues.leagueDetails.userBanned', 'This user has been banned from the league')}
+        position='bottom'
+        disabled={!leagueUser.isBanned}>
+        <LeaderboardRowRoot key={leagueUser.userId} $isBanned={leagueUser.isBanned}>
+          <RankCell>{rank}</RankCell>
+          <PlayerCell>
+            <StyledAvatar userId={leagueUser.userId} />
+            <PlayerNameAndRace>
+              <PlayerName userId={leagueUser.userId} />
+              <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+            </PlayerNameAndRace>
+          </PlayerCell>
+          <PointsCell>{Math.round(leagueUser.points)}</PointsCell>
+          <WinLossCell>
+            {leagueUser.wins} &ndash; {leagueUser.losses}
+          </WinLossCell>
+          <LastPlayedCell>
+            <Tooltip text={longTimestamp.format(leagueUser.lastPlayedDate)}>
+              {leagueUser.lastPlayedDate
+                ? narrowDuration.format(leagueUser.lastPlayedDate, curTime)
+                : undefined}
+            </Tooltip>
+          </LastPlayedCell>
+          {selfPermissions?.manageLeagues ? (
+            <AdminActionsCell>
+              <IconButton
+                icon={<MaterialIcon icon='more_vert' />}
+                title='Admin actions'
+                ref={anchorRef}
+                onClick={openOverlay}
+              />
+              <Popover
+                open={overlayOpen}
+                onDismiss={closeOverlay}
+                anchorX={anchorX ?? 0}
+                anchorY={anchorY ?? 0}
+                originX='right'
+                originY='top'>
+                <MenuList>
+                  {leagueUser.isBanned ? (
+                    <MenuItem
+                      key='unban'
+                      text={`Unban ${user.name}`}
+                      onClick={() => {
+                        closeOverlay()
+                        onUnbanUserClick(leagueUser.userId)
+                      }}
+                    />
+                  ) : (
+                    <MenuItem
+                      key='ban'
+                      text={`Ban ${user.name}`}
+                      onClick={() => {
+                        closeOverlay()
+                        onBanUserClick(leagueUser.userId)
+                      }}
+                    />
+                  )}
+                </MenuList>
+              </Popover>
+            </AdminActionsCell>
+          ) : null}
+        </LeaderboardRowRoot>
+      </Tooltip>
     )
   },
 )

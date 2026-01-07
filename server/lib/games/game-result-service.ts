@@ -449,17 +449,24 @@ export default class GameResultService {
           }
 
           for (const leagueChange of leagueChanges) {
-            matchmakingDbPromises.push(insertLeagueUserChange(leagueChange, client))
-
-            const winCount = leagueChange.outcome === 'win' ? 1 : 0
-            const lossCount = leagueChange.outcome === 'win' ? 0 : 1
             const oldLeagueUser = activeLeagues
               .get(leagueChange.userId)!
               .find(l => l.leagueId === leagueChange.leagueId)!
 
+            if (oldLeagueUser.isBanned) {
+              // Don't process league changes for banned users
+              continue
+            }
+
+            matchmakingDbPromises.push(insertLeagueUserChange(leagueChange, client))
+
+            const winCount = leagueChange.outcome === 'win' ? 1 : 0
+            const lossCount = leagueChange.outcome === 'win' ? 0 : 1
+
             const updatedLeagueUser: LeagueUser = {
               leagueId: oldLeagueUser.leagueId,
               userId: oldLeagueUser.userId,
+              isBanned: oldLeagueUser.isBanned,
               lastPlayedDate: reconcileDate,
               points: leagueChange.points,
               pointsConverged: leagueChange.pointsConverged,
