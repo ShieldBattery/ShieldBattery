@@ -1,6 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
 import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
-import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LeagueState {
@@ -10,11 +9,6 @@ export interface LeagueState {
   future: LeagueId[]
 
   selfLeagues: Map<LeagueId, ClientLeagueUserJson>
-
-  // TODO(tec27): Don't store these in reducer state probably, just use them locally in the
-  // component instead
-  leaderboard: Map<LeagueId, SbUserId[]>
-  leaderboardUsers: Map<LeagueId, Map<SbUserId, ClientLeagueUserJson>>
 }
 
 const DEFAULT_STATE: ReadonlyDeep<LeagueState> = {
@@ -24,9 +18,6 @@ const DEFAULT_STATE: ReadonlyDeep<LeagueState> = {
   future: [],
 
   selfLeagues: new Map(),
-
-  leaderboard: new Map(),
-  leaderboardUsers: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -63,10 +54,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.selfLeagues.set(league.id, selfLeagueUser)
   },
 
-  ['@leagues/getLeaderboard'](state, { payload: { league, leaderboard, leagueUsers } }) {
+  ['@leagues/getLeaderboard'](state, { payload: { league } }) {
     state.byId.set(league.id, league)
-    state.leaderboard.set(league.id, leaderboard)
-    state.leaderboardUsers.set(league.id, new Map(leagueUsers.map(l => [l.userId, l])))
   },
 
   ['@auth/loadCurrentSession']() {
