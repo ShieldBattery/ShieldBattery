@@ -41,7 +41,7 @@ export default function ({
               await fetchJson<void>(apiUrl`games/${gameId}/results2`, {
                 method: 'POST',
                 body: JSON.stringify(requestBody),
-                signal: AbortSignal.timeout(5000),
+                signal: AbortSignal.timeout(30_000),
               })
               logger.verbose('Game result resent successfully')
               return
@@ -89,6 +89,7 @@ export default function ({
               await fetchJson<void>(apiUrl`games/${request.gameId}/replay`, {
                 method: 'POST',
                 body: formData,
+                signal: AbortSignal.timeout(90_000),
               })
               logger.verbose('Replay uploaded successfully')
 

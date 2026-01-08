@@ -977,8 +977,7 @@
         "fileDropError": "打开录像文件时出现问题",
         "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。",
         "watch": {
-            "errorTitle": "加载录像时出错",
-            "errorBody": "下载或加载重播时出现问题。请稍后再试。"
+            "errorTitle": "加载录像时出错"
         }
     },
     "rootErrorBoundary": {

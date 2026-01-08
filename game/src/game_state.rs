@@ -952,7 +952,7 @@ async fn send_replay(
 
         let result = client
             .post(&replay_url)
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(90))
             .headers(headers.clone())
             .multipart(form)
             .send()
