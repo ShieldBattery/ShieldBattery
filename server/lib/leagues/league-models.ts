@@ -264,6 +264,7 @@ export async function adminGetLeague(
 export interface LeagueUser extends RaceStats {
   leagueId: LeagueId
   userId: SbUserId
+  isBanned: boolean
   lastPlayedDate?: Date
   points: number
   pointsConverged: boolean
@@ -277,6 +278,7 @@ function convertLeagueUserFromDb(dbUser: DbLeagueUser): LeagueUser {
   return {
     leagueId: dbUser.league_id,
     userId: dbUser.user_id,
+    isBanned: dbUser.is_banned,
     lastPlayedDate: dbUser.last_played_date ?? undefined,
     points: dbUser.points,
     pointsConverged: dbUser.points_converged,
@@ -396,6 +398,32 @@ export async function updateLeagueUser(leagueUser: LeagueUser, client: DbClient)
       r_z_losses = ${leagueUser.rZLosses}
     WHERE league_id = ${leagueUser.leagueId} AND user_id = ${leagueUser.userId}
   `)
+}
+
+export async function banLeagueUser(leagueUser: LeagueUser, withClient?: DbClient) {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      UPDATE league_users
+      SET is_banned = TRUE
+      WHERE league_id = ${leagueUser.leagueId} AND user_id = ${leagueUser.userId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+export async function unbanLeagueUser(leagueUser: LeagueUser, withClient?: DbClient) {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      UPDATE league_users
+      SET is_banned = FALSE
+      WHERE league_id = ${leagueUser.leagueId} AND user_id = ${leagueUser.userId}
+    `)
+  } finally {
+    done()
+  }
 }
 
 /**

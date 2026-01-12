@@ -538,7 +538,8 @@
       "noPlayers": "No matching players.",
       "notFound": "League not found",
       "retrieveError": "There was an error retrieving this league: {{errorMessage}}",
-      "rulesAndInfo": "Rules and info"
+      "rulesAndInfo": "Rules and info",
+      "userBanned": "This user has been banned from the league"
     },
     "list": {
       "acceptingSignups": "Accepting signups",
