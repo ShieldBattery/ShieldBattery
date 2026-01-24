@@ -43,8 +43,8 @@
             "empty": "볼 것이 없다"
         },
         "loading": {
-            "channelName": "채널 이름 로딩 중…",
-            "username": "사용자 이름 불러오는 중…"
+            "channelName": "채널 이름을 불러오는 중…",
+            "username": "사용자 이름을 불러오는 중…"
         }
     },
     "settings": {
@@ -941,7 +941,7 @@
         "fileDropError": "리플레이 파일을 여는 데 문제가 발생했습니다",
         "fileDropText": "리플레이 파일을 여기에 끌어와 ShieldBattery로 감상하세요.",
         "watch": {
-            "errorBody": "리플레이를 다운로드하거나 로드하는 데 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+            "errorBody": "리플레이를 다운로드하거나 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
             "errorTitle": "리플레이 불러오기 오류"
         }
     },
@@ -1129,7 +1129,7 @@
         "miniMatchHistory": {
             "viewDetails": "자세히 보기",
             "noGameSelected": "선택된 게임이 없습니다",
-            "viewFullHistory": "전체 경기 기록 보기"
+            "viewFullHistory": "전체 전적 보기"
         },
         "matchHistory": {
             "noMatchingGames": "일치하는 게임이 없습니다.",
@@ -1278,7 +1278,7 @@
     "forms": {
         "fileInput": {
             "chooseFile": "파일 선택",
-            "noFileSelected": "선택된 파일이 없습니다."
+            "noFileSelected": "선택된 파일이 없습니다"
         }
     },
     "bugReport": {

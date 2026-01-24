@@ -47,8 +47,8 @@
             "empty": "Nada que ver aquí"
         },
         "loading": {
-            "username": "Cargando nombre de usuario…",
-            "channelName": "Cargando nombre del canal…"
+            "username": "Cargando el nombre de usuario…",
+            "channelName": "Cargando el nombre del canal…"
         }
     },
     "settings": {
@@ -672,8 +672,8 @@
                 "topicLabel": "Tema",
                 "saveErrorMessage": "Algo salió mal al guardar la configuración",
                 "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
-                "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de insignia es {{fileSize}}.",
-                "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo de banner es {{fileSize}}."
+                "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
+                "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}."
             }
         },
         "whispers": {
@@ -781,13 +781,13 @@
             "reportedPlayer": "Jugador",
             "reportedRace": "Raza",
             "reportTitle": "Informe de <1></1>:",
-            "downloadReplay": "Descargar repetición",
-            "replay": "Repetición"
+            "downloadReplay": "Descargar replay",
+            "replay": "Replay"
         },
         "buttonCopyGameId": "Copiar ID",
-        "buttonDownloadReplay": "Descargar repetición",
+        "buttonDownloadReplay": "Descargar replay",
         "buttonWatchReplayLoading": "Cargando…",
-        "buttonWatchReplay": "Ver Replay"
+        "buttonWatchReplay": "Ver replay"
     },
     "messaging": {
         "blockedMessage": "Mensaje bloqueado",
@@ -832,14 +832,14 @@
         "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
         "watch": {
             "errorTitle": "Error al cargar el replay",
-            "errorBody": "Hubo un problema al descargar o cargar la repetición. Por favor, inténtalo de nuevo más tarde."
+            "errorBody": "Hubo un problema al descargar o cargar el replay. Por favor, inténtalo de nuevo más tarde."
         }
     },
     "user": {
         "miniMatchHistory": {
             "noGameSelected": "Ningún juego seleccionado",
             "viewDetails": "Ver detalles",
-            "viewFullHistory": "Ver historial completo de partidos"
+            "viewFullHistory": "Ver el historial completo de partidas"
         },
         "matchHistory": {
             "noMatchingGames": "Nada de juegos de combinación.",
@@ -1294,7 +1294,7 @@
     "forms": {
         "fileInput": {
             "chooseFile": "Elige archivo",
-            "noFileSelected": "Ningún archivo seleccionado"
+            "noFileSelected": "No se ha seleccionado ningún archivo"
         }
     },
     "bugReport": {

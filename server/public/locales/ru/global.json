@@ -48,7 +48,7 @@
         },
         "loading": {
             "username": "Загрузка имени пользователя…",
-            "channelName": "Загрузка имени канала…"
+            "channelName": "Загрузка названия канала…"
         }
     },
     "settings": {
@@ -779,13 +779,13 @@
             "reportedPlayer": "Игрок",
             "reportedRace": "Раса",
             "reportTitle": "Отчет от <1></1>:",
-            "downloadReplay": "Скачать повтор",
-            "replay": "Повтор"
+            "downloadReplay": "Скачать реплей",
+            "replay": "Реплей"
         },
         "buttonCopyGameId": "Скопировать ID",
-        "buttonDownloadReplay": "Скачать повтор",
+        "buttonDownloadReplay": "Скачать реплей",
         "buttonWatchReplayLoading": "Загрузка…",
-        "buttonWatchReplay": "Посмотреть реплей"
+        "buttonWatchReplay": "Смотреть реплей"
     },
     "navigation": {
         "leftNav": {
@@ -857,7 +857,7 @@
         "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery.",
         "watch": {
             "errorTitle": "Ошибка загрузки реплея",
-            "errorBody": "Произошла ошибка при загрузке или открытии повтора. Пожалуйста, попробуйте снова позже."
+            "errorBody": "Возникла проблема при загрузке или открытии реплея. Пожалуйста, попробуйте позже."
         }
     },
     "chat": {
@@ -964,8 +964,8 @@
                 "topicLabel": "Тема",
                 "saveErrorMessage": "Что-то пошло не так при сохранении настроек",
                 "inappropriateImageErrorMessage": "Выбранное изображение неприемлемо. Пожалуйста, выберите другое.",
-                "badgeMaxFileSizeErrorMessage": "Максимальный размер файла значка составляет {{fileSize}}.",
-                "bannerMaxFileSizeErrorMessage": "Максимальный размер файла баннера составляет {{fileSize}}."
+                "badgeMaxFileSizeErrorMessage": "Максимальный размер файла значка — {{fileSize}}.",
+                "bannerMaxFileSizeErrorMessage": "Максимальный размер файла баннера — {{fileSize}}."
             }
         },
         "whispers": {
@@ -1079,7 +1079,7 @@
         "miniMatchHistory": {
             "viewDetails": "Посмотреть детали",
             "noGameSelected": "Игра не выбрана",
-            "viewFullHistory": "Просмотреть полную историю матчей"
+            "viewFullHistory": "Посмотреть полную историю матчей"
         },
         "matchHistory": {
             "noMatchingGames": "Нет подходящих игр.",
