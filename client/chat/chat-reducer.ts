@@ -530,6 +530,24 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     state.idToSelfPermissions.set(channelId, action.payload.selfPermissions)
   },
 
+  ['@chat/userProfileChanged'](state, action) {
+    const { channelId } = action.meta
+    const { userId, isModerator } = action.payload
+
+    const channelUserProfiles = state.idToUserProfiles.get(channelId)
+    if (!channelUserProfiles) {
+      return
+    }
+
+    const existingProfile = channelUserProfiles.get(userId)
+    if (existingProfile) {
+      channelUserProfiles.set(userId, {
+        ...existingProfile,
+        isModerator,
+      })
+    }
+  },
+
   ['@whispers/updateMessage'](state, action) {
     updateChannelInfos(state, action.payload.channelMentions)
   },

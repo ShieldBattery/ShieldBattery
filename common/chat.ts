@@ -13,6 +13,7 @@ export const MAXIMUM_JOINED_CHANNELS = 40
 export const MAXIMUM_OWNED_CHANNELS = 20
 
 export const SEARCH_CHANNELS_LIMIT = 40
+export const CHANNEL_USER_PERMISSIONS_LIMIT = 40
 
 export type SbChannelId = Tagged<number, 'SbChannelId'>
 
@@ -311,6 +312,12 @@ export interface ChatUserOfflineEvent {
   userId: SbUserId
 }
 
+export interface ChatUserProfileChangedEvent {
+  action: 'userProfileChanged'
+  userId: SbUserId
+  isModerator: boolean
+}
+
 /**
  * Events that are sent to all clients in a particular chat channel.
  */
@@ -326,6 +333,7 @@ export type ChatEvent =
   | ChatUserActiveEvent
   | ChatUserIdleEvent
   | ChatUserOfflineEvent
+  | ChatUserProfileChangedEvent
 
 export interface ChatPreferencesChangedEvent {
   action: 'preferencesChanged'
@@ -429,6 +437,9 @@ export interface ModerateChannelUserServerRequest {
 /**
  * Specific chat information about a user in a particular channel, such as their join date, their
  * channel role (e.g. are they a moderator), etc.
+ *
+ * This should be publicly available information. If you need to return information that should only
+ * be available to the user themselves (or admins), use `UserChannelEntry` instead.
  */
 export interface ChatUserProfile {
   userId: SbUserId
@@ -486,6 +497,61 @@ export interface GetChannelUserPermissionsResponse {
   channelId: SbChannelId
   /** User's permissions in a specific channel. */
   permissions: ChannelPermissions
+}
+
+/**
+ * Specific chat information about a user in a particular channel, such as their join date, their
+ * preferences, permissions, etc.
+ *
+ * This information should be private to the user themselves and admins.
+ */
+export interface UserChannelEntry {
+  userId: SbUserId
+  channelId: SbChannelId
+  joinDate: Date
+  channelPreferences: ChannelPreferences
+  channelPermissions: ChannelPermissions
+}
+
+export type UserChannelEntryJson = Jsonify<UserChannelEntry>
+
+export function toUserChannelEntryJson(userChannelEntry: UserChannelEntry): UserChannelEntryJson {
+  return {
+    userId: userChannelEntry.userId,
+    channelId: userChannelEntry.channelId,
+    joinDate: Number(userChannelEntry.joinDate),
+    channelPreferences: userChannelEntry.channelPreferences,
+    channelPermissions: userChannelEntry.channelPermissions,
+  }
+}
+
+export function fromUserChannelEntryJson(
+  userChannelEntryJson: UserChannelEntryJson,
+): UserChannelEntry {
+  return {
+    userId: userChannelEntryJson.userId,
+    channelId: userChannelEntryJson.channelId,
+    joinDate: new Date(userChannelEntryJson.joinDate),
+    channelPreferences: userChannelEntryJson.channelPreferences,
+    channelPermissions: userChannelEntryJson.channelPermissions,
+  }
+}
+
+/**
+ * The response returned when listing user channel entries for a particular channel.
+ *
+ * This contains private information (e.g. permissions) so it should only be returned to the user
+ * themselves and admins.
+ */
+export interface ListUserChannelEntriesResponse {
+  /** The ID of the channel for which the user channel entries are being returned. */
+  channelId: SbChannelId
+  /** A list of user channel entries for the channel. */
+  userChannelEntries: UserChannelEntryJson[]
+  /** A flag indicating whether more users are available. */
+  hasMoreUsers: boolean
+  /** A list of user infos for the channel. */
+  users: SbUser[]
 }
 
 /**

@@ -174,6 +174,14 @@ const eventToChatAction: EventToChatActionMap = {
       meta: { channelId },
     }
   },
+
+  userProfileChanged(channelId, event) {
+    return {
+      type: '@chat/userProfileChanged',
+      payload: event,
+      meta: { channelId },
+    }
+  },
 }
 
 type EventToChatUserActionMap = {
