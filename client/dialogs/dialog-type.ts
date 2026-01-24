@@ -1,4 +1,4 @@
-import { SbChannelId } from '../../common/chat'
+import { ChannelPermissions, SbChannelId, UserChannelEntry } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
 import { SbMapId } from '../../common/maps'
@@ -14,6 +14,7 @@ export enum DialogType {
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
+  ChannelUserPermissions = 'channelUserPermissions',
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
@@ -66,6 +67,13 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+  }
+>
+type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelUserPermissions,
+  {
+    userChannelEntry: UserChannelEntry
+    onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => void
   }
 >
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
@@ -154,6 +162,7 @@ export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
   | BugReportDialogPayload
+  | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
   | ChangeEmailDialogPayload
   | ChangeLoginNameDialogPayload

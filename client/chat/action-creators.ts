@@ -1,5 +1,6 @@
 import {
   ChannelModerationAction,
+  ChannelPermissions,
   ChatServiceErrorCode,
   EditChannelRequest,
   EditChannelResponse,
@@ -9,10 +10,12 @@ import {
   GetChatUserProfileResponse,
   InitialChannelData,
   JoinChannelResponse,
+  ListUserChannelEntriesResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
   SearchChannelsResponse,
   SendChatMessageServerRequest,
+  UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
@@ -387,6 +390,48 @@ export function searchChannels(
     })
 
     return result
+  })
+}
+
+export function listUserChannelEntries(
+  channelId: SbChannelId,
+  searchQuery: string,
+  offset: number,
+  spec: RequestHandlingSpec<ListUserChannelEntriesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    if (searchQuery) {
+      queryParams.set('q', searchQuery)
+    }
+    queryParams.set('offset', offset.toString())
+
+    const result = await fetchJson<ListUserChannelEntriesResponse>(
+      apiUrl`chat/${channelId}/user-channel-entries?${queryParams}`,
+      { signal: spec.signal },
+    )
+
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result.users,
+    })
+
+    return result
+  })
+}
+
+export function updateChannelUserPermissions(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  permissions: ChannelPermissions,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/users/${targetId}/permissions`, {
+      method: 'POST',
+      body: JSON.stringify({ permissions } satisfies UpdateChannelUserPermissionsRequest),
+      signal: spec.signal,
+    })
   })
 }
 

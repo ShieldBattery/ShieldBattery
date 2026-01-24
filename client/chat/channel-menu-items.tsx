@@ -54,11 +54,16 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
         channelSelfPermissions.kick ||
         channelSelfPermissions.ban
 
-      let disabled = false
+      let kickDisabled = false
+      let banDisabled = false
       // Server moderators and channel owners always have these actions enabled and don't even have
       // to wait for the user's profile to be fully fetched to check their permissions.
       if (!isSelfServerModerator && !isSelfChannelOwner && isSelfChannelModerator) {
-        disabled = !channelUserProfile || channelUserProfile.isModerator
+        const canKick = channelSelfPermissions.editPermissions || channelSelfPermissions.kick
+        kickDisabled = !canKick || !channelUserProfile || channelUserProfile.isModerator
+
+        const canBan = channelSelfPermissions.editPermissions || channelSelfPermissions.ban
+        banDisabled = !canBan || !channelUserProfile || channelUserProfile.isModerator
       }
 
       if (isSelfServerModerator || isSelfChannelOwner || isSelfChannelModerator) {
@@ -71,7 +76,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
               defaultValue: 'Kick {{user}}',
               user: user.name,
             })}
-            disabled={disabled}
+            disabled={kickDisabled}
             onClick={() => {
               if (!user) {
                 return
@@ -108,7 +113,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
               defaultValue: 'Ban {{user}}',
               user: user.name,
             })}
-            disabled={disabled}
+            disabled={banDisabled}
             onClick={() => {
               if (!user) {
                 return

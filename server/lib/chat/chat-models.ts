@@ -10,6 +10,7 @@ import {
   MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
+  UserChannelEntry,
 } from '../../../common/chat'
 import { Patch } from '../../../common/patch'
 import { SbUser } from '../../../common/users/sb-user'
@@ -21,14 +22,6 @@ import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getUrl } from '../files'
 import { findUsersByIdQuery } from '../users/user-model'
-
-export interface UserChannelEntry {
-  userId: SbUserId
-  channelId: SbChannelId
-  joinDate: Date
-  channelPreferences: ChannelPreferences
-  channelPermissions: ChannelPermissions
-}
 
 type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPreferences & ChannelPermissions>
 
@@ -117,6 +110,58 @@ export async function getUserChannelEntriesForUser(
       FROM channel_users
       WHERE user_id = ${userId} AND channel_id = ANY(${channelIds});
     `)
+    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Gets a list of user channel entries for a particular channel, optionally filtered by a search
+ * string. The list is ordered in the following order:
+ * - channel owner is at the top
+ * - then by the number of permissions the user has, in descending order
+ * - then by join date, in ascending order
+ */
+export async function getUserChannelEntriesForChannel(
+  {
+    channelId,
+    searchStr,
+    limit,
+    offset,
+  }: {
+    channelId: SbChannelId
+    searchStr?: string
+    limit: number
+    offset: number
+  },
+  withClient?: DbClient,
+): Promise<UserChannelEntry[]> {
+  const { client, done } = await db(withClient)
+  try {
+    let query = sql`
+      SELECT cu.*
+      FROM channel_users cu
+      INNER JOIN users u ON cu.user_id = u.id
+      INNER JOIN channels c ON cu.channel_id = c.id
+      WHERE cu.channel_id = ${channelId}
+    `
+
+    if (searchStr) {
+      query = query.append(sql` AND u.name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+
+    query = query.append(sql`
+      ORDER BY
+        (cu.user_id = c.owner_id) DESC,
+        (cu.kick::int + cu.ban::int + cu.change_topic::int + cu.toggle_private::int + cu.edit_permissions::int) DESC,
+        cu.join_date ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbUserChannelEntry>(query)
+
     return result.rows.map(row => convertUserChannelEntryFromDb(row))
   } finally {
     done()
