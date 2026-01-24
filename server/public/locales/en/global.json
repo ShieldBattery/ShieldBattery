@@ -183,8 +183,29 @@
         "saveErrorMessage": "Something went wrong while saving the settings",
         "topicLabel": "Topic"
       },
+      "permissions": {
+        "ban": "Can ban users",
+        "banShort": "Ban",
+        "changeTopic": "Can change topic",
+        "changeTopicShort": "Change topic",
+        "editPermissions": "Can edit permissions",
+        "editPermissionsShort": "Edit permissions",
+        "editTitle": "Edit permissions for {{name}}",
+        "editTooltip": "Edit permissions",
+        "joinedDate": "Joined {{date}}",
+        "kick": "Can kick users",
+        "kickShort": "Kick",
+        "noUsers": "This channel has no other members",
+        "owner": "Owner",
+        "togglePrivate": "Can toggle private status",
+        "togglePrivateShort": "Toggle private"
+      },
       "tabs": {
-        "general": "General"
+        "general": "General",
+        "permissions": "Permissions"
+      },
+      "users": {
+        "title": "Users"
       }
     },
     "channelValidator": {

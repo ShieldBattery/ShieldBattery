@@ -24,7 +24,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
@@ -132,6 +132,9 @@ export function ChannelHeader({
   const snackbarController = useSnackbarController()
   const user = useSelfUser()
   const selfPermissions = useSelfPermissions()
+  const channelPermissions = useAppSelector(s =>
+    s.chat.idToSelfPermissions.get(basicChannelInfo.id),
+  )
 
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
@@ -213,7 +216,14 @@ export function ChannelHeader({
   })
 
   const actions: React.ReactNode[] = []
-  if (selfPermissions?.moderateChatChannels || user?.id === joinedChannelInfo.ownerId) {
+  // TODO(2Pac): Users with `changeTopic` permission should also be able to access channel settings,
+  // but need to update the channel settings UI first to only allow them to change the topic (will
+  // probably need a new set of APIs as well).
+  if (
+    selfPermissions?.moderateChatChannels ||
+    user?.id === joinedChannelInfo.ownerId ||
+    channelPermissions?.editPermissions
+  ) {
     actions.push(
       <MenuItem
         key='channel-settings'

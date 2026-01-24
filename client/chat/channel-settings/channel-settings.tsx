@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import ReactDOM from 'react-dom'
@@ -10,6 +11,7 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../../common/chat'
+import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
 import { FocusTrap } from '../../dom/focus-trap'
 import { useExternalElement } from '../../dom/use-external-element-ref'
 import { KeyListenerBoundary, useKeyListener } from '../../keyboard/key-listener'
@@ -22,6 +24,7 @@ import {
   NavContainer,
   NavEntryRoot,
   NavEntryText,
+  NavSectionSeparator,
   NavSectionTitle,
   SettingsContent,
   transition,
@@ -31,8 +34,13 @@ import {
   CHANNEL_SETTINGS_OPEN_STATE,
   closeChannelSettings,
 } from './channel-settings-action-creators'
-import { ChannelSettingsPage, GeneralChannelSettingsPage } from './channel-settings-page'
+import {
+  ChannelSettingsPage,
+  GeneralChannelSettingsPage,
+  UsersChannelSettingsPage,
+} from './channel-settings-page'
 import { GeneralSettings } from './general-settings'
+import { UserPermissionsSettings } from './user-permissions-settings'
 
 const ESCAPE = 'Escape'
 
@@ -76,13 +84,26 @@ function ChannelSettings({
   channelId: SbChannelId
   onCloseSettings: () => void
 }) {
+  const { t } = useTranslation()
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
+  const channelPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
 
-  const [activePage, setActivePage] = useState<ChannelSettingsPage>(
-    GeneralChannelSettingsPage.General,
-  )
+  const isOwner = joinedChannelInfo && selfUser && joinedChannelInfo.ownerId === selfUser.id
+  const isServerAdmin = selfPermissions && !!selfPermissions.moderateChatChannels
+  const hasEditPermissions = channelPermissions && !!channelPermissions.editPermissions
+
+  const canAccessGeneralPage = isOwner || isServerAdmin
+  const canAccessPermissionsPage = isOwner || isServerAdmin || hasEditPermissions
+
+  const defaultPage = canAccessGeneralPage
+    ? GeneralChannelSettingsPage.General
+    : UsersChannelSettingsPage.Permissions
+
+  const [activePage, setActivePage] = useState<ChannelSettingsPage>(defaultPage)
 
   useKeyListener({
     onKeyDown(event) {
@@ -104,16 +125,38 @@ function ChannelSettings({
       exit='hidden'
       transition={transition}>
       <NavContainer>
-        <NavSectionTitle>{`#${basicChannelInfo?.name}`}</NavSectionTitle>
-        <NavEntry
-          page={GeneralChannelSettingsPage.General}
-          isActive={activePage === GeneralChannelSettingsPage.General}
-          onChangePage={setActivePage}
-          testName='general-nav-entry'
-        />
+        {canAccessGeneralPage && (
+          <>
+            <NavSectionTitle>{`#${basicChannelInfo?.name}`}</NavSectionTitle>
+            <NavEntry
+              page={GeneralChannelSettingsPage.General}
+              isActive={activePage === GeneralChannelSettingsPage.General}
+              onChangePage={setActivePage}
+              testName='general-nav-entry'
+            />
+          </>
+        )}
+        {canAccessPermissionsPage && (
+          <>
+            {canAccessGeneralPage && <NavSectionSeparator />}
+            <NavSectionTitle>{t('chat.channelSettings.users.title', 'Users')}</NavSectionTitle>
+            <NavEntry
+              page={UsersChannelSettingsPage.Permissions}
+              isActive={activePage === UsersChannelSettingsPage.Permissions}
+              onChangePage={setActivePage}
+              testName='permissions-nav-entry'
+            />
+          </>
+        )}
       </NavContainer>
 
-      <StyledSettingsContent title={`#${basicChannelInfo?.name}`} onCloseSettings={onCloseSettings}>
+      <StyledSettingsContent
+        title={getChannelSettingsPageTitle({
+          page: activePage,
+          channelName: basicChannelInfo?.name ?? '',
+          t,
+        })}
+        onCloseSettings={onCloseSettings}>
         {basicChannelInfo && detailedChannelInfo && joinedChannelInfo ? (
           <ChannelSettingsPageDisplay
             page={activePage}
@@ -148,6 +191,8 @@ function NavEntry({
     switch (page) {
       case GeneralChannelSettingsPage.General:
         return t('chat.channelSettings.tabs.general', 'General')
+      case UsersChannelSettingsPage.Permissions:
+        return t('chat.channelSettings.tabs.permissions', 'Permissions')
       default:
         return page satisfies never
     }
@@ -184,6 +229,33 @@ function ChannelSettingsPageDisplay({
           onCloseSettings={onCloseSettings}
         />
       )
+    case UsersChannelSettingsPage.Permissions:
+      return (
+        <UserPermissionsSettings
+          basicChannelInfo={basicChannelInfo}
+          detailedChannelInfo={detailedChannelInfo}
+          joinedChannelInfo={joinedChannelInfo}
+        />
+      )
+    default:
+      return page satisfies never
+  }
+}
+
+function getChannelSettingsPageTitle({
+  page,
+  channelName,
+  t,
+}: {
+  page: ChannelSettingsPage
+  channelName: string
+  t: TFunction
+}) {
+  switch (page) {
+    case GeneralChannelSettingsPage.General:
+      return `#${channelName}`
+    case UsersChannelSettingsPage.Permissions:
+      return t('chat.channelSettings.users.title', 'Users')
     default:
       return page satisfies never
   }
