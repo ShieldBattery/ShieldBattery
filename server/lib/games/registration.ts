@@ -1,4 +1,5 @@
 import { GameConfig } from '../../../common/games/configuration'
+import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
 import { SbMapId } from '../../../common/maps'
 import transact from '../db/transaction'
 import { createGameUserRecord } from '../models/games-users'
@@ -27,12 +28,22 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
 
   const resultCodes = new Map(humanPlayers.map(p => [p.id, genResultCode()]))
 
+  const teams = getTeamsFromConfig(gameConfig)
+  const selectedMatchup = teams
+    ? computeMatchupString(teams.map(team => team.map(p => p.race)))
+    : null
+
   // NOTE(tec27): the value here makes the linter happy, but this will actually be set in the
   // transaction below
   let gameId = ''
 
   await transact(async client => {
-    gameId = await createGameRecord(client, { startTime, mapId, config: gameConfig })
+    gameId = await createGameRecord(client, {
+      startTime,
+      mapId,
+      config: gameConfig,
+      selectedMatchup,
+    })
     await Promise.all(
       humanPlayers.map(p =>
         createGameUserRecord(client, {

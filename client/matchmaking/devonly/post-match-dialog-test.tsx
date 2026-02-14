@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { GameSource } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
+import { makeMatchupString } from '../../../common/games/matchups'
 import {
   ClientLeagueUserChangeJson,
   LeagueJson,
@@ -59,6 +60,8 @@ const GAME: GameRecordJson = {
     [PLAYER_ID, { result: 'win', race: 'p', apm: 27 }],
     [OPPONENT_ID, { result: 'loss', race: 'z', apm: 350 }],
   ],
+  selectedMatchup: makeMatchupString('p-z'),
+  assignedMatchup: makeMatchupString('p-z'),
 }
 
 const SEASON: MatchmakingSeasonJson = {
