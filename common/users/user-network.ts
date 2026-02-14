@@ -1,3 +1,9 @@
+import {
+  EncodedMatchupString,
+  GameDurationFilter,
+  GameFormat,
+  GameSortOption,
+} from '../games/game-filters'
 import { GameRecordJson } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
@@ -72,12 +78,24 @@ export interface GetUserProfileResponse {
   seasons: MatchmakingSeasonJson[]
 }
 
-export const SEARCH_MATCH_HISTORY_LIMIT = 40
+export const GET_MATCH_HISTORY_LIMIT = 40
+
+export interface GetMatchHistoryQueryParams {
+  ranked?: boolean
+  custom?: boolean
+  duration?: GameDurationFilter
+  mapName?: string
+  playerName?: string
+  format?: GameFormat
+  matchup?: EncodedMatchupString
+  sort?: GameSortOption
+  offset?: number
+}
 
 /**
- * The response returned when searching the user's match history.
+ * The response returned when getting the user's match history.
  */
-export interface SearchMatchHistoryResponse {
+export interface GetMatchHistoryResponse {
   games: GameRecordJson[]
   maps: MapInfoJson[]
   users: SbUser[]

@@ -12,6 +12,7 @@ import {
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
+import { MatchupString } from './matchups'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export interface GameRecord {
@@ -24,6 +25,8 @@ export interface GameRecord {
   disputeReviewed: boolean
   gameLength: number | null
   results: [SbUserId, ReconciledPlayerResult][] | null
+  selectedMatchup: MatchupString | null
+  assignedMatchup: MatchupString | null
 }
 
 export type GameRecordJson = Jsonify<GameRecord>
@@ -91,6 +94,8 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
     disputeReviewed: game.disputeReviewed,
     gameLength: game.gameLength,
     results: game.results,
+    selectedMatchup: game.selectedMatchup,
+    assignedMatchup: game.assignedMatchup,
   }
 }
 
