@@ -11,6 +11,8 @@ export const ALL_RACE_CHARS: ReadonlyArray<RaceChar> = ['p', 'r', 't', 'z']
  */
 export type AssignedRaceChar = 'p' | 't' | 'z'
 
+export const ALL_ASSIGNED_RACE_CHARS: ReadonlyArray<AssignedRaceChar> = ['p', 't', 'z']
+
 /**
  * A type representing all possible combinations we care about with regards to race statistics. The
  * values at the bottom refer to races that were assigned when the player had "random" selected as

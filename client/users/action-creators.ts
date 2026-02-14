@@ -13,14 +13,15 @@ import {
   AdminGetUserIpsResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
+  GetMatchHistoryQueryParams,
+  GetMatchHistoryResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SearchMatchHistoryResponse,
 } from '../../common/users/user-network'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
@@ -108,21 +109,28 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
   }
 }
 
-export function searchMatchHistory(
+export function getMatchHistory(
   userId: SbUserId,
-  offset: number,
-  spec: RequestHandlingSpec<SearchMatchHistoryResponse>,
+  params: GetMatchHistoryQueryParams,
+  spec: RequestHandlingSpec<GetMatchHistoryResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<SearchMatchHistoryResponse>(
-      apiUrl`users/${userId}/match-history?offset=${offset}`,
+    const queryParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') {
+        queryParams.set(key, String(value))
+      }
+    }
+
+    const result = await fetchJson<GetMatchHistoryResponse>(
+      apiUrl`users/${userId}/match-history?${queryParams}`,
       {
         signal: spec.signal,
       },
     )
 
     dispatch({
-      type: '@users/searchMatchHistory',
+      type: '@users/getMatchHistory',
       payload: result,
       meta: { userId },
     })

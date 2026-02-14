@@ -5,16 +5,16 @@ import {
   AdminGetBansResponse,
   AdminGetUserIpsResponse,
   GetBatchUserInfoResponse,
+  GetMatchHistoryResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
-  SearchMatchHistoryResponse,
 } from '../../common/users/user-network'
 
 export type UserActions =
   | GetUserProfile
   | GetBatchUserInfo
   | LoadUsers
-  | SearchMatchHistory
+  | GetMatchHistory
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
@@ -48,9 +48,9 @@ export interface LoadUsers {
   payload: SbUser[]
 }
 
-export interface SearchMatchHistory {
-  type: '@users/searchMatchHistory'
-  payload: SearchMatchHistoryResponse
+export interface GetMatchHistory {
+  type: '@users/getMatchHistory'
+  payload: GetMatchHistoryResponse
   meta: { userId: SbUserId }
 }
 
