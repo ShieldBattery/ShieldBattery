@@ -1,6 +1,6 @@
 import { ReadonlyDeep } from 'type-fest'
 import { GameConfig, GameSource } from '../../common/games/configuration'
-import { GetGameResponse } from '../../common/games/games'
+import { GetGameResponse, GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -51,6 +51,31 @@ export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction
         }),
       })
     })
+  })
+}
+
+export function getGames(
+  params: GetGamesQueryParams,
+  spec: RequestHandlingSpec<GetGamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') {
+        queryParams.set(key, String(value))
+      }
+    }
+
+    const result = await fetchJson<GetGamesResponse>(apiUrl`games/list?${queryParams}`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@games/getGames',
+      payload: result,
+    })
+
+    return result
   })
 }
 

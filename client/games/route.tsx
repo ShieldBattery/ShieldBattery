@@ -1,15 +1,9 @@
-import styled from 'styled-components'
 import { useRoute } from 'wouter'
-import { ComingSoon } from '../coming-soon/coming-soon'
 import { CenteredContentContainer } from '../styles/centered-container'
+import { GameList } from './game-list'
 import { ConnectedGameResultsPage } from './results'
 import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from './results-sub-page'
 import { fromRouteGameId, makeRouteGameId } from './route-game-id'
-
-const ComingSoonContainer = styled.div`
-  margin-top: 24px;
-  text-align: center;
-`
 
 export function GamesRouteComponent() {
   const [matches, params] = useRoute('/games/:routeId?/:subPage?')
@@ -21,9 +15,7 @@ export function GamesRouteComponent() {
   if (!params.routeId) {
     return (
       <CenteredContentContainer>
-        <ComingSoonContainer>
-          <ComingSoon />
-        </ComingSoonContainer>
+        <GameList />
       </CenteredContentContainer>
     )
   }

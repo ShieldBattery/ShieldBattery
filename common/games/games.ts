@@ -12,8 +12,16 @@ import {
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameConfig, GameSource } from './configuration'
+import {
+  EncodedMatchupString,
+  GameDurationFilter,
+  GameFormat,
+  GameSortOption,
+} from './game-filters'
 import { MatchupString } from './matchups'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
+
+export const GET_GAMES_LIMIT = 40
 
 export interface GameRecord {
   id: string
@@ -115,6 +123,8 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>, t: TFunction):
 
 /** Info about a replay file available for download/watching. */
 export interface GameReplayInfo {
+  /** The ID of the game this replay belongs to. */
+  gameId: string
   /** Unique replay file ID, used as the cache key. */
   id: string
   /** Signed URL for downloading the replay. */
@@ -132,6 +142,24 @@ export interface GetGameResponse {
   /** Replay info for the best replay (if available and user has access). */
   replay?: GameReplayInfo
   debugInfo?: GameDebugInfoJson
+}
+
+export interface GetGamesQueryParams {
+  duration?: GameDurationFilter
+  mapName?: string
+  playerName?: string
+  format?: GameFormat
+  matchup?: EncodedMatchupString
+  sort?: GameSortOption
+  offset?: number
+}
+
+export interface GetGamesResponse {
+  games: GameRecordJson[]
+  maps: MapInfoJson[]
+  users: SbUser[]
+  hasMoreGames: boolean
+  replays: GameReplayInfo[]
 }
 
 /** Events that can be sent when subscribed to changes to a particular game record. */
