@@ -459,6 +459,10 @@
     "activity": {
       "title": "Games"
     },
+    "list": {
+      "noMatchingGames": "No matching games.",
+      "retrievingError": "There was an error retrieving the games."
+    },
     "liveGames": {
       "title": "Live games"
     }
