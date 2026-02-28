@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { useQuery } from 'urql'
 import {
   ALL_GAME_FORMATS,
   EncodedMatchupString,
@@ -9,15 +10,18 @@ import {
   GameSortOption,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
-import { SbUserId } from '../../common/users/sb-user-id'
-import { GameFilterBar } from '../games/game-filter-bar'
-import { GameListEntry } from '../games/game-list-entry'
+import { FragmentType, graphql, useFragment } from '../gql'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { elevationPlus1 } from '../material/shadows'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodyLarge } from '../styles/typography'
-import { getMatchHistory } from './action-creators'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
+import { getGames } from './action-creators'
+import { GameFilterBar } from './game-filter-bar'
+import { GameListEntry } from './game-list-entry'
+import { LiveGameEntry } from './live-game-entry'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -31,9 +35,9 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const MatchHistoryContainer = styled.div`
+const GamesListContainer = styled.div`
   width: 100%;
-  padding: 0 24px;
+  padding-top: 24px;
 
   display: flex;
   flex-direction: column;
@@ -67,12 +71,16 @@ function parseMatchup(value: string): EncodedMatchupString | undefined {
   return value ? makeEncodedMatchupString(value) : undefined
 }
 
-export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
+const GamesListQuery = graphql(/* GraphQL */ `
+  query GamesPageContent {
+    ...LiveGames_FeedFragment
+  }
+`)
+
+export function GameList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
-  const [customParam, setCustomParam] = useLocationSearchParam('custom')
   const [durationParam, setDurationParam] = useLocationSearchParam('duration')
   const [sortParam, setSortParam] = useLocationSearchParam('sort')
   const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
@@ -80,8 +88,6 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
 
-  const ranked = rankedParam === 'true'
-  const custom = customParam === 'true'
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
@@ -95,6 +101,10 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
   const games = useAppSelector(s => gameIds?.map(id => s.games.byId.get(id)!)) ?? []
+
+  // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
+  // hiding the live games feed if there are no live games anyway.
+  const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
 
   const reset = () => {
     abortControllerRef.current?.abort()
@@ -112,11 +122,8 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      getMatchHistory(
-        userId,
+      getGames(
         {
-          ranked: ranked || undefined,
-          custom: custom || undefined,
           duration: duration === GameDurationFilter.All ? undefined : duration,
           sort: sort === GameSortOption.LatestFirst ? undefined : sort,
           mapName: mapName || undefined,
@@ -148,16 +155,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   const filterBar = (
     <GameFilterBar
-      ranked={ranked}
-      setRanked={v => {
-        setRankedParam(v ? 'true' : '')
-        reset()
-      }}
-      custom={custom}
-      setCustom={v => {
-        setCustomParam(v ? 'true' : '')
-        reset()
-      }}
+      showRankedCustom={false}
       duration={duration}
       setDuration={v => {
         setDurationParam(v === GameDurationFilter.All ? '' : v)
@@ -193,26 +191,24 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   if (searchError) {
     return (
-      <MatchHistoryContainer>
+      <GamesListContainer>
         {filterBar}
         <ErrorText>
-          {t(
-            'user.matchHistory.retrievingError',
-            'There was an error retrieving the match history.',
-          )}
+          {t('games.list.retrievingError', 'There was an error retrieving the games.')}
         </ErrorText>
-      </MatchHistoryContainer>
+      </GamesListContainer>
     )
   } else if (gameIds?.length === 0) {
     return (
-      <MatchHistoryContainer>
+      <GamesListContainer>
+        <LiveGamesFeed query={data} />
         {filterBar}
-        <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
-      </MatchHistoryContainer>
+        <NoResults>{t('games.list.noMatchingGames', 'No matching games.')}</NoResults>
+      </GamesListContainer>
     )
   } else {
     const gameItems = games.map(game => (
-      <GameListEntry key={game.id} game={game} showResult={true} forUserId={userId} />
+      <GameListEntry key={game.id} game={game} showResult={false} />
     ))
 
     return (
@@ -222,11 +218,54 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         hasNextData={hasMoreGames}
         refreshToken={refreshToken}
         onLoadNextData={onLoadMoreGames}>
-        <MatchHistoryContainer>
+        <GamesListContainer>
+          <LiveGamesFeed query={data} />
           {filterBar}
           <SearchResults>{gameItems}</SearchResults>
-        </MatchHistoryContainer>
+        </GamesListContainer>
       </InfiniteScrollList>
     )
   }
+}
+
+const LiveGames_FeedFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedFragment on Query {
+    liveGames {
+      id
+      ...LiveGames_FeedEntryFragment
+    }
+  }
+`)
+
+const Title = styled.div`
+  ${titleLarge};
+  ${singleLine};
+`
+
+const GameEntriesRoot = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding-top: 8px;
+`
+
+const StyledLiveGameEntry = styled(LiveGameEntry)`
+  ${elevationPlus1};
+  ${containerStyles(ContainerLevel.Low)};
+`
+
+function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFragment> }) {
+  const { t } = useTranslation()
+  const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
+
+  return liveGames.length > 0 ? (
+    <div>
+      <Title>{t('games.liveGames.title', 'Live games')}</Title>
+      <GameEntriesRoot>
+        {liveGames.map(liveGame => (
+          <StyledLiveGameEntry key={liveGame.id} query={liveGame} />
+        ))}
+      </GameEntriesRoot>
+    </div>
+  ) : null
 }

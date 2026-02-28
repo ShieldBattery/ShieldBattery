@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
-import { getGameResultsUrl } from '../games/action-creators'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { NarrowDuration } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { UploadedMapImage } from '../maps/map-image'
@@ -12,45 +10,11 @@ import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { useNow } from '../react/date-hooks'
-import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { getGameResultsUrl } from './action-creators'
 
-export const LiveGames_HomeFeedFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_HomeFeedFragment on Query {
-    liveGames {
-      id
-      ...LiveGames_HomeFeedEntryFragment
-    }
-  }
-`)
-
-const Root = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-  border-radius: 4px;
-`
-
-export function LiveGamesHomeFeed({
-  query,
-}: {
-  query?: FragmentType<typeof LiveGames_HomeFeedFragment>
-}) {
-  const { t } = useTranslation()
-  const { liveGames } = useFragment(LiveGames_HomeFeedFragment, query) ?? { liveGames: [] }
-
-  return liveGames.length > 0 ? (
-    <HomeSection>
-      <HomeSectionTitle>{t('games.liveGames.title', 'Live games')}</HomeSectionTitle>
-      <Root>
-        {liveGames.slice(0, 5).map(liveGame => (
-          <LiveGameEntry key={liveGame.id} query={liveGame} />
-        ))}
-      </Root>
-    </HomeSection>
-  ) : null
-}
-
-export const LiveGames_HomeFeedEntryFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_HomeFeedEntryFragment on Game {
+const LiveGames_FeedEntryFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedEntryFragment on Game {
     id
     startTime
     map {
@@ -77,12 +41,12 @@ export const LiveGames_HomeFeedEntryFragment = graphql(/* GraphQL */ `
           user {
             id
           }
-          ...LiveGames_HomeFeedEntryPlayersFragment
+          ...LiveGames_FeedEntryPlayersFragment
         }
       }
     }
 
-    ...LiveGames_HomeFeedEntryMapAndTypeFragment
+    ...LiveGames_FeedEntryMapAndTypeFragment
   }
 `)
 
@@ -128,8 +92,14 @@ const OneTeam = styled(Team)`
   grid-column: span 2;
 `
 
-function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFeedEntryFragment> }) {
-  const game = useFragment(LiveGames_HomeFeedEntryFragment, query)
+export function LiveGameEntry({
+  query,
+  className,
+}: {
+  query: FragmentType<typeof LiveGames_FeedEntryFragment>
+  className?: string
+}) {
+  const game = useFragment(LiveGames_FeedEntryFragment, query)
   const [buttonProps, rippleRef] = useButtonState({})
   const now = useNow(60_000)
 
@@ -164,7 +134,7 @@ function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFee
   // we don't track its dimensions. If this is ever not the case we'd probably need to add a
   // ResizeObserver
   return (
-    <EntryRoot {...buttonProps} href={getGameResultsUrl(game.id)}>
+    <EntryRoot {...buttonProps} href={getGameResultsUrl(game.id)} className={className}>
       <MapAndTypeDisplay query={game} />
       {teamElements[0]}
       {teamElements[1]}
@@ -176,8 +146,8 @@ function LiveGameEntry({ query }: { query: FragmentType<typeof LiveGames_HomeFee
   )
 }
 
-export const LiveGames_HomeFeedEntryPlayersFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_HomeFeedEntryPlayersFragment on GamePlayer {
+const LiveGames_FeedEntryPlayersFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedEntryPlayersFragment on GamePlayer {
     user {
       id
       name
@@ -215,9 +185,9 @@ const PlayerRace = styled(RaceIcon)`
 function PlayerDisplay({
   query,
 }: {
-  query: FragmentType<typeof LiveGames_HomeFeedEntryPlayersFragment>
+  query: FragmentType<typeof LiveGames_FeedEntryPlayersFragment>
 }) {
-  const player = useFragment(LiveGames_HomeFeedEntryPlayersFragment, query)
+  const player = useFragment(LiveGames_FeedEntryPlayersFragment, query)
 
   return (
     <PlayerRoot>
@@ -227,8 +197,8 @@ function PlayerDisplay({
   )
 }
 
-export const LiveGames_HomeFeedEntryMapAndTypeFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_HomeFeedEntryMapAndTypeFragment on Game {
+const LiveGames_FeedEntryMapAndTypeFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedEntryMapAndTypeFragment on Game {
     id
     map {
       id
@@ -311,11 +281,13 @@ const StyledMapImage = styled(UploadedMapImage)`
 
 function MapAndTypeDisplay({
   query,
+  mapSize = 256,
 }: {
-  query: FragmentType<typeof LiveGames_HomeFeedEntryMapAndTypeFragment>
+  query: FragmentType<typeof LiveGames_FeedEntryMapAndTypeFragment>
+  mapSize?: number
 }) {
   const { t } = useTranslation()
-  const game = useFragment(LiveGames_HomeFeedEntryMapAndTypeFragment, query)
+  const game = useFragment(LiveGames_FeedEntryMapAndTypeFragment, query)
 
   if (game.config.__typename !== 'GameConfigDataMatchmaking') {
     return null
@@ -323,7 +295,7 @@ function MapAndTypeDisplay({
 
   return (
     <MapAndTypeRoot>
-      <StyledMapImage map={game.map} size={256} />
+      <StyledMapImage map={game.map} size={mapSize} />
       <GameType>{matchmakingTypeToLabel(game.config.gameSourceExtra.matchmakingType, t)}</GameType>
       <MapName>{game.map.name}</MapName>
     </MapAndTypeRoot>

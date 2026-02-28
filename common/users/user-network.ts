@@ -4,7 +4,7 @@ import {
   GameFormat,
   GameSortOption,
 } from '../games/game-filters'
-import { GameRecordJson } from '../games/games'
+import { GameRecordJson, GameReplayInfo } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder/ladder'
@@ -100,6 +100,7 @@ export interface GetMatchHistoryResponse {
   maps: MapInfoJson[]
   users: SbUser[]
   hasMoreGames: boolean
+  replays: GameReplayInfo[]
 }
 
 export interface GetUserRankingHistoryResponse {
