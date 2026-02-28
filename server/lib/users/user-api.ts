@@ -17,7 +17,7 @@ import {
   GameDurationFilter,
   GameSortOption,
 } from '../../../common/games/game-filters'
-import { toGameRecordJson } from '../../../common/games/games'
+import { GameReplayInfo, toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
@@ -91,6 +91,10 @@ import { isElectronClient } from '../network/electron-clients'
 import { serverRsUrl } from '../network/server-rs-requests'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
+import { canUserAccessReplay } from '../replays/replay-access'
+import { generateReplayFilename } from '../replays/replay-filenames'
+import { getBestReplaysForGames } from '../replays/replay-models'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { getJwt } from '../session/jwt-session-middleware'
 import createThrottle from '../throttle/create-throttle'
@@ -251,6 +255,7 @@ interface SignupRequestBody {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
 export class UserApi {
+  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private userIdManager: UserIdentifierManager,
@@ -260,6 +265,7 @@ export class UserApi {
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private chatService: ChatService,
+    private replayService: ReplayService,
   ) {
     container.resolve(PasswordResetCleanupJob)
     container.resolve(SignupCodeCleanupJob)
@@ -721,11 +727,41 @@ export class UserApi {
       getMapInfos(Array.from(uniqueMaps.values())),
     ])
 
+    const currentUserId = ctx.session?.user?.id
+    const mapNameById = new Map(maps.map(m => [m.id, m.name]))
+    const accessibleGames = games.filter(g => canUserAccessReplay(g, currentUserId))
+    const replayByGameId = await getBestReplaysForGames(accessibleGames.map(g => g.id))
+    const replays = (
+      await Promise.all(
+        accessibleGames
+          .filter(g => replayByGameId.has(g.id))
+          .map(async game => {
+            const bestReplay = replayByGameId.get(game.id)!
+            const mapName = mapNameById.get(game.mapId) ?? 'Unknown Map'
+            try {
+              return {
+                gameId: game.id,
+                id: bestReplay.id,
+                url: await this.replayService.getReplayDownloadUrl(
+                  bestReplay.id,
+                  generateReplayFilename(game, mapName),
+                ),
+                hash: bestReplay.hash.toString('hex'),
+              } satisfies GameReplayInfo
+            } catch (err) {
+              ctx.log.error({ err }, `Error retrieving replay download URL for game ${game.id}`)
+              return undefined
+            }
+          }),
+      )
+    ).filter(r => r !== undefined)
+
     return {
       games: games.map(g => toGameRecordJson(g)),
       maps: maps.map(m => toMapInfoJson(m)),
       users,
       hasMoreGames: games.length >= GET_MATCH_HISTORY_LIMIT,
+      replays,
     }
   }
 

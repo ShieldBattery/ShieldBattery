@@ -5,13 +5,20 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource } from '../../../common/games/configuration'
+import {
+  ALL_GAME_FORMATS,
+  decodeMatchup,
+  GameDurationFilter,
+  GameSortOption,
+} from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
 import {
   GameDebugInfo,
-  GameRecord,
   GameReplayInfo,
+  GET_GAMES_LIMIT,
   GetGameResponse,
+  GetGamesQueryParams,
+  GetGamesResponse,
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
@@ -21,7 +28,7 @@ import {
   SubmitGameReplayRequest,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
-import { toMapInfoJson } from '../../../common/maps'
+import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { parseReplay } from '../../workers/replays/replays'
@@ -33,17 +40,22 @@ import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { UpsertUserIp } from '../network/user-ips-type'
+import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
-import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-models'
+import {
+  getAllReplaysForGame,
+  getBestReplayForGame,
+  getBestReplaysForGames,
+} from '../replays/replay-models'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUsersByIdAsMap } from '../users/user-model'
+import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames, getGameRoutes } from './game-models'
+import { countCompletedGames, getGameRoutes, getGames } from './game-models'
 import GameResultService, { GameResultServiceError } from './game-result-service'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
@@ -61,31 +73,15 @@ const gameResultsThrottle = createThrottle('gamesResults', {
   window: 60000,
 })
 
+const gamesListThrottle = createThrottle('gamesList', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
 const GAME_ID_PARAM = Joi.object<{ gameId: string }>({
   gameId: Joi.string().required(),
 })
-
-/**
- * Determines if a user can access replays for a game.
- * - Matchmaking games: any user can access
- * - Lobby games: only participants can access
- */
-function canUserAccessReplay(game: GameRecord, userId: SbUserId | undefined): boolean {
-  if (game.config.gameSource === GameSource.Matchmaking) {
-    return true
-  }
-
-  if (game.config.gameSource === GameSource.Lobby) {
-    if (!userId) {
-      return false
-    }
-    // Check if user was a participant
-    const allPlayers = game.config.teams.flat()
-    return allPlayers.some(p => !p.isComputer && p.id === userId)
-  }
-
-  return false
-}
 
 @singleton()
 class GameCountEmitter {
@@ -178,6 +174,93 @@ export class GameApi {
     private replayService: ReplayService,
   ) {}
 
+  @httpGet('/list')
+  @httpBefore(throttleMiddleware(gamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  async getGamesList(ctx: RouterContext): Promise<GetGamesResponse> {
+    const {
+      query: { duration, mapName, playerName, format, matchup, sort, offset },
+    } = validateRequest(ctx, {
+      query: Joi.object<GetGamesQueryParams>({
+        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
+        mapName: Joi.string().max(100),
+        playerName: Joi.string().max(100),
+        format: Joi.string().valid(...ALL_GAME_FORMATS),
+        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
+        sort: Joi.string().valid(...Object.values(GameSortOption)),
+        offset: Joi.number().min(0),
+      }),
+    })
+
+    const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
+
+    const games = await getGames({
+      limit: GET_GAMES_LIMIT,
+      offset: offset ?? 0,
+      duration,
+      mapName,
+      playerName,
+      format,
+      matchup: decodedMatchup,
+      sort,
+    })
+
+    const uniqueUsers = new Set<SbUserId>()
+    const uniqueMaps = new Set<SbMapId>()
+    for (const g of games) {
+      uniqueMaps.add(g.mapId)
+
+      for (const team of g.config.teams) {
+        for (const player of team) {
+          if (!player.isComputer) {
+            uniqueUsers.add(player.id)
+          }
+        }
+      }
+    }
+
+    const [users, maps] = await Promise.all([
+      findUsersById(Array.from(uniqueUsers.values())),
+      getMapInfos(Array.from(uniqueMaps.values())),
+    ])
+
+    const currentUserId = ctx.session?.user?.id
+    const mapNameById = new Map(maps.map(m => [m.id, m.name]))
+    const accessibleGames = games.filter(g => canUserAccessReplay(g, currentUserId))
+    const replayByGameId = await getBestReplaysForGames(accessibleGames.map(g => g.id))
+    const replays = (
+      await Promise.all(
+        accessibleGames
+          .filter(g => replayByGameId.has(g.id))
+          .map(async game => {
+            const bestReplay = replayByGameId.get(game.id)!
+            const mapName = mapNameById.get(game.mapId) ?? 'Unknown Map'
+            try {
+              return {
+                gameId: game.id,
+                id: bestReplay.id,
+                url: await this.replayService.getReplayDownloadUrl(
+                  bestReplay.id,
+                  generateReplayFilename(game, mapName),
+                ),
+                hash: bestReplay.hash.toString('hex'),
+              } satisfies GameReplayInfo
+            } catch (err) {
+              ctx.log.error({ err }, `Error retrieving replay download URL for game ${game.id}`)
+              return undefined
+            }
+          }),
+      )
+    ).filter(r => r !== undefined)
+
+    return {
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      hasMoreGames: games.length >= GET_GAMES_LIMIT,
+      replays,
+    }
+  }
+
   @httpGet('/:gameId')
   @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getGame(ctx: RouterContext): Promise<GetGameResponse> {
@@ -211,6 +294,7 @@ export class GameApi {
         if (bestReplay) {
           const filename = generateReplayFilename(game, mapName)
           replay = {
+            gameId,
             id: bestReplay.id,
             url: await this.replayService.getReplayDownloadUrl(bestReplay.id, filename),
             hash: bestReplay.hash.toString('hex'),

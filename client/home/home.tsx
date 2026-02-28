@@ -4,13 +4,13 @@ import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { LiveGameEntry } from '../games/live-game-entry'
 import { FragmentType, graphql, useFragment } from '../gql'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueHomeFeed } from '../leagues/league-home-feed'
-import { LiveGamesHomeFeed } from '../matchmaking/live-games-home-feed'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
@@ -135,7 +135,7 @@ const HomeQuery = graphql(/* GraphQL */ `
       ...UrgentMessage_HomeDisplayFragment
     }
 
-    ...LiveGames_HomeFeedFragment
+    ...LiveGames_FeedFragment
     ...Leagues_HomeFeedFragment
   }
 `)
@@ -187,7 +187,7 @@ export function Home() {
                   </Tooltip>
                 </SupportIcons>
               </SupportSection>
-              <LiveGamesHomeFeed query={data} />
+              <LiveGamesFeed query={data} />
               <LeagueHomeFeed query={data} />
             </RightSection>
             <BottomLinksArea>
@@ -266,4 +266,34 @@ function UrgentMessageView(props: {
   ) : (
     <UrgentMessageSpaceHolder />
   )
+}
+
+const LiveGames_FeedFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedFragment on Query {
+    liveGames {
+      id
+      ...LiveGames_FeedEntryFragment
+    }
+  }
+`)
+
+const LiveGamesRoot = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  border-radius: 4px;
+`
+
+export function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFragment> }) {
+  const { t } = useTranslation()
+  const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
+
+  return liveGames.length > 0 ? (
+    <HomeSection>
+      <HomeSectionTitle>{t('games.liveGames.title', 'Live games')}</HomeSectionTitle>
+      <LiveGamesRoot>
+        {liveGames.slice(0, 5).map(liveGame => (
+          <LiveGameEntry key={liveGame.id} query={liveGame} />
+        ))}
+      </LiveGamesRoot>
+    </HomeSection>
+  ) : null
 }

@@ -27,9 +27,21 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@users/getMatchHistory'](state, { payload: { games }, meta: { userId } }) {
+  ['@users/getMatchHistory'](state, { payload: { games, replays } }) {
     for (const game of games) {
       state.byId.set(game.id, game)
+    }
+    for (const replay of replays) {
+      state.replayInfoById.set(replay.gameId, replay)
+    }
+  },
+
+  ['@games/getGames'](state, { payload: { games, replays } }) {
+    for (const game of games) {
+      state.byId.set(game.id, game)
+    }
+    for (const replay of replays) {
+      state.replayInfoById.set(replay.gameId, replay)
     }
   },
 
@@ -37,7 +49,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
     if (replay) {
-      state.replayInfoById.set(game.id, replay)
+      state.replayInfoById.set(replay.gameId, replay)
     }
     if (debugInfo) {
       state.debugInfoById.set(game.id, debugInfo)

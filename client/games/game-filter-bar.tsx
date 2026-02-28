@@ -65,10 +65,12 @@ const SORT_OPTIONS = [
 ] as const
 
 export interface GameFilterBarProps {
-  ranked: boolean
-  setRanked: (v: boolean) => void
-  custom: boolean
-  setCustom: (v: boolean) => void
+  /** When false, hides Ranked and Custom filter chips (e.g. for Games page which only shows matchmaking). */
+  showRankedCustom?: boolean
+  ranked?: boolean
+  setRanked?: (v: boolean) => void
+  custom?: boolean
+  setCustom?: (v: boolean) => void
   duration: GameDurationFilter
   setDuration: (v: GameDurationFilter) => void
   sort: GameSortOption
@@ -89,9 +91,10 @@ export interface GameFilterBarProps {
  * and an advanced filters panel with draft state.
  */
 export function GameFilterBar({
-  ranked,
+  showRankedCustom = true,
+  ranked = false,
   setRanked,
-  custom,
+  custom = false,
   setCustom,
   duration,
   setDuration,
@@ -113,7 +116,9 @@ export function GameFilterBar({
 
   const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup
   const hasActiveFilters =
-    ranked || custom || duration !== GameDurationFilter.All || hasAdvancedFilters
+    (showRankedCustom && (ranked || custom)) ||
+    duration !== GameDurationFilter.All ||
+    hasAdvancedFilters
 
   return (
     <FilterBarContainer className={className}>
@@ -122,16 +127,20 @@ export function GameFilterBar({
         {t('game.filters.label', 'Filters')}
       </FiltersLabel>
 
-      <FilterChip
-        label={t('game.filters.ranked', 'Ranked')}
-        selected={ranked}
-        onClick={() => setRanked(!ranked)}
-      />
-      <FilterChip
-        label={t('game.filters.custom', 'Custom')}
-        selected={custom}
-        onClick={() => setCustom(!custom)}
-      />
+      {showRankedCustom && (
+        <>
+          <FilterChip
+            label={t('game.filters.ranked', 'Ranked')}
+            selected={ranked}
+            onClick={() => setRanked?.(!ranked)}
+          />
+          <FilterChip
+            label={t('game.filters.custom', 'Custom')}
+            selected={custom}
+            onClick={() => setCustom?.(!custom)}
+          />
+        </>
+      )}
 
       <FilterChip
         label={getDurationLabel(duration, t)}
@@ -159,8 +168,8 @@ export function GameFilterBar({
           label={t('common.actions.clear', 'Clear')}
           iconStart={<MaterialIcon icon='close' />}
           onClick={() => {
-            setRanked(false)
-            setCustom(false)
+            setRanked?.(false)
+            setCustom?.(false)
             setDuration(GameDurationFilter.All)
             setMapName('')
             setPlayerName('')

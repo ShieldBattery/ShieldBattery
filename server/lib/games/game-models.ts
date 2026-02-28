@@ -177,6 +177,129 @@ export async function getRecentGamesForUser(
 }
 
 /**
+ * Retrieves completed matchmaking games for the platform games list.
+ */
+export async function getGames(
+  params: {
+    limit: number
+    offset: number
+    duration?: GameDurationFilter
+    mapName?: string
+    playerName?: string
+    format?: GameFormat
+    matchup?: MatchupFilter
+    sort?: GameSortOption
+  },
+  withClient?: DbClient,
+): Promise<GameRecord[]> {
+  const { limit, offset, duration, mapName, playerName, format, matchup, sort } = params
+
+  const { client, done } = await db(withClient)
+  try {
+    const whereClauses = [
+      sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
+      sql`g.results IS NOT NULL`,
+    ]
+    let needMapJoin = false
+
+    if (duration && duration !== GameDurationFilter.All) {
+      switch (duration) {
+        case GameDurationFilter.Under10:
+          whereClauses.push(sql`g.game_length < 600000`)
+          break
+        case GameDurationFilter.From10To20:
+          whereClauses.push(sql`g.game_length >= 600000 AND g.game_length < 1200000`)
+          break
+        case GameDurationFilter.From20To30:
+          whereClauses.push(sql`g.game_length >= 1200000 AND g.game_length < 1800000`)
+          break
+        case GameDurationFilter.Over30:
+          whereClauses.push(sql`g.game_length >= 1800000`)
+          break
+        default:
+          duration satisfies never
+      }
+    }
+
+    if (mapName) {
+      needMapJoin = true
+      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+    }
+
+    if (playerName) {
+      whereClauses.push(sql`
+        EXISTS (
+          SELECT 1 FROM games_users gu2
+          INNER JOIN users u ON gu2.user_id = u.id
+          WHERE gu2.game_id = g.id
+          AND u.name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
+        )
+      `)
+    }
+
+    if (format) {
+      const teamSize = getTeamSizeForFormat(format)
+      whereClauses.push(sql`
+        g.selected_matchup ~ ${`^[prtz]{${teamSize}}-[prtz]{${teamSize}}$`}
+      `)
+    }
+
+    if (format && matchup) {
+      const hasNonUndefinedRace = [...matchup.team1, ...matchup.team2].some(r => r !== undefined)
+
+      if (hasNonUndefinedRace) {
+        const matchupStrings = expandMatchupFilter(matchup)
+        whereClauses.push(sql`g.assigned_matchup = ANY(${matchupStrings})`)
+      }
+    }
+
+    let orderBy = sqlRaw('g.start_time DESC')
+    if (sort) {
+      switch (sort) {
+        case GameSortOption.LatestFirst:
+          orderBy = sqlRaw('g.start_time DESC')
+          break
+        case GameSortOption.OldestFirst:
+          orderBy = sqlRaw('g.start_time ASC')
+          break
+        case GameSortOption.ShortestFirst:
+          orderBy = sqlRaw('g.game_length ASC NULLS LAST')
+          break
+        case GameSortOption.LongestFirst:
+          orderBy = sqlRaw('g.game_length DESC NULLS LAST')
+          break
+        default:
+          sort satisfies never
+      }
+    }
+
+    let query = sql`
+      SELECT g.*
+      FROM games g
+    `
+
+    if (needMapJoin) {
+      query = query.append(sql`
+        INNER JOIN uploaded_maps m ON g.map_id = m.id
+      `)
+    }
+
+    query = query.append(sql`
+      WHERE ${sqlConcat(' AND ', whereClauses)}
+      ORDER BY ${orderBy}
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbGameRecord>(query)
+
+    return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Retrieves game information for the match history of a user.
  */
 export async function getGamesForUser(
