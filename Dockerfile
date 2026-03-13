@@ -2,7 +2,7 @@
 FROM ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools AS rust-tools
 
 # Install dependencies in a separate stage for better caching
-FROM node:22-alpine AS deps
+FROM node:24-alpine AS deps
 RUN corepack enable
 # By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
 # multistage build to install the necessary tools, and build the dependencies which will then be
@@ -34,7 +34,7 @@ RUN pnpm prune --prod
 
 
 # Setup the actual image
-FROM node:22-alpine
+FROM node:24-alpine
 
 # Run pnpm once so we ensure it gets installed by corepack during the container build
 RUN corepack enable && pnpm --version
