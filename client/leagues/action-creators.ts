@@ -13,6 +13,7 @@ import {
   LeagueJson,
 } from '../../common/leagues/leagues'
 import { apiUrl, urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
@@ -214,7 +215,7 @@ export function adminUpdateLeague({
 
 export function adminBanUser(
   leagueId: LeagueId,
-  userId: number,
+  userId: SbUserId,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -227,7 +228,7 @@ export function adminBanUser(
 
 export function adminUnbanUser(
   leagueId: LeagueId,
-  userId: number,
+  userId: SbUserId,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
