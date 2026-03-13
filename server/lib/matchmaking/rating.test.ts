@@ -69,6 +69,7 @@ function createLeagueUser(
     ...data,
     userId: makeSbUserId(data.userId),
     leagueId: makeLeagueId(data.leagueId),
+    isBanned: false,
   }
 }
 
