@@ -738,6 +738,55 @@ export const STATIC_NEWS_ENTRIES: ReadonlyArray<StaticNewsFeedEntry> = [
       of ShieldBattery, please check out the donation links at the top of the home page!
     `,
   },
+  {
+    date: 1773529750776,
+    title: 'Update 10.4.0',
+    summary: 'Automatic replay uploads, replay viewing from game results, and more!',
+    contents: `
+      This update brings some long-awaited replay features along with a number of bug fixes and
+      quality of life improvements.
+
+      ## Replays
+
+      - **Automatic replay uploads.** Replays are now automatically saved and uploaded to our
+        servers when a game ends. No more digging around in your replays folder to find the game you
+        just played!
+
+      - **Watch and download replays from game results.** The game results page now has buttons for
+        watching and downloading replays directly. For matchmaking games, replays are available to
+        everyone. For lobby games, only participants can access them.
+
+      ## Matchmaking
+
+      - **Adjusted matchmaking convergence.** We've reduced the convergence effect in matchmaking
+        and set a cap at the Gold division. This should make it take longer to achieve higher
+        divisions, making them more meaningful.
+
+      ## Improvements
+
+      - **View full match history from profiles.** The mini match history on user profiles now has a
+        button to quickly jump to the full match history view.
+
+      - **Multiline chat input.** The chat input now uses a multiline text area, making it easier to
+        compose longer messages.
+
+      - **Keyboard accessibility.** Usernames and channel names in chat are now keyboard accessible,
+        making the app more usable for keyboard-only navigation.
+
+      - **Improved mentions popover.** The user mentions popover now auto-focuses the first item when
+        opened, making it faster to select a user.
+
+      ## Bug fixes
+
+      - Fixed replay dialog map name getting cut off on longer names.
+      - Fixed language settings not working for logged out users.
+      - Fixed errors when an invalid maps directory existed next to the game executable.
+      - Fixed a crash related to Windows special folder path detection.
+      - Fixed image upload error handling when files exceed the size limit.
+      - Improved timeouts for replay and game result uploads to be more reliable.
+      - Added crash handler fallback handling to improve stability.
+    `,
+  },
 ]
 
 export const newsDateFormatter = new Intl.DateTimeFormat(navigator.language, {
