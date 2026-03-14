@@ -274,7 +274,7 @@
     "redux": "^5.0.1",
     "redux-thunk": "^3.1.0",
     "rolldown": "1.0.0-beta.57",
-    "run-pty": "^5.0.0",
+    "run-pty": "^6.0.2",
     "slug": "^11.0.1",
     "stream-browserify": "^3.0.0",
     "style-loader": "^4.0.0",
@@ -325,5 +325,5 @@
       "unrs-resolver"
     ]
   },
-  "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6"
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be"
 }

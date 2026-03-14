@@ -3020,7 +3020,7 @@ impl bw::Bw for BwScr {
                 functions: [0usize; 0x50],
             };
             vtable.functions[self.lobby_create_callback_offset / mem::size_of::<usize>()] =
-                lobby_create_callback as usize;
+                lobby_create_callback as *const () as usize;
 
             let mut object: *const scr::LobbyDialogVtable = &vtable;
             let result = log_time("select_map_entry", || {
