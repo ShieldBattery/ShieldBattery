@@ -83,6 +83,28 @@ export default class LocalFsStore implements FileStore {
   }
 }
 
+/**
+ * Re-encodes a Content-Disposition header value so that non-ASCII filenames use the RFC 5987
+ * `filename*=UTF-8''...` syntax, which is required since HTTP headers only allow ASCII characters.
+ */
+function encodeContentDisposition(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (!/[^\x20-\x7E]/.test(value)) {
+    return value
+  }
+
+  const filenameMatch = value.match(/filename="(.+?)"/)
+  if (!filenameMatch) {
+    return value
+  }
+
+  const filename = filenameMatch[1]
+  const encoded = encodeURIComponent(filename)
+  // Replace the plain filename with an ASCII fallback + the RFC 5987 encoded version
+  const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '_')
+  return value.replace(filenameMatch[0], `filename="${asciiFilename}"; filename*=UTF-8''${encoded}`)
+}
+
 function createFileMiddleware(path: string) {
   const staticMiddleware = koaStatic(path, { maxage: FILE_MAX_AGE_MS })
 
@@ -102,7 +124,7 @@ function createFileMiddleware(path: string) {
       ctx.set('Content-Type', responseContentType)
     }
     if (responseContentDisposition) {
-      ctx.set('Content-Disposition', responseContentDisposition)
+      ctx.set('Content-Disposition', encodeContentDisposition(responseContentDisposition))
     }
 
     return result
