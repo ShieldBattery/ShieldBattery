@@ -605,7 +605,7 @@ function DraftTimer() {
   const pickTimeStart = useAtomValue(draftPickTimeStartAtom)
   const [currentTime, setCurrentTime] = useState<number | undefined>(undefined)
 
-  if (!pickTimeStart) {
+  if (!pickTimeStart && currentTime !== undefined) {
     setCurrentTime(undefined)
   }
 
