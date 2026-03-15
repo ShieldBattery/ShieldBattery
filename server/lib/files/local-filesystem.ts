@@ -88,7 +88,6 @@ export default class LocalFsStore implements FileStore {
  * `filename*=UTF-8''...` syntax, which is required since HTTP headers only allow ASCII characters.
  */
 function encodeContentDisposition(value: string): string {
-  // eslint-disable-next-line no-control-regex
   if (!/[^\x20-\x7E]/.test(value)) {
     return value
   }
