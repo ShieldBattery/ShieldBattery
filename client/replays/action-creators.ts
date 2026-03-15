@@ -121,7 +121,11 @@ export function watchReplayFromUrl(
 
     if (!replayPath) {
       // Download the replay
-      const response = await fetchRaw(replayInfo.url, { signal: spec.signal })
+      const response = await fetchRaw(replayInfo.url, {
+        signal: spec.signal,
+        credentials: 'same-origin',
+        headers: { Accept: '*/*' },
+      })
       if (!response.ok) {
         throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
       }
