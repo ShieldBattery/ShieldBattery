@@ -543,6 +543,7 @@
     },
     "list": {
       "acceptingSignups": "Accepting signups",
+      "banned": "Banned",
       "currentlyRunning": "Currently running",
       "ends": "Ends {{endDate}}",
       "finished": "Finished",
@@ -556,6 +557,10 @@
       "starts": "Starts {{startDate}}",
       "viewAll": "View all leagues",
       "viewInfo": "View info"
+    },
+    "notifications": {
+      "ban": "You have been banned from the <1>{{leagueName}}</1> league.",
+      "unban": "Your ban from the <1>{{leagueName}}</1> league has been lifted."
     }
   },
   "lobbies": {
