@@ -248,7 +248,11 @@ function GeneralSettingsForm({
             <BannerButtonsContainer>
               <SingleFileInput
                 {...bindCustom('banner')}
-                label={bannerUrl ? 'Change banner' : 'Upload banner'}
+                label={
+                  bannerUrl
+                    ? t('chat.channelSettings.general.changeBanner', 'Change banner')
+                    : t('chat.channelSettings.general.uploadBanner', 'Upload banner')
+                }
                 allowErrors={true}
                 disabled={isSaving}
                 inputProps={{ accept: 'image/*' }}
@@ -257,7 +261,7 @@ function GeneralSettingsForm({
 
               {bannerUrl ? (
                 <TextButton
-                  label='Remove banner'
+                  label={t('chat.channelSettings.general.removeBanner', 'Remove banner')}
                   disabled={isSaving}
                   iconStart={<MaterialIcon icon='clear' />}
                   onClick={() => {
@@ -271,7 +275,11 @@ function GeneralSettingsForm({
 
               <SingleFileInput
                 {...bindCustom('badge')}
-                label={badgeUrl ? 'Change badge' : 'Upload badge'}
+                label={
+                  badgeUrl
+                    ? t('chat.channelSettings.general.changeBadge', 'Change badge')
+                    : t('chat.channelSettings.general.uploadBadge', 'Upload badge')
+                }
                 allowErrors={true}
                 disabled={isSaving}
                 inputProps={{ accept: 'image/*' }}
@@ -280,7 +288,7 @@ function GeneralSettingsForm({
 
               {badgeUrl ? (
                 <TextButton
-                  label='Remove badge'
+                  label={t('chat.channelSettings.general.removeBadge', 'Remove badge')}
                   disabled={isSaving}
                   iconStart={<MaterialIcon icon='clear' />}
                   onClick={() => {
@@ -349,15 +357,13 @@ function GeneralSettingsForm({
             ) : (
               <ChannelBannerPlaceholderImage />
             )}
-            {basicChannelInfo ? (
-              <ChannelCardBadge>
-                <ChannelBadge
-                  src={badgeUrl}
-                  channelName={basicChannelInfo.name}
-                  testName='channel-settings-badge-image'
-                />
-              </ChannelCardBadge>
-            ) : null}
+            <ChannelCardBadge>
+              <ChannelBadge
+                src={badgeUrl}
+                channelName={basicChannelInfo.name}
+                testName='channel-settings-badge-image'
+              />
+            </ChannelCardBadge>
           </ChannelBannerAndBadge>
           <ChannelName>{basicChannelInfo.name}</ChannelName>
 

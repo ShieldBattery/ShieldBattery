@@ -76,6 +76,7 @@ function ChannelSettings({
   channelId: SbChannelId
   onCloseSettings: () => void
 }) {
+  const { t } = useTranslation()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
@@ -95,6 +96,10 @@ function ChannelSettings({
     },
   })
 
+  const channelName = basicChannelInfo?.name
+    ? `#${basicChannelInfo.name}`
+    : t('common.loading.channelName', 'Channel name loading…')
+
   return (
     <Container
       key='channel-settings'
@@ -104,7 +109,7 @@ function ChannelSettings({
       exit='hidden'
       transition={transition}>
       <NavContainer>
-        <NavSectionTitle>{`#${basicChannelInfo?.name}`}</NavSectionTitle>
+        <NavSectionTitle>{channelName}</NavSectionTitle>
         <NavEntry
           page={GeneralChannelSettingsPage.General}
           isActive={activePage === GeneralChannelSettingsPage.General}
@@ -113,7 +118,7 @@ function ChannelSettings({
         />
       </NavContainer>
 
-      <StyledSettingsContent title={`#${basicChannelInfo?.name}`} onCloseSettings={onCloseSettings}>
+      <StyledSettingsContent title={channelName} onCloseSettings={onCloseSettings}>
         {basicChannelInfo && detailedChannelInfo && joinedChannelInfo ? (
           <ChannelSettingsPageDisplay
             page={activePage}
