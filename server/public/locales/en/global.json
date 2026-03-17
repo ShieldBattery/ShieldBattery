@@ -178,10 +178,16 @@
       "general": {
         "badgeMaxFileSizeErrorMessage": "The maximum badge file size is {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "The maximum banner file size is {{fileSize}}.",
+        "changeBadge": "Change badge",
+        "changeBanner": "Change banner",
         "descriptionLabel": "Description",
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
+        "removeBadge": "Remove badge",
+        "removeBanner": "Remove banner",
         "saveErrorMessage": "Something went wrong while saving the settings",
-        "topicLabel": "Topic"
+        "topicLabel": "Topic",
+        "uploadBadge": "Upload badge",
+        "uploadBanner": "Upload banner"
       },
       "tabs": {
         "general": "General"
