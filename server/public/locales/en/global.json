@@ -201,6 +201,7 @@
         "kick": "Can kick users",
         "kickShort": "Kick",
         "loadError": "Failed to load users.",
+        "noSearchResults": "No users match your search",
         "noUsers": "This channel has no other members",
         "owner": "Owner",
         "saveError": "Failed to save permissions",

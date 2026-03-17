@@ -380,7 +380,12 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.getUserPermissions(channelId, ctx.session!.user.id, targetId)
+    return await this.chatService.getUserPermissions(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      !!ctx.session?.permissions.moderateChatChannels,
+    )
   }
 
   @httpGet('/:channelId/user-channel-entries')

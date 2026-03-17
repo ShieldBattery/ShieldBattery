@@ -995,7 +995,12 @@ export default class ChatService {
     }
   }
 
-  async getUserPermissions(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
+  async getUserPermissions(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    targetId: SbUserId,
+    isAdmin: boolean,
+  ) {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
@@ -1019,7 +1024,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to get other user's permissions",
@@ -1064,7 +1069,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to view user channel entries",
