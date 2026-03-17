@@ -199,7 +199,11 @@ export function UserPermissionsSettings({
   }
 
   useEffect(() => {
-    return () => abortControllerRef.current?.abort()
+    const debouncedSearch = debouncedSearchRef.current
+    return () => {
+      abortControllerRef.current?.abort()
+      debouncedSearch.cancel()
+    }
   }, [])
 
   let searchContent
@@ -215,7 +219,9 @@ export function UserPermissionsSettings({
     searchContent = (
       <SearchResults>
         <NoResults>
-          {t('chat.channelSettings.permissions.noUsers', 'This channel has no other members')}
+          {searchQuery
+            ? t('chat.channelSettings.permissions.noSearchResults', 'No users match your search')
+            : t('chat.channelSettings.permissions.noUsers', 'This channel has no other members')}
         </NoResults>
       </SearchResults>
     )

@@ -2063,7 +2063,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
@@ -2071,7 +2071,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: Must be in channel to get user's permissions]`,
       )
@@ -2088,7 +2088,7 @@ describe('chat/chat-service', () => {
       )
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: User must be in channel to get their permissions]`,
       )
@@ -2107,7 +2107,7 @@ describe('chat/chat-service', () => {
       )
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: You don't have enough permissions to get other user's permissions]`,
       )
@@ -2130,7 +2130,7 @@ describe('chat/chat-service', () => {
         },
       )
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id)
+      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false)
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2155,7 +2155,29 @@ describe('chat/chat-service', () => {
         },
       )
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id)
+      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false)
+
+      expect(result).toEqual({
+        userId: user2TestChannelEntry.userId,
+        channelId: user2TestChannelEntry.channelId,
+        permissions: user2TestChannelEntry.channelPermissions,
+      })
+    })
+
+    test('works when server admin', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user1.id && channelId === testChannel.id) {
+            return user1TestChannelEntry
+          } else if (userId === user2.id && channelId === testChannel.id) {
+            return user2TestChannelEntry
+          }
+          return null
+        },
+      )
+
+      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, true)
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2557,6 +2579,45 @@ describe('chat/chat-service', () => {
         user2.id,
         channelPermissions,
         false,
+      )
+
+      expect(updateUserPermissionsMock).toHaveBeenCalledWith(
+        testChannel.id,
+        user2.id,
+        channelPermissions,
+      )
+      expect(client2.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user2.id), {
+        action: 'permissionsChanged',
+        selfPermissions: channelPermissions,
+      })
+    })
+
+    test('works when isAdmin bypasses permission check', async () => {
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user1.id && channelId === testChannel.id) {
+            return user1TestChannelEntry
+          } else if (userId === user2.id && channelId === testChannel.id) {
+            return user2TestChannelEntry
+          }
+          return null
+        },
+      )
+
+      await chatService.updateUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        channelPermissions,
+        true,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(
