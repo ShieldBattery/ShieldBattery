@@ -193,6 +193,7 @@ function LeagueSection({
               type={type}
               curDate={curDate}
               joined={joinedLeagues.has(l.id)}
+              banned={joinedLeagues.get(l.id)?.isBanned ?? false}
               actionText={t('leagues.list.viewInfo', 'View info')}
               href={urlForLeague(l.id, l)}
             />
