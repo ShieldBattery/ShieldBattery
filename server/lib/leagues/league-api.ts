@@ -26,6 +26,7 @@ import {
   toLeagueJson,
 } from '../../../common/leagues/leagues'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
+import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -37,6 +38,7 @@ import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import NotificationService from '../notifications/notification-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -201,6 +203,8 @@ export class LeagueApi {
 @httpApi('/admin/leagues/')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageLeagues'))
 export class LeagueAdminApi {
+  constructor(private notificationService: NotificationService) {}
+
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<AdminGetLeaguesResponse> {
     const leagues = await adminGetAllLeagues()
@@ -450,6 +454,13 @@ export class LeagueAdminApi {
     }
 
     await banLeagueUser(leagueUser)
+    await this.notificationService.addNotification({
+      userId,
+      data: {
+        type: NotificationType.LeagueBan,
+        leagueName: league.name,
+      },
+    })
   }
 
   @httpPatch('/:leagueId/:userId/unban')
@@ -476,5 +487,12 @@ export class LeagueAdminApi {
     }
 
     await unbanLeagueUser(leagueUser)
+    await this.notificationService.addNotification({
+      userId,
+      data: {
+        type: NotificationType.LeagueUnban,
+        leagueName: league.name,
+      },
+    })
   }
 }

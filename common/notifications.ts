@@ -17,6 +17,10 @@ export enum NotificationType {
   PolicyUpdated = 'policyUpdated',
   /** A restriction has been applied to this user. */
   UserRestricted = 'userRestricted',
+  /** A user has been banned from a league. */
+  LeagueBan = 'leagueBan',
+  /** A user has been unbanned from a league. */
+  LeagueUnban = 'leagueUnban',
 }
 
 export type SbNotification =
@@ -25,6 +29,8 @@ export type SbNotification =
   | PartyInviteNotification
   | PolicyUpdatedNotification
   | UserRestrictedNotification
+  | LeagueBanNotification
+  | LeagueUnbanNotification
 
 export interface BaseNotification {
   /**
@@ -71,6 +77,16 @@ export interface UserRestrictedNotification extends BaseNotification {
   kind: RestrictionKind
   endTime: number
   reason: RestrictionReason
+}
+
+export interface LeagueBanNotification extends BaseNotification {
+  type: NotificationType.LeagueBan
+  leagueName: string
+}
+
+export interface LeagueUnbanNotification extends BaseNotification {
+  type: NotificationType.LeagueUnban
+  leagueName: string
 }
 
 export type NotificationEvent =
