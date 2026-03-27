@@ -25,12 +25,15 @@ import {
   InitialChannelData,
   JoinChannelResponse,
   JoinedChannelInfo,
+  ListUserChannelEntriesResponse,
   SbChannelId,
   SearchChannelsResponse,
   ServerChatMessage,
   ServerChatMessageType,
+  UserChannelEntry,
   makeSbChannelId,
   toChatUserProfileJson,
+  toUserChannelEntryJson,
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { Patch } from '../../../common/patch'
@@ -58,7 +61,6 @@ import {
   ChatMessage,
   EditableChannelFields,
   FullChannelInfo,
-  UserChannelEntry,
   addMessageToChannel,
   addUserToChannel,
   banAllIdentifiersFromChannel,
@@ -71,6 +73,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
   getUsersForChannel,
@@ -992,7 +995,12 @@ export default class ChatService {
     }
   }
 
-  async getUserPermissions(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
+  async getUserPermissions(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    targetId: SbUserId,
+    isAdmin: boolean,
+  ) {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
@@ -1016,7 +1024,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to get other user's permissions",
@@ -1027,6 +1035,61 @@ export default class ChatService {
       userId: targetChannelEntry.userId,
       channelId: targetChannelEntry.channelId,
       permissions: targetChannelEntry.channelPermissions,
+    }
+  }
+
+  async listUserChannelEntries({
+    channelId,
+    userId,
+    isAdmin,
+    limit,
+    offset,
+    searchStr,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isAdmin: boolean
+    limit: number
+    offset: number
+    searchStr?: string
+  }): Promise<ListUserChannelEntriesResponse> {
+    const [channelInfo, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+    if (!userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        'Must be in channel to view user channel entries',
+      )
+    }
+
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to view user channel entries",
+      )
+    }
+
+    const userChannelEntries = await getUserChannelEntriesForChannel({
+      channelId,
+      limit,
+      offset,
+      searchStr,
+    })
+    const userIds = userChannelEntries.map(u => u.userId)
+    const users = await findUsersById(userIds)
+
+    return {
+      channelId,
+      userChannelEntries: userChannelEntries.map(u => toUserChannelEntryJson(u)),
+      hasMoreUsers: userChannelEntries.length >= limit,
+      users,
     }
   }
 
@@ -1062,6 +1125,7 @@ export default class ChatService {
     userId: SbUserId,
     targetId: SbUserId,
     permissions: ChannelPermissions,
+    isAdmin: boolean,
   ) {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -1086,7 +1150,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to update other user's permissions",
@@ -1098,6 +1162,25 @@ export default class ChatService {
       action: 'permissionsChanged',
       selfPermissions: permissions,
     })
+
+    const oldIsModerator =
+      channelInfo.ownerId === targetId ||
+      targetChannelEntry.channelPermissions.editPermissions ||
+      targetChannelEntry.channelPermissions.ban ||
+      targetChannelEntry.channelPermissions.kick
+    const newIsModerator =
+      channelInfo.ownerId === targetId ||
+      permissions.editPermissions ||
+      permissions.ban ||
+      permissions.kick
+
+    if (oldIsModerator !== newIsModerator) {
+      this.publisher.publish(getChannelPath(channelId), {
+        action: 'userProfileChanged',
+        userId: targetId,
+        isModerator: newIsModerator,
+      })
+    }
   }
 
   private getUserSockets(userId: SbUserId): UserSocketsGroup {

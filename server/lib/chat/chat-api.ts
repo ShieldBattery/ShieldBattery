@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa, { ExtendableContext, Next } from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  CHANNEL_USER_PERMISSIONS_LIMIT,
   ChannelPermissions,
   ChatServiceErrorCode,
   EditChannelRequest,
@@ -15,6 +16,7 @@ import {
   GetChatUserProfileResponse,
   InitialChannelData,
   JoinChannelResponse,
+  ListUserChannelEntriesResponse,
   ModerateChannelUserServerRequest,
   SEARCH_CHANNELS_LIMIT,
   SbChannelId,
@@ -378,7 +380,38 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.getUserPermissions(channelId, ctx.session!.user.id, targetId)
+    return await this.chatService.getUserPermissions(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      !!ctx.session?.permissions.moderateChatChannels,
+    )
+  }
+
+  @httpGet('/:channelId/user-channel-entries')
+  @httpBefore(throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user.id)))
+  async listUserChannelEntries(ctx: RouterContext): Promise<ListUserChannelEntriesResponse> {
+    const {
+      params: { channelId },
+      query: { q: searchQuery, offset },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId }>({
+        channelId: joiSerialId().required(),
+      }),
+      query: Joi.object<{ q?: string; offset: number }>({
+        q: Joi.string().allow(''),
+        offset: Joi.number().min(0),
+      }),
+    })
+
+    return await this.chatService.listUserChannelEntries({
+      channelId,
+      userId: ctx.session!.user.id,
+      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      limit: CHANNEL_USER_PERMISSIONS_LIMIT,
+      offset,
+      searchStr: searchQuery,
+    })
   }
 
   @httpPost('/:channelId/users/:targetId/permissions')
@@ -408,6 +441,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
+      !!ctx.session?.permissions.moderateChatChannels,
     )
 
     ctx.status = 204

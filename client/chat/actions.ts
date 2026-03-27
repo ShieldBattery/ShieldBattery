@@ -12,6 +12,7 @@ import {
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
+  ChatUserProfileChangedEvent,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
@@ -63,6 +64,7 @@ export type ChatActions =
   | UpdateUserOffline
   | UpdateSelfPreferences
   | UpdateSelfPermissions
+  | UpdateUserProfile
 
 export interface GetJoinedChannels {
   type: '@chat/getJoinedChannels'
@@ -398,5 +400,14 @@ export interface UpdateSelfPreferences {
 export interface UpdateSelfPermissions {
   type: '@chat/permissionsChanged'
   payload: ChatPermissionsChangedEvent
+  meta: { channelId: SbChannelId }
+}
+
+/**
+ * A user's profile (isModerator status) in one of the chat channels we're in has changed.
+ */
+export interface UpdateUserProfile {
+  type: '@chat/userProfileChanged'
+  payload: ChatUserProfileChangedEvent
   meta: { channelId: SbChannelId }
 }
