@@ -156,15 +156,18 @@ export function GamePlayersDisplay({
     // first and keeps the teams in consistent order. This is mostly helpful when there are a lot of
     // games with the same teams one after another.
     const sortedTeams = game.config.teams.toSorted((a, b) => {
-      if (a.some(p => p.id === forUserId)) {
-        return -1
-      } else if (b.some(p => p.id === forUserId)) {
-        return 1
+      if (forUserId) {
+        if (a.some(p => p.id === forUserId)) {
+          return -1
+        } else if (b.some(p => p.id === forUserId)) {
+          return 1
+        }
       }
 
-      // TODO(2Pac): Figure out some way to keep consistent order of teams even if we're not showing
-      // this in a specific user profile (e.g. on public games page).
-      return 0
+      // When no forUserId (e.g. public games page), sort teams by first player name for consistency
+      const aFirstName = a[0] ? (playersMapping.get(a[0].id)?.name ?? '') : ''
+      const bFirstName = b[0] ? (playersMapping.get(b[0].id)?.name ?? '') : ''
+      return aFirstName.localeCompare(bFirstName)
     })
     const [teamTop, teamBottom] = sortedTeams
 
