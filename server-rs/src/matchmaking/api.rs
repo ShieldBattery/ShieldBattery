@@ -10,6 +10,7 @@ use base64::Engine as _;
 use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
 
 use super::matchmaker::MatchmakerError;
 
@@ -90,6 +91,7 @@ async fn requeue_player(
     };
     let modes = ticket.modes.into_iter().collect::<EnumSet<_>>();
 
+    let queue_time = SystemTime::UNIX_EPOCH + Duration::from_millis(ticket.queue_time);
     let mut matchmaker = matchmaker.lock().unwrap();
     match matchmaker.requeue_player(
         Player {
@@ -97,8 +99,7 @@ async fn requeue_player(
             rating: ticket.rating,
         },
         modes,
-        // FIXME: https://github.com/serde-rs/serde/issues/1375
-        ticket.queue_time,
+        queue_time,
     ) {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => e.into_response(),

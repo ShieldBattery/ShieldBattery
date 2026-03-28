@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::SystemTime;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use server::matchmaking::matchmaker::{Matchmaker, MatchmakingMode, Player};
@@ -9,10 +9,10 @@ fn bench_1v1(c: &mut Criterion) {
         id: n,
         rating: 1000.0,
     }) {
-        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
     }
     c.bench_function("matches", |b| {
-        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
+        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, SystemTime::now())));
     });
 }
 
@@ -22,10 +22,10 @@ fn bench_2v2(c: &mut Criterion) {
         id: n,
         rating: 1000.0,
     }) {
-        matchmaker.insert_player(player, MatchmakingMode::Mode2v2Bgh.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode2v2Bgh.into()).unwrap();
     }
     c.bench_function("matches", |b| {
-        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
+        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, SystemTime::now())));
     });
 }
 
@@ -35,10 +35,10 @@ fn bench_3v3(c: &mut Criterion) {
         id: n,
         rating: 1000.0,
     }) {
-        matchmaker.insert_player(player, MatchmakingMode::Mode3v3Bgh.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode3v3Bgh.into()).unwrap();
     }
     c.bench_function("matches", |b| {
-        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
+        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, SystemTime::now())));
     });
 }
 

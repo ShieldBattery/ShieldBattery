@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use enumset::{EnumSet, EnumSetType};
 use itertools::Itertools;
@@ -68,7 +71,7 @@ pub struct Player {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct QueueEntry {
-    queue_time: Instant,
+    queue_time: SystemTime,
     player: Player,
     modes: EnumSet<MatchmakingMode>,
 }
@@ -124,7 +127,7 @@ impl QueueSelector for RandomQueueSelector {
                 // If it fits in the selected queue, replace that player with this one.
                 // This biases towards the front of the queue (players just after `amount` in the
                 // queue have a higher chance of being selected than those well after it)
-                let j = rng.random_range(0..i);
+                let j = rng.random_range(0..=i);
                 if j < amount {
                     selected[j] = player;
                 }
@@ -177,7 +180,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         player: Player,
         modes: EnumSet<MatchmakingMode>,
     ) -> Result<&mut Self, MatchmakerError> {
-        let entry = self.create_entry_and_update_modes(player, modes, Instant::now())?;
+        let entry = self.create_entry_and_update_modes(player, modes, SystemTime::now())?;
         self.queue.push(entry);
         Ok(self)
     }
@@ -189,7 +192,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
-        queue_time: Instant,
+        queue_time: SystemTime,
     ) -> Result<&mut Self, MatchmakerError> {
         let entry = self.create_entry_and_update_modes(player, modes, queue_time)?;
 
@@ -207,12 +210,12 @@ impl<T: QueueSelector> Matchmaker<T> {
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
-        queue_time: Instant,
+        queue_time: SystemTime,
     ) -> Result<QueueEntry, MatchmakerError> {
         if modes.is_empty() {
             return Err(MatchmakerError::NoModesSelected);
         }
-        if self.queue.iter().all(|x| x.player.id != player.id) {
+        if self.queue.iter().any(|x| x.player.id == player.id) {
             return Err(MatchmakerError::AlreadyInQueue(player.id));
         }
 
@@ -248,7 +251,7 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// Finds matches for all modes, returning a Vec the proposed matches. Matches will be returned
     /// ordered by [MatchmakingMode] and then the value of that match (so "better" matches will
     /// appear first). Only matches of at least `min_quality` quality will be returned.
-    pub fn find_matches(&self, min_quality: f32, now: Instant) -> Vec<Match> {
+    pub fn find_matches(&self, min_quality: f32, now: SystemTime) -> Vec<Match> {
         let mut modes = MatchmakingMode::iter().collect::<Vec<_>>();
         modes.shuffle(&mut rand::rng());
         self.find_matches_for_modes(&modes, min_quality, now)
@@ -262,7 +265,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         &self,
         modes: &[MatchmakingMode],
         min_quality: f32,
-        now: Instant,
+        now: SystemTime,
     ) -> Vec<Match> {
         let mut matches = Vec::new();
 
@@ -306,7 +309,9 @@ impl<T: QueueSelector> Matchmaker<T> {
                         m2 += delta * (r - mean);
                     }
                     let variance = m2 / (count as f32 - 1.0);
-                    let wait_time = now - oldest_queue_time;
+                    let wait_time = now
+                        .duration_since(oldest_queue_time)
+                        .unwrap_or_default();
 
                     // Find teams that minimize the difference in effective rating (if necessary)
                     let (team_a, team_b) = if mode.team_size() == 1 {
@@ -390,12 +395,12 @@ mod tests {
             id: 0,
             rating: 1000.0,
         };
-        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
 
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            Instant::now(),
+            SystemTime::now(),
         );
         assert!(result.is_empty());
     }
@@ -407,12 +412,12 @@ mod tests {
             id: 0,
             rating: 1000.0,
         };
-        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
         };
-        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
 
         assert_eq!(
             matchmaker.queue_sizes.get(&MatchmakingMode::Mode1v1),
@@ -422,7 +427,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            Instant::now(),
+            SystemTime::now(),
         );
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingMode::Mode1v1);
@@ -451,23 +456,27 @@ mod tests {
             id: 0,
             rating: 1000.0,
         };
-        matchmaker.insert_player(
-            player,
-            MatchmakingMode::Mode1v1 | MatchmakingMode::Mode1v1Fastest,
-        );
+        matchmaker
+            .insert_player(
+                player,
+                MatchmakingMode::Mode1v1 | MatchmakingMode::Mode1v1Fastest,
+            )
+            .unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
         };
-        matchmaker.insert_player(
-            player,
-            MatchmakingMode::Mode1v1Fastest | MatchmakingMode::Mode1v1,
-        );
+        matchmaker
+            .insert_player(
+                player,
+                MatchmakingMode::Mode1v1Fastest | MatchmakingMode::Mode1v1,
+            )
+            .unwrap();
 
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1Fastest, MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            Instant::now(),
+            SystemTime::now(),
         );
         assert_eq!(result.len(), 2);
 
@@ -510,18 +519,20 @@ mod tests {
 
     #[test]
     fn requeue() {
-        let start = Instant::now();
+        let start = SystemTime::now();
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         let player = Player {
             id: 0,
             rating: 1000.0,
         };
-        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into());
+        matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
         };
-        matchmaker.requeue_player(player, MatchmakingMode::Mode1v1.into(), start);
+        matchmaker
+            .requeue_player(player, MatchmakingMode::Mode1v1.into(), start)
+            .unwrap();
 
         assert_eq!(
             matchmaker.queue_sizes.get(&MatchmakingMode::Mode1v1),
@@ -531,7 +542,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            Instant::now(),
+            SystemTime::now(),
         );
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingMode::Mode1v1);
@@ -550,6 +561,114 @@ mod tests {
                 .map(|q| q.player.id)
                 .collect::<Vec<_>>(),
             vec![0]
+        );
+    }
+
+    #[test]
+    fn insert_player_new_player_succeeds() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let result = matchmaker.insert_player(
+            Player { id: 0, rating: 1000.0 },
+            MatchmakingMode::Mode1v1.into(),
+        );
+        assert!(result.is_ok());
+        assert_eq!(matchmaker.queue_sizes.get(&MatchmakingMode::Mode1v1), Some(&1));
+    }
+
+    #[test]
+    fn insert_player_duplicate_fails() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(Player { id: 0, rating: 1000.0 }, MatchmakingMode::Mode1v1.into())
+            .unwrap();
+        let result = matchmaker.insert_player(
+            Player { id: 0, rating: 1000.0 },
+            MatchmakingMode::Mode1v1.into(),
+        );
+        assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
+        // Queue size must not have been double-incremented
+        assert_eq!(matchmaker.queue_sizes.get(&MatchmakingMode::Mode1v1), Some(&1));
+    }
+
+    #[test]
+    fn requeue_duplicate_fails() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(Player { id: 0, rating: 1000.0 }, MatchmakingMode::Mode1v1.into())
+            .unwrap();
+        let result = matchmaker.requeue_player(
+            Player { id: 0, rating: 1000.0 },
+            MatchmakingMode::Mode1v1.into(),
+            SystemTime::now(),
+        );
+        assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
+    }
+
+    #[test]
+    fn random_queue_selector_first_player_past_window_not_always_selected() {
+        // With 0..i (buggy), the player at position `amount` (index `amount` in 0-based iteration)
+        // would be selected 100% of the time. With 0..=i (correct), it should be selected roughly
+        // amount/(amount+1) ≈ 80% of the time for amount=4.
+        //
+        // We run 200 trials and verify the player is NOT selected at least once (probability of
+        // seeing zero misses with correct code is (4/5)^200 ≈ 1.5×10^-20, so this is reliable).
+        let selector = RandomQueueSelector;
+        let amount = 4usize;
+
+        // Build a pool: positions 0..amount fill the initial window,
+        // position `amount` is the first player past it.
+        let entries: Vec<QueueEntry> = (0..=(amount as usize))
+            .map(|i| QueueEntry {
+                queue_time: SystemTime::UNIX_EPOCH + Duration::from_secs(i as u64),
+                player: Player { id: i, rating: 1000.0 },
+                modes: MatchmakingMode::Mode1v1.into(),
+            })
+            .collect();
+
+        let target_id = amount; // the player just past the window
+        let mut selected_count = 0usize;
+        let trials = 200;
+
+        for _ in 0..trials {
+            let selected = selector.select(entries.iter(), amount);
+            if selected.iter().any(|e| e.player.id == target_id) {
+                selected_count += 1;
+            }
+        }
+
+        // With the bug: selected_count == trials (100%)
+        // With the fix: selected_count < trials (approx 80% for amount=4 → expect ~160/200)
+        assert!(
+            selected_count < trials,
+            "player just past the window was selected in every trial — off-by-one still present"
+        );
+        // Also verify it's selected a meaningful number of times (not broken in the other direction)
+        assert!(
+            selected_count > trials / 2,
+            "player just past the window was selected too rarely ({}/{})",
+            selected_count,
+            trials
+        );
+    }
+
+    #[test]
+    fn queue_time_survives_serialization_roundtrip() {
+        // Simulate what api.rs does: take a SystemTime, convert to millis (as stored in the ticket),
+        // then convert back. The round-trip should not lose more than 1ms of precision.
+        let original = SystemTime::now();
+        let millis = original
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let recovered = SystemTime::UNIX_EPOCH + Duration::from_millis(millis);
+
+        let diff = original
+            .duration_since(recovered)
+            .unwrap_or_else(|e| e.duration());
+        assert!(
+            diff < Duration::from_millis(1),
+            "round-trip error too large: {:?}",
+            diff
         );
     }
 }
