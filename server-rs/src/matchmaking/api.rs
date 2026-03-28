@@ -10,7 +10,7 @@ use base64::Engine as _;
 use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 use super::matchmaker::MatchmakerError;
 
@@ -91,8 +91,8 @@ async fn requeue_player(
     };
     let modes = ticket.modes.into_iter().collect::<EnumSet<_>>();
 
-    let queue_time = SystemTime::UNIX_EPOCH + Duration::from_millis(ticket.queue_time);
     let mut matchmaker = matchmaker.lock().unwrap();
+    let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
         Player {
             id: ticket.id,

@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 use enumset::{EnumSet, EnumSetType};
@@ -71,13 +71,14 @@ pub struct Player {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct QueueEntry {
-    queue_time: SystemTime,
+    queue_time: Instant,
     player: Player,
     modes: EnumSet<MatchmakingMode>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Matchmaker<T: QueueSelector> {
+    start: Instant,
     max_players_examined: usize,
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingMode, usize>,
@@ -168,6 +169,7 @@ fn get_win_probability(rating_a: f32, rating_b: f32) -> f32 {
 impl<T: QueueSelector> Matchmaker<T> {
     fn with_queue_selector(max_players_examined: usize, queue_selector: T) -> Matchmaker<T> {
         Self {
+            start: Instant::now(),
             max_players_examined,
             queue: Vec::new(),
             queue_sizes: HashMap::new(),
@@ -175,12 +177,19 @@ impl<T: QueueSelector> Matchmaker<T> {
         }
     }
 
+    /// Returns the instant at which this matchmaker was created. Queue times in serialized tickets
+    /// are stored as milliseconds relative to this instant so that `Instant` values (which are
+    /// monotonic but not serializable) can survive a round-trip through the ticket format.
+    pub fn start(&self) -> Instant {
+        self.start
+    }
+
     pub fn insert_player(
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
     ) -> Result<&mut Self, MatchmakerError> {
-        let entry = self.create_entry_and_update_modes(player, modes, SystemTime::now())?;
+        let entry = self.create_entry_and_update_modes(player, modes, Instant::now())?;
         self.queue.push(entry);
         Ok(self)
     }
@@ -192,7 +201,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
-        queue_time: SystemTime,
+        queue_time: Instant,
     ) -> Result<&mut Self, MatchmakerError> {
         let entry = self.create_entry_and_update_modes(player, modes, queue_time)?;
 
@@ -210,7 +219,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         &mut self,
         player: Player,
         modes: EnumSet<MatchmakingMode>,
-        queue_time: SystemTime,
+        queue_time: Instant,
     ) -> Result<QueueEntry, MatchmakerError> {
         if modes.is_empty() {
             return Err(MatchmakerError::NoModesSelected);
@@ -251,7 +260,7 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// Finds matches for all modes, returning a Vec the proposed matches. Matches will be returned
     /// ordered by [MatchmakingMode] and then the value of that match (so "better" matches will
     /// appear first). Only matches of at least `min_quality` quality will be returned.
-    pub fn find_matches(&self, min_quality: f32, now: SystemTime) -> Vec<Match> {
+    pub fn find_matches(&self, min_quality: f32, now: Instant) -> Vec<Match> {
         let mut modes = MatchmakingMode::iter().collect::<Vec<_>>();
         modes.shuffle(&mut rand::rng());
         self.find_matches_for_modes(&modes, min_quality, now)
@@ -265,7 +274,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         &self,
         modes: &[MatchmakingMode],
         min_quality: f32,
-        now: SystemTime,
+        now: Instant,
     ) -> Vec<Match> {
         let mut matches = Vec::new();
 
@@ -309,9 +318,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                         m2 += delta * (r - mean);
                     }
                     let variance = m2 / (count as f32 - 1.0);
-                    let wait_time = now
-                        .duration_since(oldest_queue_time)
-                        .unwrap_or_default();
+                    let wait_time = now - oldest_queue_time;
 
                     // Find teams that minimize the difference in effective rating (if necessary)
                     let (team_a, team_b) = if mode.team_size() == 1 {
@@ -400,7 +407,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            SystemTime::now(),
+            Instant::now(),
         );
         assert!(result.is_empty());
     }
@@ -427,7 +434,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            SystemTime::now(),
+            Instant::now(),
         );
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingMode::Mode1v1);
@@ -476,7 +483,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1Fastest, MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            SystemTime::now(),
+            Instant::now(),
         );
         assert_eq!(result.len(), 2);
 
@@ -519,7 +526,7 @@ mod tests {
 
     #[test]
     fn requeue() {
-        let start = SystemTime::now();
+        let start = Instant::now();
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         let player = Player {
             id: 0,
@@ -542,7 +549,7 @@ mod tests {
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingMode::Mode1v1],
             f32::NEG_INFINITY,
-            SystemTime::now(),
+            Instant::now(),
         );
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingMode::Mode1v1);
@@ -599,7 +606,7 @@ mod tests {
         let result = matchmaker.requeue_player(
             Player { id: 0, rating: 1000.0 },
             MatchmakingMode::Mode1v1.into(),
-            SystemTime::now(),
+            Instant::now(),
         );
         assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
     }
@@ -617,9 +624,10 @@ mod tests {
 
         // Build a pool: positions 0..amount fill the initial window,
         // position `amount` is the first player past it.
+        let base = Instant::now();
         let entries: Vec<QueueEntry> = (0..=(amount as usize))
             .map(|i| QueueEntry {
-                queue_time: SystemTime::UNIX_EPOCH + Duration::from_secs(i as u64),
+                queue_time: base + Duration::from_secs(i as u64),
                 player: Player { id: i, rating: 1000.0 },
                 modes: MatchmakingMode::Mode1v1.into(),
             })
@@ -653,18 +661,19 @@ mod tests {
 
     #[test]
     fn queue_time_survives_serialization_roundtrip() {
-        // Simulate what api.rs does: take a SystemTime, convert to millis (as stored in the ticket),
-        // then convert back. The round-trip should not lose more than 1ms of precision.
-        let original = SystemTime::now();
-        let millis = original
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        let recovered = SystemTime::UNIX_EPOCH + Duration::from_millis(millis);
+        // Simulate what api.rs does: take an Instant, convert to millis relative to matchmaker.start
+        // (as stored in the ticket), then convert back. The round-trip should not lose more than
+        // 1ms of precision.
+        let matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let original = Instant::now();
+        let millis = original.duration_since(matchmaker.start()).as_millis() as u64;
+        let recovered = matchmaker.start() + Duration::from_millis(millis);
 
-        let diff = original
-            .duration_since(recovered)
-            .unwrap_or_else(|e| e.duration());
+        let diff = if original > recovered {
+            original - recovered
+        } else {
+            recovered - original
+        };
         assert!(
             diff < Duration::from_millis(1),
             "round-trip error too large: {:?}",
