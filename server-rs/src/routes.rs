@@ -100,6 +100,7 @@ async fn only_unforwarded_clients(request: Request<Body>, next: Next) -> Respons
     }
 }
 
+#[allow(deprecated)]
 pub async fn create_app(
     db_pool: PgPool,
     redis_pool: RedisPool,
@@ -159,7 +160,8 @@ pub async fn create_app(
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
     let matchmaker_router =
-        create_matchmaker_api().layer(middleware::from_fn(only_unforwarded_clients));
+        create_matchmaker_api(redis_pool.clone())
+            .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),

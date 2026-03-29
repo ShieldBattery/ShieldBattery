@@ -67,7 +67,7 @@ sha2 = "0.10"
 strum = "0.27"
 strum_macros = "0.27"
 thiserror = "2.0"
-tokio = { version = "1.45", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.45", features = ["macros", "rt-multi-thread", "time"] }
 tower = { version = "0.5", features = ["util"] }
 tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
