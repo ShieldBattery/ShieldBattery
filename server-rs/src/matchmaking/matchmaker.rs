@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use enumset::{EnumSet, EnumSetType};
@@ -9,6 +9,7 @@ use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+use typeshare::typeshare;
 
 /*
 The match quality score values are all normalized into the wait time scale (for a wait time of 1 second),
@@ -27,8 +28,9 @@ then added together. i.e.: Value = WaitTime + W1 * SkillVariance + W2 * Latency
 
 const WEIGHT_RATING_VARIANCE: f32 = 0.05;
 const WEIGHT_WIN_PROB: f32 = 0.05;
+const WEIGHT_LATENCY: f32 = 5.0;
 
-// FIXME: Move elsewhere + export TS types
+#[typeshare]
 #[derive(Debug, Hash, EnumIter, EnumSetType, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MatchmakingMode {
@@ -67,13 +69,15 @@ impl MatchmakingMode {
 pub struct Player {
     pub id: usize,
     pub rating: f32,
+    /// Latency tier (0 = great, 1 = fine, 2 = noticeable, 3 = bad). None treated as 0.
+    pub latency_bucket: Option<u8>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct QueueEntry {
-    queue_time: Instant,
-    player: Player,
-    modes: EnumSet<MatchmakingMode>,
+    pub queue_time: Instant,
+    pub player: Player,
+    pub modes: EnumSet<MatchmakingMode>,
 }
 
 #[derive(Debug, Clone)]
@@ -279,11 +283,11 @@ impl<T: QueueSelector> Matchmaker<T> {
         let mut matches = Vec::new();
 
         for mode in modes {
-            if let Some(&size) = self.queue_sizes.get(mode) {
-                if size < mode.total_players() {
-                    // Avoid iterating the whole queue if this mode couldn't generate a valid match
-                    continue;
-                }
+            if let Some(&size) = self.queue_sizes.get(mode)
+                && size < mode.total_players()
+            {
+                // Avoid iterating the whole queue if this mode couldn't generate a valid match
+                continue;
             }
 
             // Only look at players queued for this mode
@@ -352,9 +356,14 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let win_prob = get_win_probability(rating_a, rating_b);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
-                    // TODO(tec27): implement latency calculation
+                    let max_latency = queue_entries
+                        .iter()
+                        .map(|q| q.player.latency_bucket.unwrap_or(0) as f32)
+                        .fold(0.0f32, f32::max);
                     let quality = wait_time.as_secs_f32()
-                        - (WEIGHT_RATING_VARIANCE * variance + WEIGHT_WIN_PROB * win_prob_diff);
+                        - (WEIGHT_RATING_VARIANCE * variance
+                            + WEIGHT_WIN_PROB * win_prob_diff
+                            + WEIGHT_LATENCY * max_latency);
 
                     // Filter any matches that are too low quality
                     if quality >= min_quality {
@@ -381,6 +390,7 @@ impl<T: QueueSelector> Matchmaker<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     /// A [QueueSelector] that just takes the front `amount` players from the queue.
     pub struct TestQueueSelector;
@@ -401,6 +411,7 @@ mod tests {
         let player = Player {
             id: 0,
             rating: 1000.0,
+            latency_bucket: None,
         };
         matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
 
@@ -418,11 +429,13 @@ mod tests {
         let player = Player {
             id: 0,
             rating: 1000.0,
+            latency_bucket: None,
         };
         matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
+            latency_bucket: None,
         };
         matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
 
@@ -462,6 +475,7 @@ mod tests {
         let player = Player {
             id: 0,
             rating: 1000.0,
+            latency_bucket: None,
         };
         matchmaker
             .insert_player(
@@ -472,6 +486,7 @@ mod tests {
         let player = Player {
             id: 1,
             rating: 1200.0,
+            latency_bucket: None,
         };
         matchmaker
             .insert_player(
@@ -531,11 +546,13 @@ mod tests {
         let player = Player {
             id: 0,
             rating: 1000.0,
+            latency_bucket: None,
         };
         matchmaker.insert_player(player, MatchmakingMode::Mode1v1.into()).unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
+            latency_bucket: None,
         };
         matchmaker
             .requeue_player(player, MatchmakingMode::Mode1v1.into(), start)
@@ -575,7 +592,7 @@ mod tests {
     fn insert_player_new_player_succeeds() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         let result = matchmaker.insert_player(
-            Player { id: 0, rating: 1000.0 },
+            Player { id: 0, rating: 1000.0, latency_bucket: None },
             MatchmakingMode::Mode1v1.into(),
         );
         assert!(result.is_ok());
@@ -586,10 +603,13 @@ mod tests {
     fn insert_player_duplicate_fails() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
-            .insert_player(Player { id: 0, rating: 1000.0 }, MatchmakingMode::Mode1v1.into())
+            .insert_player(
+                Player { id: 0, rating: 1000.0, latency_bucket: None },
+                MatchmakingMode::Mode1v1.into(),
+            )
             .unwrap();
         let result = matchmaker.insert_player(
-            Player { id: 0, rating: 1000.0 },
+            Player { id: 0, rating: 1000.0, latency_bucket: None },
             MatchmakingMode::Mode1v1.into(),
         );
         assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
@@ -601,10 +621,13 @@ mod tests {
     fn requeue_duplicate_fails() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
-            .insert_player(Player { id: 0, rating: 1000.0 }, MatchmakingMode::Mode1v1.into())
+            .insert_player(
+                Player { id: 0, rating: 1000.0, latency_bucket: None },
+                MatchmakingMode::Mode1v1.into(),
+            )
             .unwrap();
         let result = matchmaker.requeue_player(
-            Player { id: 0, rating: 1000.0 },
+            Player { id: 0, rating: 1000.0, latency_bucket: None },
             MatchmakingMode::Mode1v1.into(),
             Instant::now(),
         );
@@ -625,10 +648,10 @@ mod tests {
         // Build a pool: positions 0..amount fill the initial window,
         // position `amount` is the first player past it.
         let base = Instant::now();
-        let entries: Vec<QueueEntry> = (0..=(amount as usize))
+        let entries: Vec<QueueEntry> = (0..=amount)
             .map(|i| QueueEntry {
                 queue_time: base + Duration::from_secs(i as u64),
-                player: Player { id: i, rating: 1000.0 },
+                player: Player { id: i, rating: 1000.0, latency_bucket: None },
                 modes: MatchmakingMode::Mode1v1.into(),
             })
             .collect();
@@ -679,5 +702,72 @@ mod tests {
             "round-trip error too large: {:?}",
             diff
         );
+    }
+
+    #[test]
+    fn find_matches_with_latency_penalty() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(
+                Player { id: 0, rating: 1000.0, latency_bucket: Some(2) },
+                MatchmakingMode::Mode1v1.into(),
+            )
+            .unwrap();
+        matchmaker
+            .insert_player(
+                Player { id: 1, rating: 1000.0, latency_bucket: Some(2) },
+                MatchmakingMode::Mode1v1.into(),
+            )
+            .unwrap();
+
+        // At t=0 with no wait time: quality = 0 - (variance_penalty + win_prob_penalty + latency_penalty)
+        // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
+        // max_latency_bucket = 2. WEIGHT_LATENCY = 5.0. Latency penalty = 5.0 * 2 = 10.0.
+        // Quality ≈ 0 - 10.0 = -10.0.
+        // Should NOT appear with min_quality = 0.0.
+        let result_strict = matchmaker.find_matches_for_modes(
+            &[MatchmakingMode::Mode1v1],
+            0.0,
+            Instant::now(),
+        );
+        assert!(
+            result_strict.is_empty(),
+            "expected no match above quality 0.0 with latency bucket 2"
+        );
+
+        // Should appear with min_quality = -15.0 (quality ~-10 > -15).
+        let result_lenient = matchmaker.find_matches_for_modes(
+            &[MatchmakingMode::Mode1v1],
+            -15.0,
+            Instant::now(),
+        );
+        assert_eq!(result_lenient.len(), 1);
+    }
+
+    #[test]
+    fn find_matches_no_latency_bucket_treated_as_zero() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(
+                Player { id: 0, rating: 1000.0, latency_bucket: None },
+                MatchmakingMode::Mode1v1.into(),
+            )
+            .unwrap();
+        matchmaker
+            .insert_player(
+                Player { id: 1, rating: 1000.0, latency_bucket: None },
+                MatchmakingMode::Mode1v1.into(),
+            )
+            .unwrap();
+
+        // Both players have no latency data — treated as bucket 0, penalty = 0.
+        // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
+        // Quality ≈ 0. Should appear at min_quality = f32::NEG_INFINITY.
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingMode::Mode1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert_eq!(result.len(), 1);
     }
 }
