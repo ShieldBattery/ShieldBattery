@@ -1,6 +1,5 @@
-use crate::matchmaking::matchmaker::{
-    Match, Matchmaker, MatchmakingMode, Player, QueueEntry, RandomQueueSelector,
-};
+use crate::matchmaking::matchmaker::{Match, Matchmaker, Player, QueueEntry, RandomQueueSelector};
+use crate::matchmaking::MatchmakingType;
 use crate::redis::RedisPool;
 use crate::state::AppState;
 use axum::extract::Path;
@@ -56,7 +55,7 @@ impl IntoResponse for MatchmakerError {
 struct QueueRequest {
     id: usize,
     rating: f32,
-    modes: Vec<MatchmakingMode>,
+    modes: Vec<MatchmakingType>,
     latency_bucket: Option<u8>,
 }
 
@@ -71,7 +70,7 @@ struct RequeueRequest {
 struct QueueTicket {
     id: usize,
     rating: f32,
-    modes: Vec<MatchmakingMode>,
+    modes: Vec<MatchmakingType>,
     queue_time: u64,
     latency_bucket: Option<u8>,
     process_token: String,
@@ -91,7 +90,7 @@ struct MatchedPlayer {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MatchEvent {
-    mode: MatchmakingMode,
+    mode: MatchmakingType,
     team_a: Vec<MatchedPlayer>,
     team_b: Vec<MatchedPlayer>,
     quality: f32,
@@ -310,7 +309,8 @@ async fn cancel(
 #[cfg(test)]
 mod tests {
     use super::deduplicate_matches;
-    use crate::matchmaking::matchmaker::{Match, MatchmakingMode, Player, QueueEntry};
+    use crate::matchmaking::matchmaker::{Match, Player, QueueEntry};
+    use crate::matchmaking::MatchmakingType;
     use std::time::Instant;
 
     #[test]
@@ -320,30 +320,30 @@ mod tests {
         let player0 = QueueEntry {
             queue_time: now,
             player: Player { id: 0, rating: 1000.0, latency_bucket: None },
-            modes: MatchmakingMode::Mode1v1.into(),
+            modes: MatchmakingType::Match1v1.into(),
         };
         let player1 = QueueEntry {
             queue_time: now,
             player: Player { id: 1, rating: 1000.0, latency_bucket: None },
-            modes: MatchmakingMode::Mode1v1.into(),
+            modes: MatchmakingType::Match1v1.into(),
         };
         let player2 = QueueEntry {
             queue_time: now,
             player: Player { id: 2, rating: 1000.0, latency_bucket: None },
-            modes: MatchmakingMode::Mode1v1.into(),
+            modes: MatchmakingType::Match1v1.into(),
         };
 
         // Two matches share player 0. The first (higher quality) should be kept,
         // the second discarded, and player 2 is also discarded (can't form a match alone).
         let matches = vec![
             Match {
-                mode: MatchmakingMode::Mode1v1,
+                mode: MatchmakingType::Match1v1,
                 team_a: vec![player0],
                 team_b: vec![player1],
                 quality: 10.0,
             },
             Match {
-                mode: MatchmakingMode::Mode1v1,
+                mode: MatchmakingType::Match1v1,
                 team_a: vec![player0],
                 team_b: vec![player2],
                 quality: 5.0,

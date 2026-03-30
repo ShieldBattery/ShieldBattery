@@ -45,18 +45,6 @@ export enum MapVisibility {
   Official = 'OFFICIAL',
 }
 
-export enum MatchmakingMode {
-  Mode1v1 = 'mode1v1',
-  Mode1v1Fastest = 'mode1v1Fastest',
-  Mode2v2 = 'mode2v2',
-  Mode2v2Bgh = 'mode2v2Bgh',
-  Mode2v2Fastest = 'mode2v2Fastest',
-  Mode2v2Hunters = 'mode2v2Hunters',
-  Mode3v3Bgh = 'mode3v3Bgh',
-  Mode3v3Fastest = 'mode3v3Fastest',
-  Mode3v3Hunters = 'mode3v3Hunters',
-}
-
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.
