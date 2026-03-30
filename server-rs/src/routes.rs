@@ -40,7 +40,7 @@ use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
-use crate::matchmaking::api::create_matchmaker_api;
+use crate::matchmaking::api::create_matchmaking_api;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{SbSchema, build_schema};
@@ -160,7 +160,7 @@ pub async fn create_app(
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
     let matchmaker_router =
-        create_matchmaker_api(redis_pool.clone())
+        create_matchmaking_api(redis_pool.clone())
             .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
