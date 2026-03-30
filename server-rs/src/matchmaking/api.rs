@@ -1,5 +1,5 @@
 use crate::matchmaking::matchmaker::{Match, Matchmaker, Player, QueueEntry, RandomQueueSelector};
-use crate::matchmaking::MatchmakingType;
+use crate::matchmaking::{MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage};
 use crate::redis::RedisPool;
 use crate::state::AppState;
 use axum::extract::Path;
@@ -24,9 +24,6 @@ const MIN_QUALITY: f32 = -30.0;
 
 /// How often the matchmaker searches for new matches.
 const SEARCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(6);
-
-/// Redis channel that match events are published to.
-const MATCH_CHANNEL: &str = "matchmaking:matches";
 
 #[derive(Serialize)]
 struct ApiError {
@@ -74,26 +71,6 @@ struct QueueTicket {
     queue_time: u64,
     latency_bucket: Option<u8>,
     process_token: String,
-}
-
-/// A single player's entry in a published match event.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct MatchedPlayer {
-    id: usize,
-    /// Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
-    /// via POST /matchmaker/requeue if the match fails to start.
-    ticket: String,
-}
-
-/// Published to Redis channel "matchmaking:matches" when a match is found.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct MatchEvent {
-    mode: MatchmakingType,
-    team_a: Vec<MatchedPlayer>,
-    team_b: Vec<MatchedPlayer>,
-    quality: f32,
 }
 
 type SharedMatchmaker = Arc<Mutex<Matchmaker<RandomQueueSelector>>>;
@@ -178,18 +155,18 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // Publish one event per selected match
         for m in selected {
             let make_matched_player = |entry: &QueueEntry| MatchedPlayer {
-                id: entry.player.id,
+                id: entry.player.id as i32,
                 ticket: build_ticket(entry, &state.process_token, matchmaker_start),
             };
 
-            let event = MatchEvent {
+            let event = PublishedMatchmakingMessage::MatchFound(MatchFoundMessage {
                 mode: m.mode,
                 team_a: m.team_a.iter().map(make_matched_player).collect(),
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
                 quality: m.quality,
-            };
+            });
 
-            if let Err(e) = redis_pool.publish_raw(MATCH_CHANNEL, &event).await {
+            if let Err(e) = redis_pool.publish(event).await {
                 tracing::error!("Failed to publish match event to Redis: {e:?}");
                 // The match is already removed from the Rust queue but was never delivered to
                 // Node.js. Affected players will appear stuck: they believe they're still
@@ -203,7 +180,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     }
 }
 
-pub fn create_matchmaker_api(redis_pool: RedisPool) -> Router<AppState> {
+pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(16))),
         process_token: Uuid::new_v4(),

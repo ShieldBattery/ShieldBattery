@@ -7,6 +7,36 @@ use typeshare::typeshare;
 pub mod api;
 pub mod matchmaker;
 
+/// A single player's entry in a match found message.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[typeshare]
+pub struct MatchedPlayer {
+    pub id: i32,
+    /// Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
+    /// via POST /matchmaker/requeue if the match fails to start.
+    pub ticket: String,
+}
+
+/// Data carried by the [`PublishedMatchmakingMessage::MatchFound`] event.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[typeshare]
+pub struct MatchFoundMessage {
+    pub mode: MatchmakingType,
+    pub team_a: Vec<MatchedPlayer>,
+    pub team_b: Vec<MatchedPlayer>,
+    pub quality: f32,
+}
+
+/// Messages published to the Redis `"matchmaking"` channel.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+#[typeshare]
+pub enum PublishedMatchmakingMessage {
+    MatchFound(MatchFoundMessage),
+}
+
 /// All of the matchmaking types that we support. These values match the enum values used in the
 /// database.
 #[typeshare]

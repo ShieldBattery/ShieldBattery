@@ -45,23 +45,4 @@ impl RedisPool {
         Ok(())
     }
 
-    /// Publish any serialisable value to the given channel directly.
-    pub async fn publish_raw(
-        &self,
-        channel: &str,
-        message: &impl serde::Serialize,
-    ) -> color_eyre::Result<()> {
-        let mut redis = self.get().await?;
-        let message = serde_json::to_string(message)
-            .wrap_err("Failed to serialize raw message")?;
-        redis
-            .publish::<_, _, ()>(channel, &message)
-            .await
-            .wrap_err_with(|| format!("Failed to publish to channel '{channel}'"))
-            .map_err(|e| {
-                tracing::error!("Failed to publish to '{channel}': {e:?}");
-                e
-            })?;
-        Ok(())
-    }
 }

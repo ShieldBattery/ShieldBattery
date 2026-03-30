@@ -216,6 +216,12 @@ const eventToAction: EventToActionMap = {
     }
     // NOTE(tec27): Any other state updates will be handled by `startSearch`
   },
+
+  matchmakingServiceError: (matchmakingType, event) => dispatch => {
+    logger.error('Matchmaking service error received — matchmaking was interrupted')
+    clearMatchmakingState(jotaiStore)
+    dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
+  },
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
