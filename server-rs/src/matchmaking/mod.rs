@@ -1,5 +1,7 @@
 use async_graphql::scalar;
+use enumset::EnumSetType;
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 use typeshare::typeshare;
 
 pub mod api;
@@ -8,7 +10,7 @@ pub mod matchmaker;
 /// All of the matchmaking types that we support. These values match the enum values used in the
 /// database.
 #[typeshare]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, sqlx::Type)]
+#[derive(Debug, Hash, EnumIter, EnumSetType, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "matchmaking_type")]
 pub enum MatchmakingType {
     #[serde(rename = "1v1")]
@@ -20,6 +22,20 @@ pub enum MatchmakingType {
     #[serde(rename = "2v2")]
     #[sqlx(rename = "2v2")]
     Match2v2,
+}
+
+impl MatchmakingType {
+    pub fn team_size(&self) -> usize {
+        match self {
+            MatchmakingType::Match1v1 => 1,
+            MatchmakingType::Match1v1Fastest => 1,
+            MatchmakingType::Match2v2 => 2,
+        }
+    }
+
+    pub fn total_players(&self) -> usize {
+        self.team_size() * 2
+    }
 }
 
 scalar!(
