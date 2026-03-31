@@ -52,6 +52,8 @@ impl IntoResponse for MatchmakerError {
 struct QueueRequest {
     id: usize,
     rating: f32,
+    /// Glicko-2 σ (uncertainty). None treated as 0 (fully certain).
+    uncertainty: Option<f32>,
     modes: Vec<MatchmakingType>,
     latency_bucket: Option<u8>,
 }
@@ -67,6 +69,8 @@ struct RequeueRequest {
 struct QueueTicket {
     id: usize,
     rating: f32,
+    /// Glicko-2 σ (uncertainty). Preserved so requeue reconstructs Player correctly.
+    uncertainty: Option<f32>,
     modes: Vec<MatchmakingType>,
     queue_time: u64,
     latency_bucket: Option<u8>,
@@ -85,6 +89,7 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
     let ticket = QueueTicket {
         id: entry.player.id,
         rating: entry.player.rating,
+        uncertainty: entry.player.uncertainty,
         latency_bucket: entry.player.latency_bucket,
         modes: entry.modes.iter().collect(),
         queue_time: entry
@@ -206,6 +211,7 @@ async fn insert_player(
         Player {
             id: payload.id,
             rating: payload.rating,
+            uncertainty: payload.uncertainty,
             latency_bucket: payload.latency_bucket,
         },
         modes,
@@ -257,6 +263,7 @@ async fn requeue_player(
         Player {
             id: ticket.id,
             rating: ticket.rating,
+            uncertainty: ticket.uncertainty,
             latency_bucket: ticket.latency_bucket,
         },
         modes,
@@ -296,17 +303,17 @@ mod tests {
 
         let player0 = QueueEntry {
             queue_time: now,
-            player: Player { id: 0, rating: 1000.0, latency_bucket: None },
+            player: Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
             modes: MatchmakingType::Match1v1.into(),
         };
         let player1 = QueueEntry {
             queue_time: now,
-            player: Player { id: 1, rating: 1000.0, latency_bucket: None },
+            player: Player { id: 1, rating: 1000.0, uncertainty: None, latency_bucket: None },
             modes: MatchmakingType::Match1v1.into(),
         };
         let player2 = QueueEntry {
             queue_time: now,
-            player: Player { id: 2, rating: 1000.0, latency_bucket: None },
+            player: Player { id: 2, rating: 1000.0, uncertainty: None, latency_bucket: None },
             modes: MatchmakingType::Match1v1.into(),
         };
 

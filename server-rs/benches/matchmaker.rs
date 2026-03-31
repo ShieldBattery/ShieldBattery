@@ -9,6 +9,7 @@ fn bench_1v1(c: &mut Criterion) {
     for player in (0..1000).map(|n| Player {
         id: n,
         rating: 1000.0,
+        uncertainty: None,
         latency_bucket: None,
     }) {
         matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
@@ -23,6 +24,7 @@ fn bench_2v2(c: &mut Criterion) {
     for player in (0..1000).map(|n| Player {
         id: n,
         rating: 1000.0,
+        uncertainty: None,
         latency_bucket: None,
     }) {
         matchmaker.insert_player(player, MatchmakingType::Match2v2.into()).unwrap();

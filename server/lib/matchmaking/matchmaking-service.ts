@@ -474,6 +474,7 @@ export class MatchmakingService {
       await rsQueuePlayer({
         id: userId,
         rating: mmr.rating,
+        uncertainty: mmr.uncertainty,
         modes: [type],
         latencyBucket: null, // TODO: populate from actual latency data
       })
