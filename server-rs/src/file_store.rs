@@ -221,8 +221,7 @@ impl SpacesFileStore {
 }
 
 async fn create_aws_config(settings: SpacesFileStoreSettings) -> eyre::Result<aws_sdk_s3::Config> {
-    #[allow(deprecated)]
-    let sdk_config = aws_config::load_defaults(BehaviorVersion::v2025_01_17()).await;
+    let sdk_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let mut s3_config = aws_sdk_s3::config::Builder::from(&sdk_config);
 
     if let Some(region) = settings.region {
