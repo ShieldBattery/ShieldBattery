@@ -19,9 +19,9 @@ use uuid::Uuid;
 
 use super::matchmaker::MatchmakerError;
 
-/// Minimum quality score a match must reach before it is published.
-/// This is a placeholder baseline; Phase 4 replaces this with a population-adaptive threshold
-/// that lowers automatically as the queue shrinks (required before launch).
+/// Minimum quality score a match must reach before it is published. The matchmaker applies an
+/// adaptive threshold that lowers this automatically when the queue is below a comfortable size,
+/// so matches can still form during low-population periods.
 const MIN_QUALITY: f32 = -30.0;
 
 /// How often the matchmaker searches for new matches.
@@ -205,7 +205,7 @@ pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
     Router::new()
         .route("/", post(insert_player))
         .route("/requeue", post(requeue_player))
-        .route("/:id", delete(cancel))
+        .route("/{id}", delete(cancel))
         .with_state(state)
 }
 
