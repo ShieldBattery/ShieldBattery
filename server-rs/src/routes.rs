@@ -159,9 +159,8 @@ pub async fn create_app(
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
-    let matchmaker_router =
-        create_matchmaking_api(redis_pool.clone())
-            .layer(middleware::from_fn(only_unforwarded_clients));
+    let matchmaker_router = create_matchmaking_api(redis_pool.clone())
+        .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),

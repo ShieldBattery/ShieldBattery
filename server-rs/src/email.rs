@@ -1,5 +1,5 @@
-use base64::prelude::BASE64_STANDARD;
 use base64::Engine as _;
+use base64::prelude::BASE64_STANDARD;
 use color_eyre::eyre;
 use color_eyre::eyre::{WrapErr, eyre};
 use reqwest::Url;

@@ -1,14 +1,16 @@
 use crate::matchmaking::matchmaker::{Match, Matchmaker, Player, QueueEntry, RandomQueueSelector};
-use crate::matchmaking::{MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage};
+use crate::matchmaking::{
+    MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
+};
 use crate::redis::RedisPool;
 use crate::state::AppState;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::delete;
-use axum::{extract::State, routing::post, Json, Router};
-use base64::prelude::BASE64_STANDARD;
+use axum::{Json, Router, extract::State, routing::post};
 use base64::Engine as _;
+use base64::prelude::BASE64_STANDARD;
 use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -36,11 +38,17 @@ impl IntoResponse for MatchmakerError {
         let (status, error) = match self {
             MatchmakerError::AlreadyInQueue(_) => (
                 StatusCode::CONFLICT,
-                ApiError { code: "alreadyInQueue", message: "Player is already in the queue" },
+                ApiError {
+                    code: "alreadyInQueue",
+                    message: "Player is already in the queue",
+                },
             ),
             MatchmakerError::NoModesSelected => (
                 StatusCode::BAD_REQUEST,
-                ApiError { code: "noModesSelected", message: "Must queue for at least one mode" },
+                ApiError {
+                    code: "noModesSelected",
+                    message: "Must queue for at least one mode",
+                },
             ),
         };
         (status, Json(error)).into_response()
@@ -228,9 +236,12 @@ async fn requeue_player(
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiError { code: "invalidTicket", message: "Ticket is malformed" }),
+                Json(ApiError {
+                    code: "invalidTicket",
+                    message: "Ticket is malformed",
+                }),
             )
-                .into_response()
+                .into_response();
         }
     };
     let ticket: QueueTicket = match serde_json::from_slice(&ticket_json) {
@@ -238,9 +249,12 @@ async fn requeue_player(
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiError { code: "invalidTicket", message: "Ticket is malformed" }),
+                Json(ApiError {
+                    code: "invalidTicket",
+                    message: "Ticket is malformed",
+                }),
             )
-                .into_response()
+                .into_response();
         }
     };
 
@@ -284,7 +298,10 @@ async fn cancel(
     } else {
         (
             StatusCode::NOT_FOUND,
-            Json(ApiError { code: "notFound", message: "Player is not in the queue" }),
+            Json(ApiError {
+                code: "notFound",
+                message: "Player is not in the queue",
+            }),
         )
             .into_response()
     }
@@ -293,8 +310,8 @@ async fn cancel(
 #[cfg(test)]
 mod tests {
     use super::deduplicate_matches;
-    use crate::matchmaking::matchmaker::{Match, Player, QueueEntry};
     use crate::matchmaking::MatchmakingType;
+    use crate::matchmaking::matchmaker::{Match, Player, QueueEntry};
     use std::time::Instant;
 
     #[test]
@@ -303,17 +320,32 @@ mod tests {
 
         let player0 = QueueEntry {
             queue_time: now,
-            player: Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            player: Player {
+                id: 0,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             modes: MatchmakingType::Match1v1.into(),
         };
         let player1 = QueueEntry {
             queue_time: now,
-            player: Player { id: 1, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            player: Player {
+                id: 1,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             modes: MatchmakingType::Match1v1.into(),
         };
         let player2 = QueueEntry {
             queue_time: now,
-            player: Player { id: 2, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            player: Player {
+                id: 2,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             modes: MatchmakingType::Match1v1.into(),
         };
 

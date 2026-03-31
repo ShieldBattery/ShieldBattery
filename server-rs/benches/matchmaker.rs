@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use server::matchmaking::matchmaker::{Matchmaker, Player};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use server::matchmaking::MatchmakingType;
+use server::matchmaking::matchmaker::{Matchmaker, Player};
 
 fn bench_1v1(c: &mut Criterion) {
     let mut matchmaker = Matchmaker::new(16);
@@ -12,7 +12,9 @@ fn bench_1v1(c: &mut Criterion) {
         uncertainty: None,
         latency_bucket: None,
     }) {
-        matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match1v1.into())
+            .unwrap();
     }
     c.bench_function("matches", |b| {
         b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
@@ -27,7 +29,9 @@ fn bench_2v2(c: &mut Criterion) {
         uncertainty: None,
         latency_bucket: None,
     }) {
-        matchmaker.insert_player(player, MatchmakingType::Match2v2.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match2v2.into())
+            .unwrap();
     }
     c.bench_function("matches", |b| {
         b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
