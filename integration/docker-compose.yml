@@ -54,11 +54,18 @@ services:
       - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
 
     depends_on:
-      - _app-server-build
-      - db
-      - mailgun
-      - migration
-      - redis
+      _app-server-build:
+        condition: service_completed_successfully
+      db:
+        condition: service_started
+      mailgun:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      server-rs:
+        condition: service_healthy
 
   server-rs:
     build:
