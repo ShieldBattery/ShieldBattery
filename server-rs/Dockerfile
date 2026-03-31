@@ -34,21 +34,15 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --locked --bin server
 
-FROM busybox:stable AS tools
-
 FROM gcr.io/distroless/cc-debian12
 
 # Import from builder.
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 
-# Import wget from busybox (statically linked) for health checks
-COPY --from=tools /bin/busybox /usr/local/bin/busybox
-
 WORKDIR /server
 COPY --from=builder /server/target/release/server ./
 
 USER server:server
 
-HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=5 CMD ["/usr/local/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://localhost:5529/healthcheck"]
 CMD ["/server/server"]
