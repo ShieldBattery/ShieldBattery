@@ -8,18 +8,26 @@ use strum::IntoEnumIterator;
 use crate::matchmaking::MatchmakingType;
 
 /*
-The match quality score values are all normalized into the wait time scale (for a wait time of 1 second),
-then added together. i.e.: Value = WaitTime + W1 * SkillVariance + W2 * Latency
-    - W1 = "How many seconds I would wait for an improvement of 1 in skill variance"
-    - W2 = "How many seconds I would wait for an improvement of 1 in latency"
+Match quality is expressed in seconds of wait time: a positive value means the match is good
+enough to form right now, a negative value means it needs more wait time to become acceptable.
 
-- Need to find some way to calculate a "minimum match quality" value, this likely changes based on
-  the player population at the time (ideally using historical data of some kind)
-    - The Menke utility function seems to be negative? (but less negative = better)
+    quality = wait_time − (W_var * skill_variance + W_prob * win_prob_diff + W_lat * max_latency)
 
-- Talk about some of this stuff: https://www.youtube.com/watch?v=Q8BX0nXfPjY
-- In their system, the match score minimum is *per player* because it depends on their skill rating
-  + region
+Where:
+    - W_var  = "How many seconds I would wait for a 1-unit improvement in skill variance"
+    - W_prob = "How many seconds I would wait for a 1-unit improvement in win-probability balance"
+    - W_lat  = "How many seconds I would wait for a 1-unit improvement in latency bucket"
+
+Skill variance is computed over each player's *effective rating* (rating − k*σ), so newly-placed
+players with high uncertainty contribute less variance and match more freely until their rating
+stabilizes.
+
+The minimum acceptable quality (min_quality) is adaptive: when the queue is smaller than a
+comfortable threshold it is relaxed by ADAPTIVE_DECAY_PER_MISSING seconds per missing player,
+ensuring matches can still form in low-population conditions.
+
+See also Menke's talk for background on this scoring approach:
+https://www.youtube.com/watch?v=Q8BX0nXfPjY
 */
 
 const WEIGHT_RATING_VARIANCE: f32 = 0.005;
