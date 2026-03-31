@@ -100,7 +100,6 @@ async fn only_unforwarded_clients(request: Request<Body>, next: Next) -> Respons
     }
 }
 
-#[allow(deprecated)]
 pub async fn create_app(
     db_pool: PgPool,
     redis_pool: RedisPool,
@@ -241,7 +240,10 @@ pub async fn create_app(
                             },
                         ),
                 )
-                .layer(TimeoutLayer::new(Duration::from_secs(15)))
+                .layer(TimeoutLayer::with_status_code(
+                    StatusCode::REQUEST_TIMEOUT,
+                    Duration::from_secs(15),
+                ))
                 .layer(CompressionLayer::new().no_br())
                 .layer(
                     cors::CorsLayer::new()
