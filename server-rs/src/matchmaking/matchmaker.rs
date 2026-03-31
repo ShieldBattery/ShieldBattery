@@ -1,11 +1,8 @@
-use std::{
-    collections::HashMap,
-    time::Instant,
-};
+use std::{collections::HashMap, time::Instant};
 
 use enumset::EnumSet;
 use itertools::Itertools;
-use rand::{seq::SliceRandom, Rng};
+use rand::{Rng, seq::SliceRandom};
 use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;
@@ -143,7 +140,13 @@ fn get_team_rating(team: &[&QueueEntry]) -> f32 {
     if team.len() == 1 {
         effective_rating(&team[0].player)
     } else {
-        let sum: f32 = team.iter().map(|q| { let r = effective_rating(&q.player); r * r }).sum();
+        let sum: f32 = team
+            .iter()
+            .map(|q| {
+                let r = effective_rating(&q.player);
+                r * r
+            })
+            .sum();
         // TODO(tec27): Determine what the proper exponent is for this from win/loss data
         (sum / team.len() as f32).sqrt()
     }
@@ -279,8 +282,7 @@ impl<T: QueueSelector> Matchmaker<T> {
             let comfortable_size = mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER;
             let queue_size = self.queue_sizes.get(mode).copied().unwrap_or(0);
             let effective_min = if queue_size < comfortable_size {
-                min_quality
-                    - ADAPTIVE_DECAY_PER_MISSING * (comfortable_size - queue_size) as f32
+                min_quality - ADAPTIVE_DECAY_PER_MISSING * (comfortable_size - queue_size) as f32
             } else {
                 min_quality
             };
@@ -409,7 +411,9 @@ mod tests {
             uncertainty: None,
             latency_bucket: None,
         };
-        matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match1v1.into())
+            .unwrap();
 
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingType::Match1v1],
@@ -428,14 +432,18 @@ mod tests {
             uncertainty: None,
             latency_bucket: None,
         };
-        matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match1v1.into())
+            .unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
             uncertainty: None,
             latency_bucket: None,
         };
-        matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match1v1.into())
+            .unwrap();
 
         assert_eq!(
             matchmaker.queue_sizes.get(&MatchmakingType::Match1v1),
@@ -549,7 +557,9 @@ mod tests {
             uncertainty: None,
             latency_bucket: None,
         };
-        matchmaker.insert_player(player, MatchmakingType::Match1v1.into()).unwrap();
+        matchmaker
+            .insert_player(player, MatchmakingType::Match1v1.into())
+            .unwrap();
         let player = Player {
             id: 1,
             rating: 1200.0,
@@ -594,11 +604,19 @@ mod tests {
     fn insert_player_new_player_succeeds() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         let result = matchmaker.insert_player(
-            Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            Player {
+                id: 0,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             MatchmakingType::Match1v1.into(),
         );
         assert!(result.is_ok());
-        assert_eq!(matchmaker.queue_sizes.get(&MatchmakingType::Match1v1), Some(&1));
+        assert_eq!(
+            matchmaker.queue_sizes.get(&MatchmakingType::Match1v1),
+            Some(&1)
+        );
     }
 
     #[test]
@@ -606,17 +624,30 @@ mod tests {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
             .insert_player(
-                Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+                Player {
+                    id: 0,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: None,
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
         let result = matchmaker.insert_player(
-            Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            Player {
+                id: 0,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             MatchmakingType::Match1v1.into(),
         );
         assert!(matches!(result, Err(MatchmakerError::AlreadyInQueue(0))));
         // Queue size must not have been double-incremented
-        assert_eq!(matchmaker.queue_sizes.get(&MatchmakingType::Match1v1), Some(&1));
+        assert_eq!(
+            matchmaker.queue_sizes.get(&MatchmakingType::Match1v1),
+            Some(&1)
+        );
     }
 
     #[test]
@@ -624,12 +655,22 @@ mod tests {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
             .insert_player(
-                Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+                Player {
+                    id: 0,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: None,
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
         let result = matchmaker.requeue_player(
-            Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+            Player {
+                id: 0,
+                rating: 1000.0,
+                uncertainty: None,
+                latency_bucket: None,
+            },
             MatchmakingType::Match1v1.into(),
             Instant::now(),
         );
@@ -653,7 +694,12 @@ mod tests {
         let entries: Vec<QueueEntry> = (0..=amount)
             .map(|i| QueueEntry {
                 queue_time: base + Duration::from_secs(i as u64),
-                player: Player { id: i, rating: 1000.0, uncertainty: None, latency_bucket: None },
+                player: Player {
+                    id: i,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: None,
+                },
                 modes: MatchmakingType::Match1v1.into(),
             })
             .collect();
@@ -711,13 +757,23 @@ mod tests {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
             .insert_player(
-                Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: Some(2) },
+                Player {
+                    id: 0,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: Some(2),
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
         matchmaker
             .insert_player(
-                Player { id: 1, rating: 1000.0, uncertainty: None, latency_bucket: Some(2) },
+                Player {
+                    id: 1,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: Some(2),
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
@@ -733,22 +789,16 @@ mod tests {
         //
         // To ensure effective_min > -10.0, we need min_quality > 20.0. Use 25.0:
         // effective_min = 25.0 - 30.0 = -5.0 > -10.0 → match rejected.
-        let result_strict = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            25.0,
-            Instant::now(),
-        );
+        let result_strict =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], 25.0, Instant::now());
         assert!(
             result_strict.is_empty(),
             "expected no match when effective_min (-5.0) exceeds quality (-10.0) with latency bucket 2"
         );
 
         // With min_quality = -15.0: effective_min = -15.0 - 30.0 = -45.0 < -10.0 → match forms.
-        let result_lenient = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            -15.0,
-            Instant::now(),
-        );
+        let result_lenient =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -15.0, Instant::now());
         assert_eq!(result_lenient.len(), 1);
     }
 
@@ -757,13 +807,23 @@ mod tests {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
             .insert_player(
-                Player { id: 0, rating: 1000.0, uncertainty: None, latency_bucket: None },
+                Player {
+                    id: 0,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: None,
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
         matchmaker
             .insert_player(
-                Player { id: 1, rating: 1000.0, uncertainty: None, latency_bucket: None },
+                Player {
+                    id: 1,
+                    rating: 1000.0,
+                    uncertainty: None,
+                    latency_bucket: None,
+                },
                 MatchmakingType::Match1v1.into(),
             )
             .unwrap();
@@ -803,11 +863,16 @@ mod tests {
         };
 
         let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
-        mm.insert_player(uncertain, MatchmakingType::Match1v1.into()).unwrap();
-        mm.insert_player(certain, MatchmakingType::Match1v1.into()).unwrap();
+        mm.insert_player(uncertain, MatchmakingType::Match1v1.into())
+            .unwrap();
+        mm.insert_player(certain, MatchmakingType::Match1v1.into())
+            .unwrap();
 
-        let result =
-            mm.find_matches_for_modes(&[MatchmakingType::Match1v1], f32::NEG_INFINITY, Instant::now());
+        let result = mm.find_matches_for_modes(
+            &[MatchmakingType::Match1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
         assert_eq!(result.len(), 1);
         // Quality is significantly negative at t=0 due to variance penalty from σ=350
         assert!(
