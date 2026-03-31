@@ -44,5 +44,4 @@ impl RedisPool {
 
         Ok(())
     }
-
 }

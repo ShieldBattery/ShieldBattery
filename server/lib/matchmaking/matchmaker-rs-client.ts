@@ -7,6 +7,8 @@ import { serverRsUrl } from '../network/server-rs-requests'
 export interface RsQueueRequest {
   id: SbUserId
   rating: number
+  /** Glicko-2 σ (uncertainty). null treated as 0 (fully certain). */
+  uncertainty: number | null
   modes: MatchmakingType[]
   latencyBucket: number | null
 }
