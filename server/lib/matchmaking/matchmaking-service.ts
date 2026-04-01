@@ -1063,7 +1063,12 @@ export class MatchmakingService {
     const teamA = buildTeam(event.teamA)
     const teamB = buildTeam(event.teamB)
 
-    if (!teamA.length || !teamB.length || teamA.length !== event.teamA.length || teamB.length !== event.teamB.length) {
+    if (
+      !teamA.length ||
+      !teamB.length ||
+      teamA.length !== event.teamA.length ||
+      teamB.length !== event.teamB.length
+    ) {
       for (const entry of allEntries) {
         const userId = makeSbUserId(entry.id)
         this.playerQueueData.delete(userId)
