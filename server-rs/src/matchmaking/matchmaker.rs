@@ -350,7 +350,7 @@ impl<T: QueueSelector> Matchmaker<T> {
 
                                 ((rating_a - rating_b).abs(), team_a, team_b)
                             })
-                            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+                            .min_by(|a, b| a.0.total_cmp(&b.0))
                             .map(|(_, a, b)| (a, b))
                             .unwrap()
                     };
@@ -383,7 +383,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                     }
                 })
                 // Sort by match quality (descending)
-                .sorted_by(|a, b| b.quality.partial_cmp(&a.quality).unwrap());
+                .sorted_by(|a, b| b.quality.total_cmp(&a.quality));
 
             matches.extend(mode_matches);
         }
