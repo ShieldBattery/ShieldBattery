@@ -8,7 +8,7 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
@@ -220,7 +220,16 @@ const eventToAction: EventToActionMap = {
   matchmakingServiceError: (matchmakingType, event) => dispatch => {
     logger.error('Matchmaking service error received — matchmaking was interrupted')
     clearMatchmakingState(jotaiStore)
-    dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
+    dispatch(
+      openSimpleDialog(
+        i18n.t('matchmaking.serviceError.dialogTitle', 'Matchmaking error'),
+        i18n.t(
+          'matchmaking.serviceError.removedFromQueue',
+          'Matchmaking was interrupted due to a server error. Please re-queue to find a match.',
+        ),
+        true,
+      ),
+    )
   },
 }
 
