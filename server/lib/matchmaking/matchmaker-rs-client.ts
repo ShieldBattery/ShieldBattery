@@ -1,5 +1,6 @@
 import got, { HTTPError } from 'got'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { serverRsUrl } from '../network/server-rs-requests'
 
@@ -84,7 +85,7 @@ export async function rsQueuePlayer(request: RsQueueRequest): Promise<void> {
  */
 export async function rsCancelPlayer(id: SbUserId): Promise<void> {
   try {
-    await rsRequest('DELETE', `/matchmaker/${id}`)
+    await rsRequest('DELETE', urlPath`/matchmaker/${id}`)
   } catch (err) {
     if (err instanceof RsMatchmakerError && err.isNotFound) {
       return // Already removed — treat as success

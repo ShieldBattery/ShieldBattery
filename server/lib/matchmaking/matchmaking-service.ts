@@ -1072,8 +1072,10 @@ export class MatchmakingService {
       for (const entry of allEntries) {
         const userId = makeSbUserId(entry.id)
         this.playerQueueData.delete(userId)
+        this.requeueTickets.delete(userId)
         this.queueEntries.delete(userId)
         this.unregisterActivity(userId)
+        this.publishToUser(userId, { type: 'matchmakingServiceError' })
       }
       logger.error({ event }, 'received match event with missing player data — match dropped')
       return
