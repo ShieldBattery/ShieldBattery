@@ -7,7 +7,7 @@ use crate::state::AppState;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::delete;
+use axum::routing::{delete, get};
 use axum::{Json, Router, extract::State, routing::post};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
@@ -190,6 +190,18 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProcessTokenResponse {
+    process_token: String,
+}
+
+async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<ProcessTokenResponse> {
+    Json(ProcessTokenResponse {
+        process_token: state.process_token.to_string(),
+    })
+}
+
 pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(16))),
@@ -202,6 +214,7 @@ pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
     Router::new()
         .route("/", post(insert_player))
         .route("/requeue", post(requeue_player))
+        .route("/token", get(get_process_token))
         .route("/{id}", delete(cancel))
         .with_state(state)
 }
