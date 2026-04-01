@@ -4,6 +4,7 @@ use crate::matchmaking::{
 };
 use crate::redis::RedisPool;
 use crate::state::AppState;
+use crate::users::SbUserId;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -82,7 +83,7 @@ struct QueueTicket {
     modes: Vec<MatchmakingType>,
     queue_time: u64,
     latency_bucket: Option<u8>,
-    process_token: String,
+    process_token: Uuid,
 }
 
 type SharedMatchmaker = Arc<Mutex<Matchmaker<RandomQueueSelector>>>;
@@ -104,7 +105,7 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
             .queue_time
             .duration_since(matchmaker_start)
             .as_millis() as u64,
-        process_token: process_token.to_string(),
+        process_token: *process_token,
     };
     let json = serde_json::to_vec(&ticket).expect("QueueTicket serialization is infallible");
     BASE64_STANDARD.encode(&json)
@@ -165,7 +166,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // Publish one event per selected match
         for m in selected {
             let make_matched_player = |entry: &QueueEntry| MatchedPlayer {
-                id: entry.player.id as i32,
+                id: SbUserId::from(entry.player.id as i32),
                 ticket: build_ticket(entry, &state.process_token, matchmaker_start),
             };
 
@@ -193,12 +194,12 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProcessTokenResponse {
-    process_token: String,
+    process_token: Uuid,
 }
 
 async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<ProcessTokenResponse> {
     Json(ProcessTokenResponse {
-        process_token: state.process_token.to_string(),
+        process_token: state.process_token,
     })
 }
 
@@ -268,7 +269,7 @@ async fn requeue_player(
         }
     };
 
-    if ticket.process_token != state.process_token.to_string() {
+    if ticket.process_token != state.process_token {
         return (
             StatusCode::GONE,
             Json(ApiError {

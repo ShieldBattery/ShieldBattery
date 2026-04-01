@@ -24,7 +24,7 @@ export enum MatchmakingType {
 
 /** A single player's entry in a match found message. */
 export interface MatchedPlayer {
-  id: number
+  id: TypeshareTypes.SbUserId
   /**
    * Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
    * via POST /matchmaker/requeue if the match fails to start.

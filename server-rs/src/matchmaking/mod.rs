@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 use typeshare::typeshare;
 
+use crate::users::SbUserId;
+
 pub mod api;
 pub mod matchmaker;
 
@@ -12,7 +14,7 @@ pub mod matchmaker;
 #[serde(rename_all = "camelCase")]
 #[typeshare]
 pub struct MatchedPlayer {
-    pub id: i32,
+    pub id: SbUserId,
     /// Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
     /// via POST /matchmaker/requeue if the match fails to start.
     pub ticket: String,
