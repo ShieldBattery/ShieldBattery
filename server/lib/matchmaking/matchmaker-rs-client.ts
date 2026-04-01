@@ -74,6 +74,12 @@ async function rsRequest(method: 'POST' | 'DELETE', path: string, body?: unknown
   }
 }
 
+/** Fetches the current process token from the Rust matchmaker. */
+export async function rsGetProcessToken(): Promise<string> {
+  const response = await got(serverRsUrl('/matchmaker/token')).json<{ processToken: string }>()
+  return response.processToken
+}
+
 /** Adds a player to the Rust matchmaker queue. */
 export async function rsQueuePlayer(request: RsQueueRequest): Promise<void> {
   await rsRequest('POST', '/matchmaker', request)

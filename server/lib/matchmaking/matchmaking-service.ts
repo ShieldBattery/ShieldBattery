@@ -41,6 +41,7 @@ import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import {
   rsCancelPlayer,
+  rsGetProcessToken,
   RsMatchmakerError,
   rsQueuePlayer,
   rsRequeuPlayer,
@@ -328,6 +329,9 @@ async function pickMap(
   return chosenMap
 }
 
+/** How often to poll server-rs for its process token while players are in queue. */
+const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
+
 @singleton()
 export class MatchmakingService {
   /** Full player data for players currently in the Rust queue. Keyed by userId. */
@@ -340,6 +344,9 @@ export class MatchmakingService {
   private queueEntries = new Map<SbUserId, QueueEntry>()
   // Maps match ID -> Match
   private matches = new Map<string, Match>()
+
+  private lastKnownProcessToken: string | undefined
+  private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
 
   private matchesRequestedMetric = new Counter({
     name: 'shieldbattery_matchmaker_matches_requested_total',
@@ -469,7 +476,9 @@ export class MatchmakingService {
       queuedAt: monotonicNow(),
     })
 
-    // Queue the player in the Rust matchmaker
+    // Queue the player in the Rust matchmaker, then fetch the process token as a baseline for
+    // the watchdog. The two requests are sequential so the token is guaranteed to be from the
+    // same server-rs instance that accepted the queue entry.
     try {
       await rsQueuePlayer({
         id: userId,
@@ -478,6 +487,9 @@ export class MatchmakingService {
         modes: [type],
         latencyBucket: null, // TODO: populate from actual latency data
       })
+      if (this.lastKnownProcessToken === undefined) {
+        this.lastKnownProcessToken = await rsGetProcessToken()
+      }
     } catch (err) {
       this.playerQueueData.delete(userId)
       throw err
@@ -489,6 +501,7 @@ export class MatchmakingService {
       registeredId: userId,
     })
 
+    this.startProcessTokenWatchdog()
     this.subscribeUserToQueueUpdates(clientSockets, type, race)
     this.matchesRequestedMetric.labels(type, '1').inc()
   }
@@ -1132,11 +1145,47 @@ export class MatchmakingService {
     this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
   }
 
+  private startProcessTokenWatchdog(): void {
+    if (this.processTokenWatchdog) return
+    this.processTokenWatchdog = setInterval(() => {
+      this.checkProcessToken().catch(swallowNonBuiltins)
+    }, PROCESS_TOKEN_POLL_INTERVAL_MS)
+  }
+
+  private stopProcessTokenWatchdog(): void {
+    if (this.processTokenWatchdog) {
+      clearInterval(this.processTokenWatchdog)
+      this.processTokenWatchdog = undefined
+    }
+  }
+
+  private async checkProcessToken(): Promise<void> {
+    if (this.playerQueueData.size === 0) {
+      this.stopProcessTokenWatchdog()
+      return
+    }
+
+    let token: string
+    try {
+      token = await rsGetProcessToken()
+    } catch (err) {
+      logger.error({ err }, 'failed to fetch Rust matchmaker process token — assuming restart')
+      this.lastKnownProcessToken = undefined
+      this.handleRsRestart([...this.playerQueueData.keys()])
+      return
+    }
+
+    if (this.lastKnownProcessToken !== undefined && token !== this.lastKnownProcessToken) {
+      this.lastKnownProcessToken = token
+      this.handleRsRestart([...this.playerQueueData.keys()])
+    } else {
+      this.lastKnownProcessToken = token
+    }
+  }
+
   private handleRsRestart(userIds: SbUserId[]): void {
-    logger.warn(
-      { userIds },
-      'Rust matchmaker restart detected via stale ticket — surfacing failure',
-    )
+    logger.warn({ userIds }, 'Rust matchmaker restart detected — surfacing failure')
+    this.lastKnownProcessToken = undefined
     for (const userId of userIds) {
       this.playerQueueData.delete(userId)
       this.requeueTickets.delete(userId)
