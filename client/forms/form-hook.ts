@@ -99,6 +99,10 @@ export interface FormHook<ModelType extends Record<string, any>> {
    * to the form.
    */
   form: React.RefObject<FormCallbackRegistry<ModelType>>
+  /**
+   * Returns true if the form has changes since the last submission.
+   */
+  hasChanges: boolean
 }
 
 export type FormEventHandler<ModelType extends Record<string, any>> = (
@@ -361,6 +365,7 @@ export function useForm<ModelType extends Record<string, any>>(
     setInputValue,
     setInputError,
     form: formCallbackRegistryRef,
+    hasChanges: dirtyFields.size > 0,
   }
 }
 
