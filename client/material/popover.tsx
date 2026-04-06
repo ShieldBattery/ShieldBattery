@@ -428,11 +428,11 @@ export function PopoverContent({
  * @param originY which location to use for calculating the Y position within the anchor's
  *   bounding rect
  */
-export function useRefAnchorPosition(
+export function useRefAnchorPosition<T extends HTMLElement>(
   originX: OriginX,
   originY: OriginY,
 ): [
-  ref: (instance: HTMLElement | null) => void,
+  ref: (instance: T | null) => void,
   x: number | undefined,
   y: number | undefined,
   refresh: () => void,

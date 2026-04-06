@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import {
+  ALL_GAME_FORMATS,
+  EncodedMatchupString,
+  GameDurationFilter,
+  GameFormat,
+  GameSortOption,
+  makeEncodedMatchupString,
+} from '../../common/games/game-filters'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
-import { ReconciledResult, getResultLabel } from '../../common/games/results'
+import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
+import { GameFilterBar } from '../games/game-filter-bar'
 import { GamePlayersDisplay } from '../games/game-players-display'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -15,7 +24,8 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
-import { useStableCallback } from '../react/state-hooks'
+import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
@@ -26,7 +36,7 @@ import {
   singleLine,
   titleSmall,
 } from '../styles/typography'
-import { searchMatchHistory } from './action-creators'
+import { getMatchHistory } from './action-creators'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -40,70 +50,192 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const SearchResults = styled.div`
+const MatchHistoryContainer = styled.div`
   width: 100%;
   padding: 0 24px;
 
   display: flex;
   flex-direction: column;
+  gap: 16px;
 `
+
+const SearchResults = styled.div`
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+`
+
+function parseDuration(value: string): GameDurationFilter {
+  return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
+    ? (value as GameDurationFilter)
+    : GameDurationFilter.All
+}
+
+function parseSort(value: string): GameSortOption {
+  return Object.values(GameSortOption).includes(value as GameSortOption)
+    ? (value as GameSortOption)
+    : GameSortOption.LatestFirst
+}
+
+function parseFormat(value: string): GameFormat | undefined {
+  return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
+}
+
+function parseMatchup(value: string): EncodedMatchupString | undefined {
+  return value ? makeEncodedMatchupString(value) : undefined
+}
 
 export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [games, setGames] = useState<GameRecordJson[]>()
-  const [hasMoreGames, setHasMoreGames] = useState(true)
+  const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
+  const [customParam, setCustomParam] = useLocationSearchParam('custom')
+  const [durationParam, setDurationParam] = useLocationSearchParam('duration')
+  const [sortParam, setSortParam] = useLocationSearchParam('sort')
+  const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
+  const [playerName, setPlayerNameParam] = useLocationSearchParam('playerName')
+  const [formatParam, setFormatParam] = useLocationSearchParam('format')
+  const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
 
+  const ranked = rankedParam === 'true'
+  const custom = customParam === 'true'
+  const duration = parseDuration(durationParam)
+  const sort = parseSort(sortParam)
+  const format = parseFormat(formatParam)
+  const matchup = parseMatchup(matchupParam)
+
+  const [gameIds, setGameIds] = useState<string[]>()
+  const [hasMoreGames, setHasMoreGames] = useState(true)
   const [isLoadingMoreGames, setIsLoadingMoreGames] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
   const abortControllerRef = useRef<AbortController>(undefined)
+  const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const onLoadMoreGames = useStableCallback(() => {
+  const games = useAppSelector(
+    s =>
+      gameIds
+        ?.map(id => s.games.byId.get(id))
+        .filter((g): g is GameRecordJson => g !== undefined) ?? [],
+  )
+
+  const reset = () => {
+    abortControllerRef.current?.abort()
+    setGameIds(undefined)
+    setHasMoreGames(true)
+    setIsLoadingMoreGames(false)
+    setSearchError(undefined)
+    triggerRefresh()
+  }
+
+  const onLoadMoreGames = () => {
     setIsLoadingMoreGames(true)
 
     abortControllerRef.current?.abort()
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      searchMatchHistory(userId, games?.length ?? 0, {
-        signal: abortControllerRef.current.signal,
-        onSuccess: data => {
-          setIsLoadingMoreGames(false)
-          setGames((games ?? []).concat(data.games))
-          setHasMoreGames(data.hasMoreGames)
+      getMatchHistory(
+        userId,
+        {
+          ranked: ranked || undefined,
+          custom: custom || undefined,
+          duration: duration === GameDurationFilter.All ? undefined : duration,
+          sort: sort === GameSortOption.LatestFirst ? undefined : sort,
+          mapName: mapName || undefined,
+          playerName: playerName || undefined,
+          format,
+          matchup: matchup ? makeEncodedMatchupString(matchup) : undefined,
+          offset: gameIds?.length ?? 0,
         },
-        onError: err => {
-          setIsLoadingMoreGames(false)
-          setSearchError(err)
+        {
+          signal: abortControllerRef.current.signal,
+          onSuccess: data => {
+            setIsLoadingMoreGames(false)
+            setGameIds(prev => (prev ?? []).concat(data.games.map(g => g.id)))
+            setHasMoreGames(data.hasMoreGames)
+            setSearchError(undefined)
+          },
+          onError: err => {
+            setIsLoadingMoreGames(false)
+            setSearchError(err)
+          },
         },
-      }),
+      ),
     )
-  })
+  }
 
   useEffect(() => {
     return () => abortControllerRef.current?.abort()
   }, [])
 
+  const filterBar = (
+    <GameFilterBar
+      ranked={ranked}
+      setRanked={v => {
+        setRankedParam(v ? 'true' : '')
+        reset()
+      }}
+      custom={custom}
+      setCustom={v => {
+        setCustomParam(v ? 'true' : '')
+        reset()
+      }}
+      duration={duration}
+      setDuration={v => {
+        setDurationParam(v === GameDurationFilter.All ? '' : v)
+        reset()
+      }}
+      sort={sort}
+      setSort={v => {
+        setSortParam(v === GameSortOption.LatestFirst ? '' : v)
+        reset()
+      }}
+      mapName={mapName}
+      setMapName={v => {
+        setMapNameParam(v)
+        reset()
+      }}
+      playerName={playerName}
+      setPlayerName={v => {
+        setPlayerNameParam(v)
+        reset()
+      }}
+      format={format}
+      setFormat={v => {
+        setFormatParam(v ?? '')
+        reset()
+      }}
+      matchup={matchup}
+      setMatchup={v => {
+        setMatchupParam(v ?? '')
+        reset()
+      }}
+    />
+  )
+
   if (searchError) {
     return (
-      <SearchResults>
+      <MatchHistoryContainer>
+        {filterBar}
         <ErrorText>
           {t(
             'user.matchHistory.retrievingError',
             'There was an error retrieving the match history.',
           )}
         </ErrorText>
-      </SearchResults>
+      </MatchHistoryContainer>
     )
-  } else if (games?.length === 0) {
+  } else if (gameIds?.length === 0) {
     return (
-      <SearchResults>
+      <MatchHistoryContainer>
+        {filterBar}
         <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
-      </SearchResults>
+      </MatchHistoryContainer>
     )
   } else {
-    const gameItems = (games ?? []).map(game => (
+    const gameItems = games.map(game => (
       <MatchHistoryEntry key={game.id} forUserId={userId} game={game} />
     ))
 
@@ -112,8 +244,12 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         nextLoadingEnabled={true}
         isLoadingNext={isLoadingMoreGames}
         hasNextData={hasMoreGames}
+        refreshToken={refreshToken}
         onLoadNextData={onLoadMoreGames}>
-        <SearchResults>{gameItems}</SearchResults>
+        <MatchHistoryContainer>
+          {filterBar}
+          <SearchResults>{gameItems}</SearchResults>
+        </MatchHistoryContainer>
       </InfiniteScrollList>
     )
   }
@@ -243,10 +379,9 @@ function MatchHistoryEntry({ forUserId, game }: { forUserId: SbUserId; game: Gam
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
 
-  const onClick = useStableCallback(() => {
-    navigateToGameResults(game.id)
+  const [buttonProps, rippleRef] = useButtonState({
+    onClick: () => navigateToGameResults(game.id),
   })
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
 
   const { results, startTime } = game
   const result = useMemo(() => {

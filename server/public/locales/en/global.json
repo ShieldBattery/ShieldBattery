@@ -275,6 +275,7 @@
       "read": "Read",
       "refresh": "Refresh",
       "remove": "Remove",
+      "reset": "Reset",
       "reveal": "Reveal",
       "save": "Save",
       "search": "Search",
@@ -315,6 +316,30 @@
     }
   },
   "game": {
+    "filters": {
+      "advanced": "Advanced",
+      "custom": "Custom",
+      "duration": {
+        "10to20": "10-20min",
+        "20to30": "20-30min",
+        "all": "All",
+        "over30": "Over 30min",
+        "under10": "Under 10min"
+      },
+      "format": "Format",
+      "label": "Filters",
+      "mapName": "Map name",
+      "matchup": "Matchup",
+      "playerName": "Player name",
+      "ranked": "Ranked",
+      "sort": {
+        "latest": "Latest first",
+        "longest": "Longest first",
+        "oldest": "Oldest first",
+        "shortest": "Shortest first"
+      },
+      "vs": "vs"
+    },
     "gameSource": {
       "custom": "Custom game",
       "ranked": "Ranked {{matchmakingType}}"
