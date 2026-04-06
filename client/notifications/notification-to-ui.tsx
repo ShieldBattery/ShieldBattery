@@ -1,6 +1,10 @@
 import React from 'react'
 import { NotificationType, SbNotification } from '../../common/notifications'
 import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
+import {
+  LeagueBanNotificationUi,
+  LeagueUnbanNotificationUi,
+} from '../leagues/league-ban-notification-ui'
 import { logger } from '../logging/logger'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
 import {
@@ -19,6 +23,8 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.FriendRequest:
     case NotificationType.FriendStart:
     case NotificationType.UserRestricted:
+    case NotificationType.LeagueBan:
+    case NotificationType.LeagueUnban:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -80,6 +86,24 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           kind={notification.kind}
           endTime={notification.endTime}
           reason={notification.reason}
+        />
+      )
+    case NotificationType.LeagueBan:
+      return (
+        <LeagueBanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.LeagueUnban:
+      return (
+        <LeagueUnbanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
         />
       )
     default:
