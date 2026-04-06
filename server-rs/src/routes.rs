@@ -40,6 +40,7 @@ use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
+use crate::matchmaking::api::create_matchmaking_api;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{SbSchema, build_schema};
@@ -157,6 +158,8 @@ pub async fn create_app(
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
+    let matchmaker_router = create_matchmaking_api(redis_pool.clone())
+        .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
@@ -177,6 +180,7 @@ pub async fn create_app(
         .route("/gql", get(graphql_handler).post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
         .nest("/users/names", names_router)
+        .nest("/matchmaker", matchmaker_router)
         .layer(
             ServiceBuilder::new()
                 .layer(prometheus_layer)
@@ -236,7 +240,10 @@ pub async fn create_app(
                             },
                         ),
                 )
-                .layer(TimeoutLayer::new(Duration::from_secs(15)))
+                .layer(TimeoutLayer::with_status_code(
+                    StatusCode::REQUEST_TIMEOUT,
+                    Duration::from_secs(15),
+                ))
                 .layer(CompressionLayer::new().no_br())
                 .layer(
                     cors::CorsLayer::new()
