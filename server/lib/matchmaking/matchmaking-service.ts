@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { Counter, exponentialBuckets, Histogram } from 'prom-client'
-import { container, singleton } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
@@ -20,7 +20,6 @@ import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
 import {
-  ALL_MATCHMAKING_TYPES,
   hasVetoes,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
@@ -33,19 +32,25 @@ import {
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
+import { MatchFoundMessage, PublishedMatchmakingMessage } from '../../../common/typeshare'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
-import { Matchmaker, MATCHMAKING_INTERVAL_MS, OnMatchFoundFunc } from '../matchmaking/matchmaker'
+import {
+  rsCancelPlayer,
+  rsGetProcessToken,
+  RsMatchmakerError,
+  rsQueuePlayer,
+  rsRequeuPlayer,
+} from '../matchmaking/matchmaker-rs-client'
 import {
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
   MatchmakingEntity,
-  MatchmakingPlayer,
   MatchmakingPlayerData,
   matchmakingRatingToPlayerData,
 } from '../matchmaking/matchmaking-entity'
@@ -56,6 +61,7 @@ import {
   insertMatchmakingCompletion,
   MatchmakingRating,
 } from '../matchmaking/models'
+import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
 import { ClientIdentifierString } from '../users/client-ids'
@@ -80,8 +86,14 @@ import {
 } from './matchmaking-socket-paths'
 import { adjustMatchmakingRatingForInactivity } from './rating'
 
-interface MatchmakerCallbacks {
-  onMatchFound: OnMatchFoundFunc
+/** Data Node.js needs to remember while a player is in queue, separate from the Rust queue. */
+interface PlayerQueueData {
+  userId: SbUserId
+  type: MatchmakingType
+  race: RaceChar
+  playerData: MatchmakingPlayerData
+  /** Queue start time (used for metrics), from monotonicNow(). */
+  queuedAt: number
 }
 
 class Match {
@@ -317,56 +329,24 @@ async function pickMap(
   return chosenMap
 }
 
+/** How often to poll server-rs for its process token while players are in queue. */
+const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
+
 @singleton()
 export class MatchmakingService {
-  private matchmakerDelegate: MatchmakerCallbacks = {
-    onMatchFound: (teamA, teamB) => {
-      const playerEntry = this.queueEntries.get(getMatchmakingEntityId(teamA[0]))!
-
-      const matchInfo = new Match(nanoid(), playerEntry.type, [teamA, teamB], this.publisher)
-      this.matches.set(matchInfo.id, matchInfo)
-
-      for (const entities of [teamA, teamB]) {
-        for (const entity of entities) {
-          for (const p of getPlayersFromEntity(entity)) {
-            const queueEntry = this.queueEntries.get(p.id)!
-            queueEntry.matchId = matchInfo.id
-          }
-        }
-      }
-
-      const completionTime = new Date(this.clock.now())
-      for (const entities of [teamA, teamB]) {
-        for (const entity of entities) {
-          for (const p of getPlayersFromEntity(entity)) {
-            insertMatchmakingCompletion({
-              userId: p.id,
-              matchmakingType: matchInfo.type,
-              completionType: MatchmakingCompletionType.Found,
-              searchTimeMillis: entity.searchIterations * MATCHMAKING_INTERVAL_MS,
-              completionTime,
-            }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
-          }
-          this.matchSearchTimeMetric
-            .labels(
-              matchInfo.type,
-              String(getNumPlayersInEntity(entity)),
-              MatchmakingCompletionType.Found,
-            )
-            .observe((entity.searchIterations * MATCHMAKING_INTERVAL_MS) / 1000)
-
-          this.matchesFoundMetric.labels(matchInfo.type).inc()
-        }
-      }
-
-      this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
-    },
-  }
-
-  private matchmakers: Map<MatchmakingType, Matchmaker>
+  /** Full player data for players currently in the Rust queue. Keyed by userId. */
+  private playerQueueData = new Map<SbUserId, PlayerQueueData>()
+  /**
+   * Requeue tickets for players who are in an in-progress Match (accept / draft / load).
+   * Keyed by userId. Set when the match event arrives; cleared when match ends.
+   */
+  private requeueTickets = new Map<SbUserId, string>()
   private queueEntries = new Map<SbUserId, QueueEntry>()
   // Maps match ID -> Match
   private matches = new Map<string, Match>()
+
+  private lastKnownProcessToken: string | undefined
+  private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
 
   private matchesRequestedMetric = new Counter({
     name: 'shieldbattery_matchmaker_matches_requested_total',
@@ -404,17 +384,8 @@ export class MatchmakingService {
     private userIdentifierManager: UserIdentifierManager,
     private matchmakingBanService: MatchmakingBanService,
     private restrictionService: RestrictionService,
+    private redisSubscriber: RedisSubscriber,
   ) {
-    this.matchmakers = new Map(
-      ALL_MATCHMAKING_TYPES.map(type => [
-        type,
-        container
-          .resolve(Matchmaker)
-          .setMatchmakingType(type)
-          .setOnMatchFound(this.matchmakerDelegate.onMatchFound),
-      ]),
-    )
-
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
         const queuedType = this.queueEntries.get(userSockets.userId)?.type
@@ -424,6 +395,12 @@ export class MatchmakingService {
         }
       })
     })
+
+    this.redisSubscriber
+      .subscribe('matchmaking', event => {
+        this.handleRsMatchEvent(event)
+      })
+      .catch(err => logger.error({ err }, 'failed to subscribe to matchmaking'))
   }
 
   /**
@@ -490,27 +467,41 @@ export class MatchmakingService {
       identifiers,
     })
 
-    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
-    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
-    // up to a maximum of 336 after 14 additional days."
-    const halfUncertainty = mmr.uncertainty / 2
+    // Store the full player data for use when the match event arrives from Rust
+    this.playerQueueData.set(userId, {
+      userId,
+      type,
+      race,
+      playerData,
+      queuedAt: monotonicNow(),
+    })
 
-    const player: MatchmakingPlayer = {
-      ...playerData,
-      interval: {
-        low: mmr.rating - halfUncertainty,
-        high: mmr.rating + halfUncertainty,
-      },
-      searchIterations: 0,
+    // Queue the player in the Rust matchmaker, then fetch the process token as a baseline for
+    // the watchdog. The two requests are sequential so the token is guaranteed to be from the
+    // same server-rs instance that accepted the queue entry.
+    try {
+      await rsQueuePlayer({
+        id: userId,
+        rating: mmr.rating,
+        uncertainty: mmr.uncertainty,
+        modes: [type],
+        latencyBucket: null, // TODO: populate from actual latency data
+      })
+      if (this.lastKnownProcessToken === undefined) {
+        this.lastKnownProcessToken = await rsGetProcessToken()
+      }
+    } catch (err) {
+      this.playerQueueData.delete(userId)
+      throw err
     }
 
-    this.matchmakers.get(type)!.addToQueue(player)
     this.queueEntries.set(userId, {
       type,
       userId,
       registeredId: userId,
     })
 
+    this.startProcessTokenWatchdog()
     this.subscribeUserToQueueUpdates(clientSockets, type, race)
     this.matchesRequestedMetric.labels(type, '1').inc()
   }
@@ -818,12 +809,30 @@ export class MatchmakingService {
         }
 
         if (!playerMissing) {
-          // Generate a writable version of the MatchmakingEntity
-          const newQueueEntry = {
-            ...entity,
-          }
+          for (const p of getPlayersFromEntity(entity)) {
+            const ticket = this.requeueTickets.get(p.id)
+            this.requeueTickets.delete(p.id)
 
-          this.matchmakers.get(match.type)!.addToQueue(newQueueEntry)
+            if (!ticket) {
+              logger.error({ userId: p.id }, 'no requeue ticket found for player — cannot requeue')
+              continue
+            }
+
+            // Update queuedAt to current time (player is re-entering the queue)
+            const existingData = this.playerQueueData.get(p.id)
+            if (existingData) {
+              existingData.queuedAt = monotonicNow()
+            }
+
+            rsRequeuPlayer(ticket).catch(err => {
+              if (err instanceof RsMatchmakerError && err.isStaleTicket) {
+                this.handleRsRestart([p.id])
+              } else {
+                logger.error({ err, userId: p.id }, 'failed to requeue player in Rust matchmaker')
+                this.handleRsRestart([p.id])
+              }
+            })
+          }
         }
       }
     } finally {
@@ -831,6 +840,14 @@ export class MatchmakingService {
         client.unsubscribe(getMatchPath(match.id))
       }
       this.matches.delete(match.id)
+
+      // Clean up player data for matched players who are no longer queued
+      for (const p of match.players()) {
+        if (!this.queueEntries.has(p.id)) {
+          this.playerQueueData.delete(p.id)
+          this.requeueTickets.delete(p.id)
+        }
+      }
     }
   }
 
@@ -1029,6 +1046,155 @@ export class MatchmakingService {
     }
   }
 
+  private handleRsMatchEvent(message: PublishedMatchmakingMessage): void {
+    if (message.type === 'matchFound') {
+      this.handleMatchFound(message.data)
+    }
+  }
+
+  private handleMatchFound(event: MatchFoundMessage): void {
+    const allEntries = [...event.teamA, ...event.teamB]
+
+    const buildTeam = (entries: Array<{ id: number; ticket: string }>): MatchmakingEntity[] => {
+      return entries.flatMap(entry => {
+        const userId = makeSbUserId(entry.id)
+        const data = this.playerQueueData.get(userId)
+        if (!data) {
+          logger.warn({ userId }, 'received match event for player with no queue data')
+          return []
+        }
+        return [
+          {
+            ...data.playerData,
+            interval: { low: data.playerData.rating, high: data.playerData.rating },
+            searchIterations: 0,
+          } satisfies MatchmakingEntity,
+        ]
+      })
+    }
+
+    const teamA = buildTeam(event.teamA)
+    const teamB = buildTeam(event.teamB)
+
+    if (
+      !teamA.length ||
+      !teamB.length ||
+      teamA.length !== event.teamA.length ||
+      teamB.length !== event.teamB.length
+    ) {
+      for (const entry of allEntries) {
+        const userId = makeSbUserId(entry.id)
+        this.playerQueueData.delete(userId)
+        this.requeueTickets.delete(userId)
+        this.queueEntries.delete(userId)
+        this.unregisterActivity(userId)
+        this.publishToUser(userId, { type: 'matchmakingServiceError' })
+      }
+      logger.error({ event }, 'received match event with missing player data — match dropped')
+      return
+    }
+
+    // Store requeue tickets before starting the match
+    for (const entry of allEntries) {
+      const userId = makeSbUserId(entry.id)
+      this.requeueTickets.set(userId, entry.ticket)
+    }
+
+    const matchInfo = new Match(nanoid(), event.mode, [teamA, teamB], this.publisher)
+    this.matches.set(matchInfo.id, matchInfo)
+
+    for (const entities of [teamA, teamB]) {
+      for (const entity of entities) {
+        for (const p of getPlayersFromEntity(entity)) {
+          const queueEntry = this.queueEntries.get(p.id)
+          if (queueEntry) queueEntry.matchId = matchInfo.id
+        }
+      }
+    }
+
+    // Log matchmaking completion metrics
+    const completionTime = new Date(this.clock.now())
+    for (const entities of [teamA, teamB]) {
+      for (const entity of entities) {
+        for (const p of getPlayersFromEntity(entity)) {
+          const data = this.playerQueueData.get(p.id)
+          const searchTimeMillis = data ? monotonicNow() - data.queuedAt : 0
+          insertMatchmakingCompletion({
+            userId: p.id,
+            matchmakingType: event.mode,
+            completionType: MatchmakingCompletionType.Found,
+            searchTimeMillis,
+            completionTime,
+          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+        }
+
+        const firstPlayer = getPlayersFromEntity(entity).next().value
+        const data = firstPlayer ? this.playerQueueData.get(firstPlayer.id) : undefined
+        const searchTimeMillis = data ? monotonicNow() - data.queuedAt : 0
+        this.matchSearchTimeMetric
+          .labels(
+            event.mode,
+            String(getNumPlayersInEntity(entity)),
+            MatchmakingCompletionType.Found,
+          )
+          .observe(searchTimeMillis / 1000)
+        this.matchesFoundMetric.labels(event.mode).inc()
+      }
+    }
+
+    this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
+  }
+
+  private startProcessTokenWatchdog(): void {
+    if (this.processTokenWatchdog) return
+    this.processTokenWatchdog = setInterval(() => {
+      this.checkProcessToken().catch(swallowNonBuiltins)
+    }, PROCESS_TOKEN_POLL_INTERVAL_MS)
+  }
+
+  private stopProcessTokenWatchdog(): void {
+    if (this.processTokenWatchdog) {
+      clearInterval(this.processTokenWatchdog)
+      this.processTokenWatchdog = undefined
+    }
+  }
+
+  private async checkProcessToken(): Promise<void> {
+    if (this.playerQueueData.size === 0) {
+      this.stopProcessTokenWatchdog()
+      return
+    }
+
+    let token: string
+    try {
+      token = await rsGetProcessToken()
+    } catch (err) {
+      logger.error({ err }, 'failed to fetch Rust matchmaker process token — assuming restart')
+      this.lastKnownProcessToken = undefined
+      this.handleRsRestart([...this.playerQueueData.keys()])
+      return
+    }
+
+    if (this.lastKnownProcessToken !== undefined && token !== this.lastKnownProcessToken) {
+      this.lastKnownProcessToken = token
+      this.handleRsRestart([...this.playerQueueData.keys()])
+    } else {
+      this.lastKnownProcessToken = token
+    }
+  }
+
+  private handleRsRestart(userIds: SbUserId[]): void {
+    logger.warn({ userIds }, 'Rust matchmaker restart detected — surfacing failure')
+    this.lastKnownProcessToken = undefined
+    for (const userId of userIds) {
+      this.playerQueueData.delete(userId)
+      this.requeueTickets.delete(userId)
+      this.queueEntries.delete(userId)
+      this.unregisterActivity(userId)
+      this.publishToUser(userId, { type: 'matchmakingServiceError' })
+    }
+  }
+
   private unregisterActivity(userId: SbUserId) {
     const activeClient = this.activityRegistry.getClientForUser(userId)
     this.activityRegistry.unregisterClientForUser(userId)
@@ -1050,37 +1216,40 @@ export class MatchmakingService {
     if (entry) {
       this.queueEntries.delete(client.userId)
 
-      const entity = this.matchmakers.get(entry.type)!.removeFromQueue(entry.registeredId)
-      if (entity) {
-        toUnregister.length = 0
-        for (const player of getPlayersFromEntity(entity)) {
-          toUnregister.push(player.id)
-          this.queueEntries.delete(player.id)
+      if (!entry.matchId) {
+        // Player is still searching — remove from Rust queue
+        const data = this.playerQueueData.get(client.userId)
+        this.playerQueueData.delete(client.userId)
 
+        rsCancelPlayer(client.userId).catch(err => {
+          logger.error({ err }, 'failed to cancel player in Rust matchmaker')
+        })
+
+        if (data) {
+          const searchTimeMillis = monotonicNow() - data.queuedAt
           insertMatchmakingCompletion({
-            userId: player.id,
+            userId: client.userId,
             matchmakingType: entry.type,
             completionType: isDisconnect
               ? MatchmakingCompletionType.Disconnect
               : MatchmakingCompletionType.Cancel,
-            searchTimeMillis: entity.searchIterations * MATCHMAKING_INTERVAL_MS,
+            searchTimeMillis,
             completionTime: new Date(this.clock.now()),
           }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+
+          this.matchSearchTimeMetric
+            .labels(
+              entry.type,
+              '1',
+              isDisconnect
+                ? MatchmakingCompletionType.Disconnect
+                : MatchmakingCompletionType.Cancel,
+            )
+            .observe(searchTimeMillis / 1000)
+          this.matchRequestsCanceledMetric.labels(entry.type, '1').inc()
         }
-
-        this.matchSearchTimeMetric
-          .labels(
-            entry.type,
-            String(getNumPlayersInEntity(entity)),
-            isDisconnect ? MatchmakingCompletionType.Disconnect : MatchmakingCompletionType.Cancel,
-          )
-          .observe((entity.searchIterations * MATCHMAKING_INTERVAL_MS) / 1000)
-        this.matchRequestsCanceledMetric
-          .labels(entry.type, String(getNumPlayersInEntity(entity)))
-          .inc()
-      }
-
-      if (entry.matchId) {
+      } else {
+        // Player is in a match — they are already removed from Rust queue. Decline the match.
         this.matches.get(entry.matchId)?.registerDecline(client.userId)
       }
     }
