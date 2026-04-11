@@ -57,6 +57,7 @@ export function toLeagueJson(league: League): LeagueJson {
 export interface ClientLeagueUser extends RaceStats {
   leagueId: LeagueId
   userId: SbUserId
+  isBanned: boolean
   points: number
   wins: number
   losses: number
@@ -69,6 +70,7 @@ export function toClientLeagueUserJson(user: ClientLeagueUser): ClientLeagueUser
   return {
     leagueId: user.leagueId,
     userId: user.userId,
+    isBanned: user.isBanned,
     points: user.points,
     wins: user.wins,
     losses: user.losses,

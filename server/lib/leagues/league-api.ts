@@ -26,7 +26,9 @@ import {
   toLeagueJson,
 } from '../../../common/leagues/leagues'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
+import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -36,6 +38,7 @@ import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import NotificationService from '../notifications/notification-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -47,6 +50,7 @@ import {
   LeagueUser,
   adminGetAllLeagues,
   adminGetLeague,
+  banLeagueUser,
   createLeague,
   getAllLeaguesForUser,
   getCurrentLeagues,
@@ -56,6 +60,7 @@ import {
   getManyLeagueUsers,
   getPastLeagues,
   joinLeagueForUser,
+  unbanLeagueUser,
   updateLeague,
 } from './league-models'
 
@@ -198,6 +203,8 @@ export class LeagueApi {
 @httpApi('/admin/leagues/')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageLeagues'))
 export class LeagueAdminApi {
+  constructor(private notificationService: NotificationService) {}
+
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<AdminGetLeaguesResponse> {
     const leagues = await adminGetAllLeagues()
@@ -420,6 +427,72 @@ export class LeagueAdminApi {
       return {
         league: toLeagueJson(league),
       }
+    })
+  }
+
+  @httpPatch('/:leagueId/:userId/ban')
+  async banUserFromLeague(ctx: RouterContext): Promise<void> {
+    const {
+      params: { leagueId, userId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ leagueId: LeagueId; userId: SbUserId }>({
+        leagueId: Joi.string().uuid().required(),
+        userId: Joi.number().min(1).required(),
+      }),
+    })
+
+    const league = await adminGetLeague(leagueId)
+
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const leagueUser = await getLeagueUser(leagueId, userId)
+
+    if (!leagueUser) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
+    }
+
+    await banLeagueUser(leagueUser)
+    await this.notificationService.addNotification({
+      userId,
+      data: {
+        type: NotificationType.LeagueBan,
+        leagueName: league.name,
+      },
+    })
+  }
+
+  @httpPatch('/:leagueId/:userId/unban')
+  async unbanUserFromLeague(ctx: RouterContext): Promise<void> {
+    const {
+      params: { leagueId, userId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ leagueId: LeagueId; userId: SbUserId }>({
+        leagueId: Joi.string().uuid().required(),
+        userId: Joi.number().min(1).required(),
+      }),
+    })
+
+    const league = await adminGetLeague(leagueId)
+
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const leagueUser = await getLeagueUser(leagueId, userId)
+
+    if (!leagueUser) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
+    }
+
+    await unbanLeagueUser(leagueUser)
+    await this.notificationService.addNotification({
+      userId,
+      data: {
+        type: NotificationType.LeagueUnban,
+        leagueName: league.name,
+      },
     })
   }
 }

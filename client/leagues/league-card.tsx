@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -99,6 +100,7 @@ export function LeagueCard({
   type,
   curDate,
   joined,
+  banned,
   actionText,
   href,
 }: {
@@ -106,6 +108,7 @@ export function LeagueCard({
   type: LeagueSectionType
   curDate: number
   joined: boolean
+  banned: boolean
   actionText: string
   href: string
 }) {
@@ -139,6 +142,25 @@ export function LeagueCard({
       assertUnreachable(type)
   }
 
+  let joinedIndicator: React.ReactNode
+  if (banned) {
+    joinedIndicator = (
+      <JoinedIndicator>
+        <MaterialIcon icon='block' />
+        <span>{t('leagues.list.banned', 'Banned')}</span>
+      </JoinedIndicator>
+    )
+  } else if (joined) {
+    joinedIndicator = (
+      <JoinedIndicator>
+        <MaterialIcon icon='check' />
+        <span>{t('leagues.list.joined', 'Joined')}</span>
+      </JoinedIndicator>
+    )
+  } else {
+    joinedIndicator = <div />
+  }
+
   return (
     <LinkButton href={href} tabIndex={0}>
       <LeagueCardRoot {...buttonProps}>
@@ -158,14 +180,7 @@ export function LeagueCard({
         <LeagueDescription>{league.description}</LeagueDescription>
         <FlexSpacer />
         <LeagueActions>
-          {joined ? (
-            <JoinedIndicator>
-              <MaterialIcon icon='check' />
-              <span>{t('leagues.list.joined', 'Joined')}</span>
-            </JoinedIndicator>
-          ) : (
-            <div />
-          )}
+          {joinedIndicator}
           {/*
           NOTE(tec27): This intentionally doesn't have an onClick handler as it is handled by the
           card and having both would cause 2 navigations to occur.
