@@ -1,6 +1,8 @@
+import { Immutable } from 'immer'
 import { ReadonlyDeep } from 'type-fest'
 import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse } from '../../common/games/games'
+import { MatchmakingPreferences } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -91,7 +93,7 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     } = getState()
     const prefs = byType.get(matchmakingType)?.preferences
 
-    if (!prefs) {
+    if (!prefs || !('matchmakingType' in prefs)) {
       // TODO(tec27): Request them?
       externalShowSnackbar(
         i18n.t(
@@ -103,9 +105,12 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       return
     }
 
+    // prefs is narrowed above but TS can't infer through Immutable union, so we cast
+    const typedPrefs = prefs as Immutable<MatchmakingPreferences>
+
     dispatch(
       findMatch(
-        { matchmakingType, preferences: prefs ?? {} },
+        [typedPrefs],
         {
           onSuccess: () => {},
           onError: () => {

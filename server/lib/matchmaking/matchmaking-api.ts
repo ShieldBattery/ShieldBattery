@@ -122,22 +122,19 @@ export class MatchmakingApi {
     const { body } = validateRequest(ctx, {
       body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
-        preferences: matchmakingPreferencesValidator(
-          ctx.session!.user.id,
-          false /* allowPartial */,
-        ).required(),
+        preferences: Joi.array()
+          .items(
+            matchmakingPreferencesValidator(
+              ctx.session!.user.id,
+              false /* allowPartial */,
+            ),
+          )
+          .min(1)
+          .required(),
         identifiers: joiClientIdentifiers(ctx).required(),
       }),
     })
     const { clientId, preferences, identifiers } = body
-
-    const currentMapPool = await getCurrentMapPool(preferences.matchmakingType)
-    if (!currentMapPool) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.InvalidMapPool,
-        "Map pool doesn't exist",
-      )
-    }
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
@@ -151,15 +148,29 @@ export class MatchmakingApi {
       )
     }
 
-    const mapSelections = filterMapSelections(currentMapPool, preferences.mapSelections)
-    if (!hasVetoes(preferences.matchmakingType) && !mapSelections.length) {
-      throw new MatchmakingServiceError(MatchmakingServiceErrorCode.InvalidMaps, 'No maps selected')
-    }
+    const processedPreferences = await Promise.all(
+      preferences.map(async pref => {
+        const currentMapPool = await getCurrentMapPool(pref.matchmakingType)
+        if (!currentMapPool) {
+          throw new MatchmakingServiceError(
+            MatchmakingServiceErrorCode.InvalidMapPool,
+            "Map pool doesn't exist",
+          )
+        }
 
-    await this.matchmakingService.find(ctx.session!.user.id, clientId, identifiers, {
-      ...preferences,
-      mapSelections,
-    })
+        const mapSelections = filterMapSelections(currentMapPool, pref.mapSelections)
+        if (!hasVetoes(pref.matchmakingType) && !mapSelections.length) {
+          throw new MatchmakingServiceError(
+            MatchmakingServiceErrorCode.InvalidMaps,
+            'No maps selected',
+          )
+        }
+
+        return { ...pref, mapSelections }
+      }),
+    )
+
+    await this.matchmakingService.find(ctx.session!.user.id, clientId, identifiers, processedPreferences)
   }
 
   @httpDelete('/find')
