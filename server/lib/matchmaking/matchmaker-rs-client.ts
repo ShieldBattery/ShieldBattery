@@ -4,12 +4,19 @@ import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { serverRsUrl } from '../network/server-rs-requests'
 
-/** Sent to Rust when adding a player to the queue. */
-export interface RsQueueRequest {
-  id: SbUserId
+/** Per-mode rating sent to Rust when queuing for multiple matchmaking types. */
+export interface RsModeRating {
+  mode: MatchmakingType
   rating: number
   /** Glicko-2 σ (uncertainty). null treated as 0 (fully certain). */
   uncertainty: number | null
+}
+
+/** Sent to Rust when adding a player to the queue. */
+export interface RsQueueRequest {
+  id: SbUserId
+  /** Per-mode ratings. One entry per queued mode. */
+  modeRatings: RsModeRating[]
   modes: MatchmakingType[]
   latencyBucket: number | null
 }
