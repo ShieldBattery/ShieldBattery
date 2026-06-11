@@ -1,4 +1,6 @@
-use crate::matchmaking::matchmaker::{Match, Matchmaker, Player, QueueEntry, RandomQueueSelector};
+use crate::matchmaking::matchmaker::{
+    Match, Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
+};
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
 };
@@ -58,11 +60,18 @@ impl IntoResponse for MatchmakerError {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct PlayerModeRatingDto {
+    mode: MatchmakingType,
+    rating: f32,
+    uncertainty: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct QueueRequest {
     id: usize,
-    rating: f32,
-    /// Glicko-2 σ (uncertainty). None treated as 0 (fully certain).
-    uncertainty: Option<f32>,
+    /// Per-mode ratings. One entry per queued mode.
+    mode_ratings: Vec<PlayerModeRatingDto>,
     modes: Vec<MatchmakingType>,
     latency_bucket: Option<u8>,
 }
@@ -77,9 +86,8 @@ struct RequeueRequest {
 #[serde(rename_all = "camelCase")]
 struct QueueTicket {
     id: usize,
-    rating: f32,
-    /// Glicko-2 σ (uncertainty). Preserved so requeue reconstructs Player correctly.
-    uncertainty: Option<f32>,
+    /// Per-mode ratings preserved from queue time; used to reconstruct Player on requeue.
+    mode_ratings: Vec<PlayerModeRatingDto>,
     modes: Vec<MatchmakingType>,
     queue_time: u64,
     latency_bucket: Option<u8>,
@@ -97,8 +105,16 @@ struct MatchmakingApiState {
 fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Instant) -> String {
     let ticket = QueueTicket {
         id: entry.player.id,
-        rating: entry.player.rating,
-        uncertainty: entry.player.uncertainty,
+        mode_ratings: entry
+            .player
+            .ratings
+            .iter()
+            .map(|(&mode, &r)| PlayerModeRatingDto {
+                mode,
+                rating: r.rating,
+                uncertainty: r.uncertainty,
+            })
+            .collect(),
         latency_bucket: entry.player.latency_bucket,
         modes: entry.modes.iter().collect(),
         queue_time: entry
@@ -225,12 +241,24 @@ async fn insert_player(
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
     let modes = payload.modes.into_iter().collect::<EnumSet<_>>();
+    let ratings = payload
+        .mode_ratings
+        .into_iter()
+        .map(|r| {
+            (
+                r.mode,
+                PlayerModeRating {
+                    rating: r.rating,
+                    uncertainty: r.uncertainty,
+                },
+            )
+        })
+        .collect();
     let mut matchmaker = state.matchmaker.lock().unwrap();
     matchmaker.insert_player(
         Player {
             id: payload.id,
-            rating: payload.rating,
-            uncertainty: payload.uncertainty,
+            ratings,
             latency_bucket: payload.latency_bucket,
         },
         modes,
@@ -287,8 +315,19 @@ async fn requeue_player(
     match matchmaker.requeue_player(
         Player {
             id: ticket.id,
-            rating: ticket.rating,
-            uncertainty: ticket.uncertainty,
+            ratings: ticket
+                .mode_ratings
+                .into_iter()
+                .map(|r| {
+                    (
+                        r.mode,
+                        PlayerModeRating {
+                            rating: r.rating,
+                            uncertainty: r.uncertainty,
+                        },
+                    )
+                })
+                .collect(),
             latency_bucket: ticket.latency_bucket,
         },
         modes,
@@ -322,7 +361,8 @@ async fn cancel(
 mod tests {
     use super::deduplicate_matches;
     use crate::matchmaking::MatchmakingType;
-    use crate::matchmaking::matchmaker::{Match, Player, QueueEntry};
+    use crate::matchmaking::matchmaker::{Match, Player, PlayerModeRating, QueueEntry};
+    use std::collections::HashMap;
     use std::time::Instant;
 
     #[test]
@@ -333,8 +373,10 @@ mod tests {
             queue_time: now,
             player: Player {
                 id: 0,
-                rating: 1000.0,
-                uncertainty: None,
+                ratings: HashMap::from([(
+                    MatchmakingType::Match1v1,
+                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                )]),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),
@@ -343,8 +385,10 @@ mod tests {
             queue_time: now,
             player: Player {
                 id: 1,
-                rating: 1000.0,
-                uncertainty: None,
+                ratings: HashMap::from([(
+                    MatchmakingType::Match1v1,
+                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                )]),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),
@@ -353,8 +397,10 @@ mod tests {
             queue_time: now,
             player: Player {
                 id: 2,
-                rating: 1000.0,
-                uncertainty: None,
+                ratings: HashMap::from([(
+                    MatchmakingType::Match1v1,
+                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                )]),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),
@@ -365,7 +411,7 @@ mod tests {
         let matches = vec![
             Match {
                 mode: MatchmakingType::Match1v1,
-                team_a: vec![player0],
+                team_a: vec![player0.clone()],
                 team_b: vec![player1],
                 quality: 10.0,
             },

@@ -86,12 +86,17 @@ import {
 } from './matchmaking-socket-paths'
 import { adjustMatchmakingRatingForInactivity } from './rating'
 
+/** Per-type data held while a player is searching in that mode. */
+interface PlayerTypeData {
+  race: RaceChar
+  playerData: MatchmakingPlayerData
+}
+
 /** Data Node.js needs to remember while a player is in queue, separate from the Rust queue. */
 interface PlayerQueueData {
   userId: SbUserId
-  type: MatchmakingType
-  race: RaceChar
-  playerData: MatchmakingPlayerData
+  /** Data for each matchmaking type this player is currently queued for. */
+  types: Map<MatchmakingType, PlayerTypeData>
   /** Queue start time (used for metrics), from monotonicNow(). */
   queuedAt: number
 }
@@ -246,7 +251,8 @@ interface QueueEntry {
   userId: SbUserId
   /** The user ID that the matchmaking queue is registered under. (e.g. the party leader's ID) */
   registeredId: SbUserId
-  type: MatchmakingType
+  /** All matchmaking types this player is currently queued for. */
+  types: Set<MatchmakingType>
   partyId?: string
   matchId?: string
 }
@@ -388,10 +394,10 @@ export class MatchmakingService {
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
-        const queuedType = this.queueEntries.get(userSockets.userId)?.type
+        const queueEntry = this.queueEntries.get(userSockets.userId)
         return {
           type: 'queueStatus',
-          matchmaking: queuedType ? { type: queuedType } : undefined,
+          matchmaking: queueEntry ? { types: [...queueEntry.types] } : undefined,
         }
       })
     })
@@ -411,16 +417,17 @@ export class MatchmakingService {
     userId: SbUserId,
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
-    preferences: MatchmakingPreferences,
+    allPreferences: MatchmakingPreferences[],
   ): Promise<void> {
-    const { matchmakingType: type } = preferences
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
-    if (!this.matchmakingStatus.isEnabled(type)) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.MatchmakingDisabled,
-        'Matchmaking is currently disabled',
-      )
+    for (const pref of allPreferences) {
+      if (!this.matchmakingStatus.isEnabled(pref.matchmakingType)) {
+        throw new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.MatchmakingDisabled,
+          'Matchmaking is currently disabled',
+        )
+      }
     }
 
     if (!this.activityRegistry.registerActiveClient(userId, clientSockets)) {
@@ -431,7 +438,7 @@ export class MatchmakingService {
     }
 
     try {
-      await this.queueSoloPlayer(userId, clientId, identifiers, preferences)
+      await this.queueSoloPlayer(userId, clientId, identifiers, allPreferences)
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
       // queue
@@ -449,42 +456,46 @@ export class MatchmakingService {
     userId: SbUserId,
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
-    preferences: Pick<
-      MatchmakingPreferences,
-      'matchmakingType' | 'race' | 'mapSelections' | 'data'
-    >,
+    allPreferences: MatchmakingPreferences[],
   ): Promise<void> {
-    const { matchmakingType: type, race, mapSelections, data: preferenceData } = preferences
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
-
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    const mmr = await this.retrieveMmr(userId, type, season, identifiers)
-    const playerData = matchmakingRatingToPlayerData({
-      mmr,
-      race,
-      mapSelections: mapSelections.slice(),
-      preferenceData,
-      identifiers,
-    })
 
-    // Store the full player data for use when the match event arrives from Rust
+    // Load MMR for all queued types in parallel
+    const typeDataEntries = await Promise.all(
+      allPreferences.map(async pref => {
+        const { matchmakingType: type, race, mapSelections, data: preferenceData } = pref
+        const mmr = await this.retrieveMmr(userId, type, season, identifiers)
+        const playerData = matchmakingRatingToPlayerData({
+          mmr,
+          race,
+          mapSelections: mapSelections.slice(),
+          preferenceData,
+          identifiers,
+        })
+        return { type, race, mmr, playerData }
+      }),
+    )
+
+    // Store the full player data for all queued types
     this.playerQueueData.set(userId, {
       userId,
-      type,
-      race,
-      playerData,
+      types: new Map(typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }])),
       queuedAt: monotonicNow(),
     })
 
-    // Queue the player in the Rust matchmaker, then fetch the process token as a baseline for
-    // the watchdog. The two requests are sequential so the token is guaranteed to be from the
-    // same server-rs instance that accepted the queue entry.
+    // Queue the player in the Rust matchmaker with per-mode ratings, then fetch the process token
+    // as a baseline for the watchdog. The two requests are sequential so the token is guaranteed
+    // to be from the same server-rs instance that accepted the queue entry.
     try {
       await rsQueuePlayer({
         id: userId,
-        rating: mmr.rating,
-        uncertainty: mmr.uncertainty,
-        modes: [type],
+        modeRatings: typeDataEntries.map(d => ({
+          mode: d.type,
+          rating: d.mmr.rating,
+          uncertainty: d.mmr.uncertainty,
+        })),
+        modes: typeDataEntries.map(d => d.type),
         latencyBucket: null, // TODO: populate from actual latency data
       })
       if (this.lastKnownProcessToken === undefined) {
@@ -496,14 +507,19 @@ export class MatchmakingService {
     }
 
     this.queueEntries.set(userId, {
-      type,
+      types: new Set(typeDataEntries.map(d => d.type)),
       userId,
       registeredId: userId,
     })
 
     this.startProcessTokenWatchdog()
-    this.subscribeUserToQueueUpdates(clientSockets, type, race)
-    this.matchesRequestedMetric.labels(type, '1').inc()
+    this.subscribeUserToQueueUpdates(
+      clientSockets,
+      typeDataEntries.map(d => ({ matchmakingType: d.type, race: d.race })),
+    )
+    for (const d of typeDataEntries) {
+      this.matchesRequestedMetric.labels(d.type, '1').inc()
+    }
   }
 
   async cancel(userId: SbUserId): Promise<void> {
@@ -658,15 +674,13 @@ export class MatchmakingService {
 
   private subscribeUserToQueueUpdates(
     clientSockets: ClientSocketsGroup,
-    matchmakingType: MatchmakingType,
-    race: RaceChar,
+    searchedTypes: Array<{ matchmakingType: MatchmakingType; race: RaceChar }>,
   ): void {
     clientSockets.subscribe<MatchmakingEvent>(
       getMatchmakingClientPath(clientSockets),
       () => ({
         type: 'startSearch',
-        matchmakingType,
-        race,
+        searchedTypes,
       }),
       sockets => this.removeClientFromMatchmaking(sockets, true),
     )
@@ -1063,10 +1077,19 @@ export class MatchmakingService {
           logger.warn({ userId }, 'received match event for player with no queue data')
           return []
         }
+        // Use the player data for the matched mode specifically
+        const typeData = data.types.get(event.mode)
+        if (!typeData) {
+          logger.warn(
+            { userId, mode: event.mode },
+            'received match event for mode not in player queue data',
+          )
+          return []
+        }
         return [
           {
-            ...data.playerData,
-            interval: { low: data.playerData.rating, high: data.playerData.rating },
+            ...typeData.playerData,
+            interval: { low: typeData.playerData.rating, high: typeData.playerData.rating },
             searchIterations: 0,
           } satisfies MatchmakingEntity,
         ]
@@ -1227,26 +1250,23 @@ export class MatchmakingService {
 
         if (data) {
           const searchTimeMillis = monotonicNow() - data.queuedAt
-          insertMatchmakingCompletion({
-            userId: client.userId,
-            matchmakingType: entry.type,
-            completionType: isDisconnect
-              ? MatchmakingCompletionType.Disconnect
-              : MatchmakingCompletionType.Cancel,
-            searchTimeMillis,
-            completionTime: new Date(this.clock.now()),
-          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+          const completionTime = new Date(this.clock.now())
+          const completionType = isDisconnect
+            ? MatchmakingCompletionType.Disconnect
+            : MatchmakingCompletionType.Cancel
 
-          this.matchSearchTimeMetric
-            .labels(
-              entry.type,
-              '1',
-              isDisconnect
-                ? MatchmakingCompletionType.Disconnect
-                : MatchmakingCompletionType.Cancel,
-            )
-            .observe(searchTimeMillis / 1000)
-          this.matchRequestsCanceledMetric.labels(entry.type, '1').inc()
+          for (const [type] of data.types) {
+            insertMatchmakingCompletion({
+              userId: client.userId,
+              matchmakingType: type,
+              completionType,
+              searchTimeMillis,
+              completionTime,
+            }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+
+            this.matchSearchTimeMetric.labels(type, '1', completionType).observe(searchTimeMillis / 1000)
+            this.matchRequestsCanceledMetric.labels(type, '1').inc()
+          }
         }
       } else {
         // Player is in a match — they are already removed from Rust queue. Decline the match.

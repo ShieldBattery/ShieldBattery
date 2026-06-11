@@ -769,10 +769,15 @@ export interface GetPreferencesResponse {
   mapInfos: MapInfoJson[]
 }
 
-export interface StartSearchEvent {
-  type: 'startSearch'
+export interface SearchedType {
   matchmakingType: MatchmakingType
   race: RaceChar
+}
+
+export interface StartSearchEvent {
+  type: 'startSearch'
+  /** All matchmaking types currently being searched for, with the selected race per type. */
+  searchedTypes: SearchedType[]
 }
 
 /** A match has been found and players must ready accept it within a timeout. */
@@ -818,10 +823,10 @@ export interface GameStartedEvent {
 export interface QueueStatusEvent {
   type: 'queueStatus'
   /**
-   * Indicates what type of matchmaking this user is currently queued for, or `undefined` if they
+   * Indicates what matchmaking types this user is currently queued for, or `undefined` if they
    * are not queued for anything.
    */
-  matchmaking?: { type: MatchmakingType }
+  matchmaking?: { types: MatchmakingType[] }
 }
 
 export interface DraftStartedEvent {
@@ -1004,7 +1009,8 @@ export enum MatchmakingServiceErrorCode {
 
 export interface FindMatchRequest {
   clientId: string
-  preferences: MatchmakingPreferences
+  /** Array with one entry per queued type. Order is not significant. */
+  preferences: MatchmakingPreferences[]
   identifiers: [type: number, hashStr: string][]
 }
 
