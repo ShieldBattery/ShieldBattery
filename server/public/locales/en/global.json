@@ -844,6 +844,10 @@
       "title": "Match results",
       "watchReplay": "Watch replay"
     },
+    "serviceError": {
+      "dialogTitle": "Matchmaking error",
+      "removedFromQueue": "Matchmaking was interrupted due to a server error. Please re-queue to find a match."
+    },
     "type": {
       "1v1": "1v1",
       "1v1fastest": "1v1 Fastest",
