@@ -8,7 +8,6 @@ import { LaunchingGameDialog } from '../active-game/launching-game-dialog'
 import { EmailVerificationDialog } from '../auth/email-verification-dialog'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
-import { ChannelSettingsDialog } from '../chat/channel-settings-dialog'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
@@ -84,8 +83,6 @@ function getDialog(dialogType: DialogType): {
       return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog }
-    case DialogType.ChannelSettings:
-      return { component: ChannelSettingsDialog, modal: true }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.EmailVerification:

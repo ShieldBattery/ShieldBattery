@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -33,6 +33,7 @@ import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
+import { ConnectedChannelSettings } from './channel-settings/channel-settings'
 import { UserList } from './channel-user-list'
 import {
   BanUserMessage,
@@ -292,6 +293,10 @@ export function ConnectedChatChannel({
         ) : (
           <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />
         )}
+
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <ConnectedChannelSettings channelId={channelId} />
+        </React.Suspense>
       </ChannelContext.Provider>
     </Container>
   )

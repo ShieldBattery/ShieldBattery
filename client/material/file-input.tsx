@@ -51,10 +51,12 @@ const StyledFilledButton = styled(FilledButton)`
 const FileName = styled.span`
   ${singleLine};
   ${bodyMedium};
+  flex-shrink: 0;
 `
 
 const NoFileSelected = styled.span`
   ${bodyMedium};
+  flex-shrink: 0;
   color: var(--theme-on-surface-variant);
 `
 

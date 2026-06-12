@@ -14,7 +14,6 @@ export enum DialogType {
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
-  ChannelSettings = 'channelSettings',
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
@@ -67,12 +66,6 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
-  }
->
-export type ChannelSettingsDialogPayload = BaseDialogPayload<
-  typeof DialogType.ChannelSettings,
-  {
-    channelId: SbChannelId
   }
 >
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
@@ -166,7 +159,6 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
-  | ChannelSettingsDialogPayload
   | DownloadDialogPayload
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
