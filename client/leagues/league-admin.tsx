@@ -135,6 +135,7 @@ export function LeagueAdmin() {
                     league={l}
                     type={LeagueSectionType.Current}
                     joined={false}
+                    banned={false}
                     curDate={curDate}
                     actionText={'Edit'}
                     href={urlPath`/leagues/admin/${toRouteLeagueId(l.id)}`}

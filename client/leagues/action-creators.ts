@@ -13,6 +13,7 @@ import {
   LeagueJson,
 } from '../../common/leagues/leagues'
 import { apiUrl, urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
@@ -92,7 +93,10 @@ export function joinLeague(id: LeagueId, spec: RequestHandlingSpec<void>): Thunk
   })
 }
 
-export function getLeagueLeaderboard(id: LeagueId, spec: RequestHandlingSpec<void>): ThunkAction {
+export function getLeagueLeaderboard(
+  id: LeagueId,
+  spec: RequestHandlingSpec<GetLeagueLeaderboardResponse>,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const result = await fetchJson<GetLeagueLeaderboardResponse>(
       apiUrl`leagues/${id}/leaderboard/`,
@@ -105,6 +109,8 @@ export function getLeagueLeaderboard(id: LeagueId, spec: RequestHandlingSpec<voi
       type: '@leagues/getLeaderboard',
       payload: result,
     })
+
+    return result
   })
 }
 
@@ -203,6 +209,32 @@ export function adminUpdateLeague({
       method: 'PATCH',
       signal: spec.signal,
       body: formData,
+    })
+  })
+}
+
+export function adminBanUser(
+  leagueId: LeagueId,
+  userId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson(apiUrl`admin/leagues/${leagueId}/${userId}/ban`, {
+      method: 'PATCH',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function adminUnbanUser(
+  leagueId: LeagueId,
+  userId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson(apiUrl`admin/leagues/${leagueId}/${userId}/unban`, {
+      method: 'PATCH',
+      signal: spec.signal,
     })
   })
 }

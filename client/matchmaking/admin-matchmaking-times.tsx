@@ -20,9 +20,9 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
+import { DateTimeTextField } from '../material/datetime-text-field'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
-import { TextField } from '../material/text-field'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { LoadingDotsArea } from '../progress/dots'
@@ -416,8 +416,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
     <>
       <AddNewCard>
         <DateInputContainer>
-          <TextField
-            type='datetime-local'
+          <DateTimeTextField
             dense={true}
             value={startDate}
             errorText={invalidDate ? 'Start date must be set into the future' : undefined}
