@@ -56,7 +56,7 @@ export const OutdatedIndicator = styled.span`
   border-radius: 4px;
 `
 
-export const MAP_THUMB_SIZE_PX = 164
+export const MAP_THUMB_SIZE_PX = 196
 
 export const MapSelections = styled.div`
   margin: 16px 0;
