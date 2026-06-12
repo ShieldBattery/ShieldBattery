@@ -27,7 +27,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@users/searchMatchHistory'](state, { payload: { games }, meta: { userId } }) {
+  ['@users/getMatchHistory'](state, { payload: { games }, meta: { userId } }) {
     for (const game of games) {
       state.byId.set(game.id, game)
     }
