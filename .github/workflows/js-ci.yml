@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Clear Electron cache
+        run: rm -rf node_modules/.pnpm/electron* && rm -rf node_modules/electron
+
       - name: Install app dependencies
         run: pnpm install --frozen-lockfile
         working-directory: ./app
