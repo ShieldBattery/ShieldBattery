@@ -91,33 +91,46 @@ This tier exists because the important questions are about *outcomes*, not just 
 does MMR update correctly, is the result recorded, does match history/replay upload work. Verifying
 the launch alone is not enough.
 
-**Setup**: dev stack up incl. webpack dev server; `game\build.bat` has produced a current DLL;
-two app instances logged in as two seeded accounts (see **verify-app**).
+**Setup** (validated 2026-06-13 — read these, they each cost a failed run):
+- Dev stack up incl. webpack dev server; two app instances logged in as two seeded accounts (see
+  **verify-app**).
+- **Rebuild the game DLL first**: `cmd /c "game\build.bat debug"` (from PowerShell; the bare
+  `cmd /c game\build.bat` from Git Bash opens cmd interactively and does nothing). A stale
+  `game/dist/shieldbattery.dll` **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
+  init) even when only a trivial source line changed — always build a current DLL. The running app
+  injects `game/dist/shieldbattery.dll` at launch, so no app restart needed after a rebuild.
 
 **Drive a match**:
-1. Queue both clients into 1v1 matchmaking on the same type + map pool (or host a 2-player lobby vs.
-   the other client). A match is found → both clients count down and launch StarCraft.
-2. Confirm the game actually started and our DLL injected:
-   - `StarCraft.exe` is running (one process per client).
-   - `%APPDATA%\ShieldBattery-Local\logs\shieldbattery.0.log` shows the in-game session starting (a
-     fresh `------` separator block is written at launch; a new file in the `.0`–`.19` set per
-     concurrent game).
-3. Force a decisive finish quickly — end the game on one side (quit / leave / surrender, or kill one
-   `StarCraft.exe`). The losing client drops, the other is credited the win, and results report
-   through the game DLL (with the Electron app as fallback).
+1. Arm a ready-up auto-clicker on **each** client *before* queuing — the "Ready up" window is short
+   and polling-then-clicking is too slow (a missed ready-up cancels the match AND bans you, below):
+   `playwright-cli -s=cN run-code "async page => { await page.getByRole('button', { name: 'Ready up' }).click({ timeout: 150000 }); }"`
+   (run in background, one per client).
+2. Queue both: navigate each to `/play/` (lands on `/play/matchmaking`), then
+   `playwright-cli -s=cN click "getByRole('button', { name: 'Find match', exact: true })"`. Two
+   equal/unrated players match in ~30s; the armed clickers ready both up instantly.
+3. Confirm launch + injection:
+   - Two `StarCraft.exe` processes (`tasklist | grep StarCraft`).
+   - `%APPDATA%\ShieldBattery-Local\logs\shieldbattery.0.log` (+`.1`): `All players have joined` →
+     `Readying lobby for start` → **`Forge: Game started`** = really in-game.
+   - App log (`app.0.log`): `Game status updated to 'configuring'` → `'playing'`.
+4. Decisive finish: `Stop-Process` one `StarCraft.exe`. The other is credited the win; the result
+   reports (the killed DLL fails to send, then `Game failed to send result, retrying from the app` →
+   `Game result resent successfully` — the Electron fallback).
 
-**Verify outcomes** — UI *and* the database (`DATABASE_URL` in `.env`):
-- Post-game results screen shows the correct win/loss for each client.
-- `games` + `games_users` — a row for the match with the right players/result.
-- `matchmaking_rating_changes` — a rating-change row per player for this game (the deltas).
-- `matchmaking_ratings` — each player's current rating/points moved in the right direction.
-- `user_stats` — win/loss counters incremented.
-- Match history view (profile) lists the game; replay upload succeeded if that's in scope.
+**Verify outcomes** — UI *and* DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
+- `games`/`games_users` — a row with results for the match.
+- `matchmaking_rating_changes` — a delta row per player.
+- `matchmaking_ratings` — rating moved (winner up, loser down), `wins`/`losses`/`num_games_played`.
+- `user_stats`, match history (profile), replay upload if in scope.
 
-**Cleanup**: ensure no orphan `StarCraft.exe` remains; detach playwright-cli; stop app instances.
+**⚠ Bans escalate machine-wide.** Every failed ready-up / abrupt abort records a `matchmaking_bans`
+row keyed by *client identifier* (matched with `minSameIdentifiers=1` in dev) — so it bans BOTH
+local instances and escalates (warning → 15m → 30m …). Between messy attempts:
+`DELETE FROM matchmaking_bans;` (dev only). Symptom when banned: clicking Find match shows a "Banned
+from matchmaking" dialog instead of searching.
 
-> The exact fastest-decisive-finish mechanism and the precise log success-strings are worth pinning
-> down on the first real run and recording in the recipe log below, so later runs are turnkey.
+**Cleanup**: `Stop-Process` any orphan `StarCraft.exe`; clear test `matchmaking_bans`; detach
+playwright-cli; stop app instances + servers; leave Docker.
 
 ## Per-feature recipe log (living)
 
@@ -145,3 +158,15 @@ Append a tested recipe here whenever you verify a feature, so the next run is fa
     reached Rust but no match was delivered. Couldn't fully attribute (matcher tick/threshold vs.
     delivery vs. dev timing) without debug logging on the Rust matcher — flag for the author rather
     than asserting a bug.
+- **Full game launch → MMR (T4)** — validated end-to-end 2026-06-13 on **master**. Followed the T4
+  section above. Confirmed the whole pipeline: match (~28s) → auto ready-up → 2 `StarCraft.exe` →
+  DLL injection → rally-point networking → both join lobby → `Forge: Game started` → app status
+  `playing` → killed one process → result reported via the Electron fallback → winner's MMR moved
+  (1500 → ~1758). Two findings: (1) the stale DLL crashed at game-start with `0xc0000005`; a fresh
+  `game\build.bat debug` fixed it (rebuild is now step 0 of the T4 setup). (2) result reconciliation
+  then failed with `duplicate key ... matchmaking_rating_changes_pkey` at
+  `server/lib/games/game-result-service.ts:527` (`maybeReconcileResults`) and rolled back, so the
+  result/MMR did **not** durably finalize. Same error class also hit a months-old stuck game, so it
+  looks like a real idempotency gap (plausibly the DLL+app dual result-report both inserting) — but
+  an abrupt process-kill is an abnormal finish, so worth reproducing with a clean in-game surrender
+  before asserting a bug. Flag for the author.

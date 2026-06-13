@@ -96,7 +96,12 @@ both sides.
 > before filling, then submit. A fast fire-and-forget helper that logs both instances in back-to-back
 > races the second renderer and can pop a transient `Error / Gone` (410) dialog. If that happens,
 > close the dialog (click its exact `× Close` ref from a snapshot — the role locator `Close` is
-> ambiguous with the window control) and redo the login.
+> ambiguous with the window control) and redo the login. If `click` on the "Log in" button or the
+> ref-based fill stays flaky on the second instance, drive it in-page: click via
+> `eval "[...document.querySelectorAll('button')].find(e=>/^\s*Log in\s*$/.test(e.textContent))?.click()"`
+> and set inputs with the native value setter
+> (`Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set` + dispatch
+> `input`/`change`) — the most reliable across both instances in practice.
 
 Examples:
 
