@@ -59,7 +59,10 @@ export default defineConfig({
           name: 'client',
           environment: 'happy-dom',
           include: ['client/**/*.test.{js,ts,tsx}', 'common/**/*.test.{js,ts,tsx}'],
-          setupFiles: ['core-js/proposals/reflect-metadata', './vitest-client-setup.ts'],
+          setupFiles: [
+            'core-js/proposals/reflect-metadata',
+            resolve(__dirname, 'vitest-client-setup.ts'),
+          ],
           alias: {
             '\\.(svg)$': resolve(__dirname, 'client/__mocks__/svg-mock.tsx'),
             '\\.(html|htm|md)$': resolve(__dirname, 'client/__mocks__/static-file-mock.ts'),
