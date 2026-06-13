@@ -8,6 +8,15 @@ import { afterEach, vi } from 'vitest'
   // want a particular test to run as if in a browser, you can set this differently in the test
   // probably
   ;(global as any).IS_ELECTRON = true
+
+  // Because IS_ELECTRON is true and vitest runs under Node (where process.type !== 'renderer'),
+  // common/ipc.ts treats the test environment as the Electron main process and evaluates
+  // `require('electron')` at import time. The real `electron` package throws "Electron failed to
+  // install correctly" if its binary isn't installed, which happens in CI (and would happen on any
+  // machine without the binary downloaded). Setting ELECTRON_OVERRIDE_DIST_PATH makes electron's
+  // entrypoint return a path string instead of throwing; we never actually use the value (ipcMain
+  // ends up undefined, which is fine since tests don't drive real IPC).
+  process.env.ELECTRON_OVERRIDE_DIST_PATH ??= '/nonexistent-electron-dist-for-tests'
   ;(global as any).__WEBPACK_ENV = {
     SB_SERVER: 'https://shieldbattery.net',
   }
