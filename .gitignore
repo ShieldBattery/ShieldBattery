@@ -18,6 +18,9 @@ electron-builder.env
 
 .claude/settings.local.json
 
+# playwright-cli scratch output (snapshots, console logs) from verify-app/verify-pr runs
+.playwright-cli/
+
 CLAUDE.local.md
 .claude-scratch/
 
