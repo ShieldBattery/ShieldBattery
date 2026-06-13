@@ -131,3 +131,17 @@ Append a tested recipe here whenever you verify a feature, so the next run is fa
   `shieldbattery://app/`) → fill `input[name=username]` / `input[name=password]` → click
   `button[data-test=submit-button]`. Confirm via `[data-test=app-bar-user-button]` textContent
   (shows e.g. `claude-1Novice`). Full mechanics in the **verify-app** skill.
+- **Two-client matchmaking queue (T3)** — exercised 2026-06-13 on PR #1286 (Rust matchmaker). Two
+  instances (`session1`/`session2`, ports 9222/9223) logged in as `claude-1`/`claude-2`. Navigate
+  each to matchmaking by clicking `a[href="/play/"]` (lands on `/play/matchmaking`); the "Find match"
+  button is enabled once a default race is set. Click it on both. **Where to look:**
+  - UI queue state: `document.body.innerText` matches `Searching`.
+  - server-rs received the enqueues: its log shows `POST /matchmaker` (one per find); `GET
+    /matchmaker/token` every ~5s is the Node→Rust restart watchdog (healthy, ignore).
+  - Redis (port 6380): `sbthrottle:matchmaking~<userId>` keys appear per queued user (the matcher's
+    own queue is in-memory in server-rs, so don't expect queue keys there).
+  - A formed match writes `matchmaking_completions` + `games`/`games_users` (none ⇒ no match yet).
+  - Note from this run: two equal-rated (unrated) players did **not** match within ~70s; enqueue
+    reached Rust but no match was delivered. Couldn't fully attribute (matcher tick/threshold vs.
+    delivery vs. dev timing) without debug logging on the Rust matcher — flag for the author rather
+    than asserting a bug.

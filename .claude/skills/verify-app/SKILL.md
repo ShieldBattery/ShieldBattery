@@ -89,7 +89,16 @@ get refs.
 ## Two-client flows
 
 Log instance 1 in as `claude-1` and instance 2 as `claude-2`, then exercise the interaction from
-both sides. Examples:
+both sides.
+
+> **Log each instance in deliberately, one step at a time** — click "Log in", *wait for the form
+> overlay to actually render* (`eval "!!document.querySelector('input[name=username]')"` → `true`)
+> before filling, then submit. A fast fire-and-forget helper that logs both instances in back-to-back
+> races the second renderer and can pop a transient `Error / Gone` (410) dialog. If that happens,
+> close the dialog (click its exact `× Close` ref from a snapshot — the role locator `Close` is
+> ambiguous with the window control) and redo the login.
+
+Examples:
 
 - **Whisper / chat**: send from `c1`, assert the message appears in `c2`'s snapshot.
 - **Lobby**: `c1` creates/hosts, `c2` joins; verify both see the slot changes.

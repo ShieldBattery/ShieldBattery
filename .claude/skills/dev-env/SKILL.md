@@ -14,7 +14,7 @@ health checks, and logs.
 
 | Service | Command (from repo root) | Port | Purpose |
 | --- | --- | --- | --- |
-| Postgres + Redis | `docker-compose up -d` | 5433 / 6379 | DB + cache (see `.env`) |
+| Postgres + Redis | `docker-compose up -d` | 5433 / 6380 | DB + cache (see `.env`) |
 | Node web server | `pnpm run start-server` | 5555 | HTTP API + serves the web client (webpack-dev-middleware in dev) |
 | Rust GraphQL server | `cargo run` in `server-rs/` | 5556 | GraphQL API (`/gql`) |
 | Webpack dev server | `pnpm run dev` | 5566 | Electron renderer bundle + hot reload |
@@ -30,7 +30,7 @@ Config (ports, DB creds, `DATABASE_URL`) lives in `.env`. `SB_CANONICAL_HOST` is
    ```bash
    docker ps --format '{{.Names}}\t{{.Ports}}'
    ```
-   If nothing is bound to 5433/6379, bring them up: `docker-compose up -d` (from repo root). After a
+   If nothing is bound to 5433/6380, bring them up: `docker-compose up -d` (from repo root). After a
    fresh start, run migrations: `pnpm run migrate:run`.
 2. **Node server** and **Rust server** can start in parallel. The Node server needs the Rust server
    for some flows (e.g. signup validates the username against it), so bring both up before testing.
@@ -66,7 +66,12 @@ curl -sf -o /dev/null -w '%{http_code}\n' http://localhost:5556/
 docker exec <pg-container> pg_isready -U shieldbattery     # or: pnpm run seed-dev hits it
 ```
 
-Or just check listeners (Windows): `netstat -ano | findstr ":5555 :5556 :5433 :6379"`.
+Or just check listeners (Windows): `netstat -ano | findstr ":5555 :5556 :5433 :6380"`.
+
+> Redis is on host port **6380**, not 6379 (the dev `shieldbattery-redis-1` container maps
+> `6380`→6379; `.env` sets `SB_REDIS_PORT=6380`, used by both the Node and Rust servers). A `6379`
+> listener on this machine belongs to a *different* project's Redis — don't be misled by it. This
+> matters for matchmaking, which uses Redis pub/sub between Node and Rust.
 
 ## Seeding test accounts
 
