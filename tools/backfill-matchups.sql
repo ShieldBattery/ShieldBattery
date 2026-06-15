@@ -49,7 +49,7 @@ BEGIN
     batch_last_id := NULL;
 
     FOR r IN
-      SELECT id, config, results, selected_matchup, assigned_matchup
+      SELECT id, config, results, disputable, selected_matchup, assigned_matchup
       FROM games
       WHERE id > last_id
       ORDER BY id
@@ -114,7 +114,11 @@ BEGIN
         -- assigned_matchup: from each player's assigned (result) race, only when results exist and
         -- there are no computer players (computers aren't included in our results). Some legacy rows
         -- store results as a non-array (e.g. an empty `{}` object), which we treat as "no results".
-        IF jsonb_typeof(r.results) = 'array' AND NOT has_computers THEN
+        -- Disputed games are skipped too: their results (and thus assigned races) are unreliable,
+        -- and a player missing from the reports gets a fabricated 'p' race baked into the stored
+        -- results. This matches the live reconciliation path, which leaves assigned_matchup NULL for
+        -- disputed games.
+        IF jsonb_typeof(r.results) = 'array' AND NOT has_computers AND NOT r.disputable THEN
           all_team_strings := ARRAY[]::text[];
           FOREACH team IN ARRAY teams_for_matchup LOOP
             team_races := ARRAY[]::text[];

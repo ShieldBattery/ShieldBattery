@@ -216,6 +216,9 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
       format={format}
       setFormat={v => {
         setFormatParam(v ?? '')
+        // A matchup is tied to a specific format (team size), so any existing value no longer
+        // applies once the format changes. Clear it so it doesn't linger in the URL as cruft.
+        setMatchupParam('')
         reset()
       }}
       matchup={matchup}
