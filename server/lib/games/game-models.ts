@@ -32,7 +32,10 @@ function convertFromDb(row: DbGameRecord): GameRecord {
     disputeRequested: row.dispute_requested,
     disputeReviewed: row.dispute_reviewed,
     gameLength: row.game_length,
-    results: row.results,
+    // Some legacy rows store `results` as an empty object `{}` rather than an array (or null);
+    // normalize those to null so the runtime value matches the declared type and downstream
+    // consumers (e.g. `new Map(results)`) don't choke on a non-iterable.
+    results: Array.isArray(row.results) ? row.results : null,
     selectedMatchup: row.selected_matchup,
     assignedMatchup: row.assigned_matchup,
   }
@@ -170,6 +173,134 @@ export async function getRecentGamesForUser(
       ORDER BY u.start_time DESC
       LIMIT ${numGames}
     `)
+    return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Retrieves completed matchmaking games for the platform games list.
+ */
+export async function getGames(
+  params: {
+    limit: number
+    offset: number
+    duration?: GameDurationFilter
+    mapName?: string
+    playerName?: string
+    format?: GameFormat
+    matchup?: MatchupFilter
+    sort?: GameSortOption
+  },
+  withClient?: DbClient,
+): Promise<GameRecord[]> {
+  const { limit, offset, duration, mapName, playerName, format, matchup, sort } = params
+
+  const { client, done } = await db(withClient)
+  try {
+    const whereClauses = [
+      sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
+      sql`g.results IS NOT NULL`,
+    ]
+    let needMapJoin = false
+
+    if (duration && duration !== GameDurationFilter.All) {
+      switch (duration) {
+        case GameDurationFilter.Under10:
+          whereClauses.push(sql`g.game_length < 600000`)
+          break
+        case GameDurationFilter.From10To20:
+          whereClauses.push(sql`g.game_length >= 600000 AND g.game_length < 1200000`)
+          break
+        case GameDurationFilter.From20To30:
+          whereClauses.push(sql`g.game_length >= 1200000 AND g.game_length < 1800000`)
+          break
+        case GameDurationFilter.Over30:
+          whereClauses.push(sql`g.game_length >= 1800000`)
+          break
+        default:
+          duration satisfies never
+      }
+    }
+
+    if (mapName) {
+      needMapJoin = true
+      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+    }
+
+    if (playerName) {
+      whereClauses.push(sql`
+        EXISTS (
+          SELECT 1 FROM games_users gu2
+          INNER JOIN users u ON gu2.user_id = u.id
+          WHERE gu2.game_id = g.id
+          AND u.name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
+        )
+      `)
+    }
+
+    if (format) {
+      const teamSize = getTeamSizeForFormat(format)
+      whereClauses.push(sql`
+        g.selected_matchup ~ ${`^[prtz]{${teamSize}}-[prtz]{${teamSize}}$`}
+      `)
+    }
+
+    if (format && matchup) {
+      const hasNonUndefinedRace = [...matchup.team1, ...matchup.team2].some(r => r !== undefined)
+
+      if (hasNonUndefinedRace) {
+        const matchupStrings = expandMatchupFilter(matchup)
+        whereClauses.push(sql`g.assigned_matchup = ANY(${matchupStrings})`)
+      }
+    }
+
+    // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully
+    // deterministic. Without it, rows that tie on the leading column (e.g. games that share a
+    // start_time) can be duplicated or skipped across paginated requests. This is especially
+    // relevant here since this list is a moving window (games complete continuously), so pages are
+    // loaded at different points in time.
+    let orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+    if (sort) {
+      switch (sort) {
+        case GameSortOption.LatestFirst:
+          orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+          break
+        case GameSortOption.OldestFirst:
+          orderBy = sqlRaw('g.start_time ASC, g.id ASC')
+          break
+        case GameSortOption.ShortestFirst:
+          orderBy = sqlRaw('g.game_length ASC NULLS LAST, g.start_time DESC, g.id DESC')
+          break
+        case GameSortOption.LongestFirst:
+          orderBy = sqlRaw('g.game_length DESC NULLS LAST, g.start_time DESC, g.id DESC')
+          break
+        default:
+          sort satisfies never
+      }
+    }
+
+    let query = sql`
+      SELECT g.*
+      FROM games g
+    `
+
+    if (needMapJoin) {
+      query = query.append(sql`
+        INNER JOIN uploaded_maps m ON g.map_id = m.id
+      `)
+    }
+
+    query = query.append(sql`
+      WHERE ${sqlConcat(' AND ', whereClauses)}
+      ORDER BY ${orderBy}
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbGameRecord>(query)
+
     return result.rows.map(row => convertFromDb(row))
   } finally {
     done()

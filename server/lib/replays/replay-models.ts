@@ -135,6 +135,31 @@ export async function getBestReplayForGame(
 }
 
 /**
+ * Gets the "best" replay for each of the specified games in a single query (longest duration based
+ * on frame count). Returns a map of game ID -> ReplayFile for games that have a replay.
+ */
+export async function getBestReplaysForGames(
+  gameIds: string[],
+  client?: DbClient,
+): Promise<Map<string, ReplayFile>> {
+  if (!gameIds.length) return new Map()
+
+  const { client: dbClient, done } = await db(client)
+  try {
+    const result = await dbClient.query<DbReplayFile & { game_id: string }>(sql`
+      SELECT DISTINCT ON (gu.game_id) rf.*, gu.game_id
+      FROM replay_files rf
+      JOIN games_users gu ON gu.replay_file_id = rf.id
+      WHERE gu.game_id = ANY(${gameIds})
+      ORDER BY gu.game_id, (rf.header->>'frames')::int DESC NULLS LAST
+    `)
+    return new Map(result.rows.map(row => [row.game_id, rowToReplayFile(row)]))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Gets all replays for a game with uploader info (for admin debug view).
  */
 export async function getAllReplaysForGame(

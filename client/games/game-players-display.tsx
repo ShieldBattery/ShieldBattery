@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameRecordJson } from '../../common/games/games'
+import { ReconciledPlayerResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -144,7 +145,11 @@ export function GamePlayersDisplay({
 
   const results = game?.results
   const resultsById = useMemo(() => {
-    return new Map(results ?? [])
+    // Guard against legacy rows where `results` is a non-array (e.g. an empty object `{}`); a
+    // non-iterable value would make `new Map(...)` throw and crash the whole list. The explicit
+    // generic is needed because `Array.isArray` widens the `ReadonlyDeep` entries and would
+    // otherwise collapse the map's value type to `{}`.
+    return new Map<SbUserId, ReconciledPlayerResult>(Array.isArray(results) ? results : [])
   }, [results])
 
   // TODO(2Pac): Handle game types which can have more than two teams
@@ -156,15 +161,18 @@ export function GamePlayersDisplay({
     // first and keeps the teams in consistent order. This is mostly helpful when there are a lot of
     // games with the same teams one after another.
     const sortedTeams = game.config.teams.toSorted((a, b) => {
-      if (a.some(p => p.id === forUserId)) {
-        return -1
-      } else if (b.some(p => p.id === forUserId)) {
-        return 1
+      if (forUserId) {
+        if (a.some(p => p.id === forUserId)) {
+          return -1
+        } else if (b.some(p => p.id === forUserId)) {
+          return 1
+        }
       }
 
-      // TODO(2Pac): Figure out some way to keep consistent order of teams even if we're not showing
-      // this in a specific user profile (e.g. on public games page).
-      return 0
+      // When no forUserId (e.g. public games page), sort teams by first player name for consistency
+      const aFirstName = a[0] ? (playersMapping.get(a[0].id)?.name ?? '') : ''
+      const bFirstName = b[0] ? (playersMapping.get(b[0].id)?.name ?? '') : ''
+      return aFirstName.localeCompare(bFirstName)
     })
     const [teamTop, teamBottom] = sortedTeams
 

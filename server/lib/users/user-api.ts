@@ -17,7 +17,7 @@ import {
   GameDurationFilter,
   GameSortOption,
 } from '../../../common/games/game-filters'
-import { toGameRecordJson } from '../../../common/games/games'
+import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
@@ -91,6 +91,8 @@ import { isElectronClient } from '../network/electron-clients'
 import { serverRsUrl } from '../network/server-rs-requests'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
+import { getReplayInfosForGames } from '../replays/replay-info'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { getJwt } from '../session/jwt-session-middleware'
 import createThrottle from '../throttle/create-throttle'
@@ -251,6 +253,7 @@ interface SignupRequestBody {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
 export class UserApi {
+  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private userIdManager: UserIdentifierManager,
@@ -260,6 +263,7 @@ export class UserApi {
     private redis: Redis,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private chatService: ChatService,
+    private replayService: ReplayService,
   ) {
     container.resolve(PasswordResetCleanupJob)
     container.resolve(SignupCodeCleanupJob)
@@ -679,7 +683,10 @@ export class UserApi {
         format: Joi.string().valid(...ALL_GAME_FORMATS),
         matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
         sort: Joi.string().valid(...Object.values(GameSortOption)),
-        offset: Joi.number().min(0),
+        // `.integer()` is needed because Joi otherwise accepts e.g. `1.5`, which produces an invalid
+        // `OFFSET 1.5` and 500s on the bigint cast. The max keeps a hand-crafted request from
+        // forcing the DB to produce (and sort) an unbounded number of rows.
+        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
       }),
     })
 
@@ -721,11 +728,22 @@ export class UserApi {
       getMapInfos(Array.from(uniqueMaps.values())),
     ])
 
+    const currentUserId = ctx.session?.user?.id
+    const mapNameById = new Map(maps.map(m => [m.id, m.name]))
+    const replays = await getReplayInfosForGames({
+      games,
+      currentUserId,
+      mapNameById,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
     return {
       games: games.map(g => toGameRecordJson(g)),
       maps: maps.map(m => toMapInfoJson(m)),
       users,
       hasMoreGames: games.length >= GET_MATCH_HISTORY_LIMIT,
+      replays,
     }
   }
 

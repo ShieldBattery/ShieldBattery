@@ -1,24 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { useQuery } from 'urql'
 import {
   ALL_GAME_FORMATS,
-  decodeMatchup,
   EncodedMatchupString,
   GameDurationFilter,
   GameFormat,
   GameSortOption,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
-import { SbUserId } from '../../common/users/sb-user-id'
-import { GameFilterBar } from '../games/game-filter-bar'
-import { GameListEntry } from '../games/game-list-entry'
+import { FragmentType, graphql, useFragment } from '../gql'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { elevationPlus1 } from '../material/shadows'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodyLarge } from '../styles/typography'
-import { getMatchHistory } from './action-creators'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
+import { getGames } from './action-creators'
+import { GameFilterBar } from './game-filter-bar'
+import { GameListEntry } from './game-list-entry'
+import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -32,9 +35,9 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const MatchHistoryContainer = styled.div`
+const GamesListContainer = styled.div`
   width: 100%;
-  padding: 0 24px;
+  padding-top: 24px;
 
   display: flex;
   flex-direction: column;
@@ -64,26 +67,20 @@ function parseFormat(value: string): GameFormat | undefined {
   return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
 }
 
-function parseMatchup(
-  value: string,
-  format: GameFormat | undefined,
-): EncodedMatchupString | undefined {
-  if (!value || !format) {
-    return undefined
-  }
-  // Only keep the matchup if it actually decodes for the current format. This mirrors what the
-  // server does and means a hand-edited URL (e.g. `?matchup=foo`) gets ignored rather than sent
-  // along to fail server-side validation and show the user a generic error screen.
-  const encoded = makeEncodedMatchupString(value)
-  return decodeMatchup(format, encoded) ? encoded : undefined
+function parseMatchup(value: string): EncodedMatchupString | undefined {
+  return value ? makeEncodedMatchupString(value) : undefined
 }
 
-export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
+const GamesListQuery = graphql(/* GraphQL */ `
+  query GamesPageContent {
+    ...LiveGames_FeedFragment
+  }
+`)
+
+export function GameList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
-  const [customParam, setCustomParam] = useLocationSearchParam('custom')
   const [durationParam, setDurationParam] = useLocationSearchParam('duration')
   const [sortParam, setSortParam] = useLocationSearchParam('sort')
   const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
@@ -91,12 +88,10 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
 
-  const ranked = rankedParam === 'true'
-  const custom = customParam === 'true'
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
-  const matchup = parseMatchup(matchupParam, format)
+  const matchup = parseMatchup(matchupParam)
 
   const [gameIds, setGameIds] = useState<string[]>()
   const [hasMoreGames, setHasMoreGames] = useState(true)
@@ -110,6 +105,13 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   // list on any Redux action. react-compiler memoizes the derivation below.
   const gamesById = useAppSelector(s => s.games.byId)
   const games = gameIds?.map(id => gamesById.get(id)!) ?? []
+
+  // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
+  // hiding the live games feed if there are no live games anyway.
+  // TODO(marko): This is a one-shot query (nothing re-executes it), so finished games linger in the
+  // "Live games" section and can briefly show up in both sections. Matches the home feed for now,
+  // but if this page is meant to feel live we should re-run it periodically.
+  const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
 
   const reset = () => {
     abortControllerRef.current?.abort()
@@ -127,26 +129,23 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      getMatchHistory(
-        userId,
+      getGames(
         {
-          ranked: ranked || undefined,
-          custom: custom || undefined,
           duration: duration === GameDurationFilter.All ? undefined : duration,
           sort: sort === GameSortOption.LatestFirst ? undefined : sort,
           mapName: mapName || undefined,
           playerName: playerName || undefined,
           format,
-          matchup,
+          matchup: matchup ? makeEncodedMatchupString(matchup) : undefined,
           offset: gameIds?.length ?? 0,
         },
         {
           signal: abortControllerRef.current.signal,
           onSuccess: data => {
             setIsLoadingMoreGames(false)
-            // A newly-completed game by this user shifts the window between page loads, so a later
-            // page can re-serve rows from an earlier one. Dedupe on concat to avoid duplicate React
-            // keys / repeated rows.
+            // This is a moving window (games complete continuously), so a later page can re-serve
+            // rows from an earlier one. Dedupe on concat to avoid duplicate React keys / repeated
+            // rows.
             setGameIds(prev => {
               const existingIds = new Set(prev ?? [])
               return (prev ?? []).concat(
@@ -171,16 +170,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   const filterBar = (
     <GameFilterBar
-      ranked={ranked}
-      setRanked={v => {
-        setRankedParam(v ? 'true' : '')
-        reset()
-      }}
-      custom={custom}
-      setCustom={v => {
-        setCustomParam(v ? 'true' : '')
-        reset()
-      }}
+      showRankedCustom={false}
       duration={duration}
       setDuration={v => {
         setDurationParam(v === GameDurationFilter.All ? '' : v)
@@ -204,9 +194,6 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
       format={format}
       setFormat={v => {
         setFormatParam(v ?? '')
-        // A matchup is tied to a specific format (team size), so any existing value no longer
-        // applies once the format changes. Clear it so it doesn't linger in the URL as cruft.
-        setMatchupParam('')
         reset()
       }}
       matchup={matchup}
@@ -219,26 +206,24 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   if (searchError) {
     return (
-      <MatchHistoryContainer>
+      <GamesListContainer>
         {filterBar}
         <ErrorText>
-          {t(
-            'user.matchHistory.retrievingError',
-            'There was an error retrieving the match history.',
-          )}
+          {t('games.list.retrievingError', 'There was an error retrieving the games.')}
         </ErrorText>
-      </MatchHistoryContainer>
+      </GamesListContainer>
     )
   } else if (gameIds?.length === 0) {
     return (
-      <MatchHistoryContainer>
+      <GamesListContainer>
+        <LiveGamesFeed query={data} />
         {filterBar}
-        <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
-      </MatchHistoryContainer>
+        <NoResults>{t('games.list.noMatchingGames', 'No matching games.')}</NoResults>
+      </GamesListContainer>
     )
   } else {
     const gameItems = games.map(game => (
-      <GameListEntry key={game.id} game={game} showResult={true} forUserId={userId} />
+      <GameListEntry key={game.id} game={game} showResult={false} />
     ))
 
     return (
@@ -248,11 +233,45 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         hasNextData={hasMoreGames}
         refreshToken={refreshToken}
         onLoadNextData={onLoadMoreGames}>
-        <MatchHistoryContainer>
+        <GamesListContainer>
+          <LiveGamesFeed query={data} />
           {filterBar}
           <SearchResults>{gameItems}</SearchResults>
-        </MatchHistoryContainer>
+        </GamesListContainer>
       </InfiniteScrollList>
     )
   }
+}
+
+const Title = styled.div`
+  ${titleLarge};
+  ${singleLine};
+`
+
+const GameEntriesRoot = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding-top: 8px;
+`
+
+const StyledLiveGameEntry = styled(LiveGameEntry)`
+  ${elevationPlus1};
+  ${containerStyles(ContainerLevel.Low)};
+`
+
+function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFragment> }) {
+  const { t } = useTranslation()
+  const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
+
+  return liveGames.length > 0 ? (
+    <div>
+      <Title>{t('games.liveGames.title', 'Live games')}</Title>
+      <GameEntriesRoot>
+        {liveGames.map(liveGame => (
+          <StyledLiveGameEntry key={liveGame.id} query={liveGame} />
+        ))}
+      </GameEntriesRoot>
+    </div>
+  ) : null
 }
