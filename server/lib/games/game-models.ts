@@ -32,7 +32,10 @@ function convertFromDb(row: DbGameRecord): GameRecord {
     disputeRequested: row.dispute_requested,
     disputeReviewed: row.dispute_reviewed,
     gameLength: row.game_length,
-    results: row.results,
+    // Some legacy rows store `results` as an empty object `{}` rather than an array (or null);
+    // normalize those to null so the runtime value matches the declared type and downstream
+    // consumers (e.g. `new Map(results)`) don't choke on a non-iterable.
+    results: Array.isArray(row.results) ? row.results : null,
     selectedMatchup: row.selected_matchup,
     assignedMatchup: row.assigned_matchup,
   }

@@ -144,7 +144,9 @@ export function GamePlayersDisplay({
 
   const results = game?.results
   const resultsById = useMemo(() => {
-    return new Map(results ?? [])
+    // Guard against legacy rows where `results` is a non-array (e.g. an empty object `{}`); a
+    // non-iterable value would make `new Map(...)` throw and crash the whole list.
+    return new Map(Array.isArray(results) ? results : [])
   }, [results])
 
   // TODO(2Pac): Handle game types which can have more than two teams
