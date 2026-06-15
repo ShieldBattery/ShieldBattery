@@ -91,6 +91,16 @@ This tier exists because the important questions are about *outcomes*, not just 
 does MMR update correctly, is the result recorded, does match history/replay upload work. Verifying
 the launch alone is not enough.
 
+**Pick the cheapest launch path for what you're verifying.** A 2-player **custom lobby** is faster
+and simpler than matchmaking — no ~30s matchmaker wait, no short-fused ready-up window, no
+matchmaking-ban risk on a fumbled attempt. It still creates a real `games`/`games_users` record,
+registers `selected_matchup`, and reconciles results (incl. `assigned_matchup`, win/loss, replays,
+match history). So use a lobby whenever the thing under test isn't matchmaking-specific. Only go
+through matchmaking when you actually need a matchmaking outcome: MMR/rank changes,
+`matchmaking_rating_changes`, bonus pool, season/placement logic, party-queue, or the matchmaker
+itself. (Lobby launch mechanics — `c1` hosts, `c2` joins, host starts — are in the **verify-app**
+skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both paths.)
+
 **Setup** (validated 2026-06-13 — read these, they each cost a failed run):
 - Dev stack up incl. webpack dev server; two app instances logged in as two seeded accounts (see
   **verify-app**).
@@ -170,3 +180,39 @@ Append a tested recipe here whenever you verify a feature, so the next run is fa
   looks like a real idempotency gap (plausibly the DLL+app dual result-report both inserting) — but
   an abrupt process-kill is an abnormal finish, so worth reproducing with a clean in-game surrender
   before asserting a bug. Flag for the author.
+- **Match-history filtering + matchup columns (T0 + DB/SQL layer)** — verified 2026-06-15 on PR #1281
+  (`game-filters`). Adds `games.selected_matchup`/`assigned_matchup`, a filter bar, and an
+  out-of-band backfill (`tools/backfill-matchups.sql`). For column/migration/backfill PRs the
+  DB layer is the high-value tier and is checkable without a game launch:
+  - T0: `pnpm run lint` / `typecheck` / `vitest run common/games/matchups.test.ts` (51 tests) all green.
+  - Migration applies cleanly on a throwaway **schema** (the `shieldbattery` DB user can't
+    `CREATE DATABASE`): `CREATE SCHEMA migtest; SET search_path TO migtest;` + a stub `games` table,
+    then run the migration DDL, assert only the intended index exists, `DROP SCHEMA ... CASCADE`.
+  - Backfill: install the procedure (`docker exec -i shieldbattery-db-1 psql ... < tools/backfill-matchups.sql`),
+    `CALL backfill_matchups(dry_run => true)` — "0 of N would change" proves idempotency over real
+    data (dev DB happened to hold all edge cases: a legacy non-array `{}` results row, NULL-results
+    rows, games-with-computers, random→assigned resolution, multi-team/asymmetric). Spot-check rows
+    by hand against config/results. **`DROP PROCEDURE backfill_matchups(int, boolean)` when done.**
+  - Filter SQL: run the WHERE fragments directly — `selected_matchup ~ '^[prtz]{N}-[prtz]{N}$'`
+    (format) and `assigned_matchup = ANY(ARRAY[...])` (matchup) — and eyeball counts.
+  - Dev-DB drift seen: it carried a stale `idx_games_selected_matchup` from an earlier version of the
+    migration; the merged migration only creates `idx_games_assigned_matchup` (confirmed via the
+    fresh-schema test). Not a PR bug.
+  - T2 (drive the filter bar in Electron) — done 2026-06-15. Navigate to a rich profile's match
+    history via `document.querySelector('a[href="/play/"]')`-style nav or, for profiles,
+    `history.pushState(null,'','/users/1/2Pacalypse-/match-history')` (wouter picks it up; may need a
+    second try + a tick). The basic chips (Ranked/Custom/duration/sort) apply immediately; **Format +
+    Matchup live in the "Advanced" popover with DRAFT state and only apply on the "Apply" button**
+    (selecting a format just reveals the matchup race-picker). Verified the full round trip by reading
+    `location.search`, `playwright-cli requests | grep match-history` (confirms the query string —
+    `?ranked=true&format=2v2&matchup=pt-pz&offset=0`, proving the `URLSearchParams` interpolation into
+    `apiUrl` is NOT double-encoded), and the on-screen result counts narrowing correctly.
+  - T4 (launch a game to confirm the live writes) — done 2026-06-15. Standard two-client matchmaking
+    launch (see the T4 section). Confirmed **`registerGame`→`selected_matchup`** is written the moment
+    the game row is created (`r-r` for two random-race players) and **`maybeReconcileResults`→
+    `assigned_matchup`** is written at reconciliation (`p-p` after random resolved). Note: forcing the
+    finish by killing BOTH StarCraft processes yields a *disputed* result (both `unknown`) which skips
+    the MMR block — but `assigned_matchup` is computed OUTSIDE that block, so it's still written
+    correctly; the disputed path is a fine way to validate the matchup write without depending on a
+    clean win. The `matchmaking_rating_changes_pkey` dup-key error still appears in the server log but
+    it's the 15-min scheduled job choking on a *different* months-old stuck game — unrelated.
