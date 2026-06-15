@@ -107,6 +107,15 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   window: 60000,
 })
 
+// Listing user channel entries is driven by a debounced search box, so it needs a higher limit than
+// the permission read/write endpoints to avoid active searching throttle-blocking saves (similar to
+// the channel search throttle).
+const userChannelEntriesThrottle = createThrottle('chatuserchannelentries', {
+  rate: 40,
+  burst: 120,
+  window: 60000,
+})
+
 const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   rate: 20,
   burst: 40,
@@ -389,7 +398,7 @@ export class ChatApi {
   }
 
   @httpGet('/:channelId/user-channel-entries')
-  @httpBefore(throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(userChannelEntriesThrottle, ctx => String(ctx.session!.user.id)))
   async listUserChannelEntries(ctx: RouterContext): Promise<ListUserChannelEntriesResponse> {
     const {
       params: { channelId },

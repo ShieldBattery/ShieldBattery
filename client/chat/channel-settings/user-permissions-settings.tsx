@@ -185,9 +185,17 @@ export function UserPermissionsSettings({
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreUsers(false)
-          setChannelUsers(prev =>
-            (prev ?? []).concat(data.userChannelEntries.map(fromUserChannelEntryJson)),
-          )
+          setChannelUsers(prev => {
+            const existing = prev ?? []
+            // Dedupe against what we already have: the ordering depends on permission counts, so an
+            // entry edited between page loads can shift across a page boundary and reappear in a
+            // later page.
+            const seenUserIds = new Set(existing.map(u => u.userId))
+            const newEntries = data.userChannelEntries
+              .map(fromUserChannelEntryJson)
+              .filter(entry => !seenUserIds.has(entry.userId))
+            return existing.concat(newEntries)
+          })
           setHasMoreUsers(data.hasMoreUsers)
         },
         onError: err => {

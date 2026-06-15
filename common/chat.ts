@@ -503,7 +503,9 @@ export interface GetChannelUserPermissionsResponse {
  * Specific chat information about a user in a particular channel, such as their join date, their
  * preferences, permissions, etc.
  *
- * This information should be private to the user themselves and admins.
+ * This contains information that isn't meant to be public, so it should only be returned to the user
+ * themselves, the channel's owner and moderators (users with the `editPermissions` permission), and
+ * server admins.
  */
 export interface UserChannelEntry {
   userId: SbUserId
@@ -540,8 +542,9 @@ export function fromUserChannelEntryJson(
 /**
  * The response returned when listing user channel entries for a particular channel.
  *
- * This contains private information (e.g. permissions) so it should only be returned to the user
- * themselves and admins.
+ * This contains information that isn't meant to be public (e.g. permissions and preferences), so it
+ * should only be returned to the channel's owner and moderators (users with the `editPermissions`
+ * permission), and server admins.
  */
 export interface ListUserChannelEntriesResponse {
   /** The ID of the channel for which the user channel entries are being returned. */

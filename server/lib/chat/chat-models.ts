@@ -122,6 +122,7 @@ export async function getUserChannelEntriesForUser(
  * - channel owner is at the top
  * - then by the number of permissions the user has, in descending order
  * - then by join date, in ascending order
+ * - then by user ID, in ascending order (a stable tiebreaker so paginated results don't shift)
  */
 export async function getUserChannelEntriesForChannel(
   {
@@ -155,7 +156,8 @@ export async function getUserChannelEntriesForChannel(
       ORDER BY
         (cu.user_id = c.owner_id) DESC,
         (cu.kick::int + cu.ban::int + cu.change_topic::int + cu.toggle_private::int + cu.edit_permissions::int) DESC,
-        cu.join_date ASC
+        cu.join_date ASC,
+        cu.user_id ASC
       LIMIT ${limit}
       OFFSET ${offset}
     `)

@@ -2185,6 +2185,27 @@ describe('chat/chat-service', () => {
         permissions: user2TestChannelEntry.channelPermissions,
       })
     })
+
+    test('works when isAdmin bypasses membership check', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user2.id && channelId === testChannel.id) {
+            return user2TestChannelEntry
+          }
+          // The caller (user1) is not in the channel.
+          return null
+        },
+      )
+
+      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, true)
+
+      expect(result).toEqual({
+        userId: user2TestChannelEntry.userId,
+        channelId: user2TestChannelEntry.channelId,
+        permissions: user2TestChannelEntry.channelPermissions,
+      })
+    })
   })
 
   describe('listUserChannelEntries', () => {
@@ -2261,6 +2282,33 @@ describe('chat/chat-service', () => {
         offset: 0,
         searchStr: undefined,
       })
+      expect(result).toEqual({
+        channelId: testChannel.id,
+        userChannelEntries: [
+          toUserChannelEntryJson(user1TestChannelEntry),
+          toUserChannelEntryJson(user2TestChannelEntry),
+        ],
+        hasMoreUsers: false,
+        users: [user1, user2],
+      })
+    })
+
+    test('works when isAdmin bypasses membership check', async () => {
+      // The caller (user1) is not in the channel.
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+      getUserChannelEntriesForChannelMock.mockResolvedValue([
+        user1TestChannelEntry,
+        user2TestChannelEntry,
+      ])
+
+      const result = await chatService.listUserChannelEntries({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isAdmin: true,
+        limit: 40,
+        offset: 0,
+      })
+
       expect(result).toEqual({
         channelId: testChannel.id,
         userChannelEntries: [
@@ -2794,6 +2842,126 @@ describe('chat/chat-service', () => {
         expect.objectContaining({
           action: 'userProfileChanged',
         }),
+      )
+    })
+
+    test('should throw when targeting the channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user2.id,
+      })
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user1.id && channelId === testChannel.id) {
+            return {
+              ...user1TestChannelEntry,
+              channelPermissions: { ...channelPermissions, editPermissions: true },
+            }
+          } else if (userId === user2.id && channelId === testChannel.id) {
+            return user2TestChannelEntry
+          }
+          return null
+        },
+      )
+
+      await expect(
+        chatService.updateUserPermissions(
+          testChannel.id,
+          user1.id,
+          user2.id,
+          { ...channelPermissions, kick: true },
+          false,
+        ),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Can't update the channel owner's permissions]`,
+      )
+    })
+
+    test('should throw when a delegated moderator targets another moderator', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user1.id && channelId === testChannel.id) {
+            return {
+              ...user1TestChannelEntry,
+              channelPermissions: { ...channelPermissions, editPermissions: true },
+            }
+          } else if (userId === user2.id && channelId === testChannel.id) {
+            return {
+              ...user2TestChannelEntry,
+              channelPermissions: { ...channelPermissions, ban: true },
+            }
+          }
+          return null
+        },
+      )
+
+      await expect(
+        chatService.updateUserPermissions(
+          testChannel.id,
+          user1.id,
+          user2.id,
+          channelPermissions,
+          false,
+        ),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to update another moderator's permissions]`,
+      )
+    })
+
+    test('allows a moderator to edit their own permissions', async () => {
+      const user1ModeratorEntry = {
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, editPermissions: true },
+      }
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user1.id && channelId === testChannel.id) {
+            return user1ModeratorEntry
+          }
+          return null
+        },
+      )
+
+      const newPermissions = { ...channelPermissions, editPermissions: true, kick: true }
+
+      await chatService.updateUserPermissions(
+        testChannel.id,
+        user1.id,
+        user1.id,
+        newPermissions,
+        false,
+      )
+
+      expect(updateUserPermissionsMock).toHaveBeenCalledWith(
+        testChannel.id,
+        user1.id,
+        newPermissions,
+      )
+    })
+
+    test('works when isAdmin bypasses membership check', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user2.id && channelId === testChannel.id) {
+            return user2TestChannelEntry
+          }
+          // The caller (user1) is not in the channel.
+          return null
+        },
+      )
+
+      await chatService.updateUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        channelPermissions,
+        true,
+      )
+
+      expect(updateUserPermissionsMock).toHaveBeenCalledWith(
+        testChannel.id,
+        user2.id,
+        channelPermissions,
       )
     })
   })

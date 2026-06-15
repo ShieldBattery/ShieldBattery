@@ -1010,7 +1010,9 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    if (!userChannelEntry) {
+    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
+    // used by `getChannelUsers`/`getChannelHistory`.
+    if (!isAdmin && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         "Must be in channel to get user's permissions",
@@ -1024,7 +1026,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to get other user's permissions",
@@ -1061,7 +1063,9 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    if (!userChannelEntry) {
+    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
+    // used by `getChannelUsers`/`getChannelHistory`.
+    if (!isAdmin && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in channel to view user channel entries',
@@ -1069,7 +1073,7 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to view user channel entries",
@@ -1136,7 +1140,9 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    if (!userChannelEntry) {
+    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
+    // used by `getChannelUsers`/`getChannelHistory`.
+    if (!isAdmin && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         "Must be in channel to update user's permissions",
@@ -1154,6 +1160,33 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to update other user's permissions",
+      )
+    }
+
+    // Restrict which users can be targeted, mirroring the hierarchy enforced by `moderateUser`.
+    // Without this, a delegated moderator (someone with `editPermissions` who isn't the owner or a
+    // server admin) could zero out a fellow moderator's permissions and then kick/ban them,
+    // laundering around the restrictions in `moderateUser`. Editing your own permissions is still
+    // allowed.
+    const isTargetChannelOwner = channelInfo.ownerId === targetId
+    const isTargetChannelModerator =
+      targetChannelEntry.channelPermissions.editPermissions ||
+      targetChannelEntry.channelPermissions.ban ||
+      targetChannelEntry.channelPermissions.kick
+
+    if (isTargetChannelOwner) {
+      // The owner's authority derives from being the owner rather than from these flags, so editing
+      // them is meaningless. We reject it outright to keep the owner's row immutable and consistent
+      // with the client, which disables editing the owner.
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "Can't update the channel owner's permissions",
+      )
+    }
+    if (targetId !== userId && isTargetChannelModerator && !isAdmin && !isUserChannelOwner) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to update another moderator's permissions",
       )
     }
 
