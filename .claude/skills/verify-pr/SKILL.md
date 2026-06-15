@@ -216,3 +216,30 @@ Append a tested recipe here whenever you verify a feature, so the next run is fa
     correctly; the disputed path is a fine way to validate the matchup write without depending on a
     clean win. The `matchmaking_rating_changes_pkey` dup-key error still appears in the server log but
     it's the 15-min scheduled job choking on a *different* months-old stuck game — unrelated.
+- **Channel user permissions (T3)** — verified 2026-06-15 on PR #1280 (`user-channel-permissions`).
+  Three clients (`session1/2/3`, ports 9222/23/24) as `claude-1/2/3`. Setup: c1 creates a channel
+  via the chat-list "Create channel" button → becomes owner (channel row in DB has `owner_id`);
+  others join via chat-list **search box** (`textbox "Search"`, type the exact name) → click the
+  row's **Join** button (direct URL nav does *not* join; clicking the compact list row does *not*
+  join — only the search-result Join button does). Open the permissions UI: channel-header **"More
+  actions"** (`more_vert`) → **"Channel settings"** → **"Users" → "Permissions"** nav entry; click a
+  user row → permission-checkbox dialog → Save. **Where to confirm:**
+  - DB truth: `channel_users` columns `kick/ban/edit_permissions/change_topic/toggle_private` per
+    `(channel_id, user_id)`. Owner authority is the `channels.owner_id`, not a flag.
+  - Save round-trips to those columns; the permissions list/badges reflect saved perms.
+  - **Access gating** (channel-header + settings nav): a `kick`-only member gets NO "Channel
+    settings"; granting `editPermissions` makes "Channel settings" appear **live** (via the
+    `permissionsChanged` socket event) and shows only the "Users → Permissions" page (General is
+    owner/admin-only).
+  - **Row disable logic** for a delegated moderator (has `editPermissions`, not owner/admin): owner
+    row disabled, own row enabled, another-moderator row disabled — mirrors the server
+    `updateUserPermissions` guard.
+  - **Live `userProfileChanged` propagation** (the headline cross-client behavior): isolate it by
+    keeping a delegated-mod's user **context menu open** (right-click a user in the member list) on
+    one client, then promote that target to moderator (grant `kick`) from the owner's client. The
+    menu's "Kick"/"Ban" item flips **enabled→disabled with zero interaction** on the observing client
+    (the menu's `useEffect` only re-fetches on open, so a flip while open can only come from the
+    pushed event). Note: the kick/ban menu disable is per-action now (`kick` enables Kick, `ban`
+    enables Ban — they're independent). Redux store is NOT on `window`; verify via UI surfaces + DB.
+  - All static checks were clean (typecheck, lint, 102 chat-service unit tests covering every new
+    auth path). No bugs found.
