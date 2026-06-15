@@ -142,104 +142,94 @@ from matchmaking" dialog instead of searching.
 **Cleanup**: `Stop-Process` any orphan `StarCraft.exe`; clear test `matchmaking_bans`; detach
 playwright-cli; stop app instances + servers; leave Docker.
 
-## Per-feature recipe log (living)
+## Per-feature recipes (living)
 
-Append a tested recipe here whenever you verify a feature, so the next run is faster. Format:
-**Feature — tier — steps — where to confirm.**
+Each entry is the reusable **mechanics** for verifying a feature — selectors, navigation, where to
+look, SQL — so the next run skips the trial-and-error. When you verify something, fold the durable
+bits in here, and keep this lean:
 
-- **Login (Electron, T2)** — verified 2026-06-13. Stack up incl. webpack :5566;
-  `SB_HOT=1 SB_SESSION=session1 npx electron app --remote-debugging-port=9222`;
-  `npx --no-install playwright-cli -s=c1 attach --cdp=http://localhost:9222`. App opens on the home
-  screen logged out → click the top-bar **"Log in"** button (opens an overlay, URL stays
-  `shieldbattery://app/`) → fill `input[name=username]` / `input[name=password]` → click
-  `button[data-test=submit-button]`. Confirm via `[data-test=app-bar-user-button]` textContent
-  (shows e.g. `claude-1Novice`). Full mechanics in the **verify-app** skill.
-- **Two-client matchmaking queue (T3)** — exercised 2026-06-13 on PR #1286 (Rust matchmaker). Two
-  instances (`session1`/`session2`, ports 9222/9223) logged in as `claude-1`/`claude-2`. Navigate
-  each to matchmaking by clicking `a[href="/play/"]` (lands on `/play/matchmaking`); the "Find match"
-  button is enabled once a default race is set. Click it on both. **Where to look:**
-  - UI queue state: `document.body.innerText` matches `Searching`.
-  - server-rs received the enqueues: its log shows `POST /matchmaker` (one per find); `GET
-    /matchmaker/token` every ~5s is the Node→Rust restart watchdog (healthy, ignore).
-  - Redis (port 6380): `sbthrottle:matchmaking~<userId>` keys appear per queued user (the matcher's
-    own queue is in-memory in server-rs, so don't expect queue keys there).
+- **No run reports.** Don't append "MMR moved 1500→1758 on PR #1286" narration — that doesn't help
+  the next run. Record the *how*, not the *what-happened*.
+- **Don't repeat verify-app.** Launch, login, CDP attach, two-client login, and reading
+  logs/console/requests/DB all live in the **verify-app** skill — reference it, don't copy it.
+- **Findings ≠ recipes.** A surprising-but-unconfirmed observation goes under *Known issues* below
+  (and gets deleted once resolved), not woven into a recipe.
+
+- **Matchmaking queue (T3).** Navigate each client to matchmaking by clicking `a[href="/play/"]`
+  (lands on `/play/matchmaking`); "Find match" enables once a default race is set; click it on both.
+  Confirm:
+  - UI: `document.body.innerText` matches `Searching`.
+  - server-rs log: `POST /matchmaker` per find. (`GET /matchmaker/token` every ~5s is the Node→Rust
+    restart watchdog — healthy, ignore.)
+  - Redis (:6380): a `sbthrottle:matchmaking~<userId>` key per queued user. The matcher's own queue
+    is in-memory in server-rs, so no queue keys land in Redis.
   - A formed match writes `matchmaking_completions` + `games`/`games_users` (none ⇒ no match yet).
-  - Note from this run: two equal-rated (unrated) players did **not** match within ~70s; enqueue
-    reached Rust but no match was delivered. Couldn't fully attribute (matcher tick/threshold vs.
-    delivery vs. dev timing) without debug logging on the Rust matcher — flag for the author rather
-    than asserting a bug.
-- **Full game launch → MMR (T4)** — validated end-to-end 2026-06-13 on **master**. Followed the T4
-  section above. Confirmed the whole pipeline: match (~28s) → auto ready-up → 2 `StarCraft.exe` →
-  DLL injection → rally-point networking → both join lobby → `Forge: Game started` → app status
-  `playing` → killed one process → result reported via the Electron fallback → winner's MMR moved
-  (1500 → ~1758). Two findings: (1) the stale DLL crashed at game-start with `0xc0000005`; a fresh
-  `game\build.bat debug` fixed it (rebuild is now step 0 of the T4 setup). (2) result reconciliation
-  then failed with `duplicate key ... matchmaking_rating_changes_pkey` at
-  `server/lib/games/game-result-service.ts:527` (`maybeReconcileResults`) and rolled back, so the
-  result/MMR did **not** durably finalize. Same error class also hit a months-old stuck game, so it
-  looks like a real idempotency gap (plausibly the DLL+app dual result-report both inserting) — but
-  an abrupt process-kill is an abnormal finish, so worth reproducing with a clean in-game surrender
-  before asserting a bug. Flag for the author.
-- **Match-history filtering + matchup columns (T0 + DB/SQL layer)** — verified 2026-06-15 on PR #1281
-  (`game-filters`). Adds `games.selected_matchup`/`assigned_matchup`, a filter bar, and an
-  out-of-band backfill (`tools/backfill-matchups.sql`). For column/migration/backfill PRs the
-  DB layer is the high-value tier and is checkable without a game launch:
-  - T0: `pnpm run lint` / `typecheck` / `vitest run common/games/matchups.test.ts` (51 tests) all green.
-  - Migration applies cleanly on a throwaway **schema** (the `shieldbattery` DB user can't
-    `CREATE DATABASE`): `CREATE SCHEMA migtest; SET search_path TO migtest;` + a stub `games` table,
-    then run the migration DDL, assert only the intended index exists, `DROP SCHEMA ... CASCADE`.
-  - Backfill: install the procedure (`docker exec -i shieldbattery-db-1 psql ... < tools/backfill-matchups.sql`),
-    `CALL backfill_matchups(dry_run => true)` — "0 of N would change" proves idempotency over real
-    data (dev DB happened to hold all edge cases: a legacy non-array `{}` results row, NULL-results
-    rows, games-with-computers, random→assigned resolution, multi-team/asymmetric). Spot-check rows
-    by hand against config/results. **`DROP PROCEDURE backfill_matchups(int, boolean)` when done.**
-  - Filter SQL: run the WHERE fragments directly — `selected_matchup ~ '^[prtz]{N}-[prtz]{N}$'`
-    (format) and `assigned_matchup = ANY(ARRAY[...])` (matchup) — and eyeball counts.
-  - Dev-DB drift seen: it carried a stale `idx_games_selected_matchup` from an earlier version of the
-    migration; the merged migration only creates `idx_games_assigned_matchup` (confirmed via the
-    fresh-schema test). Not a PR bug.
-  - T2 (drive the filter bar in Electron) — done 2026-06-15. Navigate to a rich profile's match
-    history via `document.querySelector('a[href="/play/"]')`-style nav or, for profiles,
-    `history.pushState(null,'','/users/1/2Pacalypse-/match-history')` (wouter picks it up; may need a
-    second try + a tick). The basic chips (Ranked/Custom/duration/sort) apply immediately; **Format +
-    Matchup live in the "Advanced" popover with DRAFT state and only apply on the "Apply" button**
-    (selecting a format just reveals the matchup race-picker). Verified the full round trip by reading
-    `location.search`, `playwright-cli requests | grep match-history` (confirms the query string —
-    `?ranked=true&format=2v2&matchup=pt-pz&offset=0`, proving the `URLSearchParams` interpolation into
-    `apiUrl` is NOT double-encoded), and the on-screen result counts narrowing correctly.
-  - T4 (launch a game to confirm the live writes) — done 2026-06-15. Standard two-client matchmaking
-    launch (see the T4 section). Confirmed **`registerGame`→`selected_matchup`** is written the moment
-    the game row is created (`r-r` for two random-race players) and **`maybeReconcileResults`→
-    `assigned_matchup`** is written at reconciliation (`p-p` after random resolved). Note: forcing the
-    finish by killing BOTH StarCraft processes yields a *disputed* result (both `unknown`) which skips
-    the MMR block — but `assigned_matchup` is computed OUTSIDE that block, so it's still written
-    correctly; the disputed path is a fine way to validate the matchup write without depending on a
-    clean win. The `matchmaking_rating_changes_pkey` dup-key error still appears in the server log but
-    it's the 15-min scheduled job choking on a *different* months-old stuck game — unrelated.
-- **Channel user permissions (T3)** — verified 2026-06-15 on PR #1280 (`user-channel-permissions`).
-  Three clients (`session1/2/3`, ports 9222/23/24) as `claude-1/2/3`. Setup: c1 creates a channel
-  via the chat-list "Create channel" button → becomes owner (channel row in DB has `owner_id`);
-  others join via chat-list **search box** (`textbox "Search"`, type the exact name) → click the
-  row's **Join** button (direct URL nav does *not* join; clicking the compact list row does *not*
-  join — only the search-result Join button does). Open the permissions UI: channel-header **"More
-  actions"** (`more_vert`) → **"Channel settings"** → **"Users" → "Permissions"** nav entry; click a
-  user row → permission-checkbox dialog → Save. **Where to confirm:**
-  - DB truth: `channel_users` columns `kick/ban/edit_permissions/change_topic/toggle_private` per
-    `(channel_id, user_id)`. Owner authority is the `channels.owner_id`, not a flag.
-  - Save round-trips to those columns; the permissions list/badges reflect saved perms.
-  - **Access gating** (channel-header + settings nav): a `kick`-only member gets NO "Channel
-    settings"; granting `editPermissions` makes "Channel settings" appear **live** (via the
-    `permissionsChanged` socket event) and shows only the "Users → Permissions" page (General is
-    owner/admin-only).
-  - **Row disable logic** for a delegated moderator (has `editPermissions`, not owner/admin): owner
-    row disabled, own row enabled, another-moderator row disabled — mirrors the server
-    `updateUserPermissions` guard.
-  - **Live `userProfileChanged` propagation** (the headline cross-client behavior): isolate it by
-    keeping a delegated-mod's user **context menu open** (right-click a user in the member list) on
-    one client, then promote that target to moderator (grant `kick`) from the owner's client. The
-    menu's "Kick"/"Ban" item flips **enabled→disabled with zero interaction** on the observing client
-    (the menu's `useEffect` only re-fetches on open, so a flip while open can only come from the
-    pushed event). Note: the kick/ban menu disable is per-action now (`kick` enables Kick, `ban`
-    enables Ban — they're independent). Redux store is NOT on `window`; verify via UI surfaces + DB.
-  - All static checks were clean (typecheck, lint, 102 chat-service unit tests covering every new
-    auth path). No bugs found.
+  - Equal-rated *unrated* players don't reliably match quickly in dev; prefer a lobby launch (T4
+    section) unless you're specifically exercising the matcher.
+
+- **Channel user permissions (T3).** Three clients exercise delegation cleanly (owner + delegated
+  moderator + target). Setup: c1 creates a channel via the chat-list **"Create channel"** button →
+  becomes owner (`channels.owner_id`); others join via the chat-list **search box**
+  (`textbox "Search"`, type the exact name) → the result row's **Join** button. *Joining gotcha:*
+  direct URL nav doesn't join, and clicking the compact list row doesn't join — only the
+  search-result Join button does. Open the permissions UI: channel-header **"More actions"**
+  (`more_vert`) → **"Channel settings"** → **"Users" → "Permissions"** → click a user row →
+  checkbox dialog → Save. Confirm:
+  - DB truth: `channel_users` columns `kick`/`ban`/`edit_permissions`/`change_topic`/`toggle_private`
+    per `(channel_id, user_id)`; owner authority is `channels.owner_id`, not a flag. Save round-trips
+    to these columns. The Redux store is **not** on `window`, so verify via UI surfaces + DB.
+  - Live access gating via the `permissionsChanged` socket event: a `kick`-only member gets no
+    "Channel settings"; granting `editPermissions` makes it appear **without reload** and shows only
+    "Users → Permissions" (General is owner/admin-only).
+  - Delegated-moderator row-disable (has `editPermissions`, not owner/admin) mirrors the server
+    `updateUserPermissions` guard: owner row disabled, own row enabled, another-moderator row disabled.
+  - Live `userProfileChanged` propagation (the headline behavior): keep a target's user **context menu
+    open** (right-click them in the member list) on one client, then grant `kick` from the owner's
+    client — the menu's "Kick" item flips enabled→disabled with zero interaction. (The menu only
+    re-fetches on open, so an in-place flip can only be the pushed event.) Disable is per-action —
+    `kick` enables Kick, `ban` enables Ban, independently.
+
+- **DB migrations & backfills (column PRs).** The DB layer is the high-value tier here and is
+  checkable without a game launch:
+  - Apply the migration on a throwaway **schema** (the `shieldbattery` user can't `CREATE DATABASE`):
+    `CREATE SCHEMA migtest; SET search_path TO migtest;` + stub the tables it touches, run the
+    migration DDL, assert the intended objects exist, `DROP SCHEMA migtest CASCADE`. Trust this over
+    the live dev DB, which can carry **stale objects from earlier iterations of the same migration**
+    (e.g. an index the merged version renamed) — that drift is not a PR bug.
+  - Backfill idempotency: install the procedure
+    (`docker exec -i shieldbattery-db-1 psql ... < tools/<backfill>.sql`), then
+    `CALL <backfill>(dry_run => true)` — "0 of N would change" proves idempotency over real data.
+    Spot-check a few rows by hand. **`DROP PROCEDURE` when done.**
+  - Filter/predicate SQL: run the WHERE fragments directly and eyeball counts (e.g. a format regex
+    `col ~ '^[prtz]{N}-...'`, a membership test `col = ANY(ARRAY[...])`).
+
+- **Match-history filter bar (T2).** Reach a profile's match history with
+  `history.pushState(null,'','/users/<id>/<name>/match-history')` (wouter picks it up; may need a
+  second try + a tick). Basic chips (Ranked/Custom/duration/sort) apply immediately; **Format +
+  Matchup live in the "Advanced" popover as DRAFT state and only commit on "Apply"** (picking a
+  format is what reveals the matchup race-picker). Verify the round trip with `location.search` +
+  `playwright-cli -s=cN requests | grep match-history` — the query string (e.g.
+  `?ranked=true&format=2v2&matchup=pt-pz&offset=0`) confirms `URLSearchParams`→`apiUrl` isn't
+  double-encoding.
+
+- **Matchup columns on game results (T4).** `registerGame` writes `selected_matchup` when the `games`
+  row is created (e.g. `r-r` for two random-race players); `maybeReconcileResults` writes
+  `assigned_matchup` at reconciliation (e.g. `p-p` once random resolves). Handy: `assigned_matchup` is
+  computed **outside** the MMR block, so a *disputed* result (kill BOTH `StarCraft.exe` → both players
+  `unknown` → MMR block skipped) still writes it — a cheap way to validate the matchup write without
+  engineering a clean win.
+
+### Known issues / open questions (prune when resolved)
+
+Unconfirmed oddities seen during verification — heads-ups, not asserted bugs. Reproduce on a clean
+path before treating one as real; delete it once resolved.
+
+- **`matchmaking_rating_changes_pkey` dup-key in reconciliation logs** (seen 2026-06-13/15). Two
+  requests reconciling the same game can collide on `matchmaking_rating_changes`. The normal submit
+  path already treats this as benign (its catch logs `info`: "another request already updated rating
+  information"). The 15-min scheduled `reconcileIncompleteResults` job runs the same code with
+  `force` but its `try/catch` logs *any* failure as a generic `error`, so stale "stuck" games surface
+  it as an alarming line. Reads as expected idempotency, not a bug; if worth quieting, mirror the
+  submit path's dup-key downgrade in the job's catch. (Symbols in
+  `server/lib/games/game-result-service.ts`; grep `matchmaking_rating_changes_pkey` /
+  `reconcileIncompleteResults` — line numbers drift.)
