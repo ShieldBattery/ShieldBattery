@@ -528,6 +528,9 @@
     },
     "leagueDetails": {
       "about": "About",
+      "adminActions": "Admin actions",
+      "banned": "Banned",
+      "banUser": "Ban {{name}}",
       "copyLink": "Copy link to league",
       "dateText": "{{startDate}} to {{endDate}}",
       "goBack": "Go back to list",
@@ -548,10 +551,17 @@
       "noPlayers": "No matching players.",
       "notFound": "League not found",
       "retrieveError": "There was an error retrieving this league: {{errorMessage}}",
-      "rulesAndInfo": "Rules and info"
+      "rulesAndInfo": "Rules and info",
+      "unbanUser": "Unban {{name}}",
+      "userBanned": "This user has been banned from the league",
+      "userBannedError": "Error banning user",
+      "userBannedSuccess": "User banned",
+      "userUnbannedError": "Error unbanning user",
+      "userUnbannedSuccess": "User unbanned"
     },
     "list": {
       "acceptingSignups": "Accepting signups",
+      "banned": "Banned",
       "currentlyRunning": "Currently running",
       "ends": "Ends {{endDate}}",
       "finished": "Finished",
@@ -565,6 +575,10 @@
       "starts": "Starts {{startDate}}",
       "viewAll": "View all leagues",
       "viewInfo": "View info"
+    },
+    "notifications": {
+      "ban": "You have been banned from the <1>{{leagueName}}</1> league.",
+      "unban": "Your ban from the <1>{{leagueName}}</1> league has been lifted."
     }
   },
   "lobbies": {

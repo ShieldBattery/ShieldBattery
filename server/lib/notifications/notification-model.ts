@@ -20,6 +20,8 @@ export type NotificationData =
   | FriendRequestNotificationData
   | FriendStartNotificationData
   | UserRestrictedNotificationData
+  | LeagueBanNotificationData
+  | LeagueUnbanNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -52,6 +54,20 @@ export interface UserRestrictedNotificationData extends BaseNotificationData {
 
 type UserRestrictedSearchNotificationData = MakeSearchable<UserRestrictedNotificationData>
 
+export interface LeagueBanNotificationData extends BaseNotificationData {
+  type: NotificationType.LeagueBan
+  leagueName: string
+}
+
+type LeagueBanSearchNotificationData = MakeSearchable<LeagueBanNotificationData>
+
+export interface LeagueUnbanNotificationData extends BaseNotificationData {
+  type: NotificationType.LeagueUnban
+  leagueName: string
+}
+
+type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -60,6 +76,8 @@ export type SearchNotificationData =
   | FriendStartSearchNotificationData
   | PartyInviteSearchNotificationData
   | UserRestrictedSearchNotificationData
+  | LeagueBanSearchNotificationData
+  | LeagueUnbanSearchNotificationData
   | Record<string, never>
 
 export interface Notification {
