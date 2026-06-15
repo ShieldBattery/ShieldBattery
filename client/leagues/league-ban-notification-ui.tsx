@@ -32,8 +32,6 @@ export function LeagueBanNotificationUi({
   const { t } = useTranslation()
   const leagueName = notification.leagueName
 
-  console.log('leagueName', leagueName)
-
   return (
     <ActionlessNotification
       ref={ref}

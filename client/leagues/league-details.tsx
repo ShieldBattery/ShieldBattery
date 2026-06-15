@@ -323,6 +323,15 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const isJoinable = !selfLeagueUser && league.endAt > curTime
   const isRunningOrEnded = league.startAt <= curTime
 
+  let joinButtonLabel: string
+  if (selfLeagueUser?.isBanned) {
+    joinButtonLabel = t('leagues.leagueDetails.banned', 'Banned')
+  } else if (selfLeagueUser) {
+    joinButtonLabel = t('leagues.leagueDetails.joined', 'Joined')
+  } else {
+    joinButtonLabel = t('common.actions.join', 'Join')
+  }
+
   const activeTab = subPage ?? DetailsSubPage.Info
 
   let content: React.ReactNode
@@ -361,11 +370,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
         </Tabs>
         {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
           <FilledButton
-            label={
-              selfLeagueUser
-                ? t('leagues.leagueDetails.joined', 'Joined')
-                : t('common.actions.join', 'Join')
-            }
+            label={joinButtonLabel}
             disabled={!!selfLeagueUser || isJoining}
             onClick={onJoinClick}
           />
@@ -693,10 +698,14 @@ function Leaderboard({
               leagueUser.isBanned = true
             }
           })
-          snackbarController.showSnackbar('User banned')
+          snackbarController.showSnackbar(
+            t('leagues.leagueDetails.userBannedSuccess', 'User banned'),
+          )
         },
         onError(err) {
-          snackbarController.showSnackbar('Error banning user')
+          snackbarController.showSnackbar(
+            t('leagues.leagueDetails.userBannedError', 'Error banning user'),
+          )
         },
       }),
     )
@@ -712,10 +721,14 @@ function Leaderboard({
               leagueUser.isBanned = false
             }
           })
-          snackbarController.showSnackbar('User unbanned')
+          snackbarController.showSnackbar(
+            t('leagues.leagueDetails.userUnbannedSuccess', 'User unbanned'),
+          )
         },
         onError(err) {
-          snackbarController.showSnackbar('Error unbanning user')
+          snackbarController.showSnackbar(
+            t('leagues.leagueDetails.userUnbannedError', 'Error unbanning user'),
+          )
         },
       }),
     )
@@ -878,7 +891,7 @@ const LeaderboardRow = React.memo(
             <AdminActionsCell>
               <IconButton
                 icon={<MaterialIcon icon='more_vert' />}
-                title='Admin actions'
+                title={t('leagues.leagueDetails.adminActions', 'Admin actions')}
                 ref={anchorRef}
                 onClick={openOverlay}
               />
@@ -893,7 +906,10 @@ const LeaderboardRow = React.memo(
                   {leagueUser.isBanned ? (
                     <MenuItem
                       key='unban'
-                      text={`Unban ${user.name}`}
+                      text={t('leagues.leagueDetails.unbanUser', {
+                        defaultValue: 'Unban {{name}}',
+                        name: user.name,
+                      })}
                       onClick={() => {
                         closeOverlay()
                         onUnbanUserClick(leagueUser.userId)
@@ -902,7 +918,10 @@ const LeaderboardRow = React.memo(
                   ) : (
                     <MenuItem
                       key='ban'
-                      text={`Ban ${user.name}`}
+                      text={t('leagues.leagueDetails.banUser', {
+                        defaultValue: 'Ban {{name}}',
+                        name: user.name,
+                      })}
                       onClick={() => {
                         closeOverlay()
                         onBanUserClick(leagueUser.userId)

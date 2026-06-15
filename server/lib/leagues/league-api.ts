@@ -201,7 +201,7 @@ export class LeagueApi {
 }
 
 @httpApi('/admin/leagues/')
-@httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageLeagues'))
+@httpBeforeAll(convertLeagueApiErrors, ensureLoggedIn, checkAllPermissions('manageLeagues'))
 export class LeagueAdminApi {
   constructor(private notificationService: NotificationService) {}
 
@@ -453,6 +453,11 @@ export class LeagueAdminApi {
       throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
     }
 
+    if (leagueUser.isBanned) {
+      // Already banned, so this is a no-op (and we avoid sending a duplicate notification)
+      return
+    }
+
     await banLeagueUser(leagueUser)
     await this.notificationService.addNotification({
       userId,
@@ -484,6 +489,11 @@ export class LeagueAdminApi {
 
     if (!leagueUser) {
       throw new LeagueApiError(LeagueErrorCode.NotFound, 'user is not in the league')
+    }
+
+    if (!leagueUser.isBanned) {
+      // Not banned, so this is a no-op (and we avoid sending a spurious notification)
+      return
     }
 
     await unbanLeagueUser(leagueUser)

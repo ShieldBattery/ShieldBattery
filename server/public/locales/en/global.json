@@ -528,6 +528,9 @@
     },
     "leagueDetails": {
       "about": "About",
+      "adminActions": "Admin actions",
+      "banned": "Banned",
+      "banUser": "Ban {{name}}",
       "copyLink": "Copy link to league",
       "dateText": "{{startDate}} to {{endDate}}",
       "goBack": "Go back to list",
@@ -549,7 +552,12 @@
       "notFound": "League not found",
       "retrieveError": "There was an error retrieving this league: {{errorMessage}}",
       "rulesAndInfo": "Rules and info",
-      "userBanned": "This user has been banned from the league"
+      "unbanUser": "Unban {{name}}",
+      "userBanned": "This user has been banned from the league",
+      "userBannedError": "Error banning user",
+      "userBannedSuccess": "User banned",
+      "userUnbannedError": "Error unbanning user",
+      "userUnbannedSuccess": "User unbanned"
     },
     "list": {
       "acceptingSignups": "Accepting signups",
