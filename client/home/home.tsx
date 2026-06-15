@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { LiveGameEntry } from '../games/live-game-entry'
+import { LiveGameEntry, LiveGames_FeedFragment } from '../games/live-game-entry'
 import { FragmentType, graphql, useFragment } from '../gql'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-color.svg'
@@ -267,15 +267,6 @@ function UrgentMessageView(props: {
     <UrgentMessageSpaceHolder />
   )
 }
-
-const LiveGames_FeedFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_FeedFragment on Query {
-    liveGames {
-      id
-      ...LiveGames_FeedEntryFragment
-    }
-  }
-`)
 
 const LiveGamesRoot = styled.div`
   ${containerStyles(ContainerLevel.Low)};

@@ -19,6 +19,7 @@ import {
   GetGameResponse,
   GetGamesQueryParams,
   GetGamesResponse,
+  MAX_GAMES_OFFSET,
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
@@ -42,11 +43,8 @@ import { getGameReportedResults, getUserGameRecord } from '../models/games-users
 import { UpsertUserIp } from '../network/user-ips-type'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
-import {
-  getAllReplaysForGame,
-  getBestReplayForGame,
-  getBestReplaysForGames,
-} from '../replays/replay-models'
+import { getReplayInfosForGames } from '../replays/replay-info'
+import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-models'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -187,7 +185,10 @@ export class GameApi {
         format: Joi.string().valid(...ALL_GAME_FORMATS),
         matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
         sort: Joi.string().valid(...Object.values(GameSortOption)),
-        offset: Joi.number().min(0),
+        // This is a public endpoint, so we cap the offset to avoid forcing the DB to produce (and
+        // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
+        // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
+        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
       }),
     })
 
@@ -225,32 +226,13 @@ export class GameApi {
 
     const currentUserId = ctx.session?.user?.id
     const mapNameById = new Map(maps.map(m => [m.id, m.name]))
-    const accessibleGames = games.filter(g => canUserAccessReplay(g, currentUserId))
-    const replayByGameId = await getBestReplaysForGames(accessibleGames.map(g => g.id))
-    const replays = (
-      await Promise.all(
-        accessibleGames
-          .filter(g => replayByGameId.has(g.id))
-          .map(async game => {
-            const bestReplay = replayByGameId.get(game.id)!
-            const mapName = mapNameById.get(game.mapId) ?? 'Unknown Map'
-            try {
-              return {
-                gameId: game.id,
-                id: bestReplay.id,
-                url: await this.replayService.getReplayDownloadUrl(
-                  bestReplay.id,
-                  generateReplayFilename(game, mapName),
-                ),
-                hash: bestReplay.hash.toString('hex'),
-              } satisfies GameReplayInfo
-            } catch (err) {
-              ctx.log.error({ err }, `Error retrieving replay download URL for game ${game.id}`)
-              return undefined
-            }
-          }),
-      )
-    ).filter(r => r !== undefined)
+    const replays = await getReplayInfosForGames({
+      games,
+      currentUserId,
+      mapNameById,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
 
     return {
       games: games.map(g => toGameRecordJson(g)),

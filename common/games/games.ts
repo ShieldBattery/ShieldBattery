@@ -23,6 +23,14 @@ import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export const GET_GAMES_LIMIT = 40
 
+/**
+ * The maximum `offset` accepted by the paginated games list endpoints. Offset-based pagination has
+ * to produce and sort every row up to the offset, so we cap it to keep a hand-crafted request from
+ * forcing an unbounded amount of work (especially on the public games list). At `GET_GAMES_LIMIT`
+ * per page this is still hundreds of pages deep, far past where anyone realistically scrolls.
+ */
+export const MAX_GAMES_OFFSET = 10000
+
 export interface GameRecord {
   id: string
   startTime: Date

@@ -21,7 +21,7 @@ import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
 import { getGames } from './action-creators'
 import { GameFilterBar } from './game-filter-bar'
 import { GameListEntry } from './game-list-entry'
-import { LiveGameEntry } from './live-game-entry'
+import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -100,10 +100,17 @@ export function GameList() {
   const abortControllerRef = useRef<AbortController>(undefined)
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const games = useAppSelector(s => gameIds?.map(id => s.games.byId.get(id)!)) ?? []
+  // NOTE(2Pac): We select the (stable) map and derive the list in render rather than mapping inside
+  // the selector, which would return a fresh array on every store update and re-render the whole
+  // list on any Redux action. react-compiler memoizes the derivation below.
+  const gamesById = useAppSelector(s => s.games.byId)
+  const games = gameIds?.map(id => gamesById.get(id)!) ?? []
 
   // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
   // hiding the live games feed if there are no live games anyway.
+  // TODO(marko): This is a one-shot query (nothing re-executes it), so finished games linger in the
+  // "Live games" section and can briefly show up in both sections. Matches the home feed for now,
+  // but if this page is meant to feel live we should re-run it periodically.
   const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
 
   const reset = () => {
@@ -136,7 +143,15 @@ export function GameList() {
           signal: abortControllerRef.current.signal,
           onSuccess: data => {
             setIsLoadingMoreGames(false)
-            setGameIds(prev => (prev ?? []).concat(data.games.map(g => g.id)))
+            // This is a moving window (games complete continuously), so a later page can re-serve
+            // rows from an earlier one. Dedupe on concat to avoid duplicate React keys / repeated
+            // rows.
+            setGameIds(prev => {
+              const existingIds = new Set(prev ?? [])
+              return (prev ?? []).concat(
+                data.games.map(g => g.id).filter(id => !existingIds.has(id)),
+              )
+            })
             setHasMoreGames(data.hasMoreGames)
             setSearchError(undefined)
           },
@@ -227,15 +242,6 @@ export function GameList() {
     )
   }
 }
-
-const LiveGames_FeedFragment = graphql(/* GraphQL */ `
-  fragment LiveGames_FeedFragment on Query {
-    liveGames {
-      id
-      ...LiveGames_FeedEntryFragment
-    }
-  }
-`)
 
 const Title = styled.div`
   ${titleLarge};

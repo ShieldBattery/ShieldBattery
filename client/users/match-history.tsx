@@ -105,7 +105,11 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const abortControllerRef = useRef<AbortController>(undefined)
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
-  const games = useAppSelector(s => gameIds?.map(id => s.games.byId.get(id)!)) ?? []
+  // NOTE(2Pac): We select the (stable) map and derive the list in render rather than mapping inside
+  // the selector, which would return a fresh array on every store update and re-render the whole
+  // list on any Redux action. react-compiler memoizes the derivation below.
+  const gamesById = useAppSelector(s => s.games.byId)
+  const games = gameIds?.map(id => gamesById.get(id)!) ?? []
 
   const reset = () => {
     abortControllerRef.current?.abort()
@@ -140,7 +144,15 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
           signal: abortControllerRef.current.signal,
           onSuccess: data => {
             setIsLoadingMoreGames(false)
-            setGameIds(prev => (prev ?? []).concat(data.games.map(g => g.id)))
+            // A newly-completed game by this user shifts the window between page loads, so a later
+            // page can re-serve rows from an earlier one. Dedupe on concat to avoid duplicate React
+            // keys / repeated rows.
+            setGameIds(prev => {
+              const existingIds = new Set(prev ?? [])
+              return (prev ?? []).concat(
+                data.games.map(g => g.id).filter(id => !existingIds.has(id)),
+              )
+            })
             setHasMoreGames(data.hasMoreGames)
             setSearchError(undefined)
           },

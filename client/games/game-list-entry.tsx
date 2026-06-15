@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -198,19 +197,18 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
   const [buttonProps, rippleRef] = useButtonState({})
 
   const { results, startTime } = game
-  const result = useMemo(() => {
-    if (!results || !forUserId) {
-      return 'unknown'
-    }
 
+  // NOTE(2Pac): No need to memoize this under react-compiler; it re-derives only when its inputs
+  // change.
+  let result: ReconciledResult = 'unknown'
+  if (results && forUserId) {
     for (const [userId, r] of results) {
       if (userId === forUserId) {
-        return r.result
+        result = r.result
+        break
       }
     }
-
-    return 'unknown'
-  }, [results, forUserId])
+  }
 
   const gameType = getGameTypeLabel(game, t)
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')

@@ -13,6 +13,20 @@ import { useNow } from '../react/date-hooks'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { getGameResultsUrl } from './action-creators'
 
+/**
+ * Shared fragment for the "live games" feed query. Defined here (rather than duplicated in each
+ * consumer) so codegen sees a single definition -- two byte-identical copies happen to compile, but
+ * the first edit to one breaks `pnpm gen-graphql` with a duplicate-fragment-name error.
+ */
+export const LiveGames_FeedFragment = graphql(/* GraphQL */ `
+  fragment LiveGames_FeedFragment on Query {
+    liveGames {
+      id
+      ...LiveGames_FeedEntryFragment
+    }
+  }
+`)
+
 const LiveGames_FeedEntryFragment = graphql(/* GraphQL */ `
   fragment LiveGames_FeedEntryFragment on Game {
     id
