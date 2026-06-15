@@ -168,7 +168,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@users/searchMatchHistory'](state, action) {
+  ['@users/getMatchHistory'](state, action) {
     const {
       payload: { maps },
       system: { monotonicTime },

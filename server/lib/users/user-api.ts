@@ -11,6 +11,12 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../../common/constants'
+import {
+  ALL_GAME_FORMATS,
+  decodeMatchup,
+  GameDurationFilter,
+  GameSortOption,
+} from '../../../common/games/game-filters'
 import { toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder/ladder'
@@ -47,15 +53,16 @@ import {
   AuthEvent,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
+  GET_MATCH_HISTORY_LIMIT,
   GetBatchUserInfoResponse,
+  GetMatchHistoryQueryParams,
+  GetMatchHistoryResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   RANDOM_EMAIL_CODE_PATTERN,
   RecoverUsernameRequest,
   RequestPasswordResetRequest,
   ResetPasswordRequest,
-  SEARCH_MATCH_HISTORY_LIMIT,
-  SearchMatchHistoryResponse,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   toUserRestrictionHistoryJson,
@@ -66,7 +73,7 @@ import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import isDev from '../env/is-dev'
-import { getRecentGamesForUser, searchGamesForUser } from '../games/game-models'
+import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
@@ -655,16 +662,23 @@ export class UserApi {
       String(ctx.session?.user?.id ?? ctx.ip),
     ),
   )
-  async searchMatchHistory(ctx: RouterContext): Promise<SearchMatchHistoryResponse> {
+  async getMatchHistory(ctx: RouterContext): Promise<GetMatchHistoryResponse> {
     const {
       params,
-      query: { offset },
+      query: { ranked, custom, duration, mapName, playerName, format, matchup, sort, offset },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
       }).required(),
-      query: Joi.object<{ q?: string; offset: number }>({
-        q: Joi.string().allow(''),
+      query: Joi.object<GetMatchHistoryQueryParams>({
+        ranked: Joi.boolean(),
+        custom: Joi.boolean(),
+        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
+        mapName: Joi.string().max(100),
+        playerName: Joi.string().max(100),
+        format: Joi.string().valid(...ALL_GAME_FORMATS),
+        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
+        sort: Joi.string().valid(...Object.values(GameSortOption)),
         offset: Joi.number().min(0),
       }),
     })
@@ -674,10 +688,20 @@ export class UserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const games = await searchGamesForUser({
+    const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
+
+    const games = await getGamesForUser({
       userId: user.id,
-      limit: SEARCH_MATCH_HISTORY_LIMIT,
-      offset,
+      limit: GET_MATCH_HISTORY_LIMIT,
+      offset: offset ?? 0,
+      ranked,
+      custom,
+      duration,
+      mapName,
+      playerName,
+      format,
+      matchup: decodedMatchup,
+      sort,
     })
     const uniqueUsers = new Set<SbUserId>()
     const uniqueMaps = new Set<SbMapId>()
@@ -701,7 +725,7 @@ export class UserApi {
       games: games.map(g => toGameRecordJson(g)),
       maps: maps.map(m => toMapInfoJson(m)),
       users,
-      hasMoreGames: games.length >= SEARCH_MATCH_HISTORY_LIMIT,
+      hasMoreGames: games.length >= GET_MATCH_HISTORY_LIMIT,
     }
   }
 
