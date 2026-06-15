@@ -11,7 +11,7 @@ import {
   UserChannelEntry,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { useSelfUser } from '../../auth/auth-utils'
+import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
@@ -145,6 +145,14 @@ export function UserPermissionsSettings({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
+  // Mirror the server's authorization in `updateUserPermissions`: only the channel owner or a server
+  // admin may edit a moderator's permissions. A delegated moderator (someone with `editPermissions`
+  // who isn't the owner/admin) can't, so disabling those rows avoids a guaranteed save failure.
+  const canEditModerators =
+    selfUser?.id === joinedChannelInfo.ownerId || !!selfPermissions?.moderateChatChannels
+
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)
 
@@ -234,30 +242,42 @@ export function UserPermissionsSettings({
       </SearchResults>
     )
   } else {
-    const userItems = (channelUsers ?? []).map(user => (
-      <UserChannelEntryRow
-        key={user.userId}
-        user={user}
-        isOwner={user.userId === joinedChannelInfo.ownerId}
-        onEditClick={() =>
-          dispatch(
-            openDialog({
-              type: DialogType.ChannelUserPermissions,
-              initData: {
-                userChannelEntry: user,
-                onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => {
-                  setChannelUsers(prev =>
-                    prev?.map(u =>
-                      u.userId === userId ? { ...u, channelPermissions: newPermissions } : u,
-                    ),
-                  )
+    const userItems = (channelUsers ?? []).map(user => {
+      const isOwner = user.userId === joinedChannelInfo.ownerId
+      const isModerator =
+        user.channelPermissions.editPermissions ||
+        user.channelPermissions.ban ||
+        user.channelPermissions.kick
+      // Editing your own permissions is always allowed by the server, even for a delegated moderator.
+      const isSelf = user.userId === selfUser?.id
+      const canEdit = !isOwner && (isSelf || canEditModerators || !isModerator)
+
+      return (
+        <UserChannelEntryRow
+          key={user.userId}
+          user={user}
+          isOwner={isOwner}
+          canEdit={canEdit}
+          onEditClick={() =>
+            dispatch(
+              openDialog({
+                type: DialogType.ChannelUserPermissions,
+                initData: {
+                  userChannelEntry: user,
+                  onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => {
+                    setChannelUsers(prev =>
+                      prev?.map(u =>
+                        u.userId === userId ? { ...u, channelPermissions: newPermissions } : u,
+                      ),
+                    )
+                  },
                 },
-              },
-            }),
-          )
-        }
-      />
-    ))
+              }),
+            )
+          }
+        />
+      )
+    })
 
     searchContent = (
       <InfiniteScrollList
@@ -283,15 +303,17 @@ export function UserPermissionsSettings({
 function UserChannelEntryRow({
   user,
   isOwner,
+  canEdit,
   onEditClick,
 }: {
   user: UserChannelEntry
   isOwner: boolean
+  canEdit: boolean
   onEditClick: () => void
 }) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({
-    disabled: isOwner,
+    disabled: !canEdit,
     onClick: onEditClick,
   })
 
@@ -311,7 +333,7 @@ function UserChannelEntryRow({
         <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
       </UserInfoContainer>
 
-      {!isOwner && <Ripple ref={rippleRef} />}
+      {canEdit && <Ripple ref={rippleRef} />}
     </UserCardButton>
   )
 }
