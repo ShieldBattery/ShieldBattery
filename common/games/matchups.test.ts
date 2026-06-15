@@ -75,7 +75,43 @@ describe('getTeamsFromConfig', () => {
     }
 
     const result = getTeamsFromConfig(config)
-    expect(result).toBe(config.teams)
+    expect(result).toEqual(config.teams)
+  })
+
+  test('ignores empty teams in multi-team configs', () => {
+    const config = {
+      gameSource: GameSource.Lobby as const,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      teams: [
+        [
+          { id: makeSbUserId(1), race: 'p' as const, isComputer: false },
+          { id: makeSbUserId(2), race: 't' as const, isComputer: false },
+        ],
+        [
+          { id: makeSbUserId(3), race: 'z' as const, isComputer: false },
+          { id: makeSbUserId(4), race: 'p' as const, isComputer: false },
+        ],
+        // Empty observer team
+        [],
+      ],
+    }
+
+    expect(getTeamsFromConfig(config)).toEqual([config.teams[0], config.teams[1]])
+  })
+
+  test('splits a single 2-player team when the only other team is empty (melee with observers)', () => {
+    const p1 = { id: makeSbUserId(1), race: 'p' as const, isComputer: false }
+    const p2 = { id: makeSbUserId(2), race: 'z' as const, isComputer: false }
+    const config = {
+      gameSource: GameSource.Lobby as const,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      // 1v1 melee lobby with an (empty) observer team
+      teams: [[p1, p2], []],
+    }
+
+    expect(getTeamsFromConfig(config)).toEqual([[p1], [p2]])
   })
 
   test('splits 1-team-of-2 into two teams', () => {

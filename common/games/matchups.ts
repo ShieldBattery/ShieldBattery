@@ -46,18 +46,23 @@ export function computeMatchupString(teamRaces: RaceChar[][]): MatchupString | n
 /**
  * Extracts team arrays from a game config in a way that allows matchup computation.
  *
+ * Empty teams are ignored first: some configs include them (e.g. an observer team in a melee lobby
+ * with observers enabled gets serialized as an empty array). After filtering:
+ *
  * - For configs with 2+ team arrays: returns them as-is
  * - For configs with 1 team array of exactly 2 players: splits into [[p1], [p2]]
  * - For configs with 1 team array of >2 players: returns `null` (Melee, can't determine teams)
  */
 export function getTeamsFromConfig(config: GameConfig): GameConfigPlayer[][] | null {
-  if (config.teams.length >= 2) {
-    return config.teams
+  const teams = config.teams.filter(team => team.length > 0)
+
+  if (teams.length >= 2) {
+    return teams
   }
 
-  if (config.teams.length === 1) {
-    if (config.teams[0].length === 2) {
-      return [[config.teams[0][0]], [config.teams[0][1]]]
+  if (teams.length === 1) {
+    if (teams[0].length === 2) {
+      return [[teams[0][0]], [teams[0][1]]]
     }
     // Melee with >2 players - can't determine teams
     return null

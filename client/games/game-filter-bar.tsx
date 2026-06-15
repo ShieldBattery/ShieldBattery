@@ -332,7 +332,9 @@ function AdvancedFiltersPanel({
                     setDraftMatchup(undefined)
                   } else {
                     setDraftFormat(f)
-                    setDraftMatchup(encodeMatchup(createEmptyMatchup(f)))
+                    // Leave the matchup unset until an actual race is chosen, so we don't carry a
+                    // no-op all-wildcard matchup (e.g. `____-____`) around in the URL.
+                    setDraftMatchup(undefined)
                   }
                 }}
               />

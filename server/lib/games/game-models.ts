@@ -277,20 +277,24 @@ export async function getGamesForUser(
       }
     }
 
-    let orderBy = sqlRaw('g.start_time DESC')
+    // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully
+    // deterministic. Without it, rows that tie on the leading column (e.g. many unreconciled games
+    // all have a NULL game_length, or games that share a start_time) can be duplicated or skipped
+    // across paginated requests.
+    let orderBy = sqlRaw('g.start_time DESC, g.id DESC')
     if (sort) {
       switch (sort) {
         case GameSortOption.LatestFirst:
-          orderBy = sqlRaw('g.start_time DESC')
+          orderBy = sqlRaw('g.start_time DESC, g.id DESC')
           break
         case GameSortOption.OldestFirst:
-          orderBy = sqlRaw('g.start_time ASC')
+          orderBy = sqlRaw('g.start_time ASC, g.id ASC')
           break
         case GameSortOption.ShortestFirst:
-          orderBy = sqlRaw('g.game_length ASC NULLS LAST')
+          orderBy = sqlRaw('g.game_length ASC NULLS LAST, g.start_time DESC, g.id DESC')
           break
         case GameSortOption.LongestFirst:
-          orderBy = sqlRaw('g.game_length DESC NULLS LAST')
+          orderBy = sqlRaw('g.game_length DESC NULLS LAST, g.start_time DESC, g.id DESC')
           break
         default:
           sort satisfies never

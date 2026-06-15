@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   ALL_GAME_FORMATS,
+  decodeMatchup,
   EncodedMatchupString,
   GameDurationFilter,
   GameFormat,
@@ -82,8 +83,18 @@ function parseFormat(value: string): GameFormat | undefined {
   return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
 }
 
-function parseMatchup(value: string): EncodedMatchupString | undefined {
-  return value ? makeEncodedMatchupString(value) : undefined
+function parseMatchup(
+  value: string,
+  format: GameFormat | undefined,
+): EncodedMatchupString | undefined {
+  if (!value || !format) {
+    return undefined
+  }
+  // Only keep the matchup if it actually decodes for the current format. This mirrors what the
+  // server does and means a hand-edited URL (e.g. `?matchup=foo`) gets ignored rather than sent
+  // along to fail server-side validation and show the user a generic error screen.
+  const encoded = makeEncodedMatchupString(value)
+  return decodeMatchup(format, encoded) ? encoded : undefined
 }
 
 export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
@@ -104,7 +115,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
-  const matchup = parseMatchup(matchupParam)
+  const matchup = parseMatchup(matchupParam, format)
 
   const [gameIds, setGameIds] = useState<string[]>()
   const [hasMoreGames, setHasMoreGames] = useState(true)
@@ -146,7 +157,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
           mapName: mapName || undefined,
           playerName: playerName || undefined,
           format,
-          matchup: matchup ? makeEncodedMatchupString(matchup) : undefined,
+          matchup,
           offset: gameIds?.length ?? 0,
         },
         {
