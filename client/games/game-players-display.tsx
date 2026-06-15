@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameRecordJson } from '../../common/games/games'
+import { ReconciledPlayerResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -145,8 +146,10 @@ export function GamePlayersDisplay({
   const results = game?.results
   const resultsById = useMemo(() => {
     // Guard against legacy rows where `results` is a non-array (e.g. an empty object `{}`); a
-    // non-iterable value would make `new Map(...)` throw and crash the whole list.
-    return new Map(Array.isArray(results) ? results : [])
+    // non-iterable value would make `new Map(...)` throw and crash the whole list. The explicit
+    // generic is needed because `Array.isArray` widens the `ReadonlyDeep` entries and would
+    // otherwise collapse the map's value type to `{}`.
+    return new Map<SbUserId, ReconciledPlayerResult>(Array.isArray(results) ? results : [])
   }, [results])
 
   // TODO(2Pac): Handle game types which can have more than two teams
