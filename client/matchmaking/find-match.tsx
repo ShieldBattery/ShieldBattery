@@ -1410,13 +1410,15 @@ export function FindMatch() {
         // The user has never saved preferences for this type, so the server sends `{}`. Fall back
         // to defaults (random race, current map pool) so they can still queue — otherwise the Find
         // match button would silently do nothing for a fresh account.
-        allPrefs.push(
-          defaultPreferences(
-            type,
-            selfUser.id,
-            mapPools.get(type)?.id ?? 1,
-          ) as MatchmakingPreferences,
-        )
+        const pool = mapPools.get(type)
+        const defaults = defaultPreferences(type, selfUser.id, pool?.id ?? 1)
+        if (!hasVetoes(type)) {
+          // Pick modes (e.g. 1v1 Fastest) require at least one selected map; the server rejects an
+          // empty selection with InvalidMaps. Default to the entire pool ("happy to play any of
+          // these") so a fresh user who never opened the settings drawer can still queue.
+          defaults.mapSelections = pool ? [...pool.maps] : []
+        }
+        allPrefs.push(defaults as MatchmakingPreferences)
       }
     }
     if (allPrefs.length === 0) return

@@ -84,6 +84,12 @@ export function findMatch(
               'Your connection to the server was interrupted, please reconnect and try again.',
             )
             break
+          case MatchmakingServiceErrorCode.InvalidMaps:
+            message = i18n.t(
+              'matchmaking.findMatch.errors.invalidMaps',
+              'You must select at least one map in the settings for each chosen matchmaking type.',
+            )
+            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,

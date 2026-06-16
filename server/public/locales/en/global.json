@@ -889,6 +889,7 @@
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
         "dialogTitle": "Error searching for a match",
+        "invalidMaps": "You must select at least one map in the settings for each chosen matchmaking type.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
         "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :(",
