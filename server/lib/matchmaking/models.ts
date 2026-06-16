@@ -675,7 +675,8 @@ export async function insertMatchmakingCompletion(
       INSERT INTO matchmaking_completions
         (user_id, matchmaking_type, completion_type, search_time_millis, completion_time)
       VALUES
-        (${userId}, ${matchmakingType}, ${completionType}, ${searchTimeMillis}, ${completionTime})
+        (${userId}, ${matchmakingType}, ${completionType}, ${Math.round(searchTimeMillis)},
+          ${completionTime})
       RETURNING *
     `)
 
