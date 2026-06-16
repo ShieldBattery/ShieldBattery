@@ -301,4 +301,28 @@ describe('matchmaking/matchmaking-service', () => {
     expect(banUser).not.toHaveBeenCalled()
     expect(rsCancelPlayer).not.toHaveBeenCalled()
   })
+
+  test('counts a found match once, not once per matched player', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    const metrics = await register.getMetricsAsJSON()
+    const matchesFound = metrics.find(
+      m => m.name === 'shieldbattery_matchmaker_matches_found_total',
+    )
+    const total = (matchesFound?.values ?? []).reduce((sum, v) => sum + v.value, 0)
+    // A 1v1 has two entities; the "matches found" counter must still tick exactly once per match.
+    expect(total).toBe(1)
+  })
 })

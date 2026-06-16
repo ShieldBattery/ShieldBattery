@@ -1203,9 +1203,9 @@ export class MatchmakingService {
             MatchmakingCompletionType.Found,
           )
           .observe(searchTimeMillis / 1000)
-        this.matchesFoundMetric.labels(event.mode).inc()
       }
     }
+    this.matchesFoundMetric.labels(event.mode).inc()
 
     this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
   }

@@ -123,8 +123,13 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
     BASE64_STANDARD.encode(&json)
 }
 
-/// Filters a list of matches so no player appears in more than one match.
-/// Input must be sorted with highest-quality matches first; the first match a player appears in wins.
+/// Filters a list of matches so no player appears in more than one match: the first match a player
+/// appears in (in iteration order) wins, and any later match containing them is dropped.
+///
+/// Note that [`Matchmaker::find_matches`] sorts by quality only *within* each mode and then
+/// concatenates the modes (in shuffled order), so the input is not globally highest-quality-first.
+/// For a player queued in several modes this means "best match within the first mode they appear
+/// in", not their globally-best match; the per-call mode shuffle keeps that fair across calls.
 fn deduplicate_matches(matches: Vec<Match>) -> Vec<Match> {
     let mut claimed = std::collections::HashSet::new();
     matches
