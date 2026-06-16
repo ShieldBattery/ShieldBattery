@@ -564,6 +564,13 @@ export class MatchmakingService {
       clientSockets,
       typeDataEntries.map(d => ({ matchmakingType: d.type, race: d.race })),
     )
+    // We count a request against every queued mode. A player who queues for multiple modes and then
+    // matches in one of them is pulled out of the Rust queue for *all* of their modes, but only the
+    // matched mode records a completion (`handleMatchFound` below). The non-matched modes therefore
+    // have a request with no corresponding completion, so per-mode `requested` will intentionally
+    // exceed `found + canceled` by the number of superseded multiqueue searches. This is expected:
+    // there's no meaningful per-mode terminal state to record for a search that was abandoned
+    // because the player matched elsewhere.
     for (const d of typeDataEntries) {
       this.matchesRequestedMetric.labels(d.type, '1').inc()
     }
@@ -1212,7 +1219,9 @@ export class MatchmakingService {
       }
     }
 
-    // Log matchmaking completion metrics
+    // Log matchmaking completion metrics. Only the matched mode (`event.mode`) gets a completion;
+    // any other modes the player was queued for are abandoned without one — see the note where
+    // `matchesRequestedMetric` is incremented in `queueSoloPlayer`.
     const completionTime = new Date(this.clock.now())
     for (const entities of [teamA, teamB]) {
       for (const entity of entities) {

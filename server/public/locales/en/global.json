@@ -877,9 +877,7 @@
       "pickSubtext": "Pick {{num}}"
     },
     "findMatch": {
-      "action": "Find match",
       "alternateRace": "Alternate race",
-      "bonusPoints": "{{bonusAvailable}} points",
       "bonusPool": "Bonus pool",
       "cancelSearch": "Cancel search",
       "desc": {
@@ -891,7 +889,6 @@
       "errors": {
         "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
         "dialogTitle": "Error searching for a match",
-        "loadingRank": "There was a problem loading your current rank.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
         "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :(",
@@ -899,27 +896,22 @@
       },
       "goToLobby": "Go to lobby",
       "inLobbyBanner": "You’re in a lobby — matchmaking is unavailable while in a game lobby.",
-      "lobbyDisabledText": "You can't use matchmaking while in a lobby.",
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
-      "matchFound": "Match found!",
       "noScheduledWindow": "No scheduled window yet",
       "pickedCount": " / {{limit}} picked",
-      "points": "Points",
       "poolUpdated": "Pool updated",
       "race": "Race",
       "rank": "Rank",
       "rating": "Rating",
       "readyToQueue": "Ready to queue",
-      "searching": "Searching · {{elapsed}}",
       "searchingMessage": "Searching for a match — widening MMR range · first match wins the queue",
       "selectAtLeastOne": "Select at least one matchmaking type to start a queue.",
-      "selectMode": "Select a mode to queue",
       "settingsTitle": "Settings — {{label}}",
       "subtitle": "Choose one or more matchmaking types — we’ll queue for them all at once.",
       "title": "Find match",
       "unavailable": "Unavailable",
-      "unratedText": "No rating",
+      "unratedText": "Unrated",
       "updated": "Updated",
       "useAlternateRace": "Use alternate race to avoid mirror matchups",
       "vetoDescriptionNoOverlap_one": "Veto up to {{count}} map. Vetoed maps will never be selected for play.",
@@ -948,8 +940,7 @@
     "type": {
       "1v1": "1v1",
       "1v1fastest": "1v1 Fastest",
-      "2v2": "2v2",
-      "3v3": "3v3"
+      "2v2": "2v2"
     }
   },
   "material": {
