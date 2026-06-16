@@ -14,7 +14,6 @@ use axum::routing::{delete, get};
 use axum::{Json, Router, extract::State, routing::post};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
-use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -70,9 +69,9 @@ struct PlayerModeRatingDto {
 #[serde(rename_all = "camelCase")]
 struct QueueRequest {
     id: usize,
-    /// Per-mode ratings. One entry per queued mode.
+    /// Per-mode ratings. One entry per queued mode; the set of modes the player queues for is
+    /// derived from these entries.
     mode_ratings: Vec<PlayerModeRatingDto>,
-    modes: Vec<MatchmakingType>,
     latency_bucket: Option<u8>,
 }
 
@@ -86,9 +85,9 @@ struct RequeueRequest {
 #[serde(rename_all = "camelCase")]
 struct QueueTicket {
     id: usize,
-    /// Per-mode ratings preserved from queue time; used to reconstruct Player on requeue.
+    /// Per-mode ratings preserved from queue time; used to reconstruct Player (and its queued
+    /// modes) on requeue.
     mode_ratings: Vec<PlayerModeRatingDto>,
-    modes: Vec<MatchmakingType>,
     queue_time: u64,
     latency_bucket: Option<u8>,
     process_token: Uuid,
@@ -128,7 +127,6 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
             })
             .collect(),
         latency_bucket: entry.player.latency_bucket,
-        modes: entry.modes.iter().collect(),
         queue_time: entry
             .queue_time
             .duration_since(matchmaker_start)
@@ -284,7 +282,6 @@ async fn insert_player(
     State(state): State<MatchmakingApiState>,
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
-    let modes = payload.modes.into_iter().collect::<EnumSet<_>>();
     let ratings = payload
         .mode_ratings
         .into_iter()
@@ -299,14 +296,11 @@ async fn insert_player(
         })
         .collect();
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
-    matchmaker.insert_player(
-        Player {
-            id: payload.id,
-            ratings,
-            latency_bucket: payload.latency_bucket,
-        },
-        modes,
-    )?;
+    matchmaker.insert_player(Player {
+        id: payload.id,
+        ratings,
+        latency_bucket: payload.latency_bucket,
+    })?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -352,8 +346,6 @@ async fn requeue_player(
             .into_response();
     }
 
-    let modes = ticket.modes.into_iter().collect::<EnumSet<_>>();
-
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
@@ -374,7 +366,6 @@ async fn requeue_player(
                 .collect(),
             latency_bucket: ticket.latency_bucket,
         },
-        modes,
         queue_time,
     ) {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
@@ -419,7 +410,10 @@ mod tests {
                 id: 0,
                 ratings: HashMap::from([(
                     MatchmakingType::Match1v1,
-                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                    PlayerModeRating {
+                        rating: 1000.0,
+                        uncertainty: None,
+                    },
                 )]),
                 latency_bucket: None,
             },
@@ -431,7 +425,10 @@ mod tests {
                 id: 1,
                 ratings: HashMap::from([(
                     MatchmakingType::Match1v1,
-                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                    PlayerModeRating {
+                        rating: 1000.0,
+                        uncertainty: None,
+                    },
                 )]),
                 latency_bucket: None,
             },
@@ -443,7 +440,10 @@ mod tests {
                 id: 2,
                 ratings: HashMap::from([(
                     MatchmakingType::Match1v1,
-                    PlayerModeRating { rating: 1000.0, uncertainty: None },
+                    PlayerModeRating {
+                        rating: 1000.0,
+                        uncertainty: None,
+                    },
                 )]),
                 latency_bucket: None,
             },

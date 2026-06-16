@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
+  ALL_MATCHMAKING_TYPES,
   DraftChatMessageRequest,
   DraftLockPickRequest,
   DraftProvisionalPickRequest,
@@ -123,13 +124,10 @@ export class MatchmakingApi {
       body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
         preferences: Joi.array()
-          .items(
-            matchmakingPreferencesValidator(
-              ctx.session!.user.id,
-              false /* allowPartial */,
-            ),
-          )
+          .items(matchmakingPreferencesValidator(ctx.session!.user.id, false /* allowPartial */))
           .min(1)
+          .max(ALL_MATCHMAKING_TYPES.length)
+          .unique((a, b) => a.matchmakingType === b.matchmakingType)
           .required(),
         identifiers: joiClientIdentifiers(ctx).required(),
       }),
@@ -170,7 +168,12 @@ export class MatchmakingApi {
       }),
     )
 
-    await this.matchmakingService.find(ctx.session!.user.id, clientId, identifiers, processedPreferences)
+    await this.matchmakingService.find(
+      ctx.session!.user.id,
+      clientId,
+      identifiers,
+      processedPreferences,
+    )
   }
 
   @httpDelete('/find')

@@ -122,7 +122,7 @@ describe('matchmaking/matchmaking-service', () => {
     const prefs = makePreferences()
     prefs.matchmakingType = MatchmakingType.Match1v1
     ;(prefs as any).userId = userId
-    await service.find(userId, clientId, [], prefs)
+    await service.find(userId, clientId, [], [prefs])
   }
 
   beforeEach(() => {

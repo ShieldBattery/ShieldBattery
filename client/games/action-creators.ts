@@ -134,16 +134,13 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     const typedPrefs = prefs as Immutable<MatchmakingPreferences>
 
     dispatch(
-      findMatch(
-        [typedPrefs],
-        {
-          onSuccess: () => {},
-          onError: () => {
-            // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
-            // creator
-          },
+      findMatch([typedPrefs], {
+        onSuccess: () => {},
+        onError: () => {
+          // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
+          // creator
         },
-      ),
+      }),
     )
   }
 }

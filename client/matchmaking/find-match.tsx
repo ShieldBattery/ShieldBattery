@@ -9,6 +9,7 @@ import {
   MatchmakingDivision,
   MatchmakingPreferences,
   MatchmakingType,
+  defaultPreferences,
   getTotalBonusPoolForSeason,
   hasVetoes,
   matchmakingDivisionToLabel,
@@ -668,39 +669,29 @@ export function ModeStats({ stats, t }: ModeStatsProps) {
 
 // ─── Unavailable info sub-component ──────────────────────────────────────────
 
-function useUnavailableCountdown(nextStartDate: Date | undefined) {
-  const [countdown, setCountdown] = useState('')
-
-  useEffect(() => {
-    if (!nextStartDate) {
-      setCountdown('')
-      return undefined
-    }
-
-    const update = () => {
-      const diff = Number(nextStartDate) - Date.now()
-      if (diff <= 0) {
-        setCountdown('')
-        return
-      }
-      const d = Math.floor(diff / (24 * 3600000))
-      const h = Math.floor((diff % (24 * 3600000)) / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      const parts: string[] = []
-      if (d > 0) parts.push(`${d}d`)
-      parts.push(`${String(h).padStart(2, '0')}h`)
-      parts.push(`${String(m).padStart(2, '0')}m`)
-      parts.push(`${String(s).padStart(2, '0')}s`)
-      setCountdown(parts.join(' '))
-    }
-
-    update()
-    const id = setInterval(update, 1000)
-    return () => clearInterval(id)
-  }, [nextStartDate])
-
-  return countdown
+/**
+ * Formats the time remaining until `nextStartDate` as a `1d 02h 03m 04s` countdown string, relative
+ * to `now`. Returns an empty string once the date has passed (or if there is no date). Derived
+ * purely from its inputs so the caller can drive ticking with `useNow()` rather than its own timer.
+ */
+function formatCountdown(nextStartDate: Date | undefined, now: number): string {
+  if (!nextStartDate) {
+    return ''
+  }
+  const diff = Number(nextStartDate) - now
+  if (diff <= 0) {
+    return ''
+  }
+  const d = Math.floor(diff / (24 * 3600000))
+  const h = Math.floor((diff % (24 * 3600000)) / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  const parts: string[] = []
+  if (d > 0) parts.push(`${d}d`)
+  parts.push(`${String(h).padStart(2, '0')}h`)
+  parts.push(`${String(m).padStart(2, '0')}m`)
+  parts.push(`${String(s).padStart(2, '0')}s`)
+  return parts.join(' ')
 }
 
 const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -718,11 +709,9 @@ interface UnavailableInfoProps {
 function UnavailableInfo({ nextStartDate, nextEndDate }: UnavailableInfoProps) {
   const { t } = useTranslation()
   const now = useNow()
-  const countdown = useUnavailableCountdown(
-    nextStartDate && Number(nextStartDate) > now ? nextStartDate : undefined,
-  )
 
   const hasSchedule = nextStartDate !== undefined && Number(nextStartDate) > now
+  const countdown = hasSchedule ? formatCountdown(nextStartDate, now) : ''
 
   return (
     <UnavailableBlock>
@@ -1322,10 +1311,16 @@ export function FindMatch() {
 
   const bonusPoolSize = season ? getTotalBonusPoolForSeason(new Date(), season) : 0
 
-  // While searching, the effective selected types come from Jotai (server-authoritative).
+  const isTypeEnabled = (type: MatchmakingType): boolean =>
+    matchmakingStatus.get(type)?.enabled ?? false
+
+  // While searching, the effective selected types come from Jotai (server-authoritative). When not
+  // searching, we filter out any types that are currently disabled: their rows can't be deselected
+  // (the checkbox is replaced by a "blocked" placeholder) and the server rejects the entire request
+  // if any selected type is disabled, so leaving them in would make every queue attempt error out.
   const effectiveSelectedTypes: ReadonlySet<MatchmakingType> = isSearching
     ? new Set(searchInfo?.searchedTypes.keys() ?? [])
-    : selectedTypes
+    : new Set(Array.from(selectedTypes).filter(isTypeEnabled))
 
   const getStatsForType = (type: MatchmakingType): RowStats => {
     const player = selfRankByType.get(type)
@@ -1411,6 +1406,17 @@ export function FindMatch() {
       const prefs = matchmakingPreferences.get(type)?.preferences
       if (prefs && 'matchmakingType' in prefs) {
         allPrefs.push(prefs as MatchmakingPreferences)
+      } else {
+        // The user has never saved preferences for this type, so the server sends `{}`. Fall back
+        // to defaults (random race, current map pool) so they can still queue — otherwise the Find
+        // match button would silently do nothing for a fresh account.
+        allPrefs.push(
+          defaultPreferences(
+            type,
+            selfUser.id,
+            mapPools.get(type)?.id ?? 1,
+          ) as MatchmakingPreferences,
+        )
       }
     }
     if (allPrefs.length === 0) return

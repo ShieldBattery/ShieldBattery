@@ -15,9 +15,11 @@ export interface RsModeRating {
 /** Sent to Rust when adding a player to the queue. */
 export interface RsQueueRequest {
   id: SbUserId
-  /** Per-mode ratings. One entry per queued mode. */
+  /**
+   * Per-mode ratings. One entry per queued mode; Rust derives the set of queued modes from these
+   * entries, so there must be exactly one per type the player is queuing for.
+   */
   modeRatings: RsModeRating[]
-  modes: MatchmakingType[]
   latencyBucket: number | null
 }
 

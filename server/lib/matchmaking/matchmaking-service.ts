@@ -380,7 +380,10 @@ export class MatchmakingService {
       const counts = new Map<MatchmakingType, number>()
       for (const entry of this.queueEntries.values()) {
         if (!entry.matchId) {
-          counts.set(entry.type, (counts.get(entry.type) ?? 0) + 1)
+          // A player queued for multiple types counts toward each type's queue size.
+          for (const type of entry.types) {
+            counts.set(type, (counts.get(type) ?? 0) + 1)
+          }
         }
       }
       this.queueSizeMetric.reset()
@@ -520,7 +523,9 @@ export class MatchmakingService {
     // with `NoActiveMatch`, and gets banned for the resulting accept timeout.
     this.playerQueueData.set(userId, {
       userId,
-      types: new Map(typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }])),
+      types: new Map(
+        typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }]),
+      ),
       queuedAt: monotonicNow(),
     })
     this.queueEntries.set(userId, {
@@ -540,7 +545,6 @@ export class MatchmakingService {
           rating: d.mmr.rating,
           uncertainty: d.mmr.uncertainty,
         })),
-        modes: typeDataEntries.map(d => d.type),
         latencyBucket: null, // TODO: populate from actual latency data
       })
       if (this.lastKnownProcessToken === undefined) {
@@ -1418,7 +1422,9 @@ export class MatchmakingService {
               completionTime,
             }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
 
-            this.matchSearchTimeMetric.labels(type, '1', completionType).observe(searchTimeMillis / 1000)
+            this.matchSearchTimeMetric
+              .labels(type, '1', completionType)
+              .observe(searchTimeMillis / 1000)
             this.matchRequestsCanceledMetric.labels(type, '1').inc()
           }
         }
