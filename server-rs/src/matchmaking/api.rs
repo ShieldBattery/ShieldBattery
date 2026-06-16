@@ -94,6 +94,18 @@ struct MatchmakingApiState {
     process_token: Uuid,
 }
 
+/// Locks the shared matchmaker, recovering the guard even if a previous holder panicked and
+/// poisoned the mutex. A poisoned lock means some operation panicked mid-mutation, but the queue's
+/// data is still structurally valid (worst case one queue entry is in an odd state), so it's far
+/// better to keep matching than to cascade a single panic into every future request.
+fn lock_matchmaker(
+    matchmaker: &SharedMatchmaker,
+) -> std::sync::MutexGuard<'_, Matchmaker<RandomQueueSelector>> {
+    matchmaker
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Instant) -> String {
     let ticket = QueueTicket {
         id: entry.player.id,
@@ -133,9 +145,35 @@ fn deduplicate_matches(matches: Vec<Match>) -> Vec<Match> {
         .collect()
 }
 
+/// Supervises [search_loop], restarting it if it ever panics. The search loop is the only thing
+/// that forms matches, so if it died silently the `/matchmaker/token` endpoint would keep answering
+/// and Node.js would never notice that matches had stopped forming.
+async fn supervise_search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
+    loop {
+        let handle = tokio::spawn(search_loop(state.clone(), redis_pool.clone()));
+        match handle.await {
+            Ok(()) => {
+                // search_loop never returns under normal operation, so reaching here is unexpected.
+                tracing::error!("matchmaker search loop exited unexpectedly; not restarting");
+                break;
+            }
+            Err(e) if e.is_panic() => {
+                tracing::error!("matchmaker search loop panicked, restarting: {e:?}");
+                // Brief delay so a tight panic loop can't peg the CPU.
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            Err(e) => {
+                // Task was cancelled — nothing more we can do.
+                tracing::error!("matchmaker search loop task failed: {e:?}");
+                break;
+            }
+        }
+    }
+}
+
 async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     // Capture the epoch once — it never changes for the lifetime of this process.
-    let matchmaker_start = state.matchmaker.lock().unwrap().start();
+    let matchmaker_start = lock_matchmaker(&state.matchmaker).start();
 
     let mut interval = tokio::time::interval(SEARCH_INTERVAL);
     // The first tick fires immediately; skip it so the first real search happens after one interval.
@@ -148,7 +186,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // eliminating the window where a cancel+requeue could slip in between the two operations
         // and have the fresh queue entry incorrectly removed.
         let selected = {
-            let mut matchmaker = state.matchmaker.lock().unwrap();
+            let mut matchmaker = lock_matchmaker(&state.matchmaker);
             let matches = matchmaker.find_matches(MIN_QUALITY, Instant::now());
             let selected = deduplicate_matches(matches);
             for m in &selected {
@@ -209,8 +247,9 @@ pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
         process_token: Uuid::new_v4(),
     };
 
-    // Spawn the autonomous match-finding loop. It runs for the lifetime of the process.
-    tokio::spawn(search_loop(state.clone(), redis_pool));
+    // Spawn the autonomous match-finding loop. It runs for the lifetime of the process, and is
+    // supervised so a panic restarts it rather than silently stopping all matchmaking.
+    tokio::spawn(supervise_search_loop(state.clone(), redis_pool));
 
     Router::new()
         .route("/", post(insert_player))
@@ -225,7 +264,7 @@ async fn insert_player(
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
     let modes = payload.modes.into_iter().collect::<EnumSet<_>>();
-    let mut matchmaker = state.matchmaker.lock().unwrap();
+    let mut matchmaker = lock_matchmaker(&state.matchmaker);
     matchmaker.insert_player(
         Player {
             id: payload.id,
@@ -282,7 +321,7 @@ async fn requeue_player(
 
     let modes = ticket.modes.into_iter().collect::<EnumSet<_>>();
 
-    let mut matchmaker = state.matchmaker.lock().unwrap();
+    let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
         Player {
@@ -303,7 +342,7 @@ async fn cancel(
     State(state): State<MatchmakingApiState>,
     Path(id): Path<usize>,
 ) -> impl IntoResponse {
-    let mut matchmaker = state.matchmaker.lock().unwrap();
+    let mut matchmaker = lock_matchmaker(&state.matchmaker);
     if matchmaker.remove_player(id).is_some() {
         StatusCode::NO_CONTENT.into_response()
     } else {

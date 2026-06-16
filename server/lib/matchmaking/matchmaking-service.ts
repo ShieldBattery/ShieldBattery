@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { nanoid } from 'nanoid'
-import { Counter, exponentialBuckets, Histogram } from 'prom-client'
+import { Counter, exponentialBuckets, Gauge, Histogram } from 'prom-client'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -40,11 +40,13 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import {
+  RS_ERROR_CODES,
   rsCancelPlayer,
   rsGetProcessToken,
   RsMatchmakerError,
   rsQueuePlayer,
-  rsRequeuPlayer,
+  RsQueueRequest,
+  rsRequeuePlayer,
 } from '../matchmaking/matchmaker-rs-client'
 import {
   getMatchmakingEntityId,
@@ -332,6 +334,12 @@ async function pickMap(
 /** How often to poll server-rs for its process token while players are in queue. */
 const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
 
+/**
+ * How many consecutive process-token fetch failures we tolerate before assuming server-rs has
+ * restarted. A single failure is usually a transient hiccup and shouldn't eject the whole queue.
+ */
+const MAX_TOKEN_FETCH_FAILURES = 2
+
 @singleton()
 export class MatchmakingService {
   /** Full player data for players currently in the Rust queue. Keyed by userId. */
@@ -347,6 +355,34 @@ export class MatchmakingService {
 
   private lastKnownProcessToken: string | undefined
   private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
+  /** Consecutive process-token fetch failures; reset to 0 on any success. */
+  private consecutiveTokenFailures = 0
+  /**
+   * In-flight requeue POSTs to the Rust matchmaker, keyed by userId. A concurrent cancel/disconnect
+   * waits on the pending requeue before issuing its DELETE, so the DELETE can't race ahead of the
+   * POST and resurrect the player as a ghost queue entry.
+   */
+  private pendingRequeues = new Map<SbUserId, Promise<unknown>>()
+
+  private queueSizeMetric = new Gauge({
+    name: 'shieldbattery_matchmaker_queue_size',
+    labelNames: ['matchmaking_type'],
+    help: 'Current number of players in the matchmaking queue',
+    collect: () => {
+      // The queue itself lives in server-rs now, but Node tracks every searching player, so we can
+      // report queue size from `queueEntries` (excluding players already placed in a match).
+      const counts = new Map<MatchmakingType, number>()
+      for (const entry of this.queueEntries.values()) {
+        if (!entry.matchId) {
+          counts.set(entry.type, (counts.get(entry.type) ?? 0) + 1)
+        }
+      }
+      this.queueSizeMetric.reset()
+      for (const [type, count] of counts) {
+        this.queueSizeMetric.labels(type).set(count)
+      }
+    },
+  })
 
   private matchesRequestedMetric = new Counter({
     name: 'shieldbattery_matchmaker_matches_requested_total',
@@ -480,7 +516,7 @@ export class MatchmakingService {
     // the watchdog. The two requests are sequential so the token is guaranteed to be from the
     // same server-rs instance that accepted the queue entry.
     try {
-      await rsQueuePlayer({
+      await this.queuePlayerInRust({
         id: userId,
         rating: mmr.rating,
         uncertainty: mmr.uncertainty,
@@ -504,6 +540,30 @@ export class MatchmakingService {
     this.startProcessTokenWatchdog()
     this.subscribeUserToQueueUpdates(clientSockets, type, race)
     this.matchesRequestedMetric.labels(type, '1').inc()
+  }
+
+  /**
+   * Queues a player in the Rust matchmaker, recovering from an orphaned queue entry left behind by
+   * a previous attempt (e.g. a Node restart that dropped local state, or a `rsCancelPlayer` that
+   * failed). If Rust reports the player is already queued, we cancel the stale entry and retry once
+   * — otherwise the player could never re-enter matchmaking until their ghost entry happened to get
+   * matched.
+   */
+  private async queuePlayerInRust(request: RsQueueRequest): Promise<void> {
+    try {
+      await rsQueuePlayer(request)
+    } catch (err) {
+      if (err instanceof RsMatchmakerError && err.code === RS_ERROR_CODES.alreadyInQueue) {
+        logger.warn(
+          { userId: request.id },
+          'player already in Rust queue — canceling stale entry and retrying',
+        )
+        await rsCancelPlayer(request.id)
+        await rsQueuePlayer(request)
+      } else {
+        throw err
+      }
+    }
   }
 
   async cancel(userId: SbUserId): Promise<void> {
@@ -824,14 +884,7 @@ export class MatchmakingService {
               existingData.queuedAt = monotonicNow()
             }
 
-            rsRequeuPlayer(ticket).catch(err => {
-              if (err instanceof RsMatchmakerError && err.isStaleTicket) {
-                this.handleRsRestart([p.id])
-              } else {
-                logger.error({ err, userId: p.id }, 'failed to requeue player in Rust matchmaker')
-                this.handleRsRestart([p.id])
-              }
-            })
+            this.requeuePlayerInRust(p.id, ticket)
           }
         }
       }
@@ -1082,13 +1135,21 @@ export class MatchmakingService {
       teamA.length !== event.teamA.length ||
       teamB.length !== event.teamB.length
     ) {
+      // At least one player's queue data is gone (e.g. they canceled in the tiny window before this
+      // event arrived), so we can't form this match. Players who still have valid queue data are
+      // innocent: Rust already removed them from its queue when it formed the match, so we requeue
+      // them with the ticket from this event rather than ejecting them with an error.
       for (const entry of allEntries) {
         const userId = makeSbUserId(entry.id)
-        this.playerQueueData.delete(userId)
-        this.requeueTickets.delete(userId)
-        this.queueEntries.delete(userId)
-        this.unregisterActivity(userId)
-        this.publishToUser(userId, { type: 'matchmakingServiceError' })
+        if (this.playerQueueData.has(userId) && this.queueEntries.has(userId)) {
+          this.requeuePlayerInRust(userId, entry.ticket)
+        } else {
+          this.playerQueueData.delete(userId)
+          this.requeueTickets.delete(userId)
+          this.queueEntries.delete(userId)
+          this.unregisterActivity(userId)
+          this.publishToUser(userId, { type: 'matchmakingServiceError' })
+        }
       }
       logger.error({ event }, 'received match event with missing player data — match dropped')
       return
@@ -1157,6 +1218,11 @@ export class MatchmakingService {
       clearInterval(this.processTokenWatchdog)
       this.processTokenWatchdog = undefined
     }
+    // Clear the baseline so the next queued player refetches it. Otherwise a server-rs restart
+    // during an idle period (e.g. a routine deploy) would leave us comparing against a token from
+    // the previous process, falsely flagging the next queuer as a restart victim.
+    this.lastKnownProcessToken = undefined
+    this.consecutiveTokenFailures = 0
   }
 
   private async checkProcessToken(): Promise<void> {
@@ -1169,30 +1235,108 @@ export class MatchmakingService {
     try {
       token = await rsGetProcessToken()
     } catch (err) {
-      logger.error({ err }, 'failed to fetch Rust matchmaker process token — assuming restart')
+      this.consecutiveTokenFailures += 1
+      if (this.consecutiveTokenFailures < MAX_TOKEN_FETCH_FAILURES) {
+        // A single failed fetch is usually a transient hiccup — don't eject everyone over it.
+        logger.warn({ err }, 'failed to fetch Rust matchmaker process token — will retry')
+        return
+      }
+      logger.error(
+        { err },
+        'failed to fetch Rust matchmaker process token repeatedly — assuming restart',
+      )
+      this.consecutiveTokenFailures = 0
       this.lastKnownProcessToken = undefined
-      this.handleRsRestart([...this.playerQueueData.keys()])
+      this.handleRsRestart(this.getSearchingPlayerIds())
       return
     }
 
+    this.consecutiveTokenFailures = 0
+
     if (this.lastKnownProcessToken !== undefined && token !== this.lastKnownProcessToken) {
+      // Adopt the new process as our baseline before ejecting searching players, so players who get
+      // matched/requeued afterwards are compared against the correct (current) process.
       this.lastKnownProcessToken = token
-      this.handleRsRestart([...this.playerQueueData.keys()])
+      this.handleRsRestart(this.getSearchingPlayerIds())
     } else {
       this.lastKnownProcessToken = token
     }
   }
 
+  /**
+   * Returns the userIds of players who are currently *searching* (queued in Rust but not yet placed
+   * in a match). Players who already have a `matchId` run their match independently of the Rust
+   * queue, so a server-rs restart must not touch them — doing so would delete their queue entry,
+   * make `accept()` throw `NoActiveMatch`, and ultimately ban them for an accept timeout they could
+   * not have avoided.
+   */
+  private getSearchingPlayerIds(): SbUserId[] {
+    const ids: SbUserId[] = []
+    for (const [userId, entry] of this.queueEntries) {
+      if (!entry.matchId) {
+        ids.push(userId)
+      }
+    }
+    return ids
+  }
+
   private handleRsRestart(userIds: SbUserId[]): void {
+    if (userIds.length === 0) {
+      return
+    }
     logger.warn({ userIds }, 'Rust matchmaker restart detected — surfacing failure')
-    this.lastKnownProcessToken = undefined
     for (const userId of userIds) {
       this.playerQueueData.delete(userId)
       this.requeueTickets.delete(userId)
       this.queueEntries.delete(userId)
       this.unregisterActivity(userId)
       this.publishToUser(userId, { type: 'matchmakingServiceError' })
+
+      // Best-effort removal from the Rust queue. On a genuine restart this 404s (the new process
+      // never knew the player), but if we reached here via a false positive — e.g. a stale token
+      // baseline — the player really is still queued, and skipping this would leave a ghost entry
+      // that fails all their future `find()`s with `alreadyInQueue`.
+      rsCancelPlayer(userId).catch(err => {
+        logger.error({ err, userId }, 'failed to cancel player in Rust matchmaker after restart')
+      })
     }
+  }
+
+  /**
+   * Re-queues a player in the Rust matchmaker after a match they were placed in failed to start.
+   * The in-flight POST is tracked in `pendingRequeues` so a concurrent cancel/disconnect DELETE is
+   * ordered after it (see `cancelPlayerInRust`). Any failure is treated as a server-rs restart and
+   * surfaces a matchmaking error to the player.
+   */
+  private requeuePlayerInRust(userId: SbUserId, ticket: string): void {
+    const promise = rsRequeuePlayer(ticket).catch(err => {
+      if (!(err instanceof RsMatchmakerError && err.isStaleTicket)) {
+        logger.error({ err, userId }, 'failed to requeue player in Rust matchmaker')
+      }
+      this.handleRsRestart([userId])
+    })
+    this.pendingRequeues.set(userId, promise)
+    promise
+      .finally(() => {
+        if (this.pendingRequeues.get(userId) === promise) {
+          this.pendingRequeues.delete(userId)
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
+  /**
+   * Removes a player from the Rust matchmaker queue, ordering the DELETE after any in-flight requeue
+   * POST for that player (see `pendingRequeues`). Without this, a cancel issued immediately after a
+   * requeue could have its DELETE reach Rust before the POST, leaving the player as a ghost entry.
+   */
+  private cancelPlayerInRust(userId: SbUserId): void {
+    const pendingRequeue = this.pendingRequeues.get(userId) ?? Promise.resolve()
+    pendingRequeue
+      .then(() => rsCancelPlayer(userId))
+      .catch(err => {
+        logger.error({ err, userId }, 'failed to cancel player in Rust matchmaker')
+      })
   }
 
   private unregisterActivity(userId: SbUserId) {
@@ -1221,9 +1365,7 @@ export class MatchmakingService {
         const data = this.playerQueueData.get(client.userId)
         this.playerQueueData.delete(client.userId)
 
-        rsCancelPlayer(client.userId).catch(err => {
-          logger.error({ err }, 'failed to cancel player in Rust matchmaker')
-        })
+        this.cancelPlayerInRust(client.userId)
 
         if (data) {
           const searchTimeMillis = monotonicNow() - data.queuedAt

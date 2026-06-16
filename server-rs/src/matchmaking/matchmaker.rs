@@ -105,6 +105,8 @@ pub trait QueueSelector {
     ) -> Vec<&'a QueueEntry>;
 }
 
+/// Selects players uniformly at random from the queue using reservoir sampling, so every queued
+/// player has an equal chance of being examined regardless of their position in the queue.
 pub struct RandomQueueSelector;
 
 impl QueueSelector for RandomQueueSelector {
@@ -119,10 +121,10 @@ impl QueueSelector for RandomQueueSelector {
             if selected.len() < amount {
                 selected.push(player);
             } else {
-                // Generate a value in the range 0..current index
-                // If it fits in the selected queue, replace that player with this one.
-                // This biases towards the front of the queue (players just after `amount` in the
-                // queue have a higher chance of being selected than those well after it)
+                // Reservoir sampling (Algorithm R): pick a random index in 0..=i and, if it falls
+                // within the reservoir, replace that slot with the current player. This produces a
+                // uniform sample — every player in the queue ends up with an equal amount/len
+                // chance of being selected, independent of their position.
                 let j = rng.random_range(0..=i);
                 if j < amount {
                     selected[j] = player;

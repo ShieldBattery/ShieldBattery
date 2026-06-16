@@ -104,6 +104,6 @@ export async function rsCancelPlayer(id: SbUserId): Promise<void> {
  * Re-queues a player using a ticket from a previously-formed (but failed) match.
  * Throws `RsMatchmakerError` with `isStaleTicket === true` if the Rust service has restarted.
  */
-export async function rsRequeuPlayer(ticket: string): Promise<void> {
+export async function rsRequeuePlayer(ticket: string): Promise<void> {
   await rsRequest('POST', '/matchmaker/requeue', { ticket })
 }

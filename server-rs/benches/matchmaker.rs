@@ -16,7 +16,7 @@ fn bench_1v1(c: &mut Criterion) {
             .insert_player(player, MatchmakingType::Match1v1.into())
             .unwrap();
     }
-    c.bench_function("matches", |b| {
+    c.bench_function("find_matches_1v1", |b| {
         b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
     });
 }
@@ -33,7 +33,7 @@ fn bench_2v2(c: &mut Criterion) {
             .insert_player(player, MatchmakingType::Match2v2.into())
             .unwrap();
     }
-    c.bench_function("matches", |b| {
+    c.bench_function("find_matches_2v2", |b| {
         b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
     });
 }
