@@ -440,8 +440,7 @@ export class MatchmakingService {
   }
 
   /**
-   * Adds a user to the matchmaking queue. This can only be used for solo players, players in a
-   * party should use `findAsParty` instead (this call will fail for them).
+   * Adds a user to the matchmaking queue as a solo player.
    */
   async find(
     userId: SbUserId,
@@ -1147,8 +1146,13 @@ export class MatchmakingService {
           this.playerQueueData.delete(userId)
           this.requeueTickets.delete(userId)
           this.queueEntries.delete(userId)
-          this.unregisterActivity(userId)
-          this.publishToUser(userId, { type: 'matchmakingServiceError' })
+          // Only surface an error if the player still looks active. A player who cleanly
+          // canceled/disconnected into this race window already had their activity unregistered, so
+          // telling them "matchmaking failed" would be a spurious dialog after a normal cancel.
+          if (this.activityRegistry.getClientForUser(userId)) {
+            this.unregisterActivity(userId)
+            this.publishToUser(userId, { type: 'matchmakingServiceError' })
+          }
         }
       }
       logger.error({ event }, 'received match event with missing player data — match dropped')

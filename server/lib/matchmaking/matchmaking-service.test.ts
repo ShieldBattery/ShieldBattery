@@ -268,6 +268,8 @@ describe('matchmaking/matchmaking-service', () => {
     // A is innocent: they get requeued with their event ticket rather than ejected with an error.
     expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-a')
     expect(errorPublishedFor(USER_A)).toBe(false)
+    // B cleanly canceled, so they must not get a spurious "matchmaking failed" error.
+    expect(errorPublishedFor(USER_B)).toBe(false)
   })
 
   test('a restart while a match is forming does not kick or ban the matched players', async () => {
