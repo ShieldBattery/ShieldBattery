@@ -502,13 +502,23 @@ export class MatchmakingService {
       identifiers,
     })
 
-    // Store the full player data for use when the match event arrives from Rust
+    // Store the full player data and queue entry for use when the match event arrives from Rust.
+    // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
+    // `matchFound` event can arrive as soon as the player is in the Rust queue — possibly while we're
+    // still awaiting below. handleMatchFound needs the queue entry to already exist so it can set
+    // `matchId`; otherwise the player ends up in a running match with no `matchId`, fails `accept()`
+    // with `NoActiveMatch`, and gets banned for the resulting accept timeout.
     this.playerQueueData.set(userId, {
       userId,
       type,
       race,
       playerData,
       queuedAt: monotonicNow(),
+    })
+    this.queueEntries.set(userId, {
+      type,
+      userId,
+      registeredId: userId,
     })
 
     // Queue the player in the Rust matchmaker, then fetch the process token as a baseline for
@@ -527,17 +537,12 @@ export class MatchmakingService {
       }
     } catch (err) {
       this.playerQueueData.delete(userId)
+      this.queueEntries.delete(userId)
       // We may have already added the player to the Rust queue (e.g. the token fetch failed after a
       // successful queue); best-effort cancel it so we don't leave a ghost entry behind.
       this.cancelPlayerInRust(userId)
       throw err
     }
-
-    this.queueEntries.set(userId, {
-      type,
-      userId,
-      registeredId: userId,
-    })
 
     this.startProcessTokenWatchdog()
     this.subscribeUserToQueueUpdates(clientSockets, type, race)

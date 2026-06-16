@@ -336,4 +336,48 @@ describe('matchmaking/matchmaking-service', () => {
     // A 1v1 has two entities; the "matches found" counter must still tick exactly once per match.
     expect(total).toBe(1)
   })
+
+  test('a match found mid-queue still lets the player accept (queue entry recorded before queuing)', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+
+    // Suspend B's Rust queue call so we can fire a matchFound event while B is still inside
+    // queueSoloPlayer. The Rust search loop runs independently, so a match referencing B can arrive
+    // as soon as B is in the Rust queue — before queueSoloPlayer finishes. B's queue entry must
+    // already exist so handleMatchFound can set its matchId.
+    let resolveBQueue: (() => void) | undefined
+    asMockedFunction(rsQueuePlayer).mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          resolveBQueue = resolve
+        }),
+    )
+
+    const bQueuePromise = queuePlayer(USER_B, CLIENT_B)
+    // Let queueSoloPlayer for B run up to the awaited rsQueuePlayer call.
+    for (let i = 0; i < 50 && !resolveBQueue; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+    expect(resolveBQueue).toBeDefined()
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    // B's queue call now returns and queueSoloPlayer completes.
+    resolveBQueue!()
+    await bQueuePromise
+    await vi.advanceTimersByTimeAsync(0)
+
+    // B is in the match, so accept() works rather than throwing NoActiveMatch (which would otherwise
+    // lead to an accept-timeout ban for a player who did nothing wrong).
+    await expect(service.accept(USER_B)).resolves.toBeUndefined()
+    await expect(service.accept(USER_A)).resolves.toBeUndefined()
+  })
 })
